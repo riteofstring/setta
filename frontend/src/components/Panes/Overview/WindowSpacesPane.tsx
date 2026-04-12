@@ -3,6 +3,7 @@ import {
   ViewModeSortableProvider,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
+import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { FiEdit3, FiSave, FiTrash2 } from "react-icons/fi";
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
@@ -18,20 +19,19 @@ import {
 } from "state/actions/windowSpaces";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   ChatWindowPlacementEnum,
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
-import {
-  sanitizeNameForSlug,
-  validateWindowSpaceNameInput,
-} from "utils/nameValidation";
+import { validateWindowSpaceNameInput } from "utils/nameValidation";
 import { buildStandaloneWindowSpacePath } from "utils/windowSpacePaths";
 
 type WindowSpaceRowSharedProps = {
   windowSpace: WindowSpaceConfig;
   projectConfigId: string;
   projectConfigName: string;
+  windowSpaceSlugsById: Record<string, string>;
   canEditLayout: boolean;
   sortableEnabled: boolean;
 };
@@ -40,25 +40,63 @@ function normalizeWindowSpaceName(value: string): string {
   return value.trim();
 }
 
-function canSetWindowSpaceName(windowSpaceId: string, name: string): boolean {
-  const normalized = normalizeWindowSpaceName(name);
-  const validationError = validateWindowSpaceNameInput(normalized);
-  if (validationError) {
-    return false;
-  }
-  const nextSlug = sanitizeNameForSlug(normalized);
-  const state = useProjectState.getState();
-  for (const candidate of Object.values(
-    getProjectWindowSpaces(state.projectConfig),
-  )) {
-    if (candidate.id === windowSpaceId) {
-      continue;
-    }
-    if (sanitizeNameForSlug(candidate.name) === nextSlug) {
+function useEditableWindowSpaceName({
+  projectConfigId,
+  windowSpaceId,
+  currentName,
+  canEditLayout,
+}: {
+  projectConfigId: string;
+  windowSpaceId: string;
+  currentName: string;
+  canEditLayout: boolean;
+}) {
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  async function condition(name: string) {
+    if (!canEditLayout) {
       return false;
     }
+    const normalized = normalizeWindowSpaceName(name);
+    const validationError = validateWindowSpaceNameInput(normalized);
+    if (validationError) {
+      setServerError(null);
+      return false;
+    }
+    const response = await setWindowSpaceName(
+      projectConfigId,
+      windowSpaceId,
+      normalized,
+    );
+    if (response && res200(response)) {
+      setServerError(null);
+      return true;
+    }
+    setServerError(
+      getErrorDetail(response?.data) ?? "Unable to rename window space.",
+    );
+    return false;
   }
-  return true;
+
+  const editable = useEditableOnSubmit(
+    currentName,
+    () => {},
+    condition,
+    false,
+    normalizeWindowSpaceName,
+  );
+  function onChange(event: ChangeEvent<HTMLInputElement> | string): void {
+    setServerError(null);
+    editable.onChange(event);
+  }
+
+  return {
+    ...editable,
+    onChange,
+    clearValidationError: () => setServerError(null),
+    validationError:
+      validateWindowSpaceNameInput(editable.inputValue) ?? serverError,
+  };
 }
 
 export function WindowSpacesPane({
@@ -71,6 +109,7 @@ export function WindowSpacesPane({
   const {
     projectConfigId,
     projectConfigName,
+    windowSpaceSlugsById,
     windowSpaceList,
     canSaveWindowSpace,
   } = useProjectState((state) => {
@@ -88,6 +127,7 @@ export function WindowSpacesPane({
     return {
       projectConfigId: state.projectConfig.id,
       projectConfigName: state.projectConfig.name,
+      windowSpaceSlugsById: state.projectConfig.windowSpaceSlugsById,
       windowSpaceList: sortWindowSpaces(
         Object.values(getProjectWindowSpaces(state.projectConfig)),
       ),
@@ -173,6 +213,7 @@ export function WindowSpacesPane({
                   windowSpace={windowSpace}
                   projectConfigId={projectConfigId}
                   projectConfigName={projectConfigName}
+                  windowSpaceSlugsById={windowSpaceSlugsById}
                   canEditLayout={canEditLayout}
                   sortableEnabled={sortableEnabled}
                 />
@@ -182,6 +223,7 @@ export function WindowSpacesPane({
                   windowSpace={windowSpace}
                   projectConfigId={projectConfigId}
                   projectConfigName={projectConfigName}
+                  windowSpaceSlugsById={windowSpaceSlugsById}
                   canEditLayout={canEditLayout}
                   sortableEnabled={sortableEnabled}
                 />
@@ -198,19 +240,24 @@ function WindowSpaceRow({
   windowSpace,
   projectConfigId,
   projectConfigName,
+  windowSpaceSlugsById,
   canEditLayout,
 }: WindowSpaceRowSharedProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
-  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
-    windowSpace.name,
-    (name) => {
-      setWindowSpaceName(projectConfigId, windowSpace.id, name);
-    },
-    (name) => canSetWindowSpaceName(windowSpace.id, name),
-    false,
-    normalizeWindowSpaceName,
-  );
+  const {
+    inputValue,
+    onChange,
+    onBlur,
+    onKeyDown,
+    clearValidationError,
+    validationError,
+  } = useEditableWindowSpaceName({
+    projectConfigId,
+    windowSpaceId: windowSpace.id,
+    currentName: windowSpace.name,
+    canEditLayout,
+  });
 
   useEffect(() => {
     if (!isRenaming) {
@@ -222,79 +269,104 @@ function WindowSpaceRow({
 
   const openPath = buildStandaloneWindowSpacePath(
     projectConfigName,
-    windowSpace.name,
+    {
+      windowSpaceSlugsById,
+    },
+    windowSpace.id,
   );
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-md border border-setta-200/80 px-2 py-1.5 text-xs text-setta-700 dark:border-setta-800 dark:text-setta-300">
-      {isRenaming ? (
-        <input
-          ref={nameInputRef}
-          value={inputValue}
-          onChange={onChange}
-          onBlur={(event) => {
-            void onBlur(event);
-            setIsRenaming(false);
-          }}
-          onKeyDown={onKeyDown}
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          className="min-w-0 flex-1 truncate bg-transparent text-setta-700 focus:outline-none focus:ring-0 dark:text-setta-300"
-          placeholder="Window space name"
-          data-testid="window-space-name-input"
-        />
-      ) : (
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left hover:text-blue-600 dark:hover:text-blue-300"
-          onClick={() => {
-            if (!canEditLayout) {
-              return;
-            }
-            void restoreWindowSpaceInWorkspace(windowSpace.id);
-          }}
-          data-testid="window-space-open"
-          disabled={!canEditLayout}
-        >
-          {windowSpace.name}
-        </button>
-      )}
-      <button
-        type="button"
-        className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-        onClick={() => {
-          window.open(openPath, "_blank", "noopener,noreferrer");
-        }}
-        aria-label={`Open ${windowSpace.name} in a new tab`}
-        data-testid="window-space-open-new-tab"
+    <div className="flex min-w-0 flex-col gap-1">
+      <div
+        className={`flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
+          validationError
+            ? "border-red-400/80 text-red-700 dark:border-red-900 dark:text-red-300"
+            : "border-setta-200/80 text-setta-700 dark:border-setta-800 dark:text-setta-300"
+        }`}
       >
-        <MdOpenInNew size={14} />
-      </button>
-      {canEditLayout ? (
+        {isRenaming ? (
+          <input
+            ref={nameInputRef}
+            value={inputValue}
+            onChange={onChange}
+            onBlur={(event) => {
+              void onBlur(event);
+              setIsRenaming(false);
+            }}
+            onKeyDown={onKeyDown}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            className={`min-w-0 flex-1 truncate bg-transparent focus:outline-none focus:ring-0 ${
+              validationError
+                ? "text-red-700 dark:text-red-300"
+                : "text-setta-700 dark:text-setta-300"
+            }`}
+            placeholder="Window space name"
+            data-testid="window-space-name-input"
+          />
+        ) : (
+          <button
+            type="button"
+            className={`min-w-0 flex-1 truncate text-left ${
+              validationError
+                ? "text-red-700 dark:text-red-300"
+                : "hover:text-blue-600 dark:hover:text-blue-300"
+            }`}
+            onClick={() => {
+              if (!canEditLayout) {
+                return;
+              }
+              void restoreWindowSpaceInWorkspace(windowSpace.id);
+            }}
+            data-testid="window-space-open"
+            disabled={!canEditLayout}
+          >
+            {windowSpace.name}
+          </button>
+        )}
         <button
           type="button"
           className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
           onClick={() => {
-            setIsRenaming(true);
+            window.open(openPath, "_blank", "noopener,noreferrer");
           }}
-          aria-label={`Rename ${windowSpace.name}`}
-          data-testid="window-space-rename"
+          aria-label={`Open ${windowSpace.name} in a new tab`}
+          data-testid="window-space-open-new-tab"
         >
-          <FiEdit3 size={14} />
+          <MdOpenInNew size={14} />
         </button>
-      ) : null}
-      {canEditLayout ? (
-        <button
-          type="button"
-          className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-red-500 hover:text-white dark:text-setta-400 dark:hover:bg-red-500 dark:hover:text-white"
-          onClick={() => {
-            deleteWindowSpace(projectConfigId, windowSpace.id);
-          }}
-          aria-label={`Delete ${windowSpace.name}`}
-          data-testid="window-space-delete"
-        >
-          <FiTrash2 size={14} />
-        </button>
+        {canEditLayout ? (
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+            onClick={() => {
+              clearValidationError();
+              setIsRenaming(true);
+            }}
+            aria-label={`Rename ${windowSpace.name}`}
+            data-testid="window-space-rename"
+          >
+            <FiEdit3 size={14} />
+          </button>
+        ) : null}
+        {canEditLayout ? (
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-red-500 hover:text-white dark:text-setta-400 dark:hover:bg-red-500 dark:hover:text-white"
+            onClick={() => {
+              void deleteWindowSpace(projectConfigId, windowSpace.id);
+            }}
+            aria-label={`Delete ${windowSpace.name}`}
+            data-testid="window-space-delete"
+          >
+            <FiTrash2 size={14} />
+          </button>
+        ) : null}
+      </div>
+      {validationError ? (
+        <p className="px-2 text-[10px] font-medium text-red-500 dark:text-red-300">
+          {validationError}
+        </p>
       ) : null}
     </div>
   );
@@ -304,6 +376,7 @@ function WindowSpaceEditingRow({
   windowSpace,
   projectConfigId,
   projectConfigName,
+  windowSpaceSlugsById,
   canEditLayout,
   sortableEnabled,
 }: WindowSpaceRowSharedProps) {
@@ -311,100 +384,111 @@ function WindowSpaceEditingRow({
     ? useViewModeSortableItem(windowSpace.id, false, "vertical")
     : null;
 
-  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
-    windowSpace.name,
-    (name) => {
-      if (!canEditLayout) {
-        return;
-      }
-      setWindowSpaceName(projectConfigId, windowSpace.id, name);
-    },
-    (name) => canSetWindowSpaceName(windowSpace.id, name),
-    false,
-    normalizeWindowSpaceName,
-  );
+  const { inputValue, onChange, onBlur, onKeyDown, validationError } =
+    useEditableWindowSpaceName({
+      projectConfigId,
+      windowSpaceId: windowSpace.id,
+      currentName: windowSpace.name,
+      canEditLayout,
+    });
 
   const openPath = buildStandaloneWindowSpacePath(
     projectConfigName,
-    windowSpace.name,
+    {
+      windowSpaceSlugsById,
+    },
+    windowSpace.id,
   );
 
   return (
-    <div
-      ref={sortable?.setNodeRef}
-      className={`flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors ${
-        canEditLayout
-          ? "border-setta-200/80 text-setta-700 dark:border-setta-800 dark:text-setta-300"
-          : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-      }`}
-      style={sortable?.style}
-      data-testid="window-space-edit-row"
-      data-window-space-id={windowSpace.id}
-    >
-      {sortable ? (
-        <span
-          ref={sortable.setActivatorNodeRef}
-          className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-          {...sortable.attributes}
-          {...sortable.listeners}
+    <div className="flex min-w-0 flex-col gap-1">
+      <div
+        ref={sortable?.setNodeRef}
+        className={`flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors ${
+          canEditLayout
+            ? validationError
+              ? "border-red-400/80 text-red-700 dark:border-red-900 dark:text-red-300"
+              : "border-setta-200/80 text-setta-700 dark:border-setta-800 dark:text-setta-300"
+            : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+        }`}
+        style={sortable?.style}
+        data-testid="window-space-edit-row"
+        data-window-space-id={windowSpace.id}
+      >
+        {sortable ? (
+          <span
+            ref={sortable.setActivatorNodeRef}
+            className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+            {...sortable.attributes}
+            {...sortable.listeners}
+            onClick={(event) => event.stopPropagation()}
+            data-testid="window-space-drag-handle"
+          >
+            <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+          </span>
+        ) : null}
+        <input
+          value={inputValue}
+          onChange={onChange}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
           onClick={(event) => event.stopPropagation()}
-          data-testid="window-space-drag-handle"
+          onPointerDown={(event) => event.stopPropagation()}
+          className={`min-w-0 flex-1 truncate bg-transparent focus:outline-none focus:ring-0 ${
+            validationError
+              ? "text-red-700 dark:text-red-300"
+              : "text-setta-700 dark:text-setta-300"
+          }`}
+          placeholder="Window space name"
+          disabled={!canEditLayout}
+        />
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+          onClick={() => {
+            if (!canEditLayout) {
+              return;
+            }
+            void restoreWindowSpaceInWorkspace(windowSpace.id);
+          }}
+          disabled={!canEditLayout}
+          aria-label={`Restore ${windowSpace.name}`}
+          data-testid="window-space-edit-open"
         >
-          <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-        </span>
+          <MdFlipToFront size={14} />
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+          onClick={() => {
+            window.open(openPath, "_blank", "noopener,noreferrer");
+          }}
+          aria-label={`Open ${windowSpace.name} in a new tab`}
+          data-testid="window-space-edit-open-new-tab"
+        >
+          <MdOpenInNew size={14} />
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-red-500 hover:text-white dark:text-setta-400 dark:hover:bg-red-500 dark:hover:text-white"
+          onClick={() => {
+            if (!canEditLayout) {
+              return;
+            }
+            void deleteWindowSpace(projectConfigId, windowSpace.id);
+          }}
+          disabled={!canEditLayout}
+          aria-label={`Delete ${windowSpace.name}`}
+          data-testid="window-space-delete"
+        >
+          <i className="gg-trash" />
+        </button>
+      </div>
+      {validationError ? (
+        <p className="px-2 text-[10px] font-medium text-red-500 dark:text-red-300">
+          {validationError}
+        </p>
       ) : null}
-      <input
-        value={inputValue}
-        onChange={onChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-        className="min-w-0 flex-1 truncate bg-transparent text-setta-700 focus:outline-none focus:ring-0 dark:text-setta-300"
-        placeholder="Window space name"
-        disabled={!canEditLayout}
-      />
-      <button
-        type="button"
-        className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-        onClick={() => {
-          if (!canEditLayout) {
-            return;
-          }
-          void restoreWindowSpaceInWorkspace(windowSpace.id);
-        }}
-        disabled={!canEditLayout}
-        aria-label={`Restore ${windowSpace.name}`}
-        data-testid="window-space-edit-open"
-      >
-        <MdFlipToFront size={14} />
-      </button>
-      <button
-        type="button"
-        className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-        onClick={() => {
-          window.open(openPath, "_blank", "noopener,noreferrer");
-        }}
-        aria-label={`Open ${windowSpace.name} in a new tab`}
-        data-testid="window-space-edit-open-new-tab"
-      >
-        <MdOpenInNew size={14} />
-      </button>
-      <button
-        type="button"
-        className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-red-500 hover:text-white dark:text-setta-400 dark:hover:bg-red-500 dark:hover:text-white"
-        onClick={() => {
-          if (!canEditLayout) {
-            return;
-          }
-          deleteWindowSpace(projectConfigId, windowSpace.id);
-        }}
-        disabled={!canEditLayout}
-        aria-label={`Delete ${windowSpace.name}`}
-        data-testid="window-space-delete"
-      >
-        <i className="gg-trash" />
-      </button>
     </div>
   );
 }
