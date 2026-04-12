@@ -5,7 +5,6 @@ import {
   postBackend,
 } from "../helpers";
 import {
-  applyProjectStateUpdate,
   captureSettingsGraphLaneHealthSnapshot,
   findSectionIdByName,
   findViewModeId,
@@ -13,6 +12,7 @@ import {
   getLocalPaneState,
   normalizeSettingsGraphComparePaneState,
   setLocalPaneState,
+  waitForFrontendProjectConfigState,
 } from "./graphSubstrateParityProbe";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -83,12 +83,12 @@ test("settings graph worktree lane health captures the normalized rotaryParamCod
       projectConfigId,
       viewport: null,
     });
-    const normalizedState = await getLatestProjectState(
-      activePage,
-      projectConfigId,
-    );
-    await applyProjectStateUpdate(activePage, normalizedState);
-
+    await waitForFrontendProjectConfigState({
+      activeViewModeId: allSettingsViewModeId,
+      page: activePage,
+      viewport: null,
+      viewportInitialized: false,
+    });
     const laneHealth = await captureSettingsGraphLaneHealthSnapshot({
       expectedSurfaceKind: "canary",
       expectedViewModeName: "All Settings",

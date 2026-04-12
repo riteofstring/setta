@@ -33,6 +33,7 @@ import {
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
   startSettingsGraphMotionPerfCapture,
   stopSettingsGraphMotionPerfCapture,
+  waitForFrontendProjectConfigState,
   type ProjectStateSingleConfigWithCompletedOpIds,
 } from "./graphSubstrateParityProbe";
 
@@ -497,12 +498,12 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       projectConfigId,
       viewport: null,
     });
-    const normalizedState = await getLatestProjectState(
-      activePage,
-      projectConfigId,
-    );
-    await applyProjectStateUpdate(activePage, normalizedState);
-
+    await waitForFrontendProjectConfigState({
+      activeViewModeId: allSettingsViewModeId,
+      page: activePage,
+      viewport: null,
+      viewportInitialized: false,
+    });
     const preflight = await runSettingsGraphComparePreflight({
       expectedSurfaceKind: "canary",
       expectedViewModeName: "All Settings",

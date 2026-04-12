@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 07:31 UTC
+Last updated: 2026-04-15 08:15 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,104 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `481` hardened the frontend project-config store wait on the canonical
+  `rotaryParamCodeObjDefault` lane so the probe no longer relies on an
+  unbounded `page.evaluate(...)` inside `expect.poll(...)` when the live page
+  becomes unresponsive during normalized `All Settings` setup:
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now routes each `waitForFrontendProjectConfigState(...)` store read
+      through `runWithSettingsGraphPageLifecycleGuard(...)` with a bounded
+      `5000ms` timeout before comparing the store snapshot in the outer
+      `expect.poll(...)`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - canonical live worktree probe on the current run-012 runtime:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-012/worktree-ai.log --reporter=line`
+      -> still failed before the guarded store wait became the active blocker
+      -> direct-open reached `surface_ready`, then the probe hit
+         `Worktree unhealthy: browser context closed before page recovery`
+         from `setLocalPaneState(...)` during
+         `normalizeSettingsGraphComparePaneState(...)`
+      -> the canonical live runtime on run-012 is therefore still
+         `worktree_unhealthy`, but the frontend store wait helper itself is now
+         bounded and will not silently hang forever if that step becomes active
+         again
+    - fresh-context CDP check:
+      -> not run; this iteration only changed E2E probe helpers and the live
+         worktree lane never reached a trustworthy compare state
+  - reading:
+    - this narrows the helper debt on the canonical lane without reopening the
+      older explicit reinjection path
+    - the earliest repeated blocker on the current run-012 runtime is now
+      back in pane-state normalization / browser-context stability around
+      `setLocalPaneState(...)`, not inside the guarded frontend store wait
+    - next: inspect why the worktree browser context closes during
+      `normalizeSettingsGraphComparePaneState(...)` on the canonical lane, then
+      rerun the same live probe before taking another attribution cut
+
+- item `480` narrowed the canonical worktree normalization blocker on the
+  `rotaryParamCodeObjDefault` lane by removing the explicit full-state
+  reinjection step from the live probe setup and waiting on the frontend store
+  to observe the backend-applied view mode / viewport instead:
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now exports `waitForFrontendProjectConfigState(...)`, which polls the
+      in-page `useProjectState` store for `activeViewModeId`, `viewport`, and
+      `viewportInitialized` instead of forcing a whole
+      `processProjectStateUpdateFromBackend(...)` call during probe setup
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      and `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now use that store-sync helper after `/setActiveViewMode` and
+      `/setViewport` on the live worktree lane, rather than injecting the full
+      backend payload back through `applyProjectStateUpdate(...)`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - direct lane-health invocation with current worktree runtime env:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<run-011 token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> failed before lane normalization finished because the recovered page
+         never satisfied `waitForInitialSettingsGraphReady(...)` within `30000ms`
+         on this runtime; treat as `worktree_unhealthy`
+    - canonical live worktree probe before recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-011/worktree-ai.log --reporter=line`
+      -> no longer timed out inside the older
+         `applyProjectStateUpdate(...)` payload reinjection path
+      -> instead failed during pane-state normalization with
+         `Worktree unhealthy: browser context closed before page recovery`
+         from `setLocalPaneState(...)`
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; refreshed worktree session `d51edd`, frontend `3053`,
+         backend `8053`, debug port `9275`
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-011/worktree-ai.log`
+      -> passed with refreshed runtime facts above
+    - canonical live worktree probe after recovery:
+      -> reached `surface_ready`
+      -> then stalled in the new
+         `waitForFrontendProjectConfigState(...)` helper after the backend
+         `/setActiveViewMode` + `/setViewport(null)` calls, eventually hitting
+         the outer `180000ms` test timeout
+      -> current failure boundary is now frontend page-store responsiveness on
+         the live worktree lane, not backend request-path plumbing and not the
+         old explicit `applyProjectStateUpdate(...)` reinjection step
+    - fresh-context CDP check:
+      -> not run; this iteration changed E2E normalization helpers only and
+         the live worktree lane never reached a trustworthy post-state after
+         the bounded recovery attempt
+  - reading:
+    - this closes the older "the live probe is still blocking inside explicit
+      full-state reinjection" theory on the canonical lane
+    - the active blocker is now the live page becoming unresponsive around
+      frontend store synchronization during normalized `All Settings`
+      setup after the backend viewport/view-mode writes land
+    - next: inspect the frontend runtime around
+      `normalizeSettingsGraphComparePaneState(...)` and/or
+      `waitForFrontendProjectConfigState(...)` on the recovered worktree
+      session, then rerun this same canonical lane before taking another
+      product attribution cut
 
 - item `479` completed one bounded worktree-probe request-path hardening step
   on the canonical `rotaryParamCodeObjDefault` lane so the shared settings

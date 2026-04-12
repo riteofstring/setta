@@ -505,6 +505,51 @@ export async function getLatestProjectState(
   return payload;
 }
 
+export async function waitForFrontendProjectConfigState(args: {
+  activeViewModeId?: string | null;
+  page: Page;
+  viewport?: SettingsGraphViewportTransform | null;
+  viewportInitialized?: boolean;
+}): Promise<void> {
+  async function readFrontendProjectConfigState(): Promise<{
+    activeViewModeId: string | null;
+    viewport: SettingsGraphViewportTransform | null;
+    viewportInitialized: boolean;
+  }> {
+    return runWithSettingsGraphPageLifecycleGuard(
+      args.page,
+      "reading the frontend project config store",
+      async () =>
+        args.page.evaluate(async () => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          const projectConfig = useProjectState.getState().projectConfig;
+          return {
+            activeViewModeId: projectConfig.activeViewModeId,
+            viewport: projectConfig.viewport ?? null,
+            viewportInitialized: projectConfig.viewportInitialized,
+          };
+        }),
+      5000,
+    );
+  }
+
+  await expect
+    .poll(async () => readFrontendProjectConfigState(), {
+      message:
+        "Timed out waiting for the frontend project config store to reflect the backend update.",
+      timeout: 30000,
+    })
+    .toEqual({
+      activeViewModeId:
+        args.activeViewModeId === undefined ? null : args.activeViewModeId,
+      viewport: args.viewport === undefined ? null : args.viewport,
+      viewportInitialized:
+        args.viewportInitialized === undefined
+          ? false
+          : args.viewportInitialized,
+    });
+}
+
 export async function applyProjectStateUpdate(
   page: Page,
   payload: ProjectStateSingleConfigWithCompletedOpIds,

@@ -284,6 +284,94 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-15 08:15 UTC | item `481` | bounded the frontend project-config store wait so the canonical probe cannot hang forever inside an unbounded store read
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now routes each `waitForFrontendProjectConfigState(...)` store read
+      through `runWithSettingsGraphPageLifecycleGuard(...)` with a `5000ms`
+      timeout before the outer `expect.poll(...)` compares the frontend store
+      snapshot
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - canonical live worktree probe on run-012:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-012/worktree-ai.log --reporter=line`
+      -> direct-open reached `surface_ready`
+      -> then failed during `normalizeSettingsGraphComparePaneState(...)` with
+         `Worktree unhealthy: browser context closed before page recovery`
+         from `setLocalPaneState(...)`
+      -> this run therefore remained `worktree_unhealthy` before the newly
+         guarded frontend store wait became the active boundary
+    - direct lane-health invocation with the loop context token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<loop-context token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> failed in Playwright global setup with `401 Unauthorized`; treat this
+         as direct-invocation bootstrap debt, not renderer evidence
+    - CDP visual check:
+      -> not run; this iteration changed probe helpers only and the live lane
+         never reached a trustworthy compare state
+  - reading:
+    - the helper no longer relies on an unbounded `page.evaluate(...)` inside
+      `expect.poll(...)`
+    - the current earliest repeated blocker on run-012 is browser-context
+      instability during pane-state normalization around
+      `setLocalPaneState(...)`
+    - next: inspect why the worktree browser context closes during
+      `normalizeSettingsGraphComparePaneState(...)` on the canonical lane, then
+      rerun the same live probe
+- LOOP_TERMINAL_MARKER: none
+
+- 2026-04-15 07:55 UTC | item `480` | narrowed the canonical worktree normalization blocker by removing explicit full-state reinjection from the live setup path
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now exports `waitForFrontendProjectConfigState(...)`, which polls the
+      frontend `useProjectState` store for `activeViewModeId`, `viewport`, and
+      `viewportInitialized` instead of forcing
+      `processProjectStateUpdateFromBackend(...)` during live probe setup
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      and `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now use that store-sync helper after `/setActiveViewMode` and
+      `/setViewport(null)` instead of reinjecting the full backend payload via
+      `applyProjectStateUpdate(...)`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - direct lane-health invocation with run-011 runtime env:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<run-011 token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> failed in `waitForInitialSettingsGraphReady(...)` after `30000ms`;
+         classify as `worktree_unhealthy`
+    - canonical live probe before recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-011/worktree-ai.log --reporter=line`
+      -> no longer timed out inside the old
+         `applyProjectStateUpdate(...)` reinjection path
+      -> instead failed during pane-state normalization with
+         `Worktree unhealthy: browser context closed before page recovery`
+    - one allowed worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-011/worktree-ai.log`
+      -> passed; refreshed worktree session `d51edd`, frontend `3053`,
+         backend `8053`, debug port `9275`
+    - canonical live probe after recovery:
+      -> reached `surface_ready`
+      -> then stalled inside `waitForFrontendProjectConfigState(...)` after
+         the backend `/setActiveViewMode` + `/setViewport(null)` writes and hit
+         the outer `180000ms` timeout
+    - CDP visual check:
+      -> not run; this iteration changed probe normalization helpers only and
+         the live lane never reached a trustworthy post-state
+  - reading:
+    - this closes the older "explicit full-state reinjection is the current
+      live blocker" theory on the canonical lane
+    - the active blocker is now frontend page-store responsiveness during
+      normalized `All Settings` setup on the recovered worktree runtime
+    - next: inspect the frontend/runtime around
+      `normalizeSettingsGraphComparePaneState(...)` and
+      `waitForFrontendProjectConfigState(...)` before taking another product
+      attribution slice
+- LOOP_TERMINAL_MARKER: none
 - item `479` completed one bounded worktree-probe request-path hardening step
   on the canonical `rotaryParamCodeObjDefault` lane so the shared settings
   parity helper now prefers deterministic frontend/backend origins from the
