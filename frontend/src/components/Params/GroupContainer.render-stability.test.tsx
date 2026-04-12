@@ -27,6 +27,8 @@ const renderCalls = vi.hoisted(() => ({
     ref: { current: null },
     isScrollable: false,
   })),
+  useParamColumnWidthHandler: vi.fn(),
+  useParamColumnWidth: vi.fn(() => renderCalls.useParamColumnWidthHandler),
 }));
 
 vi.mock("./ParamDndList", () => ({
@@ -43,6 +45,10 @@ vi.mock("state/hooks/sectionSizes", async () => {
     useIsScrollable: renderCalls.useIsScrollable,
   };
 });
+
+vi.mock("state/hooks/useParamColumnWidth", () => ({
+  useParamColumnWidth: renderCalls.useParamColumnWidth,
+}));
 
 const resizeObserverCallbacks = new Set<ResizeObserverCallback>();
 
@@ -88,9 +94,11 @@ function syncStoreInitialState(store: {
 function seedParamGroupContainerState({
   hideUnpinnedParams = false,
   includeUnpinnedParam = true,
+  unpinnedPath = ["param-unpinned"],
 }: {
   hideUnpinnedParams?: boolean;
   includeUnpinnedParam?: boolean;
+  unpinnedPath?: string[];
 } = {}) {
   const sectionId = "section-1";
   const variantId = "variant-1";
@@ -251,7 +259,7 @@ function seedParamGroupContainerState({
         },
         unpinned: {
           requiredParamIdsToPaths: includeUnpinnedParam
-            ? { [unpinnedParamId]: [unpinnedParamId] }
+            ? { [unpinnedParamId]: unpinnedPath }
             : {},
           topLevelParamIds: includeUnpinnedParam ? [unpinnedParamId] : [],
         },
@@ -278,6 +286,7 @@ describe("ParamGroupContainer render stability", () => {
     root = createRoot(host);
     vi.mocked(ParamDndList).mockClear();
     renderCalls.useIsScrollable.mockClear();
+    renderCalls.useParamColumnWidth.mockClear();
     vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => {
       cb(0);
       return 1;
@@ -379,7 +388,7 @@ describe("ParamGroupContainer render stability", () => {
     expect(renderCalls.useIsScrollable).toHaveBeenCalledTimes(1);
   });
 
-  it("only keeps the live resize observers for column width, fixed-height, and edge-strip measurement", async () => {
+  it("keeps the remaining fixed-height and edge-strip resize observers alive when the column-width hook is mocked", async () => {
     const sectionId = seedParamGroupContainerState();
 
     await act(async () => {
@@ -392,7 +401,30 @@ describe("ParamGroupContainer render stability", () => {
       );
     });
 
-    expect(resizeObserverCallbacks.size).toBe(3);
+    expect(resizeObserverCallbacks.size).toBe(2);
+  });
+
+  it("derives column-width nesting depth from the deepest visible param path", async () => {
+    const sectionId = seedParamGroupContainerState({
+      unpinnedPath: ["param-unpinned", "nested-child", "deep-leaf"],
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(renderCalls.useParamColumnWidth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxNestedDepth: 3,
+        sectionId,
+      }),
+    );
   });
 
   it("does not mount the unpinned area when it is hidden", async () => {

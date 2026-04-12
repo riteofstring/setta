@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 14:22 UTC
+Last updated: 2026-04-15 05:57 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,50 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `474` completed one bounded `ParamGroupContainer` local-state cleanup on
+  the canonical `rotaryParamCodeObjDefault` lane by deriving the resize-column
+  nesting depth directly from the already-selected pinned/unpinned param-path
+  maps instead of bouncing that value back up through child effects:
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now computes one container-level `maxNestedDepth` scalar from the pinned
+      and unpinned required-path maps, removes the child-to-parent
+      `setMaxNestedDepth(...)` effect path, and keeps
+      `useParamColumnWidth(...)` on that directly derived input
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves the column-width hook sees the deepest visible param path
+      while the existing waiting-for-result and scrollability stability guards
+      stay green
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+  - blocker during live verification:
+    - the inherited runtime was down; direct `curl` checks to
+      `http://127.0.0.1:3053` and `http://127.0.0.1:8053` both failed
+    - one allowed bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree and minted a fresh bootstrap token
+    - rerunning the canonical Playwright worktree probe with the refreshed
+      runtime values still failed before the lane could load because the
+      restarted lifecycle died:
+      Vite could not resolve `@radix-ui/react-compose-refs` from
+      `src/shims/radixReactSlotCompat.tsx`, which shut down both the frontend
+      and backend again
+    - required fresh-context CDP check:
+      -> blocked; fresh-context sub-agent reported
+         `unknown MCP server 'chrome-devtools-mcp'`, so no CDP oracle was
+         available in this session even after the worktree restart
+  - reading:
+    - this code slice is landed and unit-verified, but there is no trustworthy
+      live readout yet because the recovered worktree runtime crashes on the
+      unresolved Radix import before the canary probe can start
+    - do not treat the missing live result as renderer drift; the immediate
+      next frontier is to restore a healthy worktree runtime and CDP access
+      first, then rerun the same canonical `rotaryParamCodeObjDefault` probe on
+      this committed slice before taking another product hypothesis
 
 - item `473` completed one bounded broader owner reduction on the canonical
   `rotaryParamCodeObjDefault` lane by bypassing the top-level inactive param

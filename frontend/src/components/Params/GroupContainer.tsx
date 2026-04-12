@@ -106,10 +106,6 @@ function _ParamGroupContainer({
   sectionTypeName: SectionTypeEnum;
 }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
-  const [maxNestedDepth, setMaxNestedDepth] = useState({
-    pinned: 1,
-    unpinned: 1,
-  });
   const paramsFixedHeightKey = getParamsFixedHeightKey(sectionId);
   const lastFixedHeightRef = useRef<number | null>(null);
   const pendingFixedHeightRef = useRef<number | null>(null);
@@ -143,11 +139,15 @@ function _ParamGroupContainer({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
+  const maxNestedDepth = Math.max(
+    getLongestListLength(pinnedParams.requiredParamIdsToPaths),
+    getLongestListLength(unpinnedParams.requiredParamIdsToPaths),
+  );
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
     outerRef,
-    maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
+    maxNestedDepth,
   });
 
   const setOuterRef = useCallback((node: HTMLDivElement | null) => {
@@ -302,7 +302,6 @@ function _ParamGroupContainer({
               topLevelParamIds={pinnedParams.topLevelParamIds}
               requiredParamIdsToPaths={pinnedParams.requiredParamIdsToPaths}
               handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
               hasSectionStyleTheme={hasSectionStyleTheme}
               shouldRoundBottom={pinnedParamsShouldRoundBottom}
               positionAndSizeLocked={positionAndSizeLocked}
@@ -320,7 +319,6 @@ function _ParamGroupContainer({
               requiredParamIdsToPaths={unpinnedParams.requiredParamIdsToPaths}
               hasPinnedParams={hasPinnedParams}
               handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
               hasSectionStyleTheme={hasSectionStyleTheme}
               positionAndSizeLocked={positionAndSizeLocked}
             />
@@ -584,11 +582,6 @@ function EdgesStrip({
   );
 }
 
-type MaxNestedDepth = {
-  pinned: number;
-  unpinned: number;
-};
-
 type ParamPathMap = Record<string, Array<string>>;
 
 type FilteredShownParams = {
@@ -620,7 +613,6 @@ type GetPinnedParamsProps = {
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: ParamPathMap;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
   hasSectionStyleTheme: boolean;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
@@ -648,7 +640,6 @@ type GetUnpinnedParamsProps = {
   requiredParamIdsToPaths: ParamPathMap;
   hasPinnedParams: boolean;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
 };
@@ -736,20 +727,14 @@ function GetPinnedParams({
   topLevelParamIds,
   requiredParamIdsToPaths,
   handleColumnResizeStart,
-  setMaxNestedDepth,
   hasSectionStyleTheme,
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
 }: GetPinnedParamsProps) {
-  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
-  }, [maxNestedDepth]);
 
   return (
     topLevelParamIds.length > 0 && (
@@ -852,7 +837,6 @@ function GetUnpinnedParams({
   requiredParamIdsToPaths,
   hasPinnedParams,
   handleColumnResizeStart,
-  setMaxNestedDepth,
   hasSectionStyleTheme,
   positionAndSizeLocked,
 }: GetUnpinnedParamsProps) {
@@ -878,12 +862,6 @@ function GetUnpinnedParams({
   const shouldRenderUnpinnedArea =
     !hideUnpinnedParams &&
     (topLevelParamIds.length > 0 || shouldApplyMinHeight);
-
-  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
-
-  useEffect(() => {
-    setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
-  }, [maxNestedDepth]);
 
   if (!shouldRenderUnpinnedArea) {
     return null;

@@ -235,6 +235,48 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 05:57 UTC | item `474` | completed direct max-nested-depth derivation at `ParamGroupContainer`, blocked on runtime/CDP verification
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now derives one container-level `maxNestedDepth` scalar from the pinned
+      and unpinned required-path maps and removes the child-to-parent
+      `setMaxNestedDepth(...)` effect path before calling
+      `useParamColumnWidth(...)`
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves the column-width hook receives the deepest visible param path
+      while the existing waiting-for-result and scrollability stability checks
+      stay green
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+  - blocker during live verification:
+    - first worktree probe attempt using the loop runtime values failed because
+      the inherited worktree runtime was already down
+    - direct health checks confirmed both `http://127.0.0.1:3053` and
+      `http://127.0.0.1:8053` were refusing connections
+    - one allowed bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree and printed a fresh bootstrap token for
+         session `0a1eaa`
+    - rerunning the canonical Playwright worktree probe after recovery still
+      failed before lane execution because the restarted lifecycle crashed:
+      Vite could not resolve `@radix-ui/react-compose-refs` from
+      `src/shims/radixReactSlotCompat.tsx`, which terminated both the frontend
+      and backend again
+    - fresh-context CDP check:
+      -> blocked; sub-agent reported
+         `unknown MCP server 'chrome-devtools-mcp'`
+  - reading:
+    - the code slice itself is landed and locally verified, but there is still
+      no trustworthy live perf readout for this slice
+    - immediate next step: restore a healthy worktree runtime and CDP access,
+      then rerun the same canonical `rotaryParamCodeObjDefault` worktree probe
+      before taking another product hypothesis
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:22 UTC | item `473` | completed inactive top-level param DnD provider bypass on canonical `rotaryParamCodeObjDefault`
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
