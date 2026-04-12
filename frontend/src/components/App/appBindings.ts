@@ -88,27 +88,39 @@ function resolveBindingString(
   return typeof value === "string" ? value : null;
 }
 
+function resolvePropString(props: BindingProps, key: string): string | null {
+  const value = props[key];
+  return typeof value === "string" ? value : null;
+}
+
+function resolveDataBinding(
+  props: BindingProps,
+  dataBindings: AppDataBindings | null | undefined,
+): AppBindingRecord | null {
+  return resolveBindingRecord(
+    dataBindings,
+    resolvePropString(props, "dataPath"),
+  );
+}
+
+function resolveBoundString(
+  props: BindingProps,
+  binding: AppBindingRecord | null,
+  key: string,
+): string | null {
+  return resolvePropString(props, key) ?? resolveBindingString(binding, key);
+}
+
 export function resolveParamBinding(
   props: BindingProps,
   dataBindings: AppDataBindings | null | undefined,
 ) {
-  const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
-  const binding = resolveBindingRecord(dataBindings, dataPath);
-  const configId =
-    (typeof props.configId === "string" ? props.configId : null) ??
-    resolveBindingString(binding, "configId");
-  const sectionId =
-    (typeof props.sectionId === "string" ? props.sectionId : null) ??
-    resolveBindingString(binding, "sectionId");
-  const paramId =
-    (typeof props.paramId === "string" ? props.paramId : null) ??
-    resolveBindingString(binding, "paramId");
-  const label =
-    (typeof props.label === "string" ? props.label : null) ??
-    resolveBindingString(binding, "label");
-  const description =
-    (typeof props.description === "string" ? props.description : null) ??
-    resolveBindingString(binding, "description");
+  const binding = resolveDataBinding(props, dataBindings);
+  const configId = resolveBoundString(props, binding, "configId");
+  const sectionId = resolveBoundString(props, binding, "sectionId");
+  const paramId = resolveBoundString(props, binding, "paramId");
+  const label = resolveBoundString(props, binding, "label");
+  const description = resolveBoundString(props, binding, "description");
   return { configId, sectionId, paramId, label, description };
 }
 
@@ -116,17 +128,10 @@ export function resolveTextOutputBinding(
   props: BindingProps,
   dataBindings: AppDataBindings | null | undefined,
 ) {
-  const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
-  const binding = resolveBindingRecord(dataBindings, dataPath);
-  const configId =
-    (typeof props.configId === "string" ? props.configId : null) ??
-    resolveBindingString(binding, "configId");
-  const sectionId =
-    (typeof props.sectionId === "string" ? props.sectionId : null) ??
-    resolveBindingString(binding, "sectionId");
-  const label =
-    (typeof props.label === "string" ? props.label : null) ??
-    resolveBindingString(binding, "label");
+  const binding = resolveDataBinding(props, dataBindings);
+  const configId = resolveBoundString(props, binding, "configId");
+  const sectionId = resolveBoundString(props, binding, "sectionId");
+  const label = resolveBoundString(props, binding, "label");
   return { configId, sectionId, label };
 }
 
@@ -134,17 +139,10 @@ export function resolveImageOutputBinding(
   props: BindingProps,
   dataBindings: AppDataBindings | null | undefined,
 ) {
-  const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
-  const binding = resolveBindingRecord(dataBindings, dataPath);
-  const configId =
-    (typeof props.configId === "string" ? props.configId : null) ??
-    resolveBindingString(binding, "configId");
-  const artifactId =
-    (typeof props.artifactId === "string" ? props.artifactId : null) ??
-    resolveBindingString(binding, "artifactId");
-  const alt =
-    (typeof props.alt === "string" ? props.alt : null) ??
-    resolveBindingString(binding, "alt");
+  const binding = resolveDataBinding(props, dataBindings);
+  const configId = resolveBoundString(props, binding, "configId");
+  const artifactId = resolveBoundString(props, binding, "artifactId");
+  const alt = resolveBoundString(props, binding, "alt");
   return { configId, artifactId, alt };
 }
 
@@ -152,20 +150,11 @@ export function resolveActionBinding(
   props: BindingProps,
   dataBindings: AppDataBindings | null | undefined,
 ) {
-  const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
-  const binding = resolveBindingRecord(dataBindings, dataPath);
-  const configId =
-    (typeof props.configId === "string" ? props.configId : null) ??
-    resolveBindingString(binding, "configId");
-  const action =
-    (typeof props.action === "string" ? props.action : null) ??
-    resolveBindingString(binding, "action");
-  const sectionId =
-    (typeof props.sectionId === "string" ? props.sectionId : null) ??
-    resolveBindingString(binding, "sectionId");
-  const label =
-    (typeof props.label === "string" ? props.label : null) ??
-    resolveBindingString(binding, "label");
+  const binding = resolveDataBinding(props, dataBindings);
+  const configId = resolveBoundString(props, binding, "configId");
+  const action = resolveBoundString(props, binding, "action");
+  const sectionId = resolveBoundString(props, binding, "sectionId");
+  const label = resolveBoundString(props, binding, "label");
   return { configId, action, sectionId, label };
 }
 

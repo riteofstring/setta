@@ -59,7 +59,7 @@ function _RegularSortableSectionContainer({
 
   // remove 'role' because we don't want sections to be "role=button"
   const {
-    attributes: { role, ...restAttributes },
+    attributes,
     listeners,
     setNodeRef,
     transform,
@@ -68,6 +68,7 @@ function _RegularSortableSectionContainer({
     items,
     isDragging,
   } = useSortable({ ...dndProps, animateLayoutChanges });
+  const restAttributes = { ...attributes, role: undefined };
   return (
     <SortableCore
       sectionId={sectionId}

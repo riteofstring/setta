@@ -50,9 +50,8 @@ function _SectionItem({
     goToSection(sectionId);
   };
 
-  const onClick = (e: React.MouseEvent) => {
+  const onClick = () => {
     handleSelection();
-    // focusOnSection(e, sectionId);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
