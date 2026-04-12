@@ -1,34 +1,29 @@
 import itertools
 import random
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 
-from setta.api.runtime_compat import verify_running_backend_compatibility
 from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_name
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.sdk_contracts.generated import (
-    RunnerSummarySection,
-    RunnerSummarySnapshot,
-    RunningBackendVersionHandshake,
+from setta.project_state.project_manager_types import (
+    RunDetachedResponse,
+    RunStatusResponse,
 )
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
-from setta.types.generated.go_shared_constants import SESSION_MATCH_HOST_REWRITES
-from setta.types.generated.go_shared_types import (
-    DependencyKeyType,
-    DetachedRun,
-    ProjectConfig,
-    Route,
-    RunSnapshotMode,
-)
+from setta.types.dependency_key import SectionParamDependencyKey
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
-from setta.types.protocol import SectionParamDependencyKey
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.routes import Route
+from setta.types.section_impls import BaseSectionWithParamsImpl
+from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 
@@ -54,27 +49,25 @@ class SectionSummary:
 class ParamLookup:
     def __init__(
         self,
-        summary_snapshot: RunnerSummarySnapshot,
+        project_state: ProjectStateSingleConfig,
         section_name_map: dict[str, ID],
     ) -> None:
-        self._sections_by_id = {
-            ID(section.id): section for section in summary_snapshot.sections
-        }
+        self._project_state = project_state
         self._section_name_map = section_name_map
 
     def by_name(self, section_name: str, param_name: str) -> SectionParamDependencyKey:
         section_id = self._section_name_map.get(section_name, section_name)
-        section = self._sections_by_id.get(ID(section_id))
-        if section is None:
+        if section_id not in self._project_state.sections:
             raise KeyError(f"Unknown section: {section_name}")
-        if not section.supportsParams:
+        section_impl = get_curr_effective_section_impl(self._project_state, section_id)
+        if not isinstance(section_impl, BaseSectionWithParamsImpl):
             raise KeyError(f"Section {section_name!r} has no params")
-        for param in section.params:
-            if param_name in (param.name, param.displayName):
+        for param_id in section_impl.codeObjVariantMap.keys():
+            core = self._project_state.codeObjs[param_id]
+            if param_name in (core.name, core.displayName):
                 return SectionParamDependencyKey(
-                    type=DependencyKeyType.SectionParam,
-                    sectionId=ID(section.id),
-                    codeObjId=ID(param.id),
+                    sectionId=section_id,
+                    codeObjId=param_id,
                 )
         raise KeyError(
             f"Unknown param name {param_name!r} for section {section_name!r}"
@@ -82,29 +75,27 @@ class ParamLookup:
 
 
 class RunnerSummary:
-    def __init__(self, summary_snapshot: RunnerSummarySnapshot) -> None:
-        self._sections_by_id: dict[ID, RunnerSummarySection] = {
-            ID(section.id): section for section in summary_snapshot.sections
-        }
+    def __init__(self, project_state: ProjectStateSingleConfig) -> None:
+        self._project_state = project_state
         self._section_name_map: dict[str, ID] = {}
-        for section in summary_snapshot.sections:
-            section_id = ID(section.id)
-            self._section_name_map[section.name] = section_id
-            if section.displayName:
-                self._section_name_map[section.displayName] = section_id
-        self.params = ParamLookup(summary_snapshot, self._section_name_map)
+        for section_id, core in project_state.sections.items():
+            self._section_name_map[core.name] = section_id
+            if core.displayName:
+                self._section_name_map[core.displayName] = section_id
+        self.params = ParamLookup(project_state, self._section_name_map)
 
     def section(self, name_or_id: str) -> SectionSummary:
         section_id = self._section_name_map.get(name_or_id, name_or_id)
-        section = self._sections_by_id.get(ID(section_id))
-        if section is None:
+        if section_id not in self._project_state.sections:
             raise KeyError(f"Unknown section: {name_or_id}")
+        core = self._project_state.sections[section_id]
         variants_by_name: dict[str, ID] = {}
-        for variant in section.variants:
-            variants_by_name[variant.name] = ID(variant.id)
+        for variant_id in core.variants:
+            variant = self._project_state.sectionVariants[variant_id]
+            variants_by_name[variant.name] = variant_id
         return SectionSummary(
-            id=ID(section.id),
-            name=section.name,
+            id=section_id,
+            name=core.name,
             variants=VariantLookup(variants_by_name),
         )
 
@@ -140,62 +131,6 @@ def _normalize_param_key(key: object) -> tuple[ID, ID]:
     raise ValueError(f"Unsupported param override key: {key!r}")
 
 
-def _normalize_backend_host(host: str | None) -> str | None:
-    if host is None:
-        return None
-    cleaned = host.strip()
-    if cleaned.startswith("[") and cleaned.endswith("]"):
-        cleaned = cleaned[1:-1]
-    return SESSION_MATCH_HOST_REWRITES.get(cleaned.lower(), cleaned)
-
-
-def _build_cookie_headers(cookie_name: str, cookie_value: str) -> dict[str, str]:
-    return {"Cookie": f"{cookie_name}={cookie_value}"}
-
-
-def _build_session_cookie_headers(session_id: str, secret: bytes) -> dict[str, str]:
-    cookie_value = AUTH_COOKIE_MANAGER.mint(session_id, secret)
-    return _build_cookie_headers(auth_cookie_name(session_id), cookie_value)
-
-
-def _bootstrap_cookie_headers(cookie_map: dict[str, str]) -> dict[str, str]:
-    cookie_name = select_auth_cookie_name(list(cookie_map.keys()))
-    if not cookie_name:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    cookie_value = cookie_map.get(cookie_name)
-    if not cookie_value:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    return _build_cookie_headers(cookie_name, cookie_value)
-
-
-def _normalize_param_grid(
-    param_grid: dict[object, list[object]],
-) -> tuple[list[tuple[ID, ID]], list[list[object]]]:
-    return [_normalize_param_key(key) for key in param_grid.keys()], list(
-        param_grid.values()
-    )
-
-
-def _copy_run_override_with_params(
-    override: RunOverride,
-    keys: list[tuple[ID, ID]],
-    values: Iterable[object],
-) -> RunOverride:
-    next_override = override.copy()
-    next_override.param_overrides.update(
-        {key: str(value) for key, value in zip(keys, values)}
-    )
-    return next_override
-
-
-def _build_project_config_lookup(configs: list[ProjectConfig]) -> dict[str, ID]:
-    lookup: dict[str, ID] = {}
-    for config in configs:
-        lookup[str(config.id)] = config.id
-        lookup.setdefault(config.name, config.id)
-    return lookup
-
-
 class RunPlan:
     def __init__(self, overrides: list[RunOverride] | None = None) -> None:
         self._overrides = overrides or [RunOverride()]
@@ -226,23 +161,36 @@ class RunPlan:
 
     def grid_params(self, param_grid: dict[object, list[object]]) -> "RunPlan":
         if not param_grid:
-            return RunPlan(self._copy_overrides())
-        keys, value_lists = _normalize_param_grid(param_grid)
-        return self._expand_param_rows(
-            keys,
-            lambda: itertools.product(*value_lists),
-        )
+            return RunPlan([override.copy() for override in self._overrides])
+        keys = [_normalize_param_key(key) for key in param_grid.keys()]
+        value_lists = list(param_grid.values())
+        expanded: list[RunOverride] = []
+        for override in self._overrides:
+            for values in itertools.product(*value_lists):
+                next_override = override.copy()
+                for key, value in zip(keys, values):
+                    next_override.param_overrides[key] = str(value)
+                expanded.append(next_override)
+        return RunPlan(expanded)
 
     def zip_params(self, param_grid: dict[object, list[object]]) -> "RunPlan":
         if not param_grid:
-            return RunPlan(self._copy_overrides())
-        keys, value_lists = _normalize_param_grid(param_grid)
+            return RunPlan([override.copy() for override in self._overrides])
+        keys = [_normalize_param_key(key) for key in param_grid.keys()]
+        value_lists = list(param_grid.values())
         lengths = {len(values) for values in value_lists}
         if len(lengths) > 1:
             raise ValueError(
                 "zip_params requires all value lists to have the same length"
             )
-        return self._expand_param_rows(keys, lambda: zip(*value_lists))
+        expanded: list[RunOverride] = []
+        for override in self._overrides:
+            for values in zip(*value_lists):
+                next_override = override.copy()
+                for key, value in zip(keys, values):
+                    next_override.param_overrides[key] = str(value)
+                expanded.append(next_override)
+        return RunPlan(expanded)
 
     def random_params(
         self,
@@ -252,16 +200,18 @@ class RunPlan:
         seed: int | None = None,
     ) -> "RunPlan":
         if not param_grid:
-            return RunPlan(self._copy_overrides())
+            return RunPlan([override.copy() for override in self._overrides])
         rng = random.Random(seed)
-        keys, value_lists = _normalize_param_grid(param_grid)
-        return self._expand_param_rows(
-            keys,
-            lambda: (
-                tuple(rng.choice(values) for values in value_lists)
-                for _ in range(count)
-            ),
-        )
+        keys = [_normalize_param_key(key) for key in param_grid.keys()]
+        value_lists = list(param_grid.values())
+        expanded: list[RunOverride] = []
+        for override in self._overrides:
+            for _ in range(count):
+                next_override = override.copy()
+                for key, values in zip(keys, value_lists):
+                    next_override.param_overrides[key] = str(rng.choice(values))
+                expanded.append(next_override)
+        return RunPlan(expanded)
 
     def repeat(self, count: int) -> "RunPlan":
         if count < 1:
@@ -269,22 +219,6 @@ class RunPlan:
         expanded: list[RunOverride] = []
         for _ in range(count):
             expanded.extend(override.copy() for override in self._overrides)
-        return RunPlan(expanded)
-
-    def _copy_overrides(self) -> list[RunOverride]:
-        return [override.copy() for override in self._overrides]
-
-    def _expand_param_rows(
-        self,
-        keys: list[tuple[ID, ID]],
-        value_rows_factory: Callable[[], Iterable[tuple[object, ...]]],
-    ) -> "RunPlan":
-        expanded: list[RunOverride] = []
-        for override in self._overrides:
-            expanded.extend(
-                _copy_run_override_with_params(override, keys, values)
-                for values in value_rows_factory()
-            )
         return RunPlan(expanded)
 
 
@@ -305,32 +239,21 @@ class SettaRunner:
         self._session = requests.Session()
         self._auth_headers = dict(auth_headers) if auth_headers is not None else None
         self._bootstrap_token = bootstrap_token.strip() if bootstrap_token else None
-        if workspace_root is None:
-            self._workspace_root = get_setta_paths().workspace_root
-        elif isinstance(workspace_root, Path):
-            self._workspace_root = workspace_root.expanduser().resolve()
-        else:
-            self._workspace_root = Path(workspace_root).expanduser().resolve()
+        self._workspace_root = self._resolve_workspace_root(workspace_root)
         self._resolved_auth_headers: dict[str, str] | None = None
         self._project_configs: list[ProjectConfig] | None = None
-        self._project_config_ids_by_ref: dict[str, ID] | None = None
         self._default_project_config_id: ID | None = None
-        self._verified_runtime_handshake: RunningBackendVersionHandshake | None = None
 
     def summary(self) -> RunnerSummary:
-        project_config_id = self._resolve_project_config_id(None)
-        data = self._post(
-            Route.GET_RUNNER_SUMMARY, {"projectConfigId": project_config_id}
-        )
-        summary_snapshot = RunnerSummarySnapshot(**data)
-        return RunnerSummary(summary_snapshot)
+        project_state = self._get_project_state()
+        return RunnerSummary(project_state)
 
     def run_detached(
         self,
         override: RunOverride | None = None,
         *,
         entry_section: str | ID | None = None,
-    ) -> DetachedRun:
+    ) -> RunDetachedResponse:
         active_override = override.copy() if override is not None else RunOverride()
         if active_override.run_snapshot_mode == RunSnapshotMode.never:
             raise ValueError(
@@ -341,149 +264,153 @@ class SettaRunner:
         )
         entry_section_id = active_override.entry_section_id
         if entry_section is not None:
-            entry_section_id = self.summary().section(str(entry_section)).id
+            entry_section_id = self._resolve_section_id(entry_section)
         payload = {
             "projectConfigId": project_config_id,
             "entrySectionId": entry_section_id,
             "runSnapshotMode": active_override.run_snapshot_mode,
             "sectionVariantOverrides": active_override.section_variant_overrides,
-            "paramOverrides": {
-                f"{section_id}:{param_id}": value
-                for key, value in active_override.param_overrides.items()
-                for section_id, param_id in [_normalize_param_key(key)]
-            },
+            "paramOverrides": self._encode_param_overrides(
+                active_override.param_overrides
+            ),
             "tags": active_override.tags,
         }
         data = self._post(Route.RUN_DETACHED, payload)
-        return DetachedRun(**data)
+        return RunDetachedResponse(**data)
 
-    def get_run_status(self, run_id: str) -> DetachedRun:
+    def get_run_status(self, run_id: str) -> RunStatusResponse:
         data = self._post(Route.GET_RUN_STATUS, {"runId": run_id})
-        return DetachedRun(**data)
+        return RunStatusResponse(**data)
 
-    def cancel_run(self, run_id: str) -> DetachedRun:
+    def cancel_run(self, run_id: str) -> RunStatusResponse:
         data = self._post(Route.CANCEL_RUN, {"runId": run_id})
-        return DetachedRun(**data)
+        return RunStatusResponse(**data)
 
     def _post(self, route: Route, payload: dict) -> dict:
-        if self._resolved_auth_headers is None:
-            headers = self._resolve_auth_headers()
-            self._session.headers.update(headers)
-            self._resolved_auth_headers = headers
-        self._ensure_runtime_compatibility()
-        url = f"{self._base_url}{Route.API_PREFIX.value}{route.value}"
+        self._ensure_auth_headers()
+        url = f"{self._base_url}{Route.PREFIX.value}{route.value}"
         response = self._session.post(url, json=payload)
         response.raise_for_status()
         return response.json()
 
-    def _ensure_runtime_compatibility(self) -> None:
-        if self._verified_runtime_handshake is not None:
+    def _ensure_auth_headers(self) -> None:
+        if self._resolved_auth_headers is not None:
             return
-        self._verified_runtime_handshake = verify_running_backend_compatibility(
-            self._session,
-            base_url=self._base_url,
-            auth_headers=None,
-        )
+        headers = self._resolve_auth_headers()
+        self._session.headers.update(headers)
+        self._resolved_auth_headers = headers
 
     def _resolve_auth_headers(self) -> dict[str, str]:
         if self._auth_headers is not None:
             return dict(self._auth_headers)
-        for resolver in (
-            self._resolve_bootstrap_auth_headers,
-            self._resolve_current_session_auth_headers,
-            self._resolve_workspace_session_auth_headers,
-        ):
-            headers = resolver()
-            if headers is not None:
-                return headers
+        if self._bootstrap_token is not None:
+            cookie_header = self._consume_bootstrap_token(self._bootstrap_token)
+            return {"Cookie": cookie_header}
+        session_info = load_current_session_secret()
+        if session_info is not None:
+            session_metadata, secret = session_info
+            cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
+            return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+        cookie_header = self._load_cookie_from_sessions()
+        if cookie_header is not None:
+            return {"Cookie": cookie_header}
         raise ValueError(
             "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
             "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
             "workspace)."
         )
 
-    def _resolve_bootstrap_auth_headers(self) -> dict[str, str] | None:
-        if self._bootstrap_token is None:
-            return None
+    def _consume_bootstrap_token(self, token: str) -> str:
         origin = origin_from_backend_url(self._base_url)
         consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
-        response = self._session.post(
-            consume_url,
-            json={"token": self._bootstrap_token},
-        )
+        response = self._session.post(consume_url, json={"token": token})
         response.raise_for_status()
-        return _bootstrap_cookie_headers(response.cookies.get_dict())
+        cookie_map = response.cookies.get_dict()
+        cookie_names = list(cookie_map.keys())
+        if not cookie_names:
+            raise ValueError("Bootstrap response did not include auth cookie.")
+        cookie_name = select_auth_cookie_name(cookie_names)
+        if not cookie_name:
+            raise ValueError("Bootstrap response did not include auth cookie.")
+        cookie_value = cookie_map.get(cookie_name)
+        if not cookie_value:
+            raise ValueError("Bootstrap response did not include auth cookie.")
+        return f"{cookie_name}={cookie_value}"
 
-    def _resolve_current_session_auth_headers(self) -> dict[str, str] | None:
-        session_info = load_current_session_secret()
-        if session_info is None:
+    def _load_cookie_from_sessions(self) -> str | None:
+        registry = self._build_session_registry()
+        if registry is None:
             return None
-        session_metadata, secret = session_info
-        return _build_session_cookie_headers(session_metadata.id, secret)
-
-    def _resolve_workspace_session_auth_headers(self) -> dict[str, str] | None:
-        sessions_root = resolve_sessions_root(self._workspace_root)
-        if sessions_root is None:
-            return None
-        registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace(self._workspace_root)
         if not sessions:
             return None
-        selected = self._select_workspace_session(sessions)
+        base_host, base_port = _parse_base_url(self._base_url)
+        if base_host is not None or base_port is not None:
+            matching = [
+                session
+                for session in sessions
+                if _session_matches_base_url(session, base_host, base_port)
+            ]
+            if matching:
+                sessions = matching
+        sessions.sort(key=lambda session: session.startedAt, reverse=True)
+        selected = sessions[0]
         secret_path = registry.resolve_secret_path(selected)
         if not secret_path.exists():
             return None
-        return _build_session_cookie_headers(selected.id, secret_path.read_bytes())
+        secret = secret_path.read_bytes()
+        token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
+        return f"{auth_cookie_name(selected.id)}={token}"
 
-    def _select_workspace_session(
-        self, sessions: list[SessionMetadata]
-    ) -> SessionMetadata:
-        matching_sessions = self._matching_workspace_sessions(sessions)
-        if matching_sessions:
-            sessions = matching_sessions
-        sessions.sort(key=lambda session: session.startedAt, reverse=True)
-        return sessions[0]
+    def _build_session_registry(self) -> SessionRegistry | None:
+        sessions_root = resolve_sessions_root(self._workspace_root)
+        if sessions_root is None:
+            return None
+        return SessionRegistry(sessions_root=sessions_root)
 
-    def _matching_workspace_sessions(
-        self, sessions: list[SessionMetadata]
-    ) -> list[SessionMetadata]:
-        parsed_base_url = urlparse(self._base_url)
-        base_host = _normalize_backend_host(parsed_base_url.hostname)
-        base_port = parsed_base_url.port
-        if base_host is None and base_port is None:
-            return []
-        return [
-            session
-            for session in sessions
-            if (base_port is None or session.port == base_port)
-            and (
-                base_host is None or _normalize_backend_host(session.host) == base_host
-            )
-        ]
+    def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
+        if workspace_root is None:
+            return get_setta_paths().workspace_root
+        if isinstance(workspace_root, Path):
+            return workspace_root.expanduser().resolve()
+        return Path(workspace_root).expanduser().resolve()
+
+    def _get_project_state(self) -> ProjectStateSingleConfig:
+        project_config_id = self._resolve_project_config_id(None)
+        data = self._post(
+            Route.GET_LATEST_PROJECT_STATE,
+            {"projectConfigId": project_config_id},
+        )
+        return ProjectStateSingleConfig(**data["projectState"])
 
     def _resolve_project_config_id(self, ref: str | None) -> ID:
-        project_ref = ref or self._project_name
-        if project_ref is None:
-            return self._resolve_default_project_config_id()
-        project_config_id = self._project_config_lookup().get(str(project_ref))
-        if project_config_id is not None:
-            return project_config_id
-        raise KeyError(f"Unknown project config: {project_ref}")
+        project_name = ref or self._project_name
+        if project_name is None:
+            if self._project_config_id is not None:
+                return self._project_config_id
+            configs = self._load_project_metadata()
+            if self._default_project_config_id is None:
+                raise KeyError("No default project config available")
+            return self._default_project_config_id
+        configs = self._load_project_metadata()
+        for config in configs:
+            if config.name == project_name or config.id == project_name:
+                return config.id
+        raise KeyError(f"Unknown project config: {project_name}")
 
-    def _resolve_default_project_config_id(self) -> ID:
-        if self._project_config_id is not None:
-            return self._project_config_id
-        self._load_project_metadata()
-        if self._default_project_config_id is None:
-            raise KeyError("No default project config available")
-        return self._default_project_config_id
+    def _resolve_section_id(self, section_ref: str | ID) -> ID:
+        summary = self.summary()
+        return summary.section(str(section_ref)).id
 
-    def _project_config_lookup(self) -> dict[str, ID]:
-        if self._project_config_ids_by_ref is None:
-            self._project_config_ids_by_ref = _build_project_config_lookup(
-                self._load_project_metadata()
-            )
-        return self._project_config_ids_by_ref
+    def _encode_param_overrides(
+        self,
+        overrides: dict[SectionParamDependencyKey | tuple[ID, ID], str],
+    ) -> dict[str, str]:
+        return {
+            f"{section_id}:{param_id}": value
+            for key, value in overrides.items()
+            for section_id, param_id in [_normalize_param_key(key)]
+        }
 
     def _load_project_metadata(self) -> list[ProjectConfig]:
         if self._project_configs is not None:
@@ -493,7 +420,32 @@ class SettaRunner:
         self._project_configs = [
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
-        self._project_config_ids_by_ref = _build_project_config_lookup(
-            self._project_configs
-        )
         return self._project_configs
+
+
+def _parse_base_url(base_url: str) -> tuple[str | None, int | None]:
+    parsed = urlparse(base_url)
+    return _normalize_host(parsed.hostname), parsed.port
+
+
+def _normalize_host(host: str | None) -> str | None:
+    if host is None:
+        return None
+    cleaned = host.strip()
+    if cleaned.startswith("[") and cleaned.endswith("]"):
+        cleaned = cleaned[1:-1]
+    if cleaned == "0.0.0.0" or cleaned == "localhost":
+        return "127.0.0.1"
+    if cleaned == "::":
+        return "::1"
+    return cleaned
+
+
+def _session_matches_base_url(
+    session: SessionMetadata, base_host: str | None, base_port: int | None
+) -> bool:
+    if base_port is not None and session.port != base_port:
+        return False
+    if base_host is None:
+        return True
+    return _normalize_host(session.host) == base_host
