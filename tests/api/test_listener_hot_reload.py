@@ -12,11 +12,16 @@ import pytest
 
 from setta.api.hot_reload import ListenerHotReloader
 from setta.api.listener import SettaListener
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
+from setta.sdk_contracts.generated import (
+    ListenerDependencyCatalog,
+    ListenerDependencyCatalogEntry,
+    ListenerRenderedDependencyValue,
+    ListenerRenderedDependencyValues,
+    ListenerSnapshot,
+)
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import TextBlockSectionImpl
+from setta.types.protocol import create_dep_key
+from setta.types.generated.go_shared_types import SectionType
 from watchfiles import Change
 
 if TYPE_CHECKING:
@@ -39,37 +44,6 @@ class TestSettaListenerHotReload:
     def _setup(self) -> None:
         self._mtime_offset = 1.0
 
-    def _build_project_state(self) -> ProjectStateSingleConfig:
-        section_impl = TextBlockSectionImpl(
-            id=ID("section-impl"),
-            name="Welcome",
-            text="Hello",
-        )
-        section_variant = Variant(
-            id=ID("section-variant"),
-            name="Welcome Variant",
-            impl=section_impl.id,
-            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-        )
-        section_core = Core(
-            id=ID("section-welcome"),
-            name="Welcome",
-            variants=[section_variant.id],
-            defaultVariant=section_variant.id,
-        )
-        project_config = ProjectConfig(
-            id=ID("project-1"),
-            name="Demo Project",
-            sectionVariantMap={section_core.id: section_variant.id},
-            topLevelSections={section_core.id: TopLevelSectionLayout()},
-        )
-        return ProjectStateSingleConfig(
-            projectConfig=project_config,
-            sections={section_core.id: section_core},
-            sectionImpls={section_impl.id: section_impl},
-            sectionVariants={section_variant.id: section_variant},
-        )
-
     @staticmethod
     def _bump_mtime(module_path: Path, offset: float) -> None:
         current_stat = module_path.stat()
@@ -77,21 +51,23 @@ class TestSettaListenerHotReload:
         os.utime(module_path, (new_mtime, new_mtime))
 
     def _write_listener_module(self, module_path: Path, version: str) -> None:
-        module_path.write_text(
-            textwrap.dedent(
-                f"""
-                def build_callbacks(listener):
-                    record = listener._test_invocations
+        self._write_module_text(
+            module_path,
+            f"""
+            def build_callbacks(listener):
+                record = listener._test_invocations
 
-                    @listener.listen(
-                        deps=("Welcome",),
-                        run_on_refresh=True,
-                    )
-                    def on_change(state, ctx):
-                        record.append("{version}")
-                """
-            )
+                @listener.listen(
+                    deps=("Welcome",),
+                    run_on_refresh=True,
+                )
+                def on_change(state, ctx):
+                    record.append("{version}")
+            """,
         )
+
+    def _write_module_text(self, module_path: Path, contents: str) -> None:
+        module_path.write_text(textwrap.dedent(contents))
         self._bump_mtime(module_path, self._mtime_offset)
         self._mtime_offset += 1.0
         importlib.invalidate_caches()
@@ -111,9 +87,34 @@ class TestSettaListenerHotReload:
             raise AssertionError("Unexpected callback payload shape")
         return next(iter(callbacks.keys()))
 
+    def _build_authoritative_snapshot_payload(
+        self,
+    ) -> tuple[ListenerDependencyCatalog, ListenerRenderedDependencyValues]:
+        dependency_key = create_dep_key(sectionId=ID("section-welcome"))
+        return (
+            ListenerDependencyCatalog(
+                entries=[
+                    ListenerDependencyCatalogEntry(
+                        dependencyKey=dependency_key,
+                        name="Welcome",
+                        fullPathName="Welcome",
+                        sectionType=SectionType.TextBlock,
+                    )
+                ]
+            ),
+            ListenerRenderedDependencyValues(
+                entries=[
+                    ListenerRenderedDependencyValue(
+                        dependencyKey=dependency_key,
+                        renderedValue=repr("Hello"),
+                    )
+                ]
+            ),
+        )
+
     async def test_reloader_cycles_update_callback_registration(self) -> None:
-        project_state = self._build_project_state()
-        listener = SettaListener(project_name=project_state.projectConfig.name)
+        project_config_id = ID("project-1")
+        listener = SettaListener(project_name="Demo Project")
         self._init_listener_invocations(listener)
         websocket = _StubWebsocket()
         listener._websocket = cast("ClientConnection", websocket)
@@ -136,7 +137,16 @@ class TestSettaListenerHotReload:
                 )
                 await reloader.reload_now(reload_module=False)
 
-                await listener._refresh_from_snapshot(project_state)
+                dependency_catalog, dependency_values = (
+                    self._build_authoritative_snapshot_payload()
+                )
+                await listener._refresh_from_snapshot(
+                    ListenerSnapshot(
+                        projectConfigId=project_config_id,
+                        dependencyCatalog=dependency_catalog,
+                        dependencyValues=dependency_values,
+                    )
+                )
                 await asyncio.sleep(0)
                 register_ids.append(self._extract_callback_id(websocket.sent[-1]))
                 assert self._get_listener_invocations(listener) == ["v1"]
@@ -289,6 +299,70 @@ class TestSettaListenerHotReload:
 
         with pytest.raises(ValueError):
             listener.start(builder=builder)
+
+    async def test_reload_now_raises_when_reloaded_module_lacks_builder(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            module_dir = self._prepare_package_dir(tmp_dir)
+            module_name = f"{module_dir.name}.hot_reload_missing_builder"
+            module_path = module_dir / "hot_reload_missing_builder.py"
+            try:
+                self._write_listener_module(module_path, "v1")
+                module = importlib.import_module(module_name)
+                reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                )
+
+                self._write_module_text(
+                    module_path,
+                    """
+                    def replacement_callbacks(listener):
+                        return None
+                    """,
+                )
+                delattr(sys.modules[module_name], "build_callbacks")
+
+                with pytest.raises(AttributeError, match="lacks builder"):
+                    await reloader.reload_now(reload_module=True)
+            finally:
+                sys.modules.pop(module_name, None)
+                sys.modules.pop(module_dir.name, None)
+
+    async def test_reload_now_raises_when_reloaded_builder_is_not_callable(self) -> None:
+        listener = SettaListener(project_name="Demo Project")
+
+        with tempfile.TemporaryDirectory(
+            dir=_REPO_ROOT,
+            prefix="hot_reload_tmp_",
+        ) as tmp_dir:
+            module_dir = self._prepare_package_dir(tmp_dir)
+            module_name = f"{module_dir.name}.hot_reload_invalid_builder"
+            module_path = module_dir / "hot_reload_invalid_builder.py"
+            try:
+                self._write_listener_module(module_path, "v1")
+                module = importlib.import_module(module_name)
+                reloader = ListenerHotReloader(
+                    listener=listener,
+                    builder=module.build_callbacks,
+                )
+
+                self._write_module_text(
+                    module_path,
+                    """
+                    build_callbacks = "not callable"
+                    """,
+                )
+
+                with pytest.raises(TypeError, match="is not callable"):
+                    await reloader.reload_now(reload_module=True)
+            finally:
+                sys.modules.pop(module_name, None)
+                sys.modules.pop(module_dir.name, None)
 
     @staticmethod
     def _init_listener_invocations(listener: SettaListener) -> list[str]:
