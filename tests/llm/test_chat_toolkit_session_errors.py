@@ -1,428 +1,725 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
+import json
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 import pytest
-
 from setta.api.chat_toolkit import (
     ChatHistoryClient,
     ChatSectionSyncClient,
     ChatSession,
     ChatStreamEmitterClient,
     ChatToolRunnerClient,
+    ToolCallBuilder,
+    on_chat_action_event,
 )
-from setta.api.generated_listener_endpoints import RouterEndpointAPI
-from setta.api.listener import ListenerCallbackContext, SettaListener
-from setta.database.db_objs import DBE
-from setta.llm.chat_store import AgentRunChatStore
-from setta.llm.chat_toolkit.history import ChatHistory
-from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
-from setta.types.chat_messages import (
+from setta.api.listener import DependencyEvent, ListenerCallbackContext, SettaListener
+from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.llm.chat_toolkit.section_sync import (
+    apply_stream_delta,
+    build_chat_section_state,
+)
+from setta.sdk_contracts.generated import ListenerDependencyCatalog
+from setta.types.generated.go_shared_types import (
+    Chat,
+    ChatSectionState,
     AssistantChatMessage,
     ChatFileAttachment,
+    ChatStopEvent,
+    ChatSendEvent,
     ChatRole,
+    LLMConfig,
+    LiteralDependencyValue,
+    MessageFinalizedEvent,
     MessageTextContent,
+    ToolChatMessage,
+    ToolResultEvent,
     SystemChatMessage,
     UserChatMessage,
 )
-from setta.types.chat_stream_events import MessageFinalizedEvent
-from setta.types.chat_toolkit import ChatSendEvent
-from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
-from setta.types.llm_config import LLMConfig
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import ChatSectionImpl, ChatSectionState
+from setta.types.protocol import create_dep_key
 
-
-def _build_chat_project_state(project_config_id: ID) -> ProjectStateSingleConfig:
-    section_impl = ChatSectionImpl(
-        id=ID(f"{project_config_id}-chat-impl"),
-        name="Chat Section",
-        chatId=ID(f"{project_config_id}-chat-id"),
-    )
-    section_variant = Variant(
-        id=ID(f"{project_config_id}-chat-variant"),
-        name="Chat Variant",
-        impl=section_impl.id,
-        nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
-    )
-    section_core = Core(
-        id=ID(f"{project_config_id}-chat"),
-        name="Chat Section",
-        variants=[section_variant.id],
-        defaultVariant=section_variant.id,
-    )
-    project_config = ProjectConfig(
-        id=project_config_id,
-        name=f"Project {project_config_id}",
-        sectionVariantMap={section_core.id: section_variant.id},
-        topLevelSections={section_core.id: TopLevelSectionLayout()},
-    )
-    return ProjectStateSingleConfig(
-        projectConfig=project_config,
-        sections={section_core.id: section_core},
-        sectionImpls={section_impl.id: section_impl},
-        sectionVariants={section_variant.id: section_variant},
-    )
+from tests.helpers.listener_runtime_state import (
+    build_listener_runtime_state_from_catalog,
+)
 
 
 def _build_listener_context(
-    project_state: ProjectStateSingleConfig,
+    project_config_id: ID,
     router_caller: Callable[[str, object], Awaitable[object]],
 ) -> ListenerCallbackContext:
-    listener = SettaListener(project_name=project_state.projectConfig.name)
-    listener._runtime_state = listener._build_runtime_state(project_state)
-    listener._project_config_id = project_state.projectConfig.id
+    listener = SettaListener(project_name=f"Project {project_config_id}")
+    listener._runtime_state = build_listener_runtime_state_from_catalog(
+        ListenerDependencyCatalog(entries=[])
+    )
+    listener._project_config_id = project_config_id
     listener._is_registered = True
     listener._router_endpoint_api = RouterEndpointAPI(router_caller)
 
     @listener.listen()
-    def _noop(state: Any, ctx: ListenerCallbackContext) -> None:
+    def _noop(_state: Any, _ctx: ListenerCallbackContext) -> None:
         return None
 
     spec = next(iter(listener._callbacks.values()))
     return listener._build_callback_context(spec, {})
 
 
+def _build_llm_config() -> LLMConfig:
+    return LLMConfig(
+        id="test-llm",
+        model="gpt-test",
+        provider="openai",
+        base_url="https://example.invalid/v1",
+        api_key_env="SETTA_TEST_API_KEY",
+        other_params={},
+    )
+
+
+def _derive_chat_name(first_message: object) -> str:
+    content = getattr(first_message, "content", [])
+    for block in content:
+        text = getattr(block, "text", None)
+        if isinstance(text, str) and text:
+            return text[:30]
+    return "chat"
+
+
+def _build_chat(
+    *,
+    chat_id: ID,
+    llm_config: LLMConfig,
+    first_message: object,
+    project_config_id: ID | None = None,
+) -> Chat:
+    return Chat(
+        id=chat_id,
+        name=_derive_chat_name(first_message),
+        llmConfig=llm_config,
+        projectConfigId=project_config_id,
+        messages=[first_message],
+        systemPrompt=None,
+    )
+
+
+def _append_chat_messages(chat: Chat, messages: list[object]) -> Chat:
+    existing_ids = {message.id for message in chat.messages}
+    new_messages = [message for message in messages if message.id not in existing_ids]
+    return chat.model_copy(update={"messages": [*chat.messages, *new_messages]})
+
+
+def _build_chat_action_dependency_event(
+    *,
+    section_id: ID,
+    payload: dict[str, object] | None,
+    code_obj_id: ID | None = None,
+    timestamp_ms: int = 123,
+) -> DependencyEvent:
+    encoded_payload = None
+    if payload is not None:
+        encoded_payload = LiteralDependencyValue(
+            type="Literal",
+            payload=json.dumps(payload),
+        )
+    return DependencyEvent(
+        dependencyKey=create_dep_key(sectionId=section_id, codeObjId=code_obj_id),
+        payload=encoded_payload,
+        timestampMs=timestamp_ms,
+    )
+
+
+class TestChatActionEvents:
+    def test_on_chat_action_event_returns_send_for_matching_section(self) -> None:
+        project_config_id = ID("proj-chat-send")
+
+        async def router_caller(endpoint_name: str, _payload: object) -> object:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        target_section_id = ID("section-1")
+        ctx = _build_listener_context(project_config_id, router_caller)
+        ctx.events = [
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                code_obj_id=ID("param-1"),
+                payload={
+                    "action": "send",
+                    "sectionId": target_section_id,
+                    "messageId": "ignored",
+                    "text": "ignored",
+                    "attachments": [],
+                    "role": ChatRole.user,
+                    "timestampMs": 100,
+                    "managed": True,
+                },
+            ),
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                payload={
+                    "action": "send",
+                    "sectionId": target_section_id,
+                    "messageId": "msg-1",
+                    "text": "Hello",
+                    "attachments": [],
+                    "role": ChatRole.user,
+                    "timestampMs": 101,
+                    "managed": True,
+                },
+            ),
+        ]
+
+        event = on_chat_action_event(ctx, section_id=target_section_id)
+
+        assert isinstance(event, ChatSendEvent)
+        assert event.messageId == "msg-1"
+        assert event.text == "Hello"
+
+    def test_on_chat_action_event_returns_stop_for_matching_section(self) -> None:
+        project_config_id = ID("proj-chat-stop")
+
+        async def router_caller(endpoint_name: str, _payload: object) -> object:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        target_section_id = ID("section-1")
+        ctx = _build_listener_context(project_config_id, router_caller)
+        ctx.events = [
+            _build_chat_action_dependency_event(
+                section_id=ID("section-2"),
+                payload={
+                    "action": "stop",
+                    "sectionId": "section-2",
+                    "timestampMs": 100,
+                    "managed": True,
+                },
+            ),
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                payload=None,
+            ),
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                payload={
+                    "action": "stop",
+                    "sectionId": target_section_id,
+                    "timestampMs": 101,
+                    "managed": True,
+                },
+            ),
+        ]
+
+        event = on_chat_action_event(ctx, section_id=target_section_id)
+
+        assert isinstance(event, ChatStopEvent)
+        assert event.sectionId == target_section_id
+
+
 class TestChatSessionErrors:
     pytestmark = pytest.mark.asyncio
 
     async def test_stream_exception_resets_waiting_state(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            section_id = ID("section-1")
-            first_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello")],
-            )
-            chat = history.create(
-                first_message=first_message,
-                llm_config=llm_config,
-            )
-            section_states: dict[ID, ChatSectionState] = {
-                section_id: build_chat_section_state(messages=chat.messages),
-            }
+        llm_config = _build_llm_config()
+        section_id = ID("section-1")
+        first_message = UserChatMessage(
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        chat = _build_chat(
+            chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
+        )
+        chats: dict[ID, Chat] = {chat.id: chat}
+        section_states: dict[ID, ChatSectionState] = {
+            section_id: build_chat_section_state(messages=chat.messages),
+        }
 
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                if not isinstance(payload, dict):
-                    raise TypeError("payload must be a dict")
-                if endpoint_name == "route_get_chat":
-                    chat_entry = history.require(payload["chatId"])
-                    return chat_entry.model_dump(mode="json")
-                if endpoint_name == "route_append_chat_messages":
-                    chat_entry = history.append(payload["chatId"], payload["messages"])
-                    return chat_entry.model_dump(mode="json")
-                if endpoint_name == "route_emit_chat_stream_delta":
-                    target_section_id = payload["sectionId"]
-                    current = section_states.get(target_section_id)
-                    if current is None:
-                        current = build_chat_section_state(messages=[])
-                    section_states[target_section_id] = apply_stream_delta(
-                        state=current,
-                        chunk=payload["chunk"],
-                    )
-                    return None
-                if endpoint_name == "route_set_chat_section_state":
-                    target_section_id = payload["sectionId"]
-                    section_states[target_section_id] = ChatSectionState.model_validate(
-                        payload["state"]
-                    )
-                    return None
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=payload["chunk"],
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-            api = RouterEndpointAPI(router_caller)
-            history_client = ChatHistoryClient(api)
-            stream_client = ChatStreamEmitterClient(api)
-            tools_client = ChatToolRunnerClient(api)
-            sync_client = ChatSectionSyncClient(api, history_client)
-            session = ChatSession(
-                section_id=section_id,
-                chat_id=chat.id,
-                history=history_client,
-                stream=stream_client,
-                tools=tools_client,
-                sync=sync_client,
-            )
+        api = RouterEndpointAPI(router_caller)
+        history_client = ChatHistoryClient(api)
+        stream_client = ChatStreamEmitterClient(api)
+        tools_client = ChatToolRunnerClient(api)
+        sync_client = ChatSectionSyncClient(api, history_client)
+        session = ChatSession(
+            section_id=section_id,
+            chat_id=chat.id,
+            history=history_client,
+            stream=stream_client,
+            tools=tools_client,
+            sync=sync_client,
+        )
 
-            async def provider_stream() -> AsyncIterator[str]:
-                yield "Hello"
-                raise RuntimeError("stream failure")
+        async def provider_stream() -> AsyncIterator[str]:
+            yield "Hello"
+            raise RuntimeError("stream failure")
 
-            with pytest.raises(RuntimeError):
-                await session.stream_text(provider_stream())
+        with pytest.raises(RuntimeError):
+            await session.stream_text(provider_stream())
 
-            assert not section_states[section_id].waitingForResponse
+        assert not section_states[section_id].waitingForResponse
 
     async def test_cancel_emits_message_finalized_when_partial_message(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            section_id = ID("section-1")
-            first_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello")],
-            )
-            chat = history.create(
-                first_message=first_message,
-                llm_config=llm_config,
-            )
-            section_states: dict[ID, ChatSectionState] = {
-                section_id: build_chat_section_state(messages=chat.messages),
-            }
-            emitted_chunks: list[object] = []
+        llm_config = _build_llm_config()
+        section_id = ID("section-1")
+        first_message = UserChatMessage(
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        chat = _build_chat(
+            chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
+        )
+        chats: dict[ID, Chat] = {chat.id: chat}
+        section_states: dict[ID, ChatSectionState] = {
+            section_id: build_chat_section_state(messages=chat.messages),
+        }
+        emitted_chunks: list[object] = []
 
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                if not isinstance(payload, dict):
-                    raise TypeError("payload must be a dict")
-                if endpoint_name == "route_get_chat":
-                    chat_entry = history.require(payload["chatId"])
-                    return chat_entry.model_dump(mode="json")
-                if endpoint_name == "route_append_chat_messages":
-                    chat_entry = history.append(payload["chatId"], payload["messages"])
-                    return chat_entry.model_dump(mode="json")
-                if endpoint_name == "route_emit_chat_stream_delta":
-                    chunk = payload["chunk"]
-                    emitted_chunks.append(chunk)
-                    target_section_id = payload["sectionId"]
-                    current = section_states.get(target_section_id)
-                    if current is None:
-                        current = build_chat_section_state(messages=[])
-                    section_states[target_section_id] = apply_stream_delta(
-                        state=current,
-                        chunk=chunk,
-                    )
-                    return None
-                if endpoint_name == "route_set_chat_section_state":
-                    target_section_id = payload["sectionId"]
-                    section_states[target_section_id] = ChatSectionState.model_validate(
-                        payload["state"]
-                    )
-                    return None
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                chunk = payload["chunk"]
+                emitted_chunks.append(chunk)
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=chunk,
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-            api = RouterEndpointAPI(router_caller)
-            history_client = ChatHistoryClient(api)
-            stream_client = ChatStreamEmitterClient(api)
-            tools_client = ChatToolRunnerClient(api)
-            sync_client = ChatSectionSyncClient(api, history_client)
-            session = ChatSession(
-                section_id=section_id,
-                chat_id=chat.id,
-                history=history_client,
-                stream=stream_client,
-                tools=tools_client,
-                sync=sync_client,
-            )
+        api = RouterEndpointAPI(router_caller)
+        history_client = ChatHistoryClient(api)
+        stream_client = ChatStreamEmitterClient(api)
+        tools_client = ChatToolRunnerClient(api)
+        sync_client = ChatSectionSyncClient(api, history_client)
+        session = ChatSession(
+            section_id=section_id,
+            chat_id=chat.id,
+            history=history_client,
+            stream=stream_client,
+            tools=tools_client,
+            sync=sync_client,
+        )
 
-            async def provider_stream() -> AsyncIterator[str]:
-                yield "Hello"
-                raise RuntimeError("stream failure")
+        async def provider_stream() -> AsyncIterator[str]:
+            yield "Hello"
+            raise RuntimeError("stream failure")
 
-            with pytest.raises(RuntimeError):
-                await session.stream_text(provider_stream())
+        with pytest.raises(RuntimeError):
+            await session.stream_text(provider_stream())
 
-            finalized_chunks = [
-                chunk
-                for chunk in emitted_chunks
-                if isinstance(chunk, MessageFinalizedEvent)
-            ]
-            assert finalized_chunks
-            finalized = finalized_chunks[0].message
-            assert isinstance(finalized, AssistantChatMessage)
-            assert finalized.content
-            assert finalized.content[0].text == "Hello"
+        finalized_chunks = [
+            chunk
+            for chunk in emitted_chunks
+            if isinstance(chunk, MessageFinalizedEvent)
+        ]
+        assert finalized_chunks
+        finalized = AssistantChatMessage.model_validate(finalized_chunks[0].message)
+        assert isinstance(finalized, AssistantChatMessage)
+        assert finalized.content
+        assert finalized.content[0].text == "Hello"
+
+    async def test_cancel_skips_blank_partial_message(self) -> None:
+        llm_config = _build_llm_config()
+        section_id = ID("section-1")
+        first_message = UserChatMessage(
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        chat = _build_chat(
+            chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
+        )
+        chats: dict[ID, Chat] = {chat.id: chat}
+        section_states: dict[ID, ChatSectionState] = {
+            section_id: build_chat_section_state(messages=chat.messages),
+        }
+        emitted_chunks: list[object] = []
+
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                chunk = payload["chunk"]
+                emitted_chunks.append(chunk)
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=chunk,
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        api = RouterEndpointAPI(router_caller)
+        history_client = ChatHistoryClient(api)
+        stream_client = ChatStreamEmitterClient(api)
+        tools_client = ChatToolRunnerClient(api)
+        sync_client = ChatSectionSyncClient(api, history_client)
+        session = ChatSession(
+            section_id=section_id,
+            chat_id=chat.id,
+            history=history_client,
+            stream=stream_client,
+            tools=tools_client,
+            sync=sync_client,
+        )
+
+        async def provider_stream() -> AsyncIterator[str]:
+            yield "   "
+            raise RuntimeError("stream failure")
+
+        with pytest.raises(RuntimeError):
+            await session.stream_text(provider_stream())
+
+        finalized_chunks = [
+            chunk
+            for chunk in emitted_chunks
+            if isinstance(chunk, MessageFinalizedEvent)
+        ]
+        assert not finalized_chunks
+        assert len(chats[chat.id].messages) == 1
+        assert not section_states[section_id].waitingForResponse
+
+    async def test_stream_runs_tools_and_emits_tool_results(self) -> None:
+        llm_config = _build_llm_config()
+        section_id = ID("section-1")
+        first_message = UserChatMessage(
+            content=[MessageTextContent(type="text", text="Hello")],
+        )
+        chat = _build_chat(
+            chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
+        )
+        chats: dict[ID, Chat] = {chat.id: chat}
+        section_states: dict[ID, ChatSectionState] = {
+            section_id: build_chat_section_state(messages=chat.messages),
+        }
+        emitted_chunks: list[object] = []
+        tool_result_message = ToolChatMessage(
+            tool_call_id="tool-call-1",
+            tool_name="setta__list_mcp_tools",
+            arguments={},
+            content=[],
+            is_error=False,
+            result={"tools": []},
+        )
+
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                chunk = payload["chunk"]
+                emitted_chunks.append(chunk)
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=chunk,
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            if endpoint_name == "route_run_mcp_tools":
+                assert payload["sectionId"] == section_id
+                return [tool_result_message.model_dump(mode="json")]
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        api = RouterEndpointAPI(router_caller)
+        history_client = ChatHistoryClient(api)
+        stream_client = ChatStreamEmitterClient(api)
+        tools_client = ChatToolRunnerClient(api)
+        sync_client = ChatSectionSyncClient(api, history_client)
+        session = ChatSession(
+            section_id=section_id,
+            chat_id=chat.id,
+            history=history_client,
+            stream=stream_client,
+            tools=tools_client,
+            sync=sync_client,
+        )
+        tool_call = ToolCallBuilder.from_name_and_args(
+            name="setta__list_mcp_tools",
+            arguments={},
+            tool_call_id="tool-call-1",
+        )
+
+        async def provider_stream() -> AsyncIterator[str]:
+            yield "tool-call"
+
+        async def normalize(_chunk: object) -> None:
+            await session.tool_call_delta(tool_call)
+
+        assistant_message = await session.stream(
+            provider_stream=provider_stream(),
+            normalize_chunk=normalize,
+            run_tools=True,
+        )
+
+        assert assistant_message.tool_calls is not None
+        assert assistant_message.tool_calls[0].id == tool_call.id
+        tool_result_chunks = [
+            chunk for chunk in emitted_chunks if isinstance(chunk, ToolResultEvent)
+        ]
+        assert len(tool_result_chunks) == 1
+        assert tool_result_chunks[0].result.tool_call_id == tool_call.id
+        assert isinstance(chats[chat.id].messages[-1], ToolChatMessage)
+        assert chats[chat.id].messages[-1].tool_call_id == tool_call.id
+        assert not section_states[section_id].waitingForResponse
 
 
 class TestChatSessionOpenFromEvent:
     pytestmark = pytest.mark.asyncio
 
     async def test_open_from_event_uses_system_role(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
-            section_id = ID("section-1")
-            captured_messages: list[object] = []
-            section_chat_ids: dict[ID, ID] = {}
+        llm_config = _build_llm_config()
+        engine_config_id = None
+        section_id = ID("section-1")
+        captured_messages: list[object] = []
+        section_chat_ids: dict[ID, ID] = {}
 
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                if not isinstance(payload, dict):
-                    raise TypeError("payload must be a dict")
-                if endpoint_name == "route_get_chat_section_chat_id":
-                    chat_id = section_chat_ids.get(payload["sectionId"])
-                    return str(chat_id) if chat_id else None
-                if endpoint_name == "route_set_chat_section_chat_id":
-                    section_chat_ids[payload["sectionId"]] = payload["chatId"]
-                    return None
-                if endpoint_name == "route_create_chat":
-                    first_message = payload["firstMessage"]
-                    captured_messages.append(first_message)
-                    chat_entry = history.create(
-                        first_message=first_message,
-                        llm_config=llm_config,
-                    )
-                    return chat_entry.model_dump(mode="json")
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat_section_chat_id":
+                chat_id = section_chat_ids.get(payload["sectionId"])
+                return str(chat_id) if chat_id else None
+            if endpoint_name == "route_set_chat_section_chat_id":
+                section_chat_ids[payload["sectionId"]] = payload["chatId"]
+                return None
+            if endpoint_name == "route_create_chat":
+                first_message = payload["firstMessage"]
+                captured_messages.append(first_message)
+                chat_entry = _build_chat(
+                    chat_id=ID(f"chat-{len(captured_messages)}"),
+                    llm_config=llm_config,
+                    first_message=first_message,
+                )
+                return chat_entry.model_dump(mode="json")
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-            project_state = _build_chat_project_state(ID("proj-chat-system"))
-            ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-system")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
-            event = ChatSendEvent(
-                sectionId=section_id,
-                messageId="msg-1",
-                text="System note",
-                role=ChatRole.system,
-                timestampMs=123,
-                managed=True,
-            )
-            await ChatSession.open_from_event(
-                ctx=ctx,
-                section_id=section_id,
-                engine_config_id=engine_config_id,
-                event=event,
-            )
+        event = ChatSendEvent(
+            action="send",
+            sectionId=section_id,
+            messageId="msg-1",
+            text="System note",
+            attachments=[],
+            role=ChatRole.system,
+            timestampMs=123,
+            managed=True,
+        )
+        await ChatSession.open_from_event(
+            ctx=ctx,
+            section_id=section_id,
+            engine_config_id=engine_config_id,
+            event=event,
+        )
 
-            assert len(captured_messages) == 1
-            assert isinstance(captured_messages[0], SystemChatMessage)
+        assert len(captured_messages) == 1
+        assert isinstance(captured_messages[0], SystemChatMessage)
 
     async def test_open_from_event_preserves_attachments(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
-            section_id = ID("section-1")
-            captured_messages: list[object] = []
-            section_chat_ids: dict[ID, ID] = {}
+        llm_config = _build_llm_config()
+        engine_config_id = None
+        section_id = ID("section-1")
+        captured_messages: list[object] = []
+        section_chat_ids: dict[ID, ID] = {}
 
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                if not isinstance(payload, dict):
-                    raise TypeError("payload must be a dict")
-                if endpoint_name == "route_get_chat_section_chat_id":
-                    chat_id = section_chat_ids.get(payload["sectionId"])
-                    return str(chat_id) if chat_id else None
-                if endpoint_name == "route_set_chat_section_chat_id":
-                    section_chat_ids[payload["sectionId"]] = payload["chatId"]
-                    return None
-                if endpoint_name == "route_create_chat":
-                    first_message = payload["firstMessage"]
-                    captured_messages.append(first_message)
-                    chat_entry = history.create(
-                        first_message=first_message,
-                        llm_config=llm_config,
-                    )
-                    return chat_entry.model_dump(mode="json")
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat_section_chat_id":
+                chat_id = section_chat_ids.get(payload["sectionId"])
+                return str(chat_id) if chat_id else None
+            if endpoint_name == "route_set_chat_section_chat_id":
+                section_chat_ids[payload["sectionId"]] = payload["chatId"]
+                return None
+            if endpoint_name == "route_create_chat":
+                first_message = payload["firstMessage"]
+                captured_messages.append(first_message)
+                chat_entry = _build_chat(
+                    chat_id=ID(f"chat-{len(captured_messages)}"),
+                    llm_config=llm_config,
+                    first_message=first_message,
+                )
+                return chat_entry.model_dump(mode="json")
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-            project_state = _build_chat_project_state(ID("proj-chat-attachments"))
-            ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-attachments")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
-            attachment = ChatFileAttachment(
-                id="artifacts/notes.txt",
-                name="notes.txt",
-                mimeType="text/plain",
-                size=12,
-            )
-            event = ChatSendEvent(
-                sectionId=section_id,
-                messageId="msg-1",
-                text="User note",
-                attachments=[attachment],
-                role=ChatRole.user,
-                timestampMs=123,
-                managed=True,
-            )
-            await ChatSession.open_from_event(
-                ctx=ctx,
-                section_id=section_id,
-                engine_config_id=engine_config_id,
-                event=event,
-            )
+        attachment = ChatFileAttachment(
+            id="artifacts/notes.txt",
+            name="notes.txt",
+            mimeType="text/plain",
+            size=12,
+        )
+        event = ChatSendEvent(
+            action="send",
+            sectionId=section_id,
+            messageId="msg-1",
+            text="User note",
+            attachments=[attachment],
+            role=ChatRole.user,
+            timestampMs=123,
+            managed=True,
+        )
+        await ChatSession.open_from_event(
+            ctx=ctx,
+            section_id=section_id,
+            engine_config_id=engine_config_id,
+            event=event,
+        )
 
-            assert len(captured_messages) == 1
-            message = captured_messages[0]
-            assert isinstance(message, UserChatMessage)
-            assert len(message.attachments) == 1
-            assert message.attachments[0].id == "artifacts/notes.txt"
+        assert len(captured_messages) == 1
+        message = captured_messages[0]
+        assert isinstance(message, UserChatMessage)
+        assert len(message.attachments) == 1
+        assert message.attachments[0].id == "artifacts/notes.txt"
 
     async def test_open_from_event_uses_assistant_role(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            history = ChatHistory(AgentRunChatStore(dbe))
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
-            section_id = ID("section-1")
-            captured_messages: list[object] = []
-            section_chat_ids: dict[ID, ID] = {}
+        llm_config = _build_llm_config()
+        engine_config_id = None
+        section_id = ID("section-1")
+        captured_messages: list[object] = []
+        section_chat_ids: dict[ID, ID] = {}
 
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                if not isinstance(payload, dict):
-                    raise TypeError("payload must be a dict")
-                if endpoint_name == "route_get_chat_section_chat_id":
-                    chat_id = section_chat_ids.get(payload["sectionId"])
-                    return str(chat_id) if chat_id else None
-                if endpoint_name == "route_set_chat_section_chat_id":
-                    section_chat_ids[payload["sectionId"]] = payload["chatId"]
-                    return None
-                if endpoint_name == "route_create_chat":
-                    first_message = payload["firstMessage"]
-                    captured_messages.append(first_message)
-                    chat_entry = history.create(
-                        first_message=first_message,
-                        llm_config=llm_config,
-                    )
-                    return chat_entry.model_dump(mode="json")
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat_section_chat_id":
+                chat_id = section_chat_ids.get(payload["sectionId"])
+                return str(chat_id) if chat_id else None
+            if endpoint_name == "route_set_chat_section_chat_id":
+                section_chat_ids[payload["sectionId"]] = payload["chatId"]
+                return None
+            if endpoint_name == "route_create_chat":
+                first_message = payload["firstMessage"]
+                captured_messages.append(first_message)
+                chat_entry = _build_chat(
+                    chat_id=ID(f"chat-{len(captured_messages)}"),
+                    llm_config=llm_config,
+                    first_message=first_message,
+                )
+                return chat_entry.model_dump(mode="json")
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
 
-            project_state = _build_chat_project_state(ID("proj-chat-assistant"))
-            ctx = _build_listener_context(project_state, router_caller)
+        project_config_id = ID("proj-chat-assistant")
+        ctx = _build_listener_context(project_config_id, router_caller)
 
-            event = ChatSendEvent(
-                sectionId=section_id,
-                messageId="msg-1",
-                text="Assistant note",
-                role=ChatRole.assistant,
-                timestampMs=123,
-                managed=True,
-            )
+        event = ChatSendEvent(
+            action="send",
+            sectionId=section_id,
+            messageId="msg-1",
+            text="Assistant note",
+            attachments=[],
+            role=ChatRole.assistant,
+            timestampMs=123,
+            managed=True,
+        )
+        await ChatSession.open_from_event(
+            ctx=ctx,
+            section_id=section_id,
+            engine_config_id=engine_config_id,
+            event=event,
+        )
+
+        assert len(captured_messages) == 1
+        assert isinstance(captured_messages[0], AssistantChatMessage)
+
+    async def test_open_from_event_rejects_tool_role(self) -> None:
+        engine_config_id = None
+        section_id = ID("section-1")
+
+        async def router_caller(endpoint_name: str, _payload: object) -> object:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        project_config_id = ID("proj-chat-tool")
+        ctx = _build_listener_context(project_config_id, router_caller)
+
+        event = ChatSendEvent(
+            action="send",
+            sectionId=section_id,
+            messageId="msg-1",
+            text="Tool note",
+            attachments=[],
+            role=ChatRole.tool,
+            timestampMs=123,
+            managed=True,
+        )
+
+        with pytest.raises(ValueError):
             await ChatSession.open_from_event(
                 ctx=ctx,
                 section_id=section_id,
                 engine_config_id=engine_config_id,
                 event=event,
             )
-
-            assert len(captured_messages) == 1
-            assert isinstance(captured_messages[0], AssistantChatMessage)
-
-    async def test_open_from_event_rejects_tool_role(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            llm_config = LLMConfig(id="test-llm", model="gpt-test")
-            engine_config_id = None
-            section_id = ID("section-1")
-
-            async def router_caller(endpoint_name: str, payload: object) -> object:
-                raise KeyError(f"Unknown endpoint {endpoint_name}")
-
-            project_state = _build_chat_project_state(ID("proj-chat-tool"))
-            ctx = _build_listener_context(project_state, router_caller)
-
-            event = ChatSendEvent(
-                sectionId=section_id,
-                messageId="msg-1",
-                text="Tool note",
-                role=ChatRole.tool,
-                timestampMs=123,
-                managed=True,
-            )
-
-            with pytest.raises(ValueError):
-                await ChatSession.open_from_event(
-                    ctx=ctx,
-                    section_id=section_id,
-                    engine_config_id=engine_config_id,
-                    event=event,
-                )

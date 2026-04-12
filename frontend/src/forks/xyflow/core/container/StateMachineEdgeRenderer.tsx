@@ -4,7 +4,7 @@ import { useNodeInternals, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   SectionTypeEnum,
-  type ProjectStateSingleConfig,
+  type SingleConfig,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -14,38 +14,10 @@ import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
-type WorkflowEdge =
-  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
-
-function areNodeGeometryMapsEqual(
-  left: Map<string, Node>,
-  right: Map<string, Node>,
-) {
-  if (left === right) {
-    return true;
-  }
-  if (left.size !== right.size) {
-    return false;
-  }
-  for (const [sectionId, leftNode] of left) {
-    const rightNode = right.get(sectionId);
-    if (!rightNode) {
-      return false;
-    }
-    if (
-      leftNode.position.x !== rightNode.position.x ||
-      leftNode.position.y !== rightNode.position.y ||
-      leftNode.width !== rightNode.width ||
-      leftNode.height !== rightNode.height
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
+type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
 
 function getSectionTypeById(
-  state: ProjectStateSingleConfig,
+  state: SingleConfig,
   sectionId: string,
 ): SectionTypeEnum | null {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -153,13 +125,11 @@ function resolveRelativeAnchorSides(
 }
 
 const StateMachineEdgeRenderer = () => {
-  const { width, height } = useReactFlow(
-    (state) => ({
-      width: state.width,
-      height: state.height,
-    }),
-    shallow,
-  );
+  const { width, height, multiSelectionActive } = useReactFlow((state) => ({
+    width: state.width,
+    height: state.height,
+    multiSelectionActive: state.multiSelectionActive,
+  }));
   const {
     stateMachineEdges,
     topLevelSections,
@@ -176,7 +146,7 @@ const StateMachineEdgeRenderer = () => {
     }),
     shallow,
   );
-  const nodes = useNodeInternals((state) => state.x, areNodeGeometryMapsEqual);
+  const nodes = useNodeInternals((state) => state.x);
   const { canEditStructure } = useShareCapabilities();
 
   const sectionTypesById = useMemo(() => {
@@ -247,10 +217,7 @@ const StateMachineEdgeRenderer = () => {
               return;
             }
             event.stopPropagation();
-            toggleStateMachineEdgeSelection(
-              edge.id,
-              useReactFlow.getState().multiSelectionActive,
-            );
+            toggleStateMachineEdgeSelection(edge.id, multiSelectionActive);
           };
           const promptSectionId =
             edge.targetAction?.type === "send_prompt"
