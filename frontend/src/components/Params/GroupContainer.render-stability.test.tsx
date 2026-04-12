@@ -6,6 +6,7 @@ import {
   useProjectState,
   useResizeEvent,
   useSettings,
+  useWaitingForLSPResult,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
@@ -232,6 +233,7 @@ describe("ParamGroupContainer render stability", () => {
     resetProjectStores();
     useSettings.setState(createSettingsState());
     syncStoreInitialState(useSettings);
+    syncStoreInitialState(useWaitingForLSPResult);
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -266,7 +268,7 @@ describe("ParamGroupContainer render stability", () => {
       );
     });
 
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       useResizeEvent.setState((state) => {
@@ -274,6 +276,30 @@ describe("ParamGroupContainer render stability", () => {
       });
     });
 
-    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not rematerialize param rows when waiting-for-result changes", async () => {
+    const sectionId = seedParamGroupContainerState();
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      useWaitingForLSPResult.setState((state) => {
+        state.parametersRequest[sectionId] = true;
+      });
+    });
+
+    expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
   });
 });

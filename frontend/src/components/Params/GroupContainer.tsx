@@ -257,7 +257,7 @@ function _ParamGroupContainer({
             id={`param-group-pinned-params:${sectionId}`}
             onRender={handlePinnedParamsRender}
           >
-            <GetPinnedParams
+            <MemoizedGetPinnedParams
               sectionId={sectionId}
               handleColumnResizeStart={handleColumnResizeStart}
               setMaxNestedDepth={setMaxNestedDepth}
@@ -268,7 +268,7 @@ function _ParamGroupContainer({
             id={`param-group-unpinned-params:${sectionId}`}
             onRender={handleUnpinnedParamsRender}
           >
-            <GetUnpinnedParams
+            <MemoizedGetUnpinnedParams
               sectionId={sectionId}
               handleColumnResizeStart={handleColumnResizeStart}
               setMaxNestedDepth={setMaxNestedDepth}
@@ -821,7 +821,7 @@ function GetPinnedParams({
 
   return (
     topLevelParamIds.length > 0 && (
-      <PinnedParamsArea
+      <MemoizedPinnedParamsArea
         sectionId={sectionId}
         topLevelParamIds={topLevelParamIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
@@ -837,6 +837,8 @@ function GetPinnedParams({
     )
   );
 }
+
+const MemoizedGetPinnedParams = React.memo(GetPinnedParams);
 
 function PinnedParamsArea({
   sectionId,
@@ -916,6 +918,8 @@ function PinnedParamsArea({
     </section>
   );
 }
+
+const MemoizedPinnedParamsArea = React.memo(PinnedParamsArea);
 
 function GetUnpinnedParams({
   sectionId,
@@ -1040,6 +1044,8 @@ function GetUnpinnedParams({
     </div>
   );
 }
+
+const MemoizedGetUnpinnedParams = React.memo(GetUnpinnedParams);
 
 function getLongestListLength(obj: Record<string, Array<string>>) {
   return Object.values(obj).reduce(

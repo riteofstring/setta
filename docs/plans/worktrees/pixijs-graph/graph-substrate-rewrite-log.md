@@ -199,6 +199,62 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 07:58 UTC
+
+- Item: Memoize the `GroupContainer` pinned/unpinned param branches on the
+  canonical `rotaryParamCodeObjDefault` lane so parent-local commits stop
+  rematerializing the mounted row subtree.
+- Status: `done`
+- Details:
+  - Re-read `RALPH.md`, the rewrite plan, and the durable handoff before
+    selecting the next subtask.
+  - Stayed on the same canonical param-group lane because item `453` had just
+    landed a real product win and still left the narrow-owner stack inside the
+    same `GroupContainer` / unpinned row path.
+  - Changed `frontend/src/components/Params/GroupContainer.tsx` so
+    `GetPinnedParams`, `PinnedParamsArea`, and `GetUnpinnedParams` now sit
+    behind local `React.memo(...)` boundaries.
+  - Added `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+    coverage proving `useWaitingForLSPResult.parametersRequest[sectionId]`
+    updates do not rematerialize the mounted `ParamDndList` subtree.
+  - Added
+    `perf/reports/frontend/2026-04-14_settings-graph-param-branch-memo-boundary.md`
+    with the live canary readout.
+  - Focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+  - Canonical live worktree probe:
+    - first attempt failed because the browser/page context closed during pane
+      normalization
+    - second bounded retry passed (`1` Playwright test, `50.4s`)
+    - fresh readout versus item `453`:
+      - `presentedSceneSectionParamGroupContainerReactRender`
+        `966.5ms total` / `216.6ms max` -> `464.9ms total` / `58.1ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `862.6ms total` / `204.9ms max` -> `413.9ms total` / `55.0ms max`
+      - `presentedSceneSectionParamDndListRowsReactRender`
+        `819.9ms total` / `201.0ms max` -> `399.8ms total` / `53.4ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `429.6ms total` / `23.2ms max` -> `226.3ms total` / `8.6ms max`
+      - `averageFrameDurationMs` `66.66` -> `38.15`
+      - `longTaskTotalDurationMs` `2241` -> `1074`
+  - CDP visual check:
+    - fresh-context sub-agent could not use the refreshed authenticated
+      bootstrap path because the token had already been rejected with
+      `401 Unauthorized`
+    - the same sub-agent then verified `http://127.0.0.1:3075/settings`
+      directly, confirmed `All Settings` and `rotaryParamCodeObjDefault` were
+      visible at normal zoom, and reported no console errors
+- Next action:
+  - stay on the same `rotaryParamCodeObjDefault` param-group lane and take one
+    more bounded product cut inside `GroupContainer` / the unpinned row path,
+    using the remaining `presentedSceneSectionParamGroupContainerReactRender`
+    owner as the decision boundary.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 15:10 UTC
 
 - reread the active plan/handoff first and stayed on the canonical

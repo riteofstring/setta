@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 07:37 UTC
+Last updated: 2026-04-14 07:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,78 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `454` landed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by memoizing the pinned/unpinned param
+  branches so `ParamGroupContainer`-local rerenders no longer rematerialize
+  the mounted row subtree:
+  - local ranking/readout for this iteration:
+    - reread `RALPH.md`, the plan, and the handoff first, then checked the
+      recent lane pattern before choosing the next slice; the latest completed
+      pass (`453`) was a real param-group win and explicitly kept the frontier
+      inside the same `GroupContainer` / unpinned row path
+    - chose the param-branch memo boundary because the next nearest production
+      seam was still inside `GroupContainer`: parent-local updates could still
+      flow back into `GetPinnedParams` / `GetUnpinnedParams` even when the row
+      props themselves had not changed
+    - kept the slice bounded to one production memo boundary in
+      `GroupContainer`, one focused render-stability regression, one canonical
+      live probe rerun, one append-only perf report, and one fresh-context CDP
+      check
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      now routes the pinned and unpinned param branches through local
+      `React.memo(...)` boundaries (`GetPinnedParams`, `PinnedParamsArea`,
+      `GetUnpinnedParams`) so parent-local commits do not automatically
+      rematerialize the mounted row subtree
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now proves `useWaitingForLSPResult.parametersRequest[sectionId]` updates
+      do not rematerialize the mounted `ParamDndList` subtree
+    - `perf/reports/frontend/2026-04-14_settings-graph-param-branch-memo-boundary.md`
+      records the canonical readout and keeps the next frontier inside the
+      same param-group lane
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-014/worktree-ai.log`
+      -> first attempt failed after the browser/page context closed during pane
+         normalization
+      -> second bounded retry passed (`1` Playwright test, `50.4s`)
+      -> fresh readout versus item `453`:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `966.5ms total` / `216.6ms max` -> `464.9ms total` / `58.1ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `862.6ms total` / `204.9ms max` -> `413.9ms total` / `55.0ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `819.9ms total` / `201.0ms max` -> `399.8ms total` / `53.4ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `429.6ms total` / `23.2ms max` -> `226.3ms total` / `8.6ms max`
+         `averageFrameDurationMs`
+         `66.66` -> `38.15`
+         `longTaskTotalDurationMs`
+         `2241` -> `1074`
+  - CDP verification:
+    - fresh-context sub-agent attempt against the refreshed authenticated
+      bootstrap URL hit `Token rejected. Request a new token and try again.`
+      with `401 Unauthorized`, so it could not complete that bootstrap path
+    - the same sub-agent then checked `http://127.0.0.1:3075/settings`
+      directly and confirmed `All Settings` plus the canonical target section
+      `rotaryParamCodeObjDefault` were visible at normal zoom with no
+      error-level console output and no obvious visual corruption
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this is another real win on the active param-group lane rather than a
+      harness-only pass
+    - the remaining narrow-owner stack still tops out at
+      `presentedSceneSectionParamGroupContainerReactRender`, followed by the
+      unpinned branch and row path, so the next bounded product cut should
+      stay inside the same `GroupContainer` / unpinned subtree
+    - before the next CDP bootstrap attempt, refresh the authenticated
+      bootstrap URL immediately before opening it; the direct `/settings` page
+      is currently a reliable visual smoke path for this lane
 
 - item `453` landed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` lane by moving resize-driven param-area
