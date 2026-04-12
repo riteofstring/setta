@@ -156,6 +156,26 @@ async def test_run_safely_logs_sync_factory_exception(logging_setup) -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_safely_logs_sync_factory_type_error(logging_setup) -> None:
+    logger, handler = logging_setup
+
+    def _factory():
+        raise TypeError("factory boom")
+
+    result = await run_safely(
+        _factory,
+        label="sync-factory-type-error",
+        logger=logger,
+    )
+    assert result is None
+    assert len(handler.records) == 1
+    record = handler.records[0]
+    assert record.levelno == logging.ERROR
+    assert "failure_label=sync-factory-type-error" in record.setta_context
+    assert "failure_handled=false" in record.setta_context
+
+
+@pytest.mark.asyncio
 async def test_run_safely_requires_awaitable(logging_setup) -> None:
     logger, handler = logging_setup
 

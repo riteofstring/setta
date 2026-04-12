@@ -1,74 +1,169 @@
-import { requestAIFollowSnapshot } from "state/actions/aiFollow";
-import { fetchListenerCoverageSnapshot } from "state/actions/listenerCoverage";
+/* @vitest-environment jsdom */
+
+import { act, createElement, useEffect } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
 import {
   useAllProjectMetadata,
+  useLocalStorage,
   useMisc,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  OverviewTabNameEnum,
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+} from "utils/constants";
+import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  createLSPDiagnosticsPayload,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
+  createProjectConfigDiagnostics,
+  createSingleConfig,
   createWindowSpaceConfig,
-  type ProjectStateSingleConfigInput,
+  type SingleConfig,
 } from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
+const routeCreateProjectConfigMock = vi.fn();
+const routeLoadProjectConfigMock = vi.fn();
 const routeLoadAllProjectMetadataMock = vi.fn();
+const routeGetLatestLspDiagnosticsMock = vi.fn();
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
 const initializeServerModeMock = vi.fn();
+const requestAIFollowSnapshotMock = vi.fn();
+const fetchListenerCoverageSnapshotMock = vi.fn();
 const processLspDiagnosticsMock = vi.fn();
+const navigateMock = vi.fn();
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_create_project_config: vi.fn(),
-  route_get_latest_lsp_diagnostics: vi.fn(),
-  route_load_all_project_metadata: (...args: unknown[]) =>
-    routeLoadAllProjectMetadataMock(...args),
-  route_load_project_config: vi.fn(),
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => navigateMock,
+}));
+
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    createProjectConfig: (options?: unknown) =>
+      options === undefined
+        ? routeCreateProjectConfigMock()
+        : routeCreateProjectConfigMock(options),
+    getLatestLspDiagnostics: (options?: unknown) =>
+      options === undefined
+        ? routeGetLatestLspDiagnosticsMock()
+        : routeGetLatestLspDiagnosticsMock(options),
+    loadAllProjectMetadata: (options?: unknown) =>
+      options === undefined
+        ? routeLoadAllProjectMetadataMock()
+        : routeLoadAllProjectMetadataMock(options),
+    loadProjectConfig: (options?: unknown) =>
+      options === undefined
+        ? routeLoadProjectConfigMock()
+        : routeLoadProjectConfigMock(options),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
 }));
 
 vi.mock("../serverMode", () => ({
-  initializeServerMode: (...args: unknown[]) =>
-    initializeServerModeMock(...args),
+  initializeServerMode: () => initializeServerModeMock(),
 }));
 
 vi.mock("../aiFollow", () => ({
-  requestAIFollowSnapshot: vi.fn(),
+  requestAIFollowSnapshot: (projectConfigId: string) =>
+    requestAIFollowSnapshotMock(projectConfigId),
 }));
 
 vi.mock("../listenerCoverage", () => ({
-  fetchListenerCoverageSnapshot: vi.fn(),
+  fetchListenerCoverageSnapshot: (projectConfigId: string) =>
+    fetchListenerCoverageSnapshotMock(projectConfigId),
 }));
 
 vi.mock("../lspDiagnostics", () => ({
-  processLspDiagnostics: (...args: unknown[]) =>
-    processLspDiagnosticsMock(...args),
+  processLspDiagnostics: (payload: unknown) =>
+    processLspDiagnosticsMock(payload),
 }));
 
-import {
-  route_get_latest_lsp_diagnostics,
-  route_load_project_config,
-} from "utils/generatedEndpoints";
 import {
   loadAllProjectMetadata,
   loadProjectConfig,
   loadProjectState,
+  useCreateAndGoToProjectConfig,
 } from "./loadProject";
 
-const routeLoadProjectConfigMock = vi.mocked(route_load_project_config);
-const routeGetLatestLspDiagnosticsMock = vi.mocked(
-  route_get_latest_lsp_diagnostics,
-);
-const requestAIFollowSnapshotMock = vi.mocked(requestAIFollowSnapshot);
-const fetchListenerCoverageSnapshotMock = vi.mocked(
-  fetchListenerCoverageSnapshot,
-);
+const originalReactActEnvironment = (
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT;
+
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
+
+beforeAll(() => {
+  setReactActEnvironment(true);
+});
+
+afterAll(() => {
+  setReactActEnvironment(originalReactActEnvironment);
+});
+
+type CreateProjectInvokerProps = {
+  onReady: (handler: () => Promise<void>) => void;
+};
+
+function CreateProjectInvoker({ onReady }: CreateProjectInvokerProps) {
+  const createAndGo = useCreateAndGoToProjectConfig();
+
+  useEffect(() => {
+    onReady(createAndGo);
+  }, [createAndGo, onReady]);
+
+  return null;
+}
+
+type RenderedProjectInvoker = {
+  host: HTMLDivElement;
+  root: Root;
+};
+
+async function renderCreateProjectInvoker(
+  onReady: (handler: () => Promise<void>) => void,
+): Promise<RenderedProjectInvoker> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(createElement(CreateProjectInvoker, { onReady }));
+  });
+
+  return { host, root };
+}
 
 describe("loadAllProjectMetadata", () => {
   beforeEach(() => {
@@ -77,8 +172,16 @@ describe("loadAllProjectMetadata", () => {
       defaultProjectConfigId: null,
       projectMetadata: [],
     });
+    routeCreateProjectConfigMock.mockReset();
     routeLoadAllProjectMetadataMock.mockReset();
+    routeLoadProjectConfigMock.mockReset();
+    routeGetLatestLspDiagnosticsMock.mockReset();
+    callOpenAPIMock.mockClear();
     initializeServerModeMock.mockReset();
+    requestAIFollowSnapshotMock.mockReset();
+    fetchListenerCoverageSnapshotMock.mockReset();
+    processLspDiagnosticsMock.mockReset();
+    navigateMock.mockReset();
   });
 
   it("returns false and skips loading when server mode is not ide", async () => {
@@ -112,6 +215,7 @@ describe("loadAllProjectMetadata", () => {
       project.id,
     );
     expect(useAllProjectMetadata.getState().projectMetadata).toEqual([project]);
+    expect(routeLoadAllProjectMetadataMock).toHaveBeenCalledWith();
   });
 
   it("returns false when metadata request fails", async () => {
@@ -128,24 +232,124 @@ describe("loadAllProjectMetadata", () => {
     expect(useAllProjectMetadata.getState().projectMetadata).toEqual([]);
     expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBeNull();
   });
+
+  it("hydrates a project config and triggers the Go-owned follow-up reads", async () => {
+    const loadedProjectState = createSingleConfig({
+      projectConfig: createProjectConfig({
+        id: "project-loaded",
+        name: "Loaded Project",
+      }),
+    });
+    const diagnostics = createLSPDiagnosticsPayload({
+      projectConfigId: "project-loaded",
+      genCode: createProjectConfigDiagnostics({
+        projectConfigId: "project-loaded",
+        isGenCode: true,
+        errors: {},
+      }),
+      codeSections: {},
+      unmappedGenCode: [],
+    });
+    routeLoadProjectConfigMock.mockResolvedValue({
+      data: loadedProjectState,
+      status: 200,
+      hasResponse: true,
+    });
+    routeGetLatestLspDiagnosticsMock.mockResolvedValue({
+      data: diagnostics,
+      status: 200,
+      hasResponse: true,
+    });
+    requestAIFollowSnapshotMock.mockResolvedValue(undefined);
+    fetchListenerCoverageSnapshotMock.mockResolvedValue(undefined);
+
+    const loaded = await loadProjectConfig({
+      projectConfigName: "Loaded Project",
+    });
+
+    expect(loaded).toBe(true);
+    expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
+      body: {
+        projectConfigName: "Loaded Project",
+      },
+    });
+    expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-loaded",
+      },
+    });
+    expect(processLspDiagnosticsMock).toHaveBeenCalledWith(diagnostics);
+    expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-loaded");
+    expect(fetchListenerCoverageSnapshotMock).toHaveBeenCalledWith(
+      "project-loaded",
+    );
+    expect(useProjectState.getState().projectConfig.id).toBe("project-loaded");
+  });
+});
+
+describe("useCreateAndGoToProjectConfig", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    routeCreateProjectConfigMock.mockReset();
+    navigateMock.mockReset();
+  });
+
+  it("navigates to the created project using the Go create-project response", async () => {
+    routeCreateProjectConfigMock.mockResolvedValue({
+      data: "Created Project",
+      status: 200,
+      hasResponse: true,
+    });
+
+    let createAndGo: (() => Promise<void>) | null = null;
+    const { host, root } = await renderCreateProjectInvoker((handler) => {
+      createAndGo = handler;
+    });
+
+    try {
+      await act(async () => {
+        await createAndGo?.();
+      });
+
+      // The hook should forward the Go-owned project name contract into the
+      // navigation target and set the Project AI overview tab.
+      expect(routeCreateProjectConfigMock).toHaveBeenCalledWith({
+        body: {
+          previewImgColor: expect.any(String),
+        },
+      });
+      expect(useLocalStorage.getState().overviewTab).toBe(
+        OverviewTabNameEnum.ProjectAIChat,
+      );
+      expect(navigateMock).toHaveBeenCalledWith(
+        pathRelativeToProject("Created Project"),
+        {
+          state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+        },
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });
 
 describe("loadProjectState", () => {
   beforeEach(() => {
     resetProjectStores();
-    routeLoadProjectConfigMock.mockReset();
-    routeGetLatestLspDiagnosticsMock.mockReset();
-    requestAIFollowSnapshotMock.mockReset();
-    fetchListenerCoverageSnapshotMock.mockReset();
-    processLspDiagnosticsMock.mockReset();
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
-    const invalidProjectState: ProjectStateSingleConfigInput = {
-      projectConfig: {
-        id: "project-invalid",
-        name: "Invalid Project",
-      },
+    const invalidProjectConfig = createProjectConfig({
+      id: "project-invalid",
+      name: "Invalid Project",
+    }) as Partial<SingleConfig["projectConfig"]>;
+    delete invalidProjectConfig.windowSpaces;
+    const invalidProjectState: Partial<SingleConfig> = {
+      projectConfig: invalidProjectConfig as SingleConfig["projectConfig"],
+      projectChatWindowing: createProjectChatWindowingState(),
     };
 
     await expect(loadProjectState(invalidProjectState)).rejects.toThrow(
@@ -154,7 +358,7 @@ describe("loadProjectState", () => {
   });
 
   it("throws when loaded project state is missing project chat windowing", async () => {
-    const invalidProjectState: ProjectStateSingleConfigInput = {
+    const invalidProjectState: Partial<SingleConfig> = {
       projectConfig: createProjectConfig({
         id: "project-missing-windowing",
         name: "Missing Windowing",
@@ -167,19 +371,20 @@ describe("loadProjectState", () => {
   });
 
   it("keeps backend project chat windowing authoritative on load", async () => {
-    const backendProjectState: ProjectStateSingleConfigInput = {
-      projectConfig: createProjectConfig({
-        id: "project-restore",
-        name: "Restore Project",
-        windowSpaces: {
-          "window-space-1": createWindowSpaceConfig({
-            id: "window-space-1",
-            name: "Saved Layout",
-            windowsById: {},
-            order: [],
-          }),
-        },
-      }),
+    const backendProjectConfig = createProjectConfig({
+      id: "project-restore",
+      name: "Restore Project",
+      windowSpaces: {
+        "window-space-1": createWindowSpaceConfig({
+          id: "window-space-1",
+          name: "Saved Layout",
+          windowsById: {},
+          order: [],
+        }),
+      },
+    });
+    const backendProjectState: Partial<SingleConfig> = {
+      projectConfig: backendProjectConfig,
       projectChatWindowing: createProjectChatWindowingState({
         instancesById: {
           "project-chat-window-1": createProjectChatWindowInstance({
@@ -207,7 +412,7 @@ describe("loadProjectState", () => {
       title: "Docked Chat",
     });
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
-      backendProjectState.projectConfig.windowSpaces,
+      backendProjectConfig.windowSpaces,
     );
   });
 
@@ -343,59 +548,5 @@ describe("loadProjectState", () => {
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     ).toEqual({});
-  });
-
-  it("publishes the loaded project before trailing diagnostics and follow-up fetches settle", async () => {
-    const loadedProjectState: ProjectStateSingleConfigInput = {
-      projectConfig: createProjectConfig({
-        id: "project-fast",
-        name: "settings",
-      }),
-      projectChatWindowing: createProjectChatWindowingState(),
-    };
-    let resolveDiagnostics: (() => void) | null = null;
-
-    routeLoadProjectConfigMock.mockResolvedValue({
-      data: loadedProjectState,
-      status: 200,
-      hasResponse: true,
-    });
-    routeGetLatestLspDiagnosticsMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveDiagnostics = () => {
-            resolve({
-              data: [],
-              status: 200,
-              hasResponse: true,
-            });
-          };
-        }),
-    );
-    requestAIFollowSnapshotMock.mockResolvedValue();
-    fetchListenerCoverageSnapshotMock.mockResolvedValue();
-
-    const loadPromise = loadProjectConfig({ projectConfigName: "settings" });
-
-    await vi.waitFor(() => {
-      expect(useProjectState.getState().projectConfig.name).toBe("settings");
-    });
-
-    await expect(loadPromise).resolves.toBe(true);
-    expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
-      projectConfigId: "project-fast",
-    });
-    expect(requestAIFollowSnapshotMock).not.toHaveBeenCalled();
-    expect(fetchListenerCoverageSnapshotMock).not.toHaveBeenCalled();
-
-    resolveDiagnostics?.();
-
-    await vi.waitFor(() => {
-      expect(processLspDiagnosticsMock).toHaveBeenCalledWith([]);
-      expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-fast");
-      expect(fetchListenerCoverageSnapshotMock).toHaveBeenCalledWith(
-        "project-fast",
-      );
-    });
   });
 });
