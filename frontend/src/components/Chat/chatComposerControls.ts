@@ -61,7 +61,7 @@ export function createManagedExecutionControlHandlers(
   };
 }
 
-export function resolvePermissionModeArg(
+function resolvePermissionModeArg(
   rawArg: string | undefined,
 ): ChatPermissionModeValue | null {
   if (!rawArg) {
@@ -71,7 +71,7 @@ export function resolvePermissionModeArg(
   return CHAT_PERMISSION_MODES.find((mode) => mode === normalized) ?? null;
 }
 
-export function resolveToggleArg(
+function resolveToggleArg(
   rawArg: string | undefined,
   currentValue: boolean,
 ): boolean | null {
@@ -502,28 +502,6 @@ function resolveSlashCommandDefinition(
     prefixMatch = entry;
   }
   return prefixMatch;
-}
-
-export function shouldTreatInputAsSlashCommand(
-  text: string,
-  commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
-): boolean {
-  return shouldTreatInputAsSlashCommandWithCommands(text, commands);
-}
-
-function shouldTreatInputAsSlashCommandWithCommands(
-  text: string,
-  commands: ChatSlashCommandDefinition[],
-): boolean {
-  const trimmedStart = text.trimStart();
-  if (!trimmedStart.startsWith("/")) {
-    return false;
-  }
-  const firstToken = trimmedStart.split(/\s+/u)[0] ?? "";
-  if (!SLASH_COMMAND_TOKEN_RE.test(firstToken)) {
-    return false;
-  }
-  return resolveSlashCommandDefinition(firstToken, commands) !== null;
 }
 
 type ParsedSlashCommandParts = {

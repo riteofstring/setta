@@ -1,7 +1,7 @@
 import { AskUserQuestionPrompt } from "utils/claudeTools";
 
 export const DEFAULT_TITLE = "Question";
-export const OTHER_OPTION_VALUE = "__other__";
+const OTHER_OPTION_VALUE = "__other__";
 const OTHER_OPTION_LABEL = "Type something else";
 const OTHER_OPTION_LABELS = new Set(["other", "type something else"]);
 
@@ -219,7 +219,7 @@ export function buildAnswers(
   return answers;
 }
 
-export function buildAnswerForQuestion(
+function buildAnswerForQuestion(
   question: AskUserQuestionPrompt,
   questionKey: QuestionKey,
   selections: QuestionSelections,

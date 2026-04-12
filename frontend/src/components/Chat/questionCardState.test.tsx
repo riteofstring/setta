@@ -12,7 +12,7 @@ vi.mock("state/actions/ai", () => ({
     respondExternalAgentQuestionMock(...args),
 }));
 
-import { buildQuestionKey, OTHER_OPTION_VALUE } from "./questionCardModel";
+import { buildQuestionKey, buildQuestionOptions } from "./questionCardModel";
 import { useQuestionCardState } from "./questionCardState";
 
 type HarnessProps = {
@@ -54,6 +54,10 @@ async function flushMicrotasks() {
 }
 
 describe("useQuestionCardState", () => {
+  const otherOptionValue =
+    buildQuestionOptions(questions[0]).find((option) => option.isOther)
+      ?.value ?? "__missing__";
+
   let host: HTMLDivElement;
   let root: Root;
 
@@ -107,8 +111,8 @@ describe("useQuestionCardState", () => {
       "Pick tags": "Fast, Custom",
     });
     expect(getState().selections).toEqual({
-      [buildQuestionKey(0)]: [OTHER_OPTION_VALUE],
-      [buildQuestionKey(1)]: ["Fast", OTHER_OPTION_VALUE],
+      [buildQuestionKey(0)]: [otherOptionValue],
+      [buildQuestionKey(1)]: ["Fast", otherOptionValue],
     });
     expect(getState().otherValues).toEqual({
       [buildQuestionKey(0)]: "Magenta",

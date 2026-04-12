@@ -15,7 +15,7 @@ type AppGenerationSlashCommandEntry = {
   promptTemplate: string;
 };
 
-export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
+const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-json",
     action: "app_json_render",

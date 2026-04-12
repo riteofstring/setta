@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  OTHER_OPTION_VALUE,
-  buildAnswerForQuestion,
+  buildAnswers,
   buildQuestionCompletion,
   buildQuestionKey,
+  buildQuestionOptions,
   buildQuestionSummaryItems,
   buildSelectionsFromAnswers,
   canSubmitQuestions,
@@ -30,14 +30,18 @@ const questions = [
 
 describe("questionCardModel", () => {
   it("maps custom resolved answers back into selections and other values", () => {
+    const otherOptionValue =
+      buildQuestionOptions(questions[0]).find((option) => option.isOther)
+        ?.value ?? "__missing__";
+
     const state = buildSelectionsFromAnswers(questions, {
       "Pick a color": "Magenta",
       "Pick tags": "Fast, Custom",
     });
 
     expect(state.selections).toEqual({
-      [buildQuestionKey(0)]: [OTHER_OPTION_VALUE],
-      [buildQuestionKey(1)]: ["Fast", OTHER_OPTION_VALUE],
+      [buildQuestionKey(0)]: [otherOptionValue],
+      [buildQuestionKey(1)]: ["Fast", otherOptionValue],
     });
     expect(state.otherValues).toEqual({
       [buildQuestionKey(0)]: "Magenta",
@@ -46,21 +50,25 @@ describe("questionCardModel", () => {
   });
 
   it("requires a filled custom value before multi-select answers can submit", () => {
+    const otherOptionValue =
+      buildQuestionOptions(questions[1]).find((option) => option.isOther)
+        ?.value ?? "__missing__";
     const selections = {
-      [buildQuestionKey(1)]: ["Fast", OTHER_OPTION_VALUE],
+      [buildQuestionKey(1)]: ["Fast", otherOptionValue],
     };
 
-    expect(
-      buildAnswerForQuestion(questions[1], buildQuestionKey(1), selections, {}),
-    ).toBeNull();
+    expect(buildAnswers(questions, selections, {})).toEqual({});
     expect(canSubmitQuestions(questions, selections, {})).toBe(false);
     expect(hasMissingOtherValues(questions, selections, {})).toBe(true);
   });
 
   it("builds completion and summary state from draft and resolved answers", () => {
+    const otherOptionValue =
+      buildQuestionOptions(questions[1]).find((option) => option.isOther)
+        ?.value ?? "__missing__";
     const selections = {
       [buildQuestionKey(0)]: ["Blue"],
-      [buildQuestionKey(1)]: ["Reliable", OTHER_OPTION_VALUE],
+      [buildQuestionKey(1)]: ["Reliable", otherOptionValue],
     };
     const otherValues = {
       [buildQuestionKey(1)]: "Portable",
