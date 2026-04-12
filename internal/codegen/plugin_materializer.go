@@ -505,27 +505,26 @@ func pluginCodegenOutputRoot(settaFilesRoot string, projectName string) string {
 }
 
 func pluginCodegenTargetDirName(targetID string) string {
-	normalizedChars := make([]rune, 0, len(targetID))
-	for _, char := range targetID {
-		switch {
-		case char >= 'a' && char <= 'z':
-			normalizedChars = append(normalizedChars, char)
-		case char >= 'A' && char <= 'Z':
-			normalizedChars = append(normalizedChars, char)
-		case char >= '0' && char <= '9':
-			normalizedChars = append(normalizedChars, char)
-		case char == '-' || char == '_' || char == '.':
-			normalizedChars = append(normalizedChars, char)
-		default:
-			normalizedChars = append(normalizedChars, '_')
+	normalized := strings.Trim(strings.Map(func(char rune) rune {
+		if isPluginCodegenTargetDirRune(char) {
+			return char
 		}
-	}
-	normalized := strings.Trim(string(normalizedChars), "_")
+		return '_'
+	}, targetID), "_")
 	if normalized == "" {
 		normalized = "_"
 	}
 	digest := sha256.Sum256([]byte(targetID))
 	return normalized + "__" + hex.EncodeToString(digest[:])[:12]
+}
+
+func isPluginCodegenTargetDirRune(char rune) bool {
+	return (char >= 'a' && char <= 'z') ||
+		(char >= 'A' && char <= 'Z') ||
+		(char >= '0' && char <= '9') ||
+		char == '-' ||
+		char == '_' ||
+		char == '.'
 }
 
 func normalizePluginGeneratedRelativePath(relativePath string) (string, error) {

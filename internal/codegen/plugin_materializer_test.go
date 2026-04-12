@@ -115,6 +115,17 @@ func TestPluginCodegenTargetDirNameAvoidsCrossTargetCollisions(t *testing.T) {
 	}
 }
 
+func TestPluginCodegenTargetDirNameNormalizesUnsupportedPrefixes(t *testing.T) {
+	t.Parallel()
+
+	if got := pluginCodegenTargetDirName("Alpha.Beta-1"); !strings.HasPrefix(got, "Alpha.Beta-1__") {
+		t.Fatalf("expected allowed characters to be preserved, got %q", got)
+	}
+	if got := pluginCodegenTargetDirName(" // "); !strings.HasPrefix(got, "___") {
+		t.Fatalf("expected unsupported-only target to collapse to underscore prefix, got %q", got)
+	}
+}
+
 func TestPluginMaterializerSkipsUnchangedOutputs(t *testing.T) {
 	t.Parallel()
 
