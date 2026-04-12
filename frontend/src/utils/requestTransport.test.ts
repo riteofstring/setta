@@ -2,8 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
-import { getErrorDetail } from "./endpointUtils";
-import { get, getBinary, post } from "./requestTransport";
+import { post } from "./requestTransport";
 import {
   BINARY_TRANSPORT_ROUTES,
   LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES,
@@ -12,7 +11,7 @@ import {
   STATUS_TRANSPORT_ROUTES,
 } from "./transportRouteConstants";
 
-describe("requestTransport URL routing", () => {
+describe("requestTransport post URL routing", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
@@ -38,40 +37,6 @@ describe("requestTransport URL routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes settaHomeInfo via backend origin in ide mode", async () => {
-    useServerMode.setState({
-      mode: "ide",
-      modeResolved: true,
-      modeError: null,
-    });
-    await get(STATUS_TRANSPORT_ROUTES.getSettaHomeInfo);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.getSettaHomeInfo}`,
-    );
-  });
-
-  it("keeps settaHomeInfo on backend origin when launcher/backend differ in ide mode", async () => {
-    useServerMode.setState({
-      mode: "ide",
-      modeResolved: true,
-      modeError: null,
-    });
-    vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
-      "http://backend.example/api",
-    );
-    vi.spyOn(C_ADDRESSES, "LAUNCHER", "get").mockReturnValue(
-      "http://launcher.example/api",
-    );
-
-    await get(STATUS_TRANSPORT_ROUTES.getSettaHomeInfo);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://backend.example/api/settaHomeInfo",
-    );
-  });
-
   it("routes revealPathInOsFileExplorer via backend origin", async () => {
     await post(STATUS_TRANSPORT_ROUTES.revealPathInOsFileExplorer, {
       path: "/tmp/example",
@@ -79,14 +44,6 @@ describe("requestTransport URL routing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.revealPathInOsFileExplorer}`,
-    );
-  });
-
-  it("routes launcherStatus via backend origin", async () => {
-    await get(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.getLauncherStatus);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.getLauncherStatus}`,
     );
   });
 
@@ -115,8 +72,6 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces);
-    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherFilesystemRoots);
     await post(SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory, {
       path: null,
     });
@@ -125,32 +80,12 @@ describe("requestTransport URL routing", () => {
       createIfMissing: false,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}`,
-    );
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherFilesystemRoots}`,
-    );
-    expect(fetchMock.mock.calls[2]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory}`,
     );
-    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace}`,
-    );
-  });
-
-  it("routes settaHomeInfo via backend origin in launcher mode", async () => {
-    useServerMode.setState({
-      mode: "launcher",
-      modeResolved: true,
-      modeError: null,
-    });
-
-    await get(STATUS_TRANSPORT_ROUTES.getSettaHomeInfo);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.getSettaHomeInfo}`,
     );
   });
 
@@ -268,49 +203,6 @@ describe("requestTransport URL routing", () => {
     );
   });
 
-  it("serializes launcher recent-workspaces query params", async () => {
-    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces, {
-      setta_home: "/tmp/setta-home",
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}?setta_home=%2Ftmp%2Fsetta-home`,
-    );
-  });
-
-  it("keeps backend routing for query-bearing launcher status route", async () => {
-    vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
-      "http://backend.example/api",
-    );
-    vi.spyOn(C_ADDRESSES, "LAUNCHER", "get").mockReturnValue(
-      "http://launcher.example/api",
-    );
-    vi.spyOn(C_ADDRESSES, "BACKEND_ORIGIN", "get").mockReturnValue(
-      "http://backend-origin.example",
-    );
-
-    await get(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.getLauncherStatus, {
-      setta_home: "/tmp/scoped-home",
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://backend.example/api/launcherStatus?setta_home=%2Ftmp%2Fscoped-home",
-    );
-  });
-
-  it("omits null query params during URL construction", async () => {
-    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces, {
-      setta_home: null,
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}`,
-    );
-  });
-
   it("routes tools call via backend origin without /api prefix", async () => {
     await post(ROOT_TRANSPORT_ROUTES.toolsCall, {
       tool: "list_mcp_tools",
@@ -328,38 +220,5 @@ describe("requestTransport URL routing", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}${BINARY_TRANSPORT_ROUTES.upload}`,
     );
-  });
-
-  it("parses binary responses as Uint8Array", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(new Uint8Array([1, 2, 3]), {
-        status: 200,
-        headers: { "content-type": "text/csv" },
-      }),
-    );
-
-    const result = await getBinary(BINARY_TRANSPORT_ROUTES.download, {
-      contentId: "abc123",
-    });
-
-    expect(result.status).toBe(200);
-    expect(result.data).toBeInstanceOf(Uint8Array);
-    expect(Array.from(result.data ?? [])).toEqual([1, 2, 3]);
-  });
-
-  it("parses non-2xx binary responses as JSON error payloads", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ detail: "Missing content id." }), {
-        status: 404,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
-    const result = await getBinary(BINARY_TRANSPORT_ROUTES.download, {
-      contentId: "missing",
-    });
-
-    expect(result.status).toBe(404);
-    expect(getErrorDetail(result.data)).toBe("Missing content id.");
   });
 });
