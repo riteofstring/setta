@@ -4033,32 +4033,7 @@ export const StreamingEventTypeEnum = {
   message_stop: "message_stop",
   message_finalized: "message_finalized",
 } as const;
-
-export const TaskBoardRecurringMonthEnum = {
-  january: "january",
-  february: "february",
-  march: "march",
-  april: "april",
-  may: "may",
-  june: "june",
-  july: "july",
-  august: "august",
-  september: "september",
-  october: "october",
-  november: "november",
-  december: "december",
-} as const;
 export type TaskBoardRecurringMonth = gt.TaskBoardRecurringMonth;
-
-export const TaskBoardRecurringWeekdayEnum = {
-  monday: "monday",
-  tuesday: "tuesday",
-  wednesday: "wednesday",
-  thursday: "thursday",
-  friday: "friday",
-  saturday: "saturday",
-  sunday: "sunday",
-} as const;
 export type TaskBoardRecurringWeekday = gt.TaskBoardRecurringWeekday;
 
 export const TaskBoardTaskRecurrenceEnum = {
@@ -4800,6 +4775,40 @@ export const SettaFilesLocationPolicyConfig = {
   requested: ["auto", "local", "global"],
   resolved: ["local", "global"],
 } satisfies gt.SettaFilesLocationPolicy;
+
+export const TaskBoardUIConfig = {
+  monthOptions: [
+    { label: "Jan", value: "january" },
+    { label: "Feb", value: "february" },
+    { label: "Mar", value: "march" },
+    { label: "Apr", value: "april" },
+    { label: "May", value: "may" },
+    { label: "Jun", value: "june" },
+    { label: "Jul", value: "july" },
+    { label: "Aug", value: "august" },
+    { label: "Sep", value: "september" },
+    { label: "Oct", value: "october" },
+    { label: "Nov", value: "november" },
+    { label: "Dec", value: "december" },
+  ],
+  recurrenceOptions: [
+    { label: "No repeat", value: "none" },
+    { label: "Hourly", value: "hourly" },
+    { label: "Daily", value: "daily" },
+    { label: "Repeat specified days", value: "specified_days" },
+    { label: "Repeat specified months", value: "specified_months" },
+    { label: "Repeat specified years", value: "specified_years" },
+  ],
+  weekdayOptions: [
+    { label: "Mon", value: "monday" },
+    { label: "Tue", value: "tuesday" },
+    { label: "Wed", value: "wednesday" },
+    { label: "Thu", value: "thursday" },
+    { label: "Fri", value: "friday" },
+    { label: "Sat", value: "saturday" },
+    { label: "Sun", value: "sunday" },
+  ],
+} satisfies gt.TaskBoardUIConfigValue;
 
 export const TextParamUIConfig = {
   calendarWeekdayLabelsByWeekStart: {

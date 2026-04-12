@@ -5422,6 +5422,11 @@
       "schemaRef": "#/$defs/TaskBoardColumn"
     },
     {
+      "name": "TaskBoardRecurrenceOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TaskBoardRecurrenceOption"
+    },
+    {
       "name": "TaskBoardRecurringMonth",
       "kind": "enum",
       "schemaRef": "#/$defs/TaskBoardRecurringMonth",
@@ -5477,6 +5482,11 @@
       ]
     },
     {
+      "name": "TaskBoardRecurringMonthOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TaskBoardRecurringMonthOption"
+    },
+    {
       "name": "TaskBoardRecurringWeekday",
       "kind": "enum",
       "schemaRef": "#/$defs/TaskBoardRecurringWeekday",
@@ -5510,6 +5520,11 @@
           "value": "sunday"
         }
       ]
+    },
+    {
+      "name": "TaskBoardRecurringWeekdayOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/TaskBoardRecurringWeekdayOption"
     },
     {
       "name": "TaskBoardSectionImpl",
@@ -5551,6 +5566,11 @@
           "value": "specified_years"
         }
       ]
+    },
+    {
+      "name": "TaskBoardUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/TaskBoardUIConfigValue"
     },
     {
       "name": "TaskBoardViewMode",
@@ -11147,6 +11167,118 @@
         "resolved": [
           "local",
           "global"
+        ]
+      }
+    },
+    {
+      "name": "TaskBoardUIConfig",
+      "type": "TaskBoardUIConfigValue",
+      "value": {
+        "monthOptions": [
+          {
+            "label": "Jan",
+            "value": "january"
+          },
+          {
+            "label": "Feb",
+            "value": "february"
+          },
+          {
+            "label": "Mar",
+            "value": "march"
+          },
+          {
+            "label": "Apr",
+            "value": "april"
+          },
+          {
+            "label": "May",
+            "value": "may"
+          },
+          {
+            "label": "Jun",
+            "value": "june"
+          },
+          {
+            "label": "Jul",
+            "value": "july"
+          },
+          {
+            "label": "Aug",
+            "value": "august"
+          },
+          {
+            "label": "Sep",
+            "value": "september"
+          },
+          {
+            "label": "Oct",
+            "value": "october"
+          },
+          {
+            "label": "Nov",
+            "value": "november"
+          },
+          {
+            "label": "Dec",
+            "value": "december"
+          }
+        ],
+        "recurrenceOptions": [
+          {
+            "label": "No repeat",
+            "value": "none"
+          },
+          {
+            "label": "Hourly",
+            "value": "hourly"
+          },
+          {
+            "label": "Daily",
+            "value": "daily"
+          },
+          {
+            "label": "Repeat specified days",
+            "value": "specified_days"
+          },
+          {
+            "label": "Repeat specified months",
+            "value": "specified_months"
+          },
+          {
+            "label": "Repeat specified years",
+            "value": "specified_years"
+          }
+        ],
+        "weekdayOptions": [
+          {
+            "label": "Mon",
+            "value": "monday"
+          },
+          {
+            "label": "Tue",
+            "value": "tuesday"
+          },
+          {
+            "label": "Wed",
+            "value": "wednesday"
+          },
+          {
+            "label": "Thu",
+            "value": "thursday"
+          },
+          {
+            "label": "Fri",
+            "value": "friday"
+          },
+          {
+            "label": "Sat",
+            "value": "saturday"
+          },
+          {
+            "label": "Sun",
+            "value": "sunday"
+          }
         ]
       }
     },

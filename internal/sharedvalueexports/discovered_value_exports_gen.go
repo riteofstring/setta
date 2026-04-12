@@ -119,6 +119,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "TaskBoardUIConfig",
+			Type: reflect.TypeOf(projectview.FrontendValueTaskBoardUIConfig()),
+			Value: func() any {
+				return projectview.FrontendValueTaskBoardUIConfig()
+			},
+		},
+		{
 			Name: "TextParamUIConfig",
 			Type: reflect.TypeOf(projectview.FrontendValueTextParamUIConfig()),
 			Value: func() any {

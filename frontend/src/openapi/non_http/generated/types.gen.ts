@@ -5990,6 +5990,14 @@ export type TaskBoardColumn = {
 };
 
 /**
+ * TaskBoardRecurrenceOption
+ */
+type TaskBoardRecurrenceOption = {
+  label: string;
+  value: TaskBoardTaskRecurrence;
+};
+
+/**
  * TaskBoardRecurringMonth
  */
 export type TaskBoardRecurringMonth =
@@ -6007,6 +6015,14 @@ export type TaskBoardRecurringMonth =
   | "december";
 
 /**
+ * TaskBoardRecurringMonthOption
+ */
+type TaskBoardRecurringMonthOption = {
+  label: string;
+  value: TaskBoardRecurringMonth;
+};
+
+/**
  * TaskBoardRecurringWeekday
  */
 export type TaskBoardRecurringWeekday =
@@ -6017,6 +6033,14 @@ export type TaskBoardRecurringWeekday =
   | "friday"
   | "saturday"
   | "sunday";
+
+/**
+ * TaskBoardRecurringWeekdayOption
+ */
+type TaskBoardRecurringWeekdayOption = {
+  label: string;
+  value: TaskBoardRecurringWeekday;
+};
 
 /**
  * TaskBoardSectionImpl
@@ -6076,6 +6100,15 @@ export type TaskBoardTaskRecurrence =
   | "specified_days"
   | "specified_months"
   | "specified_years";
+
+/**
+ * TaskBoardUIConfigValue
+ */
+export type TaskBoardUIConfigValue = {
+  monthOptions: null | Array<TaskBoardRecurringMonthOption>;
+  recurrenceOptions: null | Array<TaskBoardRecurrenceOption>;
+  weekdayOptions: null | Array<TaskBoardRecurringWeekdayOption>;
+};
 
 /**
  * TaskBoardViewMode

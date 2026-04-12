@@ -14569,6 +14569,20 @@
         "title": "TaskBoardColumn",
         "type": "object"
       },
+      "TaskBoardRecurrenceOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TaskBoardTaskRecurrence"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TaskBoardRecurrenceOption",
+        "type": "object"
+      },
       "TaskBoardRecurringMonth": {
         "enum": [
           "january",
@@ -14587,6 +14601,20 @@
         "title": "TaskBoardRecurringMonth",
         "type": "string"
       },
+      "TaskBoardRecurringMonthOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TaskBoardRecurringMonth"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TaskBoardRecurringMonthOption",
+        "type": "object"
+      },
       "TaskBoardRecurringWeekday": {
         "enum": [
           "monday",
@@ -14599,6 +14627,20 @@
         ],
         "title": "TaskBoardRecurringWeekday",
         "type": "string"
+      },
+      "TaskBoardRecurringWeekdayOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/TaskBoardRecurringWeekday"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "TaskBoardRecurringWeekdayOption",
+        "type": "object"
       },
       "TaskBoardSectionImpl": {
         "additionalProperties": false,
@@ -14784,6 +14826,32 @@
         ],
         "title": "TaskBoardTaskRecurrence",
         "type": "string"
+      },
+      "TaskBoardUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "monthOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TaskBoardRecurringMonthOption"
+            },
+            "type": ["null", "array"]
+          },
+          "recurrenceOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TaskBoardRecurrenceOption"
+            },
+            "type": ["null", "array"]
+          },
+          "weekdayOptions": {
+            "items": {
+              "$ref": "#/components/schemas/TaskBoardRecurringWeekdayOption"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["recurrenceOptions", "weekdayOptions", "monthOptions"],
+        "title": "TaskBoardUIConfigValue",
+        "type": "object"
       },
       "TaskBoardViewMode": {
         "enum": ["task_list", "kanban"],

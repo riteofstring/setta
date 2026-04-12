@@ -17138,6 +17138,23 @@
       ],
       "additionalProperties": false
     },
+    "TaskBoardRecurrenceOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/TaskBoardTaskRecurrence"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "TaskBoardRecurrenceOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
     "TaskBoardRecurringMonth": {
       "type": "string",
       "title": "TaskBoardRecurringMonth",
@@ -17156,6 +17173,23 @@
         "december"
       ]
     },
+    "TaskBoardRecurringMonthOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/TaskBoardRecurringMonth"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "TaskBoardRecurringMonthOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
     "TaskBoardRecurringWeekday": {
       "type": "string",
       "title": "TaskBoardRecurringWeekday",
@@ -17168,6 +17202,23 @@
         "saturday",
         "sunday"
       ]
+    },
+    "TaskBoardRecurringWeekdayOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/TaskBoardRecurringWeekday"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "TaskBoardRecurringWeekdayOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
     },
     "TaskBoardSectionImpl": {
       "type": "object",
@@ -17386,6 +17437,45 @@
         "specified_months",
         "specified_years"
       ]
+    },
+    "TaskBoardUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "recurrenceOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/TaskBoardRecurrenceOption"
+          }
+        },
+        "weekdayOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/TaskBoardRecurringWeekdayOption"
+          }
+        },
+        "monthOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/TaskBoardRecurringMonthOption"
+          }
+        }
+      },
+      "title": "TaskBoardUIConfigValue",
+      "required": [
+        "recurrenceOptions",
+        "weekdayOptions",
+        "monthOptions"
+      ],
+      "additionalProperties": false
     },
     "TaskBoardViewMode": {
       "type": "string",
