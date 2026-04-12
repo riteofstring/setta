@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 11:34 UTC
+Last updated: 2026-04-13 13:20 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,57 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `420` landed one bounded production change on the direct `/settings`
+  startup blocker by splitting backend init-status readiness from the slower
+  background-service tail:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not continue the repeated
+      pane-state/verifier-hardening pattern from items `417` through `419`
+    - chose one narrow production owner on the loading lane itself: the global
+      app shell should stop waiting for optional background-service startup once
+      the request-serving IDE backend core is ready
+    - kept the slice bounded to backend startup sequencing plus one focused
+      regression test; no renderer or parity-helper code changed
+  - code changed in:
+    - `backend/setta/server_state.py` so IDE-mode `init_status.isReady` flips at
+      `Backend ready` before `Starting background services` /
+      `Starting language servers`, while `wait_until_ready()` still waits for
+      full initialization-task completion
+    - `tests/server_state/test_ide_state_plugins.py` with a regression that
+      blocks LSP startup, waits for `init_status.isReady`, and proves the
+      backend status is ready before the private `_ready_event` completes
+  - focused verification:
+    - `source activate.sh && pytest tests/server_state/test_ide_state_plugins.py tests/server_state/test_launcher_state.py tests/utils/test_init_status.py`
+      -> passed (`9` tests)
+    - `source activate.sh && python -m ruff check backend/setta/server_state.py tests/server_state/test_ide_state_plugins.py tests/server_state/test_launcher_state.py tests/utils/test_init_status.py`
+      -> passed
+    - authenticated live probe retry:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-045/worktree-ai.log`
+      -> passed (`1` Playwright test, ~1.4m)
+      -> canonical target remained `rotaryParamCodeObjDefault`
+      -> worktree canary reached `surfaceKind: "canary"` and reported the same
+         dominant owner family as the latest baseline:
+         `presentedSceneSectionSubtreeReactRender`
+    - fresh-context headless CDP visual check after bootstrap on direct
+      `http://127.0.0.1:3075/settings`
+      -> still only observed the transient global loading surface
+      -> visible text: `Loading Setta...` / `Preparing the app surface.`
+  - reading:
+    - the startup-status split did not reproduce the earlier page-collapse
+      blocker: the authenticated Playwright canary now ran through the live
+      normalized lane successfully on run `045`
+    - CDP still did not wait long enough to capture the mounted graph/project
+      surface on the same pass, so treat the remaining mismatch as a
+      startup-visual timing question, not pane-state oracle debt
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - measure why fresh CDP still stalls on the transient app-shell loading
+      surface while the authenticated Playwright lane reaches the canary, then
+      rerun a graph-surface visual check after that timing owner is classified
+    - if that timing owner is only transient shell/bootstrap delay, pivot back
+      to the measured product hotspot on the live canary:
+      `presentedSceneSectionSubtreeReactRender`
 
 - item `419` landed one bounded normalization step on the repeated direct
   `/settings` `worktree_unhealthy` lane, then used fresh CDP to close the

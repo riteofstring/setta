@@ -151,6 +151,54 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 13:20 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first; did not continue
+  the repeated pane-normalization / verifier-hardening family after items
+  `417` through `419`
+- chose one bounded production startup-owner instead: move IDE
+  `backendInitStatus.isReady` earlier so the global app shell no longer waits
+  on optional background-service startup before leaving the top-level loader
+- changed `backend/setta/server_state.py` so IDE mode records `Backend ready`
+  and marks `init_status` ready before `Starting background services` /
+  `Starting language servers`, while `wait_until_ready()` still gates on full
+  initialization-task completion
+- added `tests/server_state/test_ide_state_plugins.py::
+  test_ide_state_marks_backend_init_status_ready_before_lsp_completion` to
+  block LSP startup and prove `init_status.isReady` becomes true before the
+  private `_ready_event` completes
+- verification:
+  - `source activate.sh && pytest tests/server_state/test_ide_state_plugins.py tests/server_state/test_launcher_state.py tests/utils/test_init_status.py`
+    -> pass (`9` tests)
+  - `source activate.sh && python -m ruff check backend/setta/server_state.py tests/server_state/test_ide_state_plugins.py tests/server_state/test_launcher_state.py tests/utils/test_init_status.py`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-045/worktree-ai.log`
+    -> pass (`1` Playwright test, ~1.4m)
+    -> lane reached mounted canary `surfaceKind: "canary"` on canonical target
+       `rotaryParamCodeObjDefault`
+    -> measured dominant owner stayed
+       `presentedSceneSectionSubtreeReactRender`
+  - fresh-context headless CDP check after bootstrap on
+    `http://127.0.0.1:3075/settings`
+    -> still only showed the transient global loading surface
+       `Loading Setta...` / `Preparing the app surface.`
+- reading:
+  - this pass cleared the earlier `page already closed` probe family for the
+    authenticated Playwright lane on run `045`; do not reopen pane-state helper
+    churn by default
+  - the remaining discrepancy is now between a passing authenticated Playwright
+    canary and a one-shot CDP visual check that still lands on the transient
+    app-shell loader
+  - keep canonical target section `rotaryParamCodeObjDefault`
+- next:
+  - classify the startup-visual timing owner that keeps fresh CDP on the
+    transient app-shell loading surface, then rerun a graph-surface visual
+    check
+  - once that visual timing question is resolved, return to the measured live
+    product hotspot `presentedSceneSectionSubtreeReactRender`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 11:34 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: stop forcing a

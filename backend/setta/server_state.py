@@ -603,6 +603,8 @@ class SettaFastAPIState:
                 self.state_machine_runner.handle_terminal_child_run_update
             )
 
+            self._mark_init_status_ready("Backend ready")
+
             self.init_status.record("Starting background services")
             await self._maybe_delay()
             await self.mcp_server.start_streamable_manager()
@@ -621,8 +623,6 @@ class SettaFastAPIState:
             self._start_transcription_session_cleanup_loop()
 
             self._ready_event.set()
-            self.init_status.record("Backend ready")
-            self.init_status.mark_ready()
         except Exception as exc:
             await self.stop_transcription_session_cleanup_loop()
             try:
@@ -651,8 +651,7 @@ class SettaFastAPIState:
         self.init_status.record("Preparing launcher runtime")
         await self._maybe_delay()
         self._ready_event.set()
-        self.init_status.record("Launcher backend ready")
-        self.init_status.mark_ready()
+        self._mark_init_status_ready("Launcher backend ready")
 
     async def _initialize_deployment_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
@@ -763,14 +762,17 @@ class SettaFastAPIState:
             self.specific_file_watcher.start()
         self._start_transcription_session_cleanup_loop()
         self._ready_event.set()
-        self.init_status.record(
+        self._mark_init_status_ready(
             "App backend ready" if self.app_mode else "Share backend ready"
         )
-        self.init_status.mark_ready()
 
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
+
+    def _mark_init_status_ready(self, message: str) -> None:
+        self.init_status.record(message)
+        self.init_status.mark_ready()
 
     def _start_transcription_session_cleanup_loop(self) -> None:
         if self.transcription_session_cleanup_task is not None:

@@ -1,5 +1,6 @@
 import shutil
 import json
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -176,6 +177,57 @@ async def test_ide_state_cleans_up_lsps_when_startup_fails(
             await state.wait_until_ready()
 
     assert stop_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_ide_state_marks_backend_init_status_ready_before_lsp_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The app shell should be able to leave the global loading screen once the
+    # request-serving core is up, even if optional background services are still
+    # finishing startup.
+    workspace_root = tmp_path / "workspace"
+    setta_home = tmp_path / ".setta"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    setta_home.mkdir(parents=True, exist_ok=True)
+
+    allow_lsp_completion = asyncio.Event()
+
+    async def _block_start_lsps(_lsps, _lsp_readers, _lsp_writers) -> None:
+        await allow_lsp_completion.wait()
+
+    monkeypatch.setattr(server_state_module, "start_lsps", _block_start_lsps)
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_location="local",
+        setta_home=setta_home,
+    ):
+        app = FastAPI()
+        state = SettaFastAPIState(
+            app,
+            enable_mcp_connections=False,
+        )
+
+        async def _wait_for_init_status_ready() -> None:
+            while not state.init_status.snapshot().isReady:
+                await asyncio.sleep(0.01)
+
+        await asyncio.wait_for(_wait_for_init_status_ready(), timeout=5)
+
+        status = state.init_status.snapshot()
+        messages = [event.message for event in status.events]
+        assert status.isReady is True
+        assert "Backend ready" in messages
+        assert "Starting language servers" in messages
+        assert messages.index("Backend ready") < messages.index(
+            "Starting language servers"
+        )
+        assert not state._ready_event.is_set()
+
+        allow_lsp_completion.set()
+        await state.wait_until_ready()
 
 
 @pytest.mark.asyncio
