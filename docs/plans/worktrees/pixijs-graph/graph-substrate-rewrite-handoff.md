@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 11:58 UTC
+Last updated: 2026-04-13 12:08 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,64 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `422` landed one bounded mounted-body production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by removing dead active-section UI
+  subscriptions from ordinary `SectionContainer` bodies:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not reopen the startup
+      attribution or pane-normalization families after item `421`
+    - chose one real product cut inside the measured
+      `presentedSceneSectionSubtreeReactRender` owner chain instead of another
+      probe-only pass: the mounted body shell should not subscribe to
+      `useActiveSectionUI` unless it is rendering the joined code-terminal
+      wrapper that actually consumes active highlight state
+    - kept the slice bounded to one composition-boundary change in
+      `SectionContainer`, one focused profiler regression, one live worktree
+      probe rerun, and one CDP smoke check; no new harness lane opened
+  - code changed in:
+    - `frontend/src/components/Section/Container/SectionContainer.tsx` so the
+      active-section UI subscriptions moved from the default mounted-body path
+      into a joined code-terminal branch component
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+      with a regression proving non-joined section containers stay out of
+      `activeIds` commits
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-container-active-ui-subscription-boundary.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+      -> passed (`2` files, `3` tests)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-047/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.5m`)
+      -> direct-open phase sequence on the worktree:
+         `58ms app_router_loading` -> `2216ms settings_loading` ->
+         `3797ms app_shell_without_surface` -> `7699ms project_loading` ->
+         `19705ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> worktree canary still reached `surfaceKind: "canary"` and kept the
+         same dominant owner family:
+         `presentedSceneSectionSubtreeReactRender`
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> still observed the route-specific loading shell rather than the
+         mounted settings graph surface
+      -> visible text: `PREPARING SETTA`, `Loading settings…`,
+         `Backend: Starting backend services`
+  - reading:
+    - this removed one real broad subscription from the mounted body shell
+      path without reopening the closed startup-shell diagnostics lane
+    - the live canary still spends most motion time inside the mounted body
+      subtree rather than the outer shell boundary:
+      `presentedSceneSectionSubtreeReactRender` `977.2ms` total /
+      `281.1ms` max, with
+      `presentedSceneSectionBodySubtreeReactRender` still at `958.0ms` total
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - stay on the mounted body owner chain and cut another broad live
+      subscriber or shared write-fan-out path inside the mounted body subtree
+    - do not reopen direct `/settings` startup classification unless the phase
+      sequence changes or the authenticated Playwright lane stops reaching the
+      canary
 
 - item `421` landed one bounded direct `/settings` startup-attribution slice so
   fresh worktree/CDP checks can classify the live loading owner instead of

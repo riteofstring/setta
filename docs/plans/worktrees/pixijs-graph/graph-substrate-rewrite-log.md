@@ -151,6 +151,58 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 12:08 UTC
+
+- re-read the active plan/handoff first and did not reopen the finished
+  startup-shell or pane-normalization lanes
+- picked one bounded product slice inside the measured mounted-body owner
+  chain: remove dead `useActiveSectionUI` subscriptions from ordinary
+  `SectionContainer` bodies and keep them only on the joined code-terminal
+  shell path that actually consumes active-state highlighting
+- changed `frontend/src/components/Section/Container/SectionContainer.tsx` so
+  non-joined section bodies no longer subscribe to `useIsSectionUIActive(...)`
+  on every mount
+- added `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+  with a profiler regression proving a non-joined section container does not
+  re-commit when `activeIds` changes
+- added
+  `perf/reports/frontend/2026-04-13_settings-graph-section-container-active-ui-subscription-boundary.md`
+  with the live readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.subscription.test.tsx`
+    -> pass (`2` files, `3` tests)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-047/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.5m`)
+    -> direct-open phases:
+       `58ms app_router_loading` -> `2216ms settings_loading` ->
+       `3797ms app_shell_without_surface` -> `7699ms project_loading` ->
+       `19705ms surface_ready`
+    -> canonical target remained `rotaryParamCodeObjDefault`
+    -> live motion attribution still named
+       `presentedSceneSectionSubtreeReactRender` as dominant
+       (`977.2ms` total, `281.1ms` max)
+    -> inner mounted-body owner remained
+       `presentedSceneSectionBodySubtreeReactRender`
+       (`958.0ms` total, `108.8ms` max)
+  - fresh-context headless CDP visual check on direct
+    `http://127.0.0.1:3075/settings`
+    -> route still showed the loading shell rather than the mounted graph
+       surface
+    -> visible text: `PREPARING SETTA`, `Loading settings…`,
+       `Backend: Starting backend services`
+- reading:
+  - this is a real production subscription cut in the mounted body shell path,
+    not another harness-only pass
+  - the live canary still spends most motion time inside the mounted body
+    subtree, so the next bounded product cut should stay inside that owner
+    chain instead of reopening startup diagnostics
+- next:
+  - target another broad mounted-body subscriber or shared write-fan-out path
+    under `presentedSceneSectionBodySubtreeReactRender` on the same canonical
+    `rotaryParamCodeObjDefault` lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 11:58 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: classify the
