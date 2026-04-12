@@ -1,6 +1,8 @@
 import type { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
+import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -11,9 +13,10 @@ import {
   DropdownConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
-
+import {
+  type DropdownParamCodeObjImpl,
+  CodeObjTypeEnum,
+} from "utils/generatedTypes";
 export function DropdownInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -27,7 +30,6 @@ export function DropdownInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.DropdownParam,
   );
-
   function onChange(newConfig: DropdownConfigForFrontend) {
     if (!canEditStructure) {
       return;
@@ -35,7 +37,7 @@ export function DropdownInputConfigForParam({
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"DropdownParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<DropdownParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,
@@ -43,13 +45,17 @@ export function DropdownInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: configClone,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig: configClone,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
   return (
@@ -60,7 +66,6 @@ export function DropdownInputConfigForParam({
     />
   );
 }
-
 function DropdownInputConfig({
   onChange,
   config,
@@ -71,24 +76,20 @@ function DropdownInputConfig({
   isDisabled: boolean;
 }) {
   const choices = config.choices ?? [];
-
   const addChoice = () => {
     const newChoices = [...choices, ""];
     onChange({ choices: newChoices });
   };
-
   const removeChoice = (removeIdx: number) => {
     const newChoices = choices.filter((c, idx) => idx !== removeIdx);
     onChange({ choices: newChoices });
   };
-
   const updateChoice = (updateIdx: number, newChoice: string) => {
     const newChoices = choices.map((c, idx) =>
       idx === updateIdx ? newChoice : c,
     );
     onChange({ choices: newChoices });
   };
-
   return (
     <>
       <button
@@ -128,7 +129,6 @@ function DropdownInputConfig({
     </>
   );
 }
-
 export function DropdownInput({
   choices,
   value,
@@ -166,7 +166,6 @@ export function DropdownInput({
       items: choices.map((c) => ({ id: c, name: c })),
     },
   ];
-
   return (
     <IdNameCombobox
       outerDivClasses={outerDivClasses}
