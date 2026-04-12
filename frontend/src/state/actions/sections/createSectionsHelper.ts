@@ -45,7 +45,7 @@ export type CreateSectionsContextMenuInfo = {
   controlCodeObjType?: CodeObjTypeEnum;
   controlParamConfig?: ControlParamConfig;
 };
-export function getBaseCodeSectionCreateItems(): Array<CreateSectionsContextMenuInfo> {
+function getBaseCodeSectionCreateItems(): Array<CreateSectionsContextMenuInfo> {
   return [
     {
       name: "Python Code",

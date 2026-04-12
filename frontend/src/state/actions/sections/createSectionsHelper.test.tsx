@@ -4,6 +4,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  CodeLanguageEnum,
   CodeObjTypeEnum,
   createProjectConfig,
   DateCalendarWeekStartEnum,
@@ -103,6 +104,26 @@ describe("useCreateSectionsList", () => {
     expect(otherGroup?.items.some((item) => item.name === "Task Board")).toBe(
       true,
     );
+  });
+  it("exposes JSON, YAML, and TOML presets through the live code group", () => {
+    let items: ReturnType<typeof useCreateSectionsList> = [];
+    renderToStaticMarkup(
+      <Probe
+        onResolve={(resolvedItems) => {
+          items = resolvedItems;
+        }}
+      />,
+    );
+    const codeGroup = items.find((group) => group.group === "Code");
+    const byName = Object.fromEntries(
+      (codeGroup?.items ?? []).map((item) => [item.name, item]),
+    );
+    expect(byName.JSON?.implSpecs.type).toBe(SectionTypeEnum.Code);
+    expect(byName.YAML?.implSpecs.type).toBe(SectionTypeEnum.Code);
+    expect(byName.TOML?.implSpecs.type).toBe(SectionTypeEnum.Code);
+    expect(byName.JSON?.implSpecs.codeLanguage).toBe(CodeLanguageEnum.json);
+    expect(byName.YAML?.implSpecs.codeLanguage).toBe(CodeLanguageEnum.yaml);
+    expect(byName.TOML?.implSpecs.codeLanguage).toBe(CodeLanguageEnum.toml);
   });
   it("exposes workflow control sections in a dedicated group", () => {
     let items: ReturnType<typeof useCreateSectionsList> = [];
