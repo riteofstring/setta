@@ -14,10 +14,10 @@ Defaults:
 - Maximum iterations: 1000
 - New Codex session every iteration
 - Model: `gpt-5.4`
-- Reasoning effort: `xhigh`
+- Reasoning effort: `high`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Stop when Codex explicitly reports audited completion
+- Stop when Codex explicitly reports audited completion or low-leverage review
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
 
 Options:
@@ -56,11 +56,12 @@ yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 complete_exit_code="42"
-stop_sentinel="CODEX_LOOP_STOP: DEADCODE_ALIAS_AUTHORITY_AUDITED_STOP"
+complete_stop_sentinel="CODEX_LOOP_STOP: DEADCODE_ALIAS_AUTHORITY_AUDITED_STOP"
+low_leverage_stop_sentinel="CODEX_LOOP_STOP: DEADCODE_LOW_LEVERAGE_REVIEW_NEEDED"
 codex_extra_args=()
 default_codex_extra_args=(
   --config
-  'reasoning_effort="xhigh"'
+  'reasoning_effort="high"'
 )
 
 require_value() {
@@ -255,9 +256,11 @@ if [[ ! -f "${deadcode_audit_file}" ]]; then
   cat > "${deadcode_audit_file}" <<EOF
 # Phase 1 Dead Code Audit
 
-Update this file during Phase 1.
+Keep this file compact and current-state only during Phase 1.
+Overwrite stale notes instead of appending an iteration diary.
 
 ## Latest report notes
+- Keep this section to at most 8 bullets about the current repo state.
 
 ## Remaining actionable deletions
 
@@ -279,7 +282,8 @@ if [[ ! -f "${alias_constant_audit_file}" ]]; then
   cat > "${alias_constant_audit_file}" <<EOF
 # Phase 2 Alias Constant Audit
 
-Update this file during Phase 2.
+Keep this file compact and current-state only during Phase 2.
+Overwrite stale notes instead of appending an iteration diary.
 
 ## Remaining actionable aliases
 
@@ -301,7 +305,8 @@ if [[ ! -f "${duplication_audit_file}" ]]; then
   cat > "${duplication_audit_file}" <<EOF
 # Phase 3 Duplication Audit
 
-Update this file during Phase 3.
+Keep this file compact and current-state only during Phase 3.
+Overwrite stale notes instead of appending an iteration diary.
 
 ## Remaining unjustified duplication
 
@@ -376,12 +381,12 @@ Read first, in this order:
 - ${ROOT_DIR}/docs/notes/repo_dead_code_detection_proposal.md
 - ${ROOT_DIR}/docs/reference/go-backed-python.md
 - ${ROOT_DIR}/docs/reference/generation-contracts.md
-- \`git log --oneline --decorate -n 15\`
+- \`git log --oneline --decorate -n 8\`
 - ${checklist_file}
-- ${deadcode_audit_file} if it exists
+- the current-state sections in ${deadcode_audit_file} if it exists
 - ${alias_candidates_file} if it exists
-- ${alias_constant_audit_file} if it exists
-- ${duplication_audit_file} if it exists
+- the current-state sections in ${alias_constant_audit_file} if it exists
+- the current-state sections in ${duplication_audit_file} if it exists
 - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
 
 Phase-order rules:
@@ -395,10 +400,15 @@ Phase-order rules:
 Execution rules for every iteration:
 - Start with a fresh targeted audit of the active phase.
 - Pick one actionable issue or tightly-related cluster inside the active phase that you can complete confidently in this session.
+- Keep checklist and audit files compact and current-state only. Overwrite stale notes instead of appending a long running diary.
+- Cap \`## Latest report notes\` in each audit file to at most 8 bullets that describe the current repo state, not historical narration.
 - Prefer deleting dead code or duplicated logic over moving it into wrappers, compatibility shims, tiny templates, or helper layers.
 - If a symbol is only referenced by tests, distinguish between a dead exported visibility/wrapper surface and still-live behavior. Prefer making the helper file-local or deleting only the dead wrapper surface before deleting coverage.
 - Never delete a focused test solely because the target helper became non-exported or file-local. Replace it in the same iteration with equal-or-stronger coverage through the owner API, component, runtime path, or an extracted non-exported helper module.
 - If replacement coverage would be materially weaker, more brittle, or much slower in the current iteration, keep the helper/test for now, record the rationale in the audit, and choose a different candidate instead of deleting coverage.
+- Do not make a large extraction mainly so tests can import internals directly. If removing one or two findings would require moving more than roughly 300 lines of production code, creating a new helper/internal module over roughly 200 lines, or broadening an internal boundary mainly for tests, treat that work as low leverage unless it also clearly improves the production ownership boundary for multiple live callers.
+- If a fresh audit shows only low-leverage remaining work under that rule, stop cleanly without repo changes, explain that review is needed, and end your final response with:
+  ${low_leverage_stop_sentinel}
 - Prefer Go-owned logic, metadata, and generation over duplicated Python or TypeScript logic.
 - Regenerate affected downstream artifacts before cleanup when Go-owned contracts, shared types, backend endpoints, or frontend generation inputs change.
 - Run focused verification for the behavior you changed.
@@ -426,6 +436,7 @@ Phase 1 rules:
 - When a helper or method is only test-referenced, treat the exported visibility or convenience wrapper as the likely dead surface by default. Do not assume the underlying behavior or its focused tests are dead.
 - Delete confirmed dead code across Go, Python, and TypeScript, including dead files, dead tests, dead declarations, dead imports, dead routes, and dead compatibility shims that no supported root needs.
 - Only delete a focused test when the behavior itself is confirmed dead or redundant after replacement coverage is already in place in the same iteration.
+- Treat extraction into a shared production helper as acceptable only when the extracted surface is small and production-oriented or when multiple live production callers benefit. Do not create large \`*Core\` or \`*Internal\` modules mainly to preserve direct test imports.
 - Record every remaining retained candidate in ${deadcode_audit_file} with file references and concrete rationale.
 - Mark Phase 1 complete only after a fresh report and audit find no remaining actionable dead-code deletions under the repo rules.
 
@@ -456,10 +467,13 @@ Phase 3 rules:
 - Mark Phase 3 complete only after a fresh audit finds no remaining actionable unjustified duplication.
 
 If a fresh audit shows all three phases are complete under these rules, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
-  ${stop_sentinel}
+  ${complete_stop_sentinel}
+
+If a fresh audit shows the remaining work is real but low leverage under the execution rules, make no repo changes, leave the worktree clean, state that the stop reason is low leverage review needed, and end your final response with this exact line:
+  ${low_leverage_stop_sentinel}
 
 Completion discipline:
-- Any session that does not emit the stop sentinel must produce a new clean commit.
+- Any session that does not emit a configured stop sentinel must produce a new clean commit.
 - Never end the session with uncommitted, unstaged, or untracked repo changes.
 EOF
 
@@ -478,7 +492,8 @@ pre_iteration_command="$(
     --output-dir "${output_dir}" \
     --state-dir "${state_dir}" \
     --complete-exit-code "${complete_exit_code}" \
-    --sentinel "${stop_sentinel}" \
+    --sentinel "${complete_stop_sentinel}" \
+    --sentinel "${low_leverage_stop_sentinel}" \
     --allow-clean-failures "3"
 )"
 
@@ -535,7 +550,7 @@ echo "Loop state directory: ${state_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: 1"
 echo "Model: ${model}"
-echo 'Reasoning effort: xhigh'
+echo 'Reasoning effort: high'
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
 if [[ "${yolo_mode}" == "1" ]]; then

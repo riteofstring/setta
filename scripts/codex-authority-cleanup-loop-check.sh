@@ -6,15 +6,16 @@ usage() {
 Usage: ./scripts/codex-authority-cleanup-loop-check.sh --root-dir PATH --output-dir PATH --state-dir PATH [options]
 
 Exit 0 while work remains.
-Exit the configured completion code only after the latest Codex response emits the
-explicit stop sentinel, the worktree is clean, and no new commit was created in
-that stop iteration.
+Exit the configured completion code only after the latest Codex response emits a
+configured stop sentinel, the worktree is clean, and no new commit was created
+in that stop iteration.
 
 Any non-stop iteration must advance HEAD and leave the repo clean.
 
 Options:
   --complete-exit-code N    Exit code used when the stop sentinel is observed.
   --sentinel TEXT           Exact stop sentinel line to detect in last-message.txt.
+                            Repeat to allow multiple clean stop conditions.
   --allow-clean-failures N  Tolerate up to N consecutive clean Codex failures
                             that leave HEAD unchanged and the worktree clean.
 EOF
@@ -24,7 +25,7 @@ root_dir=""
 output_dir=""
 state_dir=""
 complete_exit_code="42"
-sentinel="CODEX_LOOP_STOP: NO_ISSUES_FOUND"
+sentinels=()
 allow_clean_failures="0"
 
 while [[ $# -gt 0 ]]; do
@@ -46,7 +47,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --sentinel)
-      sentinel="${2:-}"
+      sentinels+=("${2:-}")
       shift 2
       ;;
     --allow-clean-failures)
@@ -90,6 +91,10 @@ if [[ ! "${allow_clean_failures}" =~ ^[0-9]+$ ]] || [[ "${allow_clean_failures}"
   exit 1
 fi
 
+if [[ "${#sentinels[@]}" -eq 0 ]]; then
+  sentinels=("CODEX_LOOP_STOP: NO_ISSUES_FOUND")
+fi
+
 mkdir -p "${state_dir}"
 
 status_file="${state_dir}/status.txt"
@@ -116,6 +121,22 @@ repo_is_clean() {
   fi
 
   return 0
+}
+
+find_matching_sentinel() {
+  local response_file="$1"
+  local sentinel=""
+
+  [[ -f "${response_file}" ]] || return 1
+
+  for sentinel in "${sentinels[@]}"; do
+    if grep -Fxq "${sentinel}" "${response_file}"; then
+      printf '%s\n' "${sentinel}"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 if [[ ! -f "${head_file}" ]]; then
@@ -156,7 +177,7 @@ if [[ -f "${latest_run_status_file}" ]]; then
   latest_run_status="$(<"${latest_run_status_file}")"
 fi
 
-if [[ -f "${response_file}" ]] && grep -Fxq "${sentinel}" "${response_file}"; then
+if matched_sentinel="$(find_matching_sentinel "${response_file}")"; then
   if [[ "${current_head}" != "${previous_head}" ]]; then
     printf '%s\n' "error:stop-sentinel-after-commit" > "${status_file}"
     echo "Latest iteration emitted the stop sentinel after advancing HEAD." >&2
@@ -169,9 +190,9 @@ if [[ -f "${response_file}" ]] && grep -Fxq "${sentinel}" "${response_file}"; th
     exit 1
   fi
 
-  printf '%s\n' "complete" > "${status_file}"
+  printf '%s\n' "complete:${matched_sentinel}" > "${status_file}"
   reset_failure_state
-  echo "Stop sentinel detected with a clean repo and no new commit."
+  echo "Stop sentinel detected with a clean repo and no new commit: ${matched_sentinel}"
   exit "${complete_exit_code}"
 fi
 
