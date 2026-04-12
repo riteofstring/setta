@@ -773,3 +773,74 @@ aggregate long-task totals.
   `presentedSceneSectionSubtreeReactRender`, preferably by cutting another
   sibling-commit source below the canary boundary rather than reopening probe
   or lifecycle work
+
+## 2026-04-13 Presented-Subset Contract Narrowing Below The Canary Boundary
+
+### What changed
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  so the profiled presented-sections subtree no longer receives the full
+  `sceneSections` array once the canary has already computed the visible subset
+  and mounted-body id set
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  to make `sceneSections`, `viewport`, and `visibleViewportRect` conditional
+  runtime inputs that are only required when the caller does not supply the
+  precomputed presented subset / mounted-body ids
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  with a regression proving offscreen-only scene churn no longer rerenders the
+  profiled sections subtree when the presented subset is unchanged
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed (`3` files, `25` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - passed
+- live worktree probe on run `038`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-038/worktree-ai.log`
+  - passed (`1` Playwright test, `2.0m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after the motion
+  sequence:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion breakdown:
+  - `longTaskCount`: `6`
+  - `longTaskTotalDurationMs`: `1265ms`
+  - `longTaskMaxDurationMs`: `389ms`
+  - `measurementWindowMs`: `1913.6ms`
+  - `averageFrameDurationMs`: `43.18ms`
+  - `panForward`: `2` tasks, `466ms` total, `323ms` max
+  - `panReturn`: `2` tasks, `460ms` total, `389ms` max
+  - `zoomIn`: `1` task, `174ms` total, `174ms` max
+  - `zoomOut`: `1` task, `165ms` total, `165ms` max
+- dominant named canary owner on the same run:
+  - `presentedSceneSectionSubtreeReactRender`: `955.7ms` total,
+    `231.5ms` max, `30` commits
+- smaller owners stayed small on the same run:
+  - `presentedSceneSectionEntriesResolve`: `5.5ms` total
+  - `presentedSceneBodyMountFilter`: `0.6ms` total
+  - `pixiDrawableModelResolve`: `0.5ms` total
+
+### Updated Reading
+
+- this slice narrowed the profiled subtree contract at a real composition
+  boundary: offscreen scene-array churn no longer forces the mounted presented
+  sections subtree to rerender when the visible subset and mounted-body gate
+  are unchanged
+- the live probe did not improve the canonical lane on run `038`; the dominant
+  owner remains `presentedSceneSectionSubtreeReactRender`, so the next slice
+  still needs to cut real work inside the mounted visible-section subtree
+- because the offscreen-array forwarding lane is now closed, the next bounded
+  product candidate should target remaining visible-section subtree churn such
+  as shell/body composition or another visible-entry prop that still commits
+  during the normalized motion burst

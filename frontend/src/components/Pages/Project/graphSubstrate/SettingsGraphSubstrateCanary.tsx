@@ -44,7 +44,6 @@ type SettingsGraphSubstrateCanaryPresentedSectionsProps = {
     actualDuration: number,
   ) => void;
   presentedSceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
-  sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionDragController: ReturnType<
     typeof useSettingsGraphSubstrateCanaryController
   >["sectionDragController"];
@@ -56,7 +55,6 @@ function _SettingsGraphSubstrateCanaryPresentedSections({
   onHoveredSectionChange,
   onSectionsLayerRender,
   presentedSceneSections,
-  sceneSections,
   sectionDragController,
 }: SettingsGraphSubstrateCanaryPresentedSectionsProps) {
   return (
@@ -69,7 +67,6 @@ function _SettingsGraphSubstrateCanaryPresentedSections({
         mountedSectionBodyIds={mountedSectionBodyIds}
         onHoveredSectionChange={onHoveredSectionChange}
         presentedSceneSections={presentedSceneSections}
-        sceneSections={sceneSections}
         sectionDragController={sectionDragController}
       />
     </Profiler>
@@ -84,7 +81,6 @@ const SettingsGraphSubstrateCanaryPresentedSections = React.memo(
     previousProps.onHoveredSectionChange === nextProps.onHoveredSectionChange &&
     previousProps.onSectionsLayerRender === nextProps.onSectionsLayerRender &&
     previousProps.presentedSceneSections === nextProps.presentedSceneSections &&
-    previousProps.sceneSections === nextProps.sceneSections &&
     previousProps.sectionDragController === nextProps.sectionDragController,
 );
 
@@ -266,7 +262,6 @@ export function SettingsGraphSubstrateCanary() {
             onHoveredSectionChange={handleHoveredSectionChange}
             onSectionsLayerRender={handleSectionsLayerRender}
             presentedSceneSections={presentedSceneSections}
-            sceneSections={controller.sceneSections}
             sectionDragController={controller.sectionDragController}
           />
         ) : (

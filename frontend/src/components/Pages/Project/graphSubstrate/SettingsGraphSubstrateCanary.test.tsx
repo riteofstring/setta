@@ -296,6 +296,55 @@ describe("SettingsGraphSubstrateCanary", () => {
     );
   });
 
+  it("keeps the profiled sections subtree stable when offscreen scene churn leaves the presented subset unchanged", async () => {
+    const visibleSection = {
+      renderedPosition: { x: 24, y: 32 },
+      sceneBoundsSize: { height: 120, width: 240 },
+      sectionId: "visible-section",
+    };
+
+    hoisted.controller.resolvedViewport = { x: 0, y: 0, zoom: 1 };
+    hoisted.controller.sceneSections = [
+      visibleSection,
+      {
+        renderedPosition: { x: 1440, y: 32 },
+        sceneBoundsSize: { height: 120, width: 240 },
+        sectionId: "offscreen-section",
+        styleColor: "blue",
+      },
+    ];
+    hoisted.controller.viewportTransform = "translate3d(0px, 0px, 0) scale(1)";
+
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    const mockedSectionsLayer = vi.mocked(
+      (await import("./settingsGraphSubstrateCanarySectionsLayer"))
+        .SettingsGraphSubstrateCanarySectionsLayer,
+    );
+    const initialSectionsLayerCallCount = mockedSectionsLayer.mock.calls.length;
+    expect(initialSectionsLayerCallCount).toBeGreaterThan(0);
+
+    hoisted.controller.sceneSections = [
+      visibleSection,
+      {
+        renderedPosition: { x: 1680, y: 48 },
+        sceneBoundsSize: { height: 120, width: 240 },
+        sectionId: "offscreen-section",
+        styleColor: "green",
+      },
+    ];
+
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    expect(mockedSectionsLayer.mock.calls.length).toBe(
+      initialSectionsLayerCallCount,
+    );
+  });
+
   it("records the presented-scene-section visibility split during active motion capture", async () => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
       motionAttributionActive: true,

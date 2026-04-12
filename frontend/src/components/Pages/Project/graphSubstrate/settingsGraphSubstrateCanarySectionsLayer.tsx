@@ -31,10 +31,10 @@ type SettingsGraphSubstrateCanarySectionsLayerProps = {
   mountedSectionBodyIds?: ReadonlySet<string>;
   onHoveredSectionChange: (sectionId: string | null) => void;
   presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
-  sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+  sceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionDragController: SettingsGraphSubstrateCanarySectionDragController;
-  viewport: GraphViewport | null;
-  visibleViewportRect: GraphRect | null;
+  viewport?: GraphViewport | null;
+  visibleViewportRect?: GraphRect | null;
 };
 
 type StableSectionBodyEntry = {
@@ -112,6 +112,11 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     if (presentedSceneSections) {
       return presentedSceneSections;
     }
+    if (!sceneSections) {
+      throw new Error(
+        "sceneSections are required when presentedSceneSections are not provided.",
+      );
+    }
 
     const nextPresentedSceneSections =
       resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
@@ -145,6 +150,11 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     if (mountedSectionBodyIds) {
       stableMountedSectionBodyIdsRef.current = mountedSectionBodyIds;
       return mountedSectionBodyIds;
+    }
+    if (viewport === undefined || visibleViewportRect === undefined) {
+      throw new Error(
+        "viewport and visibleViewportRect are required when mountedSectionBodyIds are not provided.",
+      );
     }
     const nextMountedSectionBodyIds =
       measureSettingsGraphSubstrateCanaryMotionAttribution(

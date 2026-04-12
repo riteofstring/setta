@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 09:48 UTC
+Last updated: 2026-04-13 09:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,71 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `413` landed one bounded production reduction against the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by closing an unnecessary
+  full-scene forwarding seam below the canary boundary:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and checked the last few passes to
+      avoid another pure shell/body seam hop
+    - chose the next real contract cut inside the named dominant owner
+      `presentedSceneSectionSubtreeReactRender`: once the canary already
+      computes `presentedSceneSections` and `mountedSectionBodyIds`, the
+      profiled presented-sections subtree no longer needs the full
+      `sceneSections` array
+    - kept the slice bounded to the canary/presented-sections composition
+      boundary instead of reopening harness work or another off-target probe
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      so `SettingsGraphSubstrateCanaryPresentedSections` no longer receives
+      or compares the full `sceneSections` array
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      so `sceneSections`, `viewport`, and `visibleViewportRect` are only
+      required when the caller is asking the layer to derive its own presented
+      subset / mounted-body ids
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      with a regression proving offscreen-only scene churn no longer rerenders
+      the profiled sections subtree when the visible subset is unchanged
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the fresh run-`038` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed (`3` files, `25` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-038/worktree-ai.log`
+      -> passed (`1` Playwright test, `2.0m`)
+      -> fresh canonical readout:
+         `longTaskCount` `6`, `longTaskTotalDurationMs` `1265ms`,
+         `longTaskMaxDurationMs` `389ms`, `averageFrameDurationMs` `43.18ms`
+      -> dominant named canary owner stayed
+         `presentedSceneSectionSubtreeReactRender`
+         (`955.7ms` total, `231.5ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> first fresh-context pass landed on `/zooming_shining`, so it was
+         treated as route-state noise rather than renderer drift
+      -> bounded fresh-context retry explicitly normalized to `/settings` and
+         passed
+      -> visible populated `All Settings` canary surface included `Core`,
+         `Section Defaults Structure and Code`, `Param Defaults`,
+         `All Settings`, `languageServer`, `gui`, `shortcuts`, and `backend`
+      -> treat this as a canary-surface / named-section health assertion, not a
+         side-by-side parity claim versus `main`
+  - reading:
+    - this slice closes the offscreen-array forwarding lane at a real decision
+      boundary: offscreen-only scene churn no longer invalidates the mounted
+      presented-sections subtree when its actual inputs are unchanged
+    - the live probe did not improve the canonical lane on run `038`; the
+      dominant owner still sits inside
+      `presentedSceneSectionSubtreeReactRender`
+    - the worktree canary surface remains healthy on authenticated `/settings`,
+      so the next product slice should stay inside the visible mounted-section
+      subtree rather than reopening route or lifecycle work
+  - next default frontier:
+    - stay on `presentedSceneSectionSubtreeReactRender` with one more bounded
+      production cut inside the visible mounted-section subtree, preferably on
+      shell/body composition or another visible-entry prop that still commits
+      during the normalized motion burst
 
 - item `412` landed one bounded production reduction against the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by hoisting stale
