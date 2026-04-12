@@ -14,6 +14,7 @@ import {
   EditorView,
   keymap,
   tooltips,
+  type KeyBinding,
   type ViewUpdate,
 } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
@@ -51,6 +52,27 @@ type GetExtensionsOptions = {
   useJsx?: boolean;
   triggerCompletionAfterAccept?: boolean;
   completionTriggerChars?: string[];
+};
+
+type GetKeyMapArrayOptions = {
+  hasCompletions: boolean;
+  indentWithTab?: boolean;
+  singleLine?: boolean;
+  tabToAutocomplete?: boolean;
+  keyComboActions?: Record<string, (text: string) => boolean | void>;
+  onTab?: (text: string, completionResult: boolean) => void;
+  onEnter?: (text: string, completionResult: boolean) => void;
+  onEscape?: (status: ReturnType<typeof completionStatus>) => void;
+};
+
+type ShortcutSettings = ReturnType<typeof useSettings.getState>["shortcuts"];
+
+type TabBehavior = {
+  hasCompletions: boolean;
+  indentWithTab: boolean;
+  shouldHandleTabNavigation: boolean;
+  singleLine: boolean;
+  tabToAutocomplete: boolean;
 };
 
 export function getExtensions({
@@ -258,6 +280,197 @@ function shouldStartCompletion(view: EditorView) {
   return completionStatus(view.state) !== "active";
 }
 
+function resolveTabBehavior({
+  hasCompletions,
+  indentWithTab,
+  singleLine,
+  tabToAutocomplete,
+}: GetKeyMapArrayOptions): TabBehavior {
+  const shouldIndentWithTab = indentWithTab === true;
+  const shouldAutocompleteOnTab = tabToAutocomplete === true;
+  const isSingleLine = singleLine === true;
+  return {
+    hasCompletions,
+    indentWithTab: shouldIndentWithTab,
+    shouldHandleTabNavigation: shouldAutocompleteOnTab && !shouldIndentWithTab,
+    singleLine: isSingleLine,
+    tabToAutocomplete: shouldAutocompleteOnTab,
+  };
+}
+
+function getBaseKeyBindings(
+  shortcuts: ShortcutSettings,
+  onEscape: GetKeyMapArrayOptions["onEscape"],
+): Array<KeyBinding> {
+  return [
+    {
+      key: shortcutCodemirrorFormat(shortcuts.undoShortcut),
+      run: () => {
+        undoProjectState();
+        return true;
+      },
+    },
+    {
+      key: shortcutCodemirrorFormat(shortcuts.redoShortcut),
+      run: () => {
+        redoProjectState();
+        return true;
+      },
+    },
+    {
+      key: shortcutCodemirrorFormat(shortcuts.runCodeShortcut),
+      run: () => true,
+    },
+    {
+      key: shortcutCodemirrorFormat(shortcuts.runEntryCodeBlockShortcut),
+      run: () => true,
+    },
+    {
+      key: "Escape",
+      run: (view) => {
+        if (!onEscape) {
+          return false;
+        }
+        onEscape(completionStatus(view.state));
+        return false;
+      },
+    },
+  ];
+}
+
+function getEnterKeyBinding({
+  hasCompletions,
+  onEnter,
+  tabToAutocomplete,
+}: Pick<
+  GetKeyMapArrayOptions,
+  "hasCompletions" | "onEnter" | "tabToAutocomplete"
+>): Array<KeyBinding> {
+  if (!onEnter) {
+    return [];
+  }
+
+  return [
+    {
+      key: "Enter",
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => {
+        const completionResult = maybeAcceptEnterCompletion(
+          view,
+          hasCompletions,
+          tabToAutocomplete === true,
+        );
+        if (hasCompletions) {
+          closeCompletion(view);
+        }
+        onEnter(view.state.doc.toString(), completionResult);
+        return true;
+      },
+    },
+  ];
+}
+
+function maybeAcceptEnterCompletion(
+  view: EditorView,
+  hasCompletions: boolean,
+  tabToAutocomplete: boolean,
+) {
+  // In single-line "submit" inputs (like the Browser path bar) Enter should
+  // submit, not silently accept a completion. If a caller wants Enter to
+  // accept completions, they should disable tab-to-autocomplete so Enter
+  // is the primary completion interaction.
+  return hasCompletions && !tabToAutocomplete ? acceptCompletion(view) : false;
+}
+
+function getShiftTabKeyBinding(tabBehavior: TabBehavior): Array<KeyBinding> {
+  if (tabBehavior.indentWithTab) {
+    return [
+      {
+        key: "Shift-Tab",
+        preventDefault: true,
+        stopPropagation: true,
+        run: (view) => {
+          indentLess(view);
+          return true;
+        },
+      },
+    ];
+  }
+  if (!tabBehavior.shouldHandleTabNavigation && !tabBehavior.singleLine) {
+    return [];
+  }
+  return [
+    {
+      key: "Shift-Tab",
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => moveFocus({ direction: -1, from: view.contentDOM }),
+    },
+  ];
+}
+
+function getTabKeyBinding(
+  tabBehavior: TabBehavior,
+  onTab: GetKeyMapArrayOptions["onTab"],
+): Array<KeyBinding> {
+  if (!tabBehavior.tabToAutocomplete && !tabBehavior.indentWithTab) {
+    return [];
+  }
+
+  return [
+    {
+      key: "Tab",
+      preventDefault: false,
+      stopPropagation: true,
+      run: (view) => handleTabKey(view, tabBehavior, onTab),
+    },
+  ];
+}
+
+function handleTabKey(
+  view: EditorView,
+  tabBehavior: TabBehavior,
+  onTab: GetKeyMapArrayOptions["onTab"],
+) {
+  const completionResult = maybeAcceptTabCompletion(view, tabBehavior);
+  const fallbackResult = completionResult
+    ? false
+    : handleTabFallback(view, tabBehavior);
+  onTab?.(view.state.doc.toString(), completionResult);
+  return tabBehavior.indentWithTab || completionResult || fallbackResult;
+}
+
+function maybeAcceptTabCompletion(
+  view: EditorView,
+  { hasCompletions, tabToAutocomplete }: TabBehavior,
+) {
+  return tabToAutocomplete && hasCompletions ? acceptCompletion(view) : false;
+}
+
+function handleTabFallback(view: EditorView, tabBehavior: TabBehavior) {
+  if (tabBehavior.indentWithTab) {
+    indentMore(view);
+    return true;
+  }
+  if (!tabBehavior.shouldHandleTabNavigation && !tabBehavior.singleLine) {
+    return false;
+  }
+  return moveFocus({ direction: 1, from: view.contentDOM });
+}
+
+function getComboKeyBindings(
+  keyComboActions: GetKeyMapArrayOptions["keyComboActions"],
+): Array<KeyBinding> {
+  if (!keyComboActions) {
+    return [];
+  }
+  return Object.entries(keyComboActions).map(([combo, action]) => ({
+    key: combo,
+    run: (view) => action(view.state.doc.toString()),
+  }));
+}
+
 function getKeyMapArray({
   hasCompletions,
   indentWithTab,
@@ -267,124 +480,22 @@ function getKeyMapArray({
   onEnter,
   onEscape,
   keyComboActions,
-}) {
-  const settings = useSettings.getState();
-  const shouldHandleTabNavigation = tabToAutocomplete && !indentWithTab;
-
+}: GetKeyMapArrayOptions): Array<KeyBinding> {
   // we call undo and redo here because in keyActivations,
   // undo/redo are disabled in input fields.
   // But at the same time, we want to override codemirror's undo/redo
-  const keymapArray = [
-    {
-      key: shortcutCodemirrorFormat(settings.shortcuts.undoShortcut),
-      run: () => {
-        undoProjectState();
-        return true;
-      },
-    },
-    {
-      key: shortcutCodemirrorFormat(settings.shortcuts.redoShortcut),
-      run: () => {
-        redoProjectState();
-        return true;
-      },
-    },
-    {
-      key: shortcutCodemirrorFormat(settings.shortcuts.runCodeShortcut),
-      run: () => true,
-    },
-    {
-      key: shortcutCodemirrorFormat(
-        settings.shortcuts.runEntryCodeBlockShortcut,
-      ),
-      run: () => true,
-    },
-    {
-      key: "Escape",
-      run: (view) => {
-        if (onEscape) {
-          const expectingCompletions = completionStatus(view.state);
-          onEscape(expectingCompletions);
-        }
-      },
-    },
+  const { shortcuts } = useSettings.getState();
+  const tabBehavior = resolveTabBehavior({
+    hasCompletions,
+    indentWithTab,
+    singleLine,
+    tabToAutocomplete,
+  });
+  return [
+    ...getBaseKeyBindings(shortcuts, onEscape),
+    ...getEnterKeyBinding({ hasCompletions, onEnter, tabToAutocomplete }),
+    ...getShiftTabKeyBinding(tabBehavior),
+    ...getTabKeyBinding(tabBehavior, onTab),
+    ...getComboKeyBindings(keyComboActions),
   ];
-
-  if (onEnter) {
-    keymapArray.push({
-      key: "Enter",
-      preventDefault: true,
-      stopPropagation: true,
-      run: (view) => {
-        // In single-line "submit" inputs (like the Browser path bar) Enter should
-        // submit, not silently accept a completion. If a caller wants Enter to
-        // accept completions, they should disable tab-to-autocomplete so Enter
-        // is the primary completion interaction.
-        const completionResult =
-          hasCompletions && !tabToAutocomplete ? acceptCompletion(view) : false;
-        if (hasCompletions) {
-          closeCompletion(view);
-        }
-        onEnter(view.state.doc.toString(), completionResult);
-        return true;
-      },
-    });
-  }
-
-  if (indentWithTab) {
-    keymapArray.push({
-      key: "Shift-Tab",
-      preventDefault: true,
-      stopPropagation: true,
-      run: (view) => {
-        indentLess(view);
-      },
-    });
-  } else if (shouldHandleTabNavigation || singleLine) {
-    keymapArray.push({
-      key: "Shift-Tab",
-      preventDefault: true,
-      stopPropagation: true,
-      run: (view) => {
-        return moveFocus({ direction: -1, from: view.contentDOM });
-      },
-    });
-  }
-
-  if (tabToAutocomplete || indentWithTab) {
-    keymapArray.push({
-      key: "Tab",
-      preventDefault: false,
-      stopPropagation: true,
-      run: (view) => {
-        let completionResult = false;
-        let movedFocus = false;
-        if (tabToAutocomplete && hasCompletions) {
-          completionResult = acceptCompletion(view);
-        }
-        if (!completionResult) {
-          if (indentWithTab) {
-            indentMore(view);
-          } else if (shouldHandleTabNavigation || singleLine) {
-            movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
-          }
-        }
-        if (onTab) {
-          onTab(view.state.doc.toString(), completionResult);
-        }
-        return indentWithTab || completionResult || movedFocus;
-      },
-    });
-  }
-
-  if (keyComboActions) {
-    for (const [combo, action] of Object.entries(keyComboActions)) {
-      keymapArray.push({
-        key: combo,
-        run: (view) => action(view.state.doc.toString()),
-      });
-    }
-  }
-
-  return keymapArray;
 }
