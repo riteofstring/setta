@@ -114,7 +114,7 @@ func TestRuntimeSetVariantJSONSourceKeysRejectsDisabledEdits(t *testing.T) {
 	}
 }
 
-func TestValidateVariantJSONSourceKeysRejectsMissingExistingPath(t *testing.T) {
+func TestResolveVariantJSONSourceKeysRejectsMissingExistingPath(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
@@ -126,7 +126,7 @@ func TestValidateVariantJSONSourceKeysRejectsMissingExistingPath(t *testing.T) {
 	}
 
 	document := sectionVariantMutationTestDocument(t, true, "data/source.json")
-	_, err := ValidateVariantJSONSourceKeys(
+	_, err := ResolveVariantJSONSourceKeys(
 		document,
 		workspaceRoot,
 		"project-alpha",
@@ -142,13 +142,13 @@ func TestValidateVariantJSONSourceKeysRejectsMissingExistingPath(t *testing.T) {
 	}
 }
 
-func TestValidateVariantJSONSourceKeysAcceptsMissingFileAndMarksMissing(t *testing.T) {
+func TestResolveVariantJSONSourceKeysAcceptsMissingFileAndMarksMissing(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
 	document := sectionVariantMutationTestDocument(t, true, "data/source.json")
 
-	validation, err := ValidateVariantJSONSourceKeys(
+	resolution, err := ResolveVariantJSONSourceKeys(
 		document,
 		workspaceRoot,
 		"project-alpha",
@@ -157,13 +157,16 @@ func TestValidateVariantJSONSourceKeysAcceptsMissingFileAndMarksMissing(t *testi
 		[]string{" config ", "", "nested"},
 	)
 	if err != nil {
-		t.Fatalf("ValidateVariantJSONSourceKeys returned error: %v", err)
+		t.Fatalf("ResolveVariantJSONSourceKeys returned error: %v", err)
 	}
-	if !validation.JSONSourceMissing {
+	if !resolution.JSONSourceMissing {
 		t.Fatal("expected missing json source file to mark jsonSourceMissing")
 	}
-	if len(validation.JSONSourceKeys) != 2 || validation.JSONSourceKeys[0] != "config" || validation.JSONSourceKeys[1] != "nested" {
-		t.Fatalf("expected normalized jsonSourceKeys [config nested], got %#v", validation.JSONSourceKeys)
+	if len(resolution.JSONSourceKeys) != 2 || resolution.JSONSourceKeys[0] != "config" || resolution.JSONSourceKeys[1] != "nested" {
+		t.Fatalf("expected normalized jsonSourceKeys [config nested], got %#v", resolution.JSONSourceKeys)
+	}
+	if resolution.JSONSourceObject == nil {
+		t.Fatal("expected missing json source file to return an empty selected object")
 	}
 }
 

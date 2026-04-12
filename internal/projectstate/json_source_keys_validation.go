@@ -19,11 +19,6 @@ var (
 	ErrJSONSourceKeysMustResolveToObject = errors.New("jsonSourceKeys must resolve to an object")
 )
 
-type JSONSourceKeysValidationResult struct {
-	JSONSourceKeys    []string
-	JSONSourceMissing bool
-}
-
 type JSONSourceKeysResolution struct {
 	JSONSourceKeys    []string
 	JSONSourceMissing bool
@@ -66,24 +61,6 @@ func ResolveVariantJSONSourceKeys(document Document, workspaceRoot string, proje
 		JSONSourceKeys:    normalizedKeys,
 		JSONSourceMissing: jsonSourceMissing,
 		JSONSourceObject:  jsonSourceObject,
-	}, nil
-}
-
-func ValidateVariantJSONSourceKeys(document Document, workspaceRoot string, projectID string, sectionID string, variantID string, jsonSourceKeys []string) (JSONSourceKeysValidationResult, error) {
-	resolution, err := ResolveVariantJSONSourceKeys(
-		document,
-		workspaceRoot,
-		projectID,
-		sectionID,
-		variantID,
-		jsonSourceKeys,
-	)
-	if err != nil {
-		return JSONSourceKeysValidationResult{}, err
-	}
-	return JSONSourceKeysValidationResult{
-		JSONSourceKeys:    append([]string(nil), resolution.JSONSourceKeys...),
-		JSONSourceMissing: resolution.JSONSourceMissing,
 	}, nil
 }
 
@@ -558,36 +535,6 @@ func validateJSONSourceYAMLTag(tag string, want string) error {
 		return nil
 	}
 	return fmt.Errorf("json source values must use JSON-compatible types, got yaml tag %s", tag)
-}
-
-func jsonSourceValueFromGeneric(value any) (JSONSourceValue, error) {
-	switch typed := value.(type) {
-	case map[string]any:
-		entries := make([]JSONSourceObjectEntry, 0, len(typed))
-		for key, child := range typed {
-			childValue, err := jsonSourceValueFromGeneric(child)
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			entries = append(entries, JSONSourceObjectEntry{
-				Key:   key,
-				Value: childValue,
-			})
-		}
-		return jsonSourceObjectValue(entries), nil
-	case []any:
-		elements := make([]string, 0, len(typed))
-		for _, child := range typed {
-			childValue, err := jsonSourceValueFromGeneric(child)
-			if err != nil {
-				return JSONSourceValue{}, err
-			}
-			elements = append(elements, serializeJSONSourceValue(childValue))
-		}
-		return jsonSourceArrayValue(elements), nil
-	default:
-		return jsonSourceScalarToJSONValue(typed)
-	}
 }
 
 func jsonSourceLiteralValue(serialized string) JSONSourceValue {
