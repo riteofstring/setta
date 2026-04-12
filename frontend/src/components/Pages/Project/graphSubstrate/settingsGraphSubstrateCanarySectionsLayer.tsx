@@ -114,12 +114,16 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         viewport,
         visibleViewportRect,
       });
-    if (
-      areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
-        stablePresentedSceneSectionsRef.current,
-        nextPresentedSceneSections,
-      )
-    ) {
+    const shouldReusePresentedSceneSections =
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "presentedSceneSectionArrayReuseCheck",
+        () =>
+          areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+            stablePresentedSceneSectionsRef.current,
+            nextPresentedSceneSections,
+          ),
+      );
+    if (shouldReusePresentedSceneSections) {
       return stablePresentedSceneSectionsRef.current;
     }
     stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
@@ -162,12 +166,16 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             visibleViewportRect,
           }),
       );
-    if (
-      areSettingsGraphSubstrateCanarySectionIdSetsEqual(
-        stableMountedSectionBodyIdsRef.current,
-        nextMountedSectionBodyIds,
-      )
-    ) {
+    const shouldReuseMountedSectionBodyIds =
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "mountedSectionBodyIdSetReuseCheck",
+        () =>
+          areSettingsGraphSubstrateCanarySectionIdSetsEqual(
+            stableMountedSectionBodyIdsRef.current,
+            nextMountedSectionBodyIds,
+          ),
+      );
+    if (shouldReuseMountedSectionBodyIds) {
       return stableMountedSectionBodyIdsRef.current;
     }
     stableMountedSectionBodyIdsRef.current = nextMountedSectionBodyIds;

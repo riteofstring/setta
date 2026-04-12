@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 06:52 UTC
+Last updated: 2026-04-13 07:11 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,72 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `402` landed one bounded pan-phase attribution seam for the canonical
+  `rotaryParamCodeObjDefault` worktree lane, but the live worktree probe is now
+  blocked again by repeated compare-preflight timeouts even after one bounded
+  lifecycle recovery:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and avoided another product-owner
+      guess without covering the unmeasured reuse/stability path
+    - chose the narrowest read-only attribution seam likely to matter during
+      pan traffic: the section-array, mounted-body-id-set, and Pixi-drawable
+      reuse checks that run while deciding whether motion can reuse prior
+      render models
+    - kept the slice bounded to attribution only; no product behavior changed
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with the new motion owners:
+      `presentedSceneSectionArrayReuseCheck`,
+      `mountedSectionBodyIdSetReuseCheck`, and
+      `pixiDrawableReuseCheck`
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      so those reuse checks are measured directly where they run
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      for shared snapshot coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the worktree/reference perf probes accept the new residual owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the blocked-live-probe note for this slice
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`1` file, `5` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - live worktree probe on run `027`
+      -> failed twice before recovery with `180000ms` timeouts in
+         compare-pane normalization
+      -> timeout site:
+         `setLocalPaneState(...)` inside
+         `normalizeSettingsGraphComparePaneState(...)`
+      -> page-side error:
+         `page.evaluate: Target page, context or browser has been closed`
+    - bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-027/worktree-ai.log`
+    - retried the same live worktree probe once on the refreshed runtime
+      -> failed after `180000ms` again
+      -> timeout site moved earlier to
+         `getSettingsGraphSurfaceKind(...)` during
+         `runSettingsGraphComparePreflight(...)`
+  - reading:
+    - this slice landed the intended read-only attribution seam and is ready
+      for a live ranking pass once the worktree probe is healthy again
+    - the active blocker is no longer missing attribution; it is a repeated
+      worktree compare-preflight timeout that survived one allowed lifecycle
+      recovery on the same runtime facts
+    - do not spend the next pass on another attribution seam until this probe
+      lane is healthy enough to return one post-change readout
+  - next default frontier:
+    - resolve the repeated worktree compare-preflight timeout on the canonical
+      `rotaryParamCodeObjDefault` lane, starting from
+      `setLocalPaneState(...)` / `getSettingsGraphSurfaceKind(...)` after the
+      fresh `aireset` runtime on run `027`
 
 - item `401` closed the repeated `getLocalPaneState(...)` compare-preflight
   blocker on the canonical `rotaryParamCodeObjDefault` worktree perf lane:

@@ -151,6 +151,52 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 07:11 UTC
+
+- item `402` added one bounded pan-phase attribution seam on the canonical
+  `rotaryParamCodeObjDefault` worktree lane:
+  - added new motion-attribution owners:
+    `presentedSceneSectionArrayReuseCheck`,
+    `mountedSectionBodyIdSetReuseCheck`, and
+    `pixiDrawableReuseCheck`
+  - wrapped the corresponding reuse comparisons in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+  - updated the shared instrumentation test plus the worktree/reference perf
+    probe allowed-owner lists
+  - appended the perf report:
+    `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`1` file, `5` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - live worktree probe on run `027`
+    -> failed twice before recovery with `180000ms` compare-preflight timeouts
+    -> timeout site:
+       `setLocalPaneState(...)` inside
+       `normalizeSettingsGraphComparePaneState(...)`
+    -> page-side error:
+       `page.evaluate: Target page, context or browser has been closed`
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-027/worktree-ai.log`
+  - retry after recovery
+    -> failed after `180000ms` again
+    -> timeout site moved earlier to
+       `getSettingsGraphSurfaceKind(...)` during
+       `runSettingsGraphComparePreflight(...)`
+- reading:
+  - the new attribution seam is landed and unit-covered
+  - the live worktree probe is not healthy enough yet to rank the new reuse
+    owners against the pan long tasks
+  - the next iteration should debug the repeated compare-preflight timeout on
+    the refreshed run `027` runtime instead of adding another attribution seam
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 06:52 UTC
 
 - Item: Close the repeated `getLocalPaneState(...)` compare-preflight timeout

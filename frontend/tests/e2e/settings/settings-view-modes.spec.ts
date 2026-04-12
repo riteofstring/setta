@@ -555,8 +555,11 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
     const allowedResidualCanaryMotionOwners = [
       "interactionMiscStateSync",
       "interactionReactFlowStateSync",
+      "mountedSectionBodyIdSetReuseCheck",
       "pixiDrawableModelResolve",
+      "pixiDrawableReuseCheck",
       "pixiViewportPresent",
+      "presentedSceneSectionArrayReuseCheck",
       "presentedSceneBodyMountFilter",
       "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionVisibilityFilter",

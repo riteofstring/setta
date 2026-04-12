@@ -1,8 +1,11 @@
 export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "interactionMiscStateSync",
   "interactionReactFlowStateSync",
+  "mountedSectionBodyIdSetReuseCheck",
   "pixiDrawableModelResolve",
+  "pixiDrawableReuseCheck",
   "pixiViewportPresent",
+  "presentedSceneSectionArrayReuseCheck",
   "presentedSceneBodyMountFilter",
   "presentedSceneSectionEntriesResolve",
   "presentedSceneSectionVisibilityFilter",

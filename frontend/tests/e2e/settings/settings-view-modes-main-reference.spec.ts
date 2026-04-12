@@ -12746,8 +12746,11 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     const allowedResidualCanaryMotionOwners = [
       "interactionMiscStateSync",
       "interactionReactFlowStateSync",
+      "mountedSectionBodyIdSetReuseCheck",
       "pixiDrawableModelResolve",
+      "pixiDrawableReuseCheck",
       "pixiViewportPresent",
+      "presentedSceneSectionArrayReuseCheck",
       "presentedSceneBodyMountFilter",
       "presentedSceneSectionEntriesResolve",
       "presentedSceneSectionVisibilityFilter",

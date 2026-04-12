@@ -74,12 +74,16 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
         viewport,
         visibleViewportRect,
       });
-    if (
-      areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
-        stablePresentedSceneSectionsRef.current,
-        nextPresentedSceneSections,
-      )
-    ) {
+    const shouldReusePresentedSceneSections =
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "presentedSceneSectionArrayReuseCheck",
+        () =>
+          areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+            stablePresentedSceneSectionsRef.current,
+            nextPresentedSceneSections,
+          ),
+      );
+    if (shouldReusePresentedSceneSections) {
       return stablePresentedSceneSectionsRef.current;
     }
     stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
@@ -137,12 +141,16 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     sectionSeedNodes,
   ]);
   const stableDrawables = useMemo(() => {
-    if (
-      areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
-        stableDrawablesRef.current,
-        drawables,
-      )
-    ) {
+    const shouldReuseDrawables =
+      measureSettingsGraphSubstrateCanaryMotionAttribution(
+        "pixiDrawableReuseCheck",
+        () =>
+          areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
+            stableDrawablesRef.current,
+            drawables,
+          ),
+      );
+    if (shouldReuseDrawables) {
       return stableDrawablesRef.current;
     }
 

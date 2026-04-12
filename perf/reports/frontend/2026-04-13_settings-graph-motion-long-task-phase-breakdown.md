@@ -100,3 +100,62 @@ aggregate long-task totals.
   next owner is likely outside the current instrumentation set and needs a
   narrow pan-phase owner split rather than another micro-optimization inside
   `pixiDrawableModelResolve` or `presentedSceneSectionVisibilityFilter`
+
+## 2026-04-13 Reuse-Check Attribution Slice
+
+- added three read-only motion-attribution owners so the worktree probe can
+  distinguish pan-time reuse/stability work from the already-small resolve
+  owners:
+  - `presentedSceneSectionArrayReuseCheck`
+  - `mountedSectionBodyIdSetReuseCheck`
+  - `pixiDrawableReuseCheck`
+- wrapped the section-array, mounted-body-id-set, and Pixi-drawable reuse
+  comparisons in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+- extended the shared instrumentation snapshot and test coverage in:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+- updated the worktree/reference perf probe expectations so those new
+  attribution owners are treated as allowed residual canary owners when they
+  appear
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - passed (`1` file, `5` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - passed
+- live worktree probe reruns on run `027`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-027/worktree-ai.log`
+  - first attempt:
+    - failed after `180000ms`
+    - timeout site:
+      `setLocalPaneState(...)` inside
+      `normalizeSettingsGraphComparePaneState(...)`
+    - page-side error:
+      `page.evaluate: Target page, context or browser has been closed`
+  - second attempt before recovery:
+    - failed in the same normalization flow with the same `180000ms` timeout
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-027/worktree-ai.log`
+  - retry after recovery:
+    - failed after `180000ms`
+    - timeout site moved earlier into
+      `getSettingsGraphSurfaceKind(...)` during
+      `runSettingsGraphComparePreflight(...)`
+
+### Reading
+
+- this slice landed the intended attribution seam and kept the changes
+  read-only with focused regression coverage
+- the live canary still did not produce a trustworthy post-change readout, so
+  the new reuse owners have not yet been ranked against `panForward` /
+  `panReturn`
+- after one bounded lifecycle recovery, the active blocker is repeated
+  compare-preflight timeout on the worktree probe rather than missing
+  instrumentation

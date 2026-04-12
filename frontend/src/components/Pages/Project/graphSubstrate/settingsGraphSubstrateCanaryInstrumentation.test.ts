@@ -106,14 +106,32 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       .mockReturnValueOnce(30)
       .mockReturnValueOnce(32.5)
       .mockReturnValueOnce(40)
-      .mockReturnValueOnce(44);
+      .mockReturnValueOnce(44)
+      .mockReturnValueOnce(50)
+      .mockReturnValueOnce(51.25)
+      .mockReturnValueOnce(60)
+      .mockReturnValueOnce(63.75)
+      .mockReturnValueOnce(70)
+      .mockReturnValueOnce(75);
 
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneBodyMountFilter",
       () => {},
     );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneSectionArrayReuseCheck",
+      () => {},
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "mountedSectionBodyIdSetReuseCheck",
+      () => {},
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
       "presentedSceneSectionEntriesResolve",
+      () => {},
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "pixiDrawableReuseCheck",
       () => {},
     );
     measureSettingsGraphSubstrateCanaryMotionAttribution(
@@ -131,15 +149,30 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       maxDurationMs: 1,
       totalDurationMs: 1,
     });
-    expect(motionAttribution.presentedSceneSectionEntriesResolve).toEqual({
+    expect(motionAttribution.presentedSceneSectionArrayReuseCheck).toEqual({
       count: 1,
       maxDurationMs: 2.5,
       totalDurationMs: 2.5,
     });
-    expect(motionAttribution.pixiDrawableModelResolve).toEqual({
+    expect(motionAttribution.mountedSectionBodyIdSetReuseCheck).toEqual({
       count: 1,
       maxDurationMs: 4,
       totalDurationMs: 4,
+    });
+    expect(motionAttribution.presentedSceneSectionEntriesResolve).toEqual({
+      count: 1,
+      maxDurationMs: 1.25,
+      totalDurationMs: 1.25,
+    });
+    expect(motionAttribution.pixiDrawableReuseCheck).toEqual({
+      count: 1,
+      maxDurationMs: 3.75,
+      totalDurationMs: 3.75,
+    });
+    expect(motionAttribution.pixiDrawableModelResolve).toEqual({
+      count: 1,
+      maxDurationMs: 5,
+      totalDurationMs: 5,
     });
   });
 });
