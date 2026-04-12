@@ -153,41 +153,64 @@ func typedDictFieldTypeExpr(field reflect.StructField) (string, map[string]struc
 }
 
 func inferPythonFieldTypeExpr(fieldType reflect.Type) (string, error) {
+	fieldType = unwrapPointerType(fieldType)
+	if scalarExpr, ok := pythonScalarFieldTypeExpr(fieldType.Kind()); ok {
+		return scalarExpr, nil
+	}
 	switch fieldType.Kind() {
-	case reflect.Pointer:
-		return inferPythonFieldTypeExpr(fieldType.Elem())
-	case reflect.String:
-		return "str", nil
-	case reflect.Bool:
-		return "bool", nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return "int", nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		if fieldType.Kind() == reflect.Uint8 {
-			return "bytes", nil
-		}
-		return "int", nil
-	case reflect.Interface:
-		return "object", nil
 	case reflect.Slice:
-		elementExpr, err := inferPythonFieldTypeExpr(fieldType.Elem())
-		if err != nil {
-			return "", err
-		}
-		return "list[" + elementExpr + "]", nil
+		return inferPythonListFieldTypeExpr(fieldType.Elem())
 	case reflect.Map:
-		keyExpr, err := inferPythonFieldTypeExpr(fieldType.Key())
-		if err != nil {
-			return "", err
-		}
-		valueExpr, err := inferPythonFieldTypeExpr(fieldType.Elem())
-		if err != nil {
-			return "", err
-		}
-		return "dict[" + keyExpr + ", " + valueExpr + "]", nil
+		return inferPythonMapFieldTypeExpr(fieldType)
 	default:
 		return "", fmt.Errorf("unsupported field type %s", fieldType)
 	}
+}
+
+func unwrapPointerType(fieldType reflect.Type) reflect.Type {
+	for fieldType.Kind() == reflect.Pointer {
+		fieldType = fieldType.Elem()
+	}
+	return fieldType
+}
+
+func pythonScalarFieldTypeExpr(kind reflect.Kind) (string, bool) {
+	switch kind {
+	case reflect.String:
+		return "str", true
+	case reflect.Bool:
+		return "bool", true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return "int", true
+	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "int", true
+	case reflect.Uint8:
+		return "bytes", true
+	case reflect.Interface:
+		return "object", true
+	default:
+		return "", false
+	}
+}
+
+func inferPythonListFieldTypeExpr(elementType reflect.Type) (string, error) {
+	elementExpr, err := inferPythonFieldTypeExpr(elementType)
+	if err != nil {
+		return "", err
+	}
+	return "list[" + elementExpr + "]", nil
+}
+
+func inferPythonMapFieldTypeExpr(fieldType reflect.Type) (string, error) {
+	keyExpr, err := inferPythonFieldTypeExpr(fieldType.Key())
+	if err != nil {
+		return "", err
+	}
+	valueExpr, err := inferPythonFieldTypeExpr(fieldType.Elem())
+	if err != nil {
+		return "", err
+	}
+	return "dict[" + keyExpr + ", " + valueExpr + "]", nil
 }
 
 func fieldAllowsMissing(field reflect.StructField) bool {

@@ -1,6 +1,7 @@
 package listenerendpoints
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -58,5 +59,43 @@ func TestPythonClientEndpointSpecsStayUnique(t *testing.T) {
 
 	if len(requestNames) == 0 {
 		t.Fatal("expected at least one listener endpoint request payload spec")
+	}
+}
+
+func TestInferPythonFieldTypeExpr(t *testing.T) {
+	t.Helper()
+
+	testCases := []struct {
+		name      string
+		fieldType reflect.Type
+		want      string
+	}{
+		{name: "pointer string", fieldType: reflect.TypeOf((*string)(nil)), want: "str"},
+		{name: "uint8", fieldType: reflect.TypeOf(uint8(0)), want: "bytes"},
+		{name: "nested list map", fieldType: reflect.TypeOf([]map[string]bool{}), want: "list[dict[str, bool]]"},
+		{name: "interface map", fieldType: reflect.TypeOf(map[string]any{}), want: "dict[str, object]"},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Helper()
+
+			got, err := inferPythonFieldTypeExpr(tc.fieldType)
+			if err != nil {
+				t.Fatalf("inferPythonFieldTypeExpr(%v) error = %v", tc.fieldType, err)
+			}
+			if got != tc.want {
+				t.Fatalf("inferPythonFieldTypeExpr(%v) = %q, want %q", tc.fieldType, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestInferPythonFieldTypeExprRejectsUnsupportedTypes(t *testing.T) {
+	t.Helper()
+
+	if _, err := inferPythonFieldTypeExpr(reflect.TypeOf(struct{}{})); err == nil {
+		t.Fatal("expected unsupported struct type error")
 	}
 }
