@@ -1,8 +1,8 @@
-import requiredUIEditorTabsBySectionTypePayload from "../../../backend/setta/ui_settings/section_ui_editor_tab_compatibility.json";
+import requiredUIEditorTabsBySectionTypePayload from "../../../backend/setta/ui_settings/section_ui_editor_tab_compatibility.json" with { type: "json" };
 import { C } from "./c";
 import { ObjectValues, SectionType, SectionTypeEnum } from "./generatedTypes";
 
-export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
+export const NO_CONTEXT_MENU = import.meta.env?.MODE === "ncm";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;

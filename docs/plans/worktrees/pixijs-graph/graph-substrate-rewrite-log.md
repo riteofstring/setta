@@ -21279,3 +21279,52 @@ LOOP_TERMINAL_MARKER: none
     `rotaryParamCodeObjDefault`, or stop for replan if that trusted live path
     still cannot produce the new field
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 14:12 UTC
+
+- item `507` recovered the trusted live probe path past the earlier raw-Node
+  / helper crashes, but the lane still failed to produce a trusted
+  `reactFlowViewportPublishAttribution` readout on
+  `rotaryParamCodeObjDefault` within this iteration
+- scope:
+  - updated `frontend/src/utils/constants.ts` so the Playwright Node ESM path
+    can import the settings frontend modules:
+    - added `with { type: "json" }` to the
+      `section_ui_editor_tab_compatibility.json` import
+    - guarded `import.meta.env?.MODE` instead of assuming `import.meta.env`
+      exists during raw-Node execution
+  - fixed `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`:
+    `setLocalPaneState(...)` now preserves the full `{ page, value }` result
+    from `runWithRecoverableSettingsGraphPageAction(...)` instead of
+    destructuring `page` and then reading nonexistent `.page` / `.value`
+    properties from the `Page`
+- focused verification:
+  - `pnpm -C frontend exec prettier --check src/utils/constants.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+    -> passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/main-ai.log --reporter=line`
+    -> advanced into the canonical probe, completed the reference-side motion
+       capture, then failed during worktree normalization on the
+       `overview-pane-fullscreen-button` assertion
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/worktree-ai.log --reporter=line`
+    -> advanced into the live worktree lane, mounted the settings graph
+       surface, then failed because `/api/getLatestProjectState` was sent
+       `project_config_id=null`
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> `All Settings` graph surface was visible
+    -> no obvious blank-card or detached-body artifact was visible
+- blocker evidence:
+  - `./scripts/dev-runtime-info.sh --workspace . --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/worktree-ai.log`
+    still reported the live `4c61ea` session at `http://127.0.0.1:3053/`, so
+    this was not a dead-runtime failure
+  - backend log showed the failing worktree-only probe request hit
+    `/api/getLatestProjectState` with `project_config_id=null`, producing
+    `KeyError: 'Unknown project config: null'`
+  - the probe path no longer fails on the older JSON import or
+    `setLocalPaneState(...)` lifecycle bug; the remaining blocker is a
+    downstream probe/setup issue
+- reading:
+  - this was the one bounded support/unblock attempt allowed by the handoff for
+    the trusted live readout path
+  - because the trusted live lane still did not produce the required
+    attribution field within this iteration, the correct loop outcome is now
+    human replan rather than another default pass on oracle/probe repair
+- LOOP_TERMINAL_MARKER: replan_required

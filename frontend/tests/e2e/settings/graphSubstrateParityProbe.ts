@@ -1087,7 +1087,7 @@ export async function setLocalPaneState(
     return waitForRecoverableSettingsGraphAppReady(page);
   }
 
-  const { page: activePage } = await runWithRecoverableSettingsGraphPageAction({
+  const activePageResult = await runWithRecoverableSettingsGraphPageAction({
     description: "writing normalized compare pane state",
     page,
     action: async (targetPage) => {
@@ -1139,11 +1139,11 @@ export async function setLocalPaneState(
     },
   });
 
-  if (activePage.value === true) {
-    return activePage.page;
+  if (activePageResult.value === true) {
+    return activePageResult.page;
   }
 
-  return waitForRecoverableSettingsGraphAppReady(activePage.page);
+  return waitForRecoverableSettingsGraphAppReady(activePageResult.page);
 }
 
 export async function normalizeSettingsGraphComparePaneState(

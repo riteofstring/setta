@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 13:44 UTC
+Last updated: 2026-04-15 14:12 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,56 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `507` recovered the normalized live probe path past the earlier
+  raw-Node / helper crashes, but the lane still failed to produce a trusted
+  `reactFlowViewportPublishAttribution` readout within the required iteration:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/utils/constants.ts`
+      now uses a JSON import attribute for
+      `section_ui_editor_tab_compatibility.json` and guards
+      `import.meta.env?.MODE` so the Playwright Node ESM loader can import the
+      settings frontend modules without dying before test discovery
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now keeps the full `{ page, value }` result from
+      `runWithRecoverableSettingsGraphPageAction(...)` inside
+      `setLocalPaneState(...)` instead of destructuring `page` and then
+      mistakenly reading `.page` / `.value` from a raw `Page`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check src/utils/constants.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/main-ai.log --reporter=line`
+      -> progressed into the canonical lane, completed the reference-side motion
+         capture, then failed during worktree normalization on
+         `overview-pane-fullscreen-button` count drift
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-037/worktree-ai.log --reporter=line`
+      -> progressed into the live worktree lane and mounted the settings graph
+         surface, then failed when `/api/getLatestProjectState` was sent
+         `project_config_id=null`
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> `All Settings` graph surface was visible
+      -> no obvious blank-card or detached-body artifact was visible
+  - blocker evidence:
+    - worktree runtime stayed healthy (`./scripts/dev-runtime-info.sh` still
+      reported the active `4c61ea` session at `http://127.0.0.1:3053/`)
+    - backend log showed the failing worktree-only probe call hit
+      `/api/getLatestProjectState` with `project_config_id=null`, yielding
+      `KeyError: 'Unknown project config: null'`
+    - the probe path no longer fails on the earlier JSON import or
+      `setLocalPaneState(...)` lifecycle bug; the remaining failure is now a
+      downstream probe/setup issue
+  - reading:
+    - this pass satisfied the "one bounded unblock attempt" allowance on the
+      trusted live probe path
+    - the trusted live lane still did not produce the required attribution
+      readout within the iteration, so the loop should stop for human replan
+      rather than spending another default pass on probe repair
+    - any follow-up should begin by deciding whether to:
+      - repair the worktree probe's active-project-config resolution / pane
+        normalization path, or
+      - abandon this oracle family and choose a different trusted readout path
+        for `reactFlowViewportPublishAttribution`
 
 - item `506` landed reason-level live-capture plumbing for the remaining
   `reactFlowViewportPublish` owner on the canonical
