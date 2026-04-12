@@ -18,6 +18,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspsignature"
 	"setta/internal/projectstate"
+	"setta/internal/pythonenv"
 )
 
 type stubBoundSectionSynchronizer struct {
@@ -45,6 +46,25 @@ type typeCheckingBoundSectionSynchronizer struct {
 
 type syncOnlyBoundSectionSynchronizer struct {
 	inner boundSectionSynchronizer
+}
+
+func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
+	t.Helper()
+
+	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
+	if err != nil {
+		t.Fatalf("resolve current-process interpreter: %v", err)
+	}
+	session, err := lsp.NewSession(lsp.SessionOptions{
+		WorkspaceRoot: workspaceRoot,
+		Command:       pythonBinary,
+		Args:          []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		Environment:   os.Environ(),
+	})
+	if err != nil {
+		t.Fatalf("new current-process lsp session: %v", err)
+	}
+	return session
 }
 
 func (s *orderingCallableSignatureResolver) ResolveCallableSignature(
@@ -233,12 +253,7 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 		t.Fatalf("mkdir setta_files root: %v", err)
 	}
 
-	session, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
-		WorkspaceRoot: workspaceRoot,
-	})
-	if err != nil {
-		t.Fatalf("new current-process python session: %v", err)
-	}
+	session := newCurrentProcessLSPSession(t, workspaceRoot)
 	t.Cleanup(func() {
 		if err := session.Close(context.Background()); err != nil {
 			t.Fatalf("close lsp session: %v", err)

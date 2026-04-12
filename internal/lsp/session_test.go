@@ -180,12 +180,7 @@ func TestCurrentProcessPythonSessionCompletesBuiltinMemberAccess(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
-	session, err := NewCurrentProcessPythonSession(CurrentProcessPythonSessionOptions{
-		WorkspaceRoot: workspaceRoot,
-	})
-	if err != nil {
-		t.Fatalf("new current-process python session: %v", err)
-	}
+	session := newCurrentProcessSession(t, workspaceRoot)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -639,6 +634,25 @@ func resolveTestPythonBinary(t *testing.T) string {
 	}
 	t.Fatal("python binary not found in PATH")
 	return ""
+}
+
+func newCurrentProcessSession(t *testing.T, workspaceRoot string) *Session {
+	t.Helper()
+
+	command, args, err := resolveCurrentProcessCommand(os.LookupEnv)
+	if err != nil {
+		t.Fatalf("resolve current-process command: %v", err)
+	}
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot: workspaceRoot,
+		Command:       command,
+		Args:          args,
+		Environment:   os.Environ(),
+	})
+	if err != nil {
+		t.Fatalf("new current-process session: %v", err)
+	}
+	return session
 }
 
 func writeTestScript(t *testing.T, content string) string {

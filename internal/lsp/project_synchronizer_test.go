@@ -194,12 +194,7 @@ func TestProjectSynchronizerSyncWatchCodeBoundSectionKeepsSettaFilesMirrorFreshF
 		t.Fatalf("write stale setta_files mirror: %v", err)
 	}
 
-	session, err := NewCurrentProcessPythonSession(CurrentProcessPythonSessionOptions{
-		WorkspaceRoot: workspaceRoot,
-	})
-	if err != nil {
-		t.Fatalf("new current-process python session: %v", err)
-	}
+	session := newCurrentProcessSession(t, workspaceRoot)
 	service := NewService(session)
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
@@ -259,12 +254,7 @@ func TestProjectSynchronizerSyncWatchCodeBoundSectionMaterializesMirrorForNewBou
 	sourcePath := filepath.Join(workspaceRoot, "watch_code_test.py")
 	mirrorPath := filepath.Join(settaFilesRoot, "watch_code_test.py")
 
-	session, err := NewCurrentProcessPythonSession(CurrentProcessPythonSessionOptions{
-		WorkspaceRoot: workspaceRoot,
-	})
-	if err != nil {
-		t.Fatalf("new current-process python session: %v", err)
-	}
+	session := newCurrentProcessSession(t, workspaceRoot)
 	service := NewService(session)
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
