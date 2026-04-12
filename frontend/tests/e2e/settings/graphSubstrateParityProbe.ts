@@ -1,19 +1,17 @@
 import { expect, type Page } from "@playwright/test";
 import { isSettingsGraphCompareTransientChromeSettled } from "components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome";
+import {
+  formatSettingsGraphPaneStateReadDiagnostic,
+  readPersistedSettingsGraphLocalPaneState,
+  type SettingsGraphLocalPaneState,
+  type SettingsGraphPaneStateReadDiagnostic,
+} from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
 import type {
   SettingsGraphSubstrateCanaryInstrumentationSnapshot,
   SettingsGraphSubstrateCanaryMotionAttribution,
   SettingsGraphSubstrateCanaryMotionAttributionOwner,
 } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { postBackend } from "../helpers";
-
-export type SettingsGraphLocalPaneState = {
-  overviewVisible: boolean;
-  overviewTrueWidth: number;
-  snapToGrid: boolean;
-  uiEditorVisible: boolean;
-  uiEditorTrueWidth: number;
-};
 
 export type SettingsGraphViewportTransform = {
   x: number;
@@ -149,6 +147,7 @@ const CANARY_SETTINGS_GRAPH_VIEWPORT_SELECTOR =
 const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow";
 const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
+const LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS = 2000;
 
 type SettingsGraphMotionPerfCaptureState = {
   canaryMotionAttributionBaseline: SettingsGraphSubstrateCanaryMotionAttribution | null;
@@ -502,78 +501,122 @@ export function findSharedVisibleSettingsGraphSection(
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
+  const rawPersistedPaneState = await page.evaluate(() => {
+    return window.localStorage.getItem("setta_data");
+  });
   const persistedPaneState = readPersistedSettingsGraphLocalPaneState(
-    await page.evaluate(() => {
-      return window.localStorage.getItem("setta_data");
-    }),
+    rawPersistedPaneState,
   );
   if (persistedPaneState) {
     return persistedPaneState;
   }
 
-  return page.evaluate(async () => {
-    const { useLocalStorage } = await import("/src/state/definitions.ts");
-    const state = useLocalStorage.getState();
-    return {
-      overviewVisible: state.overviewVis,
-      overviewTrueWidth: state.overviewTrueWidth,
-      snapToGrid: state.snapToGrid,
-      uiEditorVisible: state.uiEditorVis,
-      uiEditorTrueWidth: state.uiEditorTrueWidth,
-    };
-  });
-}
+  const paneStateReadResult = await page.evaluate(
+    async ({
+      rawPersistedState,
+      timeoutMs,
+    }: {
+      rawPersistedState: string | null;
+      timeoutMs: number;
+    }) => {
+      const collectDiagnostic = (): SettingsGraphPaneStateReadDiagnostic => {
+        const articleElements = Array.from(
+          document.querySelectorAll("article"),
+        );
+        const persistedPaneStateParseable =
+          rawPersistedState === null
+            ? false
+            : (() => {
+                try {
+                  JSON.parse(rawPersistedState);
+                  return true;
+                } catch {
+                  return false;
+                }
+              })();
 
-export function readPersistedSettingsGraphLocalPaneState(
-  rawPersistedState: string | null,
-): SettingsGraphLocalPaneState | null {
-  if (!rawPersistedState) {
-    return null;
+        return {
+          appShellMounted:
+            document.querySelector(".setta-titlebar-offset") !== null,
+          currentUrl: window.location.href,
+          documentReadyState: document.readyState,
+          graphSurfaceMounted:
+            document.querySelector(".react-flow__pane") !== null ||
+            document.querySelector('[data-testid="graph-substrate-canary"]') !==
+              null,
+          headerNotificationVisible:
+            document.querySelector(".header-notification-fade") !== null,
+          persistedPaneStateParseable,
+          persistedPaneStatePresent: rawPersistedState !== null,
+          settingsContentMounted: articleElements.some((element) => {
+            const htmlElement =
+              element instanceof HTMLElement ? element : element.parentElement;
+            return htmlElement?.offsetParent !== null;
+          }),
+        };
+      };
+
+      try {
+        return await Promise.race([
+          (async () => {
+            const { useLocalStorage } = await import(
+              "/src/state/definitions.ts"
+            );
+            const state = useLocalStorage.getState();
+            return {
+              kind: "success" as const,
+              paneState: {
+                overviewVisible: state.overviewVis,
+                overviewTrueWidth: state.overviewTrueWidth,
+                snapToGrid: state.snapToGrid,
+                uiEditorVisible: state.uiEditorVis,
+                uiEditorTrueWidth: state.uiEditorTrueWidth,
+              },
+            };
+          })(),
+          new Promise<{
+            diagnostic: SettingsGraphPaneStateReadDiagnostic;
+            kind: "timeout";
+          }>((resolve) => {
+            window.setTimeout(() => {
+              resolve({
+                kind: "timeout",
+                diagnostic: collectDiagnostic(),
+              });
+            }, timeoutMs);
+          }),
+        ]);
+      } catch (error) {
+        return {
+          diagnostic: collectDiagnostic(),
+          errorMessage: error instanceof Error ? error.message : String(error),
+          kind: "error" as const,
+        };
+      }
+    },
+    {
+      rawPersistedState: rawPersistedPaneState,
+      timeoutMs: LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS,
+    },
+  );
+
+  if (paneStateReadResult.kind === "success") {
+    return paneStateReadResult.paneState;
   }
 
-  let parsedPersistedState: unknown;
-  try {
-    parsedPersistedState = JSON.parse(rawPersistedState);
-  } catch {
-    return null;
+  if (paneStateReadResult.kind === "timeout") {
+    throw new Error(
+      `Timed out reading local pane state from in-page store after ${LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS}ms. ${formatSettingsGraphPaneStateReadDiagnostic(
+        paneStateReadResult.diagnostic,
+      )}`,
+    );
   }
 
-  if (
-    !parsedPersistedState ||
-    typeof parsedPersistedState !== "object" ||
-    Array.isArray(parsedPersistedState)
-  ) {
-    return null;
-  }
-
-  const persistedContainer = parsedPersistedState as {
-    state?: unknown;
-  };
-  const persistedState =
-    persistedContainer.state &&
-    typeof persistedContainer.state === "object" &&
-    !Array.isArray(persistedContainer.state)
-      ? persistedContainer.state
-      : parsedPersistedState;
-
-  const paneState = persistedState as Record<string, unknown>;
-  if (
-    typeof paneState.overviewVis !== "boolean" ||
-    typeof paneState.overviewTrueWidth !== "number" ||
-    typeof paneState.snapToGrid !== "boolean" ||
-    typeof paneState.uiEditorVis !== "boolean" ||
-    typeof paneState.uiEditorTrueWidth !== "number"
-  ) {
-    return null;
-  }
-
-  return {
-    overviewVisible: paneState.overviewVis,
-    overviewTrueWidth: paneState.overviewTrueWidth,
-    snapToGrid: paneState.snapToGrid,
-    uiEditorVisible: paneState.uiEditorVis,
-    uiEditorTrueWidth: paneState.uiEditorTrueWidth,
-  };
+  throw new Error(
+    `Failed to read local pane state from in-page store. ${paneStateReadResult.errorMessage}. ${formatSettingsGraphPaneStateReadDiagnostic(
+      paneStateReadResult.diagnostic,
+    )}`,
+  );
 }
 
 export async function setLocalPaneState(

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { readPersistedSettingsGraphLocalPaneState } from "../../../../../tests/e2e/settings/graphSubstrateParityProbe";
+import {
+  formatSettingsGraphPaneStateReadDiagnostic,
+  readPersistedSettingsGraphLocalPaneState,
+} from "./settingsGraphPersistedPaneState";
 
 describe("readPersistedSettingsGraphLocalPaneState", () => {
   it("reads the persisted zustand state wrapper shape", () => {
@@ -57,5 +60,31 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it("formats pane-state read diagnostics as stable json", () => {
+    expect(
+      formatSettingsGraphPaneStateReadDiagnostic({
+        appShellMounted: true,
+        currentUrl: "http://127.0.0.1:3075/settings",
+        documentReadyState: "complete",
+        graphSurfaceMounted: false,
+        headerNotificationVisible: false,
+        persistedPaneStateParseable: false,
+        persistedPaneStatePresent: false,
+        settingsContentMounted: false,
+      }),
+    ).toBe(
+      JSON.stringify({
+        appShellMounted: true,
+        currentUrl: "http://127.0.0.1:3075/settings",
+        documentReadyState: "complete",
+        graphSurfaceMounted: false,
+        headerNotificationVisible: false,
+        persistedPaneStateParseable: false,
+        persistedPaneStatePresent: false,
+        settingsContentMounted: false,
+      }),
+    );
   });
 });

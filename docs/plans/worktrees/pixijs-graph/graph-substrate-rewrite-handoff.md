@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 21:21 UTC
+Last updated: 2026-04-12 21:36 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,81 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `352` landed one bounded worktree pane-state read diagnostics slice on
+  the canonical `rotaryParamCodeObjDefault` main-reference perf lane:
+
+  - harness/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      now owns persisted pane-state parsing plus stable diagnostic formatting
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now bounds the in-page `useLocalStorage` fallback inside
+      `getLocalPaneState(...)` to `2000ms` and throws explicit diagnostics with
+      URL, ready-state, shell/surface/content visibility, and persisted-state
+      presence/parseability when that fallback times out or throws
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      to lock both persisted-state parsing shapes and the stable diagnostic
+      formatter output
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-worktree-pane-state-read-diagnostics.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-041/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-041/main-ai.log`
+      -> still failed before the spec body in Playwright global setup on this
+         runtime
+      -> blocker was `page.waitForURL(...)` after bootstrap, not the
+         `capture initial pane state` helper
+    - direct headless Playwright bootstrap + `/settings` check against the live
+      worktree runtime
+      -> succeeded in reading pane state:
+         `{overviewVisible:true, overviewTrueWidth:335, snapToGrid:true, uiEditorVisible:false, uiEditorTrueWidth:40}`
+    - fresh-context headless CDP smoke on the worktree bootstrap URL
+      -> bootstrap consume returned `401 Unauthorized`
+      -> UI stayed on the bootstrap screen with `Token rejected. Request a new token and try again.`
+  - reading:
+    - this bounded pass did not reproduce the original
+      `capture initial pane state` hang on the direct worktree page
+    - the canonical cross-worktree lane remains unstable for default
+      sequencing because the current runtime still splits across Playwright
+      global-setup routing failure and CDP bootstrap-token rejection before a
+      trustworthy end-to-end compare can run
+    - per lane budget, close this probe/setup lane for now and return the next
+      default iteration to product-side attribution work using the existing
+      canary instrumentation
+
+- progress review checkpoint after loop iteration `40`:
+  - runs `031` through `037` were still worthwhile:
+    - each landed one bounded product-side reduction inside the measured
+      `interactionReactFlowStateSync` owner
+    - focused tests were green and the required CDP smoke kept showing a
+      visible `/settings` surface without obvious shell/layout collapse
+  - runs `038` through `040` were bounded harness/probe passes on the same
+    canonical `rotaryParamCodeObjDefault` main-reference lane:
+    - they were justified only because they moved the named blocker forward
+      from Playwright bootstrap churn to
+      `worktree: normalize compare pane state`, then to
+      `worktree: capture initial pane state`
+    - item `351` also produced negative evidence from live CDP smoke:
+      shell mounted, but the viewport stayed on a loading spinner / dark empty
+      area and the graph surface never became visible during the check
+  - sharpened direction:
+    - do not spend another default iteration on generic global-setup tweaks,
+      timeout-budget churn, or compare-pane helper cleanup
+    - the next and only allowed default probe pass on this lane is a direct
+      inspection of the worktree-side `capture initial pane state` path
+    - that pass must classify the blocker as either:
+      - `worktree_unhealthy`, or
+      - a narrower pane-state read hang/regression
+    - if that one bounded pass does not resolve the classification or land a
+      concrete fix, close this cross-worktree lane as temporarily unstable for
+      default sequencing and return the loop to product-side attribution work
+      with the already-landed canary instrumentation
+    - until that classification happens, do not reopen broader bootstrap/home
+      landing logic or unrelated probe helpers on this lane
 
 - item `351` landed one bounded worktree transient-chrome normalization fix on
   the canonical `rotaryParamCodeObjDefault` main-reference perf lane:

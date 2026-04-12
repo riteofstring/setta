@@ -74,6 +74,44 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+# 2026-04-12 - Progress review after loop iteration 40
+
+- Decision: `replan_and_continue`
+- Why:
+  - runs `031` through `037` still count as meaningful forward progress:
+    - seven bounded product-side reductions landed inside the measured
+      `interactionReactFlowStateSync` owner
+    - focused tests stayed green
+    - required CDP smoke kept showing a visible `/settings` surface with no
+      obvious shell/layout-collapse regression on those product slices
+  - runs `038` through `040` were probe-oriented rather than product-side, but
+    they still moved one named blocker forward:
+    - the canonical main-reference lane now reaches the spec body on the
+      current runtime
+    - the old `worktree: normalize compare pane state` stall is closed
+    - the active blocker is now the later
+      `worktree: capture initial pane state` phase
+- Red herrings / diminishing returns:
+  - more default passes on generic Playwright bootstrap matching, timeout
+    tuning, or broad compare-pane helper cleanup would now be churn
+  - the live CDP smoke from item `351` showed a darker worktree-health signal
+    than a simple harness mismatch:
+    - shell mounted
+    - viewport stayed on loading spinner / dark empty area
+    - graph surface did not become visible during the check
+- Durable direction update:
+  - allow one bounded next pass to inspect the worktree-side
+    `capture initial pane state` call path directly
+  - that pass must classify the blocker as either `worktree_unhealthy` or a
+    narrower pane-state read hang/regression
+  - if that classification still does not land after one pass, close the
+    canonical cross-worktree lane as temporarily unstable for default
+    sequencing and pivot the loop back to product-side attribution work using
+    the already-landed canary instrumentation
+  - do not spend another default iteration on broader bootstrap/home-landing
+    fixes or generic probe-helper churn on this lane
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 20:11 UTC
 
 - item `345` landed one bounded section-header follow-selection selector split
@@ -13676,5 +13714,55 @@ LOOP_TERMINAL_MARKER: none
       intended blocker
     - next frontier: inspect the worktree-side `normalize compare pane state`
       phase directly instead of spending another pass on global setup
+
+## 2026-04-12 21:36 UTC
+
+- item `352` landed one bounded worktree pane-state read diagnostics slice on
+  the canonical `rotaryParamCodeObjDefault` main-reference lane:
+  - extracted persisted pane-state parsing plus stable diagnostic formatting
+    into
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+  - updated
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts:getLocalPaneState(...)`
+    to:
+    - keep the persisted `localStorage` fast path
+    - bound the in-page `useLocalStorage` import fallback to `2000ms`
+    - throw explicit diagnostics with URL, ready-state, shell/surface/content
+      visibility, and persisted-state presence/parseability on timeout/throw
+  - added focused coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-worktree-pane-state-read-diagnostics.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    - passed (`1` file, `4` tests)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+    - passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-041/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-041/main-ai.log`
+    - failed before the canonical spec body in Playwright global setup
+    - blocker on this runtime was still `page.waitForURL(...)` after
+      bootstrap, not the pane-state read helper
+  - direct headless Playwright bootstrap + `/settings` check against the live
+    worktree runtime:
+    - succeeded in reading pane state
+    - returned
+      `{overviewVisible:true, overviewTrueWidth:335, snapToGrid:true, uiEditorVisible:false, uiEditorTrueWidth:40}`
+  - fresh-context headless CDP smoke on the worktree bootstrap URL:
+    - `/__setta__/bootstrap/consume` returned `401 Unauthorized`
+    - UI stayed on the bootstrap screen with
+      `Token rejected. Request a new token and try again.`
+- Result:
+  - the bounded pane-state read path is now instrumented to fail fast with
+    concrete diagnostics instead of producing another opaque 30s timeout
+  - this pass did not reproduce the original `capture initial pane state` hang
+    on the direct worktree page
+  - the canonical cross-worktree lane remains unstable for default sequencing
+    because the current runtime still splits across Playwright global-setup
+    routing failure and CDP bootstrap-token rejection before a trustworthy
+    end-to-end compare can run
+- Next:
+  - close this probe/setup lane for now and return the next default iteration
+    to product-side attribution work using the existing canary
+    instrumentation; do not spend a third default pass on this setup family
 
 LOOP_TERMINAL_MARKER: none
