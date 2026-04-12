@@ -33,6 +33,10 @@ type AppDeploymentSessionRouteResponse =
   ResponseDataAndStatus<AppDeploymentSession>;
 type AppDeploymentStateRouteResponse =
   ResponseDataAndStatus<AppDeploymentState>;
+type AppDeploymentPath = {
+  deploymentName: string;
+  version: string;
+};
 function normalizeAppSessionResponse(
   session: AppDeploymentSession,
 ): AppDeploymentSession {
@@ -252,67 +256,71 @@ export async function initializeAppSessionFromCurrentDeployment(
   resetAppSessionState();
   return false;
 }
-export async function loadAppDeploymentState({
-  projectConfigId,
-  allowRetry = true,
-}: {
-  projectConfigId?: string;
-  allowRetry?: boolean;
-} = {}): Promise<boolean> {
+function getActiveAppDeploymentPath(): AppDeploymentPath | null {
   const shareSession = useShareSession.getState();
+  if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
+    return null;
+  }
   if (
-    !shareSession.isDeploymentMode ||
-    shareSession.deploymentMode !== "app" ||
     !shareSession.shareDeploymentName ||
     !shareSession.shareDeploymentVersion
   ) {
+    return null;
+  }
+  return {
+    deploymentName: shareSession.shareDeploymentName,
+    version: shareSession.shareDeploymentVersion,
+  };
+}
+async function requestAppDeploymentState(
+  path: AppDeploymentPath,
+  projectConfigId?: string,
+): Promise<AppDeploymentStateRouteResponse> {
+  if (!projectConfigId) {
+    return (await callOpenAPI(
+      getAppDeploymentState({
+        path,
+      } as Parameters<typeof getAppDeploymentState>[0]),
+    )) as AppDeploymentStateRouteResponse;
+  }
+  return (await callOpenAPI(
+    getAppDeploymentProjectConfig({
+      path,
+      body: {
+        projectConfigId,
+      },
+    } as Parameters<typeof getAppDeploymentProjectConfig>[0]),
+  )) as AppDeploymentStateRouteResponse;
+}
+function shouldRetryAppDeploymentState(
+  response: AppDeploymentStateRouteResponse,
+  allowRetry: boolean,
+): boolean {
+  if (!allowRetry || res200(response)) {
     return false;
   }
-  const res = (
-    projectConfigId
-      ? await callOpenAPI(
-          getAppDeploymentProjectConfig({
-            path: {
-              deploymentName: shareSession.shareDeploymentName,
-              version: shareSession.shareDeploymentVersion,
-            },
-            body: {
-              projectConfigId,
-            },
-          } as Parameters<typeof getAppDeploymentProjectConfig>[0]),
-        )
-      : await callOpenAPI(
-          getAppDeploymentState({
-            path: {
-              deploymentName: shareSession.shareDeploymentName,
-              version: shareSession.shareDeploymentVersion,
-            },
-          } as Parameters<typeof getAppDeploymentState>[0]),
-        )
-  ) as AppDeploymentStateRouteResponse;
-  if (!res200(res)) {
-    const errorCode = getErrorCode(res.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
-      const session = await ensureAppSessionFromCurrentDeployment({
-        forceNewSession: true,
-      });
-      if (session) {
-        if (projectConfigId) {
-          return await loadAppDeploymentState({
-            projectConfigId,
-            allowRetry: false,
-          });
-        }
-        return await loadAppDeploymentState({ allowRetry: false });
-      }
-    }
+  const errorCode = getErrorCode(response.data);
+  return (
+    errorCode === "missing_share_session" ||
+    errorCode === "unknown_share_session"
+  );
+}
+async function retryLoadAppDeploymentState(
+  projectConfigId?: string,
+): Promise<boolean> {
+  const session = await ensureAppSessionFromCurrentDeployment({
+    forceNewSession: true,
+  });
+  if (!session) {
     return false;
   }
-  const normalizedResponse = normalizeAppDeploymentStateResponse(res.data);
+  return await loadAppDeploymentState({
+    projectConfigId,
+    allowRetry: false,
+  });
+}
+function applyAppDeploymentStateResponse(response: AppDeploymentState): void {
+  const normalizedResponse = normalizeAppDeploymentStateResponse(response);
   if (normalizedResponse.appDefinition || normalizedResponse.appSpec) {
     useAppDefinition.setState({
       appDefinition: normalizedResponse.appDefinition ?? null,
@@ -320,7 +328,27 @@ export async function loadAppDeploymentState({
     });
   }
   storeAppConfigState(normalizedResponse.projectState);
-  return true;
+}
+export async function loadAppDeploymentState({
+  projectConfigId,
+  allowRetry = true,
+}: {
+  projectConfigId?: string;
+  allowRetry?: boolean;
+} = {}): Promise<boolean> {
+  const path = getActiveAppDeploymentPath();
+  if (!path) {
+    return false;
+  }
+  const response = await requestAppDeploymentState(path, projectConfigId);
+  if (res200(response)) {
+    applyAppDeploymentStateResponse(response.data);
+    return true;
+  }
+  if (!shouldRetryAppDeploymentState(response, allowRetry)) {
+    return false;
+  }
+  return await retryLoadAppDeploymentState(projectConfigId);
 }
 export async function resetAppDeployment(): Promise<boolean> {
   useProjectLoading.setState({
