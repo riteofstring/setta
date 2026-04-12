@@ -13,11 +13,9 @@ describe("AppRenderer data bindings", () => {
     const bindings = {
       params: {
         name: {
-          configId: "config-1",
           sectionId: "section-1",
           paramId: "param-1",
           label: "Name",
-          description: "Your name",
         },
       },
     };
@@ -26,11 +24,9 @@ describe("AppRenderer data bindings", () => {
       bindings,
     );
 
-    expect(resolved.configId).toBe("config-1");
     expect(resolved.sectionId).toBe("section-1");
     expect(resolved.paramId).toBe("param-1");
     expect(resolved.label).toBe("Name");
-    expect(resolved.description).toBe("Your name");
   });
 
   it("prefers explicit props over data bindings", () => {

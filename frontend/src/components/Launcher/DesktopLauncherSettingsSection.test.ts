@@ -1,28 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import type { GetLauncherStatusResponse } from "openapi/http";
+import { createLauncherStatusResponse } from "utils/generatedTypes";
 
 import {
   buildSetupLauncherRequest,
   deriveLauncherControlsState,
   normalizeLauncherScopeSettaHome,
   resolveInstallerInstructionsForUserAgent,
-  resolveLauncherUpdatePreflight,
   resolveUpdateProgressLabel,
 } from "./DesktopLauncherSettingsSection";
 
-function buildLauncherStatusResponse(
-  overrides: Partial<GetLauncherStatusResponse> = {},
-): GetLauncherStatusResponse {
-  return {
-    ok: true,
-    ...overrides,
-  };
-}
-
 describe("DesktopLauncherSettingsSection helpers", () => {
   it("derives setup state for a fresh installation", () => {
-    const status = buildLauncherStatusResponse({
+    const status = createLauncherStatusResponse({
       ok: true,
       installed: false,
       updateCapability: "unsupported",
@@ -41,7 +31,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("derives in-app update state and in-flight setup label", () => {
-    const status = buildLauncherStatusResponse({
+    const status = createLauncherStatusResponse({
       ok: true,
       installed: true,
       updateCapability: "in_app",
@@ -60,7 +50,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("marks installer-managed channels and re-run setup label", () => {
-    const status = buildLauncherStatusResponse({
+    const status = createLauncherStatusResponse({
       ok: true,
       installed: true,
       updateCapability: "installer_managed",
@@ -94,46 +84,6 @@ describe("DesktopLauncherSettingsSection helpers", () => {
     );
   });
 
-  it("allows in-app launcher updates after a successful preflight", () => {
-    const status = buildLauncherStatusResponse({
-      ok: true,
-      installed: true,
-      updateCapability: "in_app",
-    });
-
-    expect(resolveLauncherUpdatePreflight(status)).toEqual({ kind: "ready" });
-  });
-
-  it("returns installer-managed guidance from update preflight", () => {
-    const status = buildLauncherStatusResponse({
-      ok: true,
-      installed: true,
-      updateCapability: "installer_managed",
-      updateGuidance: "Use the installer to update Setta.",
-    });
-
-    expect(resolveLauncherUpdatePreflight(status)).toEqual({
-      kind: "error",
-      errorMessage: "Use the installer to update Setta.",
-      showInstallerInstructions: true,
-    });
-  });
-
-  it("returns launcher status errors from update preflight", () => {
-    const status = buildLauncherStatusResponse({
-      ok: false,
-      error: {
-        message: "Launcher status lookup failed.",
-      },
-    });
-
-    expect(resolveLauncherUpdatePreflight(status)).toEqual({
-      kind: "error",
-      errorMessage: "Launcher status lookup failed.",
-      showInstallerInstructions: false,
-    });
-  });
-
   it("returns OS-specific installer instructions", () => {
     const mac = resolveInstallerInstructionsForUserAgent(
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2)",
@@ -151,7 +101,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("builds setup payload from existing launcher status", () => {
-    const status = buildLauncherStatusResponse({
+    const status = createLauncherStatusResponse({
       ok: true,
       installed: true,
       channel: "uv-tool",
@@ -172,7 +122,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
       installArtifacts: true,
       channel: "uv-tool",
       openMode: "browser",
-      workspaceBehavior: "always_prompt",
+      workspaceBehavior: "always-prompt",
       artifactOptions: {
         app_name: "Setta",
       },
@@ -180,7 +130,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("sets installArtifacts=false when launcher has no managed artifacts", () => {
-    const status = buildLauncherStatusResponse({
+    const status = createLauncherStatusResponse({
       ok: true,
       installed: true,
       managedArtifacts: {},
@@ -195,7 +145,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("omits setup defaults when launcher is not installed", () => {
-    const status = buildLauncherStatusResponse({
+    const status = createLauncherStatusResponse({
       ok: true,
       installed: false,
       updateCapability: "unsupported",
