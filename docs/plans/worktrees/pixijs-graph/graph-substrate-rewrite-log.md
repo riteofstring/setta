@@ -13229,6 +13229,50 @@ LOOP_TERMINAL_MARKER: none
       selector/write fan-out still visible on the canonical lane
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 19:42 UTC
+
+- item `343` landed one bounded agentic-edge-handle visibility selector split
+  inside the canonical `rotaryParamCodeObjDefault` lane:
+  - changed
+    `frontend/src/components/Section/Container/AgenticEdgeHandles.tsx` so the
+    mounted agentic handle surface subscribes through a derived per-section
+    `{ hasIncoming, hasOutgoing }` selector instead of the full
+    `projectConfig.agenticEdges` array
+  - added focused profiler regression coverage in
+    `frontend/src/components/Section/Container/AgenticEdgeHandles.test.tsx` to
+    prove:
+    - the mounted handle surface does not commit when an unrelated agentic
+      edge is added for other sections
+    - the handle surface still re-renders when this section gains an incoming
+      edge
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-agentic-edge-handle-visibility-selector.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/AgenticEdgeHandles.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/AgenticEdgeHandles.tsx src/components/Section/Container/AgenticEdgeHandles.test.tsx`
+      -> passed
+    - one allowed lifecycle recovery was used after the initial direct-CDP
+      retry hit a loading spinner on `/settings`:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts showed session `0c409b` on frontend `3075`,
+        backend `8075`, debug port `9297`
+    - fresh-context headless CDP smoke on the restarted worktree `/settings`
+      session:
+      - bootstrap health healthy
+      - `/settings` mounted successfully
+      - no obvious layout or section handle-chrome regression was visible
+  - reading:
+    - this closes the remaining inconsistency inside the mounted
+      section-handle family: agentic handles now use the same
+      visibility-scoped subscription shape as the chat-shared and workflow
+      handle paths
+    - next default frontier: keep the loop attribution-led and identify the
+      next mounted section-body/chrome subscriber or shared write fan-out on
+      the canonical lane before another reduction slice
+
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 19:36 UTC
 
 - item `342` landed one bounded node-wrapper node-internals selector split

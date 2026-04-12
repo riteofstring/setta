@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 19:36 UTC
+Last updated: 2026-04-12 19:42 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `343` landed one bounded agentic-edge-handle visibility selector split
+  inside the measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted section-handle chrome path:
+    - `frontend/src/components/Section/Container/AgenticEdgeHandles.tsx`
+      now subscribes through a derived per-section
+      `{ hasIncoming, hasOutgoing }` selector instead of the full
+      `projectConfig.agenticEdges` array
+    - this keeps mounted agentic edge handles from re-committing when
+      unrelated agentic edges change elsewhere in project state
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Container/AgenticEdgeHandles.test.tsx`
+      to assert the mounted handle surface does not commit when an unrelated
+      agentic edge is added and still re-renders when this section gains an
+      incoming edge
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-agentic-edge-handle-visibility-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/AgenticEdgeHandles.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/AgenticEdgeHandles.tsx src/components/Section/Container/AgenticEdgeHandles.test.tsx`
+      -> passed
+    - one allowed lifecycle recovery was used after the initial direct-CDP
+      retry reached `/settings` but stayed on a loading spinner:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime facts showed session `0c409b` on frontend `3075`,
+        backend `8075`, debug port `9297`
+    - fresh-context headless CDP smoke on the restarted worktree session:
+      - bootstrap health healthy
+      - `/settings` mounted successfully
+      - no obvious layout or section handle-chrome regression was visible
+  - reading:
+    - this brings the mounted agentic handle surface onto the same
+      visibility-scoped subscription shape already used by the chat-shared and
+      workflow handle paths, which is a cleaner mounted section-chrome boundary
+      than reopening another oracle-only lane
+    - the next bounded frontier should stay attribution-led and identify the
+      next remaining mounted section-body/chrome subscriber or shared write
+      fan-out before another reduction slice
 
 - item `342` landed one bounded node-wrapper node-internals selector split
   inside the measured `interactionReactFlowStateSync` owner on the named
