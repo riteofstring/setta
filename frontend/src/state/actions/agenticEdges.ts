@@ -24,6 +24,16 @@ export const AGENTIC_EDGE_HANDLE_IDS = {
   target: "agentic-edge-target",
   reverseStart: "agentic-edge-reverse-start",
 } as const;
+type ConnectionSectionTypes = {
+  sourceType: SectionTypeEnum | null;
+  targetType: SectionTypeEnum | null;
+};
+const STATE_MACHINE_SECTION_TYPES = new Set<SectionTypeEnum>([
+  SectionTypeEnum.StateMachineStart,
+  SectionTypeEnum.StateMachineGate,
+  SectionTypeEnum.StateMachineEnd,
+]);
+
 function getSectionTypeById(
   state: ReturnType<typeof useProjectState.getState>,
   sectionId: string,
@@ -42,30 +52,33 @@ function getSectionTypeById(
   }
   return impl.type ?? null;
 }
+function isStateMachineSectionType(sectionType: SectionTypeEnum): boolean {
+  return STATE_MACHINE_SECTION_TYPES.has(sectionType);
+}
+
+function isChatSectionType(sectionType: SectionTypeEnum): boolean {
+  return sectionType === SectionTypeEnum.Chat;
+}
+
 function resolveAgenticEdgeKind(
   sourceType: SectionTypeEnum,
   targetType: SectionTypeEnum,
 ): AgenticEdgeKindEnum | null {
   if (
-    sourceType === SectionTypeEnum.StateMachineStart ||
-    sourceType === SectionTypeEnum.StateMachineGate ||
-    sourceType === SectionTypeEnum.StateMachineEnd ||
-    targetType === SectionTypeEnum.StateMachineStart ||
-    targetType === SectionTypeEnum.StateMachineGate ||
-    targetType === SectionTypeEnum.StateMachineEnd
+    isStateMachineSectionType(sourceType) ||
+    isStateMachineSectionType(targetType)
   ) {
     return null;
   }
-  if (
-    sourceType === SectionTypeEnum.Chat &&
-    targetType === SectionTypeEnum.Chat
-  ) {
+  const sourceIsChat = isChatSectionType(sourceType);
+  const targetIsChat = isChatSectionType(targetType);
+  if (sourceIsChat && targetIsChat) {
     return AgenticEdgeKindEnum.chat_chat;
   }
-  if (sourceType === SectionTypeEnum.Chat) {
+  if (sourceIsChat) {
     return AgenticEdgeKindEnum.chat_section;
   }
-  if (targetType === SectionTypeEnum.Chat) {
+  if (targetIsChat) {
     return AgenticEdgeKindEnum.section_chat;
   }
   return null;
@@ -134,36 +147,85 @@ function usesSharedChatHandleOnNormalizedTarget(
       normalizedConnection.target === connection.target)
   );
 }
+
+function hasConnectionEndpoints(
+  connection: Connection,
+): connection is Connection & { source: string; target: string } {
+  return Boolean(connection.source && connection.target);
+}
+
+function usesWorkflowHandle(connection: Connection): boolean {
+  return (
+    isWorkflowHandleId(connection.sourceHandle) ||
+    isWorkflowHandleId(connection.targetHandle)
+  );
+}
+
+function hasKnownConnectionSectionTypes(
+  types: ConnectionSectionTypes | null,
+): types is {
+  sourceType: SectionTypeEnum;
+  targetType: SectionTypeEnum;
+} {
+  return Boolean(types?.sourceType && types.targetType);
+}
+
+function usesInvalidSharedChatHandleTypes(
+  connection: Connection,
+  normalizedConnection: Connection,
+  types: {
+    sourceType: SectionTypeEnum;
+    targetType: SectionTypeEnum;
+  },
+): boolean {
+  const sourceUsesSharedChatHandle = usesSharedChatHandleOnNormalizedSource(
+    connection,
+    normalizedConnection,
+  );
+  if (sourceUsesSharedChatHandle && !isChatSectionType(types.sourceType)) {
+    return true;
+  }
+  const targetUsesSharedChatHandle = usesSharedChatHandleOnNormalizedTarget(
+    connection,
+    normalizedConnection,
+  );
+  return targetUsesSharedChatHandle && !isChatSectionType(types.targetType);
+}
+
+function hasInvalidSharedChatHandleTypesForConnection(
+  connection: Connection,
+  normalizedConnection: Connection,
+  state: ReturnType<
+    typeof useProjectState.getState
+  > = useProjectState.getState(),
+): boolean {
+  const types = getConnectionSectionTypes(normalizedConnection, state);
+  if (!hasKnownConnectionSectionTypes(types)) {
+    return false;
+  }
+  return usesInvalidSharedChatHandleTypes(
+    connection,
+    normalizedConnection,
+    types,
+  );
+}
+
 export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   const normalizedConnection = normalizeAgenticConnectionHandles(connection);
-  if (!normalizedConnection.source || !normalizedConnection.target) {
-    return false;
-  }
   if (
-    isWorkflowHandleId(normalizedConnection.sourceHandle) ||
-    isWorkflowHandleId(normalizedConnection.targetHandle)
+    !hasConnectionEndpoints(normalizedConnection) ||
+    usesWorkflowHandle(normalizedConnection) ||
+    normalizedConnection.source === normalizedConnection.target ||
+    useShareSession.getState().isDeploymentMode
   ) {
-    return false;
-  }
-  if (normalizedConnection.source === normalizedConnection.target) {
-    return false;
-  }
-  if (useShareSession.getState().isDeploymentMode) {
     return false;
   }
   const types = getConnectionSectionTypes(normalizedConnection);
-  if (!types || !types.sourceType || !types.targetType) {
+  if (!hasKnownConnectionSectionTypes(types)) {
     return true;
   }
   if (
-    usesSharedChatHandleOnNormalizedSource(connection, normalizedConnection) &&
-    types.sourceType !== SectionTypeEnum.Chat
-  ) {
-    return false;
-  }
-  if (
-    usesSharedChatHandleOnNormalizedTarget(connection, normalizedConnection) &&
-    types.targetType !== SectionTypeEnum.Chat
+    usesInvalidSharedChatHandleTypes(connection, normalizedConnection, types)
   ) {
     return false;
   }
@@ -175,8 +237,11 @@ export function createAgenticEdgeFromConnection(connection: Connection): void {
     return;
   }
   if (
-    isWorkflowHandleId(normalizedConnection.sourceHandle) ||
-    isWorkflowHandleId(normalizedConnection.targetHandle)
+    usesWorkflowHandle(normalizedConnection) ||
+    hasInvalidSharedChatHandleTypesForConnection(
+      connection,
+      normalizedConnection,
+    )
   ) {
     return;
   }
@@ -195,11 +260,8 @@ function getConnectionSectionTypes(
   state: ReturnType<
     typeof useProjectState.getState
   > = useProjectState.getState(),
-): {
-  sourceType: SectionTypeEnum | null;
-  targetType: SectionTypeEnum | null;
-} | null {
-  if (!connection.source || !connection.target) {
+): ConnectionSectionTypes | null {
+  if (!hasConnectionEndpoints(connection)) {
     return null;
   }
   return getConnectionSectionTypesFromState(connection, state);
@@ -207,11 +269,8 @@ function getConnectionSectionTypes(
 function getConnectionSectionTypesFromState(
   connection: Connection,
   state: ReturnType<typeof useProjectState.getState>,
-): {
-  sourceType: SectionTypeEnum | null;
-  targetType: SectionTypeEnum | null;
-} | null {
-  if (!connection.source || !connection.target) {
+): ConnectionSectionTypes | null {
+  if (!hasConnectionEndpoints(connection)) {
     return null;
   }
   return {

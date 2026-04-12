@@ -48,6 +48,14 @@ const implA = "impl-a";
 const implB = "impl-b";
 const implCode = "impl-code";
 const implGate = "impl-gate";
+
+function createOpenAPISuccessResponse() {
+  return {
+    data: null,
+    response: new Response(null, { status: 200 }),
+  };
+}
+
 function seedChatSections() {
   const coreA = createCore({
     id: sectionA,
@@ -189,11 +197,7 @@ describe("agentic edge optimistic create", () => {
   it("creates and sends an optimistic agentic edge", async () => {
     const createAgenticEdge = (await import("openapi/http"))
       .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
     createAgenticEdgeFromSections({
       sourceSectionId: sectionA,
       targetSectionId: sectionB,
@@ -208,11 +212,13 @@ describe("agentic edge optimistic create", () => {
     expect(createAgenticEdge).toHaveBeenCalledTimes(1);
     expect(createAgenticEdge.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        id: edge.id,
-        sourceSectionId: sectionA,
-        targetSectionId: sectionB,
-        kind: AgenticEdgeKindEnum.chat_chat,
-        frontendOpId: expect.any(String),
+        body: expect.objectContaining({
+          id: edge.id,
+          sourceSectionId: sectionA,
+          targetSectionId: sectionB,
+          kind: AgenticEdgeKindEnum.chat_chat,
+          frontendOpId: expect.any(String),
+        }),
       }),
     );
   });
@@ -230,11 +236,7 @@ describe("agentic edge context mode updates", () => {
   it("updates context mode and persists the edge", async () => {
     const updateAgenticEdge = (await import("openapi/http"))
       .updateAgenticEdge as unknown as vi.Mock;
-    updateAgenticEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    updateAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
     const edge = createAgenticEdge({
       id: "edge-context",
       sourceSectionId: sectionA,
@@ -257,12 +259,14 @@ describe("agentic edge context mode updates", () => {
     expect(updateAgenticEdge).toHaveBeenCalledTimes(1);
     expect(updateAgenticEdge.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        edge: expect.objectContaining({
-          id: edge.id,
-          contextMode: AgenticEdgeContextModeEnum.inline_text,
+        body: expect.objectContaining({
+          projectConfigId,
+          edge: expect.objectContaining({
+            id: edge.id,
+            contextMode: AgenticEdgeContextModeEnum.inline_text,
+          }),
+          frontendOpId: expect.any(String),
         }),
-        frontendOpId: expect.any(String),
       }),
     );
   });
@@ -280,11 +284,7 @@ describe("agentic edge selection and deletion", () => {
   it("single-selects an agentic edge through setAgenticEdges", async () => {
     const setAgenticEdges = (await import("openapi/http"))
       .setAgenticEdges as unknown as vi.Mock;
-    setAgenticEdges.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    setAgenticEdges.mockResolvedValue(createOpenAPISuccessResponse());
     useProjectState.setState((state) => {
       state.projectConfig.agenticEdges = [
         createAgenticEdge({
@@ -313,23 +313,21 @@ describe("agentic edge selection and deletion", () => {
     expect(setAgenticEdges).toHaveBeenCalledTimes(1);
     expect(setAgenticEdges.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edges: expect.arrayContaining([
-          expect.objectContaining({ id: "edge-a", selected: true }),
-          expect.objectContaining({ id: "edge-b", selected: false }),
-        ]),
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edges: expect.arrayContaining([
+            expect.objectContaining({ id: "edge-a", selected: true }),
+            expect.objectContaining({ id: "edge-b", selected: false }),
+          ]),
+        }),
       }),
     );
   });
   it("deletes selected agentic edges through deleteAgenticEdges", async () => {
     const deleteAgenticEdges = (await import("openapi/http"))
       .deleteAgenticEdges as unknown as vi.Mock;
-    deleteAgenticEdges.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    deleteAgenticEdges.mockResolvedValue(createOpenAPISuccessResponse());
     useProjectState.setState((state) => {
       state.projectConfig.agenticEdges = [
         createAgenticEdge({
@@ -356,9 +354,11 @@ describe("agentic edge selection and deletion", () => {
     expect(deleteAgenticEdges).toHaveBeenCalledTimes(1);
     expect(deleteAgenticEdges.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edgeIds: ["edge-a"],
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edgeIds: ["edge-a"],
+        }),
       }),
     );
   });
@@ -376,11 +376,7 @@ describe("agentic edge connections", () => {
   it("accepts shared chat handles when connecting code to chat", async () => {
     const createAgenticEdge = (await import("openapi/http"))
       .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
     const connection = {
       source: sectionCode,
       target: sectionA,
@@ -402,11 +398,7 @@ describe("agentic edge connections", () => {
   it("rejects workflow nodes as agentic endpoints", async () => {
     const createAgenticEdge = (await import("openapi/http"))
       .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
     const connection = {
       source: sectionA,
       target: sectionGate,
@@ -425,14 +417,44 @@ describe("agentic edge connections", () => {
     );
     expect(createAgenticEdge).not.toHaveBeenCalled();
   });
+  it("rejects shared chat handles on non-chat sources", async () => {
+    const createAgenticEdge = (await import("openapi/http"))
+      .createAgenticEdge as unknown as vi.Mock;
+    createAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
+    const connection = {
+      source: sectionCode,
+      target: sectionA,
+      sourceHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
+      targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
+    };
+    expect(isValidAgenticEdgeConnection(connection)).toBe(false);
+    createAgenticEdgeFromConnection(connection);
+    expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
+      0,
+    );
+    expect(createAgenticEdge).not.toHaveBeenCalled();
+  });
+  it("rejects shared chat handles on non-chat targets", async () => {
+    const createAgenticEdge = (await import("openapi/http"))
+      .createAgenticEdge as unknown as vi.Mock;
+    createAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
+    const connection = {
+      source: sectionA,
+      target: sectionCode,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+      targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+    };
+    expect(isValidAgenticEdgeConnection(connection)).toBe(false);
+    createAgenticEdgeFromConnection(connection);
+    expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
+      0,
+    );
+    expect(createAgenticEdge).not.toHaveBeenCalled();
+  });
   it("normalizes reverse drags from agentic targets back to chat-to-section edges", async () => {
     const createAgenticEdge = (await import("openapi/http"))
       .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createAgenticEdge.mockResolvedValue(createOpenAPISuccessResponse());
     const connection = {
       source: sectionCode,
       sourceHandle: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
