@@ -66,28 +66,12 @@ export function getBackendLogCopyButtonPresentation(
   return BACKEND_LOG_COPY_BUTTON_PRESENTATION_BY_STATUS[copyStatus ?? "idle"];
 }
 
-export function clampBackendLogColumnWidth(
+function clampBackendLogColumnWidth(
   column: BackendLogColumnWidthName,
   width: number,
 ): number {
   const bounds = BACKEND_LOG_COLUMN_WIDTH_BOUNDS[column];
   return Math.max(bounds.min, Math.min(bounds.max, Math.round(width)));
-}
-
-export function applyBackendLogColumnResize(
-  initialWidths: BackendLogColumnWidths,
-  column: BackendLogColumnWidthName,
-  deltaX: number,
-): BackendLogColumnWidths {
-  const nextWidth = getBackendLogResizedColumnWidth(
-    initialWidths,
-    column,
-    deltaX,
-  );
-  return {
-    ...initialWidths,
-    [column]: nextWidth,
-  };
 }
 
 export function getBackendLogResizedColumnWidth(

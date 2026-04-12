@@ -1,29 +1,31 @@
 import { SettaBackendLogEvent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   filterEvents,
   getBackendLogEventById,
   getBackendLogEventsById,
   getBackendLogGridMinWidth,
   getBackendLogListRenderWidth,
+  getBackendLogResizedColumnWidth,
 } from "./BackendLogEventsArea.utils";
 
 describe("BackendLogEventsArea sizing integration", () => {
   it("shrinks list render width after narrowing columns from an expanded state", () => {
     // Fixed viewport width; column drags should control when grid min-width exceeds viewport.
     const viewportWidth = 700;
-    const widenedWidths = applyBackendLogColumnResize(
-      BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
-      "project",
-      120,
-    );
-    const narrowedWidths = applyBackendLogColumnResize(
-      widenedWidths,
-      "project",
-      -80,
-    );
+    const widenedWidths = {
+      ...BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
+      project: getBackendLogResizedColumnWidth(
+        BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
+        "project",
+        120,
+      ),
+    };
+    const narrowedWidths = {
+      ...widenedWidths,
+      project: getBackendLogResizedColumnWidth(widenedWidths, "project", -80),
+    };
 
     const widenedListWidth = getBackendLogListRenderWidth(
       getBackendLogGridMinWidth(widenedWidths),

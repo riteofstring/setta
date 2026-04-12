@@ -1,9 +1,9 @@
 import { SettaBackendLogEvent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   filterEvents,
+  getBackendLogResizedColumnWidth,
 } from "./BackendLogEventsArea.utils";
 
 const STRICT_PERF_BUDGETS_ENABLED = process.env.SETTA_STRICT_PERF === "1";
@@ -52,7 +52,10 @@ describe("BackendLogEventsArea filtering (perf)", () => {
       } else if (i % 3 === 1) {
         column = "severity";
       }
-      widths = applyBackendLogColumnResize(widths, column, delta);
+      widths = {
+        ...widths,
+        [column]: getBackendLogResizedColumnWidth(widths, column, delta),
+      };
     }
     const elapsedMs = performance.now() - start;
 
