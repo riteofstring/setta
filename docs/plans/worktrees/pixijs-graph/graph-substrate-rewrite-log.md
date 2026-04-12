@@ -151,6 +151,58 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 06:52 UTC
+
+- Item: Close the repeated `getLocalPaneState(...)` compare-preflight timeout
+  on the canonical `rotaryParamCodeObjDefault` worktree perf lane without
+  reopening another product-owner guess.
+- Status: `done`
+- Details:
+  - Re-read the active plan and handoff first and did not keep extending the
+    prior `presentedSceneSectionEntriesResolve` product lane while the repeated
+    Playwright preflight blocker remained unchanged.
+  - Chose the narrowest directly blocking support slice:
+    stop reading `setta_data` through
+    `page.evaluate(() => window.localStorage.getItem("setta_data"))` at the
+    start of `getLocalPaneState(...)`.
+  - Changed:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      to add a shared browser-context local-storage origin reader
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      to cover matching-origin and missing-key cases
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so `getLocalPaneState(...)` now reads the persisted pane state from
+      `page.context().storageState()` before using the existing in-page store
+      fallback
+  - Focused verification passed:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-026/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> the canonical worktree probe no longer timed out in compare-preflight
+      -> latest lane readout on the same run:
+         `longTaskCount` `5`,
+         `longTaskTotalDurationMs` `1545ms`,
+         `longTaskMaxDurationMs` `484ms`
+      -> phase split stayed pan-dominant:
+         `panForward` `745ms`, `panReturn` `484ms`, `zoomIn` `175ms`,
+         `zoomOut` `141ms`
+      -> the newly named owner stayed tiny on the same run:
+         `presentedSceneSectionEntriesResolve` `6.1ms` total
+- Conclusion:
+  - the repeated compare-preflight blocker on this lane is closed
+  - the `presentedSceneSectionEntriesResolve` production slice is now measured
+    and should not remain the default frontier because it does not explain the
+    pan-dominant long tasks
+- Next action:
+  - add one bounded pan-phase attribution seam on the canonical
+    `rotaryParamCodeObjDefault` worktree lane so the next pass names the next
+    dominant synchronous owner behind `panForward` / `panReturn`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 06:43 UTC
 
 - Item: Reduce one production pan-time fan-out path on the canonical

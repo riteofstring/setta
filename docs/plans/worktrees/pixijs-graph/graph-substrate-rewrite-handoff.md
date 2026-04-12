@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 06:43 UTC
+Last updated: 2026-04-13 06:52 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,58 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `401` closed the repeated `getLocalPaneState(...)` compare-preflight
+  blocker on the canonical `rotaryParamCodeObjDefault` worktree perf lane:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and avoided another owner guess or
+      another harness-only pass on the same lane
+    - chose the smallest blocker-resolving support slice that directly targets
+      the repeated timeout site:
+      `page.evaluate(() => window.localStorage.getItem("setta_data"))`
+      inside `getLocalPaneState(...)`
+    - kept the existing in-page store fallback intact, but moved the first
+      persisted pane-state read onto Playwright browser-context storage so the
+      probe no longer depends on a responsive page main thread before preflight
+  - product/support code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts`
+      with the shared browser-context local-storage origin reader
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      for matching-origin and missing-key coverage
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      so `getLocalPaneState(...)` reads `setta_data` from
+      `page.context().storageState()` before falling back to the in-page store
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `6` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live worktree probe rerun on the current runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-026/worktree-ai.log`
+      - result: passed (`1` Playwright test, `1.3m`)
+      - preflight no longer hung in `getLocalPaneState(...)`
+      - latest capture on the same canonical lane:
+        - `longTaskCount`: `5`
+        - `longTaskTotalDurationMs`: `1545ms`
+        - `longTaskMaxDurationMs`: `484ms`
+        - phase split:
+          `panForward` `745ms`, `panReturn` `484ms`, `zoomIn` `175ms`,
+          `zoomOut` `141ms`
+        - dominant named canary motion owner:
+          `presentedSceneSectionEntriesResolve` `6.1ms` total
+  - reading:
+    - the active blocker is no longer compare-preflight or runtime health on
+      this lane
+    - the newly named `presentedSceneSectionEntriesResolve` owner remains tiny
+      relative to the `panForward` / `panReturn` long tasks, so that reduction
+      lane should be treated as measured and no longer the default frontier
+    - the next pass should return to attribution and split the remaining
+      synchronous pan-time cost into a new concrete owner outside the current
+      instrumentation set
+  - next default frontier:
+    - add one bounded pan-phase attribution seam on the canonical
+      `rotaryParamCodeObjDefault` worktree lane that names the next dominant
+      synchronous owner behind `panForward` / `panReturn`
 
 - item `400` landed one bounded production-side pan path reduction on the
   canonical `rotaryParamCodeObjDefault` canary lane, but the live Playwright

@@ -17,6 +17,31 @@ export type SettingsGraphPaneStateReadDiagnostic = {
   settingsContentMounted: boolean;
 };
 
+export type SettingsGraphBrowserStorageStateOrigin = {
+  localStorage: Array<{
+    name: string;
+    value: string;
+  }>;
+  origin: string;
+};
+
+export function readBrowserStorageStateLocalStorageEntry(args: {
+  key: string;
+  origin: string;
+  origins: Array<SettingsGraphBrowserStorageStateOrigin>;
+}): string | null {
+  const matchingOrigin = args.origins.find(
+    (originState) => originState.origin === args.origin,
+  );
+  if (!matchingOrigin) {
+    return null;
+  }
+  return (
+    matchingOrigin.localStorage.find((entry) => entry.name === args.key)
+      ?.value ?? null
+  );
+}
+
 export function readPersistedSettingsGraphLocalPaneState(
   rawPersistedState: string | null,
 ): SettingsGraphLocalPaneState | null {

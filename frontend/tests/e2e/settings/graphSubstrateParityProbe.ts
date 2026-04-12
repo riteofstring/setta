@@ -8,6 +8,7 @@ import {
 } from "components/Pages/Project/graphSubstrate/settingsGraphMotionPerfPhases";
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
+  readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
@@ -506,12 +507,34 @@ export function findSharedVisibleSettingsGraphSection(
   return sharedSections[0];
 }
 
+async function getRawPersistedPaneStateFromBrowserContext(
+  page: Page,
+): Promise<string | null> {
+  const pageUrl = page.url();
+  if (!pageUrl) {
+    return null;
+  }
+
+  let origin: string;
+  try {
+    origin = new URL(pageUrl).origin;
+  } catch {
+    return null;
+  }
+
+  const storageState = await page.context().storageState();
+  return readBrowserStorageStateLocalStorageEntry({
+    key: "setta_data",
+    origin,
+    origins: storageState.origins,
+  });
+}
+
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
-  const rawPersistedPaneState = await page.evaluate(() => {
-    return window.localStorage.getItem("setta_data");
-  });
+  const rawPersistedPaneState =
+    await getRawPersistedPaneStateFromBrowserContext(page);
   const persistedPaneState = readPersistedSettingsGraphLocalPaneState(
     rawPersistedPaneState,
   );

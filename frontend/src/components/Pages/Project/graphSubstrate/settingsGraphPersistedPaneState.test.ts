@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
+  readBrowserStorageStateLocalStorageEntry,
   readPersistedSettingsGraphLocalPaneState,
 } from "./settingsGraphPersistedPaneState";
 
@@ -59,6 +60,43 @@ describe("readPersistedSettingsGraphLocalPaneState", () => {
           },
         }),
       ),
+    ).toBeNull();
+  });
+
+  it("reads browser-context local storage for the matching origin only", () => {
+    expect(
+      readBrowserStorageStateLocalStorageEntry({
+        key: "setta_data",
+        origin: "http://127.0.0.1:3075",
+        origins: [
+          {
+            localStorage: [
+              { name: "setta_data", value: '{"state":{}}' },
+              { name: "other_key", value: "ignored" },
+            ],
+            origin: "http://127.0.0.1:3075",
+          },
+          {
+            localStorage: [{ name: "setta_data", value: "wrong-origin" }],
+            origin: "http://127.0.0.1:3087",
+          },
+        ],
+      }),
+    ).toBe('{"state":{}}');
+  });
+
+  it("returns null when browser-context local storage misses the key", () => {
+    expect(
+      readBrowserStorageStateLocalStorageEntry({
+        key: "setta_data",
+        origin: "http://127.0.0.1:3075",
+        origins: [
+          {
+            localStorage: [{ name: "other_key", value: "ignored" }],
+            origin: "http://127.0.0.1:3075",
+          },
+        ],
+      }),
     ).toBeNull();
   });
 
