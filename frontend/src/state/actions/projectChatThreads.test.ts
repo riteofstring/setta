@@ -3,7 +3,6 @@ import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   canUndoLastProjectChatThreadStorageMutation,
-  clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
   deleteProjectChatThread,
   deleteProjectChatThreadGroup,
@@ -18,10 +17,16 @@ import {
   undoLastProjectChatThreadStorageMutation,
 } from "./projectChatThreads";
 
+function drainUndoStack(projectConfigId: string): void {
+  while (undoLastProjectChatThreadStorageMutation(projectConfigId)) {
+    // Drain the test-local undo history through the public mutation API.
+  }
+}
+
 describe("project chat thread storage helpers", () => {
   beforeEach(() => {
     resetProjectStores();
-    clearProjectChatThreadStorageUndoStackForTests();
+    drainUndoStack("project-a");
     useLocalStorage.setState({
       viewedProjectChatThreadIdsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
@@ -319,6 +324,19 @@ describe("project chat thread storage helpers", () => {
         "project-a"
       ]?.["chat-1"],
     ).toBeUndefined();
+  });
+
+  it("refuses to soft delete the same thread twice", () => {
+    const firstDelete = deleteProjectChatThread("project-a", "chat-1");
+    const secondDelete = deleteProjectChatThread("project-a", "chat-1");
+
+    expect(firstDelete).toBe(true);
+    expect(secondDelete).toBe(false);
+    expect(
+      useLocalStorage.getState().trashedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual(["chat-1"]);
   });
 
   it("undoes the most recent thread storage mutation for the active project", () => {

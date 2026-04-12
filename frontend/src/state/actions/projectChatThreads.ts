@@ -37,6 +37,16 @@ const PROJECT_CHAT_THREAD_STORAGE_UNDO_LIMIT = 100;
 const projectChatThreadStorageUndoStack: Array<ProjectChatThreadStorageUndoEntry> =
   [];
 
+type LocalStorageState = ReturnType<typeof useLocalStorage.getState>;
+
+type ProjectChatThreadCollections = {
+  viewedIds: Array<string>;
+  pinnedIds: Array<string>;
+  orderIds: Array<string>;
+  trashedIds: Array<string>;
+  assignments: Record<string, string>;
+};
+
 function normalizeProjectConfigId(projectConfigId: string): string | null {
   const trimmed = projectConfigId.trim();
   if (!trimmed) {
@@ -141,6 +151,173 @@ function insertGroupAtIndex(
   return withoutGroup;
 }
 
+function removeThreadId(
+  currentIds: Array<string>,
+  threadId: string,
+): Array<string> {
+  return currentIds.filter((id) => id !== threadId);
+}
+
+function restoreThreadIdAtIndex(
+  currentIds: Array<string>,
+  threadId: string,
+  index: number,
+): Array<string> {
+  if (index < 0) {
+    return removeThreadId(currentIds, threadId);
+  }
+  return insertThreadIdAtIndex(currentIds, threadId, index);
+}
+
+function restoreOrderedThreadId(
+  currentIds: Array<string>,
+  threadId: string,
+  index: number,
+): Array<string> {
+  if (index < 0) {
+    return currentIds;
+  }
+  return insertThreadIdAtIndex(currentIds, threadId, index);
+}
+
+function removeThreadAssignment(
+  assignments: Record<string, string>,
+  threadId: string,
+): Record<string, string> {
+  if (!(threadId in assignments)) {
+    return assignments;
+  }
+  const nextAssignments = { ...assignments };
+  delete nextAssignments[threadId];
+  return nextAssignments;
+}
+
+function restoreThreadAssignment(
+  assignments: Record<string, string>,
+  threadId: string,
+  assignmentGroupId: string | null,
+  availableGroupIds: Set<string>,
+): Record<string, string> {
+  const nextAssignments = removeThreadAssignment(assignments, threadId);
+  if (!assignmentGroupId || !availableGroupIds.has(assignmentGroupId)) {
+    return nextAssignments;
+  }
+  return {
+    ...nextAssignments,
+    [threadId]: assignmentGroupId,
+  };
+}
+
+function getProjectChatThreadCollections(
+  state: LocalStorageState,
+  projectConfigId: string,
+): ProjectChatThreadCollections {
+  return {
+    viewedIds:
+      state.viewedProjectChatThreadIdsByProjectConfigId[projectConfigId] ?? [],
+    pinnedIds:
+      state.pinnedProjectChatThreadIdsByProjectConfigId[projectConfigId] ?? [],
+    orderIds:
+      state.projectChatThreadOrderByProjectConfigId[projectConfigId] ?? [],
+    trashedIds: normalizeThreadIds(
+      state.trashedProjectChatThreadIdsByProjectConfigId[projectConfigId] ?? [],
+    ),
+    assignments:
+      state.projectChatThreadAssignmentsByProjectConfigId[projectConfigId] ??
+      {},
+  };
+}
+
+function applyProjectChatThreadCollections(
+  state: LocalStorageState,
+  projectConfigId: string,
+  collections: ProjectChatThreadCollections,
+) {
+  return {
+    viewedProjectChatThreadIdsByProjectConfigId: {
+      ...state.viewedProjectChatThreadIdsByProjectConfigId,
+      [projectConfigId]: collections.viewedIds,
+    },
+    projectChatThreadAssignmentsByProjectConfigId: {
+      ...state.projectChatThreadAssignmentsByProjectConfigId,
+      [projectConfigId]: collections.assignments,
+    },
+    projectChatThreadOrderByProjectConfigId: {
+      ...state.projectChatThreadOrderByProjectConfigId,
+      [projectConfigId]: collections.orderIds,
+    },
+    pinnedProjectChatThreadIdsByProjectConfigId: {
+      ...state.pinnedProjectChatThreadIdsByProjectConfigId,
+      [projectConfigId]: collections.pinnedIds,
+    },
+    trashedProjectChatThreadIdsByProjectConfigId: {
+      ...state.trashedProjectChatThreadIdsByProjectConfigId,
+      [projectConfigId]: collections.trashedIds,
+    },
+  };
+}
+
+function createThreadDeleteUndoInverse(
+  collections: ProjectChatThreadCollections,
+  threadId: string,
+): ProjectChatThreadDeleteUndoInverse {
+  return {
+    type: "thread_delete",
+    threadId,
+    assignmentGroupId: collections.assignments[threadId] ?? null,
+    viewedIndex: collections.viewedIds.indexOf(threadId),
+    pinnedIndex: collections.pinnedIds.indexOf(threadId),
+    orderIndex: collections.orderIds.indexOf(threadId),
+  };
+}
+
+function buildDeletedThreadCollections(
+  collections: ProjectChatThreadCollections,
+  threadId: string,
+): ProjectChatThreadCollections | null {
+  if (collections.trashedIds.includes(threadId)) {
+    return null;
+  }
+  return {
+    viewedIds: removeThreadId(collections.viewedIds, threadId),
+    pinnedIds: removeThreadId(collections.pinnedIds, threadId),
+    orderIds: removeThreadId(collections.orderIds, threadId),
+    trashedIds: [...collections.trashedIds, threadId],
+    assignments: removeThreadAssignment(collections.assignments, threadId),
+  };
+}
+
+function buildRestoredThreadCollections(
+  collections: ProjectChatThreadCollections,
+  inverse: ProjectChatThreadDeleteUndoInverse,
+  availableGroupIds: Set<string>,
+): ProjectChatThreadCollections {
+  return {
+    viewedIds: restoreThreadIdAtIndex(
+      collections.viewedIds,
+      inverse.threadId,
+      inverse.viewedIndex,
+    ),
+    pinnedIds: restoreThreadIdAtIndex(
+      collections.pinnedIds,
+      inverse.threadId,
+      inverse.pinnedIndex,
+    ),
+    orderIds: restoreOrderedThreadId(
+      collections.orderIds,
+      inverse.threadId,
+      inverse.orderIndex,
+    ),
+    trashedIds: removeThreadId(collections.trashedIds, inverse.threadId),
+    assignments: restoreThreadAssignment(
+      collections.assignments,
+      inverse.threadId,
+      inverse.assignmentGroupId,
+      availableGroupIds,
+    ),
+  };
+}
+
 function applyProjectChatThreadStorageUndoInverse(
   projectConfigId: string,
   inverse: ProjectChatThreadStorageUndoInverse,
@@ -151,80 +328,18 @@ function applyProjectChatThreadStorageUndoInverse(
       return;
     }
     useLocalStorage.setState((state) => {
-      const viewedByProject = state.viewedProjectChatThreadIdsByProjectConfigId;
-      const pinnedByProject = state.pinnedProjectChatThreadIdsByProjectConfigId;
-      const trashedByProject =
-        state.trashedProjectChatThreadIdsByProjectConfigId;
-      const orderByProject = state.projectChatThreadOrderByProjectConfigId;
-      const assignmentsByProject =
-        state.projectChatThreadAssignmentsByProjectConfigId;
       const groups =
         state.projectChatThreadGroupsByProjectConfigId[projectConfigId] ?? [];
       const availableGroupIds = new Set(groups.map((group) => group.id));
-
-      const nextTrashed = (trashedByProject[projectConfigId] ?? []).filter(
-        (id) => id !== resolvedThreadId,
+      return applyProjectChatThreadCollections(
+        state,
+        projectConfigId,
+        buildRestoredThreadCollections(
+          getProjectChatThreadCollections(state, projectConfigId),
+          inverse,
+          availableGroupIds,
+        ),
       );
-      const currentViewed = viewedByProject[projectConfigId] ?? [];
-      const nextViewed =
-        inverse.viewedIndex >= 0
-          ? insertThreadIdAtIndex(
-              currentViewed,
-              resolvedThreadId,
-              inverse.viewedIndex,
-            )
-          : currentViewed.filter((id) => id !== resolvedThreadId);
-      const currentPinned = pinnedByProject[projectConfigId] ?? [];
-      const nextPinned =
-        inverse.pinnedIndex >= 0
-          ? insertThreadIdAtIndex(
-              currentPinned,
-              resolvedThreadId,
-              inverse.pinnedIndex,
-            )
-          : currentPinned.filter((id) => id !== resolvedThreadId);
-      const currentOrder = orderByProject[projectConfigId] ?? [];
-      const nextOrder =
-        inverse.orderIndex >= 0
-          ? insertThreadIdAtIndex(
-              currentOrder,
-              resolvedThreadId,
-              inverse.orderIndex,
-            )
-          : currentOrder;
-      const currentAssignments = assignmentsByProject[projectConfigId] ?? {};
-      const nextAssignments = { ...currentAssignments };
-      if (
-        inverse.assignmentGroupId &&
-        availableGroupIds.has(inverse.assignmentGroupId)
-      ) {
-        nextAssignments[resolvedThreadId] = inverse.assignmentGroupId;
-      } else {
-        delete nextAssignments[resolvedThreadId];
-      }
-
-      return {
-        viewedProjectChatThreadIdsByProjectConfigId: {
-          ...viewedByProject,
-          [projectConfigId]: nextViewed,
-        },
-        projectChatThreadAssignmentsByProjectConfigId: {
-          ...assignmentsByProject,
-          [projectConfigId]: nextAssignments,
-        },
-        projectChatThreadOrderByProjectConfigId: {
-          ...orderByProject,
-          [projectConfigId]: nextOrder,
-        },
-        pinnedProjectChatThreadIdsByProjectConfigId: {
-          ...pinnedByProject,
-          [projectConfigId]: nextPinned,
-        },
-        trashedProjectChatThreadIdsByProjectConfigId: {
-          ...trashedByProject,
-          [projectConfigId]: nextTrashed,
-        },
-      };
     });
     return;
   }
@@ -319,10 +434,6 @@ export function canUndoLastProjectChatThreadStorageMutation(
     }
   }
   return false;
-}
-
-export function clearProjectChatThreadStorageUndoStackForTests() {
-  projectChatThreadStorageUndoStack.length = 0;
 }
 
 function areGroupsInSameOrder(
@@ -805,87 +916,32 @@ export function deleteProjectChatThread(
     return false;
   }
   const localState = useLocalStorage.getState();
-  const currentTrashed = normalizeThreadIds(
-    localState.trashedProjectChatThreadIdsByProjectConfigId[
-      resolvedProjectConfigId
-    ] ?? [],
+  const currentCollections = getProjectChatThreadCollections(
+    localState,
+    resolvedProjectConfigId,
   );
-  if (currentTrashed.includes(resolvedThreadId)) {
+  if (currentCollections.trashedIds.includes(resolvedThreadId)) {
     return false;
   }
-  const currentAssignments =
-    localState.projectChatThreadAssignmentsByProjectConfigId[
-      resolvedProjectConfigId
-    ] ?? {};
-  const currentViewed =
-    localState.viewedProjectChatThreadIdsByProjectConfigId[
-      resolvedProjectConfigId
-    ] ?? [];
-  const currentPinned =
-    localState.pinnedProjectChatThreadIdsByProjectConfigId[
-      resolvedProjectConfigId
-    ] ?? [];
-  const currentOrder =
-    localState.projectChatThreadOrderByProjectConfigId[
-      resolvedProjectConfigId
-    ] ?? [];
-  const inverse: ProjectChatThreadDeleteUndoInverse = {
-    type: "thread_delete",
-    threadId: resolvedThreadId,
-    assignmentGroupId: currentAssignments[resolvedThreadId] ?? null,
-    viewedIndex: currentViewed.indexOf(resolvedThreadId),
-    pinnedIndex: currentPinned.indexOf(resolvedThreadId),
-    orderIndex: currentOrder.indexOf(resolvedThreadId),
-  };
+  const inverse = createThreadDeleteUndoInverse(
+    currentCollections,
+    resolvedThreadId,
+  );
   let didDelete = false;
   useLocalStorage.setState((state) => {
-    const trashedByProject = state.trashedProjectChatThreadIdsByProjectConfigId;
-    const currentStateTrashed = normalizeThreadIds(
-      trashedByProject[resolvedProjectConfigId] ?? [],
+    const nextCollections = buildDeletedThreadCollections(
+      getProjectChatThreadCollections(state, resolvedProjectConfigId),
+      resolvedThreadId,
     );
-    if (currentStateTrashed.includes(resolvedThreadId)) {
+    if (!nextCollections) {
       return state;
     }
-    const assignmentsByProject =
-      state.projectChatThreadAssignmentsByProjectConfigId;
-    const currentAssignments =
-      assignmentsByProject[resolvedProjectConfigId] ?? {};
-    const nextAssignments = { ...currentAssignments };
-    if (resolvedThreadId in nextAssignments) {
-      delete nextAssignments[resolvedThreadId];
-    }
-    const viewedByProject = state.viewedProjectChatThreadIdsByProjectConfigId;
-    const pinnedByProject = state.pinnedProjectChatThreadIdsByProjectConfigId;
-    const orderByProject = state.projectChatThreadOrderByProjectConfigId;
     didDelete = true;
-    return {
-      trashedProjectChatThreadIdsByProjectConfigId: {
-        ...trashedByProject,
-        [resolvedProjectConfigId]: [...currentStateTrashed, resolvedThreadId],
-      },
-      viewedProjectChatThreadIdsByProjectConfigId: {
-        ...viewedByProject,
-        [resolvedProjectConfigId]: (
-          viewedByProject[resolvedProjectConfigId] ?? []
-        ).filter((id) => id !== resolvedThreadId),
-      },
-      pinnedProjectChatThreadIdsByProjectConfigId: {
-        ...pinnedByProject,
-        [resolvedProjectConfigId]: (
-          pinnedByProject[resolvedProjectConfigId] ?? []
-        ).filter((id) => id !== resolvedThreadId),
-      },
-      projectChatThreadOrderByProjectConfigId: {
-        ...orderByProject,
-        [resolvedProjectConfigId]: (
-          orderByProject[resolvedProjectConfigId] ?? []
-        ).filter((id) => id !== resolvedThreadId),
-      },
-      projectChatThreadAssignmentsByProjectConfigId: {
-        ...assignmentsByProject,
-        [resolvedProjectConfigId]: nextAssignments,
-      },
-    };
+    return applyProjectChatThreadCollections(
+      state,
+      resolvedProjectConfigId,
+      nextCollections,
+    );
   });
   if (!didDelete) {
     return false;

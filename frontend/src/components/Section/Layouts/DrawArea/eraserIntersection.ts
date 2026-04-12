@@ -27,14 +27,14 @@ function calculateCapPoint(point, referencePoint, halfWidth, capExtra) {
   ];
 }
 
-function isPointInBoundsWithLineCap(
+function isPointInBoundsWithLineCap({
   point,
   prevPoint,
   nextPoint,
   bounds,
   lineCap,
   halfWidth,
-) {
+}) {
   // Basic bounds check
   if (isPointInBounds(point, bounds)) {
     return true;
@@ -73,6 +73,25 @@ function isPointInBoundsWithLineCap(
   return false;
 }
 
+function appendIntersectingPoint(
+  result,
+  pathPoints,
+  point,
+  index,
+  wasInBounds,
+) {
+  if (!wasInBounds && index > 0 && result.length === 0) {
+    result.push(pathPoints[index - 1]);
+  }
+  result.push(point);
+}
+
+function appendExitPoint(result, point, wasInBounds) {
+  if (wasInBounds) {
+    result.push(point);
+  }
+}
+
 function filterPointsWithBounds(pathPoints, bounds, lineCap, lineWidth) {
   if (!pathPoints || pathPoints.length === 0) {
     return [];
@@ -80,34 +99,29 @@ function filterPointsWithBounds(pathPoints, bounds, lineCap, lineWidth) {
 
   const halfWidth = lineWidth / 2;
   const result = [];
-  let includeNext = false;
+  let wasInBounds = false;
 
   for (let i = 0; i < pathPoints.length; i++) {
     const point = pathPoints[i];
     const prevPoint = i > 0 ? pathPoints[i - 1] : null;
     const nextPoint = i < pathPoints.length - 1 ? pathPoints[i + 1] : null;
 
-    const isInBounds = isPointInBoundsWithLineCap(
+    const isInBounds = isPointInBoundsWithLineCap({
       point,
       prevPoint,
       nextPoint,
       bounds,
       lineCap,
       halfWidth,
-    );
+    });
 
     if (isInBounds) {
-      if (i > 0 && result.length === 0) {
-        // Include the previous point when entering bounds
-        result.push(pathPoints[i - 1]);
-      }
-      result.push(point);
-      includeNext = true;
-    } else if (includeNext) {
-      // Include one point after exiting bounds
-      result.push(point);
-      includeNext = false;
+      appendIntersectingPoint(result, pathPoints, point, i, wasInBounds);
+    } else {
+      appendExitPoint(result, point, wasInBounds);
     }
+
+    wasInBounds = isInBounds;
   }
 
   return result;
@@ -119,11 +133,11 @@ export function filterEraserPath(pathPoints, lineWidth, lineCap, imageBounds) {
   }
 
   const halfWidth = lineWidth / 2;
-  const paddedImagedBounds = addPaddingToBounds(imageBounds, halfWidth);
+  const paddedImageBounds = addPaddingToBounds(imageBounds, halfWidth);
 
   return filterPointsWithBounds(
     pathPoints,
-    paddedImagedBounds,
+    paddedImageBounds,
     lineCap,
     lineWidth,
   );

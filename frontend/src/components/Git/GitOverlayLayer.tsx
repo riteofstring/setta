@@ -4,7 +4,7 @@ import { closeGitOverlay } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
 
-export function isEditableEscapeTarget(target: EventTarget | null): boolean {
+function isEditableEscapeTarget(target: EventTarget | null): boolean {
   if (typeof HTMLElement === "undefined") {
     return false;
   }

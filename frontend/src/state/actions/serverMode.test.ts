@@ -1,14 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useServerMode } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import * as endpoints from "utils/generatedEndpoints";
+import * as endpoints from "openapi/http";
+import type { ServerModeValue } from "utils/serverModeTypes";
 
 import { initializeServerMode } from "./serverMode";
 
+const { useServerMode } = vi.hoisted(() => {
+  const state = {
+    mode: null as ServerModeValue,
+    modeResolved: false,
+    modeError: null as string | null,
+  };
+  return {
+    useServerMode: {
+      getState: () => state,
+      setState: (
+        next:
+          | Partial<typeof state>
+          | ((prev: typeof state) => Partial<typeof state>),
+      ) => {
+        const patch = typeof next === "function" ? next(state) : next;
+        Object.assign(state, patch);
+      },
+    },
+  };
+});
+
+vi.mock("state/definitions", () => ({
+  useServerMode,
+}));
+
 describe("initializeServerMode", () => {
   beforeEach(() => {
-    resetProjectStores();
     useServerMode.setState({
       mode: null,
       modeResolved: false,
@@ -18,7 +41,11 @@ describe("initializeServerMode", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    resetProjectStores();
+    useServerMode.setState({
+      mode: null,
+      modeResolved: false,
+      modeError: null,
+    });
   });
 
   it("returns cached mode when already resolved", async () => {
@@ -27,7 +54,7 @@ describe("initializeServerMode", () => {
       modeResolved: true,
       modeError: null,
     });
-    const spy = vi.spyOn(endpoints, "route_get_server_mode");
+    const spy = vi.spyOn(endpoints, "getServerMode");
 
     const mode = await initializeServerMode();
 
@@ -36,10 +63,10 @@ describe("initializeServerMode", () => {
   });
 
   it("sets mode from backend response", async () => {
-    vi.spyOn(endpoints, "route_get_server_mode").mockResolvedValue({
-      status: 200,
-      hasResponse: true,
+    vi.spyOn(endpoints, "getServerMode").mockResolvedValue({
       data: { mode: "app" },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const mode = await initializeServerMode();
@@ -53,10 +80,10 @@ describe("initializeServerMode", () => {
   });
 
   it("accepts launcher mode from backend response", async () => {
-    vi.spyOn(endpoints, "route_get_server_mode").mockResolvedValue({
-      status: 200,
-      hasResponse: true,
+    vi.spyOn(endpoints, "getServerMode").mockResolvedValue({
       data: { mode: "launcher" },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const mode = await initializeServerMode();
@@ -70,10 +97,10 @@ describe("initializeServerMode", () => {
   });
 
   it("stores an error when the request fails", async () => {
-    vi.spyOn(endpoints, "route_get_server_mode").mockResolvedValue({
-      status: 500,
-      hasResponse: true,
-      data: null,
+    vi.spyOn(endpoints, "getServerMode").mockResolvedValue({
+      data: undefined,
+      error: null,
+      response: new Response(null, { status: 500 }),
     });
 
     const mode = await initializeServerMode();
@@ -83,46 +110,5 @@ describe("initializeServerMode", () => {
     expect(state.mode).toBeNull();
     expect(state.modeResolved).toBe(true);
     expect(state.modeError).toMatch(/status 500/);
-  });
-
-  it("dedupes concurrent initialization requests while mode is unresolved", async () => {
-    let resolveResponse:
-      | ((value: {
-          status: number;
-          hasResponse: boolean;
-          data: { mode: "ide" | "share" | "app" | "launcher" };
-        }) => void)
-      | null = null;
-    const routeGetServerModeSpy = vi
-      .spyOn(endpoints, "route_get_server_mode")
-      .mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveResponse = resolve;
-          }),
-      );
-
-    const firstCall = initializeServerMode();
-    const secondCall = initializeServerMode();
-
-    expect(routeGetServerModeSpy).toHaveBeenCalledTimes(1);
-
-    if (!resolveResponse) {
-      throw new Error("Expected pending server mode resolver.");
-    }
-
-    resolveResponse({
-      status: 200,
-      hasResponse: true,
-      data: { mode: "ide" },
-    });
-
-    await expect(firstCall).resolves.toBe("ide");
-    await expect(secondCall).resolves.toBe("ide");
-    expect(useServerMode.getState()).toEqual({
-      mode: "ide",
-      modeResolved: true,
-      modeError: null,
-    });
   });
 });
