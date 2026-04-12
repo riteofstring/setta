@@ -14,17 +14,29 @@ type FlowRendererProps = {
   wrapperDimensions: { width: number; height: number };
 };
 
-const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
-  const { zoomActivationKeyPressed, selectionKeyPressed } = useReactFlow(
-    (x) => {
-      return {
-        zoomActivationKeyPressed: x.zoomActivationKeyPressed,
-        selectionKeyPressed: x.selectionKeyPressed,
-      };
-    },
-    _.isEqual,
+type FlowRendererPaneProps = {
+  children: ReactNode;
+  panOnDrag: boolean | number[];
+};
+
+const FlowRendererPane = memo(function FlowRendererPane({
+  children,
+  panOnDrag,
+}: FlowRendererPaneProps) {
+  const selectionKeyPressed = useReactFlow(
+    (state) => state.selectionKeyPressed,
   );
 
+  return (
+    <Pane panOnDrag={panOnDrag} isSelecting={selectionKeyPressed}>
+      <NodesSelectionDragHandleWrapper />
+      {children}
+      <NodesSelectionWrapper />
+    </Pane>
+  );
+});
+
+const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,
   );
@@ -57,20 +69,12 @@ const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
       panOnScrollSpeed={panOnScrollSpeed}
       panOnScrollMode={panOnScrollMode}
       zoomOnDoubleClick={!isFollowTransitioning && zoomOnDoubleClick}
-      panOnDrag={!selectionKeyPressed && !isFollowTransitioning && panOnDrag}
-      zoomActivationKeyPressed={
-        !isFollowTransitioning && zoomActivationKeyPressed
-      }
+      panOnDrag={!isFollowTransitioning && panOnDrag}
       wrapperDimensions={wrapperDimensions}
     >
-      <Pane
-        panOnDrag={!isFollowTransitioning && panOnDrag}
-        isSelecting={!!selectionKeyPressed}
-      >
-        <NodesSelectionDragHandleWrapper />
+      <FlowRendererPane panOnDrag={!isFollowTransitioning && panOnDrag}>
         {children}
-        <NodesSelectionWrapper />
-      </Pane>
+      </FlowRendererPane>
     </ZoomPane>
   );
 };
