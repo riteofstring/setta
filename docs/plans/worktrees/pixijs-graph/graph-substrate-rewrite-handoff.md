@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 18:24 UTC
+Last updated: 2026-04-12 18:35 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -167,6 +167,58 @@ This section overrides older "next frontier" notes below when choosing the next 
     - the next bounded frontier inside `interactionReactFlowStateSync` should
       keep isolating mounted shared-surface selector fan-out on the worktree
       lane, not reopen the unstable cross-worktree probe by default
+
+- item `336` landed one bounded node-surface interaction split inside the
+  measured `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the top-level node interaction path:
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
+      no longer subscribes the full mounted node list to
+      `panActivationKeyPressed`
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+      now keeps node `nopan` affordance tied only to
+      `positionAndSizeLocked`, while drag enablement is no longer passed down
+      from `NodeRenderer`
+    - `frontend/src/forks/xyflow/core/hooks/useDrag.ts`
+      now resolves pan-activation drag blocking at interaction time via
+      `isNodeDragInteractionEnabled(...)`
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+      now lets the pan-activation modifier bypass `nopan` only for drag-pan
+      starts, so hand-pan still works from top-level node chrome without
+      reopening wheel behavior on `nopan` surfaces
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.test.tsx`
+      to assert the mounted node list does not commit when only
+      `panActivationKeyPressed` changes
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+      to assert the new `nopan` override is limited to drag-pan starts
+    - `frontend/src/forks/xyflow/core/hooks/useDrag.test.ts`
+      to assert pan activation and locked-node state both disable node drag
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-node-renderer-pan-activation-split.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/NodeRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts src/forks/xyflow/core/hooks/useDrag.test.ts`
+      -> passed (`3` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/NodeRenderer.tsx src/forks/xyflow/core/components/wrapNode.tsx src/forks/xyflow/core/hooks/useDrag.ts src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/NodeRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts src/forks/xyflow/core/hooks/useDrag.test.ts`
+      -> passed
+    - fresh-context headless CDP smoke on the worktree `/settings` session
+      -> `/settings` mounted successfully
+      -> visible settings graph surface and top-level node cards looked
+         structurally normal
+      -> no obvious layout collapse, clipping, or lost interaction affordance
+         was observed for this slice
+  - reading:
+    - this removes one whole-list mounted-node commit from the hand-pan
+      modifier path while preserving:
+      - locked nodes stay non-draggable
+      - hand-pan still works when the pointer starts on top-level node chrome
+      - `nopan` wheel behavior stays unchanged
+    - the next bounded frontier inside `interactionReactFlowStateSync` should
+      keep isolating mounted shared-surface selector/write fan-out on the
+      canonical lane, with likely targets now in the remaining flow/node
+      shell subscribers or shared motion-path store writes rather than
+      another direct DOM-body zoom split
 
 - item `333` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named

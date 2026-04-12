@@ -135,6 +135,32 @@ const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,
 });
 
+export function shouldPreventNoPanInteraction({
+  eventType,
+  panOnScroll,
+  wrappedWithNoPan,
+  panActivationKeyPressed,
+}: {
+  eventType: string;
+  panOnScroll: boolean;
+  wrappedWithNoPan: boolean;
+  panActivationKeyPressed: boolean;
+}) {
+  if (!wrappedWithNoPan) {
+    return false;
+  }
+
+  const panActivationOverridesNoPan =
+    panActivationKeyPressed &&
+    (eventType === "mousedown" || eventType === "touchstart");
+
+  if (panActivationOverridesNoPan) {
+    return false;
+  }
+
+  return eventType !== "wheel" || (panOnScroll && eventType === "wheel");
+}
+
 const ZoomPane = ({
   zoomOnScroll = true,
   zoomOnPinch = true,
@@ -458,11 +484,13 @@ const ZoomPane = ({
 
         // if the target element is inside an element with the nopan class, we prevent panning
         if (
-          isWrappedWithClass(event, NO_PAN_CLASS_NAME) &&
-          (event.type !== "wheel" ||
-            (panOnScroll &&
-              event.type === "wheel" &&
-              !zoomActivationKeyPressed))
+          shouldPreventNoPanInteraction({
+            eventType: event.type,
+            panOnScroll: panOnScroll && !zoomActivationKeyPressed,
+            wrappedWithNoPan: isWrappedWithClass(event, NO_PAN_CLASS_NAME),
+            panActivationKeyPressed:
+              useReactFlow.getState().panActivationKeyPressed,
+          })
         ) {
           return false;
         }

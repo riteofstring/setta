@@ -74,6 +74,45 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 18:35 UTC
+
+- item `336` removed the mounted-node list subscription to the hand-pan
+  modifier on the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx` so
+    the node list no longer subscribes to `panActivationKeyPressed`
+  - changed `frontend/src/forks/xyflow/core/components/wrapNode.tsx` and
+    `frontend/src/forks/xyflow/core/hooks/useDrag.ts` so node drag eligibility
+    is resolved at interaction time instead of being pushed through
+    `NodeRenderer`
+  - changed `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` so the
+    pan-activation modifier can drag-pan from top-level node chrome even
+    though those nodes still carry `nopan`, while wheel behavior on `nopan`
+    surfaces stays unchanged
+  - added focused regression coverage in:
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.test.tsx`
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+    - `frontend/src/forks/xyflow/core/hooks/useDrag.test.ts`
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-node-renderer-pan-activation-split.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/NodeRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts src/forks/xyflow/core/hooks/useDrag.test.ts`
+      -> passed (`3` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/NodeRenderer.tsx src/forks/xyflow/core/components/wrapNode.tsx src/forks/xyflow/core/hooks/useDrag.ts src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/NodeRenderer.test.tsx src/forks/xyflow/core/container/ZoomPane.test.ts src/forks/xyflow/core/hooks/useDrag.test.ts`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` mounted successfully
+      -> top-level settings cards, graph shell, and side controls looked
+         structurally normal
+      -> no obvious visual regression observed for this slice
+  - result:
+    - this removes one whole-list `NodeRenderer` commit from the
+      `panActivationKeyPressed` path inside the measured
+      `interactionReactFlowStateSync` owner
+    - next bounded frontier: stay in product-side interaction-state reduction
+      and isolate the next remaining mounted shared-surface selector/write
+      fan-out on the canonical lane
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 18:24 UTC
 
 - item `335` narrowed one more shared renderer subscription on the canonical

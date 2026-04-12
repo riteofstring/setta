@@ -18,6 +18,7 @@ import ZoomPane, {
   getSelectionAwarePanOnDrag,
   getViewportInteractionActiveValue,
   resetViewportInteractionState,
+  shouldPreventNoPanInteraction,
 } from "./ZoomPane";
 
 type RenderedZoomPane = {
@@ -135,6 +136,35 @@ describe("getViewportInteractionActiveValue", () => {
     expect(getSelectionAwarePanOnDrag(true, true)).toBe(false);
     expect(getSelectionAwarePanOnDrag([0, 2], true)).toBe(false);
     expect(getSelectionAwarePanOnDrag([0, 2], false)).toEqual([0, 2]);
+  });
+
+  it("lets pan activation bypass nopan only for drag-pan starts", () => {
+    expect(
+      shouldPreventNoPanInteraction({
+        eventType: "mousedown",
+        panOnScroll: false,
+        wrappedWithNoPan: true,
+        panActivationKeyPressed: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldPreventNoPanInteraction({
+        eventType: "wheel",
+        panOnScroll: true,
+        wrappedWithNoPan: true,
+        panActivationKeyPressed: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldPreventNoPanInteraction({
+        eventType: "mousedown",
+        panOnScroll: false,
+        wrappedWithNoPan: true,
+        panActivationKeyPressed: false,
+      }),
+    ).toBe(true);
   });
 
   it("keeps wheel-burst interaction active until the burst timeout settles after drag end", async () => {
