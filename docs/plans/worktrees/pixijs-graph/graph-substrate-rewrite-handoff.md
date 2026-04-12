@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 12:32 UTC
+Last updated: 2026-04-15 12:45 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,44 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `501` reduced duplicate shared/auto-fit React Flow transform publishes on
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      now treats `reactFlowViewportPublish` as a real transform-diff check for
+      non-local ownership instead of republishing whenever ownership is not
+      `local`; the existing local pan-only fast path remains intact because
+      local ownership still only republishes on zoom changes
+    - focused regression:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      now proves an unchanged shared backend viewport rerender does not emit a
+      second `reactFlowViewportPublish` measurement or a second
+      `useReactFlow.setState({ transform })` write
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`2` files, `20` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+      -> settings route mounted after the initial spinner
+      -> visible graph UI, overview panel, section list, and bottom view tabs
+         were present
+      -> no obvious blank-card or detached-body artifact was visible on the
+         canary surface
+  - reading:
+    - this returns to the mandatory plan frontier by landing a real production
+      reduction on `reactFlowViewportPublish` instead of spending another pass
+      on runner or parity-helper churn
+    - the duplicate shared/auto-fit transform publish path is now closed, but
+      the owner may still include other legitimate zoom-change or ownership
+      transitions that need fresh ranking
+    - next default frontier: continue product-side work on
+      `reactFlowViewportPublish` by identifying the next remaining duplicate or
+      avoidable publish source on the canonical lane, or rank the owner with an
+      already-trusted live probe if one is available without reopening direct
+      runner repair
 
 - item `500` landed a bounded production bailout on the hidden section-body
   update path for the canonical `rotaryParamCodeObjDefault` lane:

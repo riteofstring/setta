@@ -65,6 +65,34 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
   visibleViewportRect: GraphRect | null;
 };
 
+function shouldPublishReactFlowViewportTransform(args: {
+  currentTransform: [number, number, number];
+  hasPublishedTransform: boolean;
+  resolvedViewport: GraphViewport;
+  viewportOwnership: SettingsGraphSubstrateCanaryViewportOwnership | null;
+}) {
+  const {
+    currentTransform,
+    hasPublishedTransform,
+    resolvedViewport,
+    viewportOwnership,
+  } = args;
+
+  if (!hasPublishedTransform) {
+    return true;
+  }
+  if (currentTransform[2] !== resolvedViewport.zoom) {
+    return true;
+  }
+  if (viewportOwnership === "local") {
+    return false;
+  }
+  return (
+    currentTransform[0] !== resolvedViewport.x ||
+    currentTransform[1] !== resolvedViewport.y
+  );
+}
+
 export function useSettingsGraphSubstrateCanaryViewportRuntime({
   defaultZoomLevel,
   maxZoom,
@@ -478,10 +506,12 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     ) {
       return;
     }
-    const shouldPublishTransform =
-      !hasPublishedReactFlowTransformRef.current ||
-      currentReactFlowState.transform[2] !== resolvedViewport.zoom ||
-      viewportOwnershipRef.current !== "local";
+    const shouldPublishTransform = shouldPublishReactFlowViewportTransform({
+      currentTransform: currentReactFlowState.transform,
+      hasPublishedTransform: hasPublishedReactFlowTransformRef.current,
+      resolvedViewport,
+      viewportOwnership: viewportOwnershipRef.current,
+    });
     if (!shouldPublishTransform) {
       return;
     }

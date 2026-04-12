@@ -310,6 +310,81 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(reactFlowState.viewportPersistenceEnabled).toBe(true);
   });
 
+  it("skips duplicate React Flow transform publishes when a shared viewport rerenders unchanged", async () => {
+    const sharedViewport = { x: 320, y: -180, zoom: 0.42 };
+    const setReactFlowStateSpy = vi.spyOn(useReactFlow, "setState");
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={sharedViewport}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(sharedViewport);
+    });
+
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.reactFlowViewportPublish.count,
+    ).toBe(1);
+
+    const transformPublishCallsAfterFirstRender =
+      setReactFlowStateSpy.mock.calls
+        .map(([patch]) => patch)
+        .filter(
+          (patch) =>
+            typeof patch === "object" &&
+            patch !== null &&
+            "transform" in patch &&
+            Array.isArray(patch.transform),
+        );
+    expect(transformPublishCallsAfterFirstRender).toHaveLength(1);
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={{ ...sharedViewport }}
+        />,
+      );
+    });
+
+    await act(async () => {});
+
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.reactFlowViewportPublish.count,
+    ).toBe(1);
+
+    const transformPublishCallsAfterRerender = setReactFlowStateSpy.mock.calls
+      .map(([patch]) => patch)
+      .filter(
+        (patch) =>
+          typeof patch === "object" &&
+          patch !== null &&
+          "transform" in patch &&
+          Array.isArray(patch.transform),
+      );
+    expect(transformPublishCallsAfterRerender).toHaveLength(1);
+  });
+
   it("mirrors viewport interaction activity onto the canary root attribute", async () => {
     let latestRuntime: ReturnType<
       typeof useSettingsGraphSubstrateCanaryViewportRuntime

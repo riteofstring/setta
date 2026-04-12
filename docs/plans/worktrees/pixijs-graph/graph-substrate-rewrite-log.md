@@ -20964,6 +20964,36 @@ LOOP_TERMINAL_MARKER: none
     `rotaryParamCodeObjDefault` once the mounted canary is trustworthy again,
     then rank the next dominant owner from live attribution
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:45 UTC
+
+- item `501` reduced duplicate shared/auto-fit React Flow transform publishes
+  on the canonical `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    now only republishes `reactFlowViewportPublish` for non-local ownership
+    when the current React Flow transform actually differs from the resolved
+    viewport, while preserving the existing local pan-only fast path
+  - updated
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    to prove an unchanged shared backend viewport rerender stays at one
+    `reactFlowViewportPublish` attribution count and one
+    `useReactFlow.setState({ transform })` call
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`2` files, `20` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    -> passed
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings route mounted after the initial spinner
+    -> overview, section list, and bottom view-mode tabs were visible
+    -> no obvious blank-card or detached-body artifact was visible
+- reading:
+  - this is a direct production cut on the mandatory `reactFlowViewportPublish`
+    frontier rather than another probe-only pass
+  - the next frontier is still product-side: either identify the next
+    remaining duplicate/avoidable publish source on the same owner or rank the
+    owner again with an already-trusted live probe path that does not reopen
+    direct-runner repair
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-15 12:25 UTC
 
 - item `499` reduced no-op section-entry imperative flushes on the canonical
