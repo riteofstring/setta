@@ -2,6 +2,7 @@ package wsapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -40,6 +41,89 @@ func TestDecodeListenerChatStateRejectsPythonLiteralString(t *testing.T) {
 		t.Fatalf("expected python literal chat payload rejection")
 	} else if !strings.Contains(err.Error(), "must be valid JSON") {
 		t.Fatalf("expected valid JSON error, got %v", err)
+	}
+}
+
+func TestResolveListenerFrontendDependencyUpdatesResolvesWritableSectionDependencies(t *testing.T) {
+	t.Parallel()
+
+	runtime := newRouteProjectRuntime(t, "project-a")
+	textSectionID := createRouteTopLevelSection(t, runtime, "project-a", "TextBlock", "text")
+	pluginSectionID := createRouteTopLevelSection(t, runtime, "project-a", "Plugin", "plugin")
+	snapshot := runtime.Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project for dependency resolution: %v", err)
+	}
+
+	textDependency := routeListenerDependencyName(t, snapshot.Document, "project-a", textSectionID, "")
+	pluginDependency := routeListenerDependencyName(t, snapshot.Document, "project-a", pluginSectionID, "")
+
+	updates, err := resolveListenerFrontendDependencyUpdates(project, map[string]json.RawMessage{
+		textDependency:   quotedJSONRawMessage("updated text"),
+		pluginDependency: json.RawMessage(`{"answer":42}`),
+	})
+	if err != nil {
+		t.Fatalf("resolve listener frontend dependencies: %v", err)
+	}
+
+	if len(updates) != 2 {
+		t.Fatalf("expected two dependency updates, got %#v", updates)
+	}
+
+	updatesByName := make(map[string]listenerResolvedDependencyUpdate, len(updates))
+	for _, update := range updates {
+		updatesByName[update.DependencyName] = update
+	}
+
+	textUpdate, ok := updatesByName[textDependency]
+	if !ok {
+		t.Fatalf("missing text dependency update in %#v", updatesByName)
+	}
+	if textUpdate.SectionID != textSectionID || textUpdate.SectionType != "TextBlock" {
+		t.Fatalf("unexpected text dependency update %#v", textUpdate)
+	}
+	if got := string(textUpdate.RawValue); got != string(quotedJSONRawMessage("updated text")) {
+		t.Fatalf("unexpected text raw value %s", got)
+	}
+
+	pluginUpdate, ok := updatesByName[pluginDependency]
+	if !ok {
+		t.Fatalf("missing plugin dependency update in %#v", updatesByName)
+	}
+	if pluginUpdate.SectionID != pluginSectionID || pluginUpdate.SectionType != "Plugin" {
+		t.Fatalf("unexpected plugin dependency update %#v", pluginUpdate)
+	}
+	if got := string(pluginUpdate.RawValue); got != `{"answer":42}` {
+		t.Fatalf("unexpected plugin raw value %s", got)
+	}
+}
+
+func TestResolveListenerFrontendDependencyUpdatesRejectsUnsupportedSectionDependency(t *testing.T) {
+	t.Parallel()
+
+	runtime := newRouteProjectRuntime(t, "project-a")
+	sectionID := createRouteTopLevelSection(t, runtime, "project-a", "Prompt", "prompt")
+	snapshot := runtime.Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-a")
+	if err != nil {
+		t.Fatalf("project for unsupported dependency resolution: %v", err)
+	}
+
+	dependencyName := routeListenerDependencyName(t, snapshot.Document, "project-a", sectionID, "")
+	_, err = resolveListenerFrontendDependencyUpdates(project, map[string]json.RawMessage{
+		dependencyName: quotedJSONRawMessage("updated prompt"),
+	})
+	if err == nil {
+		t.Fatal("expected unsupported dependency error")
+	}
+
+	var unsupportedErr *listenerEmitUnsupportedDependencyError
+	if !errors.As(err, &unsupportedErr) {
+		t.Fatalf("expected unsupported dependency error, got %v", err)
+	}
+	if unsupportedErr.DependencyName != dependencyName {
+		t.Fatalf("expected dependency name %q, got %#v", dependencyName, unsupportedErr)
 	}
 }
 
@@ -148,6 +232,23 @@ func TestApplyListenerPluginSectionUpdateRejectsPythonLiteralPayload(t *testing.
 		t.Fatalf("expected python literal plugin payload rejection")
 	} else if !strings.Contains(err.Error(), "must be valid JSON") {
 		t.Fatalf("expected valid JSON error, got %v", err)
+	}
+}
+
+func TestSectionTypeForPayloadPrefersPayloadTypeAndFallsBackToGeneratedImpl(t *testing.T) {
+	t.Parallel()
+
+	impl := projectstate.SectionImpl{
+		Kind: projectstate.SectionKindGenerated,
+		Generated: &projectstate.GeneratedSectionImpl{
+			Kind: projectstate.GeneratedSectionKindPlugin,
+		},
+	}
+	if got := sectionTypeForPayload(map[string]any{"type": "  Chat  "}, impl); got != "Chat" {
+		t.Fatalf("expected payload section type override, got %q", got)
+	}
+	if got := sectionTypeForPayload(nil, impl); got != "Plugin" {
+		t.Fatalf("expected generated fallback section type, got %q", got)
 	}
 }
 

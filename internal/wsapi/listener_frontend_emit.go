@@ -176,6 +176,12 @@ var listenerEmitErrorResolvers = []listenerEmitErrorResolver{
 	listenerEmitArtifactUpdateFailedContent,
 }
 
+var listenerWritableSectionTypes = map[string]struct{}{
+	"TextBlock": {},
+	"Chat":      {},
+	"Plugin":    {},
+}
+
 func handleListenerFrontendEmit(
 	ctx context.Context,
 	connectionID string,
@@ -473,72 +479,126 @@ func resolveListenerFrontendDependencyUpdates(
 	project projectstate.Project,
 	rawValues map[string]json.RawMessage,
 ) ([]listenerResolvedDependencyUpdate, error) {
+	graph, err := listenerFrontendDependencyGraph(project)
+	if err != nil {
+		return nil, err
+	}
+	updates := make([]listenerResolvedDependencyUpdate, 0, len(rawValues))
+	for dependencyName, rawValue := range rawValues {
+		update, err := resolveListenerFrontendDependencyUpdate(graph, dependencyName, rawValue)
+		if err != nil {
+			return nil, err
+		}
+		updates = append(updates, update)
+	}
+
+	return updates, nil
+}
+
+func listenerFrontendDependencyGraph(project projectstate.Project) (*codegen.PythonDependencyGraph, error) {
 	exported, err := project.ListenerDependencyExport()
 	if err != nil {
 		return nil, err
 	}
-	graph, err := codegen.BuildPythonDependencyGraph(exported, codegen.PythonDependencyGraphOptions{})
+	return codegen.BuildPythonDependencyGraph(exported, codegen.PythonDependencyGraphOptions{})
+}
+
+func resolveListenerFrontendDependencyUpdate(
+	graph *codegen.PythonDependencyGraph,
+	dependencyName string,
+	rawValue json.RawMessage,
+) (listenerResolvedDependencyUpdate, error) {
+	trimmedName, key, err := listenerFrontendDependencyKey(graph, dependencyName)
 	if err != nil {
-		return nil, err
+		return listenerResolvedDependencyUpdate{}, err
 	}
 
-	updates := make([]listenerResolvedDependencyUpdate, 0, len(rawValues))
-	for dependencyName, rawValue := range rawValues {
-		trimmedName := strings.TrimSpace(dependencyName)
-		if trimmedName == "" {
-			return nil, &listenerEmitUnknownDependencyError{DependencyName: dependencyName}
-		}
-		key, ok := graph.FullPathNameToKey[trimmedName]
-		if !ok {
-			return nil, &listenerEmitUnknownDependencyError{DependencyName: trimmedName}
-		}
+	node, ok := graph.Node(key)
+	if !ok {
+		return listenerResolvedDependencyUpdate{}, &listenerEmitUnknownDependencyError{DependencyName: trimmedName}
+	}
+	return listenerResolvedDependencyUpdateForNode(trimmedName, key, node, rawValue)
+}
 
-		node, ok := graph.Node(key)
-		if !ok {
-			return nil, &listenerEmitUnknownDependencyError{DependencyName: trimmedName}
-		}
+func listenerFrontendDependencyKey(
+	graph *codegen.PythonDependencyGraph,
+	dependencyName string,
+) (string, codegen.PythonDependencyKey, error) {
+	trimmedName := strings.TrimSpace(dependencyName)
+	if trimmedName == "" {
+		return "", codegen.PythonDependencyKey{}, &listenerEmitUnknownDependencyError{DependencyName: dependencyName}
+	}
+	key, ok := graph.FullPathNameToKey[trimmedName]
+	if !ok {
+		return "", codegen.PythonDependencyKey{}, &listenerEmitUnknownDependencyError{DependencyName: trimmedName}
+	}
+	return trimmedName, key, nil
+}
 
-		switch typed := node.(type) {
-		case *codegen.PythonParamNode:
-			if _, err := decodeJSONString(rawValue); err != nil {
-				return nil, &listenerEmitInvalidValueError{
-					DependencyName: trimmedName,
-					ExpectedType:   "Literal",
-				}
-			}
-			updates = append(updates, listenerResolvedDependencyUpdate{
-				DependencyName: trimmedName,
-				SectionID:      key.SectionID,
-				CodeObjectID:   key.CodeObjectID,
-				RawValue:       cloneJSONRawMessage(rawValue),
-			})
-		case *codegen.PythonSectionNode:
-			if err := validateListenerFrontendSectionValue(trimmedName, typed.SectionType, rawValue); err != nil {
-				return nil, err
-			}
-			switch typed.SectionType {
-			case "TextBlock", "Chat", "Plugin":
-				updates = append(updates, listenerResolvedDependencyUpdate{
-					DependencyName: trimmedName,
-					SectionID:      key.SectionID,
-					SectionType:    typed.SectionType,
-					RawValue:       cloneJSONRawMessage(rawValue),
-				})
-			default:
-				return nil, &listenerEmitUnsupportedDependencyError{
-					DependencyName: trimmedName,
-					Reason:         "dependency does not expose a writable value",
-				}
-			}
-		default:
-			return nil, &listenerEmitUnsupportedDependencyError{
-				DependencyName: trimmedName,
-				Reason:         "dependency does not expose a writable value",
-			}
+func listenerResolvedDependencyUpdateForNode(
+	dependencyName string,
+	key codegen.PythonDependencyKey,
+	node codegen.PythonDependencyNode,
+	rawValue json.RawMessage,
+) (listenerResolvedDependencyUpdate, error) {
+	switch typed := node.(type) {
+	case *codegen.PythonParamNode:
+		return listenerResolvedParamDependencyUpdate(dependencyName, key, rawValue)
+	case *codegen.PythonSectionNode:
+		return listenerResolvedSectionDependencyUpdate(dependencyName, key, typed.SectionType, rawValue)
+	default:
+		return listenerResolvedDependencyUpdate{}, &listenerEmitUnsupportedDependencyError{
+			DependencyName: dependencyName,
+			Reason:         "dependency does not expose a writable value",
 		}
 	}
+}
 
-	return updates, nil
+func listenerResolvedParamDependencyUpdate(
+	dependencyName string,
+	key codegen.PythonDependencyKey,
+	rawValue json.RawMessage,
+) (listenerResolvedDependencyUpdate, error) {
+	if _, err := decodeJSONString(rawValue); err != nil {
+		return listenerResolvedDependencyUpdate{}, &listenerEmitInvalidValueError{
+			DependencyName: dependencyName,
+			ExpectedType:   "Literal",
+		}
+	}
+	return listenerResolvedDependencyUpdate{
+		DependencyName: dependencyName,
+		SectionID:      key.SectionID,
+		CodeObjectID:   key.CodeObjectID,
+		RawValue:       cloneJSONRawMessage(rawValue),
+	}, nil
+}
+
+func listenerResolvedSectionDependencyUpdate(
+	dependencyName string,
+	key codegen.PythonDependencyKey,
+	sectionType string,
+	rawValue json.RawMessage,
+) (listenerResolvedDependencyUpdate, error) {
+	if err := validateListenerFrontendSectionValue(dependencyName, sectionType, rawValue); err != nil {
+		return listenerResolvedDependencyUpdate{}, err
+	}
+	if !listenerSectionTypeWritable(sectionType) {
+		return listenerResolvedDependencyUpdate{}, &listenerEmitUnsupportedDependencyError{
+			DependencyName: dependencyName,
+			Reason:         "dependency does not expose a writable value",
+		}
+	}
+	return listenerResolvedDependencyUpdate{
+		DependencyName: dependencyName,
+		SectionID:      key.SectionID,
+		SectionType:    sectionType,
+		RawValue:       cloneJSONRawMessage(rawValue),
+	}, nil
+}
+
+func listenerSectionTypeWritable(sectionType string) bool {
+	_, ok := listenerWritableSectionTypes[sectionType]
+	return ok
 }
 
 func validateListenerFrontendSectionValue(
@@ -1238,11 +1298,21 @@ func mergeJSONObjects(base map[string]any, overlay map[string]any) map[string]an
 }
 
 func sectionTypeForPayload(payload map[string]any, impl projectstate.SectionImpl) string {
-	if payload != nil {
-		if rawType, ok := payload["type"].(string); ok && strings.TrimSpace(rawType) != "" {
-			return strings.TrimSpace(rawType)
-		}
+	if sectionType := listenerPayloadSectionType(payload); sectionType != "" {
+		return sectionType
 	}
+	return listenerFallbackSectionType(impl)
+}
+
+func listenerPayloadSectionType(payload map[string]any) string {
+	if payload == nil {
+		return ""
+	}
+	rawType, _ := payload["type"].(string)
+	return strings.TrimSpace(rawType)
+}
+
+func listenerFallbackSectionType(impl projectstate.SectionImpl) string {
 	switch {
 	case impl.IsCode():
 		return "Code"
@@ -1250,18 +1320,25 @@ func sectionTypeForPayload(payload map[string]any, impl projectstate.SectionImpl
 		return "Terminal"
 	case impl.IsDraw():
 		return "Draw"
-	case impl.IsGenerated():
-		switch impl.Generated.Kind {
-		case projectstate.GeneratedSectionKindPythonCode:
-			return "GenPythonCode"
-		case projectstate.GeneratedSectionKindPythonMetadata:
-			return "GenPythonMetadata"
-		case projectstate.GeneratedSectionKindPlugin:
-			return "Plugin"
-		}
 	}
-	if strings.TrimSpace(string(impl.Kind)) == "" {
+	if sectionType := listenerGeneratedSectionType(impl); sectionType != "" {
+		return sectionType
+	}
+	return strings.TrimSpace(string(impl.Kind))
+}
+
+func listenerGeneratedSectionType(impl projectstate.SectionImpl) string {
+	if !impl.IsGenerated() {
 		return ""
 	}
-	return string(impl.Kind)
+	switch impl.Generated.Kind {
+	case projectstate.GeneratedSectionKindPythonCode:
+		return "GenPythonCode"
+	case projectstate.GeneratedSectionKindPythonMetadata:
+		return "GenPythonMetadata"
+	case projectstate.GeneratedSectionKindPlugin:
+		return "Plugin"
+	default:
+		return ""
+	}
 }
