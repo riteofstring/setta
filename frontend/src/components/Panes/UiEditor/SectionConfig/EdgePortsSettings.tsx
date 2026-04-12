@@ -2,13 +2,6 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import _ from "lodash";
 import {
-  outputAccessorCompletion,
-  setSectionEdgeInputs,
-  setSectionEdgeOutputs,
-  setVariantJsonSourceKeys,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   useEffect,
   useMemo,
   useState,
@@ -22,7 +15,7 @@ import {
   getCurrProjectConfigId,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,
@@ -35,54 +28,33 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_output_accessor_completion,
+  route_set_section_edge_inputs,
+  route_set_section_edge_outputs,
+  route_set_variant_json_source_keys,
+} from "utils/generatedEndpoints";
 import {
-  BaseDictSectionImplUnion,
   isBaseDictSectionImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
+
 type EdgePortsSettingsProps = {
   sectionId: string;
 };
+
 type EdgeOutputPort = {
   id: string;
   accessor: string;
-};
-type JsonSourcePathSetter = (value: string) => void;
-type JsonSourceErrorSetter = (value: string | null) => void;
-type JsonSourcePathUpdateResponse = ResponseDataAndStatus<unknown>;
-type JsonSourcePathFailureArgs = {
-  frontendOpId: string;
-  sectionId: string;
-  targetVariantId: string;
-  nextKeys: string[];
-  previousKeys: string[];
-  previousPath: string;
-  response: JsonSourcePathUpdateResponse;
-  setJsonSourcePath: JsonSourcePathSetter;
-  setJsonSourceError: JsonSourceErrorSetter;
-};
-type JsonSourcePathUpdateArgs = {
-  frontendOpId: string;
-  projectConfigId: string;
-  sectionId: string;
-  targetVariantId: string;
-  nextKeys: string[];
-  previousKeys: string[];
-  previousPath: string;
-  setJsonSourcePath: JsonSourcePathSetter;
-  setJsonSourceError: JsonSourceErrorSetter;
 };
 
 function formatJsonSourcePath(keys: string[]) {
   return keys.join(".");
 }
+
 function parseJsonSourcePath(value: string) {
   const trimmed = value.trim();
   if (trimmed === "") {
@@ -93,6 +65,7 @@ function parseJsonSourcePath(value: string) {
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
 }
+
 function shouldRollbackJsonSourceKeys(
   sectionId: string,
   variantId: string,
@@ -116,6 +89,7 @@ function shouldRollbackJsonSourceKeys(
   }
   return _.isEqual(impl.jsonSourceKeys, expectedKeys);
 }
+
 function buildParamLabels(
   state: ZustandProjectState,
   sectionId: string,
@@ -130,135 +104,13 @@ function buildParamLabels(
     const path = requiredParamIdsToPaths[paramId];
     const label = path
       ? paramNameFromPathArray(state, sectionId, path)
-      : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
+      : getParamDisplayName(state, sectionId, paramId);
     return { id: paramId, label };
   });
 }
 
-function clearPendingOperation(frontendOpId: string) {
-  usePendingOperations.setState((state) => ({
-    pending: state.pending.filter((op) => op.opId !== frontendOpId),
-  }));
-}
-
-function resolveJsonSourcePathErrorMessage(
-  response: JsonSourcePathUpdateResponse,
-): string {
-  if (!response.hasResponse) {
-    return "Could not reach the backend.";
-  }
-  if (response.status === 400) {
-    return getErrorDetail(response.data) ?? "Invalid JSON source path.";
-  }
-  if (response.status === 403) {
-    return getErrorDetail(response.data) ?? "JSON source keys are read-only.";
-  }
-  return "Failed to update JSON source path.";
-}
-
-function rollbackJsonSourceKeysUpdate({
-  sectionId,
-  targetVariantId,
-  previousKeys,
-  previousPath,
-  response,
-  setJsonSourcePath,
-  setJsonSourceError,
-}: Omit<JsonSourcePathFailureArgs, "frontendOpId" | "nextKeys">) {
-  useProjectState.setState((state) => {
-    setSectionVariantImplValue<BaseDictSectionImplUnion>(
-      state,
-      sectionId,
-      targetVariantId,
-      {
-        jsonSourceKeys: previousKeys,
-      },
-    );
-  });
-  if (
-    getCurrSectionVariantId(useProjectState.getState(), sectionId) !==
-    targetVariantId
-  ) {
-    return;
-  }
-  setJsonSourcePath(previousPath);
-  setJsonSourceError(resolveJsonSourcePathErrorMessage(response));
-}
-
-function handleJsonSourcePathUpdateFailure({
-  frontendOpId,
-  sectionId,
-  targetVariantId,
-  nextKeys,
-  previousKeys,
-  previousPath,
-  response,
-  setJsonSourcePath,
-  setJsonSourceError,
-}: JsonSourcePathFailureArgs) {
-  clearPendingOperation(frontendOpId);
-  if (!shouldRollbackJsonSourceKeys(sectionId, targetVariantId, nextKeys)) {
-    return;
-  }
-  rollbackJsonSourceKeysUpdate({
-    sectionId,
-    targetVariantId,
-    previousKeys,
-    previousPath,
-    response,
-    setJsonSourcePath,
-    setJsonSourceError,
-  });
-}
-
-async function sendJsonSourcePathUpdate({
-  frontendOpId,
-  projectConfigId,
-  sectionId,
-  targetVariantId,
-  nextKeys,
-  previousKeys,
-  previousPath,
-  setJsonSourcePath,
-  setJsonSourceError,
-}: JsonSourcePathUpdateArgs): Promise<JsonSourcePathUpdateResponse> {
-  const response = await callOpenAPI(
-    setVariantJsonSourceKeys({
-      body: {
-        projectConfigId,
-        sectionId,
-        variantId: targetVariantId,
-        jsonSourceKeys: nextKeys,
-        frontendOpId,
-      },
-    } as Parameters<typeof setVariantJsonSourceKeys>[0]),
-  );
-  if (!res200(response)) {
-    handleJsonSourcePathUpdateFailure({
-      frontendOpId,
-      sectionId,
-      targetVariantId,
-      nextKeys,
-      previousKeys,
-      previousPath,
-      response,
-      setJsonSourcePath,
-      setJsonSourceError,
-    });
-    return response;
-  }
-  if (
-    getCurrSectionVariantId(useProjectState.getState(), sectionId) ===
-    targetVariantId
-  ) {
-    setJsonSourceError(null);
-  }
-  return response;
-}
-
 export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   const { canEditStructure, canEditVariants } = useShareCapabilities();
-  const projectConfigId = getCurrProjectConfigId();
   const { edgeInputParams, edgeOutputPorts, jsonSourceKeys, isJsonSource } =
     useProjectState((state) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -332,21 +184,26 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     showParamDisplayNames,
     unpinnedRequiredParamIdsToPaths,
   ]);
+
   const canEditJsonSourceKeys = canEditVariants && allowJsonSourceKeyEdits;
   const [jsonSourcePath, setJsonSourcePath] = useState("");
   const [jsonSourceError, setJsonSourceError] = useState<string | null>(null);
   const [draftOutputPorts, setDraftOutputPorts] = useState<EdgeOutputPort[]>(
     [],
   );
+
   useEffect(() => {
     setDraftOutputPorts(toDraftOutputPorts(edgeOutputPorts));
   }, [edgeOutputPorts]);
+
   useEffect(() => {
     setJsonSourcePath(formatJsonSourcePath(jsonSourceKeys));
   }, [jsonSourceKeys, variantId]);
+
   useEffect(() => {
     setJsonSourceError(null);
   }, [variantId]);
+
   function onToggleInput(paramId: string) {
     if (!canEditStructure) {
       return;
@@ -363,18 +220,15 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         );
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setSectionEdgeInputs({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              edgeInputParams: nextInputs,
-              frontendOpId,
-            },
-          } as Parameters<typeof setSectionEdgeInputs>[0]),
-        ),
+        route_set_section_edge_inputs({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          edgeInputParams: nextInputs,
+          frontendOpId,
+        }),
     });
   }
+
   function onOutputChange(portId: string, value: string) {
     setDraftOutputPorts((prev) =>
       prev.map((port) =>
@@ -382,17 +236,20 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
       ),
     );
   }
+
   function removeOutputPort(portId: string) {
     const nextDraft = draftOutputPorts.filter((port) => port.id !== portId);
     setDraftOutputPorts(nextDraft);
     persistOutputPorts(nextDraft);
   }
+
   function onOutputBlur() {
     if (!canEditStructure) {
       return;
     }
     persistOutputPorts(draftOutputPorts);
   }
+
   function persistOutputPorts(ports: EdgeOutputPort[]) {
     const nextPorts = normalizeOutputPorts(ports);
     if (_.isEqual(nextPorts, edgeOutputPorts)) {
@@ -407,19 +264,16 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         );
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setSectionEdgeOutputs({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              edgeOutputPorts: nextPorts,
-              frontendOpId,
-            },
-          } as Parameters<typeof setSectionEdgeOutputs>[0]),
-        ),
+        route_set_section_edge_outputs({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          edgeOutputPorts: nextPorts,
+          frontendOpId,
+        }),
     });
     setDraftOutputPorts(toDraftOutputPorts(nextPorts));
   }
+
   function addOutputPort() {
     const nextDraft = [
       ...draftOutputPorts,
@@ -430,6 +284,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     ];
     setDraftOutputPorts(nextDraft);
   }
+
   function onJsonSourcePathBlur() {
     if (!canEditJsonSourceKeys) {
       return;
@@ -444,7 +299,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setJsonSourcePath(formatJsonSourcePath(nextKeys));
     const opId = dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setSectionVariantImplValue<BaseDictSectionImplUnion>(
+        setSectionVariantImplValue<"BaseDictSection">(
           state,
           sectionId,
           targetVariantId,
@@ -453,22 +308,69 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
           },
         );
       },
-      send: (frontendOpId) =>
-        sendJsonSourcePathUpdate({
-          frontendOpId,
-          projectConfigId,
+      send: async (frontendOpId) => {
+        const res = await route_set_variant_json_source_keys({
+          projectConfigId: getCurrProjectConfigId(),
           sectionId,
-          targetVariantId,
-          nextKeys,
-          previousKeys,
-          previousPath,
-          setJsonSourcePath,
-          setJsonSourceError,
-        }),
+          variantId: targetVariantId,
+          jsonSourceKeys: nextKeys,
+          frontendOpId,
+        });
+        if (!res200(res)) {
+          usePendingOperations.setState((state) => ({
+            pending: state.pending.filter((op) => op.opId !== frontendOpId),
+          }));
+          const shouldRollback = shouldRollbackJsonSourceKeys(
+            sectionId,
+            targetVariantId,
+            nextKeys,
+          );
+          if (shouldRollback) {
+            useProjectState.setState((state) => {
+              setSectionVariantImplValue<"BaseDictSection">(
+                state,
+                sectionId,
+                targetVariantId,
+                {
+                  jsonSourceKeys: previousKeys,
+                },
+              );
+            });
+            const activeVariantId = getCurrSectionVariantId(
+              useProjectState.getState(),
+              sectionId,
+            );
+            if (activeVariantId === targetVariantId) {
+              setJsonSourcePath(previousPath);
+              if (!res.hasResponse) {
+                setJsonSourceError("Could not reach the backend.");
+              } else if (res.status === 400) {
+                setJsonSourceError(
+                  getErrorDetail(res.data) ?? "Invalid JSON source path.",
+                );
+              } else if (res.status === 403) {
+                setJsonSourceError(
+                  getErrorDetail(res.data) ?? "JSON source keys are read-only.",
+                );
+              } else {
+                setJsonSourceError("Failed to update JSON source path.");
+              }
+            }
+          }
+        } else if (
+          getCurrSectionVariantId(useProjectState.getState(), sectionId) ===
+          targetVariantId
+        ) {
+          setJsonSourceError(null);
+        }
+        return res;
+      },
     });
     return opId;
   }
+
   const [draggedPortId, setDraggedPortId] = useState<string | null>(null);
+
   function onDragStart(event: DragEvent<HTMLSpanElement>, portId: string) {
     if (!canEditStructure) {
       return;
@@ -477,6 +379,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     event.dataTransfer.setData("text/plain", portId);
     setDraggedPortId(portId);
   }
+
   function onDragOver(event: DragEvent<HTMLDivElement>) {
     if (!canEditStructure) {
       return;
@@ -484,6 +387,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }
+
   function onDrop(event: DragEvent<HTMLDivElement>, portId: string) {
     if (!canEditStructure) {
       return;
@@ -498,34 +402,33 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setDraggedPortId(null);
     persistOutputPorts(nextDraft);
   }
+
   function onDragEnd() {
     setDraggedPortId(null);
   }
+
   const completionsFn = useMemo(
     () =>
       wrappedCompletionsFn(async (fullText: string, position: number) => {
-        const res = await callOpenAPI(
-          outputAccessorCompletion({
-            body: {
-              projectConfigId,
-              sectionId,
-              fullText,
-              position,
-            },
-          } as Parameters<typeof outputAccessorCompletion>[0]),
-        );
+        const res = await route_output_accessor_completion({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          fullText,
+          position,
+        });
         if (res200(res)) {
           return res.data;
         }
         return [];
       }),
-    [projectConfigId, sectionId],
+    [sectionId],
   );
   const tooltipParentDivId = `edge-output-ports-${sectionId}`;
   const edgeInputParamIdSet = useMemo(
     () => new Set(edgeInputParams),
     [edgeInputParams],
   );
+
   return (
     <section className="flex flex-col gap-4">
       {isJsonSource && (
@@ -594,7 +497,9 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
           {draftOutputPorts.map((port) => (
             <div
               key={port.id}
-              className={`flex items-center gap-2 ${draggedPortId === port.id ? "opacity-60" : ""}`}
+              className={`flex items-center gap-2 ${
+                draggedPortId === port.id ? "opacity-60" : ""
+              }`}
               onDragOver={onDragOver}
               onDrop={(event) => onDrop(event, port.id)}
             >
@@ -648,6 +553,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     </section>
   );
 }
+
 function toDraftOutputPorts(ports: EdgeOutputPort[]) {
   return ports.map((port) => ({
     id: port.id,
@@ -655,6 +561,7 @@ function toDraftOutputPorts(ports: EdgeOutputPort[]) {
       port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
   }));
 }
+
 function normalizeAccessor(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -665,6 +572,7 @@ function normalizeAccessor(value: string) {
   }
   return trimmed;
 }
+
 function normalizeOutputPorts(ports: EdgeOutputPort[]) {
   const normalized: EdgeOutputPort[] = [];
   for (const port of ports) {
@@ -679,6 +587,7 @@ function normalizeOutputPorts(ports: EdgeOutputPort[]) {
   }
   return normalized;
 }
+
 function reorderOutputPorts(
   ports: EdgeOutputPort[],
   sourceId: string,

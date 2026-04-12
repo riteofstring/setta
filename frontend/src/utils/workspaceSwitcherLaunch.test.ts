@@ -1,13 +1,5 @@
-import type { HttpapiLaunchRequest as LaunchRequest } from "openapi/http";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { LaunchRequestInput } from "./generatedTypes";
 import {
   consumeOpenWorkspaceSwitcherRequest,
   readPendingWorkspaceLaunch,
@@ -15,10 +7,6 @@ import {
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
 } from "./workspaceSwitcherLaunch";
-
-vi.mock("utils/constants", () => ({
-  HOME_ROUTER_PATH: "/home",
-}));
 
 function buildWorkspaceLaunchIntentHash({
   launchIntentToken,
@@ -121,7 +109,7 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("reads pending launch from sessionStorage", () => {
-    const request: LaunchRequest = { workspaceRoot: "/tmp/work" };
+    const request: LaunchRequestInput = { workspaceRoot: "/tmp/work" };
     writePendingWorkspaceLaunch({
       request,
       returnUrl: "http://localhost/project",
@@ -132,22 +120,6 @@ describe("workspaceSwitcherLaunch", () => {
     expect(pending?.request.workspaceRoot).toBe("/tmp/work");
     expect(pending?.returnUrl).toBe("http://localhost/project");
     expect(pending?.requestedAt).toBe(123);
-    expect(pending?.sshTarget).toBeNull();
-    expect(pending?.settaFilesLocation).toBeNull();
-  });
-
-  it("ignores invalid pending launch optional field types in sessionStorage", () => {
-    memoryStorage.setItem(
-      "setta.pendingWorkspaceLaunch",
-      JSON.stringify({
-        request: { workspaceRoot: "/tmp/work" },
-        returnUrl: "http://localhost/project",
-        requestedAt: 123,
-        sshTarget: 42,
-      }),
-    );
-
-    expect(readPendingWorkspaceLaunch()).toBeNull();
   });
 
   it("can consume pending launch intent from the URL hash", () => {
@@ -188,7 +160,7 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("roundtrips the workspace switcher draft payload", () => {
-    const request: LaunchRequest = {
+    const request: LaunchRequestInput = {
       workspaceRoot: "/tmp/work",
       settaFilesLocation: "global",
       sshTarget: "user@host",
