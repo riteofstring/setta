@@ -118,6 +118,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       expect.any(Function),
     );
 
+    measureMotionAttribution.mockClear();
     await act(async () => {
       root.render(
         <SectionsLayerProbe
@@ -134,7 +135,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       measureMotionAttribution.mock.calls.filter(
         ([owner]) => owner === "presentedSceneSectionEntriesResolve",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it("rerenders only the affected section entry when the body mount gate changes", async () => {
@@ -157,6 +158,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       '[data-section-id="section-a"]',
     );
     expect(initialShellElement).not.toBeNull();
+    measureMotionAttribution.mockClear();
     recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
@@ -179,6 +181,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       "presentedSceneSectionEntryBodyGateReactRender",
       expect.any(Number),
     );
+    expect(
+      measureMotionAttribution.mock.calls.filter(
+        ([owner]) => owner === "presentedSceneSectionEntryImperativeFlush",
+      ),
+    ).toHaveLength(1);
   });
 
   it("keeps the mounted body subtree stable through a small threshold-edge pan", async () => {
@@ -312,6 +319,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     );
     expect(stableSectionBShellElement).not.toBeNull();
 
+    measureMotionAttribution.mockClear();
     recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
@@ -341,6 +349,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       "presentedSceneSectionEntryBodyGateReactRender",
       expect.any(Number),
     );
+    expect(
+      measureMotionAttribution.mock.calls.filter(
+        ([owner]) => owner === "presentedSceneSectionEntryImperativeFlush",
+      ),
+    ).toHaveLength(1);
   });
 
   it("rerenders only the dragged sibling when drag state flips", async () => {
@@ -365,6 +378,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+    measureMotionAttribution.mockClear();
     recordMotionAttributionDuration.mockClear();
 
     await act(async () => {
@@ -383,6 +397,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
       "presentedSceneSectionEntryShellReactRender",
       expect.any(Number),
     );
+    expect(
+      measureMotionAttribution.mock.calls.filter(
+        ([owner]) => owner === "presentedSceneSectionEntryImperativeFlush",
+      ),
+    ).toHaveLength(1);
   });
 
   it("skips body resolution and shell work for offscreen inactive sections", async () => {

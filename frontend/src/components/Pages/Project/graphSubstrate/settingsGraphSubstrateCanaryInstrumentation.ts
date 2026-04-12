@@ -14,6 +14,7 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "presentedSceneSectionBodyContentReactRender",
   "presentedSceneSectionBodySubtreeReactRender",
   "presentedSceneSectionEntryBodyGateReactRender",
+  "presentedSceneSectionEntryImperativeFlush",
   "presentedSceneSectionEntryShellReactRender",
   "presentedSceneSectionHeaderReactRender",
   "presentedSceneSectionKwargsControlsReactRender",

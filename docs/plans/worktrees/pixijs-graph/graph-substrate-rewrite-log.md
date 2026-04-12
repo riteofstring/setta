@@ -20964,3 +20964,42 @@ LOOP_TERMINAL_MARKER: none
     `rotaryParamCodeObjDefault` once the mounted canary is trustworthy again,
     then rank the next dominant owner from live attribution
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-15 12:25 UTC
+
+- item `499` reduced no-op section-entry imperative flushes on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    now reuses per-entry shell/body state objects and only flushes
+    `updateShell(...)` / `updateBody(...)` when that entry's shell/body state
+    changed since the last flush
+  - added the new motion-attribution owner
+    `presentedSceneSectionEntryImperativeFlush` in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  - updated:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+    -> passed (`3` files, `14` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - attempted live worktree probe:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-029/worktree-ai.log`
+      -> failed before test discovery with the same direct-runner drift:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+  - fresh-context CDP smoke via sub-agent on `http://127.0.0.1:3053/settings`
+    -> settings graph surface mounted after a brief loading state
+    -> expected dark graph UI was visible
+    -> no obvious blank-card or detached-body artifact
+- reading:
+  - this slice turns the remaining entry-flush path into a first-class measured
+    owner instead of hiding it inside generic shell/body rerender buckets
+  - the direct worktree Playwright runner is still an external blocker for
+    fresh live totals; do not spend the next default iteration repairing that
+    path again
+  - next: choose either a trusted live motion-probe path that already works
+    without direct-runner repair, or another bounded product reduction inside
+    the section-entry/body subtree path
+- LOOP_TERMINAL_MARKER: none

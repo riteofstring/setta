@@ -582,6 +582,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       "presentedSceneSectionContainerReactRender",
       "presentedSceneSectionCoreShellLayerReactRender",
       "presentedSceneSectionEntryBodyGateReactRender",
+      "presentedSceneSectionEntryImperativeFlush",
       "presentedSceneSectionEntryShellReactRender",
       "presentedSceneSectionHeaderReactRender",
       "presentedSceneSectionKwargsControlsReactRender",

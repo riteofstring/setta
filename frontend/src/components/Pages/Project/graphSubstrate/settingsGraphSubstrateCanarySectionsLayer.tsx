@@ -147,6 +147,24 @@ function handleSettingsGraphSubstrateCanarySectionEntryShellRender(
   );
 }
 
+function areSettingsGraphSubstrateCanarySectionEntryBodyStatesEqual(
+  left: SettingsGraphSubstrateCanarySectionEntryBodyState,
+  right: SettingsGraphSubstrateCanarySectionEntryBodyState,
+) {
+  return (
+    left.sectionBody === right.sectionBody &&
+    left.sectionId === right.sectionId &&
+    left.shouldMountBody === right.shouldMountBody
+  );
+}
+
+function areSettingsGraphSubstrateCanarySectionShellStatesEqual(
+  left: SettingsGraphSubstrateCanarySectionShellState,
+  right: SettingsGraphSubstrateCanarySectionShellState,
+) {
+  return left.isDragging === right.isDragging && left.section === right.section;
+}
+
 type SettingsGraphSubstrateCanarySectionEntryBodyProps = {
   initialState: SettingsGraphSubstrateCanarySectionEntryBodyState;
 };
@@ -283,6 +301,12 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     Map<string, SettingsGraphSubstrateCanarySectionEntryHandle>
   >(new Map());
   const stableSectionEntriesRef = useRef<Array<React.ReactElement>>([]);
+  const flushedSectionBodyStatesByIdRef = useRef<
+    Map<string, SettingsGraphSubstrateCanarySectionEntryBodyState>
+  >(new Map());
+  const flushedSectionShellStatesByIdRef = useRef<
+    Map<string, SettingsGraphSubstrateCanarySectionShellState>
+  >(new Map());
   const resolvedPresentedSceneSections = useMemo(() => {
     if (presentedSceneSections) {
       return presentedSceneSections;
@@ -523,17 +547,36 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
           const isDragging = draggingSectionId === section.sectionId;
           const previousSectionEntryElement =
             previousSectionEntryElementsById.get(section.sectionId);
-          const nextShellState: SettingsGraphSubstrateCanarySectionShellState =
+          const previousShellState = previousSectionEntryElement?.shellState;
+          const unresolvedShellState: SettingsGraphSubstrateCanarySectionShellState =
             {
               isDragging,
               section,
             };
-          const nextSectionBodyState: SettingsGraphSubstrateCanarySectionEntryBodyState =
+          const nextShellState =
+            previousShellState &&
+            areSettingsGraphSubstrateCanarySectionShellStatesEqual(
+              previousShellState,
+              unresolvedShellState,
+            )
+              ? previousShellState
+              : unresolvedShellState;
+          const previousSectionBodyState =
+            previousSectionEntryElement?.sectionBodyState;
+          const unresolvedSectionBodyState: SettingsGraphSubstrateCanarySectionEntryBodyState =
             {
               sectionBody,
               sectionId: section.sectionId,
               shouldMountBody,
             };
+          const nextSectionBodyState =
+            previousSectionBodyState &&
+            areSettingsGraphSubstrateCanarySectionEntryBodyStatesEqual(
+              previousSectionBodyState,
+              unresolvedSectionBodyState,
+            )
+              ? previousSectionBodyState
+              : unresolvedSectionBodyState;
           const canReuseSectionEntryElement =
             previousSectionEntryElement !== undefined &&
             previousSectionEntryElement.sectionId === section.sectionId;
@@ -596,6 +639,14 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   ]);
 
   useLayoutEffect(() => {
+    const nextFlushedSectionBodyStatesById = new Map<
+      string,
+      SettingsGraphSubstrateCanarySectionEntryBodyState
+    >();
+    const nextFlushedSectionShellStatesById = new Map<
+      string,
+      SettingsGraphSubstrateCanarySectionShellState
+    >();
     for (const [
       sectionId,
       sectionEntryElement,
@@ -605,9 +656,41 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
       if (!shellHandle) {
         continue;
       }
-      shellHandle.updateShell(sectionEntryElement.shellState);
-      shellHandle.updateBody(sectionEntryElement.sectionBodyState);
+      const previousFlushedShellState =
+        flushedSectionShellStatesByIdRef.current.get(sectionId);
+      const previousFlushedBodyState =
+        flushedSectionBodyStatesByIdRef.current.get(sectionId);
+      const shouldFlushShell =
+        previousFlushedShellState !== sectionEntryElement.shellState;
+      const shouldFlushBody =
+        previousFlushedBodyState !== sectionEntryElement.sectionBodyState;
+
+      if (shouldFlushShell || shouldFlushBody) {
+        measureSettingsGraphSubstrateCanaryMotionAttribution(
+          "presentedSceneSectionEntryImperativeFlush",
+          () => {
+            if (shouldFlushShell) {
+              shellHandle.updateShell(sectionEntryElement.shellState);
+            }
+            if (shouldFlushBody) {
+              shellHandle.updateBody(sectionEntryElement.sectionBodyState);
+            }
+          },
+        );
+      }
+
+      nextFlushedSectionShellStatesById.set(
+        sectionId,
+        sectionEntryElement.shellState,
+      );
+      nextFlushedSectionBodyStatesById.set(
+        sectionId,
+        sectionEntryElement.sectionBodyState,
+      );
     }
+    flushedSectionShellStatesByIdRef.current =
+      nextFlushedSectionShellStatesById;
+    flushedSectionBodyStatesByIdRef.current = nextFlushedSectionBodyStatesById;
   });
 
   return <>{sectionEntries}</>;

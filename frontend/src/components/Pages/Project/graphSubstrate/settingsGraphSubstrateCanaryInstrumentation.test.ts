@@ -189,6 +189,10 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       5.25,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionEntryImperativeFlush",
+      4.5,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionEntryShellReactRender",
       2.5,
     );
@@ -332,6 +336,13 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       maxDurationMs: 5.25,
       totalDurationMs: 5.25,
     });
+    expect(motionAttribution.presentedSceneSectionEntryImperativeFlush).toEqual(
+      {
+        count: 1,
+        maxDurationMs: 4.5,
+        totalDurationMs: 4.5,
+      },
+    );
     expect(
       motionAttribution.presentedSceneSectionEntryShellReactRender,
     ).toEqual({

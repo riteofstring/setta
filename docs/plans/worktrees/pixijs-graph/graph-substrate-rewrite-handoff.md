@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 12:13 UTC
+Last updated: 2026-04-15 12:25 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,57 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `499` landed a bounded production reduction on the remaining
+  section-entry imperative flush path for the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now reuses per-entry shell/body state objects when the state is
+      unchanged and only flushes `updateShell(...)` / `updateBody(...)`
+      through the imperative entry handle when that section's shell/body state
+      actually changed since the last flush
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      now recognizes the new owner
+      `presentedSceneSectionEntryImperativeFlush`
+    - focused regressions:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      now prove viewport-only passes do not re-enter the entry-resolve path and
+      that body-gate / sibling-change / drag-state flips only record one
+      imperative entry flush
+    - shared Playwright residual-owner allowlists now include
+      `presentedSceneSectionEntryImperativeFlush`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.test.tsx`
+      -> passed (`3` files, `14` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - attempted live worktree motion probe:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-029/worktree-ai.log`
+        -> failed before test discovery with the known direct-runner drift:
+           `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+    - fresh-context CDP smoke via sub-agent:
+      -> `http://127.0.0.1:3053/settings` mounted the settings graph surface
+      -> expected dark settings graph UI was visible after a brief loading
+         state
+      -> no obvious blank-card or detached-body artifact was visible on the
+         canary surface during the smoke check
+  - reading:
+    - this is another real product reduction on the active section-entry path,
+      not another launcher/probe-helper pass
+    - the new owner gives the next trusted live motion probe a way to
+      distinguish imperative entry flushing from the existing React render
+      buckets on the same lane
+    - the blocked direct worktree Playwright runner remains explicit tooling
+      debt; do not spend the next default iteration repairing that path again
+    - next default frontier: use a trusted live motion-probe path, if one is
+      already available without direct-runner repair, to rank whether
+      `presentedSceneSectionEntryImperativeFlush` or another remaining owner is
+      now dominant on `rotaryParamCodeObjDefault`; otherwise continue with the
+      next bounded production reduction inside the section-entry/body subtree
+      path rather than reopening launcher work
 
 - item `498` landed a bounded production cut that keeps section-entry shells
   mounted across body-gate and body-prop updates on the canonical
