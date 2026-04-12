@@ -132,6 +132,22 @@ describe("workspaceSwitcherLaunch", () => {
     expect(pending?.request.workspaceRoot).toBe("/tmp/work");
     expect(pending?.returnUrl).toBe("http://localhost/project");
     expect(pending?.requestedAt).toBe(123);
+    expect(pending?.sshTarget).toBeNull();
+    expect(pending?.settaFilesLocation).toBeNull();
+  });
+
+  it("ignores invalid pending launch optional field types in sessionStorage", () => {
+    memoryStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request: { workspaceRoot: "/tmp/work" },
+        returnUrl: "http://localhost/project",
+        requestedAt: 123,
+        sshTarget: 42,
+      }),
+    );
+
+    expect(readPendingWorkspaceLaunch()).toBeNull();
   });
 
   it("can consume pending launch intent from the URL hash", () => {

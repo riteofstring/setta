@@ -20,55 +20,64 @@ const LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY = "pl";
 const LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
 const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";
 const PENDING_LAUNCH_REQUESTED_AT_HASH_KEY = "pla";
+const INVALID_OPTIONAL_STRING = Symbol("invalidOptionalString");
+
+function asObjectRecord(candidate: unknown): Record<string, unknown> | null {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+  return candidate as Record<string, unknown>;
+}
+
+function parseRequiredNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value.trim() ? value : null;
+}
+
+function parseRequiredNumber(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+function parseOptionalNullableString(
+  value: unknown,
+): string | null | undefined | typeof INVALID_OPTIONAL_STRING {
+  if (value === undefined || value === null || typeof value === "string") {
+    return value;
+  }
+  return INVALID_OPTIONAL_STRING;
+}
 
 function parsePendingWorkspaceLaunch(
   candidate: unknown,
 ): PendingWorkspaceLaunch | null {
-  if (!candidate || typeof candidate !== "object") {
+  const record = asObjectRecord(candidate);
+  if (!record) {
     return null;
   }
-  const record = candidate as {
-    request?: unknown;
-    returnUrl?: unknown;
-    requestedAt?: unknown;
-    sshTarget?: unknown;
-    settaFilesLocation?: unknown;
-  };
-  if (!record.request || typeof record.request !== "object") {
-    return null;
-  }
-  if (typeof record.returnUrl !== "string" || !record.returnUrl.trim()) {
-    return null;
-  }
-  if (typeof record.requestedAt !== "number") {
+  const request = asObjectRecord(record.request);
+  const returnUrl = parseRequiredNonEmptyString(record.returnUrl);
+  const requestedAt = parseRequiredNumber(record.requestedAt);
+  const sshTarget = parseOptionalNullableString(record.sshTarget);
+  const settaFilesLocation = parseOptionalNullableString(
+    record.settaFilesLocation,
+  );
+  if (!request || !returnUrl || requestedAt === null) {
     return null;
   }
   if (
-    record.sshTarget !== undefined &&
-    record.sshTarget !== null &&
-    typeof record.sshTarget !== "string"
-  ) {
-    return null;
-  }
-  if (
-    record.settaFilesLocation !== undefined &&
-    record.settaFilesLocation !== null &&
-    typeof record.settaFilesLocation !== "string"
+    sshTarget === INVALID_OPTIONAL_STRING ||
+    settaFilesLocation === INVALID_OPTIONAL_STRING
   ) {
     return null;
   }
   return {
-    request: record.request as LaunchRequest,
-    returnUrl: record.returnUrl,
-    requestedAt: record.requestedAt,
-    sshTarget:
-      typeof record.sshTarget === "string"
-        ? record.sshTarget
-        : record.sshTarget ?? null,
-    settaFilesLocation:
-      typeof record.settaFilesLocation === "string"
-        ? record.settaFilesLocation
-        : record.settaFilesLocation ?? null,
+    request: request as LaunchRequest,
+    returnUrl,
+    requestedAt,
+    sshTarget: sshTarget ?? null,
+    settaFilesLocation: settaFilesLocation ?? null,
   };
 }
 
