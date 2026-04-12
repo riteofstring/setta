@@ -234,6 +234,54 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-14 14:22 UTC | item `473` | completed inactive top-level param DnD provider bypass on canonical `rotaryParamCodeObjDefault`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/src/forks/dnd-kit/ParamDndContext.tsx`
+      now bypasses the top-level `DragDropProvider` / sensor / helper stack
+      when parameter dragging is inactive and only mounts it while selection or
+      a pending reset needs the DnD runtime
+    - `frontend/src/forks/dnd-kit/ParamDndContext.test.tsx`
+      now proves the inactive lane skips that provider stack while the active
+      selection and pending-reset paths still mount it
+    - perf note:
+      `perf/reports/frontend/2026-04-14_settings-graph-inactive-param-dnd-provider-bypass.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/dnd-kit/ParamDndContext.test.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/dnd-kit/ParamDndContext.tsx src/forks/dnd-kit/ParamDndContext.test.tsx ../perf/reports/frontend/2026-04-14_settings-graph-inactive-param-dnd-provider-bypass.md`
+      -> passed
+    - live probe:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-034/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.6m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> compared with item `472`, this was a real live win:
+         `averageFrameDurationMs 43.56 -> 37.21`
+         `longTaskTotalDurationMs 1297 -> 986`
+         `ParamGroupContainer 577.5ms -> 418.8ms`
+         `ParamGroupUnpinnedParams 507.2ms -> 381.5ms`
+         `ParamGroupUnpinnedArea 498.9ms -> 375.0ms`
+         `UnpinnedParamDndListRows 486.1ms -> 367.3ms`
+    - required fresh-context CDP check:
+      -> first attempt was blocked by unavailable DevTools MCP browser access
+      -> one allowed bounded worktree recovery:
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+         then
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-034/worktree-ai.log`
+      -> retry passed
+      -> `/settings` showed `All Settings` with `rotaryParamCodeObjDefault`
+         visible on the canary graph surface and no blank-card, detached-body,
+         severe clipping, or obvious rendering artifact
+  - reading:
+    - this closes the inactive top-level param DnD provider seam as a winning
+      broader owner reduction on the canonical lane
+    - do not reopen this same DnD-provider seam for another adjacent trim
+    - next: choose the next broader owner reduction above
+      `ParamGroupContainer` / body-content ownership, or take the first bounded
+      scene-owned static body slice only if fresh live evidence justifies it
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-14 12:40 UTC
 
 - item `468` completed one bounded `ParamGroupContainer`-boundary cleanup on
