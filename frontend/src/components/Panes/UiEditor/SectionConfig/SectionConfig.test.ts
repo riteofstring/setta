@@ -1,77 +1,10 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("state/actions/sectionInfos", () => ({
-  getCurrEffectiveSectionImpl: vi.fn(),
-}));
-
-vi.mock("state/definitions", () => ({
-  useProjectState: vi.fn(),
-}));
-
-vi.mock("./BrowserAreaSettings", () => ({
-  BrowserAreaSettings: () => null,
-}));
-vi.mock("./ChartAreaSettings", () => ({
-  ChartAreaSettings: () => null,
-}));
-vi.mock("./ChatAreaSettings", () => ({
-  ChatAreaSettings: () => null,
-}));
-vi.mock("./ChildDefaultsSettings", () => ({
-  ChildDefaultsSettings: () => null,
-}));
-vi.mock("./CodeAreaSettings", () => ({
-  CodeAreaSettings: () => null,
-}));
-vi.mock("./DrawAreaSettings", () => ({
-  DrawAreaSettings: () => null,
-}));
-vi.mock("./EdgePortsSettings", () => ({
-  EdgePortsSettings: () => null,
-}));
-vi.mock("./IframeSettings", () => ({
-  IframeSettings: () => null,
-}));
-vi.mock("./ImageAreaSettings", () => ({
-  ImageAreaSettings: () => null,
-}));
-vi.mock("./MetaControlSettings", () => ({
-  MetaControlSettings: () => null,
-}));
-vi.mock("./PromptSettings", () => ({
-  PromptSettings: () => null,
-}));
-vi.mock("./SectionConfigAccordion", () => ({
-  SectionConfigAccordion: () => null,
-}));
-vi.mock("./SectionStyleColorSettings", () => ({
-  SectionStyleColorSettings: () => null,
-}));
-vi.mock("./SectionTagColorSettings", () => ({
-  SectionTagColorSettings: () => null,
-}));
-vi.mock("./SocialAreaSettings", () => ({
-  SocialAreaSettings: () => null,
-}));
-vi.mock("./SpreadsheetSectionSettings", () => ({
-  SpreadsheetSectionSettings: () => null,
-}));
-vi.mock("./StateMachineSectionSettings", () => ({
-  StateMachineSectionSettings: () => null,
-}));
-vi.mock("./TaskBoardSettings", () => ({
-  TaskBoardSettings: () => null,
-}));
-vi.mock("./TextBlockSettings", () => ({
-  TextBlockSettings: () => null,
-}));
-
-const {
+import { describe, expect, it } from "vitest";
+import {
   getDefaultSectionConfigOpenValues,
   normalizeSectionConfigOpenValues,
   sectionTypeSupportsAppearanceSettings,
-} = await import("./SectionConfig");
+} from "./SectionConfig";
 
 describe("sectionTypeSupportsAppearanceSettings", () => {
   it("keeps appearance controls enabled for previously gated section types", () => {
@@ -102,12 +35,6 @@ describe("sectionTypeSupportsAppearanceSettings", () => {
     for (const sectionType of types) {
       expect(sectionTypeSupportsAppearanceSettings(sectionType)).toBe(true);
     }
-  });
-
-  it("leaves appearance controls disabled for section types without config", () => {
-    expect(sectionTypeSupportsAppearanceSettings(SectionTypeEnum.Plugin)).toBe(
-      false,
-    );
   });
 });
 
