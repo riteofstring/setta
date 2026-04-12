@@ -79,7 +79,10 @@ func TestParsePatchLineAcceptsValidRootElementNestedAndRemovePatches(t *testing.
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := ParsePatchLine(testCase.raw)
+			got, err := parsePatchLineCore(testCase.raw)
+			if err != nil {
+				t.Fatalf("parse patch line: %v", err)
+			}
 			if got == nil {
 				t.Fatalf("expected parsed patch for %q", testCase.raw)
 			}
@@ -105,7 +108,8 @@ func TestParsePatchLineReturnsNilForInvalidPayloads(t *testing.T) {
 		"{\"op\":\"set\",\"path\":\"/root\"}",
 	}
 	for _, raw := range cases {
-		if patch := ParsePatchLine(raw); patch != nil {
+		patch, err := parsePatchLineCore(raw)
+		if err == nil && patch != nil {
 			t.Fatalf("expected nil patch for %q, got %#v", raw, patch)
 		}
 	}

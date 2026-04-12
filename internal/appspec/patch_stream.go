@@ -17,18 +17,6 @@ type PatchOp struct {
 	HasValue bool
 }
 
-func ParsePatchLine(line string) *PatchOp {
-	patch, err := ParsePatchLineWithError(line)
-	if err != nil {
-		return nil
-	}
-	return patch
-}
-
-func ParsePatchLineWithError(line string) (*PatchOp, error) {
-	return parsePatchLineCore(line)
-}
-
 func ParsePatchLines(patches string) ([]PatchOp, error) {
 	ops := make([]PatchOp, 0)
 	for _, rawLine := range strings.Split(patches, "\n") {

@@ -85,22 +85,6 @@ func stringPointerOrNil(value string) *string {
 	return &trimmed
 }
 
-func BuildListenerDependencyCatalog(project projectstate.Project) (*realtime.ListenerDependencyCatalog, error) {
-	graph, err := buildListenerDependencyGraph(project)
-	if err != nil {
-		return nil, err
-	}
-	return buildListenerDependencyCatalogFromGraph(graph), nil
-}
-
-func BuildListenerRenderedDependencyValues(project projectstate.Project) (*realtime.ListenerRenderedDependencyValues, error) {
-	graph, err := buildListenerDependencyGraph(project)
-	if err != nil {
-		return nil, err
-	}
-	return buildListenerRenderedDependencyValuesFromGraph(graph), nil
-}
-
 func buildListenerDependencyGraph(project projectstate.Project) (*codegen.PythonDependencyGraph, error) {
 	exported, err := project.ListenerDependencyExport()
 	if err != nil {
