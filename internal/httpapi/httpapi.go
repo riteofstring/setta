@@ -221,10 +221,6 @@ func RequireFullIDERuntime(policy modes.Policy) func(http.Handler) http.Handler 
 	return modeRequirementMiddleware(policy, policy.RequireFullIDE)
 }
 
-func RequireLauncherMode(policy modes.Policy) func(http.Handler) http.Handler {
-	return modeRequirementMiddleware(policy, policy.RequireLauncher)
-}
-
 func RequireShareSession(resolver modes.Resolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
