@@ -208,6 +208,36 @@ export function resolveManagedChatHistoryPollIntervalMs({
   return null;
 }
 
+export function useManagedChatAgenticScope(sectionId: string): {
+  hasAnyAgenticEdge: boolean;
+  hasWriteScope: boolean;
+} {
+  return useProjectState((state) => {
+    let hasAnyAgenticEdge = false;
+    let hasWriteScope = false;
+
+    for (const edge of state.projectConfig.agenticEdges) {
+      if (edge.sourceSectionId !== sectionId) {
+        continue;
+      }
+      if (edge.kind === AgenticEdgeKindEnum.chat_section) {
+        hasWriteScope = true;
+      }
+      if (
+        edge.kind === AgenticEdgeKindEnum.chat_section ||
+        edge.kind === AgenticEdgeKindEnum.chat_chat
+      ) {
+        hasAnyAgenticEdge = true;
+      }
+      if (hasAnyAgenticEdge && hasWriteScope) {
+        break;
+      }
+    }
+
+    return { hasAnyAgenticEdge, hasWriteScope };
+  }, shallow);
+}
+
 type EmitChatSendActionArgs = {
   sectionId: string;
   messageId: string;
@@ -1151,31 +1181,8 @@ function ManagedChatArea({
     isDeploymentMode,
     allowLLM,
   });
-  const agenticEdges = useProjectState(
-    (state) => state.projectConfig.agenticEdges,
-  );
-  const { hasAnyAgenticEdge, hasWriteScope } = useMemo(() => {
-    let hasAny = false;
-    let hasWrite = false;
-    for (const edge of agenticEdges) {
-      if (edge.sourceSectionId !== sectionId) {
-        continue;
-      }
-      if (edge.kind === AgenticEdgeKindEnum.chat_section) {
-        hasWrite = true;
-      }
-      if (
-        edge.kind === AgenticEdgeKindEnum.chat_section ||
-        edge.kind === AgenticEdgeKindEnum.chat_chat
-      ) {
-        hasAny = true;
-      }
-      if (hasAny && hasWrite) {
-        break;
-      }
-    }
-    return { hasAnyAgenticEdge: hasAny, hasWriteScope: hasWrite };
-  }, [agenticEdges, sectionId]);
+  const { hasAnyAgenticEdge, hasWriteScope } =
+    useManagedChatAgenticScope(sectionId);
   const zeroScopeBannerSessionKey = useMemo(
     () => buildManagedZeroScopeBannerSessionKey(projectConfigId, sectionId),
     [projectConfigId, sectionId],

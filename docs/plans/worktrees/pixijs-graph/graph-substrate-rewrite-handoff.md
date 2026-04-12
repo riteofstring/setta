@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 20:22 UTC
+Last updated: 2026-04-12 20:29 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,46 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `347` landed one bounded managed-chat agentic-scope selector split
+  on the settings graph section-body path:
+
+  - product code changed in the mounted chat body path:
+    - `frontend/src/components/Section/Layouts/ChatArea.tsx`
+      now reads `hasAnyAgenticEdge` / `hasWriteScope` through a new
+      per-section `useManagedChatAgenticScope(sectionId)` selector instead of
+      subscribing the mounted chat body to the whole
+      `projectConfig.agenticEdges` array and deriving those booleans after
+      render
+    - this keeps mounted managed-chat bodies out of unrelated agentic-edge
+      commits while preserving the existing zero-scope and write-scope banner
+      behavior
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Layouts/chatAreaManagedScope.test.tsx`
+      to assert a mounted managed-chat scope probe does not commit when an
+      unrelated agentic edge is added and still re-renders when the current
+      chat gains its first relevant `chat_chat` edge
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-chat-area-managed-agentic-scope-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/chatAreaManagedScope.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/chatAreaManagedScope.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` loaded successfully
+      -> settings graph surface mounted with populated sections and controls
+      -> chat surface was present (`Chat Window 1`)
+      -> no obvious blank graph region, layout collapse, or missing chat
+         section surface was observed
+  - reading:
+    - this lands a wider mounted section-body subscriber reduction than
+      another edge/control micro-split because unrelated agentic-edge writes
+      no longer fan through each mounted chat body
+    - next default frontier: use the existing canary instrumentation plus
+      focused profiler/render-count evidence to name the next larger mounted
+      section-body/chrome subscriber or shared write fan-out before another
+      opportunistic micro-split
 
 - item `346` landed one bounded section-shell scope-highlight selector split
   on the settings graph section-chrome path:

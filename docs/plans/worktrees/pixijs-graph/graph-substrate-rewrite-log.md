@@ -13394,6 +13394,48 @@ LOOP_TERMINAL_MARKER: none
     opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 20:29 UTC
+
+- item `347` landed one bounded managed-chat agentic-scope selector split
+  on the canonical `rotaryParamCodeObjDefault` worktree-side lane:
+  - changed `frontend/src/components/Section/Layouts/ChatArea.tsx` so
+    `ManagedChatArea` reads `hasAnyAgenticEdge` / `hasWriteScope` through a
+    new per-section `useManagedChatAgenticScope(sectionId)` selector instead
+    of subscribing the mounted chat body to the whole
+    `projectConfig.agenticEdges` array
+  - kept the existing zero-scope and write-scope managed-chat banner behavior
+    by deriving the same two booleans inside the narrowed selector
+  - added focused profiler regression coverage in
+    `frontend/src/components/Section/Layouts/chatAreaManagedScope.test.tsx`
+    to prove:
+    - the mounted managed-chat scope probe does not commit when an unrelated
+      agentic edge is added
+    - the same probe still re-renders when the current chat gains its first
+      relevant `chat_chat` edge
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-chat-area-managed-agentic-scope-selector.md`
+    to record the slice and reasoning
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/chatAreaManagedScope.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/ChatArea.tsx src/components/Section/Layouts/chatAreaManagedScope.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` loaded successfully
+      -> settings graph surface mounted with populated sections and controls
+      -> chat surface was present (`Chat Window 1`)
+      -> no obvious blank graph region, layout collapse, or missing chat
+         section surface was observed
+  - reading:
+    - this lands a wider mounted section-body subscriber reduction than
+      another edge/control micro-split because unrelated agentic-edge writes
+      no longer fan through each mounted chat body
+    - next default frontier: use existing canary instrumentation plus focused
+      profiler/render-count evidence to name the next larger mounted
+      section-body/chrome subscriber or shared write fan-out before another
+      opportunistic micro-split
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 20:22 UTC
 
 - item `346` landed one bounded section-shell scope-highlight selector split
