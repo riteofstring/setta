@@ -116,6 +116,12 @@ type activeSession struct {
 	session sessionHandle
 }
 
+type resolvedToolCall struct {
+	route      toolRoute
+	active     *activeSession
+	descriptor ToolDescriptor
+}
+
 type connector interface {
 	Connect(ctx context.Context, config ServerConfig, headers http.Header) (sessionHandle, error)
 }
@@ -312,40 +318,62 @@ func (c *Client) CallToolWithMeta(ctx context.Context, namespacedToolName string
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	call, err := c.resolveToolCall(namespacedToolName)
+	if err != nil {
+		return ToolCallResult{}, err
+	}
+	arguments = normalizeToolArguments(arguments)
+	result, err := call.active.session.CallTool(ctx, call.route.toolName, arguments, meta)
+	if err == nil {
+		return result, nil
+	}
+	return c.retryReadOnlyToolCall(ctx, call, arguments, meta, err)
+}
+
+func normalizeToolArguments(arguments map[string]any) map[string]any {
+	if arguments == nil {
+		return map[string]any{}
+	}
+	return arguments
+}
+
+func (c *Client) resolveToolCall(namespacedToolName string) (resolvedToolCall, error) {
 	normalizedName := NormalizeToolName(namespacedToolName)
 	if normalizedName == "" {
-		return ToolCallResult{}, fmt.Errorf("mcpx: namespaced tool name is required")
-	}
-	if arguments == nil {
-		arguments = map[string]any{}
+		return resolvedToolCall{}, fmt.Errorf("mcpx: namespaced tool name is required")
 	}
 
 	c.mu.RLock()
 	route, ok := c.routing[normalizedName]
-	active := c.sessions[route.serverID]
 	descriptor, descriptorOK := c.lookupToolLocked(normalizedName)
+	var active *activeSession
+	if ok {
+		active = c.sessions[route.serverID]
+	}
 	c.mu.RUnlock()
 
 	if !ok || !descriptorOK {
-		return ToolCallResult{}, fmt.Errorf("mcpx: tool %q is not registered", normalizedName)
+		return resolvedToolCall{}, fmt.Errorf("mcpx: tool %q is not registered", normalizedName)
 	}
 	if active == nil {
-		return ToolCallResult{}, fmt.Errorf("mcpx: server %q is not connected", route.serverID)
+		return resolvedToolCall{}, fmt.Errorf("mcpx: server %q is not connected", route.serverID)
 	}
+	return resolvedToolCall{
+		route:      route,
+		active:     active,
+		descriptor: descriptor,
+	}, nil
+}
 
-	result, err := active.session.CallTool(ctx, route.toolName, arguments, meta)
-	if err == nil {
-		return result, nil
+func (c *Client) retryReadOnlyToolCall(ctx context.Context, call resolvedToolCall, arguments map[string]any, meta map[string]any, callErr error) (ToolCallResult, error) {
+	if !errors.Is(callErr, sdkmcp.ErrConnectionClosed) || !call.descriptor.ReadOnly {
+		return ToolCallResult{}, callErr
 	}
-	if !errors.Is(err, sdkmcp.ErrConnectionClosed) || !descriptor.ReadOnly {
-		return ToolCallResult{}, err
-	}
-
-	reconnected := c.waitForSessionReconnect(ctx, route.serverID, active)
+	reconnected := c.waitForSessionReconnect(ctx, call.route.serverID, call.active)
 	if reconnected == nil {
-		return ToolCallResult{}, err
+		return ToolCallResult{}, callErr
 	}
-	return reconnected.session.CallTool(ctx, route.toolName, arguments, meta)
+	return reconnected.session.CallTool(ctx, call.route.toolName, arguments, meta)
 }
 
 func (c *Client) runServerLoop(serverID string, config ServerConfig) {

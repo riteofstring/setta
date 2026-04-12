@@ -31,6 +31,37 @@ const (
 	accessTypePeerChat                   = "peer_chat"
 )
 
+var scopeViolationMessageByReason = map[string]func(string) string{
+	"missing_context": func(toolName string) string {
+		return fmt.Sprintf(
+			"Tool %q blocked: missing agentic context. Provide projectConfigId/chatId/sectionId via MCP meta or headers, or call %q first.",
+			toolName,
+			"set_agentic_context",
+		)
+	},
+	"missing_section_id": func(toolName string) string {
+		return fmt.Sprintf("Tool %q blocked: missing sectionId in agentic context. Provide sectionId or set allowUnscoped=true via %q for project-level access.", toolName, "set_agentic_context")
+	},
+	"empty_scope": func(toolName string) string {
+		return fmt.Sprintf("Tool %q has no readable sections in the resolved agentic scope.", toolName)
+	},
+	"structural_denied": func(toolName string) string {
+		return fmt.Sprintf("Tool %q requires unscoped structural access.", toolName)
+	},
+	"write_without_targets": func(toolName string) string {
+		return fmt.Sprintf("Tool %q requires explicit section/code-object targets or unscoped structural access.", toolName)
+	},
+	"unmapped_code_obj": func(toolName string) string {
+		return fmt.Sprintf("Tool %q references unknown code objects. See structuredContent.unmappedCodeObjIds.", toolName)
+	},
+	"out_of_scope_and_unmapped_code_obj": func(toolName string) string {
+		return fmt.Sprintf("Tool %q references unknown code objects. See structuredContent.unmappedCodeObjIds.", toolName)
+	},
+	"out_of_scope": func(toolName string) string {
+		return fmt.Sprintf("Tool %q is outside the allowed agentic scope. See structuredContent.blockedSectionIds/targetSectionIds.", toolName)
+	},
+}
+
 type AgenticContext struct {
 	ProjectConfigID       string `json:"projectConfigId"`
 	ShareSessionID        string `json:"shareSessionId,omitempty"`
@@ -737,44 +768,44 @@ func buildScopeViolationError(
 	unmappedCodeObjIDs []string,
 	missingEdgesCanonical []scopeViolationMissingEdge,
 ) error {
+	return newToolErrorWithData(
+		scopeViolationErrorCode,
+		"%s",
+		buildScopeViolationPayload(reason, blockedSectionIDs, targetSectionIDs, unmappedCodeObjIDs, missingEdgesCanonical),
+		scopeViolationMessage(toolName, reason),
+	)
+}
+
+func buildScopeViolationPayload(
+	reason string,
+	blockedSectionIDs []string,
+	targetSectionIDs []string,
+	unmappedCodeObjIDs []string,
+	missingEdgesCanonical []scopeViolationMissingEdge,
+) map[string]any {
 	payload := map[string]any{
 		"reason": reason,
 	}
-	if len(blockedSectionIDs) > 0 {
-		payload["blockedSectionIds"] = sortedStrings(blockedSectionIDs)
-	}
-	if len(targetSectionIDs) > 0 {
-		payload["targetSectionIds"] = sortedStrings(targetSectionIDs)
-	}
-	if len(unmappedCodeObjIDs) > 0 {
-		payload["unmappedCodeObjIds"] = sortedStrings(unmappedCodeObjIDs)
-	}
+	addSortedScopeViolationList(payload, "blockedSectionIds", blockedSectionIDs)
+	addSortedScopeViolationList(payload, "targetSectionIds", targetSectionIDs)
+	addSortedScopeViolationList(payload, "unmappedCodeObjIds", unmappedCodeObjIDs)
 	if len(missingEdgesCanonical) > 0 {
 		payload["missingEdgesCanonical"] = missingEdgesCanonical
 	}
+	return payload
+}
 
-	message := "Tool call is outside the allowed agentic scope."
-	switch reason {
-	case "missing_context":
-		message = fmt.Sprintf(
-			"Tool %q blocked: missing agentic context. Provide projectConfigId/chatId/sectionId via MCP meta or headers, or call %q first.",
-			toolName,
-			"set_agentic_context",
-		)
-	case "missing_section_id":
-		message = fmt.Sprintf("Tool %q blocked: missing sectionId in agentic context. Provide sectionId or set allowUnscoped=true via %q for project-level access.", toolName, "set_agentic_context")
-	case "empty_scope":
-		message = fmt.Sprintf("Tool %q has no readable sections in the resolved agentic scope.", toolName)
-	case "structural_denied":
-		message = fmt.Sprintf("Tool %q requires unscoped structural access.", toolName)
-	case "write_without_targets":
-		message = fmt.Sprintf("Tool %q requires explicit section/code-object targets or unscoped structural access.", toolName)
-	case "unmapped_code_obj", "out_of_scope_and_unmapped_code_obj":
-		message = fmt.Sprintf("Tool %q references unknown code objects. See structuredContent.unmappedCodeObjIds.", toolName)
-	case "out_of_scope":
-		message = fmt.Sprintf("Tool %q is outside the allowed agentic scope. See structuredContent.blockedSectionIds/targetSectionIds.", toolName)
+func addSortedScopeViolationList(payload map[string]any, key string, values []string) {
+	if len(values) > 0 {
+		payload[key] = sortedStrings(values)
 	}
-	return newToolErrorWithData(scopeViolationErrorCode, "%s", payload, message)
+}
+
+func scopeViolationMessage(toolName string, reason string) string {
+	if buildMessage, ok := scopeViolationMessageByReason[reason]; ok {
+		return buildMessage(toolName)
+	}
+	return "Tool call is outside the allowed agentic scope."
 }
 
 func sortedStrings(values []string) []string {

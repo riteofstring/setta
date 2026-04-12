@@ -23,67 +23,104 @@ type StdioBridgeConfig struct {
 	HTTPConnectWait time.Duration
 }
 
+type stdioBridgeRuntime struct {
+	logger      *slog.Logger
+	backendConn sdkmcp.Connection
+	stdioConn   sdkmcp.Connection
+}
+
 func RunStdioBridge(ctx context.Context, config StdioBridgeConfig) error {
-	if strings.TrimSpace(config.BackendURL) == "" {
-		return fmt.Errorf("backend url is required")
+	runtime, err := newStdioBridgeRuntime(ctx, config)
+	if err != nil {
+		return err
 	}
-	if config.Stdin == nil {
-		return fmt.Errorf("stdin is required")
-	}
-	if config.Stdout == nil {
-		return fmt.Errorf("stdout is required")
-	}
+	defer runtime.close()
+	return runtime.run(ctx)
+}
 
-	connectWait := config.HTTPConnectWait
-	if connectWait <= 0 {
-		connectWait = defaultHTTPConnectWait
-	}
-
-	logger := config.Logger
-	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+func newStdioBridgeRuntime(ctx context.Context, config StdioBridgeConfig) (*stdioBridgeRuntime, error) {
+	normalized, err := normalizeStdioBridgeConfig(config)
+	if err != nil {
+		return nil, err
 	}
 
 	backendConn, err := (&sdkmcp.SSEClientTransport{
-		Endpoint:   config.BackendURL,
-		HTTPClient: buildMCPHTTPClient(config.HTTPHeaders, connectWait),
+		Endpoint:   normalized.BackendURL,
+		HTTPClient: buildMCPHTTPClient(normalized.HTTPHeaders, normalized.HTTPConnectWait),
 	}).Connect(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer backendConn.Close()
-
 	stdioConn, err := (&sdkmcp.IOTransport{
-		Reader: config.Stdin,
-		Writer: config.Stdout,
+		Reader: normalized.Stdin,
+		Writer: normalized.Stdout,
 	}).Connect(ctx)
 	if err != nil {
-		return err
+		_ = backendConn.Close()
+		return nil, err
 	}
-	defer stdioConn.Close()
+	return &stdioBridgeRuntime{
+		logger:      normalized.Logger,
+		backendConn: backendConn,
+		stdioConn:   stdioConn,
+	}, nil
+}
 
+func normalizeStdioBridgeConfig(config StdioBridgeConfig) (StdioBridgeConfig, error) {
+	switch {
+	case strings.TrimSpace(config.BackendURL) == "":
+		return StdioBridgeConfig{}, fmt.Errorf("backend url is required")
+	case config.Stdin == nil:
+		return StdioBridgeConfig{}, fmt.Errorf("stdin is required")
+	case config.Stdout == nil:
+		return StdioBridgeConfig{}, fmt.Errorf("stdout is required")
+	}
+	if config.HTTPConnectWait <= 0 {
+		config.HTTPConnectWait = defaultHTTPConnectWait
+	}
+	if config.Logger == nil {
+		config.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	return config, nil
+}
+
+func (b *stdioBridgeRuntime) run(ctx context.Context) error {
 	bridgeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	errCh := make(chan error, 2)
 	go func() {
-		errCh <- forwardBridgeMessages(bridgeCtx, logger, "stdio->backend", stdioConn, backendConn)
+		errCh <- forwardBridgeMessages(bridgeCtx, b.logger, "stdio->backend", b.stdioConn, b.backendConn)
 	}()
 	go func() {
-		errCh <- forwardBridgeMessages(bridgeCtx, logger, "backend->stdio", backendConn, stdioConn)
+		errCh <- forwardBridgeMessages(bridgeCtx, b.logger, "backend->stdio", b.backendConn, b.stdioConn)
 	}()
+	return b.waitForBridgeTermination(cancel, errCh)
+}
 
+func (b *stdioBridgeRuntime) waitForBridgeTermination(cancel context.CancelFunc, errCh <-chan error) error {
 	var firstErr error
 	for i := 0; i < 2; i++ {
 		err := <-errCh
 		cancel()
-		_ = backendConn.Close()
-		_ = stdioConn.Close()
+		b.close()
 		if err != nil && !isExpectedBridgeTermination(err) && firstErr == nil {
 			firstErr = err
 		}
 	}
 	return firstErr
+}
+
+func (b *stdioBridgeRuntime) close() {
+	if b == nil {
+		return
+	}
+	if b.backendConn != nil {
+		_ = b.backendConn.Close()
+	}
+	if b.stdioConn != nil {
+		_ = b.stdioConn.Close()
+	}
 }
 
 func forwardBridgeMessages(

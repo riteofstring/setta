@@ -11,57 +11,91 @@ import (
 	"setta/internal/tools"
 )
 
+type reportStateMachineSignalRequest struct {
+	signalName   string
+	payload      map[string]any
+	machineRunID string
+	sectionID    string
+}
+
+type reportStateMachineSignalInvocation struct {
+	projectConfigID  string
+	childRunID       string
+	contextSectionID string
+	shareSessionID   string
+}
+
 func newReportStateMachineSignalHandler(runtime stateMachineRunProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		signalName, err := readRequiredStringArgument(arguments, "signalName")
+		request, err := parseReportStateMachineSignalRequest(arguments)
 		if err != nil {
 			return nil, err
 		}
-		payloadArgument, err := readOptionalObjectPointerArgument(arguments, "payload")
+		invocation, err := requireStateMachineSignalInvocation(ctx)
 		if err != nil {
 			return nil, err
-		}
-		machineRunID, err := readOptionalStringArgument(arguments, "machineRunId")
-		if err != nil {
-			return nil, err
-		}
-		sectionID, err := readOptionalStringArgument(arguments, "sectionId")
-		if err != nil {
-			return nil, err
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil {
-			return nil, newToolError("internal_error", "Scoped workflow signal invocation context is unavailable.")
 		}
 		if runtime == nil || runtime.Disabled() {
 			return nil, newToolError("internal_error", "State machine runtime is unavailable.")
 		}
-
-		projectConfigID := invocation.AgenticContext.ProjectConfigID
-		childRunID := invocation.AgenticContext.RunID
-		if strings.TrimSpace(childRunID) == "" {
+		if strings.TrimSpace(invocation.childRunID) == "" {
 			return nil, newToolError("invalid_arguments", "report_state_machine_signal requires an active child run.")
 		}
-		contextSectionID := invocation.AgenticContext.SectionID
-		var payload map[string]any
-		if payloadArgument != nil {
-			payload = *payloadArgument
-		}
 		report, err := runtime.ReportSignal(
-			projectConfigID,
-			optionalStringPointer(childRunID),
-			optionalStringPointer(machineRunID),
-			firstNonEmptyOptionalString(sectionID, contextSectionID),
-			signalName,
-			payload,
-			optionalStringPointer(invocation.AgenticContext.ShareSessionID),
+			invocation.projectConfigID,
+			optionalStringPointer(invocation.childRunID),
+			optionalStringPointer(request.machineRunID),
+			firstNonEmptyOptionalString(request.sectionID, invocation.contextSectionID),
+			request.signalName,
+			request.payload,
+			optionalStringPointer(invocation.shareSessionID),
 		)
 		if err != nil {
 			return nil, stateMachineSignalToolError(err)
 		}
 		return report, nil
 	}
+}
+
+func parseReportStateMachineSignalRequest(arguments map[string]any) (reportStateMachineSignalRequest, error) {
+	signalName, err := readRequiredStringArgument(arguments, "signalName")
+	if err != nil {
+		return reportStateMachineSignalRequest{}, err
+	}
+	payloadArgument, err := readOptionalObjectPointerArgument(arguments, "payload")
+	if err != nil {
+		return reportStateMachineSignalRequest{}, err
+	}
+	machineRunID, err := readOptionalStringArgument(arguments, "machineRunId")
+	if err != nil {
+		return reportStateMachineSignalRequest{}, err
+	}
+	sectionID, err := readOptionalStringArgument(arguments, "sectionId")
+	if err != nil {
+		return reportStateMachineSignalRequest{}, err
+	}
+	request := reportStateMachineSignalRequest{
+		signalName:   signalName,
+		machineRunID: machineRunID,
+		sectionID:    sectionID,
+	}
+	if payloadArgument != nil {
+		request.payload = *payloadArgument
+	}
+	return request, nil
+}
+
+func requireStateMachineSignalInvocation(ctx context.Context) (reportStateMachineSignalInvocation, error) {
+	invocation, ok := ToolInvocationFromContext(ctx)
+	if !ok || invocation.AgenticContext == nil {
+		return reportStateMachineSignalInvocation{}, newToolError("internal_error", "Scoped workflow signal invocation context is unavailable.")
+	}
+	return reportStateMachineSignalInvocation{
+		projectConfigID:  invocation.AgenticContext.ProjectConfigID,
+		childRunID:       invocation.AgenticContext.RunID,
+		contextSectionID: invocation.AgenticContext.SectionID,
+		shareSessionID:   invocation.AgenticContext.ShareSessionID,
+	}, nil
 }
 
 func stateMachineSignalToolError(err error) error {
