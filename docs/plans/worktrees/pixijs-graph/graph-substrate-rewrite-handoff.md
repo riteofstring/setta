@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 06:28 UTC
+Last updated: 2026-04-15 06:45 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,49 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `477` completed one bounded settings-probe project-config-id fix on the
+  canonical `rotaryParamCodeObjDefault` lane so the worktree probes stop doing
+  a late backend `/loadProjectConfig` round-trip after the graph surface is
+  already mounted:
+  - code/test changes:
+    - `frontend/tests/e2e/helpers.ts`
+      now exports `getActiveProjectConfigIdFromPageStore(page)`, which reads
+      the active config id from `useProjectState.getState().projectConfig.id`
+      inside the mounted page instead of relying on a separate backend helper
+      request
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      now resolves the active project config id for the canonical worktree
+      canary probe through that page-store helper
+    - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now uses the same page-store helper for the worktree lane-health probe
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - canonical live probe rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-008/worktree-ai.log`
+      -> passed (`1` Playwright test, `3.0m`)
+      -> the probe now gets past the post-`surface_ready` project-config-id
+         step and completes the normalized pan/zoom lane on the live canary
+      -> live attribution remains
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+    - attempted direct lane-health spec rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<run-008 token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> blocked in Playwright global setup on bootstrap auth (`401
+         Unauthorized`) before the spec body ran
+      -> treat this as harness/bootstrap setup debt for the direct invocation,
+         not as renderer drift or a regression in the new page-store helper
+    - required fresh-context CDP check:
+      -> not run; fresh-context sub-agent reported Chrome DevTools MCP was not
+         available in this session
+  - reading:
+    - this closes the repeated post-`surface_ready` config-id fetch as the
+      current blocker on the canonical worktree probe
+    - do not spend the next pass on another `/loadProjectConfig` or
+      `applyProjectStateUpdate(...)` theory unless the canonical probe regresses
+    - next: return to the measured product frontier above this harness seam,
+      using the restored canonical lane to target the remaining dominant owner
+      `presentedSceneSectionSubtreeReactRender`
 
 - item `476` completed one bounded readiness-helper fix on the canonical
   `rotaryParamCodeObjDefault` lane so the shared Playwright bootstrap path now

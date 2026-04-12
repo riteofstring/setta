@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady, postBackend } from "../helpers";
+import {
+  ensureAppReady,
+  getActiveProjectConfigIdFromPageStore,
+  postBackend,
+} from "../helpers";
 import {
   applyProjectStateUpdate,
   captureSettingsGraphLaneHealthSnapshot,
@@ -43,16 +47,7 @@ async function waitForInitialSettingsGraphReady(page: Page) {
 }
 
 async function getProjectConfigIdFromBackend(page: Page) {
-  const pathParts = new URL(page.url()).pathname.split("/").filter(Boolean);
-  const projectConfigName = pathParts[0] ?? "settings";
-  const payload = await postBackend<{
-    projectConfig?: { id?: string | null } | null;
-  }>(page, "/loadProjectConfig", { projectConfigName });
-  const projectConfigId = payload?.projectConfig?.id;
-  if (!projectConfigId) {
-    throw new Error("Missing projectConfig id from backend.");
-  }
-  return projectConfigId;
+  return getActiveProjectConfigIdFromPageStore(page);
 }
 
 test("settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state", async ({

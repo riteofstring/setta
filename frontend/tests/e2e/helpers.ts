@@ -782,6 +782,19 @@ export async function loadProjectConfig(
   return response;
 }
 
+export async function getActiveProjectConfigIdFromPageStore(
+  page: Page,
+): Promise<string> {
+  const projectConfigId = await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    return useProjectState.getState().projectConfig.id;
+  });
+  if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
+    throw new Error("Missing active projectConfig id from page store.");
+  }
+  return projectConfigId;
+}
+
 export async function createCallableSection(
   page: Page,
   projectConfigId: string,

@@ -285,6 +285,50 @@ LOOP_TERMINAL_MARKER: none
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 06:45 UTC | item `477` | completed settings-probe project-config-id fix on canonical `rotaryParamCodeObjDefault`
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - intent:
+    - remove the late `/loadProjectConfig` backend round-trip from the mounted
+      settings-graph worktree probes and read the active project config id from
+      the authoritative in-page store instead
+  - code/test changes:
+    - `frontend/tests/e2e/helpers.ts`
+      now exports `getActiveProjectConfigIdFromPageStore(page)`, which reads
+      `useProjectState.getState().projectConfig.id` from the mounted page
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      now resolves the worktree probe config id through that page-store helper
+      instead of a backend `/loadProjectConfig` helper POST
+    - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now uses the same page-store helper for the worktree lane-health probe
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - canonical live probe rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-008/worktree-ai.log`
+      -> passed (`1` Playwright test, `3.0m`)
+      -> direct-open progress reached `surface_ready`, then the full normalized
+         pan/zoom lane completed instead of hanging on project-config-id lookup
+      -> live attribution still reports
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+    - attempted direct lane-health rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<run-008 token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line`
+      -> blocked in Playwright global setup on bootstrap auth (`401
+         Unauthorized`) before the spec body ran
+      -> classify this as direct-invocation harness/bootstrap debt, not
+         renderer drift and not a regression from the page-store helper change
+    - required fresh-context CDP check:
+      -> not run; fresh-context sub-agent reported Chrome DevTools MCP was not
+         available in this session
+  - reading:
+    - this closes the repeated post-`surface_ready` project-config-id fetch as
+      the immediate blocker on the canonical worktree probe
+    - do not spend the next pass on more `/loadProjectConfig` probe churn
+      unless the canonical worktree probe regresses
+    - next: resume the product/perf frontier on the restored canonical lane and
+      target the still-dominant owner
+      `presentedSceneSectionSubtreeReactRender`
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-15 06:10 UTC | item `475` | completed live-runtime recovery on canonical `rotaryParamCodeObjDefault`
   - canonical target section: `rotaryParamCodeObjDefault`
   - intent:

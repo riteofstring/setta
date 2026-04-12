@@ -5,7 +5,11 @@ import {
   type SettingsGraphDirectOpenSnapshot,
 } from "components/Pages/Project/graphSubstrate/settingsGraphDirectOpenState";
 import { type SettingsGraphPageLifecycleDiagnostic } from "components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle";
-import { ensureAppReady, postBackend } from "../helpers";
+import {
+  ensureAppReady,
+  getActiveProjectConfigIdFromPageStore,
+  postBackend,
+} from "../helpers";
 import {
   applyAuthoritativeViewportFromBackend,
   captureSettingsGraphSectionMetrics,
@@ -6582,20 +6586,6 @@ async function setComparePaneVisibility(
     });
 }
 
-type ProjectConfigIdResponse = {
-  projectConfig: { id: string };
-};
-
 async function getProjectConfigIdFromBackend(page: Page): Promise<string> {
-  const pathParts = new URL(page.url()).pathname.split("/").filter(Boolean);
-  const projectConfigName = pathParts[0] ?? "settings";
-  const response = await postBackend<ProjectConfigIdResponse>(
-    page,
-    "/loadProjectConfig",
-    { projectConfigName },
-  );
-  if (!response?.projectConfig?.id) {
-    throw new Error("Missing projectConfig id from backend.");
-  }
-  return response.projectConfig.id;
+  return getActiveProjectConfigIdFromPageStore(page);
 }
