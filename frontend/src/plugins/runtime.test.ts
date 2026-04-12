@@ -3,9 +3,7 @@ import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
 import {
   invokePluginSettingRevealHandler,
-  pluginRuntimeTestApi,
   refreshPluginRuntime,
-  resetPluginRuntimeStoreForTests,
   usePluginCommands,
   usePluginListEntries,
   usePluginPaneTabs,
@@ -16,6 +14,13 @@ import {
   usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
+import {
+  clearPluginRuntimeSideEffects,
+  indexSectionKindKeysByPluginId,
+  loadPluginFrontendModule,
+  runWithConcurrencyLimit,
+  shouldLoadPluginFrontend,
+} from "plugins/runtimeInternal";
 import {
   computePluginSectionFallbackReason,
   PluginFrontendErrorCodeEnum,
@@ -55,6 +60,31 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type StateCreator, type StoreApi } from "zustand/vanilla";
+
+function resetPluginRuntimeStateForTests(): void {
+  clearPluginRuntimeSideEffects();
+  usePluginRuntimeStore.setState({
+    status: "idle",
+    statusMessage: null,
+    schemaVersion: null,
+    serverMode: null,
+    restartCapability: null,
+    pluginListById: {},
+    sortedPluginListEntries: [],
+    pluginStatusById: {},
+    statusEntries: [],
+    sectionKindsByKey: {},
+    sortedSectionKinds: [],
+    panesByPluginId: {},
+    sortedPaneTabs: [],
+    commandsByPluginId: {},
+    sortedCommands: [],
+    topNavBarItemsByPluginId: {},
+    sortedTopNavBarItems: [],
+    frontendErrorsByPluginId: {},
+  });
+}
+
 function buildPluginStatusEntry(
   overrides: Partial<PluginStatusEntry>,
 ): PluginStatusEntry {
@@ -265,6 +295,31 @@ function getCapturedPluginHost(): CapturedPluginHost {
   }
   return globalScope.__settaCapturedPluginHost;
 }
+
+async function loadPluginRevealHandlerFixture(
+  registerSource: string,
+): Promise<void> {
+  const moduleUrl =
+    "data:text/javascript," +
+    encodeURIComponent(
+      "export const apiVersion = 1;\n" +
+        "export function register(host) {\n" +
+        `${registerSource}\n` +
+        "}\n",
+    );
+  const result = await loadPluginFrontendModule(
+    buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane"],
+    }),
+    "ide",
+  );
+  expect(result?.error).toBeNull();
+}
+
 function expectPluginFrontendErrorCode(
   invoke: () => void,
   expectedCode: string,
@@ -489,7 +544,7 @@ function buildPluginRuntimeProjectState(
 }
 describe("plugin runtime helpers", () => {
   beforeEach(() => {
-    resetPluginRuntimeStoreForTests();
+    resetPluginRuntimeStateForTests();
     vi.restoreAllMocks();
     vi.spyOn(openAPI, "getPluginsRuntime").mockRejectedValue(
       new Error("network error"),
@@ -515,7 +570,7 @@ describe("plugin runtime helpers", () => {
     RuntimeTestWebSocket.reset();
   });
   afterEach(() => {
-    resetPluginRuntimeStoreForTests();
+    resetPluginRuntimeStateForTests();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     const globalScope = globalThis as {
@@ -523,9 +578,11 @@ describe("plugin runtime helpers", () => {
       __settaCleanupProbe?: {
         callCount: number;
       };
+      __settaRevealHandlerSpy?: (...args: unknown[]) => unknown;
     };
     delete globalScope.__settaCapturedPluginHost;
     delete globalScope.__settaCleanupProbe;
+    delete globalScope.__settaRevealHandlerSpy;
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-after-each";
       state.projectConfig.activeIds = [];
@@ -649,9 +706,7 @@ describe("plugin runtime helpers", () => {
         renderer: { mount: () => undefined },
       },
     };
-    expect(
-      pluginRuntimeTestApi.indexSectionKindKeysByPluginId(sectionKindsByKey),
-    ).toEqual({
+    expect(indexSectionKindKeysByPluginId(sectionKindsByKey)).toEqual({
       "alpha.plugin": [
         toPluginSectionKindKey("alpha.plugin", "one"),
         toPluginSectionKindKey("alpha.plugin", "two"),
@@ -659,61 +714,106 @@ describe("plugin runtime helpers", () => {
       "beta.plugin": [toPluginSectionKindKey("beta.plugin", "main")],
     });
   });
-  it("clones project-state snapshots only when mutation isolation requires it", () => {
-    const primitiveSnapshot =
-      pluginRuntimeTestApi.cloneProjectStateSnapshot(42);
-    expect(primitiveSnapshot).toBe(42);
-    const scalarArray = ["a", "b", "c"];
-    const clonedScalarArray =
-      pluginRuntimeTestApi.cloneProjectStateSnapshot(scalarArray);
-    expect(clonedScalarArray).toEqual(["a", "b", "c"]);
-    expect(clonedScalarArray).not.toBe(scalarArray);
-    const objectSnapshot = {
-      nested: {
-        value: "x",
+  it("returns cloned project-state snapshots through the plugin host", async () => {
+    const sectionId = "section-runtime-clone";
+    seedRuntimePluginSectionState(sectionId);
+    useActiveSectionUI.setState({ activeIds: [sectionId] });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
       },
-    };
-    const clonedObjectSnapshot = pluginRuntimeTestApi.cloneProjectStateSnapshot(
-      objectSnapshot,
-    ) as {
-      nested: {
-        value: string;
-      };
-    };
-    expect(clonedObjectSnapshot).toEqual(objectSnapshot);
-    expect(clonedObjectSnapshot).not.toBe(objectSnapshot);
-    expect(clonedObjectSnapshot.nested).not.toBe(objectSnapshot.nested);
-  });
-  it("reuses section snapshot entries when section identities are unchanged", () => {
-    const sectionIds = ["section-a", "section-b", "section-c"];
-    const rawA = {
-      value: "a",
-    };
-    const rawB = {
-      value: "b",
-    };
-    const rawC = {
-      value: "c",
-    };
-    const firstSnapshot = pluginRuntimeTestApi.toProjectStateSectionSnapshot(
-      sectionIds,
-      [rawA, rawB, rawC],
-    );
-    const updatedRawB = {
-      value: "b-updated",
-    };
-    const secondSnapshot = pluginRuntimeTestApi.toProjectStateSectionSnapshot(
-      sectionIds,
-      [rawA, updatedRawB, rawC],
-      [rawA, rawB, rawC],
-      firstSnapshot,
-    );
-    expect(secondSnapshot["section-a"]).toBe(firstSnapshot["section-a"]);
-    expect(secondSnapshot["section-c"]).toBe(firstSnapshot["section-c"]);
-    expect(secondSnapshot["section-b"]).not.toBe(firstSnapshot["section-b"]);
-    expect(secondSnapshot["section-b"]).toEqual({
-      value: "b-updated",
+      effectiveCapabilities: ["readProjectState"],
     });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error).toBeNull();
+    const host = getCapturedPluginHost();
+    const activeIdsSnapshot = host.readProjectState({
+      kind: "activeSectionIds",
+    }) as string[];
+    activeIdsSnapshot.push("mutated-client-only");
+    expect(
+      host.readProjectState({
+        kind: "activeSectionIds",
+      }) as string[],
+    ).toEqual([sectionId]);
+    const projectConfigSnapshot = host.readProjectState({
+      kind: "projectConfig",
+    }) as {
+      id: string;
+    };
+    projectConfigSnapshot.id = "mutated-client-only";
+    expect(
+      (
+        host.readProjectState({
+          kind: "projectConfig",
+        }) as {
+          id: string;
+        }
+      ).id,
+    ).toBe("project-config-plugin-initial");
+  });
+  it("reuses section snapshot entries for unchanged sections through subscribeProjectState", async () => {
+    await loadProjectState(
+      buildPluginRuntimeProjectState(
+        "project-config-section-snapshots",
+        [],
+        ["section-a", "section-b"],
+      ),
+    );
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["subscribeProjectState"],
+    });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error).toBeNull();
+    const host = getCapturedPluginHost();
+    const observedSnapshots: Record<string, unknown>[] = [];
+    const unsubscribe = host.subscribeProjectState(
+      {
+        kind: "sections",
+        sectionIds: ["section-a", "section-b"],
+      },
+      (nextValue) => {
+        observedSnapshots.push(nextValue as Record<string, unknown>);
+      },
+      {
+        fireImmediately: true,
+      },
+    );
+    useProjectState.setState((state) => {
+      state.sectionImpls["impl-section-b"] = createDictSectionImpl({
+        id: "impl-section-b",
+        name: "Section section-b updated",
+      });
+    });
+    unsubscribe();
+    expect(observedSnapshots).toHaveLength(2);
+    expect(observedSnapshots[1]?.["section-a"]).toBe(
+      observedSnapshots[0]?.["section-a"],
+    );
+    expect(observedSnapshots[1]?.["section-b"]).not.toBe(
+      observedSnapshots[0]?.["section-b"],
+    );
   });
   it("returns plugin section-kind lookup and sorted section-kind lists", () => {
     const alpha = {
@@ -768,10 +868,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.ApiVersionMismatch,
     );
@@ -789,10 +886,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
@@ -810,10 +904,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.FrontendLoadFailed,
     );
@@ -831,10 +922,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
@@ -852,10 +940,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
@@ -873,10 +958,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     expect(result?.registryDelta?.panes["acme.plugin"]?.[0]?.icon).toBe(
       "dashboard",
@@ -895,10 +977,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
@@ -916,10 +995,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerTopNavBarItem"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     expect(result?.registryDelta?.topNavBarItems["acme.plugin"]?.[0]?.id).toBe(
       "quick-action",
@@ -938,10 +1014,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: [],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.CapabilityDenied,
     );
@@ -959,10 +1032,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerCommand"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
@@ -980,10 +1050,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerTopNavBarItem"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
@@ -1087,10 +1154,7 @@ describe("plugin runtime helpers", () => {
         styleUrl: "/plugins/acme.plugin/frontend/dist/index.css?v=1",
       },
     });
-    const loadResult = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      pluginWithStyle,
-      "ide",
-    );
+    const loadResult = await loadPluginFrontendModule(pluginWithStyle, "ide");
     expect(loadResult?.error).toBeNull();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
     vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
@@ -1515,16 +1579,10 @@ describe("plugin runtime helpers", () => {
         styleUrl: "/plugins/acme.plugin/frontend/dist/index.css?v=1",
       },
     });
-    const firstLoad = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      pluginWithStyle,
-      "ide",
-    );
+    const firstLoad = await loadPluginFrontendModule(pluginWithStyle, "ide");
     expect(firstLoad?.error).toBeNull();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
-    const secondLoad = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      pluginWithStyle,
-      "ide",
-    );
+    const secondLoad = await loadPluginFrontendModule(pluginWithStyle, "ide");
     expect(secondLoad?.error).toBeNull();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
     const pluginWithoutStyle = buildPluginListEntry({
@@ -1533,7 +1591,7 @@ describe("plugin runtime helpers", () => {
         styleUrl: null,
       },
     });
-    const noStyleLoad = await pluginRuntimeTestApi.loadPluginFrontendModule(
+    const noStyleLoad = await loadPluginFrontendModule(
       pluginWithoutStyle,
       "ide",
     );
@@ -1580,10 +1638,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerPane"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      pluginWithStyle,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(pluginWithStyle, "ide");
     expect(result?.error?.code).toBe(
       PluginFrontendErrorCodeEnum.FrontendLoadFailed,
     );
@@ -1604,10 +1659,7 @@ describe("plugin runtime helpers", () => {
         styleUrl: null,
       },
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -1639,10 +1691,7 @@ describe("plugin runtime helpers", () => {
         styleUrl: null,
       },
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const store = host.createStore(() => ({
@@ -1679,10 +1728,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const firstRead = host.readSection(sectionId);
@@ -1746,10 +1792,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["readProjectState"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const projectConfigSnapshot = host.readProjectState({
@@ -1817,10 +1860,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["subscribeProjectState"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const updates: Array<{
@@ -1872,10 +1912,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["readProjectState", "subscribeProjectState"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const projectConfigUpdates: Array<{
@@ -1944,10 +1981,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["readProjectState", "subscribeProjectState"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const observedSnapshots: Array<{
@@ -2013,10 +2047,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["subscribeProjectState"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const updates: Array<{
@@ -2069,10 +2100,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["subscribeProjectState"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2110,10 +2138,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: [],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2171,10 +2196,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: [],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2208,10 +2230,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2245,10 +2264,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["emitListenerEvents"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     host.emitSectionRealtimeValue(
@@ -2332,10 +2348,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["emitListenerEvents"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2767,10 +2780,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2799,10 +2809,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2832,10 +2839,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2874,10 +2878,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     expectPluginFrontendErrorCode(
@@ -2906,10 +2907,7 @@ describe("plugin runtime helpers", () => {
       },
       effectiveCapabilities: ["registerSectionKinds"],
     });
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
+    const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
     const patchData = {
@@ -3252,46 +3250,40 @@ describe("plugin runtime helpers", () => {
     const completed: number[] = [];
     let inFlight = 0;
     let maxInFlight = 0;
-    await pluginRuntimeTestApi.runWithConcurrencyLimit(
-      tasks,
-      3,
-      async (taskIndex: number) => {
-        inFlight += 1;
-        maxInFlight = Math.max(maxInFlight, inFlight);
-        await new Promise((resolve) => {
-          setTimeout(resolve, 1);
-        });
-        completed.push(taskIndex);
-        inFlight -= 1;
-      },
-    );
+    await runWithConcurrencyLimit(tasks, 3, async (taskIndex: number) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1);
+      });
+      completed.push(taskIndex);
+      inFlight -= 1;
+    });
     expect(maxInFlight).toBeLessThanOrEqual(3);
     expect(completed).toHaveLength(tasks.length);
     expect(completed.sort((a, b) => a - b)).toEqual(tasks);
   });
   it("only loads plugin frontends when runtime status is active or pending restart", () => {
-    expect(pluginRuntimeTestApi.shouldLoadPluginFrontend(undefined)).toBe(
-      false,
-    );
+    expect(shouldLoadPluginFrontend(undefined)).toBe(false);
     expect(
-      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+      shouldLoadPluginFrontend(
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.active }),
       ),
     ).toBe(true);
     expect(
-      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+      shouldLoadPluginFrontend(
         buildPluginStatusEntry({
           state: PluginRuntimeStateEnum.pending_restart,
         }),
       ),
     ).toBe(true);
     expect(
-      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+      shouldLoadPluginFrontend(
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.disabled }),
       ),
     ).toBe(false);
     expect(
-      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+      shouldLoadPluginFrontend(
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.invalid }),
       ),
     ).toBe(false);
@@ -3349,13 +3341,11 @@ describe("plugin runtime helpers", () => {
   it("treats non-boolean plugin reveal handler results as contract failures", async () => {
     const pluginId = "acme.plugin";
     const revealKey = "full-settings";
-    pluginRuntimeTestApi.registerPluginSettingRevealHandler(
-      pluginId,
-      revealKey,
-      () => {
-        const malformed = JSON.parse('"unexpected-string"');
-        return malformed;
-      },
+    await loadPluginRevealHandlerFixture(
+      "host.registerSettingRevealHandler('full-settings', () => {\n" +
+        "  const malformed = JSON.parse('\"unexpected-string\"');\n" +
+        "  return malformed;\n" +
+        "});",
     );
     const result = await invokePluginSettingRevealHandler({
       pluginId,
@@ -3375,10 +3365,14 @@ describe("plugin runtime helpers", () => {
     const pluginId = "acme.plugin";
     const revealKey = "full-settings";
     const handlerSpy = vi.fn(() => true);
-    pluginRuntimeTestApi.registerPluginSettingRevealHandler(
-      pluginId,
-      revealKey,
-      handlerSpy,
+    (
+      globalThis as {
+        __settaRevealHandlerSpy?: (...args: unknown[]) => unknown;
+      }
+    ).__settaRevealHandlerSpy = handlerSpy;
+    await loadPluginRevealHandlerFixture(
+      "host.registerSettingRevealHandler('full-settings', (context) => " +
+        "globalThis.__settaRevealHandlerSpy?.(context));",
     );
     const controller = new AbortController();
     controller.abort();
@@ -3400,19 +3394,17 @@ describe("plugin runtime helpers", () => {
   it("returns a timeout message when plugin reveal handler settles after abort", async () => {
     const pluginId = "acme.plugin";
     const revealKey = "full-settings";
-    pluginRuntimeTestApi.registerPluginSettingRevealHandler(
-      pluginId,
-      revealKey,
-      ({ abortSignal }) =>
-        new Promise<boolean>((resolve) => {
-          abortSignal.addEventListener(
-            "abort",
-            () => {
-              resolve(true);
-            },
-            { once: true },
-          );
-        }),
+    await loadPluginRevealHandlerFixture(
+      "host.registerSettingRevealHandler('full-settings', ({ abortSignal }) =>\n" +
+        "  new Promise((resolve) => {\n" +
+        "    abortSignal.addEventListener(\n" +
+        "      'abort',\n" +
+        "      () => {\n" +
+        "        resolve(true);\n" +
+        "      },\n" +
+        "      { once: true },\n" +
+        "    );\n" +
+        "  }));",
     );
     const controller = new AbortController();
     const pendingResult = invokePluginSettingRevealHandler({

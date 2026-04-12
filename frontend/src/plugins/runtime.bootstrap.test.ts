@@ -55,7 +55,28 @@ describe("plugin runtime bootstrap", () => {
     });
 
     const runtime = await import("plugins/runtime");
-    runtime.resetPluginRuntimeStoreForTests();
+    const runtimeInternal = await import("plugins/runtimeInternal");
+    runtimeInternal.clearPluginRuntimeSideEffects();
+    runtime.usePluginRuntimeStore.setState({
+      status: "idle",
+      statusMessage: null,
+      schemaVersion: null,
+      serverMode: null,
+      restartCapability: null,
+      pluginListById: {},
+      sortedPluginListEntries: [],
+      pluginStatusById: {},
+      statusEntries: [],
+      sectionKindsByKey: {},
+      sortedSectionKinds: [],
+      panesByPluginId: {},
+      sortedPaneTabs: [],
+      commandsByPluginId: {},
+      sortedCommands: [],
+      topNavBarItemsByPluginId: {},
+      sortedTopNavBarItems: [],
+      frontendErrorsByPluginId: {},
+    });
 
     runtime.usePluginRuntimeBootstrap(true);
     await Promise.resolve();

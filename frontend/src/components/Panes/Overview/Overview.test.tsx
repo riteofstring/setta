@@ -1,8 +1,8 @@
 import {
-  resetPluginRuntimeStoreForTests,
   usePluginRuntimeStore,
   type PluginPaneTabEntry,
 } from "plugins/runtime";
+import { clearPluginRuntimeSideEffects } from "plugins/runtimeInternal";
 import { type RegisteredPluginPane } from "plugins/runtimeShared";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
@@ -45,6 +45,30 @@ function extractRailStyle(markup: string): string {
   return match[1] ?? "";
 }
 
+function resetPluginRuntimeStateForTests(): void {
+  clearPluginRuntimeSideEffects();
+  usePluginRuntimeStore.setState({
+    status: "idle",
+    statusMessage: null,
+    schemaVersion: null,
+    serverMode: null,
+    restartCapability: null,
+    pluginListById: {},
+    sortedPluginListEntries: [],
+    pluginStatusById: {},
+    statusEntries: [],
+    sectionKindsByKey: {},
+    sortedSectionKinds: [],
+    panesByPluginId: {},
+    sortedPaneTabs: [],
+    commandsByPluginId: {},
+    sortedCommands: [],
+    topNavBarItemsByPluginId: {},
+    sortedTopNavBarItems: [],
+    frontendErrorsByPluginId: {},
+  });
+}
+
 describe("Overview rail offsets", () => {
   const memoryStorage = (() => {
     let store = new Map<string, string>();
@@ -64,7 +88,7 @@ describe("Overview rail offsets", () => {
 
   beforeEach(() => {
     resetProjectStores();
-    resetPluginRuntimeStoreForTests();
+    resetPluginRuntimeStateForTests();
     memoryStorage.reset();
     const viewId = "default-view";
     useProjectState.setState((state) => {
@@ -111,7 +135,7 @@ describe("Overview rail offsets", () => {
 
   afterEach(() => {
     resetProjectStores();
-    resetPluginRuntimeStoreForTests();
+    resetPluginRuntimeStateForTests();
   });
 
   it("extends to the bottom when no view mode tabs exist", () => {
