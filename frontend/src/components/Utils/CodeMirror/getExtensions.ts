@@ -10,7 +10,12 @@ import {
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
 import { EditorState, Prec } from "@codemirror/state";
-import { EditorView, keymap, tooltips } from "@codemirror/view";
+import {
+  EditorView,
+  keymap,
+  tooltips,
+  type ViewUpdate,
+} from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import type { CodeLanguage } from "utils/codeLanguage";
@@ -83,90 +88,15 @@ export function getExtensions({
   }
 
   extensions.push(...getLanguageExtensions(language, enableJsx));
-
-  // autocomplete
-  if (completionsFn) {
-    extensions.push(
-      autocompletion({
-        override: [completionsFn],
-        tooltipClass: () => "nowheel",
-        interactionDelay: completionInteractionDelayMs,
-        selectOnOpen: true,
-        activateOnTyping: true,
-      }),
-    );
-    if (completionTriggerChars && completionTriggerChars.length > 0) {
-      extensions.push(
-        EditorView.updateListener.of((update) => {
-          if (!update.docChanged) {
-            return;
-          }
-          const isUserInput = update.transactions.some((tr) =>
-            tr.isUserEvent("input"),
-          );
-          if (!isUserInput) {
-            return;
-          }
-          let insertedTextHasTriggerChar = false;
-          update.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
-            if (insertedTextHasTriggerChar) {
-              return;
-            }
-            const insertedText = inserted.toString();
-            if (!insertedText) {
-              return;
-            }
-            insertedTextHasTriggerChar = triggerChars.some((char) =>
-              insertedText.includes(char),
-            );
-          });
-          if (!insertedTextHasTriggerChar) {
-            return;
-          }
-          if (!update.view.hasFocus) {
-            return;
-          }
-          if (completionStatus(update.state) === "active") {
-            return;
-          }
-          queueMicrotask(() => startCompletion(update.view));
-        }),
-      );
-    }
-    if (triggerCompletionAfterAccept) {
-      extensions.push(
-        EditorView.updateListener.of((update) => {
-          if (!update.docChanged) {
-            return;
-          }
-          for (const transaction of update.transactions) {
-            if (transaction.annotation(pickedCompletion)) {
-              const lastChar = update.state.doc.sliceString(
-                update.state.doc.length - 1,
-              );
-              if (triggerChars.includes(lastChar)) {
-                if (!update.view.hasFocus) {
-                  return;
-                }
-                // Defer to the next tick so CodeMirror's own completion accept
-                // transaction has fully settled before we re-trigger completion.
-                queueMicrotask(() => {
-                  if (!update.view.hasFocus) {
-                    return;
-                  }
-                  if (completionStatus(update.view.state) === "active") {
-                    return;
-                  }
-                  startCompletion(update.view);
-                });
-              }
-              break;
-            }
-          }
-        }),
-      );
-    }
-  }
+  extensions.push(
+    ...getAutocompleteExtensions({
+      completionsFn,
+      completionInteractionDelayMs,
+      completionTriggerChars,
+      triggerCompletionAfterAccept,
+      triggerChars,
+    }),
+  );
 
   if (singleLine) {
     extensions.push(
@@ -202,6 +132,130 @@ export function getLanguageExtensions(
   useJsx: boolean,
 ) {
   return getCodeMirrorLanguageExtensions(language, useJsx);
+}
+
+function getAutocompleteExtensions({
+  completionsFn,
+  completionInteractionDelayMs,
+  completionTriggerChars,
+  triggerCompletionAfterAccept,
+  triggerChars,
+}: Pick<
+  GetExtensionsOptions,
+  | "completionsFn"
+  | "completionInteractionDelayMs"
+  | "completionTriggerChars"
+  | "triggerCompletionAfterAccept"
+> & {
+  triggerChars: string[];
+}) {
+  if (!completionsFn) {
+    return [];
+  }
+
+  const extensions = [
+    autocompletion({
+      override: [completionsFn],
+      tooltipClass: () => "nowheel",
+      interactionDelay: completionInteractionDelayMs,
+      selectOnOpen: true,
+      activateOnTyping: true,
+    }),
+  ];
+
+  if (completionTriggerChars && completionTriggerChars.length > 0) {
+    extensions.push(
+      EditorView.updateListener.of((update) => {
+        if (!shouldTriggerCompletionOnTyping(update, triggerChars)) {
+          return;
+        }
+        queueMicrotask(() => startCompletion(update.view));
+      }),
+    );
+  }
+
+  if (triggerCompletionAfterAccept) {
+    extensions.push(
+      EditorView.updateListener.of((update) => {
+        if (!shouldTriggerCompletionAfterAccept(update, triggerChars)) {
+          return;
+        }
+        // Defer to the next tick so CodeMirror's own completion accept
+        // transaction has fully settled before we re-trigger completion.
+        queueMicrotask(() => {
+          if (!shouldStartCompletion(update.view)) {
+            return;
+          }
+          startCompletion(update.view);
+        });
+      }),
+    );
+  }
+
+  return extensions;
+}
+
+function shouldTriggerCompletionOnTyping(
+  update: ViewUpdate,
+  triggerChars: string[],
+) {
+  if (!update.docChanged) {
+    return false;
+  }
+  const isUserInput = update.transactions.some((tr) => tr.isUserEvent("input"));
+  if (!isUserInput) {
+    return false;
+  }
+  if (!containsInsertedTriggerChar(update, triggerChars)) {
+    return false;
+  }
+  return shouldStartCompletion(update.view);
+}
+
+function containsInsertedTriggerChar(
+  update: ViewUpdate,
+  triggerChars: string[],
+) {
+  let insertedTextHasTriggerChar = false;
+  update.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
+    if (insertedTextHasTriggerChar) {
+      return;
+    }
+    const insertedText = inserted.toString();
+    if (!insertedText) {
+      return;
+    }
+    insertedTextHasTriggerChar = triggerChars.some((char) =>
+      insertedText.includes(char),
+    );
+  });
+  return insertedTextHasTriggerChar;
+}
+
+function shouldTriggerCompletionAfterAccept(
+  update: ViewUpdate,
+  triggerChars: string[],
+) {
+  if (!update.docChanged) {
+    return false;
+  }
+  for (const transaction of update.transactions) {
+    if (!transaction.annotation(pickedCompletion)) {
+      continue;
+    }
+    const lastChar = update.state.doc.sliceString(update.state.doc.length - 1);
+    return (
+      triggerChars.includes(lastChar) && shouldStartCompletion(update.view)
+    );
+  }
+  return false;
+}
+
+function shouldStartCompletion(view: EditorView) {
+  if (!view.hasFocus) {
+    return false;
+  }
+  return completionStatus(view.state) !== "active";
 }
 
 function getKeyMapArray({
