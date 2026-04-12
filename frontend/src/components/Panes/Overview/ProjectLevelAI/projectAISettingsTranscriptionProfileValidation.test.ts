@@ -1,6 +1,8 @@
-import { TranscriptionTransportModeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { resolveTranscriptionChunkMsForSave } from "./ProjectAISettings";
+import {
+  TranscriptionTransportModeEnum,
+  resolveTranscriptionChunkMsForSave,
+} from "./projectAISettingsTranscriptionProfiles";
 
 describe("resolveTranscriptionChunkMsForSave", () => {
   it("uses canonical chunk size for file mode even when draft chunk is invalid", () => {

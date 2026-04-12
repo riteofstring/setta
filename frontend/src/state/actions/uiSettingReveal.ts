@@ -62,8 +62,27 @@ type PluginRevealResult = {
 type PluginRevealHandlerOutcome =
   | { status: "handled"; message: null }
   | { status: "terminal_failure"; message: string };
+type UISettingRevealActivationStep =
+  UISettingRevealTarget["revealActivationSteps"][number];
+type ParsedUISettingRevealTargetFields = {
+  settingId: string;
+  side: string;
+  overviewTabKey: string | null;
+  uiEditorTabName: string | null;
+  pluginId: string | null;
+  paneId: string | null;
+  strategy: string;
+  anchorId: string | null;
+  pluginRevealKey: string | null;
+  revealActivationSteps: Array<UISettingRevealActivationStep>;
+};
 
 type LocalStorageState = ReturnType<typeof useLocalStorage.getState>;
+type ProjectChatAuxViewState =
+  | NonNullable<
+      LocalStorageState["projectChatAuxViewByProjectConfigId"][string]
+    >
+  | "none";
 type RevealLocalStorageSnapshot = {
   overviewVis: LocalStorageState["overviewVis"];
   overviewTab: LocalStorageState["overviewTab"];
@@ -106,6 +125,27 @@ type RevealMutationResult =
       ok: false;
       status: UISettingRevealResultStatus;
     };
+type PluginRevealAttemptOutcome = {
+  status: UISettingRevealResultStatus | null;
+  pluginRevealErrorMessage: string | null;
+};
+type PluginRevealLoopContext = {
+  remainingMs: number;
+  result: PluginRevealResult | null;
+};
+type PluginRevealPendingResult = {
+  latestErrorMessage: string | null;
+  stop: boolean;
+  result: PluginRevealResult | null;
+};
+type RevealActivationDraft = {
+  nextRunInstructionsOpenValues: Array<string>;
+  nextProjectAiOpenValues: Array<string>;
+  nextProjectChatAuxView: ProjectChatAuxViewState;
+  runInstructionsChanged: boolean;
+  projectAiChanged: boolean;
+  projectChatAuxViewChanged: boolean;
+};
 
 export type UISettingRevealExecutionContext = {
   requestId: string;
@@ -134,6 +174,190 @@ const revealMutationOwnerByProjectStateActiveIdsProjectConfigId = new Map<
   string,
   number
 >();
+const invalidUISettingRevealField = Symbol("invalidUISettingRevealField");
+
+function isUISettingRevealRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseUISettingRevealRequiredString(
+  value: unknown,
+): string | typeof invalidUISettingRevealField {
+  if (typeof value === "string") {
+    return value;
+  }
+  return invalidUISettingRevealField;
+}
+
+function parseUISettingRevealOptionalString(
+  value: unknown,
+): string | null | typeof invalidUISettingRevealField {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return invalidUISettingRevealField;
+}
+
+function parseUISettingRevealActivationStep(
+  value: unknown,
+): UISettingRevealActivationStep | typeof invalidUISettingRevealField {
+  if (!isUISettingRevealRecord(value)) {
+    return invalidUISettingRevealField;
+  }
+  const type = parseUISettingRevealRequiredString(value.type);
+  if (type === invalidUISettingRevealField) {
+    return invalidUISettingRevealField;
+  }
+  const itemValue = parseUISettingRevealRequiredString(value.itemValue);
+  if (itemValue === invalidUISettingRevealField) {
+    return invalidUISettingRevealField;
+  }
+  return {
+    type,
+    itemValue,
+  };
+}
+
+function parseUISettingRevealActivationSteps(
+  value: unknown,
+): Array<UISettingRevealActivationStep> | typeof invalidUISettingRevealField {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return invalidUISettingRevealField;
+  }
+  const steps: Array<UISettingRevealActivationStep> = [];
+  for (const entry of value) {
+    const parsedStep = parseUISettingRevealActivationStep(entry);
+    if (parsedStep === invalidUISettingRevealField) {
+      return invalidUISettingRevealField;
+    }
+    steps.push(parsedStep);
+  }
+  return steps;
+}
+
+function hasInvalidUISettingRevealField(values: Array<unknown>): boolean {
+  return values.some((value) => value === invalidUISettingRevealField);
+}
+
+function parseUISettingRevealTargetFields(
+  value: Record<string, unknown>,
+): ParsedUISettingRevealTargetFields | typeof invalidUISettingRevealField {
+  const parsedFields = {
+    settingId: parseUISettingRevealRequiredString(value.settingId),
+    side: parseUISettingRevealRequiredString(value.side),
+    overviewTabKey: parseUISettingRevealOptionalString(value.overviewTabKey),
+    uiEditorTabName: parseUISettingRevealOptionalString(value.uiEditorTabName),
+    pluginId: parseUISettingRevealOptionalString(value.pluginId),
+    paneId: parseUISettingRevealOptionalString(value.paneId),
+    strategy: parseUISettingRevealRequiredString(value.strategy),
+    anchorId: parseUISettingRevealOptionalString(value.anchorId),
+    pluginRevealKey: parseUISettingRevealOptionalString(value.pluginRevealKey),
+    revealActivationSteps: parseUISettingRevealActivationSteps(
+      value.revealActivationSteps,
+    ),
+  };
+  if (hasInvalidUISettingRevealField(Object.values(parsedFields))) {
+    return invalidUISettingRevealField;
+  }
+  return parsedFields as ParsedUISettingRevealTargetFields;
+}
+
+function parseUISettingRevealTargetValue(
+  value: unknown,
+): UISettingRevealTarget | typeof invalidUISettingRevealField {
+  if (!isUISettingRevealRecord(value)) {
+    return invalidUISettingRevealField;
+  }
+  const parsedFields = parseUISettingRevealTargetFields(value);
+  if (parsedFields === invalidUISettingRevealField) {
+    return invalidUISettingRevealField;
+  }
+  return parsedFields;
+}
+
+function parseUISettingRevealTargets(
+  value: unknown,
+): Array<UISettingRevealTarget> | typeof invalidUISettingRevealField {
+  if (!Array.isArray(value)) {
+    return invalidUISettingRevealField;
+  }
+  const targets: Array<UISettingRevealTarget> = [];
+  for (const entry of value) {
+    const parsedTarget = parseUISettingRevealTargetValue(entry);
+    if (parsedTarget === invalidUISettingRevealField) {
+      return invalidUISettingRevealField;
+    }
+    targets.push(parsedTarget);
+  }
+  return targets;
+}
+
+function parseUISettingRevealDuration(
+  value: unknown,
+): number | typeof invalidUISettingRevealField {
+  if (value === undefined) {
+    return DEFAULT_DURATION_MS;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  return invalidUISettingRevealField;
+}
+
+// Keep this parser in normal frontend code. `UISettingRevealContent` is the
+// owner contract; only this websocket payload needs runtime validation, so the
+// generator should not own a bespoke schema runtime for it.
+export function parseUISettingRevealContent(
+  value: unknown,
+): UISettingRevealContent | null {
+  if (!isUISettingRevealRecord(value)) {
+    return null;
+  }
+  const projectConfigId = parseUISettingRevealRequiredString(
+    value.projectConfigId,
+  );
+  if (projectConfigId === invalidUISettingRevealField) {
+    return null;
+  }
+  const chatId = parseUISettingRevealOptionalString(value.chatId);
+  if (chatId === invalidUISettingRevealField) {
+    return null;
+  }
+  const activeSectionId = parseUISettingRevealOptionalString(
+    value.activeSectionId,
+  );
+  if (activeSectionId === invalidUISettingRevealField) {
+    return null;
+  }
+  const reveals = parseUISettingRevealTargets(value.reveals);
+  if (reveals === invalidUISettingRevealField) {
+    return null;
+  }
+  const durationMs = parseUISettingRevealDuration(value.durationMs);
+  if (durationMs === invalidUISettingRevealField) {
+    return null;
+  }
+  const requestId = parseUISettingRevealRequiredString(value.requestId);
+  if (requestId === invalidUISettingRevealField) {
+    return null;
+  }
+  return {
+    projectConfigId,
+    chatId,
+    activeSectionId,
+    reveals,
+    durationMs,
+    requestId,
+  };
+}
 
 function createEmptyRevealMutationDiff(): RevealMutationDiff {
   return {
@@ -254,89 +478,24 @@ async function revealSingleSetting({
   let shouldRollbackMutationLease = true;
   try {
     const deadlineMs = Date.now() + durationMs;
-
-    let pluginRevealErrorMessage: string | null = null;
-    if (target.strategy === "plugin_handler") {
-      const pluginRevealResult = await revealWithPluginHandler(
-        target,
-        deadlineMs,
-        executionContext,
-      );
-      const postPluginRevealMismatch =
-        resolveRevealExecutionMismatch(executionContext);
-      if (postPluginRevealMismatch !== null) {
-        return buildExecutionContextMismatchStatus(
-          target.settingId,
-          postPluginRevealMismatch.message,
-        );
-      }
-      if (pluginRevealResult.ok) {
-        shouldRollbackMutationLease = false;
-        return {
-          settingId: target.settingId,
-          status: "revealed",
-          errorCode: null,
-          errorMessage: null,
-        };
-      }
-      pluginRevealErrorMessage = pluginRevealResult.errorMessage;
-    }
-
-    if (target.anchorId === null || target.anchorId === undefined) {
-      return {
-        settingId: target.settingId,
-        status: "failed",
-        errorCode: "mutation_failed",
-        errorMessage: pluginRevealErrorMessage
-          ? `${pluginRevealErrorMessage} No fallback anchorId is available.`
-          : `Setting ${target.settingId} is missing a reveal anchorId.`,
-      };
-    }
-
-    const remainingMsForAnchor = deadlineMs - Date.now();
-    if (remainingMsForAnchor <= 0) {
-      return {
-        settingId: target.settingId,
-        status: "failed",
-        errorCode: "mutation_failed",
-        errorMessage: pluginRevealErrorMessage
-          ? `${pluginRevealErrorMessage} Reveal deadline exceeded before fallback anchor lookup.`
-          : `Reveal deadline exceeded before locating anchor for ${target.settingId}.`,
-      };
-    }
-    const anchorElement = await waitForAnchorElement({
-      side: target.side,
-      anchorId: target.anchorId,
+    const pluginOutcome = await maybeRevealSingleSettingWithPluginHandler({
+      target,
       deadlineMs,
       executionContext,
     });
-    const postAnchorLookupMismatch =
-      resolveRevealExecutionMismatch(executionContext);
-    if (postAnchorLookupMismatch !== null) {
-      return buildExecutionContextMismatchStatus(
-        target.settingId,
-        postAnchorLookupMismatch.message,
-      );
+    if (pluginOutcome.status !== null) {
+      shouldRollbackMutationLease = pluginOutcome.status.status !== "revealed";
+      return pluginOutcome.status;
     }
-    if (!anchorElement) {
-      return {
-        settingId: target.settingId,
-        status: "failed",
-        errorCode: "mutation_failed",
-        errorMessage: pluginRevealErrorMessage
-          ? `${pluginRevealErrorMessage} Fallback anchor was not found.`
-          : `Could not find anchor ${target.anchorId} for ${target.settingId}.`,
-      };
-    }
-    scrollIntoView(anchorElement);
-    applyHighlight(anchorElement, durationMs);
-    shouldRollbackMutationLease = false;
-    return {
-      settingId: target.settingId,
-      status: "revealed",
-      errorCode: null,
-      errorMessage: null,
-    };
+    const anchorStatus = await revealSingleSettingWithAnchor({
+      target,
+      durationMs,
+      deadlineMs,
+      executionContext,
+      pluginRevealErrorMessage: pluginOutcome.pluginRevealErrorMessage,
+    });
+    shouldRollbackMutationLease = anchorStatus.status !== "revealed";
+    return anchorStatus;
   } finally {
     try {
       if (shouldRollbackMutationLease) {
@@ -346,6 +505,151 @@ async function revealSingleSetting({
       await finalizeRevealMutationLease(mutationLease);
     }
   }
+}
+
+function buildRevealSuccessStatus(
+  settingId: string,
+): UISettingRevealResultStatus {
+  return {
+    settingId,
+    status: "revealed",
+    errorCode: null,
+    errorMessage: null,
+  };
+}
+
+function buildRevealFailureStatus(
+  settingId: string,
+  errorMessage: string,
+): UISettingRevealResultStatus {
+  return {
+    settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage,
+  };
+}
+
+function buildPluginFallbackFailureMessage({
+  pluginRevealErrorMessage,
+  defaultMessage,
+  fallbackMessage,
+}: {
+  pluginRevealErrorMessage: string | null;
+  defaultMessage: string;
+  fallbackMessage: string;
+}): string {
+  if (pluginRevealErrorMessage === null) {
+    return defaultMessage;
+  }
+  return `${pluginRevealErrorMessage} ${fallbackMessage}`;
+}
+
+async function maybeRevealSingleSettingWithPluginHandler({
+  target,
+  deadlineMs,
+  executionContext,
+}: {
+  target: UISettingRevealTarget;
+  deadlineMs: number;
+  executionContext: UISettingRevealExecutionContext | null;
+}): Promise<PluginRevealAttemptOutcome> {
+  if (target.strategy !== "plugin_handler") {
+    return {
+      status: null,
+      pluginRevealErrorMessage: null,
+    };
+  }
+  const pluginRevealResult = await revealWithPluginHandler(
+    target,
+    deadlineMs,
+    executionContext,
+  );
+  const postPluginRevealMismatch =
+    resolveRevealExecutionMismatch(executionContext);
+  if (postPluginRevealMismatch !== null) {
+    return {
+      status: buildExecutionContextMismatchStatus(
+        target.settingId,
+        postPluginRevealMismatch.message,
+      ),
+      pluginRevealErrorMessage: null,
+    };
+  }
+  if (pluginRevealResult.ok) {
+    return {
+      status: buildRevealSuccessStatus(target.settingId),
+      pluginRevealErrorMessage: null,
+    };
+  }
+  return {
+    status: null,
+    pluginRevealErrorMessage: pluginRevealResult.errorMessage,
+  };
+}
+
+async function revealSingleSettingWithAnchor({
+  target,
+  durationMs,
+  deadlineMs,
+  executionContext,
+  pluginRevealErrorMessage,
+}: {
+  target: UISettingRevealTarget;
+  durationMs: number;
+  deadlineMs: number;
+  executionContext: UISettingRevealExecutionContext | null;
+  pluginRevealErrorMessage: string | null;
+}): Promise<UISettingRevealResultStatus> {
+  if (!target.anchorId) {
+    return buildRevealFailureStatus(
+      target.settingId,
+      buildPluginFallbackFailureMessage({
+        pluginRevealErrorMessage,
+        defaultMessage: `Setting ${target.settingId} is missing a reveal anchorId.`,
+        fallbackMessage: "No fallback anchorId is available.",
+      }),
+    );
+  }
+  const remainingMsForAnchor = deadlineMs - Date.now();
+  if (remainingMsForAnchor <= 0) {
+    return buildRevealFailureStatus(
+      target.settingId,
+      buildPluginFallbackFailureMessage({
+        pluginRevealErrorMessage,
+        defaultMessage: `Reveal deadline exceeded before locating anchor for ${target.settingId}.`,
+        fallbackMessage:
+          "Reveal deadline exceeded before fallback anchor lookup.",
+      }),
+    );
+  }
+  const anchorElement = await waitForAnchorElement({
+    side: target.side,
+    anchorId: target.anchorId,
+    deadlineMs,
+    executionContext,
+  });
+  const postAnchorLookupMismatch =
+    resolveRevealExecutionMismatch(executionContext);
+  if (postAnchorLookupMismatch !== null) {
+    return buildExecutionContextMismatchStatus(
+      target.settingId,
+      postAnchorLookupMismatch.message,
+    );
+  }
+  if (!anchorElement) {
+    return buildRevealFailureStatus(
+      target.settingId,
+      buildPluginFallbackFailureMessage({
+        pluginRevealErrorMessage,
+        defaultMessage: `Could not find anchor ${target.anchorId} for ${target.settingId}.`,
+        fallbackMessage: "Fallback anchor was not found.",
+      }),
+    );
+  }
+  scrollIntoView(anchorElement);
+  applyHighlight(anchorElement, durationMs);
+  return buildRevealSuccessStatus(target.settingId);
 }
 
 async function applyRevealMutationsWithLease({
@@ -563,85 +867,282 @@ function recordRevealMutationOwnership({
   }
 }
 
+function clearRevealMutationScalarOwnerIfOwned({
+  wasTouched,
+  ownerLeaseId,
+  leaseId,
+  clear,
+}: {
+  wasTouched: boolean;
+  ownerLeaseId: number | null;
+  leaseId: number;
+  clear: () => void;
+}): void {
+  if (!wasTouched || ownerLeaseId !== leaseId) {
+    return;
+  }
+  clear();
+}
+
+function clearRevealMutationOwnershipForKeys(
+  touchedKeys: Iterable<string>,
+  ownerMap: Map<string, number>,
+  leaseId: number,
+): void {
+  for (const touchedKey of touchedKeys) {
+    if (ownerMap.get(touchedKey) === leaseId) {
+      ownerMap.delete(touchedKey);
+    }
+  }
+}
+
 function clearRevealMutationOwnershipForLease({
   leaseId,
   mutationDiff,
 }: RevealMutationLease): void {
+  clearRevealMutationScalarOwnerIfOwned({
+    wasTouched: mutationDiff.touchedOverviewVis,
+    ownerLeaseId: revealMutationOwnerForOverviewVis,
+    leaseId,
+    clear: () => {
+      revealMutationOwnerForOverviewVis = null;
+    },
+  });
+  clearRevealMutationScalarOwnerIfOwned({
+    wasTouched: mutationDiff.touchedOverviewTab,
+    ownerLeaseId: revealMutationOwnerForOverviewTab,
+    leaseId,
+    clear: () => {
+      revealMutationOwnerForOverviewTab = null;
+    },
+  });
+  clearRevealMutationScalarOwnerIfOwned({
+    wasTouched: mutationDiff.touchedWatchCodePortalOpen,
+    ownerLeaseId: revealMutationOwnerForWatchCodePortalOpen,
+    leaseId,
+    clear: () => {
+      revealMutationOwnerForWatchCodePortalOpen = null;
+    },
+  });
+  clearRevealMutationScalarOwnerIfOwned({
+    wasTouched: mutationDiff.touchedUiEditorVis,
+    ownerLeaseId: revealMutationOwnerForUiEditorVis,
+    leaseId,
+    clear: () => {
+      revealMutationOwnerForUiEditorVis = null;
+    },
+  });
+  clearRevealMutationOwnershipForKeys(
+    mutationDiff.touchedUiEditorTabSectionTypes,
+    revealMutationOwnerByUiEditorTabSectionType,
+    leaseId,
+  );
+  clearRevealMutationOwnershipForKeys(
+    mutationDiff.touchedProjectChatAuxViewProjectConfigIds,
+    revealMutationOwnerByProjectChatAuxViewProjectConfigId,
+    leaseId,
+  );
+  clearRevealMutationOwnershipForKeys(
+    mutationDiff.touchedRunInstructionsProjectConfigIds,
+    revealMutationOwnerByRunInstructionsProjectConfigId,
+    leaseId,
+  );
+  clearRevealMutationOwnershipForKeys(
+    mutationDiff.touchedProjectAiProjectConfigIds,
+    revealMutationOwnerByProjectAiProjectConfigId,
+    leaseId,
+  );
+  clearRevealMutationOwnershipForKeys(
+    mutationDiff.touchedProjectStateActiveIdsProjectConfigIds,
+    revealMutationOwnerByProjectStateActiveIdsProjectConfigId,
+    leaseId,
+  );
+}
+
+function shouldRestoreRevealLocalStorageValue<T>({
+  wasTouched,
+  ownerLeaseId,
+  leaseId,
+  currentValue,
+  postMutationValue,
+}: {
+  wasTouched: boolean;
+  ownerLeaseId: number | undefined | null;
+  leaseId: number | undefined;
+  currentValue: T;
+  postMutationValue: T;
+}): boolean {
+  return (
+    wasTouched &&
+    isRevealMutationOwnerMatch(ownerLeaseId, leaseId) &&
+    currentValue === postMutationValue
+  );
+}
+
+function restoreScalarRevealLocalStorageFieldsIfOwned({
+  state,
+  snapshot,
+  postMutationSnapshot,
+  mutationDiff,
+  leaseId,
+}: {
+  state: LocalStorageState;
+  snapshot: RevealLocalStorageSnapshot;
+  postMutationSnapshot: RevealLocalStorageSnapshot;
+  mutationDiff: RevealMutationDiff;
+  leaseId: number | undefined;
+}): Partial<LocalStorageState> {
+  const nextState: Partial<LocalStorageState> = {};
   if (
-    mutationDiff.touchedOverviewVis &&
-    revealMutationOwnerForOverviewVis === leaseId
+    shouldRestoreRevealLocalStorageValue({
+      wasTouched: mutationDiff.touchedOverviewVis,
+      ownerLeaseId: revealMutationOwnerForOverviewVis,
+      leaseId,
+      currentValue: state.overviewVis,
+      postMutationValue: postMutationSnapshot.overviewVis,
+    })
   ) {
-    revealMutationOwnerForOverviewVis = null;
+    nextState.overviewVis = snapshot.overviewVis;
   }
   if (
-    mutationDiff.touchedOverviewTab &&
-    revealMutationOwnerForOverviewTab === leaseId
+    shouldRestoreRevealLocalStorageValue({
+      wasTouched: mutationDiff.touchedOverviewTab,
+      ownerLeaseId: revealMutationOwnerForOverviewTab,
+      leaseId,
+      currentValue: state.overviewTab,
+      postMutationValue: postMutationSnapshot.overviewTab,
+    })
   ) {
-    revealMutationOwnerForOverviewTab = null;
+    nextState.overviewTab = snapshot.overviewTab;
   }
   if (
-    mutationDiff.touchedWatchCodePortalOpen &&
-    revealMutationOwnerForWatchCodePortalOpen === leaseId
+    shouldRestoreRevealLocalStorageValue({
+      wasTouched: mutationDiff.touchedWatchCodePortalOpen,
+      ownerLeaseId: revealMutationOwnerForWatchCodePortalOpen,
+      leaseId,
+      currentValue: state.watchCodePortalOpen,
+      postMutationValue: postMutationSnapshot.watchCodePortalOpen,
+    })
   ) {
-    revealMutationOwnerForWatchCodePortalOpen = null;
+    nextState.watchCodePortalOpen = snapshot.watchCodePortalOpen;
   }
   if (
-    mutationDiff.touchedUiEditorVis &&
-    revealMutationOwnerForUiEditorVis === leaseId
+    shouldRestoreRevealLocalStorageValue({
+      wasTouched: mutationDiff.touchedUiEditorVis,
+      ownerLeaseId: revealMutationOwnerForUiEditorVis,
+      leaseId,
+      currentValue: state.uiEditorVis,
+      postMutationValue: postMutationSnapshot.uiEditorVis,
+    })
   ) {
-    revealMutationOwnerForUiEditorVis = null;
+    nextState.uiEditorVis = snapshot.uiEditorVis;
   }
+  return nextState;
+}
+
+function restoreRevealUiEditorTabsIfOwned({
+  state,
+  snapshot,
+  postMutationSnapshot,
+  mutationDiff,
+  leaseId,
+}: {
+  state: LocalStorageState;
+  snapshot: RevealLocalStorageSnapshot;
+  postMutationSnapshot: RevealLocalStorageSnapshot;
+  mutationDiff: RevealMutationDiff;
+  leaseId: number | undefined;
+}): LocalStorageState["uiEditorTab"] | null {
+  let nextUiEditorTab: LocalStorageState["uiEditorTab"] | null = null;
   for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
     if (
-      revealMutationOwnerByUiEditorTabSectionType.get(sectionType) !== leaseId
+      !shouldRestoreRevealLocalStorageValue({
+        wasTouched: true,
+        ownerLeaseId:
+          revealMutationOwnerByUiEditorTabSectionType.get(sectionType),
+        leaseId,
+        currentValue: state.uiEditorTab[sectionType],
+        postMutationValue: postMutationSnapshot.uiEditorTab[sectionType],
+      })
     ) {
       continue;
     }
-    revealMutationOwnerByUiEditorTabSectionType.delete(sectionType);
-  }
-  for (const projectConfigId of mutationDiff.touchedProjectChatAuxViewProjectConfigIds) {
-    if (
-      revealMutationOwnerByProjectChatAuxViewProjectConfigId.get(
-        projectConfigId,
-      ) !== leaseId
-    ) {
-      continue;
+    if (nextUiEditorTab === null) {
+      nextUiEditorTab = { ...state.uiEditorTab };
     }
-    revealMutationOwnerByProjectChatAuxViewProjectConfigId.delete(
-      projectConfigId,
-    );
+    nextUiEditorTab[sectionType] = snapshot.uiEditorTab[sectionType];
   }
-  for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
-    if (
-      revealMutationOwnerByRunInstructionsProjectConfigId.get(
-        projectConfigId,
-      ) !== leaseId
-    ) {
-      continue;
-    }
-    revealMutationOwnerByRunInstructionsProjectConfigId.delete(projectConfigId);
+  return nextUiEditorTab;
+}
+
+function restoreRevealStringRecordIfOwned({
+  currentRecord,
+  postMutationRecord,
+  snapshotRecord,
+  touchedKeys,
+  ownerMap,
+  leaseId,
+}: {
+  currentRecord: Record<string, string>;
+  postMutationRecord: Record<string, string>;
+  snapshotRecord: Record<string, string>;
+  touchedKeys: Iterable<string>;
+  ownerMap: Map<string, number>;
+  leaseId: number | undefined;
+}): Record<string, string> | null {
+  let nextRecord: Record<string, string> | null = null;
+  for (const recordKey of touchedKeys) {
+    revertStringRecordEntryIfOwned({
+      currentRecord,
+      postMutationRecord,
+      snapshotRecord,
+      recordKey,
+      ownerLeaseId: ownerMap.get(recordKey),
+      leaseId,
+      ensureMutableRecord: () => {
+        if (nextRecord === null) {
+          nextRecord = { ...currentRecord };
+        }
+        return nextRecord;
+      },
+    });
   }
-  for (const projectConfigId of mutationDiff.touchedProjectAiProjectConfigIds) {
-    if (
-      revealMutationOwnerByProjectAiProjectConfigId.get(projectConfigId) !==
-      leaseId
-    ) {
-      continue;
-    }
-    revealMutationOwnerByProjectAiProjectConfigId.delete(projectConfigId);
+  return nextRecord;
+}
+
+function restoreRevealStringArrayRecordIfOwned({
+  currentRecord,
+  postMutationRecord,
+  snapshotRecord,
+  touchedKeys,
+  ownerMap,
+  leaseId,
+}: {
+  currentRecord: Record<string, Array<string>>;
+  postMutationRecord: Record<string, Array<string>>;
+  snapshotRecord: Record<string, Array<string>>;
+  touchedKeys: Iterable<string>;
+  ownerMap: Map<string, number>;
+  leaseId: number | undefined;
+}): Record<string, Array<string>> | null {
+  let nextRecord: Record<string, Array<string>> | null = null;
+  for (const recordKey of touchedKeys) {
+    revertStringArrayRecordEntryIfOwned({
+      currentRecord,
+      postMutationRecord,
+      snapshotRecord,
+      recordKey,
+      ownerLeaseId: ownerMap.get(recordKey),
+      leaseId,
+      ensureMutableRecord: () => {
+        if (nextRecord === null) {
+          nextRecord = cloneStringArrayRecord(currentRecord);
+        }
+        return nextRecord;
+      },
+    });
   }
-  for (const projectConfigId of mutationDiff.touchedProjectStateActiveIdsProjectConfigIds) {
-    if (
-      revealMutationOwnerByProjectStateActiveIdsProjectConfigId.get(
-        projectConfigId,
-      ) !== leaseId
-    ) {
-      continue;
-    }
-    revealMutationOwnerByProjectStateActiveIdsProjectConfigId.delete(
-      projectConfigId,
-    );
-  }
+  return nextRecord;
 }
 
 function restoreRevealMutationSnapshotsIfOwned({
@@ -685,167 +1186,67 @@ function restoreRevealLocalStorageSnapshotIfOwned({
   leaseId?: number;
 }): void {
   useLocalStorage.setState((state) => {
-    const nextState: Partial<typeof state> = {};
-    let changed = false;
-
-    if (
-      mutationDiff.touchedOverviewVis &&
-      isRevealMutationOwnerMatch(revealMutationOwnerForOverviewVis, leaseId) &&
-      state.overviewVis === postMutationSnapshot.overviewVis
-    ) {
-      nextState.overviewVis = snapshot.overviewVis;
-      changed = true;
-    }
-    if (
-      mutationDiff.touchedOverviewTab &&
-      isRevealMutationOwnerMatch(revealMutationOwnerForOverviewTab, leaseId) &&
-      state.overviewTab === postMutationSnapshot.overviewTab
-    ) {
-      nextState.overviewTab = snapshot.overviewTab;
-      changed = true;
-    }
-    if (
-      mutationDiff.touchedWatchCodePortalOpen &&
-      isRevealMutationOwnerMatch(
-        revealMutationOwnerForWatchCodePortalOpen,
-        leaseId,
-      ) &&
-      state.watchCodePortalOpen === postMutationSnapshot.watchCodePortalOpen
-    ) {
-      nextState.watchCodePortalOpen = snapshot.watchCodePortalOpen;
-      changed = true;
-    }
-    if (
-      mutationDiff.touchedUiEditorVis &&
-      isRevealMutationOwnerMatch(revealMutationOwnerForUiEditorVis, leaseId) &&
-      state.uiEditorVis === postMutationSnapshot.uiEditorVis
-    ) {
-      nextState.uiEditorVis = snapshot.uiEditorVis;
-      changed = true;
-    }
-
-    let nextUiEditorTab: typeof state.uiEditorTab | null = null;
-    for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
-      if (
-        !isRevealMutationOwnerMatch(
-          revealMutationOwnerByUiEditorTabSectionType.get(sectionType),
-          leaseId,
-        )
-      ) {
-        continue;
-      }
-      const currentTab = state.uiEditorTab[sectionType];
-      const postMutationTab = postMutationSnapshot.uiEditorTab[sectionType];
-      if (currentTab !== postMutationTab) {
-        continue;
-      }
-      if (nextUiEditorTab === null) {
-        nextUiEditorTab = { ...state.uiEditorTab };
-      }
-      nextUiEditorTab[sectionType] = snapshot.uiEditorTab[sectionType];
-      changed = true;
-    }
+    const nextState = restoreScalarRevealLocalStorageFieldsIfOwned({
+      state,
+      snapshot,
+      postMutationSnapshot,
+      mutationDiff,
+      leaseId,
+    });
+    const nextUiEditorTab = restoreRevealUiEditorTabsIfOwned({
+      state,
+      snapshot,
+      postMutationSnapshot,
+      mutationDiff,
+      leaseId,
+    });
     if (nextUiEditorTab !== null) {
       nextState.uiEditorTab = nextUiEditorTab;
     }
-
-    let nextProjectChatAuxView:
-      | typeof state.projectChatAuxViewByProjectConfigId
-      | null = null;
-    for (const projectConfigId of mutationDiff.touchedProjectChatAuxViewProjectConfigIds) {
-      const didRevert = revertStringRecordEntryIfOwned({
+    const nextProjectChatAuxViewByProjectConfigId =
+      restoreRevealStringRecordIfOwned({
         currentRecord: state.projectChatAuxViewByProjectConfigId,
         postMutationRecord:
           postMutationSnapshot.projectChatAuxViewByProjectConfigId,
         snapshotRecord: snapshot.projectChatAuxViewByProjectConfigId,
-        recordKey: projectConfigId,
-        ownerLeaseId:
-          revealMutationOwnerByProjectChatAuxViewProjectConfigId.get(
-            projectConfigId,
-          ),
+        touchedKeys: mutationDiff.touchedProjectChatAuxViewProjectConfigIds,
+        ownerMap: revealMutationOwnerByProjectChatAuxViewProjectConfigId,
         leaseId,
-        ensureMutableRecord: () => {
-          if (nextProjectChatAuxView === null) {
-            nextProjectChatAuxView = {
-              ...state.projectChatAuxViewByProjectConfigId,
-            };
-          }
-          return nextProjectChatAuxView;
-        },
       });
-      if (didRevert) {
-        changed = true;
-      }
+    if (nextProjectChatAuxViewByProjectConfigId !== null) {
+      nextState.projectChatAuxViewByProjectConfigId =
+        nextProjectChatAuxViewByProjectConfigId;
     }
-    if (nextProjectChatAuxView !== null) {
-      nextState.projectChatAuxViewByProjectConfigId = nextProjectChatAuxView;
-    }
-
-    let nextRunInstructions: Record<string, Array<string>> | null = null;
-    for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
-      const didRevert = revertStringArrayRecordEntryIfOwned({
-        currentRecord:
-          state.runInstructionsAccordionOpenValuesByProjectConfigId,
-        postMutationRecord:
-          postMutationSnapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
-        snapshotRecord:
-          snapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
-        recordKey: projectConfigId,
-        ownerLeaseId:
-          revealMutationOwnerByRunInstructionsProjectConfigId.get(
-            projectConfigId,
-          ),
-        leaseId,
-        ensureMutableRecord: () => {
-          if (nextRunInstructions === null) {
-            nextRunInstructions = cloneStringArrayRecord(
-              state.runInstructionsAccordionOpenValuesByProjectConfigId,
-            );
-          }
-          return nextRunInstructions;
-        },
-      });
-      if (didRevert) {
-        changed = true;
-      }
-    }
+    const nextRunInstructions = restoreRevealStringArrayRecordIfOwned({
+      currentRecord: state.runInstructionsAccordionOpenValuesByProjectConfigId,
+      postMutationRecord:
+        postMutationSnapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
+      snapshotRecord:
+        snapshot.runInstructionsAccordionOpenValuesByProjectConfigId,
+      touchedKeys: mutationDiff.touchedRunInstructionsProjectConfigIds,
+      ownerMap: revealMutationOwnerByRunInstructionsProjectConfigId,
+      leaseId,
+    });
     if (nextRunInstructions !== null) {
       nextState.runInstructionsAccordionOpenValuesByProjectConfigId =
         nextRunInstructions;
     }
-
-    let nextProjectAiSettings: Record<string, Array<string>> | null = null;
-    for (const projectConfigId of mutationDiff.touchedProjectAiProjectConfigIds) {
-      const didRevert = revertStringArrayRecordEntryIfOwned({
-        currentRecord:
-          state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-        postMutationRecord:
-          postMutationSnapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-        snapshotRecord:
-          snapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-        recordKey: projectConfigId,
-        ownerLeaseId:
-          revealMutationOwnerByProjectAiProjectConfigId.get(projectConfigId),
-        leaseId,
-        ensureMutableRecord: () => {
-          if (nextProjectAiSettings === null) {
-            nextProjectAiSettings = cloneStringArrayRecord(
-              state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-            );
-          }
-          return nextProjectAiSettings;
-        },
-      });
-      if (didRevert) {
-        changed = true;
-      }
-    }
+    const nextProjectAiSettings = restoreRevealStringArrayRecordIfOwned({
+      currentRecord:
+        state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+      postMutationRecord:
+        postMutationSnapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+      snapshotRecord:
+        snapshot.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+      touchedKeys: mutationDiff.touchedProjectAiProjectConfigIds,
+      ownerMap: revealMutationOwnerByProjectAiProjectConfigId,
+      leaseId,
+    });
     if (nextProjectAiSettings !== null) {
       nextState.projectAiSettingsAccordionOpenValuesByProjectConfigId =
         nextProjectAiSettings;
     }
-
-    if (!changed) {
+    if (Object.keys(nextState).length === 0) {
       return state;
     }
     return nextState;
@@ -1103,64 +1504,131 @@ async function revealWithPluginHandler(
   deadlineMs: number,
   executionContext: UISettingRevealExecutionContext | null,
 ): Promise<PluginRevealResult> {
-  if (!target.pluginId || !target.pluginRevealKey) {
+  if (!canRevealWithPluginHandler(target)) {
     return {
       ok: false,
       errorMessage: null,
     };
   }
   let latestErrorMessage: string | null = null;
-  while (Date.now() <= deadlineMs) {
-    const revealExecutionMismatch =
-      resolveRevealExecutionMismatch(executionContext);
-    if (revealExecutionMismatch !== null) {
-      return {
-        ok: false,
-        errorMessage: revealExecutionMismatch.message,
-      };
+  while (true) {
+    const loopContext = getPluginRevealLoopContext(
+      deadlineMs,
+      executionContext,
+    );
+    if (loopContext.result !== null) {
+      return loopContext.result;
     }
-    const remainingMs = deadlineMs - Date.now();
-    if (remainingMs <= 0) {
+    if (loopContext.remainingMs <= 0) {
       break;
     }
-    const tabExists = usePluginRuntimeStore
-      .getState()
-      .sortedPaneTabs.some((tab) => tab.tabKey === target.overviewTabKey);
-    if (tabExists) {
-      const handlerResult = await invokePluginRevealHandlerWithinDeadline({
-        target,
-        durationMs: remainingMs,
-      });
-      if (handlerResult.status === "handled") {
-        return {
-          ok: true,
-          errorMessage: null,
-        };
-      }
-      latestErrorMessage = handlerResult.message;
-      if (handlerResult.status === "terminal_failure") {
-        break;
-      }
+    const pendingResult = await attemptPendingPluginReveal({
+      target,
+      remainingMs: loopContext.remainingMs,
+    });
+    if (pendingResult.result !== null) {
+      return pendingResult.result;
     }
-    const postIterationMismatch =
-      resolveRevealExecutionMismatch(executionContext);
-    if (postIterationMismatch !== null) {
-      return {
-        ok: false,
-        errorMessage: postIterationMismatch.message,
-      };
+    latestErrorMessage = pendingResult.latestErrorMessage ?? latestErrorMessage;
+    const postAttemptContext = getPluginRevealLoopContext(
+      deadlineMs,
+      executionContext,
+    );
+    if (postAttemptContext.result !== null) {
+      return postAttemptContext.result;
     }
-    if (Date.now() >= deadlineMs) {
+    if (
+      !shouldContinuePluginRevealPolling(
+        pendingResult,
+        postAttemptContext.remainingMs,
+      )
+    ) {
       break;
     }
-    await sleep(Math.min(FIND_TARGET_INTERVAL_MS, deadlineMs - Date.now()));
+    await sleep(
+      Math.min(FIND_TARGET_INTERVAL_MS, postAttemptContext.remainingMs),
+    );
   }
-  if (latestErrorMessage === null) {
-    latestErrorMessage = `Plugin pane for ${target.settingId} did not become available before reveal timeout.`;
-  }
+  latestErrorMessage ??= `Plugin pane for ${target.settingId} did not become available before reveal timeout.`;
   return {
     ok: false,
     errorMessage: latestErrorMessage,
+  };
+}
+
+function canRevealWithPluginHandler(target: UISettingRevealTarget): boolean {
+  return Boolean(target.pluginId) && Boolean(target.pluginRevealKey);
+}
+
+function shouldContinuePluginRevealPolling(
+  pendingResult: PluginRevealPendingResult,
+  remainingMs: number,
+): boolean {
+  return !pendingResult.stop && remainingMs > 0;
+}
+
+function getPluginRevealLoopContext(
+  deadlineMs: number,
+  executionContext: UISettingRevealExecutionContext | null,
+): PluginRevealLoopContext {
+  const revealExecutionMismatch =
+    resolveRevealExecutionMismatch(executionContext);
+  if (revealExecutionMismatch !== null) {
+    return {
+      remainingMs: 0,
+      result: {
+        ok: false,
+        errorMessage: revealExecutionMismatch.message,
+      },
+    };
+  }
+  return {
+    remainingMs: deadlineMs - Date.now(),
+    result: null,
+  };
+}
+
+function pluginRevealPaneTabExists(overviewTabKey: string | null): boolean {
+  if (overviewTabKey === null) {
+    return false;
+  }
+  return usePluginRuntimeStore
+    .getState()
+    .sortedPaneTabs.some((tab) => tab.tabKey === overviewTabKey);
+}
+
+async function attemptPendingPluginReveal({
+  target,
+  remainingMs,
+}: {
+  target: UISettingRevealTarget;
+  remainingMs: number;
+}): Promise<PluginRevealPendingResult> {
+  if (!pluginRevealPaneTabExists(target.overviewTabKey)) {
+    return {
+      latestErrorMessage: null,
+      stop: false,
+      result: null,
+    };
+  }
+  const handlerResult = await invokePluginRevealHandlerWithinDeadline({
+    target,
+    durationMs: remainingMs,
+  });
+  if (handlerResult.status === "handled") {
+    return {
+      latestErrorMessage: null,
+      stop: false,
+      result: {
+        ok: true,
+        errorMessage: null,
+      },
+    };
+  }
+  return {
+    latestErrorMessage: handlerResult.message,
+    stop: handlerResult.status === "terminal_failure",
+    result: null,
   };
 }
 
@@ -1187,111 +1655,175 @@ function applyRevealActivationSteps({
     fallbackProjectConfigId,
   );
   useLocalStorage.setState((state) => {
-    let nextRunInstructionsOpenValues =
-      state.runInstructionsAccordionOpenValuesByProjectConfigId[
-        projectConfigId
-      ] ?? [];
-    let nextProjectAiOpenValues =
-      state.projectAiSettingsAccordionOpenValuesByProjectConfigId[
-        projectConfigId
-      ] ?? [];
-    let nextProjectChatAuxViewByProjectConfigId:
-      | typeof state.projectChatAuxViewByProjectConfigId
-      | null = null;
-    let runInstructionsChanged = false;
-    let projectAiChanged = false;
-    let projectChatAuxViewChanged = false;
-    const currentProjectChatAuxView =
-      state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
-    let nextProjectChatAuxView = currentProjectChatAuxView;
-    const watchCodePortalOpenChanged =
-      shouldOpenWatchCodePortal && !state.watchCodePortalOpen;
-
+    const activationDraft = createRevealActivationDraft(state, projectConfigId);
     for (const step of activationSteps ?? []) {
-      if (step.type === "run_instructions_accordion_item") {
-        const normalizedOpenValues =
-          normalizeRunInstructionsAccordionOpenValues([
-            ...nextRunInstructionsOpenValues,
-            step.itemValue,
-          ]);
-        if (
-          !areStringArraysEqual(
-            normalizedOpenValues,
-            nextRunInstructionsOpenValues,
-          )
-        ) {
-          nextRunInstructionsOpenValues = normalizedOpenValues;
-          runInstructionsChanged = true;
-        }
-        continue;
-      }
-      if (step.type === "project_ai_settings_accordion_item") {
-        const normalizedOpenValues =
-          normalizeProjectAISettingsAccordionOpenValues([
-            ...nextProjectAiOpenValues,
-            step.itemValue,
-          ]);
-        if (
-          !areStringArraysEqual(normalizedOpenValues, nextProjectAiOpenValues)
-        ) {
-          nextProjectAiOpenValues = normalizedOpenValues;
-          projectAiChanged = true;
-        }
-        if (nextProjectChatAuxView !== "ai_settings") {
-          nextProjectChatAuxView = "ai_settings";
-          projectChatAuxViewChanged = true;
-        }
-      }
+      applyRevealActivationStepToDraft(activationDraft, step);
     }
-
-    if (
-      !runInstructionsChanged &&
-      !projectAiChanged &&
-      !watchCodePortalOpenChanged &&
-      !projectChatAuxViewChanged
-    ) {
+    const nextState = buildRevealActivationLocalStorageState({
+      state,
+      projectConfigId,
+      activationDraft,
+      mutationDiff,
+      shouldOpenWatchCodePortal,
+    });
+    if (nextState === null) {
       return state;
-    }
-
-    const nextState: Partial<typeof state> = {};
-    if (watchCodePortalOpenChanged) {
-      nextState.watchCodePortalOpen = true;
-      mutationDiff.touchedWatchCodePortalOpen = true;
-    }
-    if (runInstructionsChanged) {
-      nextState.runInstructionsAccordionOpenValuesByProjectConfigId = {
-        ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
-        [projectConfigId]: nextRunInstructionsOpenValues,
-      };
-      mutationDiff.touchedRunInstructionsProjectConfigIds.add(projectConfigId);
-    }
-    if (projectAiChanged) {
-      nextState.projectAiSettingsAccordionOpenValuesByProjectConfigId = {
-        ...state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-        [projectConfigId]: nextProjectAiOpenValues,
-      };
-      mutationDiff.touchedProjectAiProjectConfigIds.add(projectConfigId);
-    }
-    if (projectChatAuxViewChanged) {
-      if (nextProjectChatAuxViewByProjectConfigId === null) {
-        nextProjectChatAuxViewByProjectConfigId = {
-          ...state.projectChatAuxViewByProjectConfigId,
-        };
-      }
-      if (nextProjectChatAuxView === "none") {
-        delete nextProjectChatAuxViewByProjectConfigId[projectConfigId];
-      } else {
-        nextProjectChatAuxViewByProjectConfigId[projectConfigId] =
-          nextProjectChatAuxView;
-      }
-      nextState.projectChatAuxViewByProjectConfigId =
-        nextProjectChatAuxViewByProjectConfigId;
-      mutationDiff.touchedProjectChatAuxViewProjectConfigIds.add(
-        projectConfigId,
-      );
     }
     return nextState;
   });
+}
+
+function createRevealActivationDraft(
+  state: LocalStorageState,
+  projectConfigId: string,
+): RevealActivationDraft {
+  return {
+    nextRunInstructionsOpenValues:
+      state.runInstructionsAccordionOpenValuesByProjectConfigId[
+        projectConfigId
+      ] ?? [],
+    nextProjectAiOpenValues:
+      state.projectAiSettingsAccordionOpenValuesByProjectConfigId[
+        projectConfigId
+      ] ?? [],
+    nextProjectChatAuxView:
+      state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none",
+    runInstructionsChanged: false,
+    projectAiChanged: false,
+    projectChatAuxViewChanged: false,
+  };
+}
+
+function applyRevealActivationStepToDraft(
+  activationDraft: RevealActivationDraft,
+  step: UISettingRevealActivationStep,
+): void {
+  if (step.type === "run_instructions_accordion_item") {
+    const normalizedOpenValues = normalizeRunInstructionsAccordionOpenValues([
+      ...activationDraft.nextRunInstructionsOpenValues,
+      step.itemValue,
+    ]);
+    if (
+      !areStringArraysEqual(
+        normalizedOpenValues,
+        activationDraft.nextRunInstructionsOpenValues,
+      )
+    ) {
+      activationDraft.nextRunInstructionsOpenValues = normalizedOpenValues;
+      activationDraft.runInstructionsChanged = true;
+    }
+    return;
+  }
+  if (step.type !== "project_ai_settings_accordion_item") {
+    return;
+  }
+  const normalizedOpenValues = normalizeProjectAISettingsAccordionOpenValues([
+    ...activationDraft.nextProjectAiOpenValues,
+    step.itemValue,
+  ]);
+  if (
+    !areStringArraysEqual(
+      normalizedOpenValues,
+      activationDraft.nextProjectAiOpenValues,
+    )
+  ) {
+    activationDraft.nextProjectAiOpenValues = normalizedOpenValues;
+    activationDraft.projectAiChanged = true;
+  }
+  if (activationDraft.nextProjectChatAuxView !== "ai_settings") {
+    activationDraft.nextProjectChatAuxView = "ai_settings";
+    activationDraft.projectChatAuxViewChanged = true;
+  }
+}
+
+function buildRevealActivationLocalStorageState({
+  state,
+  projectConfigId,
+  activationDraft,
+  mutationDiff,
+  shouldOpenWatchCodePortal,
+}: {
+  state: LocalStorageState;
+  projectConfigId: string;
+  activationDraft: RevealActivationDraft;
+  mutationDiff: RevealMutationDiff;
+  shouldOpenWatchCodePortal: boolean;
+}): Partial<LocalStorageState> | null {
+  const watchCodePortalOpenChanged =
+    shouldOpenWatchCodePortal && !state.watchCodePortalOpen;
+  if (
+    !hasRevealActivationLocalStorageChanges(
+      activationDraft,
+      watchCodePortalOpenChanged,
+    )
+  ) {
+    return null;
+  }
+  const nextState: Partial<LocalStorageState> = {};
+  if (watchCodePortalOpenChanged) {
+    nextState.watchCodePortalOpen = true;
+    mutationDiff.touchedWatchCodePortalOpen = true;
+  }
+  if (activationDraft.runInstructionsChanged) {
+    nextState.runInstructionsAccordionOpenValuesByProjectConfigId = {
+      ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
+      [projectConfigId]: activationDraft.nextRunInstructionsOpenValues,
+    };
+    mutationDiff.touchedRunInstructionsProjectConfigIds.add(projectConfigId);
+  }
+  if (activationDraft.projectAiChanged) {
+    nextState.projectAiSettingsAccordionOpenValuesByProjectConfigId = {
+      ...state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+      [projectConfigId]: activationDraft.nextProjectAiOpenValues,
+    };
+    mutationDiff.touchedProjectAiProjectConfigIds.add(projectConfigId);
+  }
+  if (activationDraft.projectChatAuxViewChanged) {
+    const nextProjectChatAuxViewByProjectConfigId =
+      buildProjectChatAuxViewRevealState({
+        currentProjectChatAuxViewByProjectConfigId:
+          state.projectChatAuxViewByProjectConfigId,
+        projectConfigId,
+        nextProjectChatAuxView: activationDraft.nextProjectChatAuxView,
+      });
+    nextState.projectChatAuxViewByProjectConfigId =
+      nextProjectChatAuxViewByProjectConfigId;
+    mutationDiff.touchedProjectChatAuxViewProjectConfigIds.add(projectConfigId);
+  }
+  return nextState;
+}
+
+function hasRevealActivationLocalStorageChanges(
+  activationDraft: RevealActivationDraft,
+  watchCodePortalOpenChanged: boolean,
+): boolean {
+  return (
+    activationDraft.runInstructionsChanged ||
+    activationDraft.projectAiChanged ||
+    watchCodePortalOpenChanged ||
+    activationDraft.projectChatAuxViewChanged
+  );
+}
+
+function buildProjectChatAuxViewRevealState({
+  currentProjectChatAuxViewByProjectConfigId,
+  projectConfigId,
+  nextProjectChatAuxView,
+}: {
+  currentProjectChatAuxViewByProjectConfigId: LocalStorageState["projectChatAuxViewByProjectConfigId"];
+  projectConfigId: string;
+  nextProjectChatAuxView: ProjectChatAuxViewState;
+}): LocalStorageState["projectChatAuxViewByProjectConfigId"] {
+  const nextProjectChatAuxViewByProjectConfigId = {
+    ...currentProjectChatAuxViewByProjectConfigId,
+  };
+  if (nextProjectChatAuxView === "none") {
+    delete nextProjectChatAuxViewByProjectConfigId[projectConfigId];
+    return nextProjectChatAuxViewByProjectConfigId;
+  }
+  nextProjectChatAuxViewByProjectConfigId[projectConfigId] =
+    nextProjectChatAuxView;
+  return nextProjectChatAuxViewByProjectConfigId;
 }
 
 function resolveProjectConfigIdForActivation(
