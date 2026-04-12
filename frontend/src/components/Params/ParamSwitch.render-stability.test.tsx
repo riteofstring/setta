@@ -20,17 +20,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const renderCalls = vi.hoisted(() => ({
   paramContainer: vi.fn(),
-}));
-
-vi.mock("forks/dnd-kit/adapter", () => ({
-  useSortable: () => ({
+  useParamDndContext: vi.fn(() => null),
+  useSortable: vi.fn(() => ({
     attributes: {},
     listeners: {},
     setNodeRef: vi.fn(),
     transform: null,
     transition: undefined,
     isDragging: false,
-  }),
+  })),
+}));
+
+vi.mock("forks/dnd-kit/adapter", () => ({
+  useSortable: renderCalls.useSortable,
+}));
+
+vi.mock("./ParamDndContext", () => ({
+  useParamDndContext: renderCalls.useParamDndContext,
 }));
 
 vi.mock("./ParamContainer", () => ({
@@ -184,6 +190,9 @@ describe("ParamSwitch render stability", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     renderCalls.paramContainer.mockClear();
+    renderCalls.useParamDndContext.mockReset();
+    renderCalls.useParamDndContext.mockReturnValue(null);
+    renderCalls.useSortable.mockClear();
   });
 
   afterEach(async () => {
@@ -230,5 +239,60 @@ describe("ParamSwitch render stability", () => {
     });
 
     expect(renderCalls.paramContainer).toHaveBeenCalledTimes(1);
+  });
+
+  it("bypasses sortable wiring when param drag is inactive", async () => {
+    const { paramId, sectionId } = seedParamSwitchState();
+
+    await act(async () => {
+      root.render(
+        <ParamSwitch
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          requiredParamIdsToPaths={{ [paramId]: [paramId] }}
+          onResizeStart={vi.fn()}
+          isTopLevelWithPad={false}
+          listKey="unpinned"
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(renderCalls.useSortable).not.toHaveBeenCalled();
+    expect(renderCalls.paramContainer).toHaveBeenCalledTimes(1);
+    expect(renderCalls.paramContainer.mock.calls[0]?.[0]).toMatchObject({
+      dndAttributes: undefined,
+      dndListeners: undefined,
+      dndStyle: undefined,
+      dndClassName: "",
+    });
+  });
+
+  it("keeps sortable wiring when param drag is active", async () => {
+    const { paramId, sectionId } = seedParamSwitchState();
+    renderCalls.useParamDndContext.mockReturnValue({
+      enabled: true,
+      listKey: "unpinned",
+      sectionId,
+    });
+
+    await act(async () => {
+      root.render(
+        <ParamSwitch
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          requiredParamIdsToPaths={{ [paramId]: [paramId] }}
+          onResizeStart={vi.fn()}
+          isTopLevelWithPad={false}
+          listKey="unpinned"
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(renderCalls.useSortable).toHaveBeenCalledTimes(1);
+    expect(renderCalls.paramContainer.mock.calls[0]?.[0]).toMatchObject({
+      dndClassName: "",
+    });
   });
 });

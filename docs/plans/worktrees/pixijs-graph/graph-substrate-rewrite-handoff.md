@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 08:13 UTC
+Last updated: 2026-04-14 08:53 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,156 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `457` landed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by bypassing dormant sortable wiring for
+  real param rows when param drag is inactive:
+  - local ranking/readout for this iteration:
+    - reread `RALPH.md`, the plan, and the handoff first, then checked the
+      recent lane pattern before choosing the next slice; the latest two
+      completed passes (`455`, `456`) were one real `GroupContainer` cut and
+      one attribution split, so this iteration took one production step inside
+      the newly isolated unpinned row hotspot instead of extending the oracle
+      lane again
+    - chose the inactive sortable seam because the normal canary keeps param
+      drag off, yet each real row still entered `useSortable(...)` through
+      `ParamSwitch`, which was a plausible per-row cost inside the unpinned
+      subtree
+    - kept the slice bounded to one production branch in `ParamSwitch`, one
+      focused render-stability regression, one canonical live probe rerun, one
+      append-only perf report, and one fresh-context CDP visual confirmation
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+      now routes real rows through a static non-sortable path whenever
+      `useParamDndContext()?.enabled` is false, preserving the sortable path
+      only for active param-drag mode
+    - `frontend/src/components/Params/ParamSwitch.render-stability.test.tsx`
+      now proves the inactive path bypasses `useSortable(...)` while the
+      active path still keeps sortable wiring
+    - `perf/reports/frontend/2026-04-14_settings-graph-inactive-param-sortable-bypass.md`
+      records the canonical readout and closes this as a non-winning live
+      hypothesis
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.test.tsx`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.render-stability.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-017/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.8m`)
+      -> fresh readout versus item `456`:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `531.6ms total` / `72.7ms max` -> `553.0ms total` / `119.1ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `464.6ms total` / `68.6ms max` -> `489.4ms total` / `110.9ms max`
+         `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+         `444.6ms total` / `64.7ms max` -> `466.2ms total` / `103.8ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `243.5ms total` / `12.2ms max` -> `303.3ms total` / `75.0ms max`
+         `averageFrameDurationMs`
+         `40.15` -> `42.63`
+         `longTaskTotalDurationMs`
+         `1145` -> `1215`
+  - CDP verification:
+    - fresh-context sub-agent reached `http://127.0.0.1:3075/settings`,
+      saw `All Settings`, and found no error-level console messages
+    - after using the built-in `fit view`, the canonical target
+      `rotaryParamCodeObjDefault` was still not visually confirmable at normal
+      zoom and the main graph surface looked empty/unstyled in the viewport
+    - non-error console noise was limited to Vite debug messages, one React
+      Router warning, and two page issues (`form field element should have an
+      id or name attribute`, `aria-labelledby` mismatch)
+    - status for this iteration: `CDP visual check failed`
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - close the inactive-sortable hypothesis on this lane; it is a production
+      simplification, but it is not a live win and should not get another
+      follow-up pass without fresh attribution
+    - the next bounded product slice should move higher in the still-dominant
+      row/body subtree rather than stacking more inactive-drag micro-cuts
+      inside `ParamSwitch`
+    - treat the current worktree canary as visually unhealthy until a fresh
+      normalized check can again show `rotaryParamCodeObjDefault` on the graph
+      surface at normal zoom
+
+- item `456` split the merged param-row attribution owner on the canonical
+  `rotaryParamCodeObjDefault` lane so the live probe now names pinned versus
+  unpinned row cost inside `ParamGroupContainer`:
+  - local ranking/readout for this iteration:
+    - reread `RALPH.md`, the plan, and the handoff first, then checked the
+      recent lane pattern before choosing the next slice; the latest two
+      completed passes (`454`, `455`) were both real `GroupContainer` cuts, so
+      this iteration did not take another memo boundary by habit
+    - chose a bounded attribution split inside `ParamDndList` because the
+      merged `presentedSceneSectionParamDndListRowsReactRender` bucket still
+      masked whether the remaining row cost was pinned, unpinned, or both
+    - kept the slice bounded to one instrumentation seam, focused owner-map
+      updates/tests, one canonical live probe rerun, one append-only perf
+      report, and the required CDP retry path
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Params/ParamDndList.tsx`
+      now records separate row owners for `pinned` versus `unpinned`
+      `ParamDndList` renders
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      plus focused tests/allowlists now recognize
+      `presentedSceneSectionPinnedParamDndListRowsReactRender` and
+      `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+    - `perf/reports/frontend/2026-04-14_settings-graph-param-row-owner-split-attribution.md`
+      records the new canonical readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-016/worktree-ai.log`
+      -> first attempt failed on a recoverable Playwright page/context closure
+         during pane normalization
+      -> second bounded retry passed (`1` Playwright test, `52.0s`)
+      -> fresh readout:
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `531.6ms total` / `72.7ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `464.6ms total` / `68.6ms max`
+         `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+         `444.6ms total` / `64.7ms max`
+         `presentedSceneSectionPinnedParamDndListRowsReactRender`
+         `0ms total` / `0ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `243.5ms total` / `12.2ms max`
+         `averageFrameDurationMs`
+         `40.15`
+         `longTaskTotalDurationMs`
+         `1145`
+  - CDP verification:
+    - first fresh-context sub-agent reached `http://127.0.0.1:3075/settings`,
+      saw `All Settings`, and found no error-level console messages, but the
+      `rotaryParamCodeObjDefault` visibility check aborted before completion
+    - bounded lifecycle recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> refreshed worktree frontend `http://127.0.0.1:3075/`, backend
+         `http://127.0.0.1:8075`, session `006678`, debug port `9297`
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-016/worktree-ai.log`
+      -> confirmed refreshed runtime facts after the restart
+    - post-restart fresh-context sub-agent again reached `/settings`, saw
+      `All Settings`, and found only Vite/React DevTools info messages in the
+      console, but the `rotaryParamCodeObjDefault` visibility confirmation
+      still aborted before completion
+    - status for this iteration: `CDP visual check blocked`
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - the row-heavy residual cost on this lane is unpinned-only; pinned rows do
+      not contribute measurable render time on the current canary
+    - the next bounded product slice should not guess at pinned-path work; it
+      should either reduce
+      `presentedSceneSectionUnpinnedParamDndListRowsReactRender` directly or
+      take a production cut that trims
+      `presentedSceneSectionParamGroupContainerReactRender` overhead above that
+      unpinned row subtree
+    - CDP tooling remains the blocker for closing the visual gate on this
+      slice; do not claim visual completion until a fresh-context DevTools
+      check can finish the target-section visibility confirmation
 
 - item `455` landed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` lane by isolating unpinned scrollability observer

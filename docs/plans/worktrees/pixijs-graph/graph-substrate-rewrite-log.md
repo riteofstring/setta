@@ -3834,6 +3834,91 @@ LOOP_TERMINAL_MARKER: none
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 - item 456 - Param row owner split attribution
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the latest two completed passes (`454`, `455`) were both real
+    `GroupContainer` cuts, so the next bounded move should not have been
+    another memo boundary by habit
+  - chose a tighter attribution split in `ParamDndList` because the merged
+    `presentedSceneSectionParamDndListRowsReactRender` bucket still hid
+    whether pinned or unpinned rows dominated the remaining
+    `ParamGroupContainer` hotspot
+- selected one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - replace the merged row owner with explicit pinned and unpinned row owners
+    so the live worktree probe can name the remaining row-heavy branch before
+    the next product cut
+- code/doc changes kept in tree:
+  - `frontend/src/components/Params/ParamDndList.tsx`
+    - now records separate row owners for `pinned` and `unpinned`
+      `ParamDndList` renders
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    - now exposes
+      `presentedSceneSectionPinnedParamDndListRowsReactRender` and
+      `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+  - `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - all updated so the new owners are covered and accepted by the live probe
+  - `perf/reports/frontend/2026-04-14_settings-graph-param-row-owner-split-attribution.md`
+    - records the canonical readout and the resulting next frontier
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts`
+    -> passed (`3` files, `10` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphMotionAttributionRanking.test.ts tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+- canonical live probe:
+  - first run:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-016/worktree-ai.log`
+    -> failed on a recoverable Playwright page/context closure during pane
+       normalization (`graphSubstrateParityProbe.ts:222`)
+  - bounded retry:
+    -> passed (`1` Playwright test, `52.0s`)
+    -> fresh readout:
+      - `presentedSceneSectionParamGroupContainerReactRender`
+        `531.6ms total` / `72.7ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `464.6ms total` / `68.6ms max`
+      - `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+        `444.6ms total` / `64.7ms max`
+      - `presentedSceneSectionPinnedParamDndListRowsReactRender`
+        `0ms total` / `0ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `243.5ms total` / `12.2ms max`
+      - `averageFrameDurationMs`
+        `40.15`
+      - `longTaskTotalDurationMs`
+        `1145`
+- CDP verification:
+  - first fresh-context sub-agent reached `/settings`, saw `All Settings`, and
+    found no error-level console messages, but the target-section visibility
+    check aborted before completion
+  - bounded lifecycle recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> restarted the worktree runtime and DevTools Chrome on port `9297`
+  - runtime refresh:
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-016/worktree-ai.log`
+    -> refreshed frontend `http://127.0.0.1:3075/`, backend
+       `http://127.0.0.1:8075`, bootstrap URL, session `006678`, and debug
+       port `9297`
+  - post-restart fresh-context sub-agent again reached `/settings`, saw
+    `All Settings`, and found only Vite/React DevTools info console messages,
+    but `rotaryParamCodeObjDefault` visibility confirmation still aborted
+  - CDP visual gate remained blocked after the one allowed self-recovery
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - the remaining row-heavy cost on this lane is unpinned-only; pinned rows do
+    not contribute measurable render time on the current canary
+  - the next bounded product slice should stay on the unpinned row or
+    `ParamGroupContainer` lane, not reopen pinned-path guesses
+  - no commit this iteration because the required CDP visual check could not be
+    completed after the allowed recovery attempt
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 - item 447 - pane-state local-storage fast path
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first, then stayed on
@@ -18654,6 +18739,77 @@ LOOP_TERMINAL_MARKER: none
     split by default; the next bounded pass should either add fresh
     attribution inside `presentedSceneSectionParamGroupContainerReactRender`
     or choose a meaningfully different production seam in that hotspot
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 - item 457 - Inactive param sortable bypass
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the last two completed iterations were one real product cut (`455`) and
+    one attribution split (`456`), so the next bounded move was one production
+    cut inside the isolated unpinned row hotspot rather than a third oracle
+    pass on the same lane
+  - chose the inactive sortable seam because the normal canary keeps param
+    drag off, yet every real row still entered `useSortable(...)` through
+    `ParamSwitch`, which was a plausible per-row cost in the remaining
+    unpinned-row bucket
+- selected one bounded product slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - route real param rows through a static non-sortable path whenever param
+    drag is inactive so the normal canary no longer pays dormant sortable-hook
+    wiring inside `ParamSwitch`
+- code/doc changes kept in tree:
+  - `frontend/src/components/Params/ParamSwitch.tsx`
+    - now branches real rows to a static path when
+      `useParamDndContext()?.enabled` is false and keeps the sortable path only
+      for active param-drag mode
+  - `frontend/src/components/Params/ParamSwitch.render-stability.test.tsx`
+    - now proves the inactive path bypasses `useSortable(...)` while the
+      active path still wires sortable behavior
+  - `perf/reports/frontend/2026-04-14_settings-graph-inactive-param-sortable-bypass.md`
+    - records the canonical readout and closes this as a non-winning live
+      hypothesis
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/ParamSwitch.test.tsx`
+    -> passed (`2` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/ParamSwitch.tsx src/components/Params/ParamSwitch.render-stability.test.tsx`
+    -> passed
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-017/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.8m`)
+    -> fresh readout versus item `456`:
+      - `presentedSceneSectionParamGroupContainerReactRender`
+        `531.6ms total` / `72.7ms max` -> `553.0ms total` / `119.1ms max`
+      - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+        `464.6ms total` / `68.6ms max` -> `489.4ms total` / `110.9ms max`
+      - `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+        `444.6ms total` / `64.7ms max` -> `466.2ms total` / `103.8ms max`
+      - `presentedSceneSectionParamInputReactRender`
+        `243.5ms total` / `12.2ms max` -> `303.3ms total` / `75.0ms max`
+      - `averageFrameDurationMs`
+        `40.15` -> `42.63`
+      - `longTaskTotalDurationMs`
+        `1145` -> `1215`
+- CDP verification:
+  - fresh-context sub-agent checked `http://127.0.0.1:3075/settings` directly
+    in headless DevTools MCP
+  - `All Settings` loaded and there were no error-level console messages
+  - after using the built-in `fit view`, the canonical target
+    `rotaryParamCodeObjDefault` still was not visually confirmable at normal
+    zoom and the main graph surface looked empty/unstyled in the viewport
+  - non-error console noise was limited to Vite debug messages, one React
+    Router warning, and two page issues (`form field element should have an id
+    or name attribute`, `aria-labelledby` mismatch)
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - close the inactive-sortable hypothesis on this lane; it is a production
+    simplification, but it is not a live win and should not get another pass
+    without fresh attribution
+  - the next real frontier should move higher in the dominant row/body subtree
+    instead of stacking more inactive-drag micro-cuts in `ParamSwitch`
+  - the live worktree canary is currently visually unhealthy on the CDP check;
+    the next iteration should first re-establish a trustworthy normalized view
+    of `rotaryParamCodeObjDefault` before making any new renderer claims
 - LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-14 - item 450 - Section entry body memo boundary

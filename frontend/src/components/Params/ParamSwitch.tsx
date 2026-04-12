@@ -212,6 +212,7 @@ export function TempParamSwitch({
 export const ParamSwitch = memo(_ParamSwitch, areParamSwitchPropsEqual);
 function RealParamSwitch(props: ParamSwitchProps) {
   const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
+  const dndEnabled = Boolean(useParamDndContext()?.enabled);
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -338,8 +339,40 @@ function RealParamSwitch(props: ParamSwitchProps) {
     paramChildren,
   };
 
+  if (!dndEnabled) {
+    return <StaticRealParamSwitchRow {...sharedProps} />;
+  }
+
   return <SortableRealParamSwitchRow {...sharedProps} />;
 }
+
+function StaticRealParamSwitchRow(
+  props: ParamSwitchProps & {
+    bg: string;
+    border: string;
+    isKwarg: boolean;
+    isNestedParam: boolean;
+    label: React.ReactNode;
+    maybeErrorMessage: string;
+    onClick: React.MouseEventHandler;
+    onMouseDown: React.MouseEventHandler;
+    paramChildren: string[];
+  },
+) {
+  return (
+    <ParamContainer
+      {...props}
+      dndAttributes={undefined}
+      dndListeners={undefined}
+      dndRef={undefined}
+      dndStyle={undefined}
+      dndClassName=""
+    >
+      {props.label}
+    </ParamContainer>
+  );
+}
+
 function SortableRealParamSwitchRow({
   sectionId,
   paramInfoId,
