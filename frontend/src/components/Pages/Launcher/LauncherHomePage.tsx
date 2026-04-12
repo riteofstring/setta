@@ -29,17 +29,14 @@ type DirectoryEntry = NonNullable<
 type RecentWorkspaceEntry = NonNullable<
   GetLauncherRecentWorkspacesResponse["workspaces"]
 >[number];
-export function normalizeNewProjectName(rawValue: string): string {
+function normalizeNewProjectName(rawValue: string): string {
   return rawValue.trim().replace(/[\\/]+/g, "");
 }
-export function isReservedProjectName(rawValue: string): boolean {
+function isReservedProjectName(rawValue: string): boolean {
   const normalized = normalizeNewProjectName(rawValue);
   return normalized === "." || normalized === "..";
 }
-export function joinLauncherPath(
-  parentPath: string,
-  childName: string,
-): string {
+function joinLauncherPath(parentPath: string, childName: string): string {
   const normalizedParent = parentPath.trim();
   const normalizedChild = normalizeNewProjectName(childName);
   if (!normalizedParent) {
@@ -127,7 +124,7 @@ const launcherInputClassName =
   "w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100";
 const launcherPrimaryButtonClassName =
   "rounded-full bg-setta-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-setta-800 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-setta-600";
-export function applyDirectoryListingPage({
+function applyDirectoryListingPage({
   previousEntries,
   payload,
   append,
@@ -159,7 +156,7 @@ export function applyDirectoryListingPage({
   };
 }
 
-export function resolveDirectoryListingLoadResult(
+function resolveDirectoryListingLoadResult(
   response: LauncherListDirectoryRouteResponse,
 ): DirectoryListingLoadResult {
   if (!res200(response) || !response.data) {
