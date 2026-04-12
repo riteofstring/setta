@@ -12,11 +12,16 @@ import {
   type Core,
   type Variant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ParamGroupContainer,
   getPinnedParamsBgClassName,
+  resolveUnpinnedParamsAreaMinHeight,
 } from "./GroupContainer";
+
+vi.mock("./ParamDndList", () => ({
+  ParamDndList: () => <div data-testid="param-dnd-list" />,
+}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -43,6 +48,22 @@ describe("getPinnedParamsBgClassName", () => {
   it("uses a pure white background for callable sections", () => {
     const result = getPinnedParamsBgClassName(SectionTypeEnum.Callable);
     expect(result).toBe("bg-white dark:bg-blue-950/30");
+  });
+});
+
+describe("resolveUnpinnedParamsAreaMinHeight", () => {
+  it("normalizes the legacy stored default back to the current default", () => {
+    const sizingPolicy = createSettingsState().sectionSizingPolicy;
+    sizingPolicy.globals.unpinnedParamsAreaMinHeight = 38;
+
+    expect(resolveUnpinnedParamsAreaMinHeight(sizingPolicy, false)).toBe(36);
+  });
+
+  it("preserves explicit custom heights instead of forcing the default", () => {
+    const sizingPolicy = createSettingsState().sectionSizingPolicy;
+    sizingPolicy.globals.unpinnedParamsAreaMinHeight = 52;
+
+    expect(resolveUnpinnedParamsAreaMinHeight(sizingPolicy, true)).toBe(52);
   });
 });
 
