@@ -150,6 +150,16 @@ type ResolveProjectChatThreadVisibilityFromResizeInput = {
   explicitlyClosedAtLargeWidth: boolean;
 };
 
+type ResolveProjectChatConversationDataSourceInput = {
+  chatId: string | null | undefined;
+  hasPendingDetails: boolean;
+};
+
+type ProjectChatConversationDataSource =
+  | { kind: "active"; chatId: string }
+  | { kind: "pending" }
+  | { kind: "empty" };
+
 type ResolveProjectChatEngineConfigIdForSelectedChatInput = {
   chatId: string | null | undefined;
   selectedEngineId: string | null;
@@ -245,19 +255,99 @@ export function resolveProjectChatThreadVisibilityFromResize({
 }: ResolveProjectChatThreadVisibilityFromResizeInput): boolean | null {
   const preserveWideLayoutPreference =
     viewThreads || explicitlyClosedAtLargeWidth;
-  if (isInitialRun) {
-    if (isLargeEnoughForInlineThreads) {
-      return preserveWideLayoutPreference ? null : true;
-    }
-    return viewThreads ? false : null;
-  }
-  if (wasLargeEnoughForInlineThreads === isLargeEnoughForInlineThreads) {
+  const shouldReactToResize =
+    isInitialRun ||
+    wasLargeEnoughForInlineThreads !== isLargeEnoughForInlineThreads;
+  if (!shouldReactToResize) {
     return null;
   }
-  if (!isLargeEnoughForInlineThreads) {
-    return viewThreads ? false : null;
+  if (isLargeEnoughForInlineThreads && !preserveWideLayoutPreference) {
+    return true;
   }
-  return preserveWideLayoutPreference ? null : true;
+  if (!isLargeEnoughForInlineThreads && viewThreads) {
+    return false;
+  }
+  return null;
+}
+
+export function resolveProjectChatConversationDataSource({
+  chatId,
+  hasPendingDetails,
+}: ResolveProjectChatConversationDataSourceInput): ProjectChatConversationDataSource {
+  if (chatId === null) {
+    return { kind: "pending" };
+  }
+  if (typeof chatId === "string") {
+    return { kind: "active", chatId };
+  }
+  if (hasPendingDetails) {
+    return { kind: "pending" };
+  }
+  return { kind: "empty" };
+}
+
+const EMPTY_CHAT_MESSAGES: Array<BaseChatMessageUnion> = [];
+
+export function resolveProjectChatMessagesForSurface({
+  source,
+  pendingDetails,
+  chatDetails,
+}: {
+  source: ProjectChatConversationDataSource;
+  pendingDetails: { messages: Array<BaseChatMessageUnion> } | null;
+  chatDetails: Record<string, { messages: Array<BaseChatMessageUnion> }>;
+}): Array<BaseChatMessageUnion> {
+  if (source.kind === "pending") {
+    return pendingDetails?.messages ?? EMPTY_CHAT_MESSAGES;
+  }
+  if (source.kind === "active") {
+    return chatDetails[source.chatId]?.messages ?? EMPTY_CHAT_MESSAGES;
+  }
+  return EMPTY_CHAT_MESSAGES;
+}
+
+export function resolveProjectChatAppGenerationDetailsForSurface({
+  source,
+  pendingAppGenerationDetails,
+  chatAppGenerationDetailsByChatId,
+}: {
+  source: ProjectChatConversationDataSource;
+  pendingAppGenerationDetails: ReturnType<
+    typeof getDefaultChatAppGenerationDetails
+  > | null;
+  chatAppGenerationDetailsByChatId: Record<
+    string,
+    ReturnType<typeof getDefaultChatAppGenerationDetails>
+  >;
+}): ReturnType<typeof getDefaultChatAppGenerationDetails> {
+  if (source.kind === "pending") {
+    return pendingAppGenerationDetails ?? getDefaultChatAppGenerationDetails();
+  }
+  if (source.kind === "active") {
+    return (
+      chatAppGenerationDetailsByChatId[source.chatId] ??
+      getDefaultChatAppGenerationDetails()
+    );
+  }
+  return getDefaultChatAppGenerationDetails();
+}
+
+export function resolveProjectChatWaitingForResponseForSurface({
+  source,
+  pendingDetails,
+  chatDetails,
+}: {
+  source: ProjectChatConversationDataSource;
+  pendingDetails: { waitingForResponse: boolean } | null;
+  chatDetails: Record<string, { waitingForResponse: boolean }>;
+}): boolean {
+  if (source.kind === "pending") {
+    return Boolean(pendingDetails?.waitingForResponse);
+  }
+  if (source.kind === "active") {
+    return Boolean(chatDetails[source.chatId]?.waitingForResponse);
+  }
+  return false;
 }
 
 export function resolveProjectChatEngineConfigIdForSelectedChat({
@@ -677,49 +767,43 @@ function ProjectChatSurface({
   const activeConversationMessages = useAIStore((state) => {
     const pendingDetails =
       state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
-    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
-      const pendingMessages = pendingDetails?.messages;
-      if (Array.isArray(pendingMessages)) {
-        return pendingMessages as Array<BaseChatMessageUnion>;
-      }
-      return [];
-    }
-    if (typeof chatId !== "string") {
-      return [];
-    }
-    const activeMessages = state.chatDetails[chatId]?.messages;
-    if (Array.isArray(activeMessages)) {
-      return activeMessages as Array<BaseChatMessageUnion>;
-    }
-    return [];
+    const source = resolveProjectChatConversationDataSource({
+      chatId,
+      hasPendingDetails: pendingDetails !== null,
+    });
+    return resolveProjectChatMessagesForSurface({
+      source,
+      pendingDetails,
+      chatDetails: state.chatDetails,
+    });
   });
   const activeConversationAppGenerationDetails = useAIStore((state) => {
     const pendingDetails =
       state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
-    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
-      return (
+    const source = resolveProjectChatConversationDataSource({
+      chatId,
+      hasPendingDetails: pendingDetails !== null,
+    });
+    return resolveProjectChatAppGenerationDetailsForSurface({
+      source,
+      pendingAppGenerationDetails:
         state.pendingChatAppGenerationDetailsBySurfaceId[resolvedSurfaceId] ??
-        getDefaultChatAppGenerationDetails()
-      );
-    }
-    if (typeof chatId !== "string") {
-      return getDefaultChatAppGenerationDetails();
-    }
-    return (
-      state.chatAppGenerationDetailsByChatId[chatId] ??
-      getDefaultChatAppGenerationDetails()
-    );
+        null,
+      chatAppGenerationDetailsByChatId: state.chatAppGenerationDetailsByChatId,
+    });
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
     const pendingDetails =
       state.pendingChatDetailsBySurfaceId[resolvedSurfaceId] ?? null;
-    if (chatId === null || (typeof chatId !== "string" && pendingDetails)) {
-      return Boolean(pendingDetails?.waitingForResponse);
-    }
-    if (typeof chatId !== "string") {
-      return false;
-    }
-    return Boolean(state.chatDetails[chatId]?.waitingForResponse);
+    const source = resolveProjectChatConversationDataSource({
+      chatId,
+      hasPendingDetails: pendingDetails !== null,
+    });
+    return resolveProjectChatWaitingForResponseForSurface({
+      source,
+      pendingDetails,
+      chatDetails: state.chatDetails,
+    });
   });
 
   const {
