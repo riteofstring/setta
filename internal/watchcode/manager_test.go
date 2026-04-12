@@ -44,15 +44,16 @@ func TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs(t *testing.T) {
 		t.Fatalf("sync configs: %v", err)
 	}
 
-	snapshots := manager.ConfigSnapshots()
+	snapshots := manager.configSnapshots
 	snapshot, ok := snapshots["project-alpha"]
 	if !ok {
 		t.Fatalf("expected project snapshot, got %#v", snapshots)
 	}
 	expectedSnapshot := ConfigSnapshot{
-		Enabled: true,
-		Files:   []string{watchFile},
-		Folders: []FolderInput{{Path: pkgDir, Recursive: false}},
+		Enabled:      true,
+		Files:        []string{watchFile},
+		Folders:      []FolderInput{{Path: pkgDir, Recursive: false}},
+		IgnoredRoots: []string{},
 	}
 	if !reflect.DeepEqual(snapshot, expectedSnapshot) {
 		t.Fatalf("expected snapshot %#v, got %#v", expectedSnapshot, snapshot)
@@ -61,11 +62,11 @@ func TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs(t *testing.T) {
 		scriptsDir: false,
 		pkgDir:     false,
 	}
-	if !reflect.DeepEqual(manager.DesiredWatchDirs(), expectedDesired) {
-		t.Fatalf("expected desired watch dirs %#v, got %#v", expectedDesired, manager.DesiredWatchDirs())
+	if !reflect.DeepEqual(desiredWatchDirsFromSnapshots(manager.configSnapshots), expectedDesired) {
+		t.Fatalf("expected desired watch dirs %#v, got %#v", expectedDesired, desiredWatchDirsFromSnapshots(manager.configSnapshots))
 	}
-	if !reflect.DeepEqual(manager.WatchedDirs(), expectedDesired) {
-		t.Fatalf("expected watched dirs %#v, got %#v", expectedDesired, manager.WatchedDirs())
+	if !reflect.DeepEqual(manager.watchedDirs, expectedDesired) {
+		t.Fatalf("expected watched dirs %#v, got %#v", expectedDesired, manager.watchedDirs)
 	}
 	if manager.PathMatchesWatchInputs("project-alpha", watchFile) != true {
 		t.Fatal("expected tracked file to match watch inputs")
@@ -105,8 +106,8 @@ func TestManagerSyncConfigsUpgradesRecursiveFolders(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("sync non-recursive config: %v", err)
 	}
-	if recursive := manager.WatchedDirs()[pkgDir]; recursive {
-		t.Fatalf("expected initial watch dir to stay non-recursive, got %#v", manager.WatchedDirs())
+	if recursive := manager.watchedDirs[pkgDir]; recursive {
+		t.Fatalf("expected initial watch dir to stay non-recursive, got %#v", manager.watchedDirs)
 	}
 	if manager.PathMatchesWatchInputs("project-alpha", nestedChild) {
 		t.Fatal("expected nested child to miss non-recursive folder")
@@ -120,8 +121,8 @@ func TestManagerSyncConfigsUpgradesRecursiveFolders(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("sync recursive config: %v", err)
 	}
-	if recursive := manager.WatchedDirs()[pkgDir]; !recursive {
-		t.Fatalf("expected recursive watch dir, got %#v", manager.WatchedDirs())
+	if recursive := manager.watchedDirs[pkgDir]; !recursive {
+		t.Fatalf("expected recursive watch dir, got %#v", manager.watchedDirs)
 	}
 	if !manager.PathMatchesWatchInputs("project-alpha", nestedChild) {
 		t.Fatal("expected nested child to match recursive folder")
@@ -152,11 +153,11 @@ func TestManagerSyncConfigsUsesExistingAncestorForMissingDirs(t *testing.T) {
 		t.Fatalf("sync configs: %v", err)
 	}
 
-	if !reflect.DeepEqual(manager.PendingDirs(), []string{missingDir}) {
-		t.Fatalf("expected pending dir %q, got %#v", missingDir, manager.PendingDirs())
+	if !reflect.DeepEqual(manager.pendingDirs, map[string]struct{}{missingDir: {}}) {
+		t.Fatalf("expected pending dir %q, got %#v", missingDir, manager.pendingDirs)
 	}
-	if !reflect.DeepEqual(manager.WatchedDirs(), map[string]bool{existingAncestor: false}) {
-		t.Fatalf("expected ancestor watch dir, got %#v", manager.WatchedDirs())
+	if !reflect.DeepEqual(manager.watchedDirs, map[string]bool{existingAncestor: false}) {
+		t.Fatalf("expected ancestor watch dir, got %#v", manager.watchedDirs)
 	}
 
 	if err := os.MkdirAll(missingDir, 0o755); err != nil {
@@ -166,11 +167,11 @@ func TestManagerSyncConfigsUsesExistingAncestorForMissingDirs(t *testing.T) {
 		t.Fatalf("handle directory created: %v", err)
 	}
 
-	if pending := manager.PendingDirs(); len(pending) != 0 {
+	if pending := manager.pendingDirs; len(pending) != 0 {
 		t.Fatalf("expected no pending dirs after creation, got %#v", pending)
 	}
-	if !reflect.DeepEqual(manager.WatchedDirs(), map[string]bool{missingDir: false}) {
-		t.Fatalf("expected new watch dir after creation, got %#v", manager.WatchedDirs())
+	if !reflect.DeepEqual(manager.watchedDirs, map[string]bool{missingDir: false}) {
+		t.Fatalf("expected new watch dir after creation, got %#v", manager.watchedDirs)
 	}
 }
 
@@ -210,13 +211,12 @@ func TestManagerScheduleScanKeepsBroaderNonBaselineRequests(t *testing.T) {
 		t.Fatalf("schedule later baseline scan: %v", err)
 	}
 
-	expected := []ScanRequest{{
-		ConfigID:     "project-alpha",
-		Path:         watchFile,
-		BaselineOnly: false,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledScans(), expected) {
-		t.Fatalf("expected scheduled scans %#v, got %#v", expected, manager.ScheduledScans())
+	expected := map[taskKey]bool{{
+		ConfigID: "project-alpha",
+		Path:     watchFile,
+	}: false}
+	if !reflect.DeepEqual(manager.scheduledScans, expected) {
+		t.Fatalf("expected scheduled scans %#v, got %#v", expected, manager.scheduledScans)
 	}
 }
 
@@ -272,13 +272,13 @@ func TestManagerSyncConfigsDropsStaleScheduledState(t *testing.T) {
 		t.Fatalf("sync replacement config: %v", err)
 	}
 
-	if scans := manager.ScheduledScans(); len(scans) != 0 {
+	if scans := manager.scheduledScans; len(scans) != 0 {
 		t.Fatalf("expected stale scans to clear, got %#v", scans)
 	}
-	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
 		t.Fatalf("expected stale deletes to clear, got %#v", deletes)
 	}
-	if moves := manager.PendingMoves(); len(moves) != 0 {
+	if moves := manager.pendingMoves; len(moves) != 0 {
 		t.Fatalf("expected stale pending moves to clear, got %#v", moves)
 	}
 }
@@ -323,10 +323,10 @@ func TestManagerScheduleDeleteAndMoveIgnoreUnmatchedInputs(t *testing.T) {
 		t.Fatalf("record unmatched pending move: %v", err)
 	}
 
-	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
 		t.Fatalf("expected no deletes for unmatched path, got %#v", deletes)
 	}
-	if moves := manager.PendingMoves(); len(moves) != 0 {
+	if moves := manager.pendingMoves; len(moves) != 0 {
 		t.Fatalf("expected no pending moves for unmatched destination, got %#v", moves)
 	}
 }
@@ -369,13 +369,12 @@ func TestManagerHandleFileEventSchedulesScanForMatchingPythonFiles(t *testing.T)
 		t.Fatalf("handle modified event: %v", err)
 	}
 
-	expectedScans := []ScanRequest{{
-		ConfigID:     "project-alpha",
-		Path:         watchFile,
-		BaselineOnly: false,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
-		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.ScheduledScans())
+	expectedScans := map[taskKey]bool{{
+		ConfigID: "project-alpha",
+		Path:     watchFile,
+	}: false}
+	if !reflect.DeepEqual(manager.scheduledScans, expectedScans) {
+		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.scheduledScans)
 	}
 }
 
@@ -420,10 +419,10 @@ func TestManagerHandleFileEventIgnoresNonPythonAndIgnoredPaths(t *testing.T) {
 		t.Fatalf("handle ignored python event: %v", err)
 	}
 
-	if scans := manager.ScheduledScans(); len(scans) != 0 {
+	if scans := manager.scheduledScans; len(scans) != 0 {
 		t.Fatalf("expected no scans for ignored inputs, got %#v", scans)
 	}
-	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
 		t.Fatalf("expected no deletes for ignored inputs, got %#v", deletes)
 	}
 }
@@ -484,15 +483,14 @@ func TestManagerHandleFileEventIgnoresEachDocumentedDefaultDirAndKeepsUserRuntim
 		t.Fatalf("handle runtime file event: %v", err)
 	}
 
-	expectedScans := []ScanRequest{{
-		ConfigID:     "project-alpha",
-		Path:         runtimeFile,
-		BaselineOnly: false,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
-		t.Fatalf("expected only runtime folder event to schedule a scan, got %#v", manager.ScheduledScans())
+	expectedScans := map[taskKey]bool{{
+		ConfigID: "project-alpha",
+		Path:     runtimeFile,
+	}: false}
+	if !reflect.DeepEqual(manager.scheduledScans, expectedScans) {
+		t.Fatalf("expected only runtime folder event to schedule a scan, got %#v", manager.scheduledScans)
 	}
-	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
 		t.Fatalf("expected no deletes for ignored inputs, got %#v", deletes)
 	}
 }
@@ -553,15 +551,14 @@ func TestManagerHandleFileEventIgnoresConfiguredRootsByResolvedPath(t *testing.T
 		t.Fatalf("handle user runtime file event: %v", err)
 	}
 
-	expectedScans := []ScanRequest{{
-		ConfigID:     "project-alpha",
-		Path:         userRuntimeFile,
-		BaselineOnly: false,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
-		t.Fatalf("expected only user runtime file to schedule a scan, got %#v", manager.ScheduledScans())
+	expectedScans := map[taskKey]bool{{
+		ConfigID: "project-alpha",
+		Path:     userRuntimeFile,
+	}: false}
+	if !reflect.DeepEqual(manager.scheduledScans, expectedScans) {
+		t.Fatalf("expected only user runtime file to schedule a scan, got %#v", manager.scheduledScans)
 	}
-	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
 		t.Fatalf("expected no deletes for ignored-root inputs, got %#v", deletes)
 	}
 }
@@ -597,14 +594,14 @@ func TestManagerHandleFileEventSchedulesDeleteForTrackedDeletes(t *testing.T) {
 		t.Fatalf("handle delete event: %v", err)
 	}
 
-	expectedDeletes := []DeleteRequest{{
+	expectedDeletes := map[taskKey]struct{}{{
 		ConfigID: "project-alpha",
 		Path:     watchFile,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledDeletes(), expectedDeletes) {
-		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.ScheduledDeletes())
+	}: {}}
+	if !reflect.DeepEqual(manager.scheduledDeletes, expectedDeletes) {
+		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.scheduledDeletes)
 	}
-	if scans := manager.ScheduledScans(); len(scans) != 0 {
+	if scans := manager.scheduledScans; len(scans) != 0 {
 		t.Fatalf("expected no scans for delete event, got %#v", scans)
 	}
 }
@@ -648,23 +645,21 @@ func TestManagerHandleFileEventSchedulesMoveScanForTrackedDestination(t *testing
 		t.Fatalf("handle moved event: %v", err)
 	}
 
-	expectedScans := []ScanRequest{{
-		ConfigID:     "project-alpha",
-		Path:         destinationFile,
-		BaselineOnly: false,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
-		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.ScheduledScans())
+	expectedScans := map[taskKey]bool{{
+		ConfigID: "project-alpha",
+		Path:     destinationFile,
+	}: false}
+	if !reflect.DeepEqual(manager.scheduledScans, expectedScans) {
+		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.scheduledScans)
 	}
-	expectedMoves := []PendingMove{{
-		ConfigID:        "project-alpha",
-		DestinationPath: destinationFile,
-		SourcePath:      sourceFile,
-	}}
-	if !reflect.DeepEqual(manager.PendingMoves(), expectedMoves) {
-		t.Fatalf("expected pending moves %#v, got %#v", expectedMoves, manager.PendingMoves())
+	expectedMoves := map[taskKey]string{{
+		ConfigID: "project-alpha",
+		Path:     destinationFile,
+	}: sourceFile}
+	if !reflect.DeepEqual(manager.pendingMoves, expectedMoves) {
+		t.Fatalf("expected pending moves %#v, got %#v", expectedMoves, manager.pendingMoves)
 	}
-	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
 		t.Fatalf("expected no deletes for tracked move destination, got %#v", deletes)
 	}
 }
@@ -707,14 +702,14 @@ func TestManagerHandleFileEventSchedulesSourceDeleteWhenMoveLeavesTrackedInputs(
 		t.Fatalf("handle moved event: %v", err)
 	}
 
-	expectedDeletes := []DeleteRequest{{
+	expectedDeletes := map[taskKey]struct{}{{
 		ConfigID: "project-alpha",
 		Path:     sourceFile,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledDeletes(), expectedDeletes) {
-		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.ScheduledDeletes())
+	}: {}}
+	if !reflect.DeepEqual(manager.scheduledDeletes, expectedDeletes) {
+		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.scheduledDeletes)
 	}
-	if scans := manager.ScheduledScans(); len(scans) != 0 {
+	if scans := manager.scheduledScans; len(scans) != 0 {
 		t.Fatalf("expected no scans for moved-away file, got %#v", scans)
 	}
 }
@@ -761,27 +756,25 @@ func TestManagerHandleFileEventSplitsMoveAcrossConfigs(t *testing.T) {
 		t.Fatalf("handle moved event: %v", err)
 	}
 
-	expectedDeletes := []DeleteRequest{{
+	expectedDeletes := map[taskKey]struct{}{{
 		ConfigID: "project-alpha",
 		Path:     sourceFile,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledDeletes(), expectedDeletes) {
-		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.ScheduledDeletes())
+	}: {}}
+	if !reflect.DeepEqual(manager.scheduledDeletes, expectedDeletes) {
+		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.scheduledDeletes)
 	}
-	expectedScans := []ScanRequest{{
-		ConfigID:     "project-beta",
-		Path:         destinationFile,
-		BaselineOnly: false,
-	}}
-	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
-		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.ScheduledScans())
+	expectedScans := map[taskKey]bool{{
+		ConfigID: "project-beta",
+		Path:     destinationFile,
+	}: false}
+	if !reflect.DeepEqual(manager.scheduledScans, expectedScans) {
+		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.scheduledScans)
 	}
-	expectedMoves := []PendingMove{{
-		ConfigID:        "project-beta",
-		DestinationPath: destinationFile,
-		SourcePath:      sourceFile,
-	}}
-	if !reflect.DeepEqual(manager.PendingMoves(), expectedMoves) {
-		t.Fatalf("expected pending moves %#v, got %#v", expectedMoves, manager.PendingMoves())
+	expectedMoves := map[taskKey]string{{
+		ConfigID: "project-beta",
+		Path:     destinationFile,
+	}: sourceFile}
+	if !reflect.DeepEqual(manager.pendingMoves, expectedMoves) {
+		t.Fatalf("expected pending moves %#v, got %#v", expectedMoves, manager.pendingMoves)
 	}
 }

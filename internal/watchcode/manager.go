@@ -125,105 +125,6 @@ func (m *Manager) SyncConfigs(configs map[string]ConfigInputs) error {
 	return nil
 }
 
-func (m *Manager) DesiredWatchDirs() map[string]bool {
-	if m == nil {
-		return map[string]bool{}
-	}
-	return cloneBoolMap(desiredWatchDirsFromSnapshots(m.configSnapshots))
-}
-
-func (m *Manager) ConfigSnapshots() map[string]ConfigSnapshot {
-	if m == nil {
-		return map[string]ConfigSnapshot{}
-	}
-	output := make(map[string]ConfigSnapshot, len(m.configSnapshots))
-	for configID, snapshot := range m.configSnapshots {
-		output[configID] = cloneConfigSnapshot(snapshot)
-	}
-	return output
-}
-
-func (m *Manager) WatchedDirs() map[string]bool {
-	if m == nil {
-		return map[string]bool{}
-	}
-	return cloneBoolMap(m.watchedDirs)
-}
-
-func (m *Manager) PendingDirs() []string {
-	if m == nil {
-		return []string{}
-	}
-	output := make([]string, 0, len(m.pendingDirs))
-	for path := range m.pendingDirs {
-		output = append(output, path)
-	}
-	sort.Strings(output)
-	return output
-}
-
-func (m *Manager) ScheduledScans() []ScanRequest {
-	if m == nil {
-		return []ScanRequest{}
-	}
-	output := make([]ScanRequest, 0, len(m.scheduledScans))
-	for key, baselineOnly := range m.scheduledScans {
-		output = append(output, ScanRequest{
-			ConfigID:     key.ConfigID,
-			Path:         key.Path,
-			BaselineOnly: baselineOnly,
-		})
-	}
-	sort.Slice(output, func(i int, j int) bool {
-		if output[i].ConfigID == output[j].ConfigID {
-			return output[i].Path < output[j].Path
-		}
-		return output[i].ConfigID < output[j].ConfigID
-	})
-	return output
-}
-
-func (m *Manager) ScheduledDeletes() []DeleteRequest {
-	if m == nil {
-		return []DeleteRequest{}
-	}
-	output := make([]DeleteRequest, 0, len(m.scheduledDeletes))
-	for key := range m.scheduledDeletes {
-		output = append(output, DeleteRequest{
-			ConfigID: key.ConfigID,
-			Path:     key.Path,
-		})
-	}
-	sort.Slice(output, func(i int, j int) bool {
-		if output[i].ConfigID == output[j].ConfigID {
-			return output[i].Path < output[j].Path
-		}
-		return output[i].ConfigID < output[j].ConfigID
-	})
-	return output
-}
-
-func (m *Manager) PendingMoves() []PendingMove {
-	if m == nil {
-		return []PendingMove{}
-	}
-	output := make([]PendingMove, 0, len(m.pendingMoves))
-	for key, sourcePath := range m.pendingMoves {
-		output = append(output, PendingMove{
-			ConfigID:        key.ConfigID,
-			DestinationPath: key.Path,
-			SourcePath:      sourcePath,
-		})
-	}
-	sort.Slice(output, func(i int, j int) bool {
-		if output[i].ConfigID == output[j].ConfigID {
-			return output[i].DestinationPath < output[j].DestinationPath
-		}
-		return output[i].ConfigID < output[j].ConfigID
-	})
-	return output
-}
-
 func (m *Manager) DrainScheduledWork() ([]PendingScan, []DeleteRequest) {
 	if m == nil {
 		return []PendingScan{}, []DeleteRequest{}
@@ -703,15 +604,6 @@ func cloneBoolMap(source map[string]bool) map[string]bool {
 		output[key] = value
 	}
 	return output
-}
-
-func cloneConfigSnapshot(source ConfigSnapshot) ConfigSnapshot {
-	return ConfigSnapshot{
-		Enabled:      source.Enabled,
-		Files:        append([]string(nil), source.Files...),
-		Folders:      append([]FolderInput(nil), source.Folders...),
-		IgnoredRoots: append([]string(nil), source.IgnoredRoots...),
-	}
 }
 
 func strconvBool(value bool) string {
