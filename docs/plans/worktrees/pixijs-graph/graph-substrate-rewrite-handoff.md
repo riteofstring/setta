@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 04:31 UTC
+Last updated: 2026-04-13 04:37 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,48 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `391` landed one bounded startup-path fix for the repeated blank-root
+  bootstrap blocker on the live worktree runtime:
+  - local ranking/readout for this iteration:
+    - stopped the repeated shallow-selector lane because the last several
+      iterations were the same refactor shape
+    - reproduced the blocker on a fresh bootstrap URL and narrowed the blank
+      root to startup work before route rendering, not a failing bootstrap
+      consume call
+    - fresh-context headless CDP narrowed the visible stall to the initial app
+      load while the route/generated-types graph was still unresolved
+  - product code changed in:
+    - `frontend/src/App.tsx`
+      so the app now lazy-loads the router provider behind a visible suspense
+      fallback instead of importing the full route graph synchronously at
+      startup
+    - `frontend/src/AppRouterProvider.tsx`
+      to isolate the heavy router import behind that lazy boundary
+  - focused regression coverage added in:
+    - `frontend/src/App.test.tsx`
+      to prove the app renders a visible loading state while the router chunk
+      is unresolved and clears that fallback once the lazy module resolves
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/App.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/App.tsx src/App.test.tsx src/AppRouterProvider.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on a refreshed bootstrap URL
+      -> passed for this slice
+      -> final URL `http://127.0.0.1:3075/`
+      -> visible text `Loading Setta...` and `Preparing the app surface.`
+         rendered instead of an empty root
+  - reading:
+    - this fixes the Gate 0 blank-root symptom by making startup progress
+      visible, but it does not yet reduce the underlying route/generated-types
+      load that keeps the app on the loading fallback
+    - the next pass should stay on the same startup lane and measure or split
+      the heavy initial route graph rather than returning to more selector churn
+  - next default frontier:
+    - attribute and reduce the remaining initial frontend load after the
+      fallback appears, starting with the heavy route/generated-types startup
+      path that still delays the actual app surface
 
 - item `390` landed one bounded mounted spreadsheet body selector reduction on
   the live `/settings` canary lane after a local ranking pass:

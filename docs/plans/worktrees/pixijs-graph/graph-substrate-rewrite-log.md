@@ -15414,6 +15414,48 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:37 UTC
+
+- item `391` landed one bounded startup-path fix for the repeated blank-root
+  bootstrap blocker on the live worktree runtime:
+  - local ranking/readout for this iteration:
+    - stopped the repeated shallow-selector lane because the last several
+      iterations were the same refactor shape
+    - reproduced the blank root on a fresh bootstrap URL and narrowed it to
+      startup work before route rendering
+    - fresh-context headless CDP showed the redirected frontend staying blank
+      while the app load was still unresolved; the heavy route/generated-types
+      startup graph remains the underlying follow-up target
+  - product code changed in:
+    - `frontend/src/App.tsx`
+      so the app now lazy-loads the router provider behind a visible suspense
+      fallback instead of importing the full route graph synchronously at
+      startup
+    - `frontend/src/AppRouterProvider.tsx`
+      to isolate the router import behind that lazy boundary
+  - focused regression coverage added in:
+    - `frontend/src/App.test.tsx`
+      to prove the app renders a visible loading state while the router chunk
+      is unresolved and removes that fallback once the lazy module resolves
+  - verification:
+    - `pnpm -C frontend exec vitest run src/App.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/App.tsx src/App.test.tsx src/AppRouterProvider.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on a refreshed bootstrap URL
+      -> final URL `http://127.0.0.1:3075/`
+      -> visible text `Loading Setta...` and `Preparing the app surface.`
+         rendered instead of an empty root
+- reading:
+  - this closes the repeated blank-root startup symptom for the checked path,
+    but it does not yet reduce the underlying heavy initial route graph that
+    keeps the app on the loading fallback
+  - the next startup pass should attribute or split the heavy
+    route/generated-types load rather than returning to more shallow-selector
+    churn
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 04:18 UTC
 
 - item `389` landed one bounded mounted text-block body selector reduction on
