@@ -263,46 +263,72 @@ func (r *Registry) MissingSettingError(settingID string) error {
 }
 
 func scoreEntry(entry Entry, normalizedQuery string, tokens []string) int {
-	score := 0
-	settingID := strings.ToLower(entry.SettingID)
-	title := strings.ToLower(entry.Title)
-	description := strings.ToLower(entry.Description)
-
-	if normalizedQuery == settingID {
-		score += 180
-	}
-	if strings.Contains(title, normalizedQuery) {
-		score += 120
-	}
-	if strings.Contains(description, normalizedQuery) {
-		score += 30
-	}
-	for _, synonym := range entry.Synonyms {
-		normalizedSynonym := strings.ToLower(synonym)
-		if normalizedQuery == normalizedSynonym {
-			score += 90
-		} else if strings.Contains(normalizedSynonym, normalizedQuery) {
-			score += 35
-		}
-	}
-
+	searchable := buildSearchableEntry(entry)
+	score := searchable.queryScore(normalizedQuery)
 	for _, token := range tokens {
-		if strings.Contains(settingID, token) {
-			score += 40
-		}
-		if strings.Contains(title, token) {
-			score += 28
-		}
-		if strings.Contains(description, token) {
-			score += 14
-		}
-		for _, synonym := range entry.Synonyms {
-			if strings.Contains(strings.ToLower(synonym), token) {
-				score += 18
-			}
-		}
+		score += searchable.tokenScore(token)
 	}
 	return score
+}
+
+type searchableEntry struct {
+	settingID   string
+	title       string
+	description string
+	synonyms    []string
+}
+
+func buildSearchableEntry(entry Entry) searchableEntry {
+	synonyms := make([]string, 0, len(entry.Synonyms))
+	for _, synonym := range entry.Synonyms {
+		synonyms = append(synonyms, strings.ToLower(synonym))
+	}
+	return searchableEntry{
+		settingID:   strings.ToLower(entry.SettingID),
+		title:       strings.ToLower(entry.Title),
+		description: strings.ToLower(entry.Description),
+		synonyms:    synonyms,
+	}
+}
+
+func (e searchableEntry) queryScore(query string) int {
+	score := 0
+	score += weightedExactMatch(e.settingID, query, 180)
+	score += weightedContains(e.title, query, 120)
+	score += weightedContains(e.description, query, 30)
+	for _, synonym := range e.synonyms {
+		if synonym == query {
+			score += 90
+			continue
+		}
+		score += weightedContains(synonym, query, 35)
+	}
+	return score
+}
+
+func (e searchableEntry) tokenScore(token string) int {
+	score := 0
+	score += weightedContains(e.settingID, token, 40)
+	score += weightedContains(e.title, token, 28)
+	score += weightedContains(e.description, token, 14)
+	for _, synonym := range e.synonyms {
+		score += weightedContains(synonym, token, 18)
+	}
+	return score
+}
+
+func weightedExactMatch(haystack string, needle string, weight int) int {
+	if haystack == needle {
+		return weight
+	}
+	return 0
+}
+
+func weightedContains(haystack string, needle string, weight int) int {
+	if strings.Contains(haystack, needle) {
+		return weight
+	}
+	return 0
 }
 
 func cloneJSONValue(value any) any {

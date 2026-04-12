@@ -6,6 +6,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"setta/internal/valueconvert"
 )
 
 func ValidateValue(schema ValueSchema, value any) error {
@@ -213,34 +215,7 @@ func joinEnumValues(values []any) string {
 }
 
 func asFloat64(value any) (float64, bool) {
-	switch typed := value.(type) {
-	case float64:
-		return typed, true
-	case float32:
-		return float64(typed), true
-	case int:
-		return float64(typed), true
-	case int8:
-		return float64(typed), true
-	case int16:
-		return float64(typed), true
-	case int32:
-		return float64(typed), true
-	case int64:
-		return float64(typed), true
-	case uint:
-		return float64(typed), true
-	case uint8:
-		return float64(typed), true
-	case uint16:
-		return float64(typed), true
-	case uint32:
-		return float64(typed), true
-	case uint64:
-		return float64(typed), true
-	default:
-		return 0, false
-	}
+	return valueconvert.Float64(value)
 }
 
 func sliceValues(value any) ([]any, bool) {
