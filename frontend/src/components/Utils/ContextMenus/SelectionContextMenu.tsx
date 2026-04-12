@@ -1,6 +1,13 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
+import {
+  deleteSections,
+  groupSections,
+  togglePositionLocks,
+  toggleSectionVisibility,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
@@ -12,33 +19,22 @@ import {
 } from "state/actions/sectionInfos";
 import { useContextMenus, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  route_delete_sections,
-  route_group_sections,
-  route_toggle_position_locks,
-  route_toggle_section_visibility,
-} from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
-
 export function SelectionContextMenu() {
   const { isOpen, x, y, nodeIds } = useContextMenus(
     (x) => x.selection,
     _.isEqual,
   );
-
   if (!isOpen) {
     return null;
   }
-
   return <SelectionContextMenuOpen x={x} y={y} nodeIds={nodeIds} />;
 }
-
 type SelectionContextMenuOpenProps = {
   x: number;
   y: number;
   nodeIds: Array<string>;
 };
-
 function SelectionContextMenuOpen({
   x,
   y,
@@ -49,10 +45,8 @@ function SelectionContextMenuOpen({
     useProjectState((state) => {
       const viewMode = getActiveViewModeConfig(state);
       const { isEditingViewMode } = state.projectConfig;
-
       let allVisible = true;
       let allLocked = true;
-
       for (const id of nodeIds) {
         const impl = getCurrEffectiveSectionImpl(state, id);
         const visibility = viewMode.visibilityBySectionId[id];
@@ -64,16 +58,13 @@ function SelectionContextMenuOpen({
         if (!visibility) {
           allVisible = false;
         }
-
         if (!impl.positionAndSizeLocked) {
           allLocked = false;
         }
-
         if (!allVisible && !allLocked) {
           break;
         }
       }
-
       return {
         allVisible,
         allLocked,
@@ -81,35 +72,39 @@ function SelectionContextMenuOpen({
         isUserView: viewMode.isUserFacing && !isEditingViewMode,
       };
     }, _.isEqual);
-
   const closeContextMenu = () => {
     closeAllContextMenus();
     useReactFlow.setState({ nodesSelectionDims: null });
   };
-
   function onClickCreate() {
     if (!canEditStructure) {
       return;
     }
-    route_group_sections({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionIds: nodeIds,
-    });
+    callOpenAPI(
+      groupSections({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionIds: nodeIds,
+        },
+      } as Parameters<typeof groupSections>[0]),
+    );
     closeContextMenu();
   }
-
   function onClickDelete() {
     if (!canEditStructure) {
       return;
     }
-    route_delete_sections({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionIds: nodeIds,
-    });
+    callOpenAPI(
+      deleteSections({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionIds: nodeIds,
+        },
+      } as Parameters<typeof deleteSections>[0]),
+    );
     closeContextMenu();
     clearActiveSectionIds();
   }
-
   function onClickLock() {
     if (!canEditLayout) {
       return;
@@ -130,37 +125,40 @@ function SelectionContextMenuOpen({
           }
         },
         send: (frontendOpId) =>
-          route_toggle_position_locks({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionIds: sectionIdsToToggle,
-            frontendOpId,
-          }),
+          callOpenAPI(
+            togglePositionLocks({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionIds: sectionIdsToToggle,
+                frontendOpId,
+              },
+            } as Parameters<typeof togglePositionLocks>[0]),
+          ),
       });
     }
     closeContextMenu();
   }
-
   function onClickVisibility() {
     if (!canEditStructure) {
       return;
     }
-    route_toggle_section_visibility({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionIds: nodeIds,
-    });
+    callOpenAPI(
+      toggleSectionVisibility({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionIds: nodeIds,
+        },
+      } as Parameters<typeof toggleSectionVisibility>[0]),
+    );
     closeContextMenu();
   }
-
   const lockItem = allLocked
     ? "Unlock Position & Size"
     : "Lock Position & Size";
-
   const visibilityItem = allVisible ? "Hide" : "Show";
-
   if (isUserView) {
     return null;
   }
-
   return (
     <ContextMenuCore
       x={x}

@@ -17,27 +17,16 @@ export function useLoadProjectConfig() {
   const loadKey = `${projectConfigName ?? ""}:${pageLoadType ?? ""}`;
   const loadKeyRef = useRef(loadKey);
   const handledPageLoadActionKeyRef = useRef<string | null>(null);
-  const inFlightLoadKeyRef = useRef<string | null>(null);
   const isStaleLoadKey = loadKeyRef.current !== loadKey;
   const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
   const resolvedIs404 = isStaleLoadKey ? false : is404;
 
   async function loadFn() {
-    inFlightLoadKeyRef.current = loadKey;
     resetProjectStores();
     setDoneLoading(false);
-    try {
-      const res = await loadProjectConfig({ projectConfigName });
-      setDoneLoading(true);
-      useProjectLoading.setState({
-        projectIsLoading: false,
-        projectIs404: !res,
-      });
-    } finally {
-      if (inFlightLoadKeyRef.current === loadKey) {
-        inFlightLoadKeyRef.current = null;
-      }
-    }
+    const res = await loadProjectConfig({ projectConfigName });
+    setDoneLoading(true);
+    useProjectLoading.setState({ projectIsLoading: false, projectIs404: !res });
   }
 
   function changeFn() {
@@ -55,7 +44,7 @@ export function useLoadProjectConfig() {
 
   useEffect(() => {
     loadKeyRef.current = loadKey;
-    if (isHotReload || inFlightLoadKeyRef.current === loadKey) {
+    if (isHotReload || isProjectLoading) {
       return;
     }
 
@@ -107,6 +96,7 @@ export function useLoadProjectConfig() {
   }, [
     doneLoading,
     isHotReload,
+    isProjectLoading,
     loadKey,
     location.key,
     pageLoadType,

@@ -21,59 +21,16 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
-import type { SectionContainerHeaderRenderProps } from "./SectionContainerCoreResizabe";
-import type { SectionChromeBodySurface } from "./sectionChrome";
 import { getOutlineColor } from "./utils";
-
-function areBodySurfaceOverridesEqual(
-  previousBodySurfaceOverride: SectionChromeBodySurface | undefined,
-  nextBodySurfaceOverride: SectionChromeBodySurface | undefined,
-) {
-  if (previousBodySurfaceOverride === nextBodySurfaceOverride) {
-    return true;
-  }
-  if (
-    previousBodySurfaceOverride === undefined ||
-    nextBodySurfaceOverride === undefined
-  ) {
-    return false;
-  }
-
-  return (
-    previousBodySurfaceOverride.bgColor === nextBodySurfaceOverride.bgColor &&
-    _.isEqual(
-      previousBodySurfaceOverride.surfaceDecorations,
-      nextBodySurfaceOverride.surfaceDecorations,
-    )
-  );
-}
 
 function _SectionContainer({
   sectionId,
-  isTopLevel = false,
-  bodySurfaceOverride,
-  forceTransparentBackground = false,
-  shellChromeOwner = "section-body",
-  headerRenderer,
+  isTopLevel,
   dragListeners,
-  forceHideOutline = false,
-  forceHideFrameBorder = false,
-  forceTransparentBorder = false,
-  forceHideTopDragHandle = false,
 }: {
-  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
-  forceTransparentBackground?: boolean;
-  shellChromeOwner?: "section-body" | "shell-layer";
-  headerRenderer?:
-    | React.ComponentType<SectionContainerHeaderRenderProps>
-    | undefined;
   sectionId: string;
-  isTopLevel?: boolean;
+  isTopLevel: boolean;
   dragListeners?: any;
-  forceHideOutline?: boolean;
-  forceHideFrameBorder?: boolean;
-  forceTransparentBorder?: boolean;
-  forceHideTopDragHandle?: boolean;
 }) {
   const {
     visibility,
@@ -85,6 +42,7 @@ function _SectionContainer({
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
+    sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     attachedTerminalId,
@@ -125,6 +83,11 @@ function _SectionContainer({
       isJoinedAttachedTerminalGroup,
     };
   }, shallow);
+  const isActiveSection = useIsSectionUIActive(sectionId);
+  const isAttachedTerminalActive = useIsSectionUIActive(
+    attachedTerminalId ?? "__no_active_terminal__",
+  );
+  const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
@@ -150,35 +113,39 @@ function _SectionContainer({
       >
         <>
           {!isGroup && isJoinedAttachedTerminalGroup ? (
-            <JoinedCodeTerminalGroupSectionContainer
-              bodySurfaceOverride={bodySurfaceOverride}
-              forceHideFrameBorder={forceHideFrameBorder}
-              forceHideOutline={forceHideOutline}
-              forceHideTopDragHandle={forceHideTopDragHandle}
-              forceTransparentBackground={forceTransparentBackground}
-              forceTransparentBorder={forceTransparentBorder}
-              headerRenderer={headerRenderer}
-              attachedTerminalId={attachedTerminalId}
-              isInOtherProjectConfigs={isInOtherProjectConfigs}
-              isUserView={isUserView}
-              positionAndSizeLocked={positionAndSizeLocked}
-              sectionId={sectionId}
-              shellChromeOwner={shellChromeOwner}
-            />
+            <div
+              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
+                {
+                  isActiveSection: isJoinedGroupActive,
+                  isGlobalVariables: false,
+                  isInOtherProjectConfigs,
+                },
+              )}`}
+              data-joined-code-terminal-group
+            >
+              <AgenticEdgeHandles isUserView={isUserView} />
+              <SectionContainerCore
+                sectionId={sectionId}
+                isUserView={isUserView}
+                forceHideOutline={true}
+                hideAgenticEdgeHandles={true}
+                omitAgenticHandleScopeClass={true}
+                joinedCorners="code-terminal-parent"
+              />
+              <div className="-mt-px">
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              </div>
+            </div>
           ) : (
             <>
               {!isGroup && (
                 <SectionContainerCore
-                  bodySurfaceOverride={bodySurfaceOverride}
-                  forceTransparentBackground={forceTransparentBackground}
-                  shellChromeOwner={shellChromeOwner}
-                  headerRenderer={headerRenderer}
                   sectionId={sectionId}
                   isUserView={isUserView}
-                  forceHideOutline={forceHideOutline}
-                  forceHideFrameBorder={forceHideFrameBorder}
-                  forceTransparentBorder={forceTransparentBorder}
-                  forceHideTopDragHandle={forceHideTopDragHandle}
                 />
               )}
               {isCode ? (
@@ -200,100 +167,6 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(
-  _SectionContainer,
-  (previousProps, nextProps) =>
-    previousProps.sectionId === nextProps.sectionId &&
-    previousProps.isTopLevel === nextProps.isTopLevel &&
-    areBodySurfaceOverridesEqual(
-      previousProps.bodySurfaceOverride,
-      nextProps.bodySurfaceOverride,
-    ) &&
-    previousProps.forceTransparentBackground ===
-      nextProps.forceTransparentBackground &&
-    previousProps.shellChromeOwner === nextProps.shellChromeOwner &&
-    previousProps.headerRenderer === nextProps.headerRenderer &&
-    previousProps.forceHideOutline === nextProps.forceHideOutline &&
-    previousProps.forceHideFrameBorder === nextProps.forceHideFrameBorder &&
-    previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
-    previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
-    _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
 );
-
-type JoinedCodeTerminalGroupSectionContainerProps = {
-  attachedTerminalId: string | null;
-  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
-  forceHideFrameBorder: boolean;
-  forceHideOutline: boolean;
-  forceHideTopDragHandle: boolean;
-  forceTransparentBackground: boolean;
-  forceTransparentBorder: boolean;
-  headerRenderer?:
-    | React.ComponentType<SectionContainerHeaderRenderProps>
-    | undefined;
-  isInOtherProjectConfigs: boolean;
-  isUserView: boolean;
-  positionAndSizeLocked: boolean;
-  sectionId: string;
-  shellChromeOwner: "section-body" | "shell-layer";
-};
-
-function JoinedCodeTerminalGroupSectionContainer({
-  attachedTerminalId,
-  bodySurfaceOverride,
-  forceHideFrameBorder,
-  forceHideOutline,
-  forceHideTopDragHandle,
-  forceTransparentBackground,
-  forceTransparentBorder,
-  headerRenderer,
-  isInOtherProjectConfigs,
-  isUserView,
-  positionAndSizeLocked,
-  sectionId,
-  shellChromeOwner,
-}: JoinedCodeTerminalGroupSectionContainerProps) {
-  const isActiveSection = useIsSectionUIActive(sectionId);
-  const isAttachedTerminalActive = useIsSectionUIActive(
-    attachedTerminalId ?? "__no_active_terminal__",
-  );
-  const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
-
-  return (
-    <div
-      className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline ${forceHideOutline ? "outline-0" : "outline-4"} ${getOutlineColor(
-        {
-          jsonSourceMissing: false,
-          isActiveSection: isJoinedGroupActive,
-          isGlobalVariables: false,
-          isInOtherProjectConfigs,
-        },
-      )}`}
-      data-joined-code-terminal-group
-    >
-      <AgenticEdgeHandles isUserView={isUserView} />
-      <SectionContainerCore
-        bodySurfaceOverride={bodySurfaceOverride}
-        forceTransparentBackground={forceTransparentBackground}
-        shellChromeOwner={shellChromeOwner}
-        headerRenderer={headerRenderer}
-        sectionId={sectionId}
-        isUserView={isUserView}
-        forceHideOutline={true}
-        forceHideFrameBorder={forceHideFrameBorder}
-        forceTransparentBorder={forceTransparentBorder}
-        forceHideTopDragHandle={forceHideTopDragHandle}
-        hideAgenticEdgeHandles={true}
-        omitAgenticHandleScopeClass={true}
-        joinedCorners="code-terminal-parent"
-      />
-      <div className="-mt-px">
-        <MaybeManyNestedSections
-          sectionId={sectionId}
-          isGroup={false}
-          layoutVariant="tight"
-        />
-      </div>
-    </div>
-  );
-}
