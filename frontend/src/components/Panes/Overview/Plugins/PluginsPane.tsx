@@ -26,11 +26,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C } from "utils/c";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
   PluginBlockedCapability,
   PluginInstallerBackend,
@@ -54,8 +50,11 @@ import {
   buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
   formatPluginConfigDraft,
+  getPluginActionErrorDetail,
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
+  resolvePluginConfigFieldPresentation,
+  type PluginConfigFieldDefinition,
 } from "./PluginsPane.helpers";
 type PluginActionStatus = {
   type: "error" | "success" | "warning";
@@ -1479,11 +1478,6 @@ function CapabilityRow({
     </div>
   );
 }
-type PluginConfigFieldDefinition = {
-  key: string;
-  required: boolean;
-  schema: Record<string, unknown>;
-};
 function PluginConfigEditor({
   plugin,
   disabled,
@@ -1657,19 +1651,8 @@ function PluginConfigTopLevelField({
   disabled: boolean;
   onValueChange: (fieldKey: string, nextValue: unknown) => void;
 }) {
-  const schemaDefault = field.schema.default;
-  let value = config[field.key];
-  if (value === undefined && schemaDefault !== undefined) {
-    value = schemaDefault;
-  }
-  const label = field.schema.title;
-  const labelText =
-    typeof label === "string" && label.trim() ? label.trim() : field.key;
-  const description = field.schema.description;
-  const descriptionText =
-    typeof description === "string" && description.trim()
-      ? description.trim()
-      : null;
+  const { value, displayLabelText, descriptionText } =
+    resolvePluginConfigFieldPresentation(field, config);
   const input = buildPluginConfigFieldInput({
     field,
     value,
@@ -1682,16 +1665,26 @@ function PluginConfigTopLevelField({
   return (
     <div className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40">
       <p className="text-[11px] font-semibold text-setta-700 dark:text-setta-200">
-        {labelText}
-        {field.required ? " *" : ""}
+        {displayLabelText}
       </p>
-      {descriptionText ? (
-        <p className="mt-0.5 text-[10px] text-setta-500 dark:text-setta-400">
-          {descriptionText}
-        </p>
-      ) : null}
+      <PluginConfigFieldDescription descriptionText={descriptionText} />
       {input}
     </div>
+  );
+}
+
+function PluginConfigFieldDescription({
+  descriptionText,
+}: {
+  descriptionText: string | null;
+}) {
+  if (!descriptionText) {
+    return null;
+  }
+  return (
+    <p className="mt-0.5 text-[10px] text-setta-500 dark:text-setta-400">
+      {descriptionText}
+    </p>
   );
 }
 
@@ -2094,21 +2087,9 @@ function buildPluginActionError<T>(
   if (!response.hasResponse) {
     return `${actionLabel} failed: network error.`;
   }
-  const detailMessage = getErrorDetail(response.data);
+  const detailMessage = getPluginActionErrorDetail(response.data);
   if (detailMessage) {
     return `${actionLabel} failed: ${detailMessage}`;
-  }
-  if (response.data && typeof response.data === "object") {
-    const record = response.data as Record<string, unknown>;
-    const detailValue = record.detail;
-    if (detailValue && typeof detailValue === "object") {
-      const detailRecord = detailValue as Record<string, unknown>;
-      const code = detailRecord.code;
-      const message = detailRecord.message;
-      if (typeof code === "string" && typeof message === "string") {
-        return `${actionLabel} failed: ${code} - ${message}`;
-      }
-    }
   }
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
 }

@@ -1,3 +1,4 @@
+import { getErrorDetail } from "utils/endpointUtils";
 import {
   type PluginBlockedCapability,
   type PluginInstallResponse,
@@ -14,6 +15,18 @@ type PluginCapabilityStatus =
 type PluginCapabilityStatusIndex = {
   capabilityStatusByCapability: Map<string, PluginCapabilityStatus>;
   blockedReasonByCapability: Map<string, string>;
+};
+
+export type PluginConfigFieldDefinition = {
+  key: string;
+  required: boolean;
+  schema: Record<string, unknown>;
+};
+
+type PluginConfigFieldPresentation = {
+  value: unknown;
+  displayLabelText: string;
+  descriptionText: string | null;
 };
 
 export function buildCapabilityStatusIndex({
@@ -59,28 +72,6 @@ export function buildCapabilityStatusIndex({
     capabilityStatusByCapability,
     blockedReasonByCapability,
   };
-}
-
-function getCachedSortedRegistrations<TRegistration>(
-  pluginStatus: PluginStatusEntry | null,
-  cache: WeakMap<PluginStatusEntry, TRegistration[]>,
-  getRawRegistrations: (pluginStatus: PluginStatusEntry) => unknown,
-  compare: (a: TRegistration, b: TRegistration) => number,
-): TRegistration[] {
-  if (pluginStatus === null) {
-    return [];
-  }
-  const cached = cache.get(pluginStatus);
-  if (cached) {
-    return cached;
-  }
-  const rawRegistrations = getRawRegistrations(pluginStatus);
-  const registrations = Array.isArray(rawRegistrations)
-    ? ([...rawRegistrations] as TRegistration[])
-    : [];
-  registrations.sort(compare);
-  cache.set(pluginStatus, registrations);
-  return registrations;
 }
 
 function parseJsonObjectDraft(
@@ -132,6 +123,41 @@ export function parsePluginConfigDraft(rawValue: string): {
 
 export function formatPluginConfigDraft(value: unknown): string {
   return formatJsonObjectDraft(value);
+}
+
+export function resolvePluginConfigFieldPresentation(
+  field: PluginConfigFieldDefinition,
+  config: Record<string, unknown>,
+): PluginConfigFieldPresentation {
+  const configuredValue = config[field.key];
+  const labelText =
+    normalizeOptionalSchemaText(field.schema.title) ?? field.key;
+  return {
+    value:
+      configuredValue === undefined ? field.schema.default : configuredValue,
+    displayLabelText: field.required ? `${labelText} *` : labelText,
+    descriptionText: normalizeOptionalSchemaText(field.schema.description),
+  };
+}
+
+export function getPluginActionErrorDetail(data: unknown): string | null {
+  const detailMessage = getErrorDetail(data);
+  if (detailMessage) {
+    return detailMessage;
+  }
+  if (!isPlainObject(data)) {
+    return null;
+  }
+  const detailValue = data.detail;
+  if (!isPlainObject(detailValue)) {
+    return null;
+  }
+  const code = detailValue.code;
+  const message = detailValue.message;
+  if (typeof code !== "string" || typeof message !== "string") {
+    return null;
+  }
+  return `${code} - ${message}`;
 }
 
 export function getPluginCapabilityStatus(
@@ -267,4 +293,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return false;
   }
   return true;
+}
+
+function normalizeOptionalSchemaText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }

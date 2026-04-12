@@ -8,9 +8,11 @@ import {
   buildSourceManagerGuidanceMessage,
   formatPluginConfigDraft,
   getBlockedCapabilityReason,
+  getPluginActionErrorDetail,
   getPluginCapabilityStatus,
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
+  resolvePluginConfigFieldPresentation,
 } from "components/Panes/Overview/Plugins/PluginsPane.helpers";
 import {
   buildPluginRestartActionPlan,
@@ -33,6 +35,7 @@ const pluginsPaneTestApi = {
   buildBusyPluginIdSet,
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
+  getPluginActionErrorDetail,
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
@@ -41,6 +44,7 @@ const pluginsPaneTestApi = {
   getPluginCapabilityStatus,
   getRestartRequiredPluginIds,
   parsePluginConfigDraft,
+  resolvePluginConfigFieldPresentation,
   isLinkedLocalPluginSource,
 };
 
@@ -393,6 +397,71 @@ describe("plugins pane helpers", () => {
     expect(pluginsPaneTestApi.formatPluginConfigDraft("not-an-object")).toBe(
       "{}",
     );
+  });
+
+  it("resolves plugin config field presentation from schema defaults and text", () => {
+    expect(
+      pluginsPaneTestApi.resolvePluginConfigFieldPresentation(
+        {
+          key: "enabled",
+          required: true,
+          schema: {
+            default: true,
+            title: " Enabled ",
+            description: " Turns the plugin on. ",
+          },
+        },
+        {},
+      ),
+    ).toEqual({
+      value: true,
+      displayLabelText: "Enabled *",
+      descriptionText: "Turns the plugin on.",
+    });
+
+    expect(
+      pluginsPaneTestApi.resolvePluginConfigFieldPresentation(
+        {
+          key: "mode",
+          required: false,
+          schema: {
+            title: "   ",
+            description: "",
+          },
+        },
+        { mode: "manual" },
+      ),
+    ).toEqual({
+      value: "manual",
+      displayLabelText: "mode",
+      descriptionText: null,
+    });
+  });
+
+  it("extracts plugin action error detail from standard and structured fallback payloads", () => {
+    expect(
+      pluginsPaneTestApi.getPluginActionErrorDetail({
+        detail: "Plugin install failed.",
+      }),
+    ).toBe("Plugin install failed.");
+
+    expect(
+      pluginsPaneTestApi.getPluginActionErrorDetail({
+        detail: {
+          code: "plugin_conflict",
+          message: "",
+        },
+      }),
+    ).toBe("plugin_conflict - ");
+
+    expect(
+      pluginsPaneTestApi.getPluginActionErrorDetail({
+        detail: {
+          code: "plugin_conflict",
+          message: 42,
+        },
+      }),
+    ).toBeNull();
   });
 
   it("builds install trust summary messaging", () => {
