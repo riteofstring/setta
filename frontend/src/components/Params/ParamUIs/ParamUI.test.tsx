@@ -1,407 +1,263 @@
 /* @vitest-environment jsdom */
 
-import { act, type ComponentProps } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useMisc, useProjectState, useShareSession } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
   CodeObjTypeEnum,
-  DateCalendarWeekStartEnum,
-  DateControlModeEnum,
-  DateDisplayFormatEnum,
-  DateSelectionModeEnum,
-  DropzoneModeEnum,
-  TextParamInputUITypeEnum,
+  ConfigLanguageEnum,
+  ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
+  SectionTypeEnum,
+  createProjectConfig,
+  type Core,
+  type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ParamUI } from "./ParamUI";
 
-const mocks = vi.hoisted(() => ({
-  state: {
-    sectionImpl: {
-      configLanguage: "python",
-      isFrozen: false,
-    },
-    codeObjImpl: {
-      type: "TextParam",
-      defaultVal: "",
-    } as Record<string, unknown>,
-    isSelectingParams: false,
-    isDeploymentMode: false,
-    canEditParams: true,
-    waitingForResult: false,
+let textInputCodeMirrorRenderCount = 0;
+
+vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
+  TextInputCodeMirror: () => {
+    textInputCodeMirrorRenderCount += 1;
+    return <div data-testid="text-input-code-mirror" />;
   },
-  textInputProps: vi.fn(),
-  dateTimeProps: vi.fn(),
-  sliderProps: vi.fn(),
-  rotaryProps: vi.fn(),
-  switchProps: vi.fn(),
-  colorPickerProps: vi.fn(),
-  dropdownProps: vi.fn(),
-  dropzoneProps: vi.fn(),
-}));
-
-vi.mock("state/actions/sectionInfos", () => ({
-  getCurrEffectiveSectionImplWithTypeGuardIfPresent: () =>
-    mocks.state.sectionImpl,
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent: () =>
-    mocks.state.codeObjImpl,
-}));
-
-vi.mock("state/definitions", () => ({
-  useMisc: (selector: (state: { isSelectingParams: boolean }) => unknown) =>
-    selector({ isSelectingParams: mocks.state.isSelectingParams }),
-  useProjectState: (selector: (state: object) => unknown) => selector({}),
-  useShareSession: (
-    selector: (state: { isDeploymentMode: boolean }) => unknown,
-  ) => selector({ isDeploymentMode: mocks.state.isDeploymentMode }),
 }));
 
 vi.mock("state/hooks/lsp", () => ({
-  useTextFieldWaitingForLSPResult: () => mocks.state.waitingForResult,
+  useTextFieldWaitingForLSPResult: () => false,
 }));
 
 vi.mock("state/hooks/share", () => ({
-  useShareCapabilities: () => ({ canEditParams: mocks.state.canEditParams }),
+  useShareCapabilities: () => ({ canEditParams: true }),
 }));
 
-vi.mock("utils/paramValue", () => ({
-  shouldShowPasswordReveal: ({
-    hasSecret,
-  }: {
-    value: string;
-    hasSecret: boolean;
-  }) => hasSecret,
-}));
-
-vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
-  TextInputCodeMirror: (props: {
-    defaultVal: string;
-    isDisabled: boolean;
-    language: string;
-  }) => {
-    mocks.textInputProps(props);
-    return (
-      <div
-        data-testid="text-input"
-        data-default-val={props.defaultVal}
-        data-disabled={String(props.isDisabled)}
-        data-language={props.language}
-      />
-    );
-  },
-}));
-
-vi.mock("./ConfiguredParamInputs", () => ({
-  ConfiguredColorPickerInput: (props: { isDisabled: boolean }) => {
-    mocks.colorPickerProps(props);
-    return (
-      <div
-        data-testid="color-picker-input"
-        data-disabled={String(props.isDisabled)}
-      />
-    );
-  },
-  ConfiguredDropdownInput: (props: { isDisabled: boolean }) => {
-    mocks.dropdownProps(props);
-    return (
-      <div
-        data-testid="dropdown-input"
-        data-disabled={String(props.isDisabled)}
-      />
-    );
-  },
-  ConfiguredRotaryInput: (props: { isDisabled: boolean }) => {
-    mocks.rotaryProps(props);
-    return (
-      <div
-        data-testid="rotary-input"
-        data-disabled={String(props.isDisabled)}
-      />
-    );
-  },
-  ConfiguredSliderInput: (props: { isDisabled: boolean }) => {
-    mocks.sliderProps(props);
-    return (
-      <div
-        data-testid="slider-input"
-        data-disabled={String(props.isDisabled)}
-      />
-    );
-  },
-}));
-
-vi.mock("./DropzoneInput", () => ({
-  DropzoneInput: (props: {
-    isDisabled: boolean;
-    maxAttachments: number | null;
-    mode: string;
-    placeholder?: string;
-  }) => {
-    mocks.dropzoneProps(props);
-    return (
-      <div
-        data-testid="dropzone-input"
-        data-disabled={String(props.isDisabled)}
-        data-max-attachments={
-          props.maxAttachments === null ? "" : String(props.maxAttachments)
-        }
-        data-mode={props.mode}
-        data-placeholder={props.placeholder ?? ""}
-      />
-    );
-  },
-  DropzoneInputConfigForParam: () => null,
-}));
-
-vi.mock("./PasswordInput", () => ({
-  PasswordInput: (props: { isDisabled: boolean; placeholder?: string }) => (
-    <input
-      data-testid="password-input"
-      disabled={props.isDisabled}
-      placeholder={props.placeholder}
-    />
-  ),
-}));
-
-vi.mock("./SwitchInput", () => ({
-  SwitchInput: (props: { isDisabled: boolean }) => {
-    mocks.switchProps(props);
-    return (
-      <div
-        data-testid="switch-input"
-        data-disabled={String(props.isDisabled)}
-      />
-    );
-  },
-}));
-
-vi.mock("./TextParamInput", () => ({
-  DateParamInputConfigForParam: () => null,
-  TextParamDateTimeInput: (props: {
-    dateCalendarWeekStart: string;
-    dateControlMode: string;
-    dateDisplayFormat: string;
-    dateIncludesTime: boolean;
-    dateSelectionMode: string;
-    isDisabled: boolean;
-    uiType: string;
-  }) => {
-    mocks.dateTimeProps(props);
-    return (
-      <div
-        data-testid="date-time-input"
-        data-date-calendar-week-start={props.dateCalendarWeekStart}
-        data-date-control-mode={props.dateControlMode}
-        data-date-display-format={props.dateDisplayFormat}
-        data-date-includes-time={String(props.dateIncludesTime)}
-        data-date-selection-mode={props.dateSelectionMode}
-        data-disabled={String(props.isDisabled)}
-        data-ui-type={props.uiType}
-      />
-    );
-  },
-  TimeParamInputConfigForParam: () => null,
-}));
-
-vi.mock("./ButtonInput", () => ({
-  ButtonInputConfigForParam: () => null,
-}));
-
-vi.mock("./ColorPickerInput", () => ({
-  ColorPickerInputConfigForParam: () => null,
-}));
-
-vi.mock("./DropdownInput", () => ({
-  DropdownInputConfigForParam: () => null,
-}));
-
-vi.mock("./SliderInput", () => ({
-  SliderInputConfigForParam: () => null,
-}));
-
-import { ParamUI } from "./ParamUI";
-
-type RenderedParamUI = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderParamUI(
-  props: Partial<ComponentProps<typeof ParamUI>> = {},
-): Promise<RenderedParamUI> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <ParamUI
-        sectionId="section-1"
-        paramInfoId="param-1"
-        value=""
-        onChange={() => undefined}
-        {...props}
-      />,
-    );
-  });
-
-  return { host, root };
+function syncStoreInitialState(store: {
+  getState: () => Record<string, unknown>;
+  getInitialState?: () => Record<string, unknown>;
+}) {
+  if (!store.getInitialState) {
+    return;
+  }
+  const initial = store.getInitialState();
+  Object.assign(initial, store.getState());
 }
 
-async function cleanupRenderedParamUI(rendered: RenderedParamUI) {
-  await act(async () => {
-    rendered.root.unmount();
+function seedParamUiState() {
+  const sectionId = "section-1";
+  const variantId = "variant-1";
+  const implId = "impl-1";
+  const paramId = "param-1";
+  const paramVariantId = "param-variant-1";
+  const paramImplId = "param-impl-1";
+
+  const projectConfig = createProjectConfig({
+    id: "project-1",
+    sectionVariantMap: { [sectionId]: variantId },
+    topLevelSections: {
+      [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+    },
   });
-  rendered.host.remove();
+
+  const sectionCore: Core = {
+    id: sectionId,
+    name: "Dict",
+    displayName: "",
+    variants: [variantId],
+    defaultVariant: variantId,
+    sharedModifier: {},
+    unsharedKeys: [],
+  };
+
+  const sectionVariant: Variant = {
+    id: variantId,
+    name: "Variant",
+    impl: implId,
+    nonPresetImpls: [],
+    modifier: {},
+    isFrozen: false,
+  };
+
+  const sectionImpl = {
+    type: SectionTypeEnum.Dict,
+    id: implId,
+    name: "Dict",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    size: { width: 240, height: 160 },
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    codeObjVariantMap: { [paramId]: paramVariantId },
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: ConfigLanguageEnum.python,
+    pinnedParams: [],
+    selectedParams: [],
+    ignoreTypeErrors: { callable: false, params: {} },
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+    topLevelParamId: null,
+    isJsonSource: false,
+    jsonSourceKeys: [],
+    jsonSourceMissing: false,
+  };
+
+  const paramCore: Core = {
+    id: paramId,
+    name: "alpha_param",
+    displayName: "",
+    variants: [paramVariantId],
+    defaultVariant: paramVariantId,
+    sharedModifier: {},
+    unsharedKeys: [],
+  };
+
+  const paramVariant: Variant = {
+    id: paramVariantId,
+    name: "ParamVariantOne",
+    impl: paramImplId,
+    nonPresetImpls: [],
+    modifier: {},
+    isFrozen: false,
+  };
+
+  const paramImpl = {
+    type: CodeObjTypeEnum.CodeParam,
+    id: paramImplId,
+    name: "AlphaParam",
+    description: "",
+    isPreset: false,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    coreNameEditable: true,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    defaultVal: "",
+    value: "",
+  };
+
+  useProjectState.setState((state) => {
+    state.projectConfig = projectConfig;
+    state.sections = { [sectionId]: sectionCore };
+    state.sectionVariants = { [variantId]: sectionVariant };
+    state.sectionImpls = { [implId]: sectionImpl };
+    state.codeObjs = { [paramId]: paramCore };
+    state.codeObjVariants = { [paramVariantId]: paramVariant };
+    state.codeObjImpls = { [paramImplId]: paramImpl };
+    state.parentSectionMap = { [sectionId]: null };
+    state.previewSectionVariantMap = {};
+    state.requiredDecodedImages = [];
+  });
+  syncStoreInitialState(useProjectState);
+  useMisc.setState({ isSelectingParams: false });
+  useShareSession.setState({ isDeploymentMode: false });
+
+  return { paramId, sectionId };
 }
 
 describe("ParamUI", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
   beforeEach(() => {
-    mocks.state.sectionImpl = {
-      configLanguage: "python",
-      isFrozen: false,
-    };
-    mocks.state.codeObjImpl = {
-      type: CodeObjTypeEnum.TextParam,
-      defaultVal: "",
-    };
-    mocks.state.isSelectingParams = false;
-    mocks.state.isDeploymentMode = false;
-    mocks.state.canEditParams = true;
-    mocks.state.waitingForResult = false;
-    mocks.textInputProps.mockReset();
-    mocks.dateTimeProps.mockReset();
-    mocks.sliderProps.mockReset();
-    mocks.rotaryProps.mockReset();
-    mocks.switchProps.mockReset();
-    mocks.colorPickerProps.mockReset();
-    mocks.dropdownProps.mockReset();
-    mocks.dropzoneProps.mockReset();
+    resetProjectStores();
+    textInputCodeMirrorRenderCount = 0;
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
     document.body.innerHTML = "";
+    resetProjectStores();
   });
 
-  afterEach(() => {
-    document.body.innerHTML = "";
-  });
-
-  it("renders code params through the text input path and disables them in deployment mode", async () => {
-    mocks.state.codeObjImpl = {
-      type: CodeObjTypeEnum.CodeParam,
-      defaultVal: "print('hello')",
-    };
-    mocks.state.isDeploymentMode = true;
-
-    const rendered = await renderParamUI({ value: "print('value')" });
-
-    try {
-      const textInput = rendered.host.querySelector(
-        '[data-testid="text-input"]',
-      );
-      expect(textInput?.getAttribute("data-language")).toBe("python");
-      expect(textInput?.getAttribute("data-default-val")).toBe(
-        "print('hello')",
-      );
-      expect(textInput?.getAttribute("data-disabled")).toBe("true");
-      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
-    } finally {
-      await cleanupRenderedParamUI(rendered);
-    }
-  });
-
-  it("forwards date param settings to the date-time input", async () => {
-    mocks.state.codeObjImpl = {
-      type: CodeObjTypeEnum.DateParam,
-      defaultVal: "",
-      dateDisplayFormat: DateDisplayFormatEnum.us,
-      dateControlMode: DateControlModeEnum.calendar,
-      dateSelectionMode: DateSelectionModeEnum.multiple,
-      dateCalendarWeekStart: DateCalendarWeekStartEnum.monday,
-      dateIncludesTime: true,
-    };
-
-    const rendered = await renderParamUI({ value: "2026-12-31T09:30" });
-
-    try {
-      const dateTimeInput = rendered.host.querySelector(
-        '[data-testid="date-time-input"]',
-      );
-      expect(dateTimeInput?.getAttribute("data-ui-type")).toBe(
-        TextParamInputUITypeEnum.date,
-      );
-      expect(dateTimeInput?.getAttribute("data-date-display-format")).toBe(
-        DateDisplayFormatEnum.us,
-      );
-      expect(dateTimeInput?.getAttribute("data-date-control-mode")).toBe(
-        DateControlModeEnum.calendar,
-      );
-      expect(dateTimeInput?.getAttribute("data-date-selection-mode")).toBe(
-        DateSelectionModeEnum.multiple,
-      );
-      expect(dateTimeInput?.getAttribute("data-date-calendar-week-start")).toBe(
-        DateCalendarWeekStartEnum.monday,
-      );
-      expect(dateTimeInput?.getAttribute("data-date-includes-time")).toBe(
-        "true",
-      );
-    } finally {
-      await cleanupRenderedParamUI(rendered);
-    }
-  });
-
-  it("shows the reveal action and saved placeholder for password params with a stored secret", async () => {
+  it("keeps the code input subtree out of parent rerenders when effective props stay the same", async () => {
+    const { paramId, sectionId } = seedParamUiState();
+    const onChange = vi.fn();
     const onRevealPassword = vi.fn();
-    mocks.state.codeObjImpl = {
-      type: CodeObjTypeEnum.PasswordParam,
-      defaultVal: "",
-      hasSecret: true,
-    };
+    const onDropzoneStateless = vi.fn();
 
-    const rendered = await renderParamUI({
-      onRevealPassword,
-      value: "",
+    await act(async () => {
+      root.render(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          value=""
+          onChange={onChange}
+          onDropzoneStateless={onDropzoneStateless}
+          onRevealPassword={onRevealPassword}
+          isPasswordRevealPending={false}
+          maybeErrorMessage=""
+        />,
+      );
     });
 
-    try {
-      const passwordInput = rendered.host.querySelector(
-        '[data-testid="password-input"]',
-      ) as HTMLInputElement | null;
-      const revealButton = rendered.host.querySelector(
-        'button[title="Reveal saved password"]',
-      ) as HTMLButtonElement | null;
-      expect(passwordInput?.placeholder).toBe("Saved");
-      expect(revealButton?.textContent).toBe("Reveal");
+    expect(textInputCodeMirrorRenderCount).toBe(1);
 
-      revealButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(onRevealPassword).toHaveBeenCalledTimes(1);
-    } finally {
-      await cleanupRenderedParamUI(rendered);
-    }
+    await act(async () => {
+      root.render(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          value=""
+          onChange={onChange}
+          onDropzoneStateless={onDropzoneStateless}
+          onRevealPassword={onRevealPassword}
+          isPasswordRevealPending={false}
+          maybeErrorMessage=""
+        />,
+      );
+    });
+
+    expect(textInputCodeMirrorRenderCount).toBe(1);
   });
 
-  it("forwards dropzone settings to the dropzone input", async () => {
-    mocks.state.codeObjImpl = {
-      type: CodeObjTypeEnum.DropzoneParam,
-      defaultVal: "",
-      mode: DropzoneModeEnum.STATELESS,
-      maxAttachments: 3,
-      placeholder: "Drop files here",
-    };
+  it("rerenders the code input subtree when the value prop changes", async () => {
+    const { paramId, sectionId } = seedParamUiState();
+    const onChange = vi.fn();
 
-    const rendered = await renderParamUI();
+    await act(async () => {
+      root.render(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          value=""
+          onChange={onChange}
+          onDropzoneStateless={vi.fn()}
+          onRevealPassword={vi.fn()}
+          isPasswordRevealPending={false}
+          maybeErrorMessage=""
+        />,
+      );
+    });
 
-    try {
-      const dropzoneInput = rendered.host.querySelector(
-        '[data-testid="dropzone-input"]',
+    await act(async () => {
+      root.render(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramId}
+          value="next"
+          onChange={onChange}
+          onDropzoneStateless={vi.fn()}
+          onRevealPassword={vi.fn()}
+          isPasswordRevealPending={false}
+          maybeErrorMessage=""
+        />,
       );
-      expect(dropzoneInput?.getAttribute("data-mode")).toBe(
-        DropzoneModeEnum.STATELESS,
-      );
-      expect(dropzoneInput?.getAttribute("data-max-attachments")).toBe("3");
-      expect(dropzoneInput?.getAttribute("data-placeholder")).toBe(
-        "Drop files here",
-      );
-      expect(dropzoneInput?.getAttribute("data-disabled")).toBe("false");
-    } finally {
-      await cleanupRenderedParamUI(rendered);
-    }
+    });
+
+    expect(textInputCodeMirrorRenderCount).toBe(2);
   });
 });

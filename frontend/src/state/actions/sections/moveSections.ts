@@ -1,30 +1,36 @@
-import { moveSections, setCodeSectionAttachedTerminal } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { addNodes, deleteNodes, moveNodes } from "state/actions/nodeInternals";
 import {
   useNodeInternals,
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  route_move_sections,
+  route_set_code_section_attached_terminal,
+} from "utils/generatedEndpoints";
 import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  getPersistedTopLevelSectionLayoutSize,
   isBaseCodeSectionType,
   setCurrEffectiveSectionImplValue,
   setSectionChildren,
 } from "../sectionInfos";
+
 type MoveSectionsInput = {
   sectionIds: string[];
   newParentId: string | null;
   newIndex: number | null;
   positionsById: Record<string, Position> | null;
 };
+
 type MoveSectionsStateInput = MoveSectionsInput & {
   state: ZustandProjectState;
 };
+
 export function moveSectionsWithBackend({
   sectionIds,
   newParentId,
@@ -63,32 +69,25 @@ export function moveSectionsWithBackend({
     },
     send: (frontendOpId) => {
       if (useAttachedTerminalRoute && stableNewParentId) {
-        return callOpenAPI(
-          setCodeSectionAttachedTerminal({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId: stableNewParentId,
-              terminalSectionId: stableSectionIds[0] ?? null,
-              frontendOpId,
-            },
-          } as Parameters<typeof setCodeSectionAttachedTerminal>[0]),
-        );
+        return route_set_code_section_attached_terminal({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId: stableNewParentId,
+          terminalSectionId: stableSectionIds[0] ?? null,
+          frontendOpId,
+        });
       }
-      return callOpenAPI(
-        moveSections({
-          body: {
-            projectConfigId: getCurrProjectConfigId(),
-            sectionIds: stableSectionIds,
-            newParentId: stableNewParentId,
-            newIndex: stableNewIndex,
-            positionsById: stablePositionsById,
-            frontendOpId,
-          },
-        } as Parameters<typeof moveSections>[0]),
-      );
+      return route_move_sections({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionIds: stableSectionIds,
+        newParentId: stableNewParentId,
+        newIndex: stableNewIndex,
+        positionsById: stablePositionsById,
+        frontendOpId,
+      });
     },
   });
 }
+
 function moveSectionsInState({
   sectionIds,
   newParentId,
@@ -144,6 +143,7 @@ function moveSectionsInState({
     state.parentSectionMap[sectionId] = newParentId;
   }
 }
+
 function moveSectionsToPane({
   sectionIds,
   positionsById,
@@ -170,10 +170,7 @@ function moveSectionsToPane({
     removeTopLevelNodes: false,
   });
   let maxZIndex = getMaxZIndex();
-  const existingMoves: Array<{
-    id: string;
-    position: Position;
-  }> = [];
+  const existingMoves: Array<{ id: string; position: Position }> = [];
   for (const sectionId of sectionIds) {
     const position = positionsById[sectionId];
     if (hasNode(sectionId)) {
@@ -204,6 +201,7 @@ function moveSectionsToPane({
     state.parentSectionMap[sectionId] = null;
   }
 }
+
 function removeSectionsFromParents({
   sectionIds,
   parentsById,
@@ -215,21 +213,60 @@ function removeSectionsFromParents({
   state: ZustandProjectState;
   removeTopLevelNodes: boolean;
 }) {
-  for (const [parentId, ids] of groupSectionIdsByParent(
-    sectionIds,
-    parentsById,
-  )) {
-    removeChildSectionsFromParent(state, parentId, ids);
+  const idsByParent: Record<string, string[]> = {};
+  for (const sectionId of sectionIds) {
+    const parentId = parentsById[sectionId] ?? null;
+    if (!parentId) continue;
+    if (!idsByParent[parentId]) {
+      idsByParent[parentId] = [];
+    }
+    idsByParent[parentId].push(sectionId);
   }
-  removeTopLevelNodeEntries(state, sectionIds, removeTopLevelNodes);
+
+  for (const [parentId, ids] of Object.entries(idsByParent)) {
+    const removalSet = new Set(ids);
+    if (isCodeSection(state, parentId)) {
+      const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+      if (
+        isBaseCodeSectionType(parentImpl.type) &&
+        parentImpl.attachedTerminalSectionId &&
+        removalSet.has(parentImpl.attachedTerminalSectionId)
+      ) {
+        setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, parentId, {
+          attachedTerminalSectionId: null,
+        });
+      }
+    }
+    setSectionChildren(state, parentId, (children) =>
+      children.filter((id) => !removalSet.has(id)),
+    );
+  }
+
+  if (removeTopLevelNodes && sectionIds.length > 0) {
+    // Defensive cleanup: if any of these sections have a top-level node/layout entry,
+    // they must be removed when moving into a parent, even if their `parentSectionMap`
+    // was already (incorrectly) non-null.
+    const nodeIdsToDelete = sectionIds.filter((sectionId) =>
+      hasNode(sectionId),
+    );
+    if (nodeIdsToDelete.length > 0) {
+      deleteNodes(nodeIdsToDelete);
+    }
+    for (const sectionId of sectionIds) {
+      deleteTopLevelSectionLayout(state, sectionId);
+    }
+  }
 }
+
 function hasNode(sectionId: string): boolean {
   return useNodeInternals.getState().x.has(sectionId);
 }
+
 function getNodeZIndex(sectionId: string): number | null {
   const node = useNodeInternals.getState().x.get(sectionId);
   return node ? node.zIndex : null;
 }
+
 function getMaxZIndex(): number {
   let maxZIndex = -1;
   for (const node of useNodeInternals.getState().x.values()) {
@@ -239,29 +276,42 @@ function getMaxZIndex(): number {
   }
   return maxZIndex;
 }
+
 function updateTopLevelLayout(
   state: ZustandProjectState,
   sectionId: string,
   position: Position,
   zIndex: number | null,
 ) {
-  const nextLayout = buildTopLevelSectionLayout(
-    state.projectConfig.topLevelSections[sectionId],
-    position,
-    zIndex,
-  );
+  const existing = state.projectConfig.topLevelSections[sectionId];
+  const node = useNodeInternals.getState().x.get(sectionId);
+  const persistedSize = getPersistedTopLevelSectionLayoutSize(node);
+  const nextLayout = {
+    x: position.x,
+    y: position.y,
+    zIndex: zIndex ?? existing?.zIndex ?? 0,
+    w: persistedSize.w,
+    h: persistedSize.h,
+  };
   state.projectConfig.topLevelSections[sectionId] = nextLayout;
-  const activeViewModeTopLevelSections =
-    getActiveViewModeTopLevelSections(state);
-  if (activeViewModeTopLevelSections) {
-    activeViewModeTopLevelSections[sectionId] = nextLayout;
+  const { activeViewModeId, viewModes } = state.projectConfig;
+  if (activeViewModeId) {
+    const viewMode = viewModes[activeViewModeId];
+    if (viewMode) {
+      if (!viewMode.topLevelSections) {
+        viewMode.topLevelSections = {};
+      }
+      viewMode.topLevelSections[sectionId] = nextLayout;
+    }
   }
 }
+
 function isCodeSection(state: ZustandProjectState, sectionId: string): boolean {
   return isBaseCodeSectionType(
     getCurrEffectiveSectionImpl(state, sectionId).type,
   );
 }
+
 function isTerminalSection(
   state: ZustandProjectState,
   sectionId: string,
@@ -271,6 +321,7 @@ function isTerminalSection(
     SectionTypeEnum.Terminal
   );
 }
+
 function shouldUseAttachedTerminalRoute({
   state,
   sectionIds,
@@ -291,6 +342,7 @@ function shouldUseAttachedTerminalRoute({
   }
   return isTerminalSection(state, sectionIds[0]);
 }
+
 function resolveParentIds(
   state: ZustandProjectState,
   sectionIds: string[],
@@ -301,104 +353,7 @@ function resolveParentIds(
   }
   return parentsById;
 }
-function groupSectionIdsByParent(
-  sectionIds: string[],
-  parentsById: Record<string, string | null>,
-): Map<string, string[]> {
-  const idsByParent = new Map<string, string[]>();
-  for (const sectionId of sectionIds) {
-    const parentId = parentsById[sectionId];
-    if (!parentId) {
-      continue;
-    }
-    const ids = idsByParent.get(parentId);
-    if (ids) {
-      ids.push(sectionId);
-      continue;
-    }
-    idsByParent.set(parentId, [sectionId]);
-  }
-  return idsByParent;
-}
-function removeChildSectionsFromParent(
-  state: ZustandProjectState,
-  parentId: string,
-  childSectionIds: string[],
-) {
-  const removalSet = new Set(childSectionIds);
-  clearAttachedTerminalIfNeeded(state, parentId, removalSet);
-  setSectionChildren(state, parentId, (children) =>
-    children.filter((id) => !removalSet.has(id)),
-  );
-}
-function clearAttachedTerminalIfNeeded(
-  state: ZustandProjectState,
-  parentId: string,
-  removalSet: Set<string>,
-) {
-  if (!isCodeSection(state, parentId)) {
-    return;
-  }
-  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
-  if (
-    !isBaseCodeSectionType(parentImpl.type) ||
-    !parentImpl.attachedTerminalSectionId ||
-    !removalSet.has(parentImpl.attachedTerminalSectionId)
-  ) {
-    return;
-  }
-  setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, parentId, {
-    attachedTerminalSectionId: null,
-  });
-}
-function removeTopLevelNodeEntries(
-  state: ZustandProjectState,
-  sectionIds: string[],
-  removeTopLevelNodes: boolean,
-) {
-  if (!removeTopLevelNodes || sectionIds.length === 0) {
-    return;
-  }
-  // Defensive cleanup: if any of these sections have a top-level node/layout entry,
-  // they must be removed when moving into a parent, even if their `parentSectionMap`
-  // was already (incorrectly) non-null.
-  const nodeIdsToDelete = sectionIds.filter((sectionId) => hasNode(sectionId));
-  if (nodeIdsToDelete.length > 0) {
-    deleteNodes(nodeIdsToDelete);
-  }
-  for (const sectionId of sectionIds) {
-    deleteTopLevelSectionLayout(state, sectionId);
-  }
-}
-function buildTopLevelSectionLayout(
-  existing:
-    | ZustandProjectState["projectConfig"]["topLevelSections"][string]
-    | undefined,
-  position: Position,
-  zIndex: number | null,
-) {
-  return {
-    x: position.x,
-    y: position.y,
-    zIndex: zIndex ?? existing?.zIndex ?? 0,
-    w: existing?.w ?? null,
-    h: existing?.h ?? null,
-  };
-}
-function getActiveViewModeTopLevelSections(state: ZustandProjectState) {
-  const activeViewModeId = state.projectConfig.activeViewModeId;
-  if (!activeViewModeId) {
-    return null;
-  }
-  const viewMode = state.projectConfig.viewModes[activeViewModeId];
-  if (!viewMode) {
-    return null;
-  }
-  if (!viewMode.topLevelSections) {
-    viewMode.topLevelSections = {};
-  }
-  return viewMode.topLevelSections;
-}
+
 function deleteTopLevelSectionLayout(
   state: ZustandProjectState,
   sectionId: string,

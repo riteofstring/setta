@@ -1,16 +1,13 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
-import type { HttpapiLlmapiKeysSnapshot } from "openapi/http";
 import { useState } from "react";
 import { HiChevronDown } from "react-icons/hi2";
 import { MdAdd } from "react-icons/md";
 import { mutateAndSaveLLMApiKeys } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { AllConfigs, LLMConfig } from "utils/generatedTypes";
+import { APIKeys, AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
 import { useHydrateLLMState } from "./useHydrateLLMState";
-
-type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
 
 const API_KEY_INPUT_CLASS_NAME =
   "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
@@ -269,69 +266,44 @@ type ApiKeyEntry = {
   configLabels: string[];
 };
 
-function resolveApiKeyConfigLabel(
-  configId: string,
-  typedConfig: LLMConfig,
-): string {
-  return typeof typedConfig.provider === "string"
-    ? `${configId} (${typedConfig.provider})`
-    : configId;
-}
-
-function ensureApiKeyEntry(
-  entriesByKey: Map<string, ApiKeyEntry>,
-  envKey: string,
-): ApiKeyEntry {
-  const existing = entriesByKey.get(envKey);
-  if (existing) {
-    return existing;
-  }
-  const createdEntry = {
-    envKey,
-    configLabels: [],
-  };
-  entriesByKey.set(envKey, createdEntry);
-  return createdEntry;
-}
-
-function appendConfiguredApiKeyEntries(
-  entriesByKey: Map<string, ApiKeyEntry>,
-  configs: AllConfigs["configs"] | null | undefined,
-): void {
-  if (!configs) {
-    return;
-  }
-  for (const [configId, config] of Object.entries(configs)) {
-    const typedConfig = config as LLMConfig;
-    const apiKeyEnv = typedConfig.api_key_env;
-    if (!apiKeyEnv || typeof apiKeyEnv !== "string") {
-      continue;
-    }
-    ensureApiKeyEntry(entriesByKey, apiKeyEnv).configLabels.push(
-      resolveApiKeyConfigLabel(configId, typedConfig),
-    );
-  }
-}
-
-function appendManualApiKeyEntries(
-  entriesByKey: Map<string, ApiKeyEntry>,
-  apiKeys: APIKeys,
-): void {
-  for (const envKey of Object.keys(apiKeys)) {
-    ensureApiKeyEntry(entriesByKey, envKey);
-  }
-}
-
-function compareApiKeyEntries(left: ApiKeyEntry, right: ApiKeyEntry): number {
-  return left.envKey.localeCompare(right.envKey);
-}
-
 export function buildApiKeyEntries(
-  allLLMConfigs: AllConfigs | null,
+  allLLMConfigs: AllLLMConfigs | null,
   apiKeys: APIKeys,
 ): ApiKeyEntry[] {
   const entriesByKey = new Map<string, ApiKeyEntry>();
-  appendConfiguredApiKeyEntries(entriesByKey, allLLMConfigs?.configs);
-  appendManualApiKeyEntries(entriesByKey, apiKeys);
-  return Array.from(entriesByKey.values()).sort(compareApiKeyEntries);
+  if (allLLMConfigs && allLLMConfigs.configs) {
+    for (const [configId, config] of Object.entries(allLLMConfigs.configs)) {
+      const typedConfig = config as LLMConfig;
+      const apiKeyEnv = typedConfig.api_key_env;
+      if (!apiKeyEnv || typeof apiKeyEnv !== "string") {
+        continue;
+      }
+      const label =
+        typeof typedConfig.provider === "string"
+          ? `${configId} (${typedConfig.provider})`
+          : configId;
+      const existing = entriesByKey.get(apiKeyEnv);
+      if (existing) {
+        existing.configLabels.push(label);
+      } else {
+        entriesByKey.set(apiKeyEnv, {
+          envKey: apiKeyEnv,
+          configLabels: [label],
+        });
+      }
+    }
+  }
+
+  for (const envKey of Object.keys(apiKeys)) {
+    if (entriesByKey.has(envKey)) {
+      continue;
+    }
+    entriesByKey.set(envKey, {
+      envKey,
+      configLabels: [],
+    });
+  }
+  return Array.from(entriesByKey.values()).sort((a, b) =>
+    a.envKey.localeCompare(b.envKey),
+  );
 }
