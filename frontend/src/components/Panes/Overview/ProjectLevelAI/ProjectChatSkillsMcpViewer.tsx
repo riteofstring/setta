@@ -864,6 +864,135 @@ function applySelectedSkillViewState(args: {
     nextSelectedSkillViewState.selectedSkillOriginalSizeBytes,
   );
 }
+
+type SkillContentViewStateSetters = {
+  setSelectedSkillContent: (value: string) => void;
+  setSelectedSkillContentTruncated: (value: boolean) => void;
+  setSelectedSkillOriginalSizeBytes: (value: number | null) => void;
+  setSkillContentLoadError: (value: string | null) => void;
+  setSkillContentLoadStatus: (value: SkillContentLoadStatus) => void;
+};
+
+function resetSelectedSkillContentViewState(
+  setters: SkillContentViewStateSetters,
+): void {
+  setters.setSkillContentLoadStatus("idle");
+  setters.setSkillContentLoadError(null);
+  setters.setSelectedSkillContent("");
+  setters.setSelectedSkillContentTruncated(false);
+  setters.setSelectedSkillOriginalSizeBytes(null);
+}
+
+function applyCachedSkillContentViewState(args: {
+  cached: SkillContentCacheEntry;
+  setters: SkillContentViewStateSetters;
+}): void {
+  const { cached, setters } = args;
+  setters.setSkillContentLoadStatus("loaded");
+  setters.setSkillContentLoadError(null);
+  setters.setSelectedSkillContent(cached.content);
+  setters.setSelectedSkillContentTruncated(cached.truncated);
+  setters.setSelectedSkillOriginalSizeBytes(cached.originalSizeBytes);
+}
+
+function applyLoadedSkillContentViewState(args: {
+  skillContent: SkillContent;
+  setters: SkillContentViewStateSetters;
+}): void {
+  const { skillContent, setters } = args;
+  setters.setSkillContentLoadStatus("loaded");
+  setters.setSkillContentLoadError(null);
+  setters.setSelectedSkillContent(skillContent.content);
+  setters.setSelectedSkillContentTruncated(skillContent.truncated);
+  setters.setSelectedSkillOriginalSizeBytes(skillContent.originalSizeBytes);
+}
+
+function applySkillContentLoadErrorViewState(args: {
+  detail: string | null;
+  setters: SkillContentViewStateSetters;
+}): void {
+  const { detail, setters } = args;
+  setters.setSkillContentLoadStatus("error");
+  setters.setSkillContentLoadError(
+    detail ?? "Failed to load selected skill content.",
+  );
+  setters.setSelectedSkillContent("");
+  setters.setSelectedSkillContentTruncated(false);
+  setters.setSelectedSkillOriginalSizeBytes(null);
+}
+
+async function loadSelectedSkillContent(args: {
+  isSkillMarkdownViewerOpen: boolean;
+  selectedSkillId: string | null;
+  selectedSkillIdRef: RefObject<string | null>;
+  setters: SkillContentViewStateSetters;
+  showSkillsSection: boolean;
+  skillContentCache: RefObject<Map<string, SkillContentCacheEntry>>;
+  skillContentRequestSequence: RefObject<number>;
+  skillsRevision: number;
+}): Promise<void> {
+  const {
+    isSkillMarkdownViewerOpen,
+    selectedSkillId,
+    selectedSkillIdRef,
+    setters,
+    showSkillsSection,
+    skillContentCache,
+    skillContentRequestSequence,
+    skillsRevision,
+  } = args;
+  if (!showSkillsSection) {
+    return;
+  }
+  if (!selectedSkillId || !isSkillMarkdownViewerOpen) {
+    skillContentRequestSequence.current += 1;
+    resetSelectedSkillContentViewState(setters);
+    return;
+  }
+  const cacheKey = `${skillsRevision}:${selectedSkillId}`;
+  const cached = skillContentCache.current.get(cacheKey) ?? null;
+  if (cached) {
+    applyCachedSkillContentViewState({
+      cached,
+      setters,
+    });
+    return;
+  }
+  const requestedSkillId = selectedSkillId;
+  const requestSequence = skillContentRequestSequence.current + 1;
+  skillContentRequestSequence.current = requestSequence;
+  setters.setSkillContentLoadStatus("loading");
+  setters.setSkillContentLoadError(null);
+  const res = await callOpenAPI(
+    getAppGenSkillContent({
+      body: {
+        skillId: requestedSkillId,
+      },
+    } as Parameters<typeof getAppGenSkillContent>[0]),
+  );
+  if (
+    requestSequence !== skillContentRequestSequence.current ||
+    requestedSkillId !== selectedSkillIdRef.current
+  ) {
+    return;
+  }
+  if (!res200(res)) {
+    applySkillContentLoadErrorViewState({
+      detail: getErrorDetail(res.data),
+      setters,
+    });
+    return;
+  }
+  applyLoadedSkillContentViewState({
+    skillContent: res.data,
+    setters,
+  });
+  skillContentCache.current.set(cacheKey, {
+    content: res.data.content,
+    truncated: res.data.truncated,
+    originalSizeBytes: res.data.originalSizeBytes,
+  });
+}
 function resolveProjectChatViewerLoadingState(args: {
   allLLMConfigsInitialLoadComplete: boolean;
   mcpRuntimeStatusLoading: boolean;
@@ -1458,6 +1587,89 @@ function SkillMarkdownBody({
     </>
   );
 }
+
+type SkillMarkdownViewerContentProps = {
+  canSaveSelectedSkill: boolean;
+  codeMirrorTheme: CodeMirrorTheme;
+  editableMarkdownViewerExtensions: CodeMirrorExtensions;
+  isOpen: boolean;
+  isRawMarkdownView: boolean;
+  onSaveSelectedCustomSkill: () => void;
+  onSelectSkillMarkdownViewMode: (mode: SkillMarkdownViewMode) => void;
+  onSkillMarkdownDraftChange: (value: string) => void;
+  rawMarkdownModeHint: string;
+  readonlyMarkdownViewerExtensions: CodeMirrorExtensions;
+  renderedSkillPreviewContent: string;
+  saveSelectedSkillButtonTitle: string;
+  skillContentLoadError: string | null;
+  skillContentLoadStatus: SkillContentLoadStatus;
+  skillMarkdownEditable: boolean;
+  skillMarkdownRawDraft: string | null;
+  skillPreviewContent: string;
+  skillPreviewTruncationNotice: string | null;
+};
+
+function SkillMarkdownViewerContent({
+  canSaveSelectedSkill,
+  codeMirrorTheme,
+  editableMarkdownViewerExtensions,
+  isOpen,
+  isRawMarkdownView,
+  onSaveSelectedCustomSkill,
+  onSelectSkillMarkdownViewMode,
+  onSkillMarkdownDraftChange,
+  rawMarkdownModeHint,
+  readonlyMarkdownViewerExtensions,
+  renderedSkillPreviewContent,
+  saveSelectedSkillButtonTitle,
+  skillContentLoadError,
+  skillContentLoadStatus,
+  skillMarkdownEditable,
+  skillMarkdownRawDraft,
+  skillPreviewContent,
+  skillPreviewTruncationNotice,
+}: SkillMarkdownViewerContentProps) {
+  if (!isOpen) {
+    return null;
+  }
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {skillContentLoadStatus === "error" && skillContentLoadError ? (
+        <div
+          className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+          data-testid="project-chat-skill-content-error"
+        >
+          Failed to load skill content: {skillContentLoadError}
+        </div>
+      ) : null}
+      {skillPreviewTruncationNotice ? (
+        <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+          {skillPreviewTruncationNotice}
+        </div>
+      ) : null}
+      <SkillMarkdownToolbar
+        canSaveSelectedSkill={canSaveSelectedSkill}
+        isRawMarkdownView={isRawMarkdownView}
+        onSaveSelectedCustomSkill={onSaveSelectedCustomSkill}
+        onSelectSkillMarkdownViewMode={onSelectSkillMarkdownViewMode}
+        saveSelectedSkillButtonTitle={saveSelectedSkillButtonTitle}
+      />
+      <SkillMarkdownBody
+        codeMirrorTheme={codeMirrorTheme}
+        editableMarkdownViewerExtensions={editableMarkdownViewerExtensions}
+        isRawMarkdownView={isRawMarkdownView}
+        onSkillMarkdownDraftChange={onSkillMarkdownDraftChange}
+        rawMarkdownModeHint={rawMarkdownModeHint}
+        readonlyMarkdownViewerExtensions={readonlyMarkdownViewerExtensions}
+        renderedSkillPreviewContent={renderedSkillPreviewContent}
+        skillMarkdownEditable={skillMarkdownEditable}
+        skillMarkdownRawDraft={skillMarkdownRawDraft}
+        skillPreviewContent={skillPreviewContent}
+      />
+    </div>
+  );
+}
+
 function SkillMarkdownViewerPanel({
   canSaveSelectedSkill,
   codeMirrorTheme,
@@ -1479,14 +1691,17 @@ function SkillMarkdownViewerPanel({
   skillPreviewContent,
   skillPreviewTruncationNotice,
 }: SkillMarkdownViewerPanelProps) {
+  const containerClassName = isOpen
+    ? "min-h-[140px] min-w-0 flex-1 overflow-hidden"
+    : "min-w-0";
+  const rootClassName = isOpen ? "h-full min-h-0" : "";
+  const itemClassName = `rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${isOpen ? "flex h-full min-h-0 flex-col" : ""}`;
+  const contentClassName = `overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown ${isOpen ? "min-h-0 flex-1" : ""}`;
+
   return (
-    <div
-      className={
-        isOpen ? "min-h-[140px] min-w-0 flex-1 overflow-hidden" : "min-w-0"
-      }
-    >
+    <div className={containerClassName}>
       <Accordion.Root
-        className={isOpen ? "h-full min-h-0" : ""}
+        className={rootClassName}
         collapsible
         onValueChange={(value) =>
           onSetSkillMarkdownViewerOpen(value === SKILL_MARKDOWN_VIEWER_VALUE)
@@ -1495,7 +1710,7 @@ function SkillMarkdownViewerPanel({
         value={isOpen ? SKILL_MARKDOWN_VIEWER_VALUE : ""}
       >
         <Accordion.Item
-          className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${isOpen ? "flex h-full min-h-0 flex-col" : ""}`}
+          className={itemClassName}
           value={SKILL_MARKDOWN_VIEWER_VALUE}
         >
           <Accordion.Header>
@@ -1509,49 +1724,31 @@ function SkillMarkdownViewerPanel({
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content
-            className={`overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown ${isOpen ? "min-h-0 flex-1" : ""}`}
-          >
-            {isOpen ? (
-              <div className="flex h-full min-h-0 flex-col">
-                {skillContentLoadStatus === "error" && skillContentLoadError ? (
-                  <div
-                    className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-                    data-testid="project-chat-skill-content-error"
-                  >
-                    Failed to load skill content: {skillContentLoadError}
-                  </div>
-                ) : null}
-                {skillPreviewTruncationNotice ? (
-                  <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                    {skillPreviewTruncationNotice}
-                  </div>
-                ) : null}
-                <SkillMarkdownToolbar
-                  canSaveSelectedSkill={canSaveSelectedSkill}
-                  isRawMarkdownView={isRawMarkdownView}
-                  onSaveSelectedCustomSkill={onSaveSelectedCustomSkill}
-                  onSelectSkillMarkdownViewMode={onSelectSkillMarkdownViewMode}
-                  saveSelectedSkillButtonTitle={saveSelectedSkillButtonTitle}
-                />
-                <SkillMarkdownBody
-                  codeMirrorTheme={codeMirrorTheme}
-                  editableMarkdownViewerExtensions={
-                    editableMarkdownViewerExtensions
-                  }
-                  isRawMarkdownView={isRawMarkdownView}
-                  onSkillMarkdownDraftChange={onSkillMarkdownDraftChange}
-                  rawMarkdownModeHint={rawMarkdownModeHint}
-                  readonlyMarkdownViewerExtensions={
-                    readonlyMarkdownViewerExtensions
-                  }
-                  renderedSkillPreviewContent={renderedSkillPreviewContent}
-                  skillMarkdownEditable={skillMarkdownEditable}
-                  skillMarkdownRawDraft={skillMarkdownRawDraft}
-                  skillPreviewContent={skillPreviewContent}
-                />
-              </div>
-            ) : null}
+          <Accordion.Content className={contentClassName}>
+            <SkillMarkdownViewerContent
+              canSaveSelectedSkill={canSaveSelectedSkill}
+              codeMirrorTheme={codeMirrorTheme}
+              editableMarkdownViewerExtensions={
+                editableMarkdownViewerExtensions
+              }
+              isOpen={isOpen}
+              isRawMarkdownView={isRawMarkdownView}
+              onSaveSelectedCustomSkill={onSaveSelectedCustomSkill}
+              onSelectSkillMarkdownViewMode={onSelectSkillMarkdownViewMode}
+              onSkillMarkdownDraftChange={onSkillMarkdownDraftChange}
+              rawMarkdownModeHint={rawMarkdownModeHint}
+              readonlyMarkdownViewerExtensions={
+                readonlyMarkdownViewerExtensions
+              }
+              renderedSkillPreviewContent={renderedSkillPreviewContent}
+              saveSelectedSkillButtonTitle={saveSelectedSkillButtonTitle}
+              skillContentLoadError={skillContentLoadError}
+              skillContentLoadStatus={skillContentLoadStatus}
+              skillMarkdownEditable={skillMarkdownEditable}
+              skillMarkdownRawDraft={skillMarkdownRawDraft}
+              skillPreviewContent={skillPreviewContent}
+              skillPreviewTruncationNotice={skillPreviewTruncationNotice}
+            />
           </Accordion.Content>
         </Accordion.Item>
       </Accordion.Root>
@@ -2313,79 +2510,22 @@ export function ProjectChatSkillsMcpViewer({
     });
   }, [refreshSkillsBrowser, showSkillsSection]);
   useEffect(() => {
-    async function loadSkillContent() {
-      if (!showSkillsSection) {
-        return;
-      }
-      if (!selectedSkillId) {
-        skillContentRequestSequence.current += 1;
-        setSkillContentLoadStatus("idle");
-        setSkillContentLoadError(null);
-        setSelectedSkillContent("");
-        setSelectedSkillContentTruncated(false);
-        setSelectedSkillOriginalSizeBytes(null);
-        return;
-      }
-      if (!isSkillMarkdownViewerOpen) {
-        skillContentRequestSequence.current += 1;
-        setSkillContentLoadStatus("idle");
-        setSkillContentLoadError(null);
-        setSelectedSkillContent("");
-        setSelectedSkillContentTruncated(false);
-        setSelectedSkillOriginalSizeBytes(null);
-        return;
-      }
-      const cacheKey = `${skillsRevision}:${selectedSkillId}`;
-      const cached = skillContentCache.current.get(cacheKey) ?? null;
-      if (cached) {
-        setSkillContentLoadStatus("loaded");
-        setSkillContentLoadError(null);
-        setSelectedSkillContent(cached.content);
-        setSelectedSkillContentTruncated(cached.truncated);
-        setSelectedSkillOriginalSizeBytes(cached.originalSizeBytes);
-        return;
-      }
-      const requestedSkillId = selectedSkillId;
-      const requestSequence = skillContentRequestSequence.current + 1;
-      skillContentRequestSequence.current = requestSequence;
-      setSkillContentLoadStatus("loading");
-      setSkillContentLoadError(null);
-      const res = await callOpenAPI(
-        getAppGenSkillContent({
-          body: {
-            skillId: requestedSkillId,
-          },
-        } as Parameters<typeof getAppGenSkillContent>[0]),
-      );
-      if (
-        requestSequence !== skillContentRequestSequence.current ||
-        requestedSkillId !== selectedSkillIdRef.current
-      ) {
-        return;
-      }
-      if (!res200(res)) {
-        const detail = getErrorDetail(res.data);
-        setSkillContentLoadStatus("error");
-        setSkillContentLoadError(
-          detail ?? "Failed to load selected skill content.",
-        );
-        setSelectedSkillContent("");
-        setSelectedSkillContentTruncated(false);
-        setSelectedSkillOriginalSizeBytes(null);
-        return;
-      }
-      setSkillContentLoadStatus("loaded");
-      setSkillContentLoadError(null);
-      setSelectedSkillContent(res.data.content);
-      setSelectedSkillContentTruncated(res.data.truncated);
-      setSelectedSkillOriginalSizeBytes(res.data.originalSizeBytes);
-      skillContentCache.current.set(cacheKey, {
-        content: res.data.content,
-        truncated: res.data.truncated,
-        originalSizeBytes: res.data.originalSizeBytes,
-      });
-    }
-    void loadSkillContent();
+    void loadSelectedSkillContent({
+      isSkillMarkdownViewerOpen,
+      selectedSkillId,
+      selectedSkillIdRef,
+      setters: {
+        setSelectedSkillContent,
+        setSelectedSkillContentTruncated,
+        setSelectedSkillOriginalSizeBytes,
+        setSkillContentLoadError,
+        setSkillContentLoadStatus,
+      },
+      showSkillsSection,
+      skillContentCache,
+      skillContentRequestSequence,
+      skillsRevision,
+    });
   }, [
     isSkillMarkdownViewerOpen,
     selectedSkillId,
