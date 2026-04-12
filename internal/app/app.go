@@ -2905,10 +2905,6 @@ func (a *App) ShareSessions() modes.ShareSessionStore {
 	return a.shareSessions
 }
 
-func (a *App) MCPServer() *mcpx.Server {
-	return a.mcpServer
-}
-
 func (a *App) MCPClient() *mcpx.Client {
 	return a.mcpClient
 }
