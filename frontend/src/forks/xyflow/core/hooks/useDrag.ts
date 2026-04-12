@@ -22,11 +22,23 @@ import { calcAutoPan, getEventPosition } from "../utils";
 import useGetPointerPosition from "./useGetPointerPosition";
 import { getDragItems, hasSelector } from "./utils";
 
+type UseDragData = { dx: number; dy: number };
+
 type UseDragParams = {
   nodeRef: RefObject<Element>;
   disabled?: boolean;
   nodeId?: string;
 };
+
+export function isNodeDragInteractionEnabled({
+  disabled,
+  panActivationKeyPressed,
+}: {
+  disabled: boolean;
+  panActivationKeyPressed: boolean;
+}) {
+  return !disabled && !panActivationKeyPressed;
+}
 
 function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
   const [dragging, setDragging] = useState<boolean>(false);
@@ -119,13 +131,6 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         autoPanId.current = requestAnimationFrame(autoPan);
       };
 
-      const updateMouseFromEvent = (event: UseDragEvent) => {
-        mousePosition.current = getEventPosition(
-          event.sourceEvent,
-          containerBounds.current ?? undefined,
-        );
-      };
-
       const startDrag = (event: UseDragEvent) => {
         const { multiSelectionActive } = useReactFlow.getState();
         const nodeInternals = useNodeInternals.getState().x;
@@ -143,54 +148,11 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         const pointerPos = getPointerPosition(event);
         lastPos.current = pointerPos;
         dragItems.current = getDragItems(nodeInternals, pointerPos, nodeId);
-        raiseTempZIndex(dragItems.current);
-        useMisc.setState({ mouseDownDraggingSection: true });
-      };
 
-      const startAutoPanIfNeeded = (autoPanOnNodeDrag: boolean) => {
-        if (
-          !autoPanStarted.current &&
-          dragStarted.current &&
-          autoPanOnNodeDrag
-        ) {
-          autoPanStarted.current = true;
-          autoPan();
+        if (dragItems.current) {
+          raiseTempZIndex(dragItems.current);
+          useMisc.setState({ mouseDownDraggingSection: true });
         }
-      };
-
-      const startDragOnceThresholdIsMet = (
-        event: UseDragEvent,
-        pointerPos: ReturnType<typeof getPointerPosition>,
-        nodeDragThreshold: number,
-      ) => {
-        if (dragStarted.current) {
-          return;
-        }
-
-        const x = pointerPos.xSnapped - (lastPos.current.x ?? 0);
-        const y = pointerPos.ySnapped - (lastPos.current.y ?? 0);
-        const distance = Math.sqrt(x * x + y * y);
-
-        if (distance > nodeDragThreshold) {
-          startDrag(event);
-        }
-      };
-
-      const hasPointerMoved = (
-        pointerPos: ReturnType<typeof getPointerPosition>,
-      ) =>
-        lastPos.current.x !== pointerPos.xSnapped ||
-        lastPos.current.y !== pointerPos.ySnapped;
-
-      const finishDrag = () => {
-        setDragging(false);
-        autoPanStarted.current = false;
-        dragStarted.current = false;
-        cancelAnimationFrame(autoPanId.current);
-        setZIndices(
-          dragItems.current.map((dragItem) => dragItem.id),
-          true,
-        );
       };
 
       if (disabled) {
@@ -206,24 +168,50 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
             const pointerPos = getPointerPosition(event);
             lastPos.current = pointerPos;
             containerBounds.current = domNode?.getBoundingClientRect() || null;
-            updateMouseFromEvent(event);
+            mousePosition.current = getEventPosition(
+              event.sourceEvent,
+              containerBounds.current!,
+            );
           })
           .on("drag", (event: UseDragEvent) => {
             const pointerPos = getPointerPosition(event);
             const { autoPanOnNodeDrag, nodeDragThreshold } =
               useReactFlow.getState();
 
-            startAutoPanIfNeeded(autoPanOnNodeDrag);
-            startDragOnceThresholdIsMet(event, pointerPos, nodeDragThreshold);
-
-            if (!dragStarted.current || !hasPointerMoved(pointerPos)) {
-              return;
+            if (
+              !autoPanStarted.current &&
+              dragStarted.current &&
+              autoPanOnNodeDrag
+            ) {
+              autoPanStarted.current = true;
+              autoPan();
             }
 
-            updateMouseFromEvent(event);
-            updateNodes(pointerPos);
+            if (!dragStarted.current) {
+              const x = pointerPos.xSnapped - (lastPos?.current?.x ?? 0);
+              const y = pointerPos.ySnapped - (lastPos?.current?.y ?? 0);
+              const distance = Math.sqrt(x * x + y * y);
+
+              if (distance > nodeDragThreshold) {
+                startDrag(event);
+              }
+            }
+
+            // skip events without movement
+            if (
+              (lastPos.current.x !== pointerPos.xSnapped ||
+                lastPos.current.y !== pointerPos.ySnapped) &&
+              dragItems.current &&
+              dragStarted.current
+            ) {
+              mousePosition.current = getEventPosition(
+                event.sourceEvent,
+                containerBounds.current!,
+              );
+              updateNodes(pointerPos);
+            }
           })
-          .on("end", () => {
+          .on("end", (event: UseDragEvent) => {
             useMisc.setState({ mouseDownDraggingSection: false });
             if (!dragStarted.current) {
               return;
@@ -233,11 +221,27 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
               updateNodes(lastPos.current, true);
             }
 
-            finishDrag();
+            setDragging(false);
+            autoPanStarted.current = false;
+            dragStarted.current = false;
+            cancelAnimationFrame(autoPanId.current);
+
+            if (dragItems.current) {
+              setZIndices(
+                dragItems.current.map((x) => x.id),
+                true,
+              );
+            }
           })
           .filter((event: MouseEvent) => {
             const target = event.target as HTMLDivElement;
+            const dragEnabled = isNodeDragInteractionEnabled({
+              disabled,
+              panActivationKeyPressed:
+                useReactFlow.getState().panActivationKeyPressed,
+            });
             const isDraggable =
+              dragEnabled &&
               !event.button &&
               !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
 
