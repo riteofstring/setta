@@ -163,59 +163,77 @@ func parseSpecifierSet(raw string) (parsedSpecifierSet, error) {
 }
 
 func parseSpecifier(raw string) (parsedSpecifier, error) {
+	op, value, err := splitSpecifierOperator(raw)
+	if err != nil {
+		return parsedSpecifier{}, err
+	}
+	if specifier, matched, err := parsePrefixMatchSpecifier(op, value); matched || err != nil {
+		return specifier, err
+	}
+	if op == "~=" {
+		return parseCompatibleSpecifier(op, value)
+	}
+	return parseComparisonSpecifier(op, value)
+}
+
+func splitSpecifierOperator(raw string) (string, string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return parsedSpecifier{}, fmt.Errorf("empty version specifier")
+		return "", "", fmt.Errorf("empty version specifier")
 	}
-
 	for _, op := range []string{"<=", ">=", "==", "!=", "~=", "<", ">"} {
 		if !strings.HasPrefix(trimmed, op) {
 			continue
 		}
 		value := strings.TrimSpace(trimmed[len(op):])
 		if value == "" {
-			return parsedSpecifier{}, fmt.Errorf("missing version in specifier %q", raw)
+			return "", "", fmt.Errorf("missing version in specifier %q", raw)
 		}
-		switch op {
-		case "==", "!=":
-			if strings.HasSuffix(value, ".*") {
-				prefix, err := parseReleasePrefix(strings.TrimSpace(strings.TrimSuffix(value, ".*")))
-				if err != nil {
-					return parsedSpecifier{}, err
-				}
-				return parsedSpecifier{
-					kind:   specifierKindPrefixMatch,
-					op:     op,
-					prefix: prefix,
-				}, nil
-			}
-		case "~=":
-			version, err := parseVersion(value)
-			if err != nil {
-				return parsedSpecifier{}, err
-			}
-			if len(version.release) < 2 {
-				return parsedSpecifier{}, fmt.Errorf("compatible release specifier requires at least two release segments")
-			}
-			return parsedSpecifier{
-				kind:    specifierKindCompatible,
-				op:      op,
-				version: version,
-			}, nil
-		}
-
-		version, err := parseVersion(value)
-		if err != nil {
-			return parsedSpecifier{}, err
-		}
-		return parsedSpecifier{
-			kind:    specifierKindComparison,
-			op:      op,
-			version: version,
-		}, nil
+		return op, value, nil
 	}
+	return "", "", fmt.Errorf("unsupported version specifier %q", raw)
+}
 
-	return parsedSpecifier{}, fmt.Errorf("unsupported version specifier %q", raw)
+func parsePrefixMatchSpecifier(op string, value string) (parsedSpecifier, bool, error) {
+	if (op != "==" && op != "!=") || !strings.HasSuffix(value, ".*") {
+		return parsedSpecifier{}, false, nil
+	}
+	prefix, err := parseReleasePrefix(strings.TrimSpace(strings.TrimSuffix(value, ".*")))
+	if err != nil {
+		return parsedSpecifier{}, true, err
+	}
+	return parsedSpecifier{
+		kind:   specifierKindPrefixMatch,
+		op:     op,
+		prefix: prefix,
+	}, true, nil
+}
+
+func parseCompatibleSpecifier(op string, value string) (parsedSpecifier, error) {
+	version, err := parseVersion(value)
+	if err != nil {
+		return parsedSpecifier{}, err
+	}
+	if len(version.release) < 2 {
+		return parsedSpecifier{}, fmt.Errorf("compatible release specifier requires at least two release segments")
+	}
+	return parsedSpecifier{
+		kind:    specifierKindCompatible,
+		op:      op,
+		version: version,
+	}, nil
+}
+
+func parseComparisonSpecifier(op string, value string) (parsedSpecifier, error) {
+	version, err := parseVersion(value)
+	if err != nil {
+		return parsedSpecifier{}, err
+	}
+	return parsedSpecifier{
+		kind:    specifierKindComparison,
+		op:      op,
+		version: version,
+	}, nil
 }
 
 func parseReleasePrefix(raw string) ([]int, error) {
@@ -260,31 +278,43 @@ func (s parsedSpecifierSet) allowsPrereleases() bool {
 func (s parsedSpecifier) Contains(version parsedVersion) bool {
 	switch s.kind {
 	case specifierKindComparison:
-		comparison := compareVersions(version, s.version)
-		switch s.op {
-		case "==":
-			return comparison == 0
-		case "!=":
-			return comparison != 0
-		case "<":
-			return comparison < 0
-		case "<=":
-			return comparison <= 0
-		case ">":
-			return comparison > 0
-		case ">=":
-			return comparison >= 0
-		}
+		return matchesComparisonSpecifier(compareVersions(version, s.version), s.op)
 	case specifierKindPrefixMatch:
-		matches := releasePrefixMatches(version.release, s.prefix)
-		if s.op == "==" {
-			return matches
-		}
-		return !matches
+		return matchesPrefixSpecifier(releasePrefixMatches(version.release, s.prefix), s.op)
 	case specifierKindCompatible:
-		return compareVersions(version, s.version) >= 0 && releasePrefixMatches(version.release, s.compatiblePrefix())
+		return matchesCompatibleSpecifier(version, s.version, s.compatiblePrefix())
 	}
 	return false
+}
+
+func matchesComparisonSpecifier(comparison int, op string) bool {
+	switch op {
+	case "==":
+		return comparison == 0
+	case "!=":
+		return comparison != 0
+	case "<":
+		return comparison < 0
+	case "<=":
+		return comparison <= 0
+	case ">":
+		return comparison > 0
+	case ">=":
+		return comparison >= 0
+	default:
+		return false
+	}
+}
+
+func matchesPrefixSpecifier(matches bool, op string) bool {
+	if op == "==" {
+		return matches
+	}
+	return !matches
+}
+
+func matchesCompatibleSpecifier(version parsedVersion, minimum parsedVersion, prefix []int) bool {
+	return compareVersions(version, minimum) >= 0 && releasePrefixMatches(version.release, prefix)
 }
 
 func (s parsedSpecifier) AllowsPrereleases() bool {

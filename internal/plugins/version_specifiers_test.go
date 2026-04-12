@@ -104,6 +104,18 @@ func TestParseSpecifierSetContains(t *testing.T) {
 			want:      false,
 		},
 		{
+			name:      "prefix exclusion rejects matching release",
+			specifier: "!=1.0.*",
+			version:   "1.0.5",
+			want:      false,
+		},
+		{
+			name:      "prefix exclusion keeps different release",
+			specifier: "!=1.0.*",
+			version:   "1.1.0",
+			want:      true,
+		},
+		{
 			name:      "plain ranges reject prereleases by default",
 			specifier: "<1.0",
 			version:   "1.0rc1",
