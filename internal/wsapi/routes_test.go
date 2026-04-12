@@ -1723,6 +1723,54 @@ func TestRegisterRoutesListenerInitResolvesProjectNameAndSendsForceRefresh(t *te
 	assertRouteListenerForceRefresh(t, forceRefresh, "project-alpha", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-alpha"))
 }
 
+func TestRegisterRoutesListenerInitPrefersExplicitProjectIDOverProjectName(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntimeWithDocument(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-default",
+		Projects: map[string]projectstate.Project{
+			"project-default": {
+				ID:   "project-default",
+				Name: "Default Project",
+			},
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha Project",
+			},
+			"project-bravo": {
+				ID:   "project-bravo",
+				Name: "Bravo Project",
+			},
+		},
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		ProjectState:        projectRuntime,
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteListenerByID, authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer conn.CloseNow()
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectConfigId":"project-bravo","projectName":"Alpha Project"}}`)); err != nil {
+		t.Fatalf("write listener init with explicit id and name: %v", err)
+	}
+
+	forceRefresh := readNextMessage(t, conn)
+	assertRouteListenerForceRefresh(t, forceRefresh, "project-bravo", "", routeProjectStatePayload(t, projectRuntime.Snapshot().Document, "project-bravo"))
+}
+
 func TestRegisterRoutesListenerInitFallsBackToDefaultProject(t *testing.T) {
 	t.Parallel()
 

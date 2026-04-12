@@ -1227,50 +1227,19 @@ func resolveListenerBootstrap(
 		return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{"message": err.Error()}, err
 	}
 
-	projectID := strings.TrimSpace(content.ProjectConfigID)
-	projectName := strings.TrimSpace(content.ProjectName)
-	switch {
-	case projectID != "":
-		// Explicit project config ids stay authoritative when both id and name are sent.
-	case projectName != "":
-		projectID, err = snapshot.Document.ProjectIDByName(projectName)
-		if err != nil {
-			details := map[string]any{
-				"projectName": projectName,
-			}
-			if !errors.Is(err, projectstate.ErrProjectNotFound) {
-				details["message"] = err.Error()
-			}
-			return "", listenersnapshot.ListenerSnapshotPayload{}, details, err
-		}
-	default:
-		projectID = strings.TrimSpace(snapshot.Document.DefaultProjectID)
-		if projectID == "" {
-			err := fmt.Errorf("%w: default project id", projectview.ErrProjectConfigIDRequired)
-			return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{"message": err.Error()}, err
-		}
-	}
-
-	_, err = projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+	target, details, err := resolveListenerBootstrapTarget(snapshot.Document, content)
 	if err != nil {
-		details := map[string]any{}
-		if projectID != "" {
-			details["projectConfigId"] = projectID
-		}
-		if projectName != "" {
-			details["projectName"] = projectName
-		}
-		if !errors.Is(err, projectstate.ErrProjectNotFound) {
-			details["message"] = err.Error()
-		}
 		return "", listenersnapshot.ListenerSnapshotPayload{}, details, err
 	}
+	if err := validateListenerBootstrapTarget(snapshot.Document, target); err != nil {
+		return "", listenersnapshot.ListenerSnapshotPayload{}, listenerBootstrapTargetErrorDetails(target, err), err
+	}
 
-	snapshotPayload, err := listenersnapshot.BuildListenerSnapshotPayload(snapshot.Document, projectID)
+	snapshotPayload, err := listenersnapshot.BuildListenerSnapshotPayload(snapshot.Document, target.projectID)
 	if err != nil {
 		return "", listenersnapshot.ListenerSnapshotPayload{}, map[string]any{"message": err.Error()}, err
 	}
-	return projectID, snapshotPayload, nil, nil
+	return target.projectID, snapshotPayload, nil, nil
 }
 
 func listenerBootstrapSnapshot(
@@ -1287,6 +1256,70 @@ func listenerBootstrapSnapshot(
 		return projectstate.Snapshot{}, fmt.Errorf("project runtime is required")
 	}
 	return deps.ProjectState.Snapshot(), nil
+}
+
+type listenerBootstrapTarget struct {
+	projectID   string
+	projectName string
+}
+
+func resolveListenerBootstrapTarget(
+	document projectstate.Document,
+	content realtime.ListenerInitContent,
+) (listenerBootstrapTarget, map[string]any, error) {
+	target := listenerBootstrapTarget{
+		projectID:   strings.TrimSpace(content.ProjectConfigID),
+		projectName: strings.TrimSpace(content.ProjectName),
+	}
+	if target.projectID != "" {
+		return target, nil, nil
+	}
+	if target.projectName != "" {
+		projectID, err := document.ProjectIDByName(target.projectName)
+		if err != nil {
+			return listenerBootstrapTarget{}, listenerBootstrapProjectNameErrorDetails(target.projectName, err), err
+		}
+		target.projectID = projectID
+		return target, nil, nil
+	}
+	target.projectID = strings.TrimSpace(document.DefaultProjectID)
+	if target.projectID != "" {
+		return target, nil, nil
+	}
+	err := fmt.Errorf("%w: default project id", projectview.ErrProjectConfigIDRequired)
+	return listenerBootstrapTarget{}, map[string]any{"message": err.Error()}, err
+}
+
+func validateListenerBootstrapTarget(
+	document projectstate.Document,
+	target listenerBootstrapTarget,
+) error {
+	_, err := projectview.SingleConfigByProjectID(document, target.projectID)
+	return err
+}
+
+func listenerBootstrapProjectNameErrorDetails(projectName string, err error) map[string]any {
+	details := map[string]any{
+		"projectName": projectName,
+	}
+	if !errors.Is(err, projectstate.ErrProjectNotFound) {
+		details["message"] = err.Error()
+	}
+	return details
+}
+
+func listenerBootstrapTargetErrorDetails(target listenerBootstrapTarget, err error) map[string]any {
+	details := map[string]any{}
+	if target.projectID != "" {
+		details["projectConfigId"] = target.projectID
+	}
+	if target.projectName != "" {
+		details["projectName"] = target.projectName
+	}
+	if !errors.Is(err, projectstate.ErrProjectNotFound) {
+		details["message"] = err.Error()
+	}
+	return details
 }
 
 func handleListenerRouterEndpointCall(
