@@ -13,6 +13,7 @@ import {
 import {
   measureSettingsGraphSubstrateCanaryMotionAttribution,
   recordSettingsGraphSubstrateCanaryMotionAttributionDuration,
+  type SettingsGraphSubstrateCanaryMotionAttributionOwner,
 } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { GetParamSwitch } from "./GetParamSwitch";
 import {
@@ -21,13 +22,22 @@ import {
 } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
 
+function resolveParamDndListRowsOwner(
+  listKey: ParamListKey,
+): SettingsGraphSubstrateCanaryMotionAttributionOwner {
+  return listKey === "pinned"
+    ? "presentedSceneSectionPinnedParamDndListRowsReactRender"
+    : "presentedSceneSectionUnpinnedParamDndListRowsReactRender";
+}
+
 function handleParamDndListRowsRender(
+  listKey: ParamListKey,
   _id: string,
   _phase: "mount" | "nested-update" | "update",
   actualDuration: number,
 ) {
   recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
-    "presentedSceneSectionParamDndListRowsReactRender",
+    resolveParamDndListRowsOwner(listKey),
     actualDuration,
   );
 }
@@ -105,7 +115,7 @@ function _ParamDndList({
       <ParamDuplicateIndexProvider value={duplicateIndex}>
         <React.Profiler
           id={`param-dnd-list-rows:${sectionId}:${listKey}`}
-          onRender={handleParamDndListRowsRender}
+          onRender={handleParamDndListRowsRender.bind(null, listKey)}
         >
           <GetParamSwitch
             sectionId={sectionId}
@@ -170,7 +180,7 @@ function ParamDndListBody({
   return (
     <React.Profiler
       id={`param-dnd-list-rows:${sectionId}:${listKey}`}
-      onRender={handleParamDndListRowsRender}
+      onRender={handleParamDndListRowsRender.bind(null, listKey)}
     >
       <GetParamSwitch
         sectionId={sectionId}

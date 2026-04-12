@@ -273,4 +273,42 @@ describe("GetParamSwitch render stability", () => {
       initialMaterializationCount,
     );
   });
+
+  it("passes subtree-scoped required paths to each row", async () => {
+    const { sectionId } = seedGetParamSwitchState();
+    const requiredParamIdsToPaths = {
+      "param-parent": ["param-parent"],
+      "param-child": ["param-parent", "param-child"],
+      "param-sibling": ["param-sibling"],
+    };
+
+    await act(async () => {
+      root.render(
+        <GetParamSwitch
+          sectionId={sectionId}
+          paramIds={["param-parent", "param-sibling"]}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={vi.fn()}
+          isTopLevel={true}
+          listKey="unpinned"
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(vi.mocked(ParamSwitch)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(ParamSwitch).mock.calls[0]?.[0]).toMatchObject({
+      paramInfoId: "param-parent",
+      requiredParamIdsToPaths: {
+        "param-parent": ["param-parent"],
+        "param-child": ["param-parent", "param-child"],
+      },
+    });
+    expect(vi.mocked(ParamSwitch).mock.calls[1]?.[0]).toMatchObject({
+      paramInfoId: "param-sibling",
+      requiredParamIdsToPaths: {
+        "param-sibling": ["param-sibling"],
+      },
+    });
+  });
 });

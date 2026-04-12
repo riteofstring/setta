@@ -61,6 +61,64 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+- item `465` completed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` unpinned-row lane by scoping
+  `requiredParamIdsToPaths` per `ParamSwitch` row subtree instead of
+  forwarding the whole section map through every row:
+  - code/test changes kept in the tree:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+      now builds one ancestor-indexed required-path map and passes each row
+      only the entries for that row's own subtree
+    - `frontend/src/components/Params/GetParamSwitch.render-stability.test.tsx`
+      now proves sibling rows receive different subtree-scoped maps
+    - `frontend/src/components/Params/ParamDndList.tsx` plus
+      `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `settings-view-modes-main-reference.spec.ts`
+      keep the pinned versus unpinned row-owner split wired into the live probe
+      allowlists for this lane
+  - focused verification:
+    - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`5` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-025/worktree-ai.log`
+      -> refreshed runtime facts before live verification
+    - first broad worktree probe run:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-025/worktree-ai.log`
+      -> failed with
+         `Worktree unhealthy: page closed while writing normalized compare pane state`
+    - bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+      -> refreshed runtime facts again with
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-025/worktree-ai.log`
+    - retrying the same probe after recovery:
+      -> passed (`1` Playwright test, `2.2m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> top narrow owners stayed
+         `presentedSceneSectionParamGroupContainerReactRender`,
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`, and
+         `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+      -> compared with the row-owner-split baseline, the subtree-scope cut was
+         non-winning on the live lane:
+         `averageFrameDurationMs 40.15 -> 43.56`,
+         `longTaskTotalDurationMs 1145 -> 1256`,
+         `ParamGroupContainer 531.6ms -> 561.3ms`,
+         `UnpinnedParamDndListRows 444.6ms -> 454.3ms`
+    - required fresh-context CDP check:
+      -> pending this iteration; use the recovered run-025 runtime and keep the
+         check graph-surface-only on `All Settings` around
+         `rotaryParamCodeObjDefault`
+  - reading:
+    - this slice is behaviorally correct and keeps the canonical lane healthy,
+      but it did not move the live dominant owners
+    - close the adjacent row-map trimming lane here instead of taking another
+      `GetParamSwitch` / `ParamSwitch` micro-cut by proximity
+    - the next iteration should target a larger reduction above this row seam:
+      either broader `ParamGroupContainer` DOM fanout/mount work or a first
+      scene-owned static body cut that removes measured DOM cost
+
 - item `464` tightened the canonical `rotaryParamCodeObjDefault` lane-health
   verifier so local-pane-state reads fail fast and prefer browser-context
   storage before page-script evaluation, which removed this iteration's

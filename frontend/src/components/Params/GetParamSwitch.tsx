@@ -1,7 +1,7 @@
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
@@ -21,6 +21,30 @@ type GetParamSwitchProps = {
   hasSectionStyleTheme: boolean;
 };
 
+const EMPTY_REQUIRED_PARAM_IDS_TO_PATHS: Record<string, Array<string>> = {};
+
+function buildRequiredParamIdsToPathsByAncestor(
+  requiredParamIdsToPaths: Record<string, Array<string>>,
+): Map<string, Record<string, Array<string>>> {
+  const requiredParamIdsToPathsByAncestor = new Map<
+    string,
+    Record<string, Array<string>>
+  >();
+
+  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
+    for (const ancestorId of path) {
+      let ancestorPaths = requiredParamIdsToPathsByAncestor.get(ancestorId);
+      if (!ancestorPaths) {
+        ancestorPaths = {};
+        requiredParamIdsToPathsByAncestor.set(ancestorId, ancestorPaths);
+      }
+      ancestorPaths[paramId] = path;
+    }
+  }
+
+  return requiredParamIdsToPathsByAncestor;
+}
+
 function _GetParamSwitch(props: GetParamSwitchProps) {
   const {
     sectionId,
@@ -31,6 +55,10 @@ function _GetParamSwitch(props: GetParamSwitchProps) {
     listKey,
     hasSectionStyleTheme,
   } = props;
+  const requiredParamIdsToPathsByAncestor = useMemo(
+    () => buildRequiredParamIdsToPathsByAncestor(requiredParamIdsToPaths),
+    [requiredParamIdsToPaths],
+  );
   const paramFilter = useProjectState(
     (state) =>
       getCurrEffectiveSectionImplWithTypeGuard(
@@ -46,7 +74,7 @@ function _GetParamSwitch(props: GetParamSwitchProps) {
       <ParamSwitchRows
         sectionId={sectionId}
         paramIds={paramIds}
-        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        requiredParamIdsToPathsByAncestor={requiredParamIdsToPathsByAncestor}
         onResizeStart={onResizeStart}
         isTopLevel={isTopLevel}
         listKey={listKey}
@@ -60,6 +88,7 @@ function _GetParamSwitch(props: GetParamSwitchProps) {
       sectionId={sectionId}
       paramIds={paramIds}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
+      requiredParamIdsToPathsByAncestor={requiredParamIdsToPathsByAncestor}
       onResizeStart={onResizeStart}
       isTopLevel={isTopLevel}
       listKey={listKey}
@@ -74,7 +103,7 @@ export const GetParamSwitch = React.memo(_GetParamSwitch, _.isEqual);
 function ParamSwitchRows({
   sectionId,
   paramIds,
-  requiredParamIdsToPaths,
+  requiredParamIdsToPathsByAncestor,
   onResizeStart,
   isTopLevel,
   listKey,
@@ -82,7 +111,10 @@ function ParamSwitchRows({
 }: {
   sectionId: string;
   paramIds: Array<string>;
-  requiredParamIdsToPaths: Record<string, Array<string>>;
+  requiredParamIdsToPathsByAncestor: ReadonlyMap<
+    string,
+    Record<string, Array<string>>
+  >;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
   listKey: ParamListKey;
@@ -93,7 +125,10 @@ function ParamSwitchRows({
       key={paramId}
       sectionId={sectionId}
       paramInfoId={paramId}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      requiredParamIdsToPaths={
+        requiredParamIdsToPathsByAncestor.get(paramId) ??
+        EMPTY_REQUIRED_PARAM_IDS_TO_PATHS
+      }
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
       listKey={listKey}
@@ -106,6 +141,7 @@ function FilteredParamSwitchRows({
   sectionId,
   paramIds,
   requiredParamIdsToPaths,
+  requiredParamIdsToPathsByAncestor,
   onResizeStart,
   isTopLevel,
   listKey,
@@ -115,6 +151,10 @@ function FilteredParamSwitchRows({
   sectionId: string;
   paramIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
+  requiredParamIdsToPathsByAncestor: ReadonlyMap<
+    string,
+    Record<string, Array<string>>
+  >;
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
   listKey: ParamListKey;
@@ -152,7 +192,7 @@ function FilteredParamSwitchRows({
     <ParamSwitchRows
       sectionId={sectionId}
       paramIds={filteredIds}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      requiredParamIdsToPathsByAncestor={requiredParamIdsToPathsByAncestor}
       onResizeStart={onResizeStart}
       isTopLevel={isTopLevel}
       listKey={listKey}

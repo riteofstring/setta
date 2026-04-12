@@ -19276,3 +19276,57 @@ LOOP_TERMINAL_MARKER: none
   - when reusing a restarted live session for Playwright, refresh the runtime
     bootstrap token immediately before the run
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 12:00 UTC
+
+- item `465` completed one bounded product cut on the canonical
+  `rotaryParamCodeObjDefault` lane by scoping `requiredParamIdsToPaths` per
+  `ParamSwitch` row subtree instead of forwarding the whole section map through
+  every row
+- changed `frontend/src/components/Params/GetParamSwitch.tsx` so it builds one
+  ancestor-indexed required-path map and hands each row only the entries for
+  that row's own subtree
+- changed `frontend/src/components/Params/GetParamSwitch.render-stability.test.tsx`
+  to prove sibling rows receive different subtree-scoped maps
+- kept the pinned versus unpinned row-owner split wired into the live probe by
+  changing `frontend/src/components/Params/ParamDndList.tsx`,
+  `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`,
+  `frontend/tests/e2e/settings/settings-view-modes.spec.ts`, and
+  `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- verification:
+  - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/GetParamSwitch.test.tsx src/components/Params/ParamDndList.render-stability.test.tsx src/components/Params/ParamSwitch.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    -> pass (`5` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/GetParamSwitch.render-stability.test.tsx src/components/Params/ParamDndList.tsx src/components/Params/GroupContainer.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> pass
+  - refreshed runtime facts with
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-025/worktree-ai.log`
+  - first broad worktree probe run:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-025/worktree-ai.log`
+    -> failed with
+       `Worktree unhealthy: page closed while writing normalized compare pane state`
+  - bounded recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> succeeded
+    -> refreshed runtime facts again with the same `dev-runtime-info.sh`
+       command
+  - retrying the same probe:
+    -> pass (`1` Playwright test, `2.2m`)
+    -> canonical live readout stayed
+       `dominantCanaryMotionAttributionOwner=presentedSceneSectionSubtreeReactRender`
+    -> top narrow owners stayed
+       `presentedSceneSectionParamGroupContainerReactRender`,
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`,
+       `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+    -> live delta versus the row-owner-split baseline:
+       `averageFrameDurationMs 40.15 -> 43.56`,
+       `longTaskTotalDurationMs 1145 -> 1256`,
+       `ParamGroupContainer 531.6ms -> 561.3ms`,
+       `UnpinnedParamDndListRows 444.6ms -> 454.3ms`
+- reading:
+  - this cut is behaviorally correct but non-winning on the live canonical lane
+  - close the adjacent `GetParamSwitch` / row-map trimming lane here; do not
+    spend the next pass on another nearby memo or map-forwarding cut
+  - next: move one level up to broader `ParamGroupContainer` DOM fanout or a
+    first scene-owned static body cut that removes measured DOM work instead of
+    trimming another row-local data path
+- LOOP_TERMINAL_MARKER: none

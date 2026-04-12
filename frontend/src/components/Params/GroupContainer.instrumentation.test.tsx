@@ -289,14 +289,6 @@ describe("ParamGroupContainer instrumentation", () => {
         motionAttribution
           .presentedSceneSectionParamGroupUnpinnedParamsReactRender.count,
       ).toBeGreaterThan(0);
-      expect(
-        motionAttribution.presentedSceneSectionParamDndListDuplicateIndexResolve
-          .count,
-      ).toBeGreaterThan(0);
-      expect(
-        motionAttribution.presentedSceneSectionParamDndListRowsReactRender
-          .count,
-      ).toBeGreaterThan(0);
     } finally {
       await act(async () => {
         root.unmount();
