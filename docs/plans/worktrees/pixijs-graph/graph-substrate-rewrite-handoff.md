@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 11:18 UTC
+Last updated: 2026-04-15 11:22 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,50 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `493` closed the suspected frontend project-config store-sync blocker on
+  the canonical normalized `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - scope:
+    - no production code changes in this iteration
+    - bounded attribution pass only, because the plan explicitly required
+      either a production cut or a precise owner attribution instead of
+      another helper-only pass
+  - focused verification:
+    - refreshed runtime values with:
+      - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-024/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-024/main-ai.log`
+    - reran the canonical direct Playwright entrypoint:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh bootstrap url> timeout 420s pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane' --reporter=line --timeout=60000`
+      -> failed before test discovery with the same launcher/tooling error:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+      -> treat this as runner/tooling drift, not evidence about the renderer
+         or frontend store state
+    - fresh-context CDP inspection via sub-agent on the live worktree app:
+      -> `/settings` mounted successfully through the direct route even though
+         the provided bootstrap URL/token was rejected in that manual session
+      -> before any manual backend writes, the mounted page store already read:
+         - `activeViewModeId = 7e48b7ad-306c-4e02-aeff-357c2eb268c8`
+         - active view mode name `All Settings`
+         - `viewport = null`
+         - `viewportInitialized = false`
+      -> after manual `POST /api/setActiveViewMode` and `POST /api/setViewport`
+         writes against the live backend, the frontend store still read the
+         same normalized values immediately and again 2 seconds later
+      -> no direct client-side overwrite owner was observable in that live
+         inspection
+  - reading:
+    - the previously suspected production sync path behind
+      `waitForFrontendProjectConfigState(...)` is not the current blocker on
+      the mounted worktree page
+    - close this store-sync lane; do not spend another default iteration
+      trying to prove the same `activeViewModeId` / `viewport=null` write path
+    - the remaining blocker on the cross-worktree normalized perf probe is now
+      the unsupported direct Playwright launcher path, not the frontend
+      project-config store
+    - the next real frontier should move back to production work on the
+      measured dominant owner `reactFlowViewportPublish`, or use a trusted
+      runner path if the normalized cross-worktree probe must be reopened later
 
 - item `492` made the canonical pane-state probe return the real
   `useLocalStorage` defaults when no persisted `setta_data` exists yet,

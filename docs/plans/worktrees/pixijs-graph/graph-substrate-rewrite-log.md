@@ -20707,6 +20707,42 @@ LOOP_TERMINAL_MARKER: none
       above the row seam; do not spend the next pass on more pane-state helper
       churn
 - LOOP_TERMINAL_MARKER: none
+- item `493` closed the suspected frontend project-config store-sync blocker on
+  the canonical normalized `rotaryParamCodeObjDefault` lane:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - no production code changes; bounded attribution-only pass
+  - focused verification:
+    - refreshed runtime values with:
+      - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-024/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-024/main-ai.log`
+    - reran the canonical direct Playwright entrypoint:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh bootstrap url> timeout 420s pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane' --reporter=line --timeout=60000`
+      -> failed before test discovery with:
+         `section_ui_editor_tab_compatibility.json needs an import attribute of type "json"`
+    - fresh-context CDP inspection via sub-agent:
+      -> `/settings` mounted on the worktree runtime through the direct route
+      -> before manual backend writes, `useProjectState.getState().projectConfig`
+         already showed normalized values:
+         - active view mode `All Settings`
+         - `viewport = null`
+         - `viewportInitialized = false`
+      -> after manual backend `setActiveViewMode` and `setViewport(null)`
+         writes, the same frontend store values persisted immediately and after
+         a 2 second re-read
+      -> no direct client-side overwrite owner was visible in the inspected
+         live state
+  - reading:
+    - the suspected frontend store-sync owner behind
+      `waitForFrontendProjectConfigState(...)` is not the active blocker on the
+      mounted worktree page
+    - close this lane as disproven; the current cross-worktree probe blocker is
+      runner/tooling drift in the direct Playwright entrypoint, not product
+      state synchronization
+    - next: move back to the measured product hotspot
+      `reactFlowViewportPublish` unless a trusted runner path is required to
+      reopen the normalized cross-worktree lane
+- LOOP_TERMINAL_MARKER: none
 - item `491` narrowed the normalized compare-pane helper so parity setup can
   reuse the live pane store instead of forcing a reload every time:
   - canonical target section: `rotaryParamCodeObjDefault`
