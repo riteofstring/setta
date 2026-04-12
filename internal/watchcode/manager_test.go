@@ -10,7 +10,7 @@ import (
 func TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs(t *testing.T) {
 	t.Parallel()
 
-	// Config sync should normalize absolute watch inputs once and reuse them for matching.
+	// Config sync should normalize absolute watch inputs once and preserve the matching shape.
 	workspaceRoot := t.TempDir()
 	scriptsDir := filepath.Join(workspaceRoot, "scripts")
 	pkgDir := filepath.Join(workspaceRoot, "pkg")
@@ -58,23 +58,13 @@ func TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs(t *testing.T) {
 	if !reflect.DeepEqual(snapshot, expectedSnapshot) {
 		t.Fatalf("expected snapshot %#v, got %#v", expectedSnapshot, snapshot)
 	}
-	expectedDesired := map[string]bool{
-		scriptsDir: false,
-		pkgDir:     false,
-	}
-	if !reflect.DeepEqual(desiredWatchDirsFromSnapshots(manager.configSnapshots), expectedDesired) {
-		t.Fatalf("expected desired watch dirs %#v, got %#v", expectedDesired, desiredWatchDirsFromSnapshots(manager.configSnapshots))
-	}
-	if !reflect.DeepEqual(manager.watchedDirs, expectedDesired) {
-		t.Fatalf("expected watched dirs %#v, got %#v", expectedDesired, manager.watchedDirs)
-	}
-	if manager.PathMatchesWatchInputs("project-alpha", watchFile) != true {
+	if !matchesTrackedPythonPath(watchFile, snapshot) {
 		t.Fatal("expected tracked file to match watch inputs")
 	}
-	if manager.PathMatchesWatchInputs("project-alpha", directChild) != true {
+	if !matchesTrackedPythonPath(directChild, snapshot) {
 		t.Fatal("expected direct folder child to match watch inputs")
 	}
-	if manager.PathMatchesWatchInputs("project-alpha", nestedChild) {
+	if matchesTrackedPythonPath(nestedChild, snapshot) {
 		t.Fatal("expected nested child to miss non-recursive folder inputs")
 	}
 }
@@ -106,10 +96,11 @@ func TestManagerSyncConfigsUpgradesRecursiveFolders(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("sync non-recursive config: %v", err)
 	}
-	if recursive := manager.watchedDirs[pkgDir]; recursive {
-		t.Fatalf("expected initial watch dir to stay non-recursive, got %#v", manager.watchedDirs)
+	initialSnapshot := manager.configSnapshots["project-alpha"]
+	if manager.configSnapshots["project-alpha"].Folders[0].Recursive {
+		t.Fatalf("expected initial folder to stay non-recursive, got %#v", initialSnapshot.Folders)
 	}
-	if manager.PathMatchesWatchInputs("project-alpha", nestedChild) {
+	if matchesTrackedPythonPath(nestedChild, initialSnapshot) {
 		t.Fatal("expected nested child to miss non-recursive folder")
 	}
 
@@ -121,102 +112,12 @@ func TestManagerSyncConfigsUpgradesRecursiveFolders(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("sync recursive config: %v", err)
 	}
-	if recursive := manager.watchedDirs[pkgDir]; !recursive {
-		t.Fatalf("expected recursive watch dir, got %#v", manager.watchedDirs)
+	recursiveSnapshot := manager.configSnapshots["project-alpha"]
+	if !recursiveSnapshot.Folders[0].Recursive {
+		t.Fatalf("expected recursive folder snapshot, got %#v", recursiveSnapshot.Folders)
 	}
-	if !manager.PathMatchesWatchInputs("project-alpha", nestedChild) {
+	if !matchesTrackedPythonPath(nestedChild, recursiveSnapshot) {
 		t.Fatal("expected nested child to match recursive folder")
-	}
-}
-
-func TestManagerSyncConfigsUsesExistingAncestorForMissingDirs(t *testing.T) {
-	t.Parallel()
-
-	// Missing watch dirs should watch the nearest existing ancestor until the target directory appears.
-	workspaceRoot := t.TempDir()
-	missingDir := filepath.Join(workspaceRoot, "future", "watch_root")
-	existingAncestor := filepath.Join(workspaceRoot, "future")
-	if err := os.MkdirAll(existingAncestor, 0o755); err != nil {
-		t.Fatalf("mkdir existing ancestor: %v", err)
-	}
-
-	manager, err := NewManager(workspaceRoot)
-	if err != nil {
-		t.Fatalf("new manager: %v", err)
-	}
-	if err := manager.SyncConfigs(map[string]ConfigInputs{
-		"project-alpha": {
-			Enabled: true,
-			Folders: []FolderInput{{Path: "future/watch_root", Recursive: false}},
-		},
-	}); err != nil {
-		t.Fatalf("sync configs: %v", err)
-	}
-
-	if !reflect.DeepEqual(manager.pendingDirs, map[string]struct{}{missingDir: {}}) {
-		t.Fatalf("expected pending dir %q, got %#v", missingDir, manager.pendingDirs)
-	}
-	if !reflect.DeepEqual(manager.watchedDirs, map[string]bool{existingAncestor: false}) {
-		t.Fatalf("expected ancestor watch dir, got %#v", manager.watchedDirs)
-	}
-
-	if err := os.MkdirAll(missingDir, 0o755); err != nil {
-		t.Fatalf("mkdir missing dir: %v", err)
-	}
-	if err := manager.HandleDirectoryCreated(missingDir); err != nil {
-		t.Fatalf("handle directory created: %v", err)
-	}
-
-	if pending := manager.pendingDirs; len(pending) != 0 {
-		t.Fatalf("expected no pending dirs after creation, got %#v", pending)
-	}
-	if !reflect.DeepEqual(manager.watchedDirs, map[string]bool{missingDir: false}) {
-		t.Fatalf("expected new watch dir after creation, got %#v", manager.watchedDirs)
-	}
-}
-
-func TestManagerScheduleScanKeepsBroaderNonBaselineRequests(t *testing.T) {
-	t.Parallel()
-
-	// Re-scheduling the same scan should retain a non-baseline request once one has been queued.
-	workspaceRoot := t.TempDir()
-	watchDir := filepath.Join(workspaceRoot, "pkg")
-	watchFile := filepath.Join(watchDir, "watch.py")
-	if err := os.MkdirAll(watchDir, 0o755); err != nil {
-		t.Fatalf("mkdir watch dir: %v", err)
-	}
-	if err := os.WriteFile(watchFile, []byte("pass\n"), 0o644); err != nil {
-		t.Fatalf("write watch file: %v", err)
-	}
-
-	manager, err := NewManager(workspaceRoot)
-	if err != nil {
-		t.Fatalf("new manager: %v", err)
-	}
-	if err := manager.SyncConfigs(map[string]ConfigInputs{
-		"project-alpha": {
-			Enabled: true,
-			Files:   []string{"pkg/watch.py"},
-		},
-	}); err != nil {
-		t.Fatalf("sync configs: %v", err)
-	}
-	if err := manager.ScheduleScan("project-alpha", watchFile, true); err != nil {
-		t.Fatalf("schedule baseline scan: %v", err)
-	}
-	if err := manager.ScheduleScan("project-alpha", watchFile, false); err != nil {
-		t.Fatalf("schedule full scan: %v", err)
-	}
-	if err := manager.ScheduleScan("project-alpha", watchFile, true); err != nil {
-		t.Fatalf("schedule later baseline scan: %v", err)
-	}
-
-	expected := map[taskKey]bool{{
-		ConfigID: "project-alpha",
-		Path:     watchFile,
-	}: false}
-	if !reflect.DeepEqual(manager.scheduledScans, expected) {
-		t.Fatalf("expected scheduled scans %#v, got %#v", expected, manager.scheduledScans)
 	}
 }
 
@@ -253,15 +154,10 @@ func TestManagerSyncConfigsDropsStaleScheduledState(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("sync initial config: %v", err)
 	}
-	if err := manager.ScheduleScan("project-alpha", currentFile, false); err != nil {
-		t.Fatalf("schedule scan: %v", err)
-	}
-	if err := manager.ScheduleDelete("project-alpha", currentFile); err != nil {
-		t.Fatalf("schedule delete: %v", err)
-	}
-	if err := manager.RecordPendingMove("project-alpha", destinationFile, currentFile); err != nil {
-		t.Fatalf("record pending move: %v", err)
-	}
+	snapshot := manager.configSnapshots["project-alpha"]
+	manager.scheduleTrackedFileEvent("project-alpha", snapshot, currentFile, EventTypeModified)
+	manager.scheduleTrackedFileEvent("project-alpha", snapshot, currentFile, EventTypeDeleted)
+	manager.scheduleMoveForSnapshot("project-alpha", snapshot, currentFile, destinationFile)
 
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
@@ -280,54 +176,6 @@ func TestManagerSyncConfigsDropsStaleScheduledState(t *testing.T) {
 	}
 	if moves := manager.pendingMoves; len(moves) != 0 {
 		t.Fatalf("expected stale pending moves to clear, got %#v", moves)
-	}
-}
-
-func TestManagerScheduleDeleteAndMoveIgnoreUnmatchedInputs(t *testing.T) {
-	t.Parallel()
-
-	// Scheduling helpers should ignore paths that no longer belong to enabled watch inputs.
-	workspaceRoot := t.TempDir()
-	trackedDir := filepath.Join(workspaceRoot, "tracked")
-	untrackedDir := filepath.Join(workspaceRoot, "untracked")
-	if err := os.MkdirAll(trackedDir, 0o755); err != nil {
-		t.Fatalf("mkdir tracked dir: %v", err)
-	}
-	if err := os.MkdirAll(untrackedDir, 0o755); err != nil {
-		t.Fatalf("mkdir untracked dir: %v", err)
-	}
-	trackedFile := filepath.Join(trackedDir, "watch.py")
-	untrackedFile := filepath.Join(untrackedDir, "watch.py")
-	for _, path := range []string{trackedFile, untrackedFile} {
-		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
-		}
-	}
-
-	manager, err := NewManager(workspaceRoot)
-	if err != nil {
-		t.Fatalf("new manager: %v", err)
-	}
-	if err := manager.SyncConfigs(map[string]ConfigInputs{
-		"project-alpha": {
-			Enabled: true,
-			Folders: []FolderInput{{Path: "tracked", Recursive: false}},
-		},
-	}); err != nil {
-		t.Fatalf("sync configs: %v", err)
-	}
-	if err := manager.ScheduleDelete("project-alpha", untrackedFile); err != nil {
-		t.Fatalf("schedule unmatched delete: %v", err)
-	}
-	if err := manager.RecordPendingMove("project-alpha", untrackedFile, trackedFile); err != nil {
-		t.Fatalf("record unmatched pending move: %v", err)
-	}
-
-	if deletes := manager.scheduledDeletes; len(deletes) != 0 {
-		t.Fatalf("expected no deletes for unmatched path, got %#v", deletes)
-	}
-	if moves := manager.pendingMoves; len(moves) != 0 {
-		t.Fatalf("expected no pending moves for unmatched destination, got %#v", moves)
 	}
 }
 
@@ -535,16 +383,17 @@ func TestManagerHandleFileEventIgnoresConfiguredRootsByResolvedPath(t *testing.T
 	}); err != nil {
 		t.Fatalf("sync configs: %v", err)
 	}
+	snapshot := manager.configSnapshots["project-alpha"]
 
 	for _, ignoredFile := range []string{stateRootFile, configuredRuntimeFile} {
-		if manager.PathMatchesWatchInputs("project-alpha", ignoredFile) {
+		if matchesTrackedPythonPath(ignoredFile, snapshot) {
 			t.Fatalf("expected ignored root file %q not to match watch inputs", ignoredFile)
 		}
 		if err := manager.HandleFileEvent(ignoredFile, EventTypeModified, ""); err != nil {
 			t.Fatalf("handle ignored file event for %q: %v", ignoredFile, err)
 		}
 	}
-	if !manager.PathMatchesWatchInputs("project-alpha", userRuntimeFile) {
+	if !matchesTrackedPythonPath(userRuntimeFile, snapshot) {
 		t.Fatalf("expected unrelated runtime file %q to match watch inputs", userRuntimeFile)
 	}
 	if err := manager.HandleFileEvent(userRuntimeFile, EventTypeModified, ""); err != nil {

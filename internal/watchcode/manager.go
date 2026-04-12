@@ -2,7 +2,6 @@ package watchcode
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -70,8 +69,6 @@ type taskKey struct {
 type Manager struct {
 	workspaceRoot    string
 	configSnapshots  map[string]ConfigSnapshot
-	watchedDirs      map[string]bool
-	pendingDirs      map[string]struct{}
 	scheduledScans   map[taskKey]bool
 	scheduledDeletes map[taskKey]struct{}
 	pendingMoves     map[taskKey]string
@@ -93,8 +90,6 @@ func NewManager(workspaceRoot string) (*Manager, error) {
 	return &Manager{
 		workspaceRoot:    resolvedWorkspaceRoot,
 		configSnapshots:  map[string]ConfigSnapshot{},
-		watchedDirs:      map[string]bool{},
-		pendingDirs:      map[string]struct{}{},
 		scheduledScans:   map[taskKey]bool{},
 		scheduledDeletes: map[taskKey]struct{}{},
 		pendingMoves:     map[taskKey]string{},
@@ -121,7 +116,6 @@ func (m *Manager) SyncConfigs(configs map[string]ConfigInputs) error {
 
 	m.configSnapshots = nextSnapshots
 	m.discardStaleScheduledState()
-	m.syncWatchDirs()
 	return nil
 }
 
@@ -167,69 +161,6 @@ func (m *Manager) DrainScheduledWork() ([]PendingScan, []DeleteRequest) {
 	clear(m.scheduledDeletes)
 
 	return scans, deletes
-}
-
-func (m *Manager) PathMatchesWatchInputs(configID string, path string) bool {
-	if m == nil {
-		return false
-	}
-	snapshot, ok := m.configSnapshots[strings.TrimSpace(configID)]
-	if !ok || !snapshot.Enabled {
-		return false
-	}
-	normalizedPath, err := statefs.ResolveWithinRoot(m.workspaceRoot, path, "watch code path")
-	if err != nil {
-		return false
-	}
-	if shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) {
-		return false
-	}
-	return pathMatchesSnapshot(normalizedPath, snapshot)
-}
-
-func (m *Manager) ScheduleScan(configID string, path string, baselineOnly bool) error {
-	if m == nil {
-		return nil
-	}
-	key, ok, err := m.matchingTaskKey(configID, path)
-	if err != nil || !ok {
-		return err
-	}
-	currentBaselineOnly, exists := m.scheduledScans[key]
-	if !exists {
-		m.scheduledScans[key] = baselineOnly
-		return nil
-	}
-	m.scheduledScans[key] = currentBaselineOnly && baselineOnly
-	return nil
-}
-
-func (m *Manager) ScheduleDelete(configID string, path string) error {
-	if m == nil {
-		return nil
-	}
-	key, ok, err := m.matchingTaskKey(configID, path)
-	if err != nil || !ok {
-		return err
-	}
-	m.scheduledDeletes[key] = struct{}{}
-	return nil
-}
-
-func (m *Manager) RecordPendingMove(configID string, destinationPath string, sourcePath string) error {
-	if m == nil {
-		return nil
-	}
-	key, ok, err := m.matchingTaskKey(configID, destinationPath)
-	if err != nil || !ok {
-		return err
-	}
-	normalizedSourcePath, err := statefs.ResolveWithinRoot(m.workspaceRoot, sourcePath, "watch code path")
-	if err != nil {
-		return err
-	}
-	m.pendingMoves[key] = normalizedSourcePath
-	return nil
 }
 
 func (m *Manager) HandleFileEvent(path string, eventType EventType, destinationPath string) error {
@@ -321,49 +252,6 @@ func matchesTrackedPythonPath(normalizedPath string, snapshot ConfigSnapshot) bo
 		return false
 	}
 	return pathMatchesSnapshot(normalizedPath, snapshot)
-}
-
-func (m *Manager) HandleDirectoryCreated(path string) error {
-	if m == nil || len(m.pendingDirs) == 0 {
-		return nil
-	}
-
-	normalizedPath, err := statefs.ResolveWithinRoot(m.workspaceRoot, path, "watch code path")
-	if err != nil {
-		return err
-	}
-	for pendingPath := range m.pendingDirs {
-		if pendingPath == normalizedPath || isDescendantOrSelf(pendingPath, normalizedPath) {
-			m.syncWatchDirs()
-			return nil
-		}
-	}
-	return nil
-}
-
-func (m *Manager) matchingTaskKey(configID string, path string) (taskKey, bool, error) {
-	trimmedConfigID := strings.TrimSpace(configID)
-	if trimmedConfigID == "" {
-		return taskKey{}, false, fmt.Errorf("config id is required")
-	}
-	snapshot, ok := m.configSnapshots[trimmedConfigID]
-	if !ok || !snapshot.Enabled {
-		return taskKey{}, false, nil
-	}
-	normalizedPath, err := statefs.ResolveWithinRoot(m.workspaceRoot, path, "watch code path")
-	if err != nil {
-		return taskKey{}, false, err
-	}
-	if shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) {
-		return taskKey{}, false, nil
-	}
-	if !pathMatchesSnapshot(normalizedPath, snapshot) {
-		return taskKey{}, false, nil
-	}
-	return taskKey{
-		ConfigID: trimmedConfigID,
-		Path:     normalizedPath,
-	}, true, nil
 }
 
 func buildConfigSnapshot(workspaceRoot string, config ConfigInputs) (ConfigSnapshot, error) {
@@ -462,66 +350,6 @@ func resolveIgnoredRoots(roots []string) ([]string, error) {
 	return output, nil
 }
 
-func desiredWatchDirsFromSnapshots(snapshots map[string]ConfigSnapshot) map[string]bool {
-	output := make(map[string]bool)
-	for _, snapshot := range snapshots {
-		if !snapshot.Enabled {
-			continue
-		}
-		for _, filePath := range snapshot.Files {
-			if shouldIgnorePath(filePath, snapshot.IgnoredRoots) {
-				continue
-			}
-			parent := filepath.Dir(filePath)
-			mergeDesiredWatchDir(output, parent, false)
-		}
-		for _, folder := range snapshot.Folders {
-			if shouldIgnorePath(folder.Path, snapshot.IgnoredRoots) {
-				continue
-			}
-			mergeDesiredWatchDir(output, folder.Path, folder.Recursive)
-		}
-	}
-	return output
-}
-
-func mergeDesiredWatchDir(output map[string]bool, path string, recursive bool) {
-	currentRecursive, exists := output[path]
-	if !exists {
-		output[path] = recursive
-		return
-	}
-	output[path] = currentRecursive || recursive
-}
-
-func (m *Manager) syncWatchDirs() {
-	desired := desiredWatchDirsFromSnapshots(m.configSnapshots)
-	actual := cloneBoolMap(desired)
-	pendingDirs := make(map[string]struct{})
-	for path := range desired {
-		if pathExists(path) {
-			continue
-		}
-		pendingDirs[path] = struct{}{}
-		ancestor := findExistingAncestor(path)
-		if ancestor == "" {
-			continue
-		}
-		if _, exists := actual[ancestor]; !exists {
-			actual[ancestor] = false
-		}
-	}
-	watchedDirs := make(map[string]bool)
-	for path, recursive := range actual {
-		if !pathExists(path) {
-			continue
-		}
-		watchedDirs[path] = recursive
-	}
-	m.watchedDirs = watchedDirs
-	m.pendingDirs = pendingDirs
-}
-
 func (m *Manager) discardStaleScheduledState() {
 	for key := range m.scheduledScans {
 		if !m.taskKeyStillMatchesSnapshot(key) {
@@ -574,36 +402,6 @@ func isDescendantOrSelf(path string, ancestor string) bool {
 		return false
 	}
 	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
-}
-
-func findExistingAncestor(path string) string {
-	current := filepath.Clean(path)
-	for {
-		if pathExists(current) {
-			return current
-		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return ""
-		}
-		current = parent
-	}
-}
-
-func pathExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-func cloneBoolMap(source map[string]bool) map[string]bool {
-	if source == nil {
-		return map[string]bool{}
-	}
-	output := make(map[string]bool, len(source))
-	for key, value := range source {
-		output[key] = value
-	}
-	return output
 }
 
 func strconvBool(value bool) string {
