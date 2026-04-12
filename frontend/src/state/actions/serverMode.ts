@@ -1,27 +1,44 @@
-import { getServerMode, type HttpapiServerModeResponse } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useServerMode } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type { ServerModeValue } from "utils/serverModeTypes";
-type ServerModeRouteResponse = ResponseDataAndStatus<HttpapiServerModeResponse>;
-export async function initializeServerMode(): Promise<ServerModeValue> {
+import { res200 } from "utils/endpointUtils";
+import { route_get_server_mode } from "utils/generatedEndpoints";
+
+let pendingServerModeInitialization: Promise<
+  "ide" | "share" | "app" | "launcher" | null
+> | null = null;
+
+export async function initializeServerMode(): Promise<
+  "ide" | "share" | "app" | "launcher" | null
+> {
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved) {
     return serverMode.mode;
   }
-  const res = (await callOpenAPI(getServerMode())) as ServerModeRouteResponse;
-  if (!res200(res)) {
-    const message = res.hasResponse
-      ? `Failed to check server mode (status ${res.status}).`
-      : "Failed to check server mode (network error).";
-    useServerMode.setState({
-      mode: null,
-      modeResolved: true,
-      modeError: message,
-    });
-    return null;
+
+  if (pendingServerModeInitialization) {
+    return pendingServerModeInitialization;
   }
-  const mode = res.data.mode;
-  useServerMode.setState({ mode, modeResolved: true, modeError: null });
-  return mode;
+
+  pendingServerModeInitialization = (async () => {
+    const res = await route_get_server_mode();
+    if (!res200(res)) {
+      const message = res.hasResponse
+        ? `Failed to check server mode (status ${res.status}).`
+        : "Failed to check server mode (network error).";
+      useServerMode.setState({
+        mode: null,
+        modeResolved: true,
+        modeError: message,
+      });
+      return null;
+    }
+    const mode = res.data.mode;
+    useServerMode.setState({ mode, modeResolved: true, modeError: null });
+    return mode;
+  })();
+
+  try {
+    return await pendingServerModeInitialization;
+  } finally {
+    pendingServerModeInitialization = null;
+  }
 }

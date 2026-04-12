@@ -63,95 +63,11 @@ import { ViewingEditingMode } from "./ViewingEditingMode";
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 export const OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME = `${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`;
-const PROJECT_AI_OVERVIEW_TABS = new Set<OverviewTabName>([
-  OverviewTabNameEnum.ProjectAIChat,
-  OverviewTabNameEnum.ProjectAISettings,
-]);
-const OVERVIEW_MORE_MENU_ACTIVE_TABS = new Set<OverviewTabName>([
-  OverviewTabNameEnum.RunInstructions,
-  OverviewTabNameEnum.App,
-  OverviewTabNameEnum.Plugins,
-]);
-const PLUGIN_PANE_TAB_ICONS = {
-  folder: <TbFolder size={14} className="setta-plugin-pane-icon--folder" />,
-  git: <RiGitCommitLine size={14} className="setta-plugin-pane-icon--git" />,
-  radar: <RiRadarLine size={14} className="setta-plugin-pane-icon--radar" />,
-  dashboard: (
-    <TbLayoutDashboard
-      size={14}
-      className="setta-plugin-pane-icon--dashboard"
-    />
-  ),
-  eye: <HiOutlineEye size={14} className="setta-plugin-pane-icon--eye" />,
-  notifications: (
-    <MdNotificationsNone
-      size={14}
-      className="setta-plugin-pane-icon--notifications"
-    />
-  ),
-  bug: <MdBugReport size={14} className="setta-plugin-pane-icon--bug" />,
-  chat: <IoChatbox size={14} className="setta-plugin-pane-icon--chat" />,
-  robot: (
-    <MdOutlineSmartToy size={14} className="setta-plugin-pane-icon--robot" />
-  ),
-  extension: (
-    <MdExtension size={14} className="setta-plugin-pane-icon--extension" />
-  ),
-} as const satisfies Record<PluginPaneIconName, ReactElement>;
-const OVERVIEW_TAB_CONTENT = {
-  [OverviewTabNameEnum.Overview]: () => <ProjectOverview />,
-  [OverviewTabNameEnum.Plugins]: () => <PluginsPane />,
-  [OverviewTabNameEnum.FileBrowser]: () => (
-    <FileBrowserWorkspace
-      metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
-      listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
-    />
-  ),
-  [OverviewTabNameEnum.Git]: () => <GitPane />,
-  [OverviewTabNameEnum.App]: () => <AppConfigPane />,
-  [OverviewTabNameEnum.RunInstructions]: () => <RunInstructions />,
-  [OverviewTabNameEnum.ViewModes]: () => <ViewingEditingMode />,
-  [OverviewTabNameEnum.Notifications]: () => <NotificationsArea />,
-  [OverviewTabNameEnum.ProjectAIChat]: () => <ProjectChat />,
-  [OverviewTabNameEnum.ProjectAISettings]: () => <ProjectAISettings />,
-} as const satisfies Record<OverviewTabName, () => ReactElement>;
 const JSON_RENDER_OVERVIEW_QUICK_INFO = {
   title:
     "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
   moreMenu:
     "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
-};
-
-type OverviewAvailability = {
-  showFileBrowserTab: boolean;
-  showGitTab: boolean;
-  showAppTab: boolean;
-  showLLMTabs: boolean;
-  showMoreAppTab: boolean;
-};
-
-type OverviewRailTab = {
-  key: string;
-  tabName: OverviewTabKey;
-  floatingContent: string;
-  icon: ReactElement;
-  dataTestId?: string;
-  id?: string;
-};
-
-type OverviewMoreMenuItem = {
-  key: string;
-  tabName: OverviewTabName;
-  label: string;
-  icon: ReactElement;
-};
-
-type OverviewTabButtonCommonProps = {
-  vis: boolean;
-  selectedTabName: OverviewTabKey;
-  onTabClick: typeof onOverviewTabClick;
-  className: string;
-  requiredTabs: null;
 };
 
 export function Overview() {
@@ -179,13 +95,38 @@ export function Overview() {
     isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
-  const availability = getOverviewAvailability(isDeploymentMode, allowLLM);
+  const showFileBrowserTab = !isDeploymentMode;
+  const showGitTab = !isDeploymentMode;
+  const showAppTab = !isDeploymentMode;
+  const showLLMTabs = !isDeploymentMode || allowLLM;
+  const showMoreAppTab = showAppTab;
+  let effectiveTabName = selectedTabName;
   const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
-  const effectiveTabName = resolveEffectiveOverviewTabName(
-    selectedTabName,
-    selectedPluginPaneTab,
-    availability,
-  );
+  const selectedTabIsPluginPane =
+    parsePluginPaneOverviewTabName(selectedTabName) !== null;
+  if (selectedTabIsPluginPane && !selectedPluginPaneTab) {
+    effectiveTabName = OverviewTabNameEnum.Plugins;
+  }
+  if (!showLLMTabs) {
+    if (
+      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
+      selectedTabName === OverviewTabNameEnum.ProjectAISettings
+    ) {
+      effectiveTabName = OverviewTabNameEnum.Overview;
+    }
+  }
+  if (
+    !showFileBrowserTab &&
+    selectedTabName === OverviewTabNameEnum.FileBrowser
+  ) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
+  if (!showGitTab && selectedTabName === OverviewTabNameEnum.Git) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
+  if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
   const effectivePluginPaneTab = pluginPaneTabByKey[effectiveTabName] ?? null;
   const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
@@ -199,6 +140,16 @@ export function Overview() {
       "flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs: null,
   };
+  const moreMenuButtonClasses = `flex h-8 w-8 cursor-pointer items-center justify-center rounded-md focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${
+    vis &&
+    (effectiveTabName === OverviewTabNameEnum.RunInstructions ||
+      effectiveTabName === OverviewTabNameEnum.App ||
+      effectiveTabName === OverviewTabNameEnum.Plugins)
+      ? "text-blue-500"
+      : "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
+  }`;
+  const moreMenuItemClasses =
+    "flex items-center gap-2 px-1.5 py-1.5 text-xs text-setta-700 dark:text-setta-200 mx-1 rounded-md text-left hover:bg-setta-600 hover:text-white dark:hover:bg-setta-900 dark:hover:text-white active:bg-blue-100 active:dark:bg-blue-950 cursor-pointer";
 
   return (
     <div
@@ -207,15 +158,145 @@ export function Overview() {
       ref={overviewRef}
       data-tab-scope="overview"
     >
-      <OverviewRail
-        commonProps={commonProps}
-        pluginPaneTabs={pluginPaneTabs}
-        availability={availability}
-        vis={vis}
-        effectiveTabName={effectiveTabName}
-        hasUnreadHighSeverityBackendLogs={hasUnreadHighSeverityBackendLogs}
-        hasViewModeTabs={hasViewModeTabs}
-      />
+      <div
+        data-testid="overview-icon-rail"
+        className={`fixed left-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
+        style={{
+          top: "calc(var(--setta-titlebar-height) + 36px)",
+          bottom: hasViewModeTabs ? "36px" : "0px",
+        }}
+      >
+        {showLLMTabs && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.ProjectAIChat}
+            {...commonProps}
+            data-testid="overview-tab-project-ai-chat"
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+            icon={<IoChatbox size={20} />}
+          />
+        )}
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.Overview}
+          {...commonProps}
+          data-testid="overview-tab-overview"
+          {...getFloatingBoxHandlers({ content: "Project Overview" })}
+          icon={<i className="gg-list  !scale-100" />}
+        />
+        {pluginPaneTabs.map((pluginPaneTab) => (
+          <TabButton<OverviewTabKey>
+            key={pluginPaneTab.tabKey}
+            id={`overview-plugin-pane-tab-${encodeURIComponent(pluginPaneTab.pluginId)}-${encodeURIComponent(pluginPaneTab.paneId)}`}
+            tabName={pluginPaneTab.tabKey}
+            {...commonProps}
+            {...getFloatingBoxHandlers({
+              content: `${pluginPaneTab.title} (${pluginPaneTab.pluginId})`,
+            })}
+            icon={renderPluginPaneTabIcon(pluginPaneTab.icon)}
+          />
+        ))}
+        {showFileBrowserTab && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.FileBrowser}
+            {...commonProps}
+            data-testid="overview-tab-file-browser"
+            {...getFloatingBoxHandlers({ content: "Explorer" })}
+            icon={<TbFolder size={18} />}
+          />
+        )}
+        {showGitTab && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.Git}
+            {...commonProps}
+            data-testid="overview-tab-git"
+            {...getFloatingBoxHandlers({ content: "Git" })}
+            icon={<IoMdGitBranch size={18} />}
+          />
+        )}
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.ViewModes}
+          {...commonProps}
+          data-testid="overview-tab-view-modes"
+          {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
+          icon={<HiOutlineEye size={20} />}
+        />
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.Notifications}
+          {...commonProps}
+          data-testid="overview-tab-notifications"
+          {...getFloatingBoxHandlers({ content: "Notifications" })}
+          icon={
+            <div className="relative">
+              <MdNotificationsNone size={20} />
+              {hasUnreadHighSeverityBackendLogs && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
+              )}
+            </div>
+          }
+        />
+        <Menubar.Root className="w-8">
+          <NavbarMenuDropdown
+            triggerClassName={moreMenuButtonClasses}
+            trigger={
+              <span
+                data-testid="overview-tab-more"
+                aria-label="More"
+                title={
+                  vis && effectiveTabName === OverviewTabNameEnum.App
+                    ? JSON_RENDER_OVERVIEW_QUICK_INFO.moreMenu
+                    : "More"
+                }
+                {...getFloatingBoxHandlers({ content: "More" })}
+              >
+                <MdMoreHoriz size={20} />
+              </span>
+            }
+            contentClassName={OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME}
+          >
+            <MenuItem
+              className={moreMenuItemClasses}
+              onClick={() =>
+                onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
+              }
+            >
+              <i className="w-3 opacity-80">
+                <RiPlayList2Fill />
+              </i>
+              <span className="ml-0.5">Custom Runs</span>
+            </MenuItem>
+            {showMoreAppTab ? (
+              <MenuItem
+                className={moreMenuItemClasses}
+                onClick={() => onOverviewTabClick(OverviewTabNameEnum.App)}
+              >
+                <i className="w-3 opacity-80">
+                  <TbLayoutDashboard />
+                </i>
+                <span className="ml-0.5">JSON Render</span>
+              </MenuItem>
+            ) : null}
+            <MenuItem
+              className={moreMenuItemClasses}
+              onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
+            >
+              <i className="w-3 opacity-80">
+                <MdExtension />
+              </i>
+              <span className="ml-0.5">Plugins</span>
+            </MenuItem>
+          </NavbarMenuDropdown>
+        </Menubar.Root>
+        <Controls />
+        <Link
+          to={SETTINGS_ROUTER_PATH}
+          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+          data-testid="overview-left-rail-settings-link"
+          className="focus-visible:ring-light-blue-500 mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
+          aria-label="Open settings"
+          {...getFloatingBoxHandlers({ content: "Settings" })}
+        >
+          <IoSettingsOutline size={18} />
+        </Link>
+      </div>
       <PaneContainer
         paneName={PaneNameEnum.overview}
         right={false}
@@ -236,289 +317,53 @@ export function Overview() {
   );
 }
 
-function getOverviewAvailability(
-  isDeploymentMode: boolean,
-  allowLLM: boolean,
-): OverviewAvailability {
-  const showAuthoringTabs = !isDeploymentMode;
-  return {
-    showFileBrowserTab: showAuthoringTabs,
-    showGitTab: showAuthoringTabs,
-    showAppTab: showAuthoringTabs,
-    showLLMTabs: showAuthoringTabs || allowLLM,
-    showMoreAppTab: showAuthoringTabs,
-  };
-}
-
-function isOverviewTabVisible(
-  tabName: OverviewTabName,
-  availability: OverviewAvailability,
-): boolean {
-  if (PROJECT_AI_OVERVIEW_TABS.has(tabName)) {
-    return availability.showLLMTabs;
-  }
-  if (tabName === OverviewTabNameEnum.FileBrowser) {
-    return availability.showFileBrowserTab;
-  }
-  if (tabName === OverviewTabNameEnum.Git) {
-    return availability.showGitTab;
-  }
-  if (tabName === OverviewTabNameEnum.App) {
-    return availability.showAppTab;
-  }
-  return true;
-}
-
-function getOverviewBaseTabName(
-  selectedTabName: OverviewTabKey,
-): OverviewTabName {
-  return selectedTabName in OverviewTabNamePrettified
-    ? (selectedTabName as OverviewTabName)
-    : OverviewTabNameEnum.Overview;
-}
-
-function resolveEffectiveOverviewTabName(
-  selectedTabName: OverviewTabKey,
-  selectedPluginPaneTab: PluginPaneTabEntry | null,
-  availability: OverviewAvailability,
-): OverviewTabKey {
-  if (
-    parsePluginPaneOverviewTabName(selectedTabName) !== null &&
-    !selectedPluginPaneTab
-  ) {
-    return OverviewTabNameEnum.Plugins;
-  }
-  const selectedBaseTabName = getOverviewBaseTabName(selectedTabName);
-  return isOverviewTabVisible(selectedBaseTabName, availability)
-    ? selectedTabName
-    : OverviewTabNameEnum.Overview;
-}
-
 function renderPluginPaneTabIcon(
   iconName: PluginPaneIconName | undefined,
 ): ReactElement {
-  return PLUGIN_PANE_TAB_ICONS[iconName ?? "extension"];
-}
-
-function buildOverviewRailTabs(
-  pluginPaneTabs: PluginPaneTabEntry[],
-  availability: OverviewAvailability,
-  hasUnreadHighSeverityBackendLogs: boolean,
-): OverviewRailTab[] {
-  const tabs: OverviewRailTab[] = [];
-  if (availability.showLLMTabs) {
-    tabs.push({
-      key: OverviewTabNameEnum.ProjectAIChat,
-      tabName: OverviewTabNameEnum.ProjectAIChat,
-      dataTestId: "overview-tab-project-ai-chat",
-      floatingContent: "ProjectAI Chat",
-      icon: <IoChatbox size={20} />,
-    });
-  }
-  tabs.push({
-    key: OverviewTabNameEnum.Overview,
-    tabName: OverviewTabNameEnum.Overview,
-    dataTestId: "overview-tab-overview",
-    floatingContent: "Project Overview",
-    icon: <i className="gg-list !scale-100" />,
-  });
-  tabs.push(
-    ...pluginPaneTabs.map((pluginPaneTab) => ({
-      key: pluginPaneTab.tabKey,
-      tabName: pluginPaneTab.tabKey,
-      id: `overview-plugin-pane-tab-${encodeURIComponent(pluginPaneTab.pluginId)}-${encodeURIComponent(pluginPaneTab.paneId)}`,
-      floatingContent: `${pluginPaneTab.title} (${pluginPaneTab.pluginId})`,
-      icon: renderPluginPaneTabIcon(pluginPaneTab.icon),
-    })),
-  );
-  if (availability.showFileBrowserTab) {
-    tabs.push({
-      key: OverviewTabNameEnum.FileBrowser,
-      tabName: OverviewTabNameEnum.FileBrowser,
-      dataTestId: "overview-tab-file-browser",
-      floatingContent: "Explorer",
-      icon: <TbFolder size={18} />,
-    });
-  }
-  if (availability.showGitTab) {
-    tabs.push({
-      key: OverviewTabNameEnum.Git,
-      tabName: OverviewTabNameEnum.Git,
-      dataTestId: "overview-tab-git",
-      floatingContent: "Git",
-      icon: <IoMdGitBranch size={18} />,
-    });
-  }
-  tabs.push(
-    {
-      key: OverviewTabNameEnum.ViewModes,
-      tabName: OverviewTabNameEnum.ViewModes,
-      dataTestId: "overview-tab-view-modes",
-      floatingContent: "Viewing/Editing Mode",
-      icon: <HiOutlineEye size={20} />,
-    },
-    {
-      key: OverviewTabNameEnum.Notifications,
-      tabName: OverviewTabNameEnum.Notifications,
-      dataTestId: "overview-tab-notifications",
-      floatingContent: "Notifications",
-      icon: (
-        <div className="relative">
-          <MdNotificationsNone size={20} />
-          {hasUnreadHighSeverityBackendLogs ? (
-            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
-          ) : null}
-        </div>
-      ),
-    },
-  );
-  return tabs;
-}
-
-function buildOverviewMoreMenuItems(
-  showMoreAppTab: boolean,
-): OverviewMoreMenuItem[] {
-  const items: OverviewMoreMenuItem[] = [
-    {
-      key: OverviewTabNameEnum.RunInstructions,
-      tabName: OverviewTabNameEnum.RunInstructions,
-      label: "Custom Runs",
-      icon: (
-        <i className="w-3 opacity-80">
-          <RiPlayList2Fill />
-        </i>
-      ),
-    },
-  ];
-  if (showMoreAppTab) {
-    items.push({
-      key: OverviewTabNameEnum.App,
-      tabName: OverviewTabNameEnum.App,
-      label: "JSON Render",
-      icon: (
-        <i className="w-3 opacity-80">
-          <TbLayoutDashboard />
-        </i>
-      ),
-    });
-  }
-  items.push({
-    key: OverviewTabNameEnum.Plugins,
-    tabName: OverviewTabNameEnum.Plugins,
-    label: "Plugins",
-    icon: (
-      <i className="w-3 opacity-80">
-        <MdExtension />
-      </i>
-    ),
-  });
-  return items;
-}
-
-function getMoreMenuButtonClasses(
-  vis: boolean,
-  effectiveTabName: OverviewTabKey,
-): string {
-  return `flex h-8 w-8 cursor-pointer items-center justify-center rounded-md focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${
-    vis &&
-    OVERVIEW_MORE_MENU_ACTIVE_TABS.has(getOverviewBaseTabName(effectiveTabName))
-      ? "text-blue-500"
-      : "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-  }`;
-}
-
-function OverviewRail({
-  commonProps,
-  pluginPaneTabs,
-  availability,
-  vis,
-  effectiveTabName,
-  hasUnreadHighSeverityBackendLogs,
-  hasViewModeTabs,
-}: {
-  commonProps: OverviewTabButtonCommonProps;
-  pluginPaneTabs: PluginPaneTabEntry[];
-  availability: OverviewAvailability;
-  vis: boolean;
-  effectiveTabName: OverviewTabKey;
-  hasUnreadHighSeverityBackendLogs: boolean;
-  hasViewModeTabs: boolean;
-}) {
-  const railTabs = buildOverviewRailTabs(
-    pluginPaneTabs,
-    availability,
-    hasUnreadHighSeverityBackendLogs,
-  );
-  const moreMenuItems = buildOverviewMoreMenuItems(availability.showMoreAppTab);
-  const moreMenuItemClasses =
-    "mx-1 flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs text-setta-700 hover:bg-setta-600 hover:text-white active:bg-blue-100 dark:text-setta-200 dark:hover:bg-setta-900 dark:hover:text-white active:dark:bg-blue-950";
-  const isAppMoreMenuTitle =
-    vis && effectiveTabName === OverviewTabNameEnum.App;
-
-  return (
-    <div
-      data-testid="overview-icon-rail"
-      className={`fixed left-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
-      style={{
-        top: "calc(var(--setta-titlebar-height) + 36px)",
-        bottom: hasViewModeTabs ? "36px" : "0px",
-      }}
-    >
-      {railTabs.map((tab) => (
-        <TabButton<OverviewTabKey>
-          key={tab.key}
-          tabName={tab.tabName}
-          id={tab.id}
-          data-testid={tab.dataTestId}
-          {...commonProps}
-          {...getFloatingBoxHandlers({ content: tab.floatingContent })}
-          icon={tab.icon}
+  switch (iconName) {
+    case "folder":
+      return <TbFolder size={14} className="setta-plugin-pane-icon--folder" />;
+    case "git":
+      return (
+        <RiGitCommitLine size={14} className="setta-plugin-pane-icon--git" />
+      );
+    case "radar":
+      return (
+        <RiRadarLine size={14} className="setta-plugin-pane-icon--radar" />
+      );
+    case "dashboard":
+      return (
+        <TbLayoutDashboard
+          size={14}
+          className="setta-plugin-pane-icon--dashboard"
         />
-      ))}
-      <Menubar.Root className="w-8">
-        <NavbarMenuDropdown
-          triggerClassName={getMoreMenuButtonClasses(vis, effectiveTabName)}
-          trigger={
-            <span
-              data-testid="overview-tab-more"
-              aria-label="More"
-              title={
-                isAppMoreMenuTitle
-                  ? JSON_RENDER_OVERVIEW_QUICK_INFO.moreMenu
-                  : "More"
-              }
-              {...getFloatingBoxHandlers({ content: "More" })}
-            >
-              <MdMoreHoriz size={20} />
-            </span>
-          }
-          contentClassName={OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME}
-        >
-          {moreMenuItems.map((item) => (
-            <MenuItem
-              key={item.key}
-              className={moreMenuItemClasses}
-              onClick={() => onOverviewTabClick(item.tabName)}
-            >
-              {item.icon}
-              <span className="ml-0.5">{item.label}</span>
-            </MenuItem>
-          ))}
-        </NavbarMenuDropdown>
-      </Menubar.Root>
-      <Controls />
-      <Link
-        to={SETTINGS_ROUTER_PATH}
-        state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-        data-testid="overview-left-rail-settings-link"
-        className="focus-visible:ring-light-blue-500 mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
-        aria-label="Open settings"
-        {...getFloatingBoxHandlers({ content: "Settings" })}
-      >
-        <IoSettingsOutline size={18} />
-      </Link>
-    </div>
-  );
+      );
+    case "eye":
+      return <HiOutlineEye size={14} className="setta-plugin-pane-icon--eye" />;
+    case "notifications":
+      return (
+        <MdNotificationsNone
+          size={14}
+          className="setta-plugin-pane-icon--notifications"
+        />
+      );
+    case "bug":
+      return <MdBugReport size={14} className="setta-plugin-pane-icon--bug" />;
+    case "chat":
+      return <IoChatbox size={14} className="setta-plugin-pane-icon--chat" />;
+    case "robot":
+      return (
+        <MdOutlineSmartToy
+          size={14}
+          className="setta-plugin-pane-icon--robot"
+        />
+      );
+    case "extension":
+    default:
+      return (
+        <MdExtension size={14} className="setta-plugin-pane-icon--extension" />
+      );
+  }
 }
 
 function TabsVisible({
@@ -585,9 +430,41 @@ function TabContent({
       />
     );
   }
-  return OVERVIEW_TAB_CONTENT[getOverviewBaseTabName(selectedTabName)]();
+
+  switch (selectedTabName) {
+    case OverviewTabNameEnum.Overview:
+      return <ProjectOverview />;
+    case OverviewTabNameEnum.Plugins:
+      return <PluginsPane />;
+    case OverviewTabNameEnum.FileBrowser:
+      return (
+        <FileBrowserWorkspace
+          metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
+          listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
+        />
+      );
+    case OverviewTabNameEnum.Git:
+      return <GitPane />;
+    case OverviewTabNameEnum.App:
+      return <AppConfigPane />;
+    case OverviewTabNameEnum.RunInstructions:
+      return <RunInstructions />;
+    case OverviewTabNameEnum.ViewModes:
+      return <ViewingEditingMode />;
+    case OverviewTabNameEnum.Notifications:
+      return <NotificationsArea />;
+    case OverviewTabNameEnum.ProjectAIChat:
+      return <ProjectChat />;
+    case OverviewTabNameEnum.ProjectAISettings:
+      return <ProjectAISettings />;
+    default:
+      return <ProjectOverview />;
+  }
 }
 
 function resolveOverviewTitle(selectedTabName: OverviewTabKey): string {
-  return OverviewTabNamePrettified[getOverviewBaseTabName(selectedTabName)];
+  if (selectedTabName in OverviewTabNamePrettified) {
+    return OverviewTabNamePrettified[selectedTabName as OverviewTabName];
+  }
+  return OverviewTabNamePrettified[OverviewTabNameEnum.Overview];
 }

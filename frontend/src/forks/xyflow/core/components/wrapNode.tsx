@@ -17,23 +17,31 @@ export const arrowKeyDiffs: Record<string, Position> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
+type NodeWrapperRenderState = {
+  position: Node["position"] | undefined;
+  tempZIndex: Node["tempZIndex"] | undefined;
+};
+
 const _NodeWrapper = ({
   id,
-  isDraggable: _isDraggable,
   resizeObserver,
   visibility,
 }: Pick<Node, "id"> & {
-  isDraggable: boolean;
   resizeObserver: ResizeObserver | null;
   visibility: CSSProperties["visibility"];
 }) => {
-  const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
+  const node = useNodeInternals<NodeWrapperRenderState>((state) => {
+    const node = state.x.get(id);
+    return {
+      position: node?.position,
+      tempZIndex: node?.tempZIndex,
+    };
+  }, _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, id);
     return impl.positionAndSizeLocked;
   });
-  const isDraggable = _isDraggable && !positionAndSizeLocked;
 
   useEffect(() => {
     if (nodeRef.current) {
@@ -46,7 +54,7 @@ const _NodeWrapper = ({
 
   useDrag({
     nodeRef,
-    disabled: !isDraggable,
+    disabled: positionAndSizeLocked,
     nodeId: id,
   });
 
@@ -56,7 +64,7 @@ const _NodeWrapper = ({
         "react-flow__node",
         {
           // this is overwritable by passing `nopan` as a class name
-          [NO_PAN_CLASS_NAME]: isDraggable,
+          [NO_PAN_CLASS_NAME]: !positionAndSizeLocked,
         },
       ])}
       ref={nodeRef}
