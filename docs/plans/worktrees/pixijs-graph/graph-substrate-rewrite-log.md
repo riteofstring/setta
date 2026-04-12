@@ -74,6 +74,7 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:00 UTC
 
 - item `339` removed one more motion-heavy React Flow selection subscription
@@ -13350,5 +13351,44 @@ LOOP_TERMINAL_MARKER: none
   - keep the loop running, but make the next pass attribution-led on the
     largest remaining mounted section-body/chrome fan-out rather than another
     opportunistic micro-split
+
+LOOP_TERMINAL_MARKER: none
+## 2026-04-12 19:52 UTC
+
+- item `344` landed one bounded ReactFlow-root connecting-attribute
+  subscription removal inside the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` so the
+    mounted ReactFlow root no longer subscribes to
+    `connectionStartHandle !== null`
+  - kept the existing root `.react-flow[data-connecting="true"]` affordance
+    contract by syncing `data-connecting` through an imperative
+    `useReactFlow.subscribe(...)` effect on the mounted root element
+  - added focused profiler regression coverage in
+    `frontend/src/forks/xyflow/core/container/ReactFlow.test.tsx` to prove:
+    - the ReactFlow root does not commit when only
+      `connectionStartHandle` changes
+    - the root `data-connecting` attribute still updates from `false` to
+      `true`
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-reactflow-root-connecting-attribute-subscription-removal.md`
+    to record the slice and reasoning
+  - verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/ReactFlow.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/ReactFlow.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` loaded successfully
+      -> visible settings graph surface mounted with readable content
+      -> no obvious layout collapse, blank graph region, or zero-height
+         surface regression observed
+  - reading:
+    - this removes one whole-root render-path fan-out from the measured
+      `interactionReactFlowStateSync` owner instead of another leaf-only
+      subscription split
+    - next default frontier: use existing canary instrumentation plus focused
+      profiler/render-count evidence to name the next remaining mounted
+      section-body/chrome subscriber or shared write fan-out with a larger
+      payoff than another opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none

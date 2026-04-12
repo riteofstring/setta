@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 19:42 UTC
+Last updated: 2026-04-12 19:52 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,46 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `344` landed one bounded ReactFlow-root connecting-attribute
+  subscription removal inside the measured
+  `interactionReactFlowStateSync` owner on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the mounted ReactFlow root path:
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+      no longer subscribes the whole root to
+      `connectionStartHandle !== null`
+    - the root `data-connecting` DOM attribute now stays in sync through an
+      imperative `useReactFlow.subscribe(...)` effect on the mounted root
+      element
+    - this keeps connection-start state flips off the React render path for
+      the full ReactFlow root while preserving the existing
+      `.react-flow[data-connecting="true"]` CSS affordance contract
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.test.tsx`
+      to assert the root does not commit when only
+      `connectionStartHandle` changes and still updates
+      `data-connecting`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-reactflow-root-connecting-attribute-subscription-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/ReactFlow.test.tsx`
+      -> passed (`1` file, `1` test)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/ReactFlow.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` mounted successfully
+      -> visible settings graph surface was present with readable content
+      -> no obvious layout collapse, blank graph region, or zero-height
+         surface regression was observed
+  - reading:
+    - this removes a root-level render-path fan-out from
+      `interactionReactFlowStateSync`, which is a better payoff than another
+      per-handle affordance split even though it stays within the same owner
+    - the next bounded frontier should stay attribution-led and identify the
+      next remaining mounted section-body/chrome subscriber or shared write
+      fan-out with a bigger payoff than another opportunistic micro-split
 
 - item `343` landed one bounded agentic-edge-handle visibility selector split
   inside the measured `interactionReactFlowStateSync` owner on the named
