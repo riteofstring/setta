@@ -69,7 +69,9 @@ function buildSuccessResponse<T>(data: T) {
 
 function getButtonByText(host: HTMLElement, label: string): HTMLButtonElement {
   const buttons = Array.from(host.querySelectorAll("button"));
-  const button = buttons.find((element) => element.textContent?.trim() === label);
+  const button = buttons.find(
+    (element) => element.textContent?.trim() === label,
+  );
   if (!button) {
     throw new Error(`Missing button: ${label}`);
   }

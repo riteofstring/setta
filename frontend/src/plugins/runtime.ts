@@ -12,7 +12,6 @@ import {
   BaseDependencyValueUnion,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  PluginBlockedCapability,
   PluginListEntry,
   PluginListResponse,
   PluginRestartCapability,
@@ -29,34 +28,22 @@ import {
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
+import {
+  computePluginSectionFallbackReason,
+  PluginFrontendErrorCodeEnum,
+  toPluginSectionKindKey,
+  type PluginFrontendErrorCode,
+  type PluginPaneDefinition,
+  type PluginSectionFallbackReason,
+  type PluginServerMode,
+  type RegisteredPluginPane,
+} from "./runtimeShared";
 import { buildPluginAssetUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
+export type { PluginServerMode } from "./runtimeShared";
 
 const PLUGIN_FRONTEND_API_VERSION = 1;
-
-export const PluginFrontendErrorCodeEnum = {
-  RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",
-  ApiVersionMismatch: "PLUGIN_FRONTEND_API_VERSION_MISMATCH",
-  CapabilityDenied: "PLUGIN_CAPABILITY_DENIED",
-  FrontendLoadFailed: "PLUGIN_FRONTEND_LOAD_FAILED",
-} as const;
-
-type PluginFrontendErrorCode =
-  (typeof PluginFrontendErrorCodeEnum)[keyof typeof PluginFrontendErrorCodeEnum];
-
-export const PluginSectionFallbackReasonEnum = {
-  plugin_disabled: "plugin_disabled",
-  plugin_not_installed: "plugin_not_installed",
-  frontend_load_failed: "frontend_load_failed",
-  section_kind_missing: "section_kind_missing",
-  mode_blocked: "mode_blocked",
-} as const;
-
-type PluginSectionFallbackReason =
-  (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
-
-export type PluginServerMode = PluginListResponse["serverMode"];
 
 type PluginSectionProps = {
   sectionId: string;
@@ -86,12 +73,6 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-type PluginPaneProps = {
-  pluginId: string;
-  serverMode: PluginServerMode;
-  effectiveCapabilities: string[];
-};
-
 type PluginSettingRevealHandlerContext = {
   settingId: string;
   paneId: string | null;
@@ -102,24 +83,6 @@ type PluginSettingRevealHandlerContext = {
 type PluginSettingRevealHandler = (
   context: PluginSettingRevealHandlerContext,
 ) => boolean | Promise<boolean>;
-
-type PluginPaneRenderer = {
-  mount: (el: HTMLElement, props: PluginPaneProps) => void;
-  update?: (el: HTMLElement, props: PluginPaneProps) => void;
-  unmount?: (el: HTMLElement) => void;
-};
-
-type PluginPaneDefinition = {
-  id: string;
-  title: string;
-  description?: string;
-  icon?: PluginPaneIconName;
-  renderer: PluginPaneRenderer;
-};
-
-export type RegisteredPluginPane = PluginPaneDefinition & {
-  pluginId: string;
-};
 
 type PluginCommandDefinition = {
   id: string;
@@ -2597,10 +2560,6 @@ function buildPluginRequestErrorMessage(
   return `Failed to fetch ${label}: status ${response.status}.`;
 }
 
-export function toPluginSectionKindKey(pluginId: string, kind: string): string {
-  return `${pluginId}::${kind}`;
-}
-
 export function usePluginSectionKind(
   pluginId: string,
   kind: string,
@@ -2764,17 +2723,6 @@ export function usePluginStatusEntries(): PluginStatusEntry[] {
   return usePluginRuntimeStore((state) => state.statusEntries);
 }
 
-export function getPluginSectionFallbackReason(
-  pluginId: string,
-  kind: string,
-): PluginSectionFallbackReason | null {
-  return computePluginSectionFallbackReason(
-    usePluginRuntimeStore.getState(),
-    pluginId,
-    kind,
-  );
-}
-
 export function usePluginSectionFallbackReason(
   pluginId: string,
   kind: string,
@@ -2782,52 +2730,6 @@ export function usePluginSectionFallbackReason(
   return usePluginRuntimeStore((state) =>
     computePluginSectionFallbackReason(state, pluginId, kind),
   );
-}
-
-export function computePluginSectionFallbackReason(
-  state: PluginRuntimeStore,
-  pluginId: string,
-  kind: string,
-): PluginSectionFallbackReason | null {
-  const statusEntry = state.pluginStatusById[pluginId];
-  if (!statusEntry) {
-    return PluginSectionFallbackReasonEnum.plugin_not_installed;
-  }
-  if (statusEntry.state === PluginRuntimeStateEnum.disabled) {
-    return PluginSectionFallbackReasonEnum.plugin_disabled;
-  }
-  if (
-    isCapabilityBlocked(
-      statusEntry.blockedCapabilities,
-      sectionKindCapability,
-    ) ||
-    !statusEntry.effectiveCapabilities.includes(sectionKindCapability)
-  ) {
-    return PluginSectionFallbackReasonEnum.mode_blocked;
-  }
-
-  if (state.frontendErrorsByPluginId[pluginId]) {
-    return PluginSectionFallbackReasonEnum.frontend_load_failed;
-  }
-
-  const sectionKindKey = toPluginSectionKindKey(pluginId, kind);
-  if (!state.sectionKindsByKey[sectionKindKey]) {
-    return PluginSectionFallbackReasonEnum.section_kind_missing;
-  }
-
-  return null;
-}
-
-function isCapabilityBlocked(
-  blockedCapabilities: PluginBlockedCapability[],
-  capability: string,
-): boolean {
-  for (const blockedCapability of blockedCapabilities) {
-    if (blockedCapability.capability === capability) {
-      return true;
-    }
-  }
-  return false;
 }
 
 export function resetPluginRuntimeStoreForTests(): void {

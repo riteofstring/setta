@@ -4,10 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import {
-  type BaseChatMessageUnion,
-  ChatRoleEnum,
-} from "utils/generatedTypes";
+import { type BaseChatMessageUnion, ChatRoleEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const chatMessagesMocks = vi.hoisted(() => ({
@@ -86,7 +83,9 @@ async function renderMessages(
   return rendered;
 }
 
-async function unmountMessages(rendered: RenderedMessages | null): Promise<void> {
+async function unmountMessages(
+  rendered: RenderedMessages | null,
+): Promise<void> {
   if (!rendered) {
     return;
   }

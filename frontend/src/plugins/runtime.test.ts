@@ -2,15 +2,10 @@ import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
 import {
-  computePluginSectionFallbackReason,
-  getPluginSectionFallbackReason,
   invokePluginSettingRevealHandler,
-  PluginFrontendErrorCodeEnum,
   pluginRuntimeTestApi,
-  PluginSectionFallbackReasonEnum,
   refreshPluginRuntime,
   resetPluginRuntimeStoreForTests,
-  toPluginSectionKindKey,
   usePluginCommands,
   usePluginListEntries,
   usePluginPaneTabs,
@@ -21,6 +16,11 @@ import {
   usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
+import {
+  computePluginSectionFallbackReason,
+  PluginFrontendErrorCodeEnum,
+  toPluginSectionKindKey,
+} from "plugins/runtimeShared";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
@@ -552,15 +552,19 @@ describe("plugin runtime helpers", () => {
     );
   });
   it("returns plugin_not_installed when status entry is missing", () => {
-    expect(getPluginSectionFallbackReason("missing.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.plugin_not_installed,
-    );
+    expect(
+      computePluginSectionFallbackReason(
+        usePluginRuntimeStore.getState(),
+        "missing.plugin",
+        "kind",
+      ),
+    ).toBe("plugin_not_installed");
   });
   it("computes fallback reason from explicit runtime state snapshots", () => {
     const snapshot = usePluginRuntimeStore.getState();
     expect(
       computePluginSectionFallbackReason(snapshot, "missing.plugin", "kind"),
-    ).toBe(PluginSectionFallbackReasonEnum.plugin_not_installed);
+    ).toBe("plugin_not_installed");
   });
   it("returns plugin_disabled when plugin status is disabled", () => {
     usePluginRuntimeStore.setState({
@@ -570,9 +574,13 @@ describe("plugin runtime helpers", () => {
         }),
       },
     });
-    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.plugin_disabled,
-    );
+    expect(
+      computePluginSectionFallbackReason(
+        usePluginRuntimeStore.getState(),
+        "acme.plugin",
+        "kind",
+      ),
+    ).toBe("plugin_disabled");
   });
   it("returns mode_blocked when section-kind capability is blocked", () => {
     usePluginRuntimeStore.setState({
@@ -589,9 +597,13 @@ describe("plugin runtime helpers", () => {
         }),
       },
     });
-    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.mode_blocked,
-    );
+    expect(
+      computePluginSectionFallbackReason(
+        usePluginRuntimeStore.getState(),
+        "acme.plugin",
+        "kind",
+      ),
+    ).toBe("mode_blocked");
   });
   it("returns frontend_load_failed when frontend registration failed", () => {
     usePluginRuntimeStore.setState({
@@ -608,9 +620,13 @@ describe("plugin runtime helpers", () => {
         },
       },
     });
-    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.frontend_load_failed,
-    );
+    expect(
+      computePluginSectionFallbackReason(
+        usePluginRuntimeStore.getState(),
+        "acme.plugin",
+        "kind",
+      ),
+    ).toBe("frontend_load_failed");
   });
   it("indexes section-kind keys by plugin id for incremental refresh reuse", () => {
     const sectionKindsByKey: Record<string, RegisteredPluginSectionKind> = {
@@ -3292,9 +3308,13 @@ describe("plugin runtime helpers", () => {
       },
       frontendErrorsByPluginId: {},
     });
-    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.section_kind_missing,
-    );
+    expect(
+      computePluginSectionFallbackReason(
+        usePluginRuntimeStore.getState(),
+        "acme.plugin",
+        "kind",
+      ),
+    ).toBe("section_kind_missing");
   });
   it("returns null when section kind is already registered", () => {
     usePluginRuntimeStore.setState({
@@ -3318,7 +3338,13 @@ describe("plugin runtime helpers", () => {
         },
       },
     });
-    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBeNull();
+    expect(
+      computePluginSectionFallbackReason(
+        usePluginRuntimeStore.getState(),
+        "acme.plugin",
+        "kind",
+      ),
+    ).toBeNull();
   });
   it("treats non-boolean plugin reveal handler results as contract failures", async () => {
     const pluginId = "acme.plugin";

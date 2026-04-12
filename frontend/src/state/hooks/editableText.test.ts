@@ -13,20 +13,14 @@ type EditableHarnessProps = {
   condition: (value: string) => boolean | Promise<boolean>;
 };
 
-let latestEditable:
-  | ReturnType<typeof useEditableOnSubmit>
-  | null = null;
+let latestEditable: ReturnType<typeof useEditableOnSubmit> | null = null;
 
 function EditableHarness({
   initialValue,
   onSetTitle,
   condition,
 }: EditableHarnessProps) {
-  latestEditable = useEditableOnSubmit(
-    initialValue,
-    onSetTitle,
-    condition,
-  );
+  latestEditable = useEditableOnSubmit(initialValue, onSetTitle, condition);
   return createElement("div");
 }
 
@@ -52,7 +46,9 @@ function setReactActEnvironment(value: boolean | undefined) {
   target.IS_REACT_ACT_ENVIRONMENT = value;
 }
 
-async function renderHarness(props: EditableHarnessProps): Promise<RenderedHarness> {
+async function renderHarness(
+  props: EditableHarnessProps,
+): Promise<RenderedHarness> {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);

@@ -2,8 +2,8 @@ import {
   resetPluginRuntimeStoreForTests,
   usePluginRuntimeStore,
   type PluginPaneTabEntry,
-  type RegisteredPluginPane,
 } from "plugins/runtime";
+import { type RegisteredPluginPane } from "plugins/runtimeShared";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
