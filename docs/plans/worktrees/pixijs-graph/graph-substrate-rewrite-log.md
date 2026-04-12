@@ -13514,3 +13514,52 @@ LOOP_TERMINAL_MARKER: none
       payoff than another opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+# 2026-04-12 - Item 348
+
+- Item: land one bounded section-shell AI-follow highlight selected-chat
+  subscription reduction so mounted settings graph shells stop re-committing on
+  unrelated section-impl updates.
+- Why this slice:
+  - the last few completed iterations were all selector-split reductions, so
+    the next pass needed a wider mounted shell/body subscriber instead of
+    another edge/control micro-split
+  - `useAiSectionHighlight(...)` was a shell-level fan-out path that still
+    subscribed every mounted section shell to the full section maps just to
+    resolve selected chat ids
+- Changed:
+  - added `getAllowedChatIdsForSelection(...)` in
+    `frontend/src/state/aiFollowUtils.ts`
+  - updated `frontend/src/components/Section/Container/utils.tsx` so
+    `useAiSectionHighlight(...)` now:
+    - subscribes to AI-follow selection state for the active project
+    - resolves chat ids only for the currently selected sections
+    - leaves the final membership check on the existing AI-follow ids store
+  - added focused regression coverage in:
+    - `frontend/src/components/Section/Container/utils.test.tsx`
+    - `frontend/src/state/aiFollowUtils.test.ts`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/utils.test.tsx src/state/aiFollowUtils.test.ts`
+    - passed (`2` files, `7` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Container/utils.tsx src/components/Section/Container/utils.test.tsx src/state/aiFollowUtils.ts src/state/aiFollowUtils.test.ts`
+    - passed
+  - attempted narrow Playwright `/settings` smoke on the live runtime:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<run-037 refreshed token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary preserves the All Settings multi-column spread on first render' --reporter=line --timeout=180000`
+    - failed in Playwright global setup before the spec body
+    - bootstrap reached `http://127.0.0.1:3075/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`, then `page.waitForURL(...)` timed out waiting for the post-bootstrap route
+  - fresh-context headless CDP smoke on worktree `/settings`:
+    - `/settings` mounted successfully
+    - the settings surface filled the viewport with the overview header,
+      section list, section editor area, and bottom view-mode tabs visible
+    - no obvious blank graph region, layout collapse, or missing section shell
+      surface was observed
+- Result:
+  - mounted section shells no longer subscribe the AI-follow highlight path to
+    unrelated section impl churn
+  - relevant selected-chat scope changes still re-render the highlight path
+    correctly, including the existing fade-out behavior
+- Next:
+  - return to attribution-led evidence on the canonical
+    `rotaryParamCodeObjDefault` lane and use existing canary instrumentation
+    plus focused profiler/render-count evidence to name the next larger
+    mounted section-body/chrome subscriber or shared write fan-out before
+    another reduction slice

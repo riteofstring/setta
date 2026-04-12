@@ -61,6 +61,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+- item `348` landed one bounded section-shell AI-follow highlight selected-chat
+  subscription reduction on the settings graph section-chrome path:
+
+  - product code changed in the mounted section shell path:
+    - `frontend/src/components/Section/Container/utils.tsx`
+      now resolves AI-follow allowed chat ids from the active project's
+      selected chat ids plus chat ids for only the currently selected sections
+      instead of subscribing every mounted shell highlight to the full
+      `sectionVariantMap` / `sectionVariants` / `sectionImpls` maps
+    - `frontend/src/state/aiFollowUtils.ts` now exposes
+      `getAllowedChatIdsForSelection(...)` so this selected-chat merge can stay
+      deterministic without reopening the broad project-state subscription
+    - this keeps mounted section shells out of unrelated section-impl updates
+      while preserving highlight changes when the selected chat scope actually
+      changes
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Container/utils.test.tsx`
+      to assert a mounted AI-highlight probe does not commit when an unrelated
+      section impl changes and still re-renders when the selected chat
+      section's `chatId` changes
+    - `frontend/src/state/aiFollowUtils.test.ts`
+      to cover the new selected-chat merge helper
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-section-shell-ai-follow-highlight-selected-chat-subscription.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/utils.test.tsx src/state/aiFollowUtils.test.ts`
+      -> passed (`2` files, `7` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/utils.tsx src/components/Section/Container/utils.test.tsx src/state/aiFollowUtils.ts src/state/aiFollowUtils.test.ts`
+      -> passed
+    - attempted narrow Playwright `/settings` smoke on the live runtime
+      -> failed in Playwright global setup before the spec body
+      -> bootstrap reached the frontend shell URL, but `page.waitForURL(...)`
+         timed out before the post-bootstrap route completed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` mounted successfully
+      -> the settings surface filled the viewport with the overview header,
+         section list, section editor area, and bottom view-mode tabs visible
+      -> no obvious blank graph region, layout collapse, or missing section
+         shell surface was observed
+  - reading:
+    - this is a wider mounted section-shell boundary than another edge/control
+      micro-split because every shell previously subscribed the AI-follow
+      highlight path to whole section maps
+    - the next default frontier should return to attribution-led evidence on
+      the canonical `rotaryParamCodeObjDefault` lane and name the next larger
+      mounted section-body/chrome subscriber or shared write fan-out before
+      another reduction slice
+
 - item `347` landed one bounded managed-chat agentic-scope selector split
   on the settings graph section-body path:
 

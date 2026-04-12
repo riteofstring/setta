@@ -81,6 +81,26 @@ export function getAllowedChatIdsForProject(
   return merged;
 }
 
+export function getAllowedChatIdsForSelection(
+  mode: AIFollowMode,
+  selectedChatIds: Array<string>,
+  selectedSectionChatIds: Array<string>,
+): Set<string> | null {
+  if (mode === "off") {
+    return new Set();
+  }
+  if (mode === "all") {
+    return null;
+  }
+  const merged = new Set(selectedChatIds);
+  for (const chatId of selectedSectionChatIds) {
+    if (chatId.trim()) {
+      merged.add(chatId);
+    }
+  }
+  return merged;
+}
+
 export function hasSectionIdInProject(
   idsByProject: AIFollowIdsByProject,
   projectConfigId: string,
