@@ -613,6 +613,81 @@ func TestStoreLoadCreatesMissingClaimedTargetWithFullDefaultsBeforeRead(t *testi
 	}
 }
 
+func TestStoreFindPathForSettingsSliceResolvesDedicatedJSONSourcePath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, DefaultFileName)
+	dedicatedGUIPath := filepath.Join(root, "gui-settings.json")
+
+	defaults, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsProjectDocument, err := buildProjectDocumentWithSharedSettingsPath(defaults, sharedSettingsPath)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsProject, err := settingsProjectDocument.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id: %v", err)
+	}
+	guiVariantID := settingsProject.SectionVariantMap[settingsSectionID("gui")]
+	guiVariant := settingsProject.SectionVariants[guiVariantID]
+	guiVariant.Name = dedicatedGUIPath
+	settingsProject.SectionVariants[guiVariantID] = guiVariant
+
+	store, err := NewStore(sharedSettingsPath, StoreOptions{})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+
+	path, found, err := store.findPathForSettingsSlice(settingsProject, "gui")
+	if err != nil {
+		t.Fatalf("findPathForSettingsSlice returned error: %v", err)
+	}
+	if !found {
+		t.Fatal("expected gui slice path to resolve from settings project")
+	}
+	if path != dedicatedGUIPath {
+		t.Fatalf("expected gui path %q, got %q", dedicatedGUIPath, path)
+	}
+}
+
+func TestStoreFindPathForSettingsSliceRejectsMissingActiveVariant(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, DefaultFileName)
+
+	defaults, err := NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsProjectDocument, err := buildProjectDocumentWithSharedSettingsPath(defaults, sharedSettingsPath)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsProject, err := settingsProjectDocument.ProjectByID(SettingsProjectID)
+	if err != nil {
+		t.Fatalf("settings project by id: %v", err)
+	}
+	settingsProject.SectionVariantMap[settingsSectionID("gui")] = ""
+
+	store, err := NewStore(sharedSettingsPath, StoreOptions{})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+
+	_, _, err = store.findPathForSettingsSlice(settingsProject, "gui")
+	if err == nil {
+		t.Fatal("expected missing active variant error")
+	}
+	if !strings.Contains(err.Error(), "missing an active variant") {
+		t.Fatalf("expected missing active variant error, got %v", err)
+	}
+}
+
 func TestRuntimeMutateAndSaveBumpsRevisionOnlyOnChange(t *testing.T) {
 	t.Parallel()
 

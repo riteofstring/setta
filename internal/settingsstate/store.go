@@ -177,44 +177,42 @@ func (s *Store) findPathForSettingsSlice(
 	project projectstate.Project,
 	settingsSlice string,
 ) (string, bool, error) {
-	for sectionID, section := range project.Sections {
-		if strings.TrimSpace(section.Name) != settingsSlice {
-			continue
-		}
-
-		variantID, ok := project.SectionVariantMap[sectionID]
-		if !ok || strings.TrimSpace(variantID) == "" {
-			return "", false, fmt.Errorf("settings project section %q is missing an active variant", sectionID)
-		}
-		variant, ok := project.SectionVariants[variantID]
-		if !ok {
-			return "", false, fmt.Errorf("settings project variant %q is missing", variantID)
-		}
-		payload, err := project.EffectiveSectionPayload(sectionID, variantID)
+	for _, sectionID := range sortedProjectSectionIDs(project) {
+		sourceSection, ok, err := loadSettingsProjectJSONSourceSection(project, sectionID)
 		if err != nil {
 			return "", false, err
 		}
-		isJSONSource, _ := payload["isJsonSource"].(bool)
-		if !isJSONSource {
+		if !ok || !sourceSection.claimsSlice(settingsSlice) {
 			continue
 		}
-		jsonSourceKeys, err := stringPathField(payload, "jsonSourceKeys")
+		resolvedPath, err := s.resolveSettingsSlicePath(sourceSection.sourcePath, settingsSlice)
 		if err != nil {
 			return "", false, err
-		}
-		if len(jsonSourceKeys) != 1 || jsonSourceKeys[0] != settingsSlice {
-			continue
-		}
-		resolvedPath, err := statefs.NormalizePath(
-			variant.Name,
-			filepath.Dir(s.path),
-		)
-		if err != nil {
-			return "", false, fmt.Errorf("resolve settings slice %q path: %w", settingsSlice, err)
 		}
 		return resolvedPath, true, nil
 	}
 	return "", false, nil
+}
+
+func sortedProjectSectionIDs(project projectstate.Project) []string {
+	sectionIDs := make([]string, 0, len(project.Sections))
+	for sectionID := range project.Sections {
+		sectionIDs = append(sectionIDs, sectionID)
+	}
+	sort.Strings(sectionIDs)
+	return sectionIDs
+}
+
+func (section settingsProjectJSONSourceSection) claimsSlice(settingsSlice string) bool {
+	return section.sectionName == settingsSlice && len(section.jsonSourceKeys) == 1 && section.jsonSourceKeys[0] == settingsSlice
+}
+
+func (s *Store) resolveSettingsSlicePath(sourcePath string, settingsSlice string) (string, error) {
+	resolvedPath, err := statefs.NormalizePath(sourcePath, filepath.Dir(s.path))
+	if err != nil {
+		return "", fmt.Errorf("resolve settings slice %q path: %w", settingsSlice, err)
+	}
+	return resolvedPath, nil
 }
 
 func invertSettingsPaths(paths map[string]string) map[string][]string {

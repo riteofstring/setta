@@ -10,6 +10,8 @@ import (
 )
 
 type settingsProjectJSONSourceSection struct {
+	sectionName       string
+	sourcePath        string
 	jsonSourceKeys    []string
 	codeObjVariantMap map[string]string
 	topLevelIDs       []string
@@ -55,47 +57,88 @@ func settingsProjectSectionIDs(project projectstate.Project) []string {
 }
 
 func loadSettingsProjectJSONSourceSection(project projectstate.Project, sectionID string) (settingsProjectJSONSourceSection, bool, error) {
-	variantID := strings.TrimSpace(project.SectionVariantMap[sectionID])
-	if variantID == "" {
-		return settingsProjectJSONSourceSection{}, false, fmt.Errorf("settings project section %q is missing an active variant", sectionID)
-	}
-
-	payload, err := project.EffectiveSectionPayload(sectionID, variantID)
+	section, variantID, variant, err := resolveSettingsProjectSectionVariant(project, sectionID)
 	if err != nil {
 		return settingsProjectJSONSourceSection{}, false, err
 	}
-	isJSONSource, _ := payload["isJsonSource"].(bool)
-	if !isJSONSource {
+	jsonSourceKeys, codeObjVariantMap, topLevelParamID, ok, err := loadSettingsProjectJSONSourcePayload(project, sectionID, variantID)
+	if err != nil {
+		return settingsProjectJSONSourceSection{}, false, err
+	}
+	if !ok {
 		return settingsProjectJSONSourceSection{}, false, nil
 	}
-
-	jsonSourceKeys, err := stringPathField(payload, "jsonSourceKeys")
-	if err != nil {
-		return settingsProjectJSONSourceSection{}, false, err
-	}
-	codeObjVariantMap, err := stringMapField(payload, "codeObjVariantMap")
-	if err != nil {
-		return settingsProjectJSONSourceSection{}, false, err
-	}
-	topLevelParamID, ok := payload["topLevelParamId"].(string)
-	if !ok || strings.TrimSpace(topLevelParamID) == "" {
-		return settingsProjectJSONSourceSection{}, false, fmt.Errorf("settings project section %q is missing topLevelParamId", sectionID)
-	}
-
-	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, topLevelParamID)
-	if err != nil {
-		return settingsProjectJSONSourceSection{}, false, err
-	}
-	topLevelIDs, err := stringArrayField(rootPayload, "children")
+	topLevelIDs, err := loadSettingsProjectTopLevelIDs(project, codeObjVariantMap, topLevelParamID)
 	if err != nil {
 		return settingsProjectJSONSourceSection{}, false, err
 	}
 
 	return settingsProjectJSONSourceSection{
+		sectionName:       strings.TrimSpace(section.Name),
+		sourcePath:        variant.Name,
 		jsonSourceKeys:    jsonSourceKeys,
 		codeObjVariantMap: codeObjVariantMap,
 		topLevelIDs:       topLevelIDs,
 	}, true, nil
+}
+
+func resolveSettingsProjectSectionVariant(
+	project projectstate.Project,
+	sectionID string,
+) (projectstate.Section, string, projectstate.SectionVariant, error) {
+	section, ok := project.Sections[sectionID]
+	if !ok {
+		return projectstate.Section{}, "", projectstate.SectionVariant{}, fmt.Errorf("settings project section %q is missing", sectionID)
+	}
+	variantID := strings.TrimSpace(project.SectionVariantMap[sectionID])
+	if variantID == "" {
+		return projectstate.Section{}, "", projectstate.SectionVariant{}, fmt.Errorf("settings project section %q is missing an active variant", sectionID)
+	}
+	variant, ok := project.SectionVariants[variantID]
+	if !ok {
+		return projectstate.Section{}, "", projectstate.SectionVariant{}, fmt.Errorf("settings project variant %q is missing", variantID)
+	}
+	return section, variantID, variant, nil
+}
+
+func loadSettingsProjectJSONSourcePayload(
+	project projectstate.Project,
+	sectionID string,
+	variantID string,
+) ([]string, map[string]string, string, bool, error) {
+	payload, err := project.EffectiveSectionPayload(sectionID, variantID)
+	if err != nil {
+		return nil, nil, "", false, err
+	}
+	isJSONSource, _ := payload["isJsonSource"].(bool)
+	if !isJSONSource {
+		return nil, nil, "", false, nil
+	}
+	jsonSourceKeys, err := stringPathField(payload, "jsonSourceKeys")
+	if err != nil {
+		return nil, nil, "", false, err
+	}
+	codeObjVariantMap, err := stringMapField(payload, "codeObjVariantMap")
+	if err != nil {
+		return nil, nil, "", false, err
+	}
+	topLevelParamID, ok := payload["topLevelParamId"].(string)
+	if !ok || strings.TrimSpace(topLevelParamID) == "" {
+		return nil, nil, "", false, fmt.Errorf("settings project section %q is missing topLevelParamId", sectionID)
+	}
+	return jsonSourceKeys, codeObjVariantMap, topLevelParamID, true, nil
+}
+
+func loadSettingsProjectTopLevelIDs(
+	project projectstate.Project,
+	codeObjVariantMap map[string]string,
+	topLevelParamID string,
+) ([]string, error) {
+	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, topLevelParamID)
+	if err != nil {
+		return nil, err
+	}
+	return stringArrayField(rootPayload, "children")
 }
 
 func applySettingsProjectJSONSourceSection(output Document, project projectstate.Project, section settingsProjectJSONSourceSection) error {
