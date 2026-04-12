@@ -21,14 +21,6 @@ type startCommandDependencies struct {
 	runWithReload            func(string, []string, io.Reader, io.Writer, io.Writer) error
 }
 
-func runDefaultStart(global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool)) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("resolve cwd: %w", err)
-	}
-	return runDefaultStartWithDeps(global, stdin, stdout, stderr, envLookup, cwd, defaultStartCommandDependencies())
-}
-
 func runDefaultStartWithDeps(global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string, deps startCommandDependencies) error {
 	if global.reload {
 		if deps.runWithReload == nil {

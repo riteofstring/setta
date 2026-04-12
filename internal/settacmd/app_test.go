@@ -145,8 +145,8 @@ func TestResolveAppDeploymentRootSelectsRequestedVersionFromCatalog(t *testing.T
 		deployments.TypeApp,
 	)
 
-	resolvedRoot, err := resolveAppDeploymentRoot(
-		appFlags{
+	resolvedRoot, err := resolveDeploymentCommandRoot(
+		deploymentFlags{
 			deploymentName:    "demo-app",
 			deploymentVersion: "v2",
 		},
@@ -158,6 +158,7 @@ func TestResolveAppDeploymentRootSelectsRequestedVersionFromCatalog(t *testing.T
 			return "", false
 		},
 		tempDir,
+		appCommandSpec,
 	)
 	if err != nil {
 		t.Fatalf("resolve app deployment root: %v", err)

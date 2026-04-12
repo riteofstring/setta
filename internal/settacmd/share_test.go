@@ -141,13 +141,14 @@ func TestResolveShareDeploymentRootUsesExplicitRoot(t *testing.T) {
 		deployments.TypeShare,
 	)
 
-	resolvedRoot, err := resolveShareDeploymentRoot(
-		shareFlags{deploymentRoot: deploymentRoot},
+	resolvedRoot, err := resolveDeploymentCommandRoot(
+		deploymentFlags{deploymentRoot: deploymentRoot},
 		globalFlags{},
 		func(string) (string, bool) {
 			return "", false
 		},
 		tempDir,
+		shareCommandSpec,
 	)
 	if err != nil {
 		t.Fatalf("resolve share deployment root: %v", err)
@@ -171,12 +172,12 @@ func TestResolveShareDeploymentRootRejectsMissingSelectionInputs(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		parsed  shareFlags
+		parsed  deploymentFlags
 		wantErr string
 	}{
 		{
 			name: "mixed explicit root and named selectors",
-			parsed: shareFlags{
+			parsed: deploymentFlags{
 				deploymentRoot: deploymentRoot,
 				deploymentName: "demo-share",
 			},
@@ -184,12 +185,12 @@ func TestResolveShareDeploymentRootRejectsMissingSelectionInputs(t *testing.T) {
 		},
 		{
 			name:    "missing deployment name",
-			parsed:  shareFlags{},
+			parsed:  deploymentFlags{},
 			wantErr: "Missing --deployment-name (or use --deployment-root).",
 		},
 		{
 			name: "missing version or latest",
-			parsed: shareFlags{
+			parsed: deploymentFlags{
 				deploymentName: "demo-share",
 			},
 			wantErr: "Missing --version or --latest.",
@@ -201,19 +202,20 @@ func TestResolveShareDeploymentRootRejectsMissingSelectionInputs(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := resolveShareDeploymentRoot(
+			_, err := resolveDeploymentCommandRoot(
 				testCase.parsed,
 				globalFlags{},
 				func(string) (string, bool) {
 					return "", false
 				},
 				tempDir,
+				shareCommandSpec,
 			)
 			if err == nil {
-				t.Fatal("expected resolveShareDeploymentRoot error")
+				t.Fatal("expected resolveDeploymentCommandRoot error")
 			}
 			if err.Error() != testCase.wantErr {
-				t.Fatalf("resolveShareDeploymentRoot error = %q, want %q", err.Error(), testCase.wantErr)
+				t.Fatalf("resolveDeploymentCommandRoot error = %q, want %q", err.Error(), testCase.wantErr)
 			}
 		})
 	}
@@ -305,8 +307,8 @@ func TestResolveShareDeploymentRootSelectsRequestedVersionFromCatalog(t *testing
 		deployments.TypeShare,
 	)
 
-	resolvedRoot, err := resolveShareDeploymentRoot(
-		shareFlags{
+	resolvedRoot, err := resolveDeploymentCommandRoot(
+		deploymentFlags{
 			deploymentName:    "demo-share",
 			deploymentVersion: "v2",
 		},
@@ -318,6 +320,7 @@ func TestResolveShareDeploymentRootSelectsRequestedVersionFromCatalog(t *testing
 			return "", false
 		},
 		tempDir,
+		shareCommandSpec,
 	)
 	if err != nil {
 		t.Fatalf("resolve share deployment root: %v", err)
@@ -358,8 +361,8 @@ func TestResolveShareDeploymentRootSelectsLatestVersionFromCatalog(t *testing.T)
 		deployments.TypeShare,
 	)
 
-	resolvedRoot, err := resolveShareDeploymentRoot(
-		shareFlags{
+	resolvedRoot, err := resolveDeploymentCommandRoot(
+		deploymentFlags{
 			deploymentName: "demo-share",
 			latest:         true,
 		},
@@ -371,6 +374,7 @@ func TestResolveShareDeploymentRootSelectsLatestVersionFromCatalog(t *testing.T)
 			return "", false
 		},
 		tempDir,
+		shareCommandSpec,
 	)
 	if err != nil {
 		t.Fatalf("resolve latest share deployment root: %v", err)
@@ -397,8 +401,8 @@ func TestResolveShareDeploymentRootAcceptsVersionZeroFromCatalog(t *testing.T) {
 		deployments.TypeShare,
 	)
 
-	resolvedRoot, err := resolveShareDeploymentRoot(
-		shareFlags{
+	resolvedRoot, err := resolveDeploymentCommandRoot(
+		deploymentFlags{
 			deploymentName:    "demo-share",
 			deploymentVersion: "v0",
 		},
@@ -410,6 +414,7 @@ func TestResolveShareDeploymentRootAcceptsVersionZeroFromCatalog(t *testing.T) {
 			return "", false
 		},
 		tempDir,
+		shareCommandSpec,
 	)
 	if err != nil {
 		t.Fatalf("resolve share deployment root for v0: %v", err)

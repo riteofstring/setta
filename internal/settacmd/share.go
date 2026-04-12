@@ -7,8 +7,6 @@ import (
 	"setta/internal/deployments"
 )
 
-type shareFlags = deploymentFlags
-
 var shareCommandSpec = deploymentCommandSpec{
 	subcommand:          "share",
 	mode:                config.ModeShare,
@@ -25,16 +23,4 @@ func runShare(args []string, global globalFlags, stdin io.Reader, stdout io.Writ
 
 func runShareWithDeps(args []string, global globalFlags, stdin io.Reader, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string, deps startCommandDependencies) error {
 	return runDeploymentCommandWithDeps(args, global, stdin, stdout, stderr, envLookup, cwd, deps, shareCommandSpec)
-}
-
-func resolveShareDeploymentRoot(parsed shareFlags, global globalFlags, envLookup func(string) (string, bool), cwd string) (string, error) {
-	return resolveDeploymentCommandRoot(parsed, global, envLookup, cwd, shareCommandSpec)
-}
-
-func validateShareDeploymentRoot(deploymentRoot string) (deployments.Manifest, error) {
-	return validateDeploymentCommandRoot(deploymentRoot, shareCommandSpec)
-}
-
-func buildShareStartArgs(global globalFlags, deploymentRoot string) []string {
-	return buildDeploymentStartArgs(global, deploymentRoot, shareCommandSpec)
 }
