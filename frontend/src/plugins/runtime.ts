@@ -1,16 +1,12 @@
 import throttle from "lodash/throttle";
+import { getPluginsRuntime } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect } from "react";
+import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import {
-  useActiveSectionUI,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
+import { useActiveSectionUI, useProjectState } from "state/definitions";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { route_plugins_runtime } from "utils/generatedEndpoints";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -20,6 +16,7 @@ import {
   PluginListEntry,
   PluginListResponse,
   PluginRestartCapability,
+  PluginRuntimeResponse,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
   SectionDependencyKey,
@@ -32,6 +29,7 @@ import {
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
+import { buildPluginAssetUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -58,7 +56,7 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-type PluginServerMode = "ide" | "share" | "app" | "launcher";
+export type PluginServerMode = PluginListResponse["serverMode"];
 
 type PluginSectionProps = {
   sectionId: string;
@@ -234,7 +232,6 @@ type SettaPluginHost = {
   createArtifact: (
     payload: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>;
-  apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 type PluginFrontendModule = {
@@ -310,6 +307,48 @@ const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
 
+const pluginListEntryComparisonKeys = [
+  "pluginId",
+  "name",
+  "version",
+  "sourceScope",
+  "sourceScopeLabel",
+  "sourceManager",
+  "sourceManagerHint",
+  "canonicalSourceKey",
+  "sourceDigestSha256",
+  "enablementSource",
+  "restartRequired",
+] as const satisfies readonly (keyof PluginListEntry)[];
+
+const pluginFrontendComparisonKeys = [
+  "entrypointUrl",
+  "styleUrl",
+] as const satisfies readonly (keyof PluginListEntry["frontend"])[];
+
+const pluginContentComparisonKeys = [
+  "hasBlueprints",
+  "hasProjectTemplates",
+  "hasPrompts",
+] as const satisfies readonly (keyof PluginListEntry["content"])[];
+
+const pluginStatusEntryComparisonKeys = [
+  "pluginId",
+  "name",
+  "version",
+  "state",
+  "sourceScope",
+  "sourceScopeLabel",
+  "sourceManager",
+  "sourceManagerHint",
+  "sourcePath",
+  "canonicalSourceKey",
+  "sourceDigestSha256",
+  "shadowedBySourcePath",
+  "enablementSource",
+  "restartRequired",
+] as const satisfies readonly (keyof PluginStatusEntry)[];
+
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
@@ -371,7 +410,9 @@ async function loadPluginRuntime(): Promise<void> {
     statusMessage: null,
   }));
 
-  const runtimeResponse = await route_plugins_runtime();
+  const runtimeResponse = (await callOpenAPI(
+    getPluginsRuntime(),
+  )) as ResponseDataAndStatus<PluginRuntimeResponse>;
   if (!res200(runtimeResponse)) {
     setPluginRuntimeLoadError(
       buildPluginRequestErrorMessage("plugins runtime", runtimeResponse),
@@ -702,8 +743,8 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
-  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
-  const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
+  const styleUrl = buildPluginAssetUrl(plugin.frontend.styleUrl);
+  const entrypointUrl = buildPluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
@@ -823,6 +864,51 @@ function clearPluginRuntimeSideEffects(): void {
   styleHrefByPluginId.clear();
 }
 
+function isSimpleProjectStateSelectorKind(
+  kind: string,
+): kind is "projectConfig" | "activeSectionIds" | "singletonSections" {
+  return (
+    kind === "projectConfig" ||
+    kind === "activeSectionIds" ||
+    kind === "singletonSections"
+  );
+}
+
+function normalizeSectionProjectStateSelector(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): Extract<PluginProjectStateSelector, { kind: "section" }> {
+  return {
+    kind: "section",
+    sectionId: requireNonEmptyString(
+      (selector as { sectionId?: unknown }).sectionId,
+      `Plugin ${pluginId} section selector missing sectionId.`,
+    ),
+  };
+}
+
+function normalizeSectionsProjectStateSelector(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): Extract<PluginProjectStateSelector, { kind: "sections" }> {
+  const sectionIdsRaw = (selector as { sectionIds?: unknown }).sectionIds;
+  if (!Array.isArray(sectionIdsRaw)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} sections selector must provide sectionIds array.`,
+    );
+  }
+  return {
+    kind: "sections",
+    sectionIds: sectionIdsRaw.map((rawSectionId) =>
+      requireNonEmptyString(
+        rawSectionId,
+        `Plugin ${pluginId} sections selector contains invalid sectionId.`,
+      ),
+    ),
+  };
+}
+
 function normalizeProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
@@ -841,43 +927,14 @@ function normalizeProjectStateSelector(
     );
   }
   const kind = rawKind.trim();
-  if (kind === "projectConfig" || kind === "activeSectionIds") {
-    return { kind };
-  }
-  if (kind === "singletonSections") {
+  if (isSimpleProjectStateSelectorKind(kind)) {
     return { kind };
   }
   if (kind === "section") {
-    const sectionId = requireNonEmptyString(
-      (selector as { sectionId?: unknown }).sectionId,
-      `Plugin ${pluginId} section selector missing sectionId.`,
-    );
-    return {
-      kind,
-      sectionId,
-    };
+    return normalizeSectionProjectStateSelector(pluginId, selector);
   }
   if (kind === "sections") {
-    const sectionIdsRaw = (selector as { sectionIds?: unknown }).sectionIds;
-    if (!Array.isArray(sectionIdsRaw)) {
-      throw new PluginRuntimeError(
-        PluginFrontendErrorCodeEnum.RegistrationInvalid,
-        `Plugin ${pluginId} sections selector must provide sectionIds array.`,
-      );
-    }
-    const sectionIds: string[] = [];
-    for (const rawSectionId of sectionIdsRaw) {
-      sectionIds.push(
-        requireNonEmptyString(
-          rawSectionId,
-          `Plugin ${pluginId} sections selector contains invalid sectionId.`,
-        ),
-      );
-    }
-    return {
-      kind,
-      sectionIds,
-    };
+    return normalizeSectionsProjectStateSelector(pluginId, selector);
   }
   throw new PluginRuntimeError(
     PluginFrontendErrorCodeEnum.RegistrationInvalid,
@@ -1020,18 +1077,38 @@ function toProjectStateSectionSnapshot(
   for (let index = 0; index < sectionIds.length; index += 1) {
     const sectionId = sectionIds[index];
     const value = rawValue[index] ?? null;
-    if (
-      previousValues &&
-      previousBySection &&
-      previousValues[index] === value &&
-      sectionId in previousBySection
-    ) {
-      snapshot[sectionId] = previousBySection[sectionId];
+    const reusableSnapshot = getReusableProjectStateSectionSnapshot(
+      sectionId,
+      value,
+      index,
+      previousValues,
+      previousBySection,
+    );
+    if (reusableSnapshot !== undefined) {
+      snapshot[sectionId] = reusableSnapshot;
       continue;
     }
     snapshot[sectionId] = cloneProjectStateSnapshot(value);
   }
   return snapshot;
+}
+
+function getReusableProjectStateSectionSnapshot(
+  sectionId: string,
+  value: unknown,
+  index: number,
+  previousValues: unknown[] | null,
+  previousBySection: Record<string, unknown> | null,
+): unknown | undefined {
+  if (
+    !previousValues ||
+    !previousBySection ||
+    previousValues[index] !== value ||
+    !(sectionId in previousBySection)
+  ) {
+    return undefined;
+  }
+  return previousBySection[sectionId];
 }
 
 function cloneProjectStateSnapshot(rawValue: unknown): unknown {
@@ -1076,6 +1153,87 @@ function toLiteralRealtimePayload(value: unknown): string {
     return serialized;
   }
   return "null";
+}
+
+function requirePluginEventRecord(
+  pluginId: string,
+  event: unknown,
+  hostMethodName: string,
+): Record<string, unknown> {
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${hostMethodName} requires an object payload.`,
+    );
+  }
+  return event as Record<string, unknown>;
+}
+
+function requirePluginRealtimeDependencyKey(
+  pluginId: string,
+  eventRecord: Record<string, unknown>,
+): BaseDependencyKeyUnion {
+  const dependencyKey = eventRecord.dependencyKey;
+  if (!dependencyKey || typeof dependencyKey !== "object") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} emitRealtimeDependencyEvent requires a dependencyKey object.`,
+    );
+  }
+  return dependencyKey as BaseDependencyKeyUnion;
+}
+
+function normalizePluginRealtimeBinaryPayload(
+  pluginId: string,
+  eventRecord: Record<string, unknown>,
+): ArrayBuffer | undefined {
+  const binaryPayload = eventRecord.binaryPayload;
+  if (binaryPayload !== undefined && !(binaryPayload instanceof ArrayBuffer)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} emitRealtimeDependencyEvent binaryPayload must be an ArrayBuffer.`,
+    );
+  }
+  return binaryPayload as ArrayBuffer | undefined;
+}
+
+function normalizePluginRealtimePayload(
+  pluginId: string,
+  eventRecord: Record<string, unknown>,
+  binaryPayload: ArrayBuffer | undefined,
+): BaseDependencyValueUnion | null {
+  const payload = eventRecord.payload;
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "type" in payload &&
+    (payload as { type?: unknown }).type === DependencyValueTypeEnum.Binary &&
+    !(binaryPayload instanceof ArrayBuffer)
+  ) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} emitRealtimeDependencyEvent requires binaryPayload for Binary payloads.`,
+    );
+  }
+  return (payload as BaseDependencyValueUnion | null | undefined) ?? null;
+}
+
+function normalizePluginRealtimeTimestamp(
+  pluginId: string,
+  eventRecord: Record<string, unknown>,
+  hostMethodName: "emitRealtimeDependencyEvent" | "emitSectionRealtimeValue",
+): number | undefined {
+  const timestampMs = eventRecord.timestampMs;
+  if (
+    timestampMs !== undefined &&
+    (!Number.isFinite(timestampMs) || Number.isNaN(timestampMs))
+  ) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${hostMethodName} timestampMs must be a finite number.`,
+    );
+  }
+  return timestampMs as number | undefined;
 }
 
 function registerPluginModule({
@@ -1235,7 +1393,7 @@ function registerPluginModule({
       pluginTopNavBarItems.push(validated);
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
     },
-    registerContextMenu: (_definition) => {
+    registerContextMenu: () => {
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
@@ -1393,65 +1551,31 @@ function registerPluginModule({
         emitListenerEventsCapability,
         "emitRealtimeDependencyEvent",
       );
-      if (!event || typeof event !== "object" || Array.isArray(event)) {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent requires an object payload.`,
-        );
-      }
-      const dependencyKey = (event as { dependencyKey?: unknown })
-        .dependencyKey;
-      if (!dependencyKey || typeof dependencyKey !== "object") {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent requires a ` +
-            "dependencyKey object.",
-        );
-      }
-      const payload = (event as { payload?: unknown }).payload;
-      const binaryPayload = (event as { binaryPayload?: unknown })
-        .binaryPayload;
-      if (
-        binaryPayload !== undefined &&
-        !(binaryPayload instanceof ArrayBuffer)
-      ) {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent binaryPayload must be ` +
-            "an ArrayBuffer.",
-        );
-      }
-      if (
-        payload &&
-        typeof payload === "object" &&
-        "type" in payload &&
-        (payload as { type?: unknown }).type ===
-          DependencyValueTypeEnum.Binary &&
-        !(binaryPayload instanceof ArrayBuffer)
-      ) {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent requires ` +
-            "binaryPayload for Binary payloads.",
-        );
-      }
-      const timestampMs = (event as { timestampMs?: unknown }).timestampMs;
-      if (
-        timestampMs !== undefined &&
-        (!Number.isFinite(timestampMs) || Number.isNaN(timestampMs))
-      ) {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent timestampMs must be ` +
-            "a finite number.",
-        );
-      }
+      const eventRecord = requirePluginEventRecord(
+        plugin.pluginId,
+        event,
+        "emitRealtimeDependencyEvent",
+      );
+      const binaryPayload = normalizePluginRealtimeBinaryPayload(
+        plugin.pluginId,
+        eventRecord,
+      );
       sendRealtimeDependencyEvent({
-        dependencyKey: dependencyKey as BaseDependencyKeyUnion,
-        payload:
-          (payload as BaseDependencyValueUnion | null | undefined) ?? null,
-        binaryPayload: binaryPayload as ArrayBuffer | undefined,
-        timestampMs: timestampMs as number | undefined,
+        dependencyKey: requirePluginRealtimeDependencyKey(
+          plugin.pluginId,
+          eventRecord,
+        ),
+        payload: normalizePluginRealtimePayload(
+          plugin.pluginId,
+          eventRecord,
+          binaryPayload,
+        ),
+        binaryPayload,
+        timestampMs: normalizePluginRealtimeTimestamp(
+          plugin.pluginId,
+          eventRecord,
+          "emitRealtimeDependencyEvent",
+        ),
       });
     },
     emitSectionRealtimeValue: (sectionId, value, options) => {
@@ -1465,23 +1589,17 @@ function registerPluginModule({
         sectionId,
         `Plugin ${plugin.pluginId} emitSectionRealtimeValue requires sectionId.`,
       );
-      const timestampMs = options?.timestampMs;
-      if (
-        timestampMs !== undefined &&
-        (!Number.isFinite(timestampMs) || Number.isNaN(timestampMs))
-      ) {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} emitSectionRealtimeValue timestampMs must be ` +
-            "a finite number.",
-        );
-      }
       if (!isPlainRecord(value)) {
         throw new PluginRuntimeError(
           PluginFrontendErrorCodeEnum.RegistrationInvalid,
           `Plugin ${plugin.pluginId} emitSectionRealtimeValue requires an object payload.`,
         );
       }
+      const timestampMs = normalizePluginRealtimeTimestamp(
+        plugin.pluginId,
+        { timestampMs: options?.timestampMs },
+        "emitSectionRealtimeValue",
+      );
       const dependencyKey: SectionDependencyKey = {
         type: DependencyKeyTypeEnum.Section,
         sectionId: normalizedSectionId,
@@ -1570,36 +1688,16 @@ function registerPluginModule({
         }
       });
     },
-    openArtifact: (_artifactId) => {
+    openArtifact: () => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "openArtifact is not implemented in this host yet.",
       );
     },
-    createArtifact: async (_payload) => {
+    createArtifact: async () => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "createArtifact is not implemented in this host yet.",
-      );
-    },
-    apiFetch: async (path, init) => {
-      const normalizedPath = normalizePluginPath(path);
-      const shareSession = useShareSession.getState();
-      const shareHeaders: Record<string, string> = {};
-      if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
-        shareHeaders["X-Share-Session-Id"] = shareSession.shareSessionId;
-      }
-      const requestHeaders = new Headers(init?.headers ?? undefined);
-      for (const [key, value] of Object.entries(shareHeaders)) {
-        requestHeaders.set(key, value);
-      }
-      return fetch(
-        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
-        {
-          ...init,
-          credentials: "include",
-          headers: requestHeaders,
-        },
       );
     },
   };
@@ -1638,43 +1736,6 @@ function registerPluginModule({
   return registryDelta;
 }
 
-function normalizePluginPath(path: string): string {
-  const trimmed = path.trim();
-  if (trimmed === "") {
-    return "";
-  }
-  const normalizedInput = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  const queryStart = normalizedInput.search(/[?#]/);
-  const pathPart =
-    queryStart >= 0 ? normalizedInput.slice(0, queryStart) : normalizedInput;
-  const suffix = queryStart >= 0 ? normalizedInput.slice(queryStart) : "";
-  const segments = pathPart.split("/").filter((segment) => segment.length > 0);
-  let decodedPathPart = pathPart;
-  try {
-    decodedPathPart = decodeURIComponent(pathPart);
-  } catch {
-    decodedPathPart = pathPart;
-  }
-  const decodedSegments = decodedPathPart
-    .split("/")
-    .filter((segment) => segment.length > 0);
-  if (decodedSegments.some((segment) => segment === "." || segment === "..")) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `apiFetch path cannot include relative traversal segments: ${path}`,
-    );
-  }
-  const hasTrailingSlash = pathPart.endsWith("/") && pathPart !== "/";
-  let canonicalPath = "/";
-  if (segments.length > 0) {
-    canonicalPath = `/${segments.join("/")}`;
-    if (hasTrailingSlash) {
-      canonicalPath = `${canonicalPath}/`;
-    }
-  }
-  return `${canonicalPath}${suffix}`;
-}
-
 function ensureCapability(
   pluginId: string,
   effectiveCapabilitySet: Set<string>,
@@ -1690,6 +1751,47 @@ function ensureCapability(
   );
 }
 
+function validatePluginRenderer<
+  TRenderer extends {
+    mount: unknown;
+    update?: unknown;
+    unmount?: unknown;
+  },
+>(
+  pluginId: string,
+  registrationLabel: string,
+  renderer: TRenderer | undefined,
+): TRenderer {
+  if (!renderer || typeof renderer !== "object") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${registrationLabel} missing renderer object.`,
+    );
+  }
+  if (typeof renderer.mount !== "function") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${registrationLabel} renderer.mount must be a function.`,
+    );
+  }
+  if (renderer.update !== undefined && typeof renderer.update !== "function") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${registrationLabel} renderer.update must be a function when provided.`,
+    );
+  }
+  if (
+    renderer.unmount !== undefined &&
+    typeof renderer.unmount !== "function"
+  ) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${registrationLabel} renderer.unmount must be a function when provided.`,
+    );
+  }
+  return renderer;
+}
+
 function validateSectionKindDefinition(
   pluginId: string,
   definition: PluginSectionKindDefinition,
@@ -1702,36 +1804,11 @@ function validateSectionKindDefinition(
     definition.title,
     `Plugin ${pluginId} section kind ${kind} missing title.`,
   );
-  if (!definition.renderer || typeof definition.renderer !== "object") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} section kind ${kind} missing renderer object.`,
-    );
-  }
-  if (typeof definition.renderer.mount !== "function") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} section kind ${kind} renderer.mount must be a function.`,
-    );
-  }
-  if (
-    definition.renderer.update !== undefined &&
-    typeof definition.renderer.update !== "function"
-  ) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} section kind ${kind} renderer.update must be a function when provided.`,
-    );
-  }
-  if (
-    definition.renderer.unmount !== undefined &&
-    typeof definition.renderer.unmount !== "function"
-  ) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} section kind ${kind} renderer.unmount must be a function when provided.`,
-    );
-  }
+  const renderer = validatePluginRenderer(
+    pluginId,
+    `section kind ${kind}`,
+    definition.renderer,
+  );
   if (
     definition.initialData !== undefined &&
     !isPlainRecord(definition.initialData)
@@ -1746,7 +1823,7 @@ function validateSectionKindDefinition(
     pluginId,
     kind,
     title,
-    renderer: definition.renderer,
+    renderer,
   };
   if (definition.description !== undefined) {
     sectionKind.description = definition.description;
@@ -1769,36 +1846,11 @@ function validatePaneDefinition(
     definition.title,
     `Plugin ${pluginId} pane ${id} missing title.`,
   );
-  if (!definition.renderer || typeof definition.renderer !== "object") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} pane ${id} missing renderer object.`,
-    );
-  }
-  if (typeof definition.renderer.mount !== "function") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} pane ${id} renderer.mount must be a function.`,
-    );
-  }
-  if (
-    definition.renderer.update !== undefined &&
-    typeof definition.renderer.update !== "function"
-  ) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} pane ${id} renderer.update must be a function when provided.`,
-    );
-  }
-  if (
-    definition.renderer.unmount !== undefined &&
-    typeof definition.renderer.unmount !== "function"
-  ) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} pane ${id} renderer.unmount must be a function when provided.`,
-    );
-  }
+  const renderer = validatePluginRenderer(
+    pluginId,
+    `pane ${id}`,
+    definition.renderer,
+  );
   let icon: PluginPaneIconName | undefined;
   if (definition.icon !== undefined) {
     const iconValue = requireNonEmptyString(
@@ -1822,7 +1874,7 @@ function validatePaneDefinition(
     pluginId,
     id,
     title,
-    renderer: definition.renderer,
+    renderer,
   };
   if (definition.description !== undefined) {
     paneDefinition.description = definition.description;
@@ -2002,19 +2054,6 @@ function ensurePluginStyleLoaded(
   styleHrefByPluginId.set(pluginId, styleUrl);
 }
 
-function resolvePluginAssetUrl(url: string | null): string | null {
-  if (!url) {
-    return null;
-  }
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  if (url.startsWith("/")) {
-    return `${C_ADDRESSES.BACKEND_ORIGIN}${url}`;
-  }
-  return url;
-}
-
 function removeInactivePluginStyles(activePluginIds: Set<string>): void {
   for (const [pluginId, styleElement] of styleElementByPluginId.entries()) {
     if (activePluginIds.has(pluginId)) {
@@ -2053,6 +2092,75 @@ function mapPluginListById(
   return pluginListById;
 }
 
+function hasSameFieldValues<TObject, TKey extends keyof TObject>(
+  left: TObject,
+  right: TObject,
+  keys: readonly TKey[],
+): boolean {
+  for (const key of keys) {
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasMatchingPluginListEntryMetadata(
+  plugin: PluginListEntry,
+  previousEntry: PluginListEntry,
+): boolean {
+  return hasSameFieldValues(
+    plugin,
+    previousEntry,
+    pluginListEntryComparisonKeys,
+  );
+}
+
+function hasMatchingPluginFrontend(
+  plugin: PluginListEntry,
+  previousEntry: PluginListEntry,
+): boolean {
+  return hasSameFieldValues(
+    plugin.frontend,
+    previousEntry.frontend,
+    pluginFrontendComparisonKeys,
+  );
+}
+
+function hasMatchingPluginContent(
+  plugin: PluginListEntry,
+  previousEntry: PluginListEntry,
+): boolean {
+  return hasSameFieldValues(
+    plugin.content,
+    previousEntry.content,
+    pluginContentComparisonKeys,
+  );
+}
+
+function hasMatchingPluginConfig(
+  plugin: PluginListEntry,
+  previousEntry: PluginListEntry,
+): boolean {
+  if (plugin.config.hasSchema !== previousEntry.config.hasSchema) {
+    return false;
+  }
+  return (
+    hasSameJsonValueWithDigest({
+      nextValue: plugin.config.schemaJson,
+      previousValue: previousEntry.config.schemaJson,
+      nextDigest: getPluginConfigSchemaDigest(plugin),
+      previousDigest: getPluginConfigSchemaDigest(previousEntry),
+    }) &&
+    hasSameJsonValueWithDigest({
+      nextValue: plugin.config.currentConfig,
+      previousValue: previousEntry.config.currentConfig,
+      nextDigest: getPluginConfigCurrentConfigDigest(plugin),
+      previousDigest: getPluginConfigCurrentConfigDigest(previousEntry),
+    })
+  );
+}
+
 function canReusePluginListEntry(
   plugin: PluginListEntry,
   previousEntry: PluginListEntry,
@@ -2061,55 +2169,16 @@ function canReusePluginListEntry(
   if (effectiveCapabilities !== previousEntry.effectiveCapabilities) {
     return false;
   }
-  if (
-    plugin.pluginId !== previousEntry.pluginId ||
-    plugin.name !== previousEntry.name ||
-    plugin.version !== previousEntry.version ||
-    plugin.sourceScope !== previousEntry.sourceScope ||
-    plugin.sourceScopeLabel !== previousEntry.sourceScopeLabel ||
-    plugin.sourceManager !== previousEntry.sourceManager ||
-    plugin.sourceManagerHint !== previousEntry.sourceManagerHint ||
-    plugin.canonicalSourceKey !== previousEntry.canonicalSourceKey ||
-    plugin.sourceDigestSha256 !== previousEntry.sourceDigestSha256 ||
-    plugin.enablementSource !== previousEntry.enablementSource ||
-    plugin.restartRequired !== previousEntry.restartRequired
-  ) {
+  if (!hasMatchingPluginListEntryMetadata(plugin, previousEntry)) {
     return false;
   }
-  if (
-    plugin.frontend.entrypointUrl !== previousEntry.frontend.entrypointUrl ||
-    plugin.frontend.styleUrl !== previousEntry.frontend.styleUrl
-  ) {
+  if (!hasMatchingPluginFrontend(plugin, previousEntry)) {
     return false;
   }
-  if (
-    plugin.content.hasBlueprints !== previousEntry.content.hasBlueprints ||
-    plugin.content.hasProjectTemplates !==
-      previousEntry.content.hasProjectTemplates ||
-    plugin.content.hasPrompts !== previousEntry.content.hasPrompts
-  ) {
+  if (!hasMatchingPluginContent(plugin, previousEntry)) {
     return false;
   }
-  if (plugin.config.hasSchema !== previousEntry.config.hasSchema) {
-    return false;
-  }
-  if (
-    !hasSameJsonValueWithDigest({
-      nextValue: plugin.config.schemaJson,
-      previousValue: previousEntry.config.schemaJson,
-      nextDigest: getPluginConfigSchemaDigest(plugin),
-      previousDigest: getPluginConfigSchemaDigest(previousEntry),
-    }) ||
-    !hasSameJsonValueWithDigest({
-      nextValue: plugin.config.currentConfig,
-      previousValue: previousEntry.config.currentConfig,
-      nextDigest: getPluginConfigCurrentConfigDigest(plugin),
-      previousDigest: getPluginConfigCurrentConfigDigest(previousEntry),
-    })
-  ) {
-    return false;
-  }
-  return true;
+  return hasMatchingPluginConfig(plugin, previousEntry);
 }
 
 function getPluginConfigSchemaDigest(entry: PluginListEntry): string | null {
@@ -2171,51 +2240,66 @@ function stableCapabilitiesReference(
   return previousCapabilities;
 }
 
-function hasSameJsonValue(left: unknown, right: unknown): boolean {
-  if (left === right) {
-    return true;
-  }
+function getComparableJsonValueKind(
+  left: unknown,
+  right: unknown,
+): "array" | "object" | null {
   if (left === null || right === null) {
+    return null;
+  }
+  if (typeof left !== "object" || typeof right !== "object") {
+    return null;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) ? "array" : null;
+  }
+  return "object";
+}
+
+function hasSameJsonArray(left: unknown[], right: unknown[]): boolean {
+  if (left.length !== right.length) {
     return false;
   }
-  const leftType = typeof left;
-  const rightType = typeof right;
-  if (leftType !== rightType) {
-    return false;
-  }
-  if (leftType !== "object") {
-    return false;
-  }
-  if (Array.isArray(left)) {
-    if (!Array.isArray(right) || left.length !== right.length) {
-      return false;
-    }
-    for (let index = 0; index < left.length; index += 1) {
-      if (!hasSameJsonValue(left[index], right[index])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (Array.isArray(right)) {
-    return false;
-  }
-  const leftObject = left as Record<string, unknown>;
-  const rightObject = right as Record<string, unknown>;
-  const leftKeys = Object.keys(leftObject);
-  const rightKeys = Object.keys(rightObject);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (!(key in rightObject)) {
-      return false;
-    }
-    if (!hasSameJsonValue(leftObject[key], rightObject[key])) {
+  for (let index = 0; index < left.length; index += 1) {
+    if (!hasSameJsonValue(left[index], right[index])) {
       return false;
     }
   }
   return true;
+}
+
+function hasSameJsonObject(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!(key in right) || !hasSameJsonValue(left[key], right[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasSameJsonValue(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  const comparableKind = getComparableJsonValueKind(left, right);
+  if (comparableKind === "array") {
+    return hasSameJsonArray(left as unknown[], right as unknown[]);
+  }
+  if (comparableKind === "object") {
+    return hasSameJsonObject(
+      left as Record<string, unknown>,
+      right as Record<string, unknown>,
+    );
+  }
+  return false;
 }
 
 function mapStatusEntries(
@@ -2254,27 +2338,22 @@ function buildPluginStatusEntryStableKey(entry: PluginStatusEntry): string {
   return `${entry.pluginId}\u0000${entry.sourceScope}\u0000${entry.sourcePath}`;
 }
 
+function hasMatchingPluginStatusEntryMetadata(
+  statusEntry: PluginStatusEntry,
+  previousStatusEntry: PluginStatusEntry,
+): boolean {
+  return hasSameFieldValues(
+    statusEntry,
+    previousStatusEntry,
+    pluginStatusEntryComparisonKeys,
+  );
+}
+
 function canReusePluginStatusEntry(
   statusEntry: PluginStatusEntry,
   previousStatusEntry: PluginStatusEntry,
 ): boolean {
-  if (
-    statusEntry.pluginId !== previousStatusEntry.pluginId ||
-    statusEntry.name !== previousStatusEntry.name ||
-    statusEntry.version !== previousStatusEntry.version ||
-    statusEntry.state !== previousStatusEntry.state ||
-    statusEntry.sourceScope !== previousStatusEntry.sourceScope ||
-    statusEntry.sourceScopeLabel !== previousStatusEntry.sourceScopeLabel ||
-    statusEntry.sourceManager !== previousStatusEntry.sourceManager ||
-    statusEntry.sourceManagerHint !== previousStatusEntry.sourceManagerHint ||
-    statusEntry.sourcePath !== previousStatusEntry.sourcePath ||
-    statusEntry.canonicalSourceKey !== previousStatusEntry.canonicalSourceKey ||
-    statusEntry.sourceDigestSha256 !== previousStatusEntry.sourceDigestSha256 ||
-    statusEntry.shadowedBySourcePath !==
-      previousStatusEntry.shadowedBySourcePath ||
-    statusEntry.enablementSource !== previousStatusEntry.enablementSource ||
-    statusEntry.restartRequired !== previousStatusEntry.restartRequired
-  ) {
+  if (!hasMatchingPluginStatusEntryMetadata(statusEntry, previousStatusEntry)) {
     return false;
   }
   const statusEntryDigest = getPluginStatusRuntimePayloadDigest(statusEntry);
@@ -2540,6 +2619,75 @@ export function usePluginPaneTabs(): PluginPaneTabEntry[] {
   return usePluginRuntimeStore((state) => state.sortedPaneTabs);
 }
 
+function getPluginSettingRevealHandler(
+  pluginId: string,
+  revealKey: string,
+): PluginSettingRevealHandler | null {
+  const handlersByKey = settingRevealHandlersByPluginId.get(pluginId);
+  if (!handlersByKey) {
+    return null;
+  }
+  return handlersByKey.get(revealKey) ?? null;
+}
+
+function buildPluginSettingRevealFailure(
+  pluginId: string,
+  revealKey: string,
+  reason:
+    | "missing"
+    | "aborted"
+    | "timeout"
+    | "unhandled"
+    | "non_boolean"
+    | "missing_plugin_handlers"
+    | "failed",
+  errorMessage?: string,
+): { ok: false; message: string } {
+  switch (reason) {
+    case "missing_plugin_handlers":
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} has no setting reveal handlers.`,
+      };
+    case "missing":
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} has no setting reveal handler for ${revealKey}.`,
+      };
+    case "aborted":
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} reveal handler ${revealKey} was aborted before invocation.`,
+      };
+    case "timeout":
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
+      };
+    case "unhandled":
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} did not handle setting reveal ${revealKey}.`,
+      };
+    case "non_boolean":
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} reveal handler ${revealKey} returned a non-boolean value.`,
+      };
+  }
+  return {
+    ok: false,
+    message: `Plugin ${pluginId} reveal handler ${revealKey} failed: ${errorMessage ?? "unknown error"}`,
+  };
+}
+
+function resolvePluginSettingRevealFailureMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return String(error);
+}
+
 export async function invokePluginSettingRevealHandler({
   pluginId,
   revealKey,
@@ -2557,23 +2705,18 @@ export async function invokePluginSettingRevealHandler({
 }): Promise<{ ok: boolean; message: string | null }> {
   const handlersByKey = settingRevealHandlersByPluginId.get(pluginId);
   if (!handlersByKey) {
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} has no setting reveal handlers.`,
-    };
+    return buildPluginSettingRevealFailure(
+      pluginId,
+      revealKey,
+      "missing_plugin_handlers",
+    );
   }
-  const handler = handlersByKey.get(revealKey);
+  const handler = getPluginSettingRevealHandler(pluginId, revealKey);
   if (!handler) {
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} has no setting reveal handler for ${revealKey}.`,
-    };
+    return buildPluginSettingRevealFailure(pluginId, revealKey, "missing");
   }
   if (abortSignal.aborted) {
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} reveal handler ${revealKey} was aborted before invocation.`,
-    };
+    return buildPluginSettingRevealFailure(pluginId, revealKey, "aborted");
   }
   try {
     const handled = await handler({
@@ -2583,39 +2726,25 @@ export async function invokePluginSettingRevealHandler({
       abortSignal,
     });
     if (abortSignal.aborted) {
-      return {
-        ok: false,
-        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
-      };
+      return buildPluginSettingRevealFailure(pluginId, revealKey, "timeout");
     }
     if (handled === true) {
       return { ok: true, message: null };
     }
     if (handled === false) {
-      return {
-        ok: false,
-        message: `Plugin ${pluginId} did not handle setting reveal ${revealKey}.`,
-      };
+      return buildPluginSettingRevealFailure(pluginId, revealKey, "unhandled");
     }
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} reveal handler ${revealKey} returned a non-boolean value.`,
-    };
+    return buildPluginSettingRevealFailure(pluginId, revealKey, "non_boolean");
   } catch (error) {
     if (abortSignal.aborted) {
-      return {
-        ok: false,
-        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
-      };
+      return buildPluginSettingRevealFailure(pluginId, revealKey, "timeout");
     }
-    const message =
-      error instanceof Error && error.message.trim()
-        ? error.message
-        : String(error);
-    return {
-      ok: false,
-      message: `Plugin ${pluginId} reveal handler ${revealKey} failed: ${message}`,
-    };
+    return buildPluginSettingRevealFailure(
+      pluginId,
+      revealKey,
+      "failed",
+      resolvePluginSettingRevealFailureMessage(error),
+    );
   }
 }
 
@@ -2723,7 +2852,6 @@ export const pluginRuntimeTestApi = {
   indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
   registerPluginSettingRevealHandler,
-  normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
   toProjectStateSectionSnapshot,
