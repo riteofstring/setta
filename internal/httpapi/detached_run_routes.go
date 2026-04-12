@@ -35,11 +35,6 @@ type RunDetachedRequest struct {
 	Tags                    map[string]string    `json:"tags"`
 }
 
-type RunDetachedResponse struct {
-	RunID  string              `json:"runId"`
-	Status detachedruns.Status `json:"status"`
-}
-
 type GetRunStatusRequest struct {
 	RunID string `json:"runId"`
 }
@@ -67,7 +62,7 @@ func RegisterDetachedRunRoutes(router chi.Router, deps DetachedRunRouteDependenc
 		return fmt.Errorf("project state runtime is required in ide mode")
 	}
 
-	registerOpenAPIPost[RunDetachedRequest, RunDetachedResponse](
+	registerOpenAPIPost[RunDetachedRequest, detachedruns.Run](
 		router,
 		"runDetached",
 		RouteRunDetached,
@@ -158,10 +153,7 @@ func runDetachedHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, RunDetachedResponse{
-			RunID:  run.RunID,
-			Status: run.Status,
-		})
+		writeJSON(w, http.StatusOK, run)
 	}
 }
 

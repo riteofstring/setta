@@ -5040,19 +5040,6 @@
         ],
         "type": "object"
       },
-      "HttpapiRunDetachedResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "runId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": ["runId", "status"],
-        "type": "object"
-      },
       "HttpapiRuntimeAuth": {
         "additionalProperties": false,
         "properties": {
@@ -18288,7 +18275,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpapiRunDetachedResponse"
+                  "$ref": "#/components/schemas/DetachedrunsRun"
                 }
               }
             },

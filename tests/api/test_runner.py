@@ -18,7 +18,11 @@ from setta.sdk_contracts.generated import (
 )
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
-from setta.types.generated.go_shared_types import DependencyKeyType, ProjectConfig
+from setta.types.generated.go_shared_types import (
+    DependencyKeyType,
+    DetachedStatus,
+    ProjectConfig,
+)
 from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
 from setta.types.id import ID
 from setta.types.protocol import SectionParamDependencyKey
@@ -90,6 +94,28 @@ def _build_summary_lookup_snapshot() -> RunnerSummarySnapshot:
             ),
         ],
     )
+
+
+def _build_detached_run_payload(
+    *,
+    run_id: str = "run-1",
+    status: str = "queued",
+    project_config_id: str = "project-1",
+) -> dict[str, object]:
+    return {
+        "runId": run_id,
+        "status": status,
+        "createdAtMs": 1710000000000,
+        "startedAtMs": None,
+        "exitedAtMs": None,
+        "exitCode": None,
+        "pid": None,
+        "command": "python /tmp/snapshot.py",
+        "snapshotPath": "/tmp/snapshot.py",
+        "projectConfigId": project_config_id,
+        "entrySectionId": None,
+        "tags": {},
+    }
 
 
 def test_random_params_empty_grid_returns_identity() -> None:
@@ -697,7 +723,10 @@ def test_run_detached_resolves_entry_section_name_via_summary(
         if route is runner_mod.Route.GET_RUNNER_SUMMARY:
             return summary_snapshot.model_dump(mode="json")
         if route is runner_mod.Route.RUN_DETACHED:
-            return {"runId": "run-1", "status": "queued"}
+            return _build_detached_run_payload(
+                run_id="run-1",
+                project_config_id=summary_snapshot.projectConfigId,
+            )
         raise AssertionError(f"unexpected route {route}")
 
     monkeypatch.setattr(runner, "_post", post)
@@ -712,6 +741,7 @@ def test_run_detached_resolves_entry_section_name_via_summary(
     response = runner.run_detached(entry_section="Welcome")
 
     assert response.runId == "run-1"
+    assert response.snapshotPath == "/tmp/snapshot.py"
     assert observed_requests == [
         (
             runner_mod.Route.GET_RUNNER_SUMMARY,
@@ -745,7 +775,10 @@ def test_run_detached_encodes_param_overrides_from_dependency_keys(
 
     def post(route: runner_mod.Route, payload: dict) -> dict:
         observed_requests.append((route, payload))
-        return {"runId": "run-1", "status": "queued"}
+        return _build_detached_run_payload(
+            run_id="run-1",
+            project_config_id=summary_snapshot.projectConfigId,
+        )
 
     monkeypatch.setattr(runner, "_post", post)
     monkeypatch.setattr(
@@ -774,3 +807,33 @@ def test_run_detached_encodes_param_overrides_from_dependency_keys(
             },
         )
     ]
+
+
+@pytest.mark.parametrize(
+    ("method_name", "route", "status"),
+    [
+        ("get_run_status", runner_mod.Route.GET_RUN_STATUS, DetachedStatus.running),
+        ("cancel_run", runner_mod.Route.CANCEL_RUN, DetachedStatus.canceled),
+    ],
+)
+def test_status_routes_parse_go_owned_detached_run(
+    monkeypatch,
+    method_name: str,
+    route: runner_mod.Route,
+    status: DetachedStatus,
+) -> None:
+    runner = SettaRunner(base_url="http://example.com", auth_headers={"Cookie": "x=y"})
+    observed_requests: list[tuple[runner_mod.Route, dict]] = []
+
+    def post(observed_route: runner_mod.Route, payload: dict) -> dict:
+        observed_requests.append((observed_route, payload))
+        return _build_detached_run_payload(run_id="run-2", status=status.value)
+
+    monkeypatch.setattr(runner, "_post", post)
+
+    response = getattr(runner, method_name)("run-2")
+
+    assert response.runId == "run-2"
+    assert response.status == status
+    assert response.command == "python /tmp/snapshot.py"
+    assert observed_requests == [(route, {"runId": "run-2"})]

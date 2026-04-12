@@ -370,6 +370,15 @@ class DependencyValueType(StrEnum):
     FileRead = "FileRead"
 
 
+class DetachedStatus(StrEnum):
+    queued = "queued"
+    running = "running"
+    exited = "exited"
+    failed = "failed"
+    canceled = "canceled"
+    lost = "lost"
+
+
 class DictSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2033,6 +2042,24 @@ class DateParamCodeObjImpl(BaseModel):
     dateSelectionMode: DateSelectionMode
     dateCalendarWeekStart: DateCalendarWeekStart
     dateIncludesTime: bool
+
+
+class DetachedRun(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    runId: str
+    status: DetachedStatus
+    createdAtMs: int
+    startedAtMs: int | None = None
+    exitedAtMs: int | None = None
+    exitCode: int | None = None
+    pid: int | None = None
+    command: str
+    snapshotPath: str
+    projectConfigId: str
+    entrySectionId: str | None = None
+    tags: dict[str, str]
 
 
 class DrawAreaLayerItemTransform(BaseModel):

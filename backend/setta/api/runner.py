@@ -2,12 +2,10 @@ import itertools
 import random
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
-from pydantic import BaseModel
 
 from setta.api.runtime_compat import verify_running_backend_compatibility
 from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_name
@@ -24,6 +22,7 @@ from setta.sessions.utils import resolve_sessions_root
 from setta.types.generated.go_shared_constants import SESSION_MATCH_HOST_REWRITES
 from setta.types.generated.go_shared_types import (
     DependencyKeyType,
+    DetachedRun,
     ProjectConfig,
     Route,
     RunSnapshotMode,
@@ -289,35 +288,6 @@ class RunPlan:
         return RunPlan(expanded)
 
 
-class RunStatus(str, Enum):
-    queued = "queued"
-    running = "running"
-    exited = "exited"
-    failed = "failed"
-    canceled = "canceled"
-    lost = "lost"
-
-
-class RunDetachedResponse(BaseModel):
-    runId: str
-    status: RunStatus
-
-
-class RunStatusResponse(BaseModel):
-    runId: str
-    status: RunStatus
-    createdAtMs: int
-    startedAtMs: int | None
-    exitedAtMs: int | None
-    exitCode: int | None
-    pid: int | None
-    command: str
-    snapshotPath: str
-    projectConfigId: ID
-    entrySectionId: ID | None
-    tags: dict[str, str]
-
-
 class SettaRunner:
     def __init__(
         self,
@@ -360,7 +330,7 @@ class SettaRunner:
         override: RunOverride | None = None,
         *,
         entry_section: str | ID | None = None,
-    ) -> RunDetachedResponse:
+    ) -> DetachedRun:
         active_override = override.copy() if override is not None else RunOverride()
         if active_override.run_snapshot_mode == RunSnapshotMode.never:
             raise ValueError(
@@ -385,15 +355,15 @@ class SettaRunner:
             "tags": active_override.tags,
         }
         data = self._post(Route.RUN_DETACHED, payload)
-        return RunDetachedResponse(**data)
+        return DetachedRun(**data)
 
-    def get_run_status(self, run_id: str) -> RunStatusResponse:
+    def get_run_status(self, run_id: str) -> DetachedRun:
         data = self._post(Route.GET_RUN_STATUS, {"runId": run_id})
-        return RunStatusResponse(**data)
+        return DetachedRun(**data)
 
-    def cancel_run(self, run_id: str) -> RunStatusResponse:
+    def cancel_run(self, run_id: str) -> DetachedRun:
         data = self._post(Route.CANCEL_RUN, {"runId": run_id})
-        return RunStatusResponse(**data)
+        return DetachedRun(**data)
 
     def _post(self, route: Route, payload: dict) -> dict:
         if self._resolved_auth_headers is None:

@@ -39,7 +39,7 @@ func TestRegisterDetachedRunRoutesStartsAndTracksRun(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var started RunDetachedResponse
+	var started detachedruns.Run
 	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
 		t.Fatalf("decode runDetached response: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestRegisterDetachedRunRoutesStartsAndTracksExplicitEntrySectionAndValidPar
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var started RunDetachedResponse
+	var started detachedruns.Run
 	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
 		t.Fatalf("decode runDetached response: %v", err)
 	}

@@ -1632,11 +1632,6 @@ export type HttpapiRunDetachedRequest = {
   };
 };
 
-export type HttpapiRunDetachedResponse = {
-  runId: string;
-  status: string;
-};
-
 export type HttpapiRuntimeAuth = {
   authCookieName?: string;
 };
@@ -8291,7 +8286,7 @@ export type RunDetachedResponses = {
   /**
    * OK
    */
-  200: HttpapiRunDetachedResponse;
+  200: DetachedrunsRun;
 };
 
 export type RunDetachedResponse =
