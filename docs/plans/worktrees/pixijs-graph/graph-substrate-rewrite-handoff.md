@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 10:47 UTC
+Last updated: 2026-04-15 11:04 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `491` narrowed the normalized compare-pane helper so cross-worktree
+  parity setup can update live pane state in place instead of always paying a
+  full reload:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now short-circuits when the current pane state already matches the
+      normalized compare target, writes normalized pane state into the live
+      `useLocalStorage` store when the settings shell is already mounted, and
+      only falls back to reload + readiness waiting when the live store path is
+      unavailable
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `12` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - live normalized cross-worktree perf probe reruns:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh url from ./scripts/dev-runtime-info.sh for /home/ubuntu/dev/setta> timeout 420s pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane' --reporter=line --timeout=60000`
+      -> no longer timed out at `reference: normalize compare pane state`
+      -> advanced through
+         `reference: clear durable active section ids`
+         `reference: set active view mode and clear viewport`
+         `reference: mount target surface`
+         `reference: run compare preflight`
+         `reference: capture baseline metrics`
+         `reference: capture motion perf`
+         `reference: capture result metrics`
+         before moving on to worktree setup
+      -> remaining blocker is now a different worktree-health path:
+         first `worktree: normalize compare pane state` timed out while the
+         helper still waited for full readiness after an in-place update, and
+         after removing that extra wait the next rerun failed earlier at
+         `worktree: capture initial pane state` with
+         `Worktree unhealthy: timed out after 5000ms while reading local pane state from in-page storage/store`
+    - fresh-context CDP check:
+      -> passed via sub-agent
+      -> `http://127.0.0.1:3053/settings` loaded successfully and visibly
+         showed the settings graph surface with the Overview list and the
+         canvas area
+  - reading:
+    - this iteration did not reopen renderer drift or store-sync ownership; it
+      removed one trusted-oracle blocker on the reference side and exposed the
+      next worktree-health blocker cleanly
+    - next: inspect why the worktree page intermittently cannot read local pane
+      state from the in-page store at the very start of the same normalized
+      `rotaryParamCodeObjDefault` compare lane; keep the lane on the existing
+      named target instead of opening a new oracle family
 
 - item `490` stopped authoritative `viewport=null` fit-view setup from
   immediately re-persisting a concrete viewport back into the frontend store,

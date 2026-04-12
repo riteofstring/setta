@@ -21,6 +21,7 @@ import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
   resolvePersistedSettingsGraphLocalPaneStateWriteValueFromBrowserStorageState,
+  resolveSettingsGraphLocalPaneStateStorePatch,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
 } from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
@@ -1060,26 +1061,71 @@ export async function setLocalPaneState(
       },
     );
 
+  const currentPaneState = await getLocalPaneState(page).catch(() => null);
+  if (
+    currentPaneState &&
+    settingsGraphPaneStatesMatch(currentPaneState, paneState)
+  ) {
+    return waitForRecoverableSettingsGraphAppReady(page);
+  }
+
   const { page: activePage } = await runWithRecoverableSettingsGraphPageAction({
     description: "writing normalized compare pane state",
     page,
     action: async (targetPage) => {
-      await targetPage.evaluate(
-        ({ key, value }: { key: string; value: string }) => {
+      const updatedLiveStore = await targetPage.evaluate(
+        async ({
+          key,
+          paneStatePatch,
+          value,
+        }: {
+          key: string;
+          paneStatePatch: {
+            overviewTrueWidth: number;
+            overviewVis: boolean;
+            overviewWidth: number;
+            snapToGrid: boolean;
+            uiEditorTrueWidth: number;
+            uiEditorVis: boolean;
+            uiEditorWidth: number;
+          };
+          value: string;
+        }) => {
           window.localStorage.setItem(key, value);
+          if (document.querySelector(".setta-titlebar-offset") === null) {
+            return false;
+          }
+          try {
+            const { useLocalStorage } = await import(
+              "/src/state/definitions.ts"
+            );
+            useLocalStorage.setState(paneStatePatch);
+            return true;
+          } catch {
+            return false;
+          }
         },
         {
           key: "setta_data",
+          paneStatePatch:
+            resolveSettingsGraphLocalPaneStateStorePatch(paneState),
           value: nextPersistedPaneState,
         },
       );
-      await targetPage.reload({
-        waitUntil: "domcontentloaded",
-      });
+      if (!updatedLiveStore) {
+        await targetPage.reload({
+          waitUntil: "domcontentloaded",
+        });
+      }
+      return updatedLiveStore;
     },
   });
 
-  return waitForRecoverableSettingsGraphAppReady(activePage);
+  if (activePage.value === true) {
+    return activePage.page;
+  }
+
+  return waitForRecoverableSettingsGraphAppReady(activePage.page);
 }
 
 export async function normalizeSettingsGraphComparePaneState(

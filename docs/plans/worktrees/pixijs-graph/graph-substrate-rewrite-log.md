@@ -20667,3 +20667,47 @@ LOOP_TERMINAL_MARKER: none
       above the row seam; do not spend the next pass on more pane-state helper
       churn
 - LOOP_TERMINAL_MARKER: none
+- item `491` narrowed the normalized compare-pane helper so parity setup can
+  reuse the live pane store instead of forcing a reload every time:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now:
+      - returns early when the current pane state already matches
+        `SETTINGS_GRAPH_COMPARE_PANE_STATE`
+      - writes normalized pane state into the live `useLocalStorage` store when
+        the settings shell is already mounted
+      - skips the extra app-readiness wait after a successful in-place pane
+        update and only falls back to reload when the live-store path is not
+        available
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState.test.ts`
+      -> passed (`1` file, `12` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - refreshed runtime tokens with:
+      - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-022/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-022/main-ai.log`
+    - reran the normalized cross-worktree perf probe:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh bootstrap url> timeout 420s pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane' --reporter=line --timeout=60000`
+      -> the original blocker moved: `reference: normalize compare pane state`
+         no longer timed out
+      -> the reference side progressed through preflight, baseline capture, the
+         full motion perf sequence, and result metrics
+      -> first rerun then stalled at
+         `worktree: normalize compare pane state`, which exposed that the
+         helper was still waiting on a redundant full readiness pass after an
+         in-place update; after removing that wait the next rerun failed even
+         earlier at `worktree: capture initial pane state` with:
+         `Worktree unhealthy: timed out after 5000ms while reading local pane state from in-page storage/store`
+    - fresh-context CDP smoke via sub-agent:
+      -> passed
+      -> `http://127.0.0.1:3053/settings` visibly loaded the settings graph
+         surface with the Overview list and canvas area
+  - reading:
+    - this was one bounded oracle-support slice tied to a concrete observed
+      compare blocker, not another abstract helper polish pass
+    - the remaining blocker is now clearly a worktree-health issue around
+      reading local pane state from the in-page store before normalized compare
+      setup, not the old reference normalization timeout
+- LOOP_TERMINAL_MARKER: none
