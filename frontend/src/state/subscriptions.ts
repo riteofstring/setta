@@ -18,11 +18,8 @@ import {
 import {
   debouncedDispatchViewportUpdate,
   dispatchViewportUpdateImmediately,
-  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
-  getSectionShouldRender,
-  getSectionViewModeVisibility,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
@@ -34,14 +31,6 @@ export function subscribe() {
     },
     { equalityFn: _.isEqual },
   );
-
-  // useProjectState.subscribe(
-  //   topLevelSectionVisibilitySubscriptionFn,
-  //   (newVal) => {
-  //     updateNodeVisibility(newVal);
-  //   },
-  //   { equalityFn: _.isEqual },
-  // );
 
   useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
     useProjectState.setState((state) => {
@@ -145,19 +134,6 @@ function reactFlowTransformSubscriptionFn(state) {
 
 function updateNodeDimensionsSubscriptionFn(state) {
   return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
-}
-
-function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
-  const output: Record<string, boolean> = {};
-  const topLevelSections = getActiveViewModeTopLevelSections(state);
-  for (const id of Object.keys(topLevelSections)) {
-    const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
-      id,
-      state,
-    );
-    output[id] = getSectionShouldRender(visibility, isEditingViewMode);
-  }
-  return output;
 }
 
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {

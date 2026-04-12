@@ -1,8 +1,4 @@
-import {
-  getActiveSectionsBounds,
-  getSectionRect,
-} from "forks/xyflow/core/utils/graph";
-import _ from "lodash";
+import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import { pasteSections, prepareSectionsForCopy } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
@@ -73,28 +69,4 @@ function getPasteLocation() {
   // paste directly to the right of the active sections
   const { x, y, width } = getActiveSectionsBounds();
   return { x: x + width, y };
-}
-function getRelativePositions(sections) {
-  const positions = {};
-  for (const k of Object.keys(sections)) {
-    const rect = getSectionRect(k);
-    if (rect) {
-      positions[k] = { x: rect.x, y: rect.y, zIndex: 0 };
-    }
-  }
-  let minX = Infinity;
-  let minY = Infinity;
-  for (const p of Object.values(positions)) {
-    if (p.x < minX) {
-      minX = p.x;
-    }
-    if (p.y < minY) {
-      minY = p.y;
-    }
-  }
-  return _.mapValues(positions, (v) => ({
-    x: v.x - minX,
-    y: v.y - minY,
-    zIndex: v.zIndex,
-  }));
 }

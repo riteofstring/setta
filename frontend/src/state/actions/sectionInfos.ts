@@ -1661,7 +1661,7 @@ export function getActiveViewModeConfig(state: SingleConfig) {
   }
   return viewMode;
 }
-export function getActiveViewModeTopLevelSections(projectState: SingleConfig) {
+function getActiveViewModeTopLevelSections(projectState: SingleConfig) {
   const { activeViewModeId, topLevelSections, viewModes } =
     projectState.projectConfig;
   if (!activeViewModeId || !(activeViewModeId in viewModes)) {

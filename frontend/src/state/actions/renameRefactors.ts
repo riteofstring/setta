@@ -37,7 +37,8 @@ function saveRenameBroadcast(content: RenameRefactorBroadcastContent) {
     const nextQueue = state.queue.includes(content.frontendOpId)
       ? state.queue
       : [...state.queue, content.frontendOpId];
-    const { [content.frontendOpId]: _removed, ...restReady } = state.readyOpIds;
+    const restReady = { ...state.readyOpIds };
+    delete restReady[content.frontendOpId];
     return {
       byOpId: { ...state.byOpId, [content.frontendOpId]: content },
       queue: nextQueue,
@@ -64,16 +65,14 @@ function clearRenameBroadcast(frontendOpId: string) {
     const nextByOpId = { ...state.byOpId };
     delete nextByOpId[frontendOpId];
     const nextQueue = state.queue.filter((opId) => opId !== frontendOpId);
-    const { [frontendOpId]: _removedReady, ...restReady } = state.readyOpIds;
+    const restReady = { ...state.readyOpIds };
+    delete restReady[frontendOpId];
     return {
       byOpId: nextByOpId,
       queue: nextQueue,
       readyOpIds: restReady,
     };
   });
-}
-function resetRenameBroadcasts() {
-  useRenameRefactors.getState().reset();
 }
 export function markRenameBroadcastsReady(completedOpIds: Iterable<string>) {
   const ids = Array.from(completedOpIds);
@@ -112,7 +111,8 @@ function shiftNextReadyRenameBroadcast() {
     nextPrompt = state.byOpId[head];
     const nextByOpId = { ...state.byOpId };
     delete nextByOpId[head];
-    const { [head]: _removedReady, ...restReady } = state.readyOpIds;
+    const restReady = { ...state.readyOpIds };
+    delete restReady[head];
     return {
       byOpId: nextByOpId,
       queue: restQueue,
