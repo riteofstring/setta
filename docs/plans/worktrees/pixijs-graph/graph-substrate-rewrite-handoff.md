@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 08:53 UTC
+Last updated: 2026-04-14 09:41 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,93 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `458` completed the handoff-directed lane-health/classification pass on
+  the canonical `rotaryParamCodeObjDefault` worktree canary:
+  - code/doc changes kept in the tree:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now captures one reusable lane-health snapshot that bundles preflight,
+      surface presence, target metrics, canary instrumentation, and a derived
+      health classification
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.ts`
+      plus `settingsGraphLaneHealth.test.ts`
+      now centralize the pure lane-health classification logic with focused
+      unit coverage
+    - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now provides a dedicated live worktree probe lane for the normalized
+      `rotaryParamCodeObjDefault` health snapshot instead of burying that read
+      inside the broader motion probe
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts`
+      -> passed (`1` file, `3` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.ts src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - live worktree probe attempts on the dedicated lane were not stable
+      enough to count as passing verification:
+      - first run captured the full lane-health snapshot, then the browser
+        context closed during teardown
+      - second and third runs failed on the known page/context-closure path
+        during `normalizeSettingsGraphComparePaneState(...)`
+  - captured live evidence from the first lane-health run:
+    - `preflight.status: ok`
+    - `surfaceKind: canary`
+    - target `rotaryParamCodeObjDefault` existed and was visible with a real
+      rect/title rect after targeted `fitView(...)`
+    - canary instrumentation was mounted with
+      `mountedSceneSectionCount: 46`, `mountedSectionBodyCount: 1`,
+      `pixiDrawableCount: 1`, `sceneSyncCount: 2`
+    - `surfacePresence.canaryRootMounted: true`
+    - `surfacePresence.legacyPaneMounted: true`
+    - the new classification logic therefore marks the lane as
+      `renderer_regression`, not `worktree_unhealthy`
+  - CDP verification:
+    - fresh-context sub-agent timed out on DevTools attach with
+      `Network.enable timed out`
+    - a direct main-agent MCP call to enumerate pages also timed out, so the
+      required CDP visual confirmation remains blocked by DevTools transport,
+      not by an already-classified worktree app failure
+  - reading:
+    - the lane-health question is now answered: the worktree canary is alive
+      enough to mount and fit the target section, but the renderer is in a
+      mixed-surface state because the legacy pane remains mounted alongside
+      the canary root
+    - do not spend the next iteration extending this harness or re-proving the
+      same lane-health setup unless the DevTools transport itself changes
+    - the next real frontier is a bounded product fix that finds why
+      `.react-flow__pane` still mounts on `All Settings` while the canary is
+      active, then removes that mixed ownership state before returning to row
+      hotspot tuning
+
+- progress review checkpoint after item `457`:
+  - decision:
+    - continue the loop only with a sharper pivot; do not keep spending default
+      iterations on deeper row-level micro-cuts while the live canary is
+      visually unhealthy on the required CDP check
+  - why:
+    - runs `012` through `015` show meaningful forward progress on the
+      canonical `rotaryParamCodeObjDefault` lane, including one large live win
+      in item `454`
+    - runs `016` and `017` show diminishing returns on the current tactic:
+      one attribution split with blocked CDP confirmation, then one committed
+      `ParamSwitch` micro-cut that regressed the canonical perf readout and
+      left the graph surface looking empty/unstyled in CDP
+    - that combination is a real lane-health warning, not just oracle noise
+  - durable next action:
+    - first take one bounded health/classification pass on
+      `rotaryParamCodeObjDefault` using the existing deterministic Playwright
+      probe plus live canary evidence for:
+      surface kind, target-section existence, targeted `fitView(...)` result,
+      viewport state, and scene/body visibility counters or snapshots
+    - classify the result explicitly as `worktree_unhealthy`,
+      renderer/product regression, or oracle/tooling instability
+    - only after the lane is trustworthy again, resume product work at a
+      larger boundary above the already-closed row micro-cuts; do not reopen
+      the inactive-sortable `ParamSwitch` seam without fresh attribution
+  - closed rabbit holes / red herrings:
+    - do not spend another default iteration on inactive-drag or dormant-hook
+      cleanup inside `ParamSwitch`
+    - do not spend another default iteration on pinned-row hypotheses for this
+      lane; item `456` showed pinned row render cost is `0ms`
 
 - item `457` landed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` lane by bypassing dormant sortable wiring for

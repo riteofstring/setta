@@ -1,6 +1,10 @@
 import { expect, type Page } from "@playwright/test";
 import { isSettingsGraphCompareTransientChromeSettled } from "components/Pages/Project/graphSubstrate/settingsGraphCompareTransientChrome";
 import {
+  resolveSettingsGraphLaneHealthClassification,
+  type SettingsGraphLaneHealthClassification,
+} from "components/Pages/Project/graphSubstrate/settingsGraphLaneHealth";
+import {
   resolveDominantMotionAttributionOwner,
   resolveTopMotionAttributionOwners,
   resolveTopMotionAttributionOwnersExcluding,
@@ -37,6 +41,7 @@ import {
   isSettingsGraphAppReady,
   isSettingsGraphProjectSurfaceLoading,
   resolveSettingsGraphSurfaceKind,
+  type SettingsGraphSurfacePresenceSnapshot,
 } from "components/Pages/Project/graphSubstrate/settingsGraphSurfaceState";
 import { postBackend } from "../helpers";
 
@@ -110,6 +115,15 @@ export type SettingsGraphSectionMetrics = {
   surfaceKind: SettingsGraphSurfaceKind | null;
   titleRect: { x: number; y: number; width: number; height: number } | null;
   transform: SettingsGraphViewportTransform | null;
+};
+
+export type SettingsGraphLaneHealthSnapshot = {
+  classification: SettingsGraphLaneHealthClassification;
+  instrumentation: SettingsGraphCanaryInstrumentationSnapshot | null;
+  preflight: SettingsGraphComparePreflightResult;
+  surfacePresence: SettingsGraphSurfacePresenceSnapshot;
+  targetSectionMetrics: SettingsGraphSectionMetrics | null;
+  targetSectionVisible: boolean;
 };
 
 export type SettingsGraphMotionPerfSequenceStep = {
@@ -1042,6 +1056,52 @@ export async function captureSettingsGraphSectionMetrics(
   };
 }
 
+export async function captureSettingsGraphLaneHealthSnapshot(args: {
+  expectedPaneState?: SettingsGraphLocalPaneState;
+  expectedSurfaceKind: SettingsGraphSurfaceKind;
+  expectedViewModeName: string;
+  page: Page;
+  projectConfigId: string;
+  requireFitView?: boolean;
+  side: "reference" | "worktree";
+  targetSectionId?: string;
+  targetSectionName?: string;
+}): Promise<SettingsGraphLaneHealthSnapshot> {
+  const preflight = await runSettingsGraphComparePreflight(args);
+  const targetSectionId = preflight.targetSectionId;
+  const [instrumentation, surfacePresence, targetSectionMetrics] =
+    await Promise.all([
+      readSettingsGraphCanaryInstrumentationSnapshot(args.page),
+      readSettingsGraphSurfacePresenceSnapshot(args.page),
+      targetSectionId
+        ? captureSettingsGraphSectionMetrics(args.page, targetSectionId)
+        : Promise.resolve(null),
+    ]);
+
+  const targetSectionVisible =
+    (targetSectionMetrics?.rect?.width ?? 0) > 0 &&
+    (targetSectionMetrics?.rect?.height ?? 0) > 0 &&
+    (targetSectionMetrics?.titleRect?.width ?? 0) > 0 &&
+    (targetSectionMetrics?.titleRect?.height ?? 0) > 0;
+
+  return {
+    classification: resolveSettingsGraphLaneHealthClassification({
+      instrumentationMounted: instrumentation?.mounted ?? false,
+      mountedSceneSectionCount: instrumentation?.mountedSceneSectionCount ?? 0,
+      preflightStatus: preflight.status,
+      preflightSurfaceKind: preflight.surfaceKind,
+      surfacePresence,
+      targetSectionSurfaceKind: targetSectionMetrics?.surfaceKind ?? null,
+      targetSectionVisible,
+    }),
+    instrumentation,
+    preflight,
+    surfacePresence,
+    targetSectionMetrics,
+    targetSectionVisible,
+  };
+}
+
 export async function startSettingsGraphMotionPerfCapture(
   page: Page,
 ): Promise<void> {
@@ -1533,13 +1593,9 @@ async function waitForSettingsGraphAppReady(page: Page): Promise<void> {
   );
 }
 
-async function readSettingsGraphSurfacePresenceSnapshot(page: Page): Promise<{
-  appShellMounted: boolean;
-  canaryRootMounted: boolean;
-  legacyPaneMounted: boolean;
-  projectSurfaceLoadingMounted: boolean;
-  settingsContentMounted: boolean;
-}> {
+export async function readSettingsGraphSurfacePresenceSnapshot(
+  page: Page,
+): Promise<SettingsGraphSurfacePresenceSnapshot> {
   return page.evaluate(
     ({
       canaryRootSelector,

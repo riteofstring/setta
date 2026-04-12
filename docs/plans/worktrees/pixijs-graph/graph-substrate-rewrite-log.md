@@ -18675,6 +18675,55 @@ LOOP_TERMINAL_MARKER: none
     of reusing the stale token from loop context
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 - progress review checkpoint after run 017
+
+- scope reviewed:
+  - `RALPH.md`, the durable rewrite plan, the active handoff, and recent runs
+    `008` through `017` with emphasis on successful runs `012` through `017`
+- decision:
+  - `replan_and_continue`
+- evidence:
+  - runs `012` through `015` were meaningful forward progress on the canonical
+    `rotaryParamCodeObjDefault` lane:
+    - item `452`/run `012` named the next hot owner inside the body subtree
+    - item `453`/run `013` landed a modest live win
+    - item `454`/run `014` landed the strongest live win in this stretch
+    - item `455`/run `015` was mostly flat but still closed a local observer
+      churn seam with regression coverage
+  - the tail changed character after that:
+    - item `456`/run `016` was a useful attribution split, but the iteration
+      ended `BLOCKED` because the required CDP target confirmation kept
+      aborting after the allowed lifecycle retry
+    - item `457`/run `017` took a smaller `ParamSwitch` micro-cut, did not
+      improve the canonical readout, and the CDP check reported the graph
+      surface looked empty/unstyled with `rotaryParamCodeObjDefault` not
+      visually confirmable after `fit view`
+- interpretation:
+  - the recent stretch still shows worthwhile progress overall, so this is not
+    a `stop`
+  - however, the current local tactic has reached diminishing returns:
+    deeper row-level micro-cuts are no longer justified until one bounded pass
+    explains whether the unhealthy live canary is a product regression, scene
+    authority drift, or an oracle/tooling problem
+  - real rabbit holes to close for now:
+    - no more inactive-sortable / dormant-hook `ParamSwitch` hypotheses
+      without fresh attribution
+    - no pinned-row follow-up on this lane; the attribution split already
+      showed pinned cost is not the issue
+- durable replan:
+  - next iteration should start with a lane-health classification pass on the
+    canonical target `rotaryParamCodeObjDefault`
+  - require explicit evidence for:
+    - expected surface kind mounted
+    - target-section presence
+    - targeted `fitView(...)` return/result
+    - viewport state
+    - scene/body visibility counters or snapshots that explain why the surface
+      looked empty/unstyled in CDP
+  - only resume performance product cuts after that pass re-establishes a
+    trustworthy canary or names a concrete product regression to fix
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 - item 455 - Unpinned scrollability row boundary
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
@@ -18810,6 +18859,76 @@ LOOP_TERMINAL_MARKER: none
   - the live worktree canary is currently visually unhealthy on the CDP check;
     the next iteration should first re-establish a trustworthy normalized view
     of `rotaryParamCodeObjDefault` before making any new renderer claims
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 - item 458 - Worktree lane-health classification pass
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the handoff explicitly redirected the loop away from another row-level
+    micro-cut and onto one bounded health/classification pass for the canonical
+    `rotaryParamCodeObjDefault` lane
+  - the last two completed iterations were a real product cut (`457`) and a
+    real attribution/product pass before that, so one support slice was
+    justified here because it directly answered the live-canary health question
+- selected one bounded support slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - capture a deterministic lane-health snapshot that combines preflight,
+    target-section geometry, canary instrumentation, and surface-presence
+    evidence, then centralize the classification logic so the loop can stop
+    guessing whether the lane is `worktree_unhealthy` or a real renderer
+    regression
+- code/doc changes kept in tree:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - now exports `captureSettingsGraphLaneHealthSnapshot(...)` and surface
+      presence reads for the normalized `All Settings` canary lane
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.ts`
+    - now classifies lane health as `healthy`, `worktree_unhealthy`,
+      `reference_unhealthy`, or `renderer_regression`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts`
+    - now proves unhealthy preflight remains authoritative and that mixed
+      canary+legacy roots classify as `renderer_regression`
+  - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+    - now provides a dedicated live worktree probe for the normalized
+      `rotaryParamCodeObjDefault` health lane
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts`
+    -> passed (`1` file, `3` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.ts src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+    -> passed
+  - live worktree Playwright lane:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-018/worktree-ai.log --grep "settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state"`
+    -> first run emitted the full lane-health snapshot, then timed out during
+       teardown after the browser context closed
+    -> second and third bounded retries failed on the known
+       page/context-closure path during
+       `normalizeSettingsGraphComparePaneState(...)`
+- captured live evidence from the first lane-health run:
+  - `preflight.status: ok`
+  - `surfaceKind: canary`
+  - target `rotaryParamCodeObjDefault` existed and stayed visible after the
+    shared targeted `fitView(...)`
+  - canary instrumentation reported `mounted: true`,
+    `mountedSceneSectionCount: 46`, `mountedSectionBodyCount: 1`,
+    `pixiDrawableCount: 1`, `sceneSyncCount: 2`
+  - `surfacePresence.canaryRootMounted: true`
+  - `surfacePresence.legacyPaneMounted: true`
+  - the new classification logic therefore resolves this lane to
+    `renderer_regression`
+- CDP verification:
+  - fresh-context sub-agent timed out attaching to DevTools with
+    `Network.enable timed out`
+  - a direct `chrome-devtools-mcp` `list_pages` call from the main agent also
+    timed out, so the required visual confirmation was blocked by DevTools
+    transport failure
+- interpretation:
+  - the lane-health pass is complete; the canary is not blank or missing, and
+    this is not a `worktree_unhealthy` case
+  - the real product defect is mixed graph ownership on `All Settings`:
+    `.react-flow__pane` still mounts while the canary root is active
+  - the next iteration should take one bounded product slice that traces where
+    the legacy pane is still being mounted/retained on the canary route and
+    removes that mixed-surface state before resuming deeper row-hotspot tuning
 - LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-14 - item 450 - Section entry body memo boundary
