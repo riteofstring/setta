@@ -192,6 +192,11 @@ type deleteRemoteWorkspaceRequest struct {
 	sessionID string
 }
 
+type listRemoteWorkspaceSessionsRequest struct {
+	remoteCommandContextRequest
+	serverMode RemoteServerMode
+}
+
 type preparedSessionSelection struct {
 	session             RemoteSessionSummary
 	startedNew          bool
@@ -260,6 +265,42 @@ func normalizePrepareConnectRequest(input PrepareConnectWorkspaceInput) (prepare
 	})
 	if err != nil {
 		return prepareConnectRequest{}, err
+	}
+	request.remoteCommandContextRequest = normalizedContext
+	return request, nil
+}
+
+func normalizeListRemoteWorkspaceSessionsRequest(input ListRemoteWorkspaceSessionsInput) (listRemoteWorkspaceSessionsRequest, error) {
+	request := listRemoteWorkspaceSessionsRequest{
+		serverMode: input.ServerMode,
+	}
+	request.sshTarget = NormalizeOptionalArgument(input.SSHTarget)
+	if request.sshTarget == "" {
+		return listRemoteWorkspaceSessionsRequest{}, &Error{
+			Code:    "InvalidSshTarget",
+			Message: "sshTarget must be a non-empty string.",
+		}
+	}
+	request.workspace = NormalizeOptionalArgument(input.Workspace)
+	if request.workspace == "" {
+		return listRemoteWorkspaceSessionsRequest{}, &Error{
+			Code:    "InvalidWorkspace",
+			Message: "--workspace is required for remote session listing.",
+		}
+	}
+	normalizedContext, err := normalizeRemoteCommandContextRequest(remoteCommandContextRequest{
+		sshTarget:          request.sshTarget,
+		workspace:          request.workspace,
+		profile:            input.Profile,
+		settaHome:          input.SettaHome,
+		settaFilesRoot:     input.SettaFilesRoot,
+		settaFilesLocation: input.SettaFilesLocation,
+		runtimeRoot:        input.RuntimeRoot,
+		sshArgs:            input.SSHArgs,
+		remoteCommand:      input.RemoteCommand,
+	})
+	if err != nil {
+		return listRemoteWorkspaceSessionsRequest{}, err
 	}
 	request.remoteCommandContextRequest = normalizedContext
 	return request, nil
@@ -515,68 +556,23 @@ func extractRemoteConnectToken(connectInfo RemoteConnectInfo) (string, error) {
 }
 
 func (s *Service) ListRemoteWorkspaceSessions(input ListRemoteWorkspaceSessionsInput) ([]RemoteSessionSummary, error) {
-	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
-	if sshTarget == "" {
-		return nil, &Error{
-			Code:    "InvalidSshTarget",
-			Message: "sshTarget must be a non-empty string.",
-		}
-	}
-	workspace := NormalizeOptionalArgument(input.Workspace)
-	if workspace == "" {
-		return nil, &Error{
-			Code:    "InvalidWorkspace",
-			Message: "--workspace is required for remote session listing.",
-		}
-	}
-
-	profile := NormalizeOptionalArgument(input.Profile)
-	settaHome := NormalizeOptionalArgument(input.SettaHome)
-	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
-	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
+	request, err := normalizeListRemoteWorkspaceSessionsRequest(input)
 	if err != nil {
 		return nil, err
 	}
-	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
-	sshArgsRaw := NormalizeOptionalArgument(input.SSHArgs)
-	remoteCommand := NormalizeOptionalArgument(input.RemoteCommand)
-	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
-		settaFilesLocation = "auto"
-	}
-
-	sshArgs, err := ParseSSHArgs(sshArgsRaw)
+	commandContext, err := s.resolveRemoteCommandContext(request.remoteCommandContextRequest)
 	if err != nil {
 		return nil, err
 	}
-	sshArgs = ApplyControlSocketArgs(sshArgs)
-	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
-
-	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
-	if err != nil {
-		return nil, err
-	}
-	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
-	if err != nil {
-		return nil, err
-	}
-	resolvedRemoteCommand, err := s.resolveRemoteSettaCommand(sshTarget, sshArgs, shell, remoteWorkspace, remoteCommand, sshPrefix)
-	if err != nil {
-		return nil, err
-	}
-	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
-	if err != nil {
-		return nil, err
-	}
-
 	return s.fetchRemoteSessions(
-		sshTarget,
-		sshArgs,
-		shell,
-		remoteWorkspace,
-		resolvedRemoteCommand,
-		settaFilesArgs,
-		sshPrefix,
-		input.ServerMode,
+		commandContext.sshTarget,
+		commandContext.sshArgs,
+		commandContext.shell,
+		commandContext.remoteWorkspace,
+		commandContext.remoteCommand,
+		commandContext.settaFilesArgs,
+		commandContext.sshPrefix,
+		request.serverMode,
 	)
 }
 
@@ -1112,6 +1108,36 @@ func (s *Service) remoteCommandExists(sshTarget string, sshArgs []string, comman
 	return result.ExitCode == 0, nil
 }
 
+func (s *Service) selectRemoteBackgroundRunner(sshTarget string, sshArgs []string, sshPrefix []string) (string, error) {
+	for _, candidate := range []string{"setsid", "nohup"} {
+		exists, err := s.remoteCommandExists(sshTarget, sshArgs, candidate, sshPrefix)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return candidate, nil
+		}
+	}
+	return "", &Error{
+		Code:    "RemoteStart",
+		Message: "Remote host missing nohup/setsid; cannot background Setta automatically. Start it manually or install nohup/setsid.",
+	}
+}
+
+func buildRemoteSettaStartPart(runner string, shell string, settaCommand string, settaArgs string) string {
+	if needsShellWrapper(settaCommand) {
+		wrapped := strings.TrimSpace(settaCommand + " " + settaArgs)
+		return runner + " " + shell + " -lc " + shellQuote(wrapped)
+	}
+	return runner + " " + strings.TrimSpace(settaCommand+" "+settaArgs)
+}
+
+func buildRemoteSettaLaunchCommand(workspace string, remoteLogsDir string, remoteLogFile string, startPart string) string {
+	return "mkdir -p " + shellQuote(remoteLogsDir) + " && " +
+		"cd " + shellQuote(workspace) + " && " +
+		startPart + " > " + shellQuote(remoteLogFile) + " 2>&1 < /dev/null &"
+}
+
 func (s *Service) startRemoteSetta(
 	sshTarget string,
 	sshArgs []string,
@@ -1124,29 +1150,10 @@ func (s *Service) startRemoteSetta(
 	settaFilesRoot string,
 	runtimeRoot string,
 ) error {
-	runner := ""
-	hasSetsid, err := s.remoteCommandExists(sshTarget, sshArgs, "setsid", sshPrefix)
+	runner, err := s.selectRemoteBackgroundRunner(sshTarget, sshArgs, sshPrefix)
 	if err != nil {
 		return err
 	}
-	if hasSetsid {
-		runner = "setsid"
-	} else {
-		hasNohup, err := s.remoteCommandExists(sshTarget, sshArgs, "nohup", sshPrefix)
-		if err != nil {
-			return err
-		}
-		if hasNohup {
-			runner = "nohup"
-		}
-	}
-	if runner == "" {
-		return &Error{
-			Code:    "RemoteStart",
-			Message: "Remote host missing nohup/setsid; cannot background Setta automatically. Start it manually or install nohup/setsid.",
-		}
-	}
-
 	remoteLogsDir, err := ResolveRemoteLogsDir(workspace, settaFilesLocation, settaFilesRoot, runtimeRoot)
 	if err != nil {
 		return err
@@ -1157,14 +1164,8 @@ func (s *Service) startRemoteSetta(
 		rootPrefix = settaFilesArgs + " "
 	}
 	settaArgs := strings.TrimSpace(rootPrefix + "--no-open")
-	startPart := runner + " " + strings.TrimSpace(settaCommand+" "+settaArgs)
-	if needsShellWrapper(settaCommand) {
-		wrapped := strings.TrimSpace(settaCommand + " " + settaArgs)
-		startPart = runner + " " + shell + " -lc " + shellQuote(wrapped)
-	}
-	launch := "mkdir -p " + shellQuote(remoteLogsDir) + " && " +
-		"cd " + shellQuote(workspace) + " && " +
-		startPart + " > " + shellQuote(remoteLogFile) + " 2>&1 < /dev/null &"
+	startPart := buildRemoteSettaStartPart(runner, shell, settaCommand, settaArgs)
+	launch := buildRemoteSettaLaunchCommand(workspace, remoteLogsDir, remoteLogFile, startPart)
 	result, err := s.runSSHCommand(
 		sshTarget,
 		sshArgs,

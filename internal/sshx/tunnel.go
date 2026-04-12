@@ -49,6 +49,13 @@ type startedTunnelProcess struct {
 	mu      sync.RWMutex
 }
 
+type rollbackTunnelRequest struct {
+	sshTarget  string
+	sshArgs    string
+	remoteHost string
+	remotePort int
+}
+
 func (s *Service) EnsureSSHTunnel(input EnsureSSHTunnelInput) (TunnelMetadata, error) {
 	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
 	if sshTarget == "" {
@@ -86,41 +93,72 @@ func (s *Service) EnsureSSHTunnel(input EnsureSSHTunnelInput) (TunnelMetadata, e
 }
 
 func (s *Service) RollbackLocalSSHTunnel(input RollbackTunnelInput) error {
-	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
-	if sshTarget == "" {
-		return &Error{Code: "TunnelRollback", Message: "Missing sshTarget for tunnel rollback."}
-	}
-	remoteHost := NormalizeOptionalArgument(input.RemoteHost)
-	if remoteHost == "" {
-		return &Error{Code: "TunnelRollback", Message: "Missing remote host for tunnel rollback."}
-	}
-	if input.RemotePort <= 0 {
-		return &Error{Code: "TunnelRollback", Message: "Missing remote port for tunnel rollback."}
-	}
-
-	sshArgs, err := ParseSSHArgs(input.SSHArgs)
+	request, err := normalizeRollbackTunnelRequest(input)
 	if err != nil {
 		return err
 	}
-	sshArgs = ApplyControlSocketArgs(sshArgs)
-	keyHash := ComputeTunnelKeyHash(sshTarget, sshArgs, remoteHost, input.RemotePort)
-	metadataPath := serviceRuntimePath(s.runtimeRoot, "ssh_tunnels", TunnelIDForKeyHash(keyHash)+".json")
-	metadata, err := s.loadTunnelMetadata(metadataPath)
+	metadata, metadataPath, err := s.loadRollbackTunnelMetadata(request)
 	if err != nil || metadata == nil {
 		return err
 	}
+	if err := s.stopRollbackTunnelProcess(metadata, request.sshTarget); err != nil {
+		return err
+	}
+	return removeRollbackTunnelMetadata(metadataPath)
+}
+
+func normalizeRollbackTunnelRequest(input RollbackTunnelInput) (rollbackTunnelRequest, error) {
+	request := rollbackTunnelRequest{
+		sshTarget:  NormalizeOptionalArgument(input.SSHTarget),
+		sshArgs:    NormalizeOptionalArgument(input.SSHArgs),
+		remoteHost: NormalizeOptionalArgument(input.RemoteHost),
+		remotePort: input.RemotePort,
+	}
+	if request.sshTarget == "" {
+		return rollbackTunnelRequest{}, &Error{Code: "TunnelRollback", Message: "Missing sshTarget for tunnel rollback."}
+	}
+	if request.remoteHost == "" {
+		return rollbackTunnelRequest{}, &Error{Code: "TunnelRollback", Message: "Missing remote host for tunnel rollback."}
+	}
+	if request.remotePort <= 0 {
+		return rollbackTunnelRequest{}, &Error{Code: "TunnelRollback", Message: "Missing remote port for tunnel rollback."}
+	}
+	return request, nil
+}
+
+func (s *Service) loadRollbackTunnelMetadata(input rollbackTunnelRequest) (*TunnelMetadata, string, error) {
+	sshArgs, err := ParseSSHArgs(input.sshArgs)
+	if err != nil {
+		return nil, "", err
+	}
+	sshArgs = ApplyControlSocketArgs(sshArgs)
+	keyHash := ComputeTunnelKeyHash(input.sshTarget, sshArgs, input.remoteHost, input.remotePort)
+	metadataPath := serviceRuntimePath(s.runtimeRoot, "ssh_tunnels", TunnelIDForKeyHash(keyHash)+".json")
+	metadata, err := s.loadTunnelMetadata(metadataPath)
+	if err != nil || metadata == nil {
+		return nil, "", err
+	}
 	if metadata.KeyHash != keyHash {
+		return nil, "", nil
+	}
+	return metadata, metadataPath, nil
+}
+
+func (s *Service) stopRollbackTunnelProcess(metadata *TunnelMetadata, sshTarget string) error {
+	if !s.pidMatchesCreateTime(metadata.PID, metadata.PIDCreateTime) {
 		return nil
 	}
-	if s.pidMatchesCreateTime(metadata.PID, metadata.PIDCreateTime) {
-		s.stopPID(metadata.PID, metadata.PIDCreateTime)
-		if s.pidMatchesCreateTime(metadata.PID, metadata.PIDCreateTime) {
-			return &Error{
-				Code:    "TunnelRollback",
-				Message: fmt.Sprintf("Tunnel process %d is still running for %s.", metadata.PID, sshTarget),
-			}
-		}
+	s.stopPID(metadata.PID, metadata.PIDCreateTime)
+	if !s.pidMatchesCreateTime(metadata.PID, metadata.PIDCreateTime) {
+		return nil
 	}
+	return &Error{
+		Code:    "TunnelRollback",
+		Message: fmt.Sprintf("Tunnel process %d is still running for %s.", metadata.PID, sshTarget),
+	}
+}
+
+func removeRollbackTunnelMetadata(metadataPath string) error {
 	if err := os.Remove(metadataPath); err != nil && !os.IsNotExist(err) {
 		return &Error{
 			Code:    "TunnelRollback",
