@@ -35,7 +35,7 @@ import { VariantList } from "./SectionVariants/VariantList";
 import { StateMachineEdgeInspector } from "./StateMachineEdgeInspector";
 import { UIConfig } from "./UIConfig/UIConfig";
 
-export const UI_EDITOR_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
+const UI_EDITOR_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500",
 );
 
