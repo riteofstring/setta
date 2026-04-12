@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ServerModeValue } from "utils/serverModeTypes";
 
 export type ModeRouteElements = {
   ide: ReactNode;
@@ -6,8 +7,6 @@ export type ModeRouteElements = {
   app: ReactNode;
   launcher: ReactNode;
 };
-
-export type ServerModeValue = "ide" | "share" | "app" | "launcher" | null;
 
 export function resolveModeElementForServerMode(
   mode: ServerModeValue,
