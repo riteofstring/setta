@@ -179,11 +179,11 @@ function _SectionHeader({
     projectConfigHasPythonCodegen(x.projectConfig),
   );
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const selectedSectionIds = useAIFollow(
-    (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
-    _.isEqual,
+  const isFollowSelected = useAIFollow((state) =>
+    (state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? []).includes(
+      sectionId,
+    ),
   );
-  const isFollowSelected = selectedSectionIds.includes(sectionId);
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
     return diagnostics ?? [];

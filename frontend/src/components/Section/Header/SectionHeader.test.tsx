@@ -1,3 +1,7 @@
+/* @vitest-environment jsdom */
+
+import { Profiler, act, type ProfilerOnRenderCallback } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useAIFollow,
@@ -6,6 +10,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
@@ -45,6 +50,53 @@ function syncStoreInitialState(store: {
   }
   const initial = store.getInitialState();
   Object.assign(initial, store.getState());
+}
+
+type RenderedProfiledHeader = {
+  host: HTMLDivElement;
+  root: Root;
+};
+
+async function renderProfiledHeader({
+  onRender,
+  sectionId,
+  sectionTypeName,
+}: {
+  onRender: ProfilerOnRenderCallback;
+  sectionId: string;
+  sectionTypeName: SectionTypeEnum;
+}): Promise<RenderedProfiledHeader> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(
+      <Profiler id="section-header-profiler" onRender={onRender}>
+        <SectionHeader
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={false}
+          isUserView={true}
+          isRoot={false}
+          hasSectionStyleTheme={false}
+          trackMeasuredHeight={false}
+          controlsRenderer={({ isFollowSelected }) => (
+            <div data-follow-selected={isFollowSelected ? "true" : "false"} />
+          )}
+          layoutRenderer={({ actions, leadingControls, title }) => (
+            <div>
+              {leadingControls}
+              {title}
+              {actions}
+            </div>
+          )}
+        />
+      </Profiler>,
+    );
+  });
+
+  return { host, root };
 }
 
 describe("hasMarkdownHeadingText", () => {
@@ -512,5 +564,71 @@ describe("SectionHeader follow button", () => {
 
     expect(markup).toContain('data-testid="window-controls"');
     expect(markup).not.toContain("gg-lock");
+  });
+
+  it("keeps chat headers out of unrelated follow-selection commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Chat,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useAIFollow.setState((state) => {
+          state.selectedSectionIdsByProjectConfigId[projectConfigId] = [
+            "section-other",
+          ];
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      const followIndicator = host.querySelector("[data-follow-selected]");
+      expect(followIndicator).not.toBeNull();
+      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
+        "false",
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("still rerenders when this chat becomes follow-selected", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledHeader({
+      onRender,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Chat,
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useAIFollow.setState((state) => {
+          state.selectedSectionIdsByProjectConfigId[projectConfigId] = [
+            sectionId,
+          ];
+        });
+      });
+
+      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
+      const followIndicator = host.querySelector("[data-follow-selected]");
+      expect(followIndicator).not.toBeNull();
+      expect(followIndicator?.getAttribute("data-follow-selected")).toBe(
+        "true",
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });

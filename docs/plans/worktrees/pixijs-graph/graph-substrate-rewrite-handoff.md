@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 19:52 UTC
+Last updated: 2026-04-12 20:11 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,49 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `345` landed one bounded section-header follow-selection selector split
+  on the settings graph section-chrome path:
+
+  - product code changed in the mounted chat section-header path:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx`
+      now subscribes to `useAIFollow(...)` through a per-section boolean
+      `isFollowSelected` selector instead of subscribing to the whole
+      `selectedSectionIdsByProjectConfigId[projectConfigId]` array and doing
+      membership checks after render
+    - this keeps mounted chat headers out of unrelated follow-selection
+      commits while preserving the existing follow button affordance contract
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      to assert a mounted chat header does not commit when an unrelated
+      followed section is added and still re-renders when that chat becomes
+      follow-selected
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-section-header-follow-selection-boolean-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed (`1` file, `19` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> initial smoke failed at runtime health only: `/settings` stayed on
+         `PREPARING SETTA` / `Loading settings…`
+      -> one allowed lifecycle recovery succeeded:
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted session `5b4f96` restored frontend `3075`, backend `8075`,
+         debug port `9297`
+      -> retry after restart mounted `/settings` successfully
+      -> settings surface rendered with section list and bottom tabs intact
+      -> no obvious layout collapse, blank graph region, or broken
+         section-header chrome was observed
+  - reading:
+    - this is a section-chrome boundary with wider mounted reach than another
+      edge-handle micro-split, even though it is outside the narrow
+      `interactionReactFlowStateSync` family
+    - the next bounded frontier should return to attribution-led evidence on
+      the canonical `rotaryParamCodeObjDefault` lane and name the next larger
+      mounted section-body/chrome subscriber or shared write fan-out before
+      taking another selector split
 
 - item `344` landed one bounded ReactFlow-root connecting-attribute
   subscription removal inside the measured

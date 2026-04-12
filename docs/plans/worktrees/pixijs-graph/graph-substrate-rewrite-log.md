@@ -74,6 +74,47 @@ Record:
   - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 20:11 UTC
+
+- item `345` landed one bounded section-header follow-selection selector split
+  on the settings graph section-chrome path:
+  - changed `frontend/src/components/Section/Header/SectionHeader.tsx` so
+    `isFollowSelected` subscribes through a per-section boolean selector
+    instead of the whole
+    `selectedSectionIdsByProjectConfigId[projectConfigId]` array
+  - added focused profiler regression coverage in
+    `frontend/src/components/Section/Header/SectionHeader.test.tsx` to prove:
+    - a mounted chat header does not commit when an unrelated followed section
+      is added
+    - the same header still re-renders when its own follow-selected state
+      flips
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-section-header-follow-selection-boolean-selector.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed (`1` file, `19` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> first attempt hit runtime health only: `/settings` stayed on
+         `PREPARING SETTA` / `Loading settings…`
+      -> one allowed lifecycle recovery succeeded:
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> retry after restart mounted `/settings` successfully
+      -> settings surface rendered with section list and bottom tabs intact
+      -> no obvious layout collapse, blank graph region, or broken
+         section-header chrome was observed
+  - reading:
+    - this is a wider mounted section-chrome boundary than another
+      handle-specific selector split, even though it sits outside the narrow
+      `interactionReactFlowStateSync` family
+    - next default frontier: return to attribution-led evidence on the
+      canonical `rotaryParamCodeObjDefault` lane and name the next larger
+      mounted section-body/chrome subscriber or shared write fan-out before
+      taking another reduction slice
+
+LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-12 19:00 UTC
 
