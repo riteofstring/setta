@@ -24,6 +24,7 @@ import {
   areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual,
   resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables,
   type SettingsGraphSubstrateCanarySectionShellPixiDrawable,
+  type SettingsGraphSubstrateCanarySectionShellPixiDrawableResolution,
 } from "./settingsGraphSubstrateCanarySectionShellPixiModel";
 import type { GraphRect, GraphViewport } from "./viewportTransform";
 
@@ -57,6 +58,9 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   const stableDrawablesRef = useRef<
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
+  const drawableCacheRef = useRef<
+    SettingsGraphSubstrateCanarySectionShellPixiDrawableResolution["cacheBySectionId"]
+  >(new Map());
   const pixiSyncCountRef = useRef(0);
   const resolvedPresentedSceneSections = useMemo(() => {
     if (presentedSceneSections) {
@@ -106,7 +110,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     return next;
   }, _.isEqual);
   const drawables = useMemo(() => {
-    return measureSettingsGraphSubstrateCanaryMotionAttribution(
+    const resolution = measureSettingsGraphSubstrateCanaryMotionAttribution(
       "pixiDrawableModelResolve",
       () =>
         resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
@@ -114,11 +118,14 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
           darkMode,
           draggingSectionId,
           hoveredSectionId,
+          previousCacheBySectionId: drawableCacheRef.current,
           previewStyleColors,
           sceneSections: resolvedPresentedSceneSections,
           sectionSeedNodes,
         }),
     );
+    drawableCacheRef.current = resolution.cacheBySectionId;
+    return resolution.drawables;
   }, [
     activeSectionIds,
     darkMode,

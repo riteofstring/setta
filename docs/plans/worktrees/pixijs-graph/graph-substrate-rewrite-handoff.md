@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 16:02 UTC
+Last updated: 2026-04-12 16:24 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,1057 +61,1100 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
-  - review checkpoint, 2026-04-12 16:02 UTC:
-    - item `322` spent the one remaining allowed probe pass on the
-      post-bootstrap setup boundary and it produced the answer needed for
-      sequencing
-    - the canonical `rotaryParamCodeObjDefault` lane no longer stalls between
-      `bootstrapReferenceSettingsPage(referencePage)` and the first
-      `captureNormalizedMotionPerf(...)` phase on the current runtime
-    - the rerun advanced through project-config lookup, project-state fetch,
-      view-mode/section resolution, pane-state capture, and both sides'
-      motion-capture phases, then failed on the existing perf thresholds with:
-      - reference average frame duration `324.43ms`
-      - worktree average frame duration `51.14ms`
-      - worktree dominant motion owner `pixiDrawableModelResolve`
-    - sequencing result:
-      - close the post-bootstrap setup-stall investigation lane
-      - do not spend the next default iteration on more probe-only logging for
-        this boundary
-      - move the next pass back to product-side perf work on the canary using
-        the measured owner above
+- item `323` landed one bounded product-side perf slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
 
-  - item `322` landed one bounded post-bootstrap setup-isolation slice on the
-    canonical `rotaryParamCodeObjDefault` lane:
-    - no product renderer code changed on this pass
-    - updated
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      so the canonical perf test now wraps the synchronous setup after
-      `bootstrapReferenceSettingsPage(referencePage)` in explicit probe phases
-      for:
-      - project-config id lookup
-      - latest-project-state fetch
-      - `All Settings` view-mode id resolution
-      - named target-section id resolution
-      - initial compare-pane state capture
-    - recorded the bounded result in
-      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-bootstrap-setup-phases.md`
-    - focused verification:
-      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> formatted the updated spec
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/main-ai.log`
-        -> progressed through the new setup phases plus full reference/worktree
-        motion-capture subphases
-        -> emitted numeric perf payload on both sides instead of stalling after
-        bootstrap
-        -> failed on the existing perf thresholds with reference average
-        `324.43ms` and worktree average `51.14ms`
-    - reading:
-      - the current blocker is no longer an unnamed synchronous setup stall
-        after bootstrap
-      - the next product frontier should target the measured worktree owner
-        `pixiDrawableModelResolve` on the canary motion path rather than
-        adding another probe-only setup note
+  - product code changed in the Pixi shell drawable path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+      now carries a per-section drawable cache keyed by the actual shell
+      inputs that affect Pixi output and reuses cached drawable objects when
+      those inputs are unchanged
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      now feeds the previous drawable cache back into the resolver on the
+      next render
+  - focused tests updated in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-pixi-drawable-cache-reuse.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `18` tests)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/main-ai.log`
+      -> progressed through read-only `main` bootstrap/open-settings and both
+      sides' project-config/project-state/view-mode/target-section
+      resolution
+      -> failed before numeric perf output with `Timed out after 30000ms
+during settings graph probe phase: worktree: capture initial pane
+state.`
+    - fresh-context CDP visual smoke on worktree `3075` and read-only
+      `main` `3087`
+      -> both `/settings` surfaces mounted with the expected settings shell
+      and graph substrate area visible
+      -> no obvious new visual drift from this slice in the inspected view
+  - reading:
+    - this slice removes avoidable Pixi shell model rebuild work when motion
+      keeps a section's drawable inputs unchanged across frames
+    - the canonical perf lane is now blocked by live worktree preflight at
+      `capture initial pane state`, not by read-only `main` bootstrap or by
+      a visible canary break
+    - next default frontier: classify or recover the worktree-side initial
+      compare-pane-state stall on the canonical lane before spending another
+      pass on new product-side perf hypotheses
 
-  - review checkpoint, 2026-04-12 16:20 UTC:
-    - the last 10-loop stretch still shows worthwhile forward motion overall,
-      but the canonical `rotaryParamCodeObjDefault` main-reference lane has
-      started to consume too many probe-only iterations relative to new
-      product evidence
-    - keep going, but with a stricter budget:
-      - the next iteration may do one bounded isolation pass on the
-        post-readiness setup immediately after
-        `bootstrapReferenceSettingsPage(referencePage)` returns
-      - that pass must target concrete synchronous suspects such as
-        project-config id lookup, project-state fetch, or named-section
-        resolution and must either produce numeric perf output or name the
-        exact blocking call site
-      - do not spend another default pass on broad timeout changes, generic
-        probe-phase splitting, or more readiness logging
-    - if that bounded isolation still fails to produce numeric output, close
-      the canonical cross-worktree lane as unstable for default sequencing and
-      pivot the next pass back to product-side canary perf work using the
-      already-landed attribution on the worktree surface
-    - recent real wins worth preserving:
-      - product slice `316` improved the worktree canary on one fresh runtime
-        without opening visible drift
-      - product slice `320` removed redundant mounted-body filter work during
-        viewport motion when membership is unchanged
-      - probe slices `314`, `315`, `319`, and `321` narrowed the reference
-        instability from opaque startup failure to a post-readiness setup
-        boundary
-    - current red-herring warning:
-      - repeated reference-lifecycle or probe-logging churn on this same lane
-        is no longer justified unless the very next pass isolates the exact
-        blocking call
+- review checkpoint, 2026-04-12 16:02 UTC:
 
-  - item `321` landed one bounded stall-classification slice on the canonical
-    `rotaryParamCodeObjDefault` lane instead of rerunning the same opaque probe
-    shape again:
-    - no product renderer code changed on this pass
-    - updated
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      so the existing `capture motion perf` probe phase now logs explicit inner
-      subphases for:
-      - bringing the target page to front
-      - starting motion capture
-      - running the wheel motion sequence
-      - stopping motion capture
-    - recorded the bounded result in
-      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-readiness-stall-classification.md`
-    - focused verification:
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/main-ai.log`
-        -> again progressed through `reference: open settings` and logged the
-        ready snapshot at about `29.7s`
-        -> after that ready snapshot, emitted no further
-        `settings-graph-probe-phase-start` lines for either side during a
-        bounded additional wait window, so the run was terminated manually
-        before numeric perf output
-    - reading:
-      - the recurring blocker is no longer generic read-only `main` readiness
-        and no longer looks like a wheel-replay / capture-stop hang
-      - on this runtime, the canonical probe is stalling after
-        `bootstrapReferenceSettingsPage(referencePage)` succeeds but before
-        `captureNormalizedMotionPerf(...)` logs its first phase, which narrows
-        the next investigation to project-config id lookup, project-state
-        fetch, or named-section resolution on the freshly opened reference page
-      - the next bounded frontier should instrument or timebox that
-        post-readiness setup boundary directly instead of reopening product-side
-        render hypotheses or more motion-capture subphases
-  - item `320` landed one bounded product render-isolation slice on the
-    canonical `rotaryParamCodeObjDefault` lane instead of reopening another
-    reference-readiness probe:
-    - product code changed in the canary DOM body path:
-      - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
-        now resolves the mounted section-body id set once at the canary root,
-        reuses a stable `Set<string>` when the mounted body membership is
-        unchanged, and updates `mountedSectionBodyCount` instrumentation there
-      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
-        now accepts an optional precomputed mounted-body id set and skips the
-        per-render `presentedSceneBodyMountFilter` fallback when that set is
-        supplied
-      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
-        now exposes shared helpers to resolve mounted-body ids and compare
-        section-id sets
-    - focused tests updated in:
+  - item `322` spent the one remaining allowed probe pass on the
+    post-bootstrap setup boundary and it produced the answer needed for
+    sequencing
+  - the canonical `rotaryParamCodeObjDefault` lane no longer stalls between
+    `bootstrapReferenceSettingsPage(referencePage)` and the first
+    `captureNormalizedMotionPerf(...)` phase on the current runtime
+  - the rerun advanced through project-config lookup, project-state fetch,
+    view-mode/section resolution, pane-state capture, and both sides'
+    motion-capture phases, then failed on the existing perf thresholds with:
+    - reference average frame duration `324.43ms`
+    - worktree average frame duration `51.14ms`
+    - worktree dominant motion owner `pixiDrawableModelResolve`
+  - sequencing result:
+    - close the post-bootstrap setup-stall investigation lane
+    - do not spend the next default iteration on more probe-only logging for
+      this boundary
+    - move the next pass back to product-side perf work on the canary using
+      the measured owner above
+
+- item `322` landed one bounded post-bootstrap setup-isolation slice on the
+  canonical `rotaryParamCodeObjDefault` lane:
+
+  - no product renderer code changed on this pass
+  - updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the canonical perf test now wraps the synchronous setup after
+    `bootstrapReferenceSettingsPage(referencePage)` in explicit probe phases
+    for:
+    - project-config id lookup
+    - latest-project-state fetch
+    - `All Settings` view-mode id resolution
+    - named target-section id resolution
+    - initial compare-pane state capture
+  - recorded the bounded result in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-bootstrap-setup-phases.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> formatted the updated spec
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-011/main-ai.log`
+      -> progressed through the new setup phases plus full reference/worktree
+      motion-capture subphases
+      -> emitted numeric perf payload on both sides instead of stalling after
+      bootstrap
+      -> failed on the existing perf thresholds with reference average
+      `324.43ms` and worktree average `51.14ms`
+  - reading:
+    - the current blocker is no longer an unnamed synchronous setup stall
+      after bootstrap
+    - the next product frontier should target the measured worktree owner
+      `pixiDrawableModelResolve` on the canary motion path rather than
+      adding another probe-only setup note
+
+- review checkpoint, 2026-04-12 16:20 UTC:
+
+  - the last 10-loop stretch still shows worthwhile forward motion overall,
+    but the canonical `rotaryParamCodeObjDefault` main-reference lane has
+    started to consume too many probe-only iterations relative to new
+    product evidence
+  - keep going, but with a stricter budget:
+    - the next iteration may do one bounded isolation pass on the
+      post-readiness setup immediately after
+      `bootstrapReferenceSettingsPage(referencePage)` returns
+    - that pass must target concrete synchronous suspects such as
+      project-config id lookup, project-state fetch, or named-section
+      resolution and must either produce numeric perf output or name the
+      exact blocking call site
+    - do not spend another default pass on broad timeout changes, generic
+      probe-phase splitting, or more readiness logging
+  - if that bounded isolation still fails to produce numeric output, close
+    the canonical cross-worktree lane as unstable for default sequencing and
+    pivot the next pass back to product-side canary perf work using the
+    already-landed attribution on the worktree surface
+  - recent real wins worth preserving:
+    - product slice `316` improved the worktree canary on one fresh runtime
+      without opening visible drift
+    - product slice `320` removed redundant mounted-body filter work during
+      viewport motion when membership is unchanged
+    - probe slices `314`, `315`, `319`, and `321` narrowed the reference
+      instability from opaque startup failure to a post-readiness setup
+      boundary
+  - current red-herring warning:
+    - repeated reference-lifecycle or probe-logging churn on this same lane
+      is no longer justified unless the very next pass isolates the exact
+      blocking call
+
+- item `321` landed one bounded stall-classification slice on the canonical
+  `rotaryParamCodeObjDefault` lane instead of rerunning the same opaque probe
+  shape again:
+  - no product renderer code changed on this pass
+  - updated
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the existing `capture motion perf` probe phase now logs explicit inner
+    subphases for:
+    - bringing the target page to front
+    - starting motion capture
+    - running the wheel motion sequence
+    - stopping motion capture
+  - recorded the bounded result in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-post-readiness-stall-classification.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/main-ai.log`
+      -> again progressed through `reference: open settings` and logged the
+      ready snapshot at about `29.7s`
+      -> after that ready snapshot, emitted no further
+      `settings-graph-probe-phase-start` lines for either side during a
+      bounded additional wait window, so the run was terminated manually
+      before numeric perf output
+  - reading:
+    - the recurring blocker is no longer generic read-only `main` readiness
+      and no longer looks like a wheel-replay / capture-stop hang
+    - on this runtime, the canonical probe is stalling after
+      `bootstrapReferenceSettingsPage(referencePage)` succeeds but before
+      `captureNormalizedMotionPerf(...)` logs its first phase, which narrows
+      the next investigation to project-config id lookup, project-state
+      fetch, or named-section resolution on the freshly opened reference page
+    - the next bounded frontier should instrument or timebox that
+      post-readiness setup boundary directly instead of reopening product-side
+      render hypotheses or more motion-capture subphases
+- item `320` landed one bounded product render-isolation slice on the
+  canonical `rotaryParamCodeObjDefault` lane instead of reopening another
+  reference-readiness probe:
+  - product code changed in the canary DOM body path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      now resolves the mounted section-body id set once at the canary root,
+      reuses a stable `Set<string>` when the mounted body membership is
+      unchanged, and updates `mountedSectionBodyCount` instrumentation there
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      now accepts an optional precomputed mounted-body id set and skips the
+      per-render `presentedSceneBodyMountFilter` fallback when that set is
+      supplied
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+      now exposes shared helpers to resolve mounted-body ids and compare
+      section-id sets
+  - focused tests updated in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      -> passed (`3` files, `27` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+      -> passed
+    - fresh-context CDP visual smoke on worktree `3075` and read-only
+      `main` `3087`
+      -> both `/settings` surfaces mounted cleanly with the expected graph
+      tabs, section list, and canvas controls; no obvious new visual drift
+      from this slice
+      -> note: the provided `/__setta__/bootstrap` tokens were rejected on
+      this runtime, so the smoke used the direct app origins instead
+  - reading:
+    - this slice removes one avoidable render invalidation path from the
+      canary DOM layer by letting viewport-wrapper transform updates move the
+      already-mounted section subtree without re-running the body-mount
+      filter in the child layer when membership is unchanged
+    - the next bounded frontier should rerun the canonical
+      main-reference performance probe on a fresh runtime pair to see
+      whether this isolation slice changed the worktree-side frame cost and
+      what owner remains after the current reference startup inflation
+- item `319` landed one bounded reference-readiness classification slice on
+  the canonical `rotaryParamCodeObjDefault` lane instead of repeating another
+  opaque rerun of `reference: open settings`:
+  - no product renderer code changed on this pass
+  - replaced the inner read-only `main` readiness `expect.poll(...)` in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    with an explicit progress tracker that:
+    - captures readiness snapshots for pathname, ready state, titlebar
+      attachment, graph-surface mount, settings-content mount,
+      `projectIsLoading`, and visible article count
+    - records first-seen milestone timings for graph-surface mount,
+      settings-content mount, and project-loaded state
+    - logs the last snapshot plus milestone summary if the phase times out
+  - recorded the bounded result in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-open-settings-readiness-progress.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/main-ai.log`
+      -> logged progress at `91ms`, `1644ms`, and `25028ms`; read-only
+      `main` reached mounted `All Settings` at about `25.0s`, so the lane no
+      longer failed inside `reference: open settings`
+      -> the probe then failed on the existing perf thresholds with
+      reference average `40.37ms` and worktree average `48.11ms`
+  - reading:
+    - the recurring read-only `main` blocker is no longer opaque readiness on
+      this runtime; the canonical lane is back to a measurable perf-threshold
+      failure after startup completes
+    - do not spend the next pass on another reference-startup probe-only
+      slice; the next bounded frontier should be product-side perf work
+      against the measured owners on this lane
+- item `318` landed one bounded reference-bootstrap normalization slice on the
+  canonical `rotaryParamCodeObjDefault` lane instead of repeating another
+  product-side motion hypothesis while read-only `main` still stalls first:
+  - no product renderer code changed on this pass
+  - fixed `bootstrapReferenceSettingsPage(...)` in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the inner readiness poll now uses the same explicit `60000ms` budget
+    as the surrounding `reference: open settings` phase instead of silently
+    falling back to the shared `30000ms` phase constant
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/main-ai.log`
+      -> reached `settings-graph-probe-phase-start reference: open settings`
+      and then never completed within a bounded manual wait window; the probe
+      had to be terminated with the read-only `main` renderer still busy, so
+      the canonical verification remains blocked by reference runtime
+      readiness rather than by the stale nested `30000ms` poll cap
+  - reading:
+    - the old timeout mismatch is now closed in code, so future runs will no
+      longer fail early on a healthy-but-slow `main` startup
+    - the active blocker is still live reference readiness on `main`; the
+      next bounded slice should instrument or classify where `reference: open
+settings` is burning time on the current runtime rather than reopening
+      canary-side perf work
+- item `317` landed one bounded probe-diagnostics slice on the canonical
+  `rotaryParamCodeObjDefault` lane instead of guessing at the opaque
+  `worktree: normalize surface` timeout:
+  - no product renderer code changed on this pass
+  - split `captureNormalizedMotionPerf(...)` setup in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    into distinct probe phases for:
+    - bringing the target page to front
+    - restoring the initial view-mode layout
+    - normalizing compare-pane state
+    - clearing durable active section ids
+    - setting the active view mode and clearing viewport
+  - recorded the bounded result in
+    `perf/reports/frontend/2026-04-12_settings-graph-main-reference-probe-phase-granularity.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/main-ai.log`
+      -> did not reach the new worktree normalize phases because
+      read-only `main` regressed first at `reference: open settings`
+      while the readiness poll stayed at:
+      `graphSurfaceMounted=false`, `settingsContentMounted=false`,
+      `projectIsLoading=true`
+  - reading:
+    - the fresh blocker is not another canary perf verdict and not the older
+      reference DOM-inflation theory; the canonical lane is blocked again by
+      read-only `main` startup/readiness before motion capture starts
+    - if the next fresh runtime clears `reference: open settings`, the probe
+      will now name the exact worktree normalize step if setup stalls there
+    - next frontier: resolve or normalize the recurring read-only `main`
+      readiness regression before returning to canary-side motion-cost work
+- item `316` landed one bounded product slice on the canonical
+  `rotaryParamCodeObjDefault` lane instead of reopening another already-closed
+  JS-attribution seam:
+  - product code changed in the canary viewport path:
+    - `resolveSettingsGraphSubstrateCanaryViewportTransform(...)` now emits a
+      promoted `translate3d(..., 0) scale(...)` transform in
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+    - the viewport wrapper in
+      `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      now opts into `will-change: transform`,
+      `backface-visibility: hidden`, and
+      `contain: layout paint style`
+    - updated focused tests in:
       - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
-      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
-      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
-    - focused verification:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
-        -> passed (`3` files, `27` tests)
-      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
-        -> passed
-      - fresh-context CDP visual smoke on worktree `3075` and read-only
-        `main` `3087`
-        -> both `/settings` surfaces mounted cleanly with the expected graph
-        tabs, section list, and canvas controls; no obvious new visual drift
-        from this slice
-        -> note: the provided `/__setta__/bootstrap` tokens were rejected on
-        this runtime, so the smoke used the direct app origins instead
-    - reading:
-      - this slice removes one avoidable render invalidation path from the
-        canary DOM layer by letting viewport-wrapper transform updates move the
-        already-mounted section subtree without re-running the body-mount
-        filter in the child layer when membership is unchanged
-      - the next bounded frontier should rerun the canonical
-        main-reference performance probe on a fresh runtime pair to see
-        whether this isolation slice changed the worktree-side frame cost and
-        what owner remains after the current reference startup inflation
-  - item `319` landed one bounded reference-readiness classification slice on
-    the canonical `rotaryParamCodeObjDefault` lane instead of repeating another
-    opaque rerun of `reference: open settings`:
-    - no product renderer code changed on this pass
-    - replaced the inner read-only `main` readiness `expect.poll(...)` in
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      with an explicit progress tracker that:
-      - captures readiness snapshots for pathname, ready state, titlebar
-        attachment, graph-surface mount, settings-content mount,
-        `projectIsLoading`, and visible article count
-      - records first-seen milestone timings for graph-surface mount,
-        settings-content mount, and project-loaded state
-      - logs the last snapshot plus milestone summary if the phase times out
-    - recorded the bounded result in
-      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-open-settings-readiness-progress.md`
-    - focused verification:
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/main-ai.log`
-        -> logged progress at `91ms`, `1644ms`, and `25028ms`; read-only
-        `main` reached mounted `All Settings` at about `25.0s`, so the lane no
-        longer failed inside `reference: open settings`
-        -> the probe then failed on the existing perf thresholds with
-        reference average `40.37ms` and worktree average `48.11ms`
-    - reading:
-      - the recurring read-only `main` blocker is no longer opaque readiness on
-        this runtime; the canonical lane is back to a measurable perf-threshold
-        failure after startup completes
-      - do not spend the next pass on another reference-startup probe-only
-        slice; the next bounded frontier should be product-side perf work
-        against the measured owners on this lane
-  - item `318` landed one bounded reference-bootstrap normalization slice on the
-    canonical `rotaryParamCodeObjDefault` lane instead of repeating another
-    product-side motion hypothesis while read-only `main` still stalls first:
-    - no product renderer code changed on this pass
-    - fixed `bootstrapReferenceSettingsPage(...)` in
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      so the inner readiness poll now uses the same explicit `60000ms` budget
-      as the surrounding `reference: open settings` phase instead of silently
-      falling back to the shared `30000ms` phase constant
-    - focused verification:
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-007/main-ai.log`
-        -> reached `settings-graph-probe-phase-start reference: open settings`
-        and then never completed within a bounded manual wait window; the probe
-        had to be terminated with the read-only `main` renderer still busy, so
-        the canonical verification remains blocked by reference runtime
-        readiness rather than by the stale nested `30000ms` poll cap
-    - reading:
-      - the old timeout mismatch is now closed in code, so future runs will no
-        longer fail early on a healthy-but-slow `main` startup
-      - the active blocker is still live reference readiness on `main`; the
-        next bounded slice should instrument or classify where `reference: open
-        settings` is burning time on the current runtime rather than reopening
-        canary-side perf work
-  - item `317` landed one bounded probe-diagnostics slice on the canonical
-    `rotaryParamCodeObjDefault` lane instead of guessing at the opaque
-    `worktree: normalize surface` timeout:
-    - no product renderer code changed on this pass
-    - split `captureNormalizedMotionPerf(...)` setup in
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      into distinct probe phases for:
-      - bringing the target page to front
-      - restoring the initial view-mode layout
-      - normalizing compare-pane state
-      - clearing durable active section ids
-      - setting the active view mode and clearing viewport
-    - recorded the bounded result in
-      `perf/reports/frontend/2026-04-12_settings-graph-main-reference-probe-phase-granularity.md`
-    - focused verification:
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-006/main-ai.log`
-        -> did not reach the new worktree normalize phases because
-        read-only `main` regressed first at `reference: open settings`
-        while the readiness poll stayed at:
-        `graphSurfaceMounted=false`, `settingsContentMounted=false`,
-        `projectIsLoading=true`
-    - reading:
-      - the fresh blocker is not another canary perf verdict and not the older
-        reference DOM-inflation theory; the canonical lane is blocked again by
-        read-only `main` startup/readiness before motion capture starts
-      - if the next fresh runtime clears `reference: open settings`, the probe
-        will now name the exact worktree normalize step if setup stalls there
-      - next frontier: resolve or normalize the recurring read-only `main`
-        readiness regression before returning to canary-side motion-cost work
-  - item `316` landed one bounded product slice on the canonical
-    `rotaryParamCodeObjDefault` lane instead of reopening another already-closed
-    JS-attribution seam:
-    - product code changed in the canary viewport path:
-      - `resolveSettingsGraphSubstrateCanaryViewportTransform(...)` now emits a
-        promoted `translate3d(..., 0) scale(...)` transform in
-        `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
-      - the viewport wrapper in
-        `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
-        now opts into `will-change: transform`,
-        `backface-visibility: hidden`, and
-        `contain: layout paint style`
-      - updated focused tests in:
-        - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
-        - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
-    - recorded the bounded result in
-      `perf/reports/frontend/2026-04-12_settings-graph-substrate-canary-viewport-layer-promotion.md`
-    - focused verification:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
-        -> passed (`2` files, `11` tests)
-      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/main-ai.log`
-        -> reached numeric perf output on both sides, then failed on the
-        reference threshold:
-        `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
-        because reference averaged `142.04ms`
-      - fresh-context CDP visual check on worktree `3075` and reference `3087`
-        -> `All Settings` mounted on both sides and showed no obvious new
-        viewport-layer drift, clipping, or layout regression from this slice
-    - reading:
-      - the worktree canary side improved on this runtime and came in below the
-        existing threshold:
-        - average `38.64ms`
-        - root DOM `135`
-        - visible sections `1`
-      - the repeated blocker moved back to the read-only `main` reference, not
-        the canary:
-        - reference root DOM inflated to `9527` and editable controls to `129`
-          instead of the usual `~7628` / `99` baseline on this lane
-      - do not reopen the viewport-promotion slice by default; the next bounded
-        pass should explain or normalize the recurring reference-side perf/state
-        inflation before another product reduction on this lane
-  - Current live verification state:
-  - item `315` landed one bounded capture-health normalization slice on the
-    canonical `rotaryParamCodeObjDefault` lane so the main-reference motion
-    probe can separate hidden-tab throttling from real perf regressions:
-    - no product renderer code changed on this pass
-    - extended `SettingsGraphMotionPerfCapture` in
-      `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` with:
-      - `pageHiddenDuringCapture`
-      - `visibilityLossCount`
-      - `hiddenDurationMs`
-      - `focusLossCount`
-      - `endedVisible`
-    - the shared capture now tracks `blur` / `visibilitychange` during the
-      measurement window and cleans those listeners up on stop
-    - updated the canonical probe assertions in
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      so capture-health drift fails before the frame-budget assertions
-    - recorded the bounded result in
-      `perf/reports/frontend/2026-04-12_settings-graph-motion-perf-capture-health-normalization.md`
-    - focused verification:
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/main-ai.log`
-        -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
-        `/usr/bin/google-chrome`, advanced through both reference and
-        worktree motion-capture phases, and printed clean capture-health
-        metrics on both sides:
-        - reference: `pageHiddenDuringCapture=false`,
-          `visibilityLossCount=0`, `hiddenDurationMs=0`,
-          `focusLossCount=0`, `endedVisible=true`
-        - worktree: `pageHiddenDuringCapture=false`,
-          `visibilityLossCount=0`, `hiddenDurationMs=0`,
-          `focusLossCount=0`, `endedVisible=true`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+  - recorded the bounded result in
+    `perf/reports/frontend/2026-04-12_settings-graph-substrate-canary-viewport-layer-promotion.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+      -> passed (`2` files, `11` tests)
+    - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-005/main-ai.log`
+      -> reached numeric perf output on both sides, then failed on the
+      reference threshold:
+      `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+      because reference averaged `142.04ms`
+    - fresh-context CDP visual check on worktree `3075` and reference `3087`
+      -> `All Settings` mounted on both sides and showed no obvious new
+      viewport-layer drift, clipping, or layout regression from this slice
+  - reading:
+    - the worktree canary side improved on this runtime and came in below the
+      existing threshold:
+      - average `38.64ms`
+      - root DOM `135`
+      - visible sections `1`
+    - the repeated blocker moved back to the read-only `main` reference, not
+      the canary:
+      - reference root DOM inflated to `9527` and editable controls to `129`
+        instead of the usual `~7628` / `99` baseline on this lane
+    - do not reopen the viewport-promotion slice by default; the next bounded
+      pass should explain or normalize the recurring reference-side perf/state
+      inflation before another product reduction on this lane
+- Current live verification state:
+- item `315` landed one bounded capture-health normalization slice on the
+  canonical `rotaryParamCodeObjDefault` lane so the main-reference motion
+  probe can separate hidden-tab throttling from real perf regressions:
+  - no product renderer code changed on this pass
+  - extended `SettingsGraphMotionPerfCapture` in
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` with:
+    - `pageHiddenDuringCapture`
+    - `visibilityLossCount`
+    - `hiddenDurationMs`
+    - `focusLossCount`
+    - `endedVisible`
+  - the shared capture now tracks `blur` / `visibilitychange` during the
+    measurement window and cleans those listeners up on stop
+  - updated the canonical probe assertions in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so capture-health drift fails before the frame-budget assertions
+  - recorded the bounded result in
+    `perf/reports/frontend/2026-04-12_settings-graph-motion-perf-capture-health-normalization.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-004/main-ai.log`
+      -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
+      `/usr/bin/google-chrome`, advanced through both reference and
+      worktree motion-capture phases, and printed clean capture-health
+      metrics on both sides:
+      - reference: `pageHiddenDuringCapture=false`,
+        `visibilityLossCount=0`, `hiddenDurationMs=0`,
+        `focusLossCount=0`, `endedVisible=true`
+      - worktree: `pageHiddenDuringCapture=false`,
+        `visibilityLossCount=0`, `hiddenDurationMs=0`,
+        `focusLossCount=0`, `endedVisible=true`
         -> legacy reference now averaged `39.01ms` and no longer failed first
         -> the canonical lane still failed on the real worktree canary
-          threshold:
-          `expect(worktreeResult.perf.averageFrameDurationMs).toBeLessThan(40)`
-          because worktree averaged `52.71ms` with max `499.9ms`
+        threshold:
+        `expect(worktreeResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+        because worktree averaged `52.71ms` with max `499.9ms`
+  - reading:
+    - the previous `295.17ms` legacy-reference result is not explained by
+      hidden-tab or focus-loss throttling on the fresh `run-004` runtime
+    - the read-only `main` bootstrap blocker is still closed and the
+      reference side is currently back under the average threshold
+    - the active frontier has moved again: the next bounded product slice
+      should target real worktree canary motion cost on this lane rather
+      than more probe-health normalization
+- item `314` landed one bounded probe-bootstrap unblocker on the canonical
+  `rotaryParamCodeObjDefault` lane instead of repeating another support-only
+  rerun against the same `reference: open settings` timeout:
+  - no product renderer code changed on this pass
+  - updated `bootstrapReferenceSettingsPage(...)` in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    so the read-only `main` `reference: open settings` phase:
+    - uses a `60000ms` phase budget instead of the shared `30000ms` default
+    - waits for the mounted settings surface (`.react-flow__pane` or canary
+      root), settings content (`article`), and
+      `useProjectLoading.getState().projectIsLoading === false` instead of
+      waiting for an `All Settings` button that is not a stable readiness
+      signal on the reference path
+  - focused verification:
+    - `cd frontend && pnpm exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - one-off headless Playwright probe against read-only `main`
+      `3087/8087` with `/usr/bin/google-chrome`
+      -> showed `bootstrapReferenceSettingsPage(...)` stayed on bootstrap /
+      loading shell until about `30.5s`, then mounted the legacy settings
+      graph normally; the old `30000ms` phase budget was too short for a
+      healthy reference startup
+    - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/main-ai.log`
+      -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
+      `/usr/bin/google-chrome`, advanced past the old
+      `reference: open settings` blocker, ran both reference and worktree
+      motion capture phases, printed fresh perf payloads, then failed on the
+      real assertion:
+      `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
+      because reference averaged `295.17ms`
+  - reading:
+    - the repeated reference-side bootstrap timeout is closed on the
+      canonical lane; the probe now reaches real motion/perf assertions
+    - the next frontier is no longer startup readiness on read-only `main`
+    - the next bounded slice should explain or normalize the unexpectedly
+      slow legacy-reference perf numbers before opening another renderer
+      hypothesis
+- item `313` landed one bounded motion-attribution follow-up slice on the
+  canonical `rotaryParamCodeObjDefault` lane instead of guessing at another
+  reduction against the now-negligible
+  `presentedSceneSectionVisibilityFilter` path:
+  - product code changed in the canary layers:
+    - added `presentedSceneBodyMountFilter` attribution around the DOM
+      section-body mount decision in
+      `settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - added `pixiDrawableModelResolve` attribution around the Pixi drawable
+      model build in
+      `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - extended the canonical Playwright allowlist in
+      `settings-view-modes-main-reference.spec.ts` so the new owners are
+      accepted when they appear in live capture
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+      -> passed (`3` files, `23` tests)
+    - `cd frontend && pnpm exec prettier --check ...`
+      -> passed on the touched files
+    - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/main-ai.log`
+      -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
+      `/usr/bin/google-chrome`, then failed with
+      `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
+  - reading:
+    - this slice intentionally improves attribution coverage only; it does
+      not claim a new live dominant owner because the canonical read-only
+      `main` probe is still blocked before motion capture starts
+    - the next fresh canonical run can now distinguish DOM body-mount cost
+      from Pixi drawable-model cost on the same lane
+    - the repeated blocker remains reference-side `open settings` on
+      read-only `main`, not a new worktree renderer regression
+    - fresh-context CDP smoke on worktree `3075` and read-only `main` `3087`
+      was usable, but both `/settings` pages only showed a partial
+      `Settings` shell with no visible `All Settings` content or named target
+      section; that points to broader live settings-surface health/noise, not
+      a canary-only visual defect
+- item `312` landed one bounded probe-runner support slice for the canonical
+  `rotaryParamCodeObjDefault` lane instead of repeating another stale-runtime
+  rerun by hand:
+  - no product renderer code changed on this pass
+  - added
+    `scripts/run-settings-graph-main-reference-probe.sh`
+    so the canonical
+    `settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary`
+    test now refreshes both the current worktree and read-only `main`
+    runtime facts via `./scripts/dev-runtime-info.sh` before launching
+  - the new helper extracts the current worktree bootstrap token from the
+    live bootstrap URL, passes the fresh main bootstrap URL through, and
+    logs the resolved frontend/backend pair before the test starts
+  - added opt-in `PLAYWRIGHT_EXECUTABLE_PATH` support in:
+    - `frontend/playwright.config.ts`
+    - `frontend/tests/e2e/global-setup.ts`
+  - the helper resolves `/usr/bin/google-chrome` automatically when the
+    bundled Playwright headless-shell is unavailable, so this lane can run
+    without installing browsers
+  - focused verification on the current `run-001` runtime pair:
+    - `bash -n scripts/run-settings-graph-main-reference-probe.sh`
+      -> passed
+    - `pnpm -C frontend exec prettier --check playwright.config.ts tests/e2e/global-setup.ts`
+      -> passed after formatting `tests/e2e/global-setup.ts`
+    - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/main-ai.log`
+      -> resolved worktree `3075/8075`, main `3087/8087`, and
+      `/usr/bin/google-chrome`, then failed in the canonical Playwright lane
+      at `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
+  - reading:
+    - the stale-runtime-input failure mode is now encoded away behind one
+      repo command instead of manual env assembly
+    - the missing Playwright bundled-browser issue is also removed for this
+      lane when system Chrome is present
+    - the remaining blocker on the fresh `run-001` pair is the live
+      reference-side `open settings` timeout inside the canonical probe, not
+      stale runtime facts or missing browser binaries
+- item `311` spent the next fresh pass exactly where item `310` left it:
+  re-close item `308`'s pending visual gate on the fresh `run-028` runtime
+  pair, then stop for tooling replan if CDP was still not trustworthy.
+  - no product code changed on this pass
+  - initial canonical automated rerun using the loop prompt's stale runtime
+    values falsely re-created item `310`'s hang shape:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<stale run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<stale run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - output again stopped after:
+      - `settings-graph-probe-phase-start reference: bootstrap page`
+      - `settings-graph-probe-phase-start reference: open settings`
+  - refreshed runtime facts before retrying:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/worktree-ai.log`
+      -> frontend `3076`, backend `8076`, debug port `9297`, bootstrap
+      `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/main-ai.log`
+      -> frontend `3087`, backend `8087`, debug port `9309`, bootstrap
+      `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
     - reading:
-      - the previous `295.17ms` legacy-reference result is not explained by
-        hidden-tab or focus-loss throttling on the fresh `run-004` runtime
-      - the read-only `main` bootstrap blocker is still closed and the
-        reference side is currently back under the average threshold
-      - the active frontier has moved again: the next bounded product slice
-        should target real worktree canary motion cost on this lane rather
-        than more probe-health normalization
-  - item `314` landed one bounded probe-bootstrap unblocker on the canonical
-    `rotaryParamCodeObjDefault` lane instead of repeating another support-only
-    rerun against the same `reference: open settings` timeout:
-    - no product renderer code changed on this pass
-    - updated `bootstrapReferenceSettingsPage(...)` in
-      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-      so the read-only `main` `reference: open settings` phase:
-      - uses a `60000ms` phase budget instead of the shared `30000ms` default
-      - waits for the mounted settings surface (`.react-flow__pane` or canary
-        root), settings content (`article`), and
-        `useProjectLoading.getState().projectIsLoading === false` instead of
-        waiting for an `All Settings` button that is not a stable readiness
-        signal on the reference path
-    - focused verification:
-      - `cd frontend && pnpm exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
-        -> passed
-      - one-off headless Playwright probe against read-only `main`
-        `3087/8087` with `/usr/bin/google-chrome`
-        -> showed `bootstrapReferenceSettingsPage(...)` stayed on bootstrap /
-        loading shell until about `30.5s`, then mounted the legacy settings
-        graph normally; the old `30000ms` phase budget was too short for a
-        healthy reference startup
-      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-003/main-ai.log`
-        -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
-        `/usr/bin/google-chrome`, advanced past the old
-        `reference: open settings` blocker, ran both reference and worktree
-        motion capture phases, printed fresh perf payloads, then failed on the
-        real assertion:
-        `expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40)`
-        because reference averaged `295.17ms`
-    - reading:
-      - the repeated reference-side bootstrap timeout is closed on the
-        canonical lane; the probe now reaches real motion/perf assertions
-      - the next frontier is no longer startup readiness on read-only `main`
-      - the next bounded slice should explain or normalize the unexpectedly
-        slow legacy-reference perf numbers before opening another renderer
-        hypothesis
-  - item `313` landed one bounded motion-attribution follow-up slice on the
-    canonical `rotaryParamCodeObjDefault` lane instead of guessing at another
-    reduction against the now-negligible
-    `presentedSceneSectionVisibilityFilter` path:
-    - product code changed in the canary layers:
-      - added `presentedSceneBodyMountFilter` attribution around the DOM
-        section-body mount decision in
-        `settingsGraphSubstrateCanarySectionsLayer.tsx`
-      - added `pixiDrawableModelResolve` attribution around the Pixi drawable
-        model build in
-        `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
-      - extended the canonical Playwright allowlist in
-        `settings-view-modes-main-reference.spec.ts` so the new owners are
-        accepted when they appear in live capture
-    - focused verification:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
-        -> passed (`3` files, `23` tests)
-      - `cd frontend && pnpm exec prettier --check ...`
-        -> passed on the touched files
-      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-002/main-ai.log`
-        -> resolved fresh worktree `3075/8075`, main `3087/8087`, and
-        `/usr/bin/google-chrome`, then failed with
-        `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
-    - reading:
-      - this slice intentionally improves attribution coverage only; it does
-        not claim a new live dominant owner because the canonical read-only
-        `main` probe is still blocked before motion capture starts
-      - the next fresh canonical run can now distinguish DOM body-mount cost
-        from Pixi drawable-model cost on the same lane
-      - the repeated blocker remains reference-side `open settings` on
-        read-only `main`, not a new worktree renderer regression
-      - fresh-context CDP smoke on worktree `3075` and read-only `main` `3087`
-        was usable, but both `/settings` pages only showed a partial
-        `Settings` shell with no visible `All Settings` content or named target
-        section; that points to broader live settings-surface health/noise, not
-        a canary-only visual defect
-  - item `312` landed one bounded probe-runner support slice for the canonical
-    `rotaryParamCodeObjDefault` lane instead of repeating another stale-runtime
-    rerun by hand:
-    - no product renderer code changed on this pass
-    - added
-      `scripts/run-settings-graph-main-reference-probe.sh`
-      so the canonical
-      `settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary`
-      test now refreshes both the current worktree and read-only `main`
-      runtime facts via `./scripts/dev-runtime-info.sh` before launching
-    - the new helper extracts the current worktree bootstrap token from the
-      live bootstrap URL, passes the fresh main bootstrap URL through, and
-      logs the resolved frontend/backend pair before the test starts
-    - added opt-in `PLAYWRIGHT_EXECUTABLE_PATH` support in:
-      - `frontend/playwright.config.ts`
-      - `frontend/tests/e2e/global-setup.ts`
-    - the helper resolves `/usr/bin/google-chrome` automatically when the
-      bundled Playwright headless-shell is unavailable, so this lane can run
-      without installing browsers
-    - focused verification on the current `run-001` runtime pair:
-      - `bash -n scripts/run-settings-graph-main-reference-probe.sh`
-        -> passed
-      - `pnpm -C frontend exec prettier --check playwright.config.ts tests/e2e/global-setup.ts`
-        -> passed after formatting `tests/e2e/global-setup.ts`
-      - `scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-001/main-ai.log`
-        -> resolved worktree `3075/8075`, main `3087/8087`, and
-        `/usr/bin/google-chrome`, then failed in the canonical Playwright lane
-        at `Timed out after 30000ms during settings graph probe phase: reference: open settings.`
-    - reading:
-      - the stale-runtime-input failure mode is now encoded away behind one
-        repo command instead of manual env assembly
-      - the missing Playwright bundled-browser issue is also removed for this
-        lane when system Chrome is present
-      - the remaining blocker on the fresh `run-001` pair is the live
-        reference-side `open settings` timeout inside the canonical probe, not
-        stale runtime facts or missing browser binaries
-  - item `311` spent the next fresh pass exactly where item `310` left it:
-    re-close item `308`'s pending visual gate on the fresh `run-028` runtime
-    pair, then stop for tooling replan if CDP was still not trustworthy.
-    - no product code changed on this pass
-    - initial canonical automated rerun using the loop prompt's stale runtime
-      values falsely re-created item `310`'s hang shape:
-      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<stale run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<stale run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
-      - output again stopped after:
-        - `settings-graph-probe-phase-start reference: bootstrap page`
-        - `settings-graph-probe-phase-start reference: open settings`
-    - refreshed runtime facts before retrying:
-      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/worktree-ai.log`
-        -> frontend `3076`, backend `8076`, debug port `9297`, bootstrap
+      - the fresh worktree debug port on `run-028` is `9297`, not the stale
+        prompt value `9298`
+      - the bootstrap URLs had rotated, so the first rerun was not using the
+        current runtime pair
+  - canonical automated oracle on the refreshed `run-028` runtime pair:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: passed (`1 passed`, `45.1s`)
+    - fresh normalized motion-perf output:
+      - legacy `main`: average `17.40ms`, max `66.7ms`, `44` samples, root
+        DOM `7628`, target section DOM `132`, editable controls `99`,
+        visible section count `46`
+      - worktree canary: average `19.77ms`, max `99.2ms`, `43` samples, root
+        DOM `135`, target section DOM `132`, editable controls `2`, visible
+        section count `1`
+    - fresh canary motion attribution on the passing rerun:
+      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.2ms` total,
+        `0.1ms` max, still dominant
+      - `interactionMiscStateSync`: `1`, `0ms` total
+      - `interactionReactFlowStateSync`: `1`, `0ms` total
+      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms`
+        total
+      - `pixiViewportPresent`: `0`
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `viewportPersistenceDispatch`: `0`
+  - fresh-context CDP verification remained untrustworthy on the same
+    `run-028` pair:
+    - verifier 1 could reach both `/settings` surfaces and reported:
+      - worktree `3076` `/settings` mounted the settings surface
+      - read-only `main` `3087` `/settings` mounted the settings surface
+      - `rotaryParamCodeObjDefault` appeared in the `All Settings` list on
+        both
+      - no obvious blank-shell, spinner, or renderer crash was observed
+    - verifier 1 then timed out on a target-section click after about `64s`,
+      so it did not finish a bounded graph-surface visual compare
+    - verifier 2 in a separate fresh context reported
+      `chrome-devtools-mcp was inaccessible from this session`, so no second
+      smoke confirmation completed
+  - reading:
+    - the automated oracle is healthy again on the fresh `run-028` runtime
+      pair once runtime facts are refreshed from `dev-runtime-info`
+    - the pending blocker is no longer stale runtime input; it is still
+      inconsistent fresh-context CDP availability / interaction stability for
+      the required visual gate
+    - per item `310`'s explicit instruction, stop here for tooling replan
+      instead of spending another recovery-only iteration or opening a new
+      product hypothesis
+- item `310` spent one fresh loop-managed retry on item `308`'s pending
+  visual gate and is still blocked after the one allowed in-pass recovery on
+  the current `run-027` lifecycle:
+  - no product code changed on this pass; the work stayed bounded to
+    re-closing item `308`'s required CDP visual gate on a fresh runtime pair
+  - canonical automated oracle retry on the pre-recovery `run-027` runtime
+    pair did not produce a bounded verdict:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<run-027 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-027 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - output advanced through:
+      - `settings-graph-probe-phase-start reference: bootstrap page`
+      - `settings-graph-probe-phase-start reference: open settings`
+    - then stopped producing any further phase output well past the named
+      deadlines, so the hung rerun was killed instead of being treated as a
+      trustworthy automated verdict
+  - one bounded headless worktree recovery was attempted as required:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+    - refreshed worktree runtime after recovery: frontend `3075` (from
+      restart logs; runtime helper again reported `frontendUrl: null` while
+      Vite was already serving), backend `8075`, debug port `9297`,
+      bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+    - refreshed read-only `main` runtime for the retry: frontend `3087`,
+      backend `8087`, debug port `9309`, bootstrap
+      `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
+  - fresh-context post-recovery CDP retries still did not close the gate:
+    - first fresh-context verifier could not complete a trustworthy compare;
+      snapshot only showed shell-level content and the screenshot attempt
+      timed out
+    - second fresh-context verifier on the recovered worktree could reach the
+      devtools browser endpoint and load worktree `/settings` with title
+      `Settings` and body text `Connected to server`, but
+      `chrome-devtools-mcp` was still not directly usable from that agent
+      session so the side-by-side visual compare never ran
+    - direct main-session CDP fallback remained unhealthy after recovery:
+      - `mcp__chrome_devtools__list_pages()` -> timed out after `120s`
+  - reading:
+    - the landed item-`308` product slice still does not have the required
+      fresh CDP visual gate closed on `run-027`
+    - the blocker is now persistent CDP/tooling availability on the live
+      verification path, not a new renderer finding on the canonical
+      `rotaryParamCodeObjDefault` lane
+    - do not open another product hypothesis until the visual gate closes on
+      a fresh runtime pair; if the next fresh pass still cannot get a usable
+      CDP compare, escalate to tooling replan instead of spending another
+      recovery-only iteration
+- item `309` spent the bounded blocker-resolution pass that item `308`
+  requested, but the required visual gate is still blocked after the one
+  allowed in-pass recovery on the current `run-026` lifecycle:
+  - no product code changed on this pass; the work stayed bounded to
+    classifying and retrying the pending visual gate for item `308`
+  - fresh-context CDP sub-agent on the pre-recovery runtime pair:
+    - worktree `3075` `/settings` mounted a stable graph shell with
+      `All Settings` active, but did not visibly show the canonical
+      `rotaryParamCodeObjDefault` lane
+    - read-only `main` `3087` `/settings` mounted a comparable settings
+      surface and did show `rotaryParamCodeObjDefault`
+    - neither side showed a blank shell or loading spinner
+  - shared automated preflight retry on the same pre-recovery runtime pair:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-026 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-026 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: failed in Playwright global setup because the worktree
+      bootstrap URL returned `401 Unauthorized`
+  - one bounded headless worktree recovery was attempted as required:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+    - refreshed worktree runtime after recovery: frontend `3075` (from
+      restart logs; runtime helper temporarily returned `frontendUrl: null`
+      while Vite was already serving), backend `8075`, debug port `9297`,
+      bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+  - fresh-context post-recovery CDP retry still did not close the gate:
+    - worktree `/settings` mounted and main `/settings` mounted
+    - main bootstrap token still rejected when retried directly
+    - worktree CDP page became unresponsive after keyboard activation of
+      `All Settings`; `press_key` timed out and the follow-up snapshot also
+      timed out
+  - reading:
+    - the blocker is currently lifecycle / CDP health on the live worktree
+      verification path, not a new product-code regression on the landed
+      item-`308` overlap fast path
+    - do not open another product hypothesis until a fresh loop-managed
+      lifecycle closes item `308`'s required visual gate on the restarted
+      runtime pair
+- item `308` completed one bounded product hypothesis on the canonical
+  `rotaryParamCodeObjDefault` lane, then re-blocked on the required CDP gate
+  after the one allowed headless recovery:
+  - landed one direct-overlap fast path in
+    [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
+    for presented shell visibility:
+    - returns the full section list immediately when viewport culling is
+      unavailable
+    - uses direct world-rect overlap checks for shell presentation instead of
+      allocating an intersection rect for the boolean-only path
+    - keeps the body-mount threshold path unchanged
+  - added focused guards in
+    [`settingsGraphSubstrateCanarySectionPresentation.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts)
+    for:
+    - no-authoritative-bounds sections remaining presented
+    - edge-touching shells staying offscreen
+  - focused coverage passed:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx` -> passed (`2 files`, `11 tests`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts` -> passed
+  - canonical cross-worktree motion probe on the current `run-025` runtime
+    pair:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-025 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-025 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `29.2s`)
+  - fresh normalized motion-perf output:
+    - legacy `main`: average `17.04ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.05ms`, max `33.2ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - fresh canary motion attribution on the passing rerun:
+    - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, still dominant
+    - `interactionMiscStateSync`: `1`, `0.1ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.1ms` total
+    - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
+    - `pixiViewportPresent`: `0`
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-overlap-fast-path.md`
+  - required CDP visual gate is blocked on this pass:
+    - fresh-context CDP sub-agent could not use `chrome-devtools-mcp`
+      because the tool was not exposed in the spawned agent session
+    - direct main-session `chrome-devtools-mcp` retries failed before
+      recovery:
+      - `mcp__chrome_devtools__new_page(...)` -> timed out
+      - `mcp__chrome_devtools__list_pages()` -> `Network.enable timed out`
+    - one bounded headless worktree recovery was attempted as required:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+      - refreshed worktree runtime after recovery: frontend `3076`,
+        backend `8076`, debug port `9298`, bootstrap
         `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
-      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/main-ai.log`
-        -> frontend `3087`, backend `8087`, debug port `9309`, bootstrap
-        `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
-      - reading:
-        - the fresh worktree debug port on `run-028` is `9297`, not the stale
-          prompt value `9298`
-        - the bootstrap URLs had rotated, so the first rerun was not using the
-          current runtime pair
-    - canonical automated oracle on the refreshed `run-028` runtime pair:
-      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
-      - result: passed (`1 passed`, `45.1s`)
-      - fresh normalized motion-perf output:
-        - legacy `main`: average `17.40ms`, max `66.7ms`, `44` samples, root
-          DOM `7628`, target section DOM `132`, editable controls `99`,
-          visible section count `46`
-        - worktree canary: average `19.77ms`, max `99.2ms`, `43` samples, root
-          DOM `135`, target section DOM `132`, editable controls `2`, visible
-          section count `1`
-      - fresh canary motion attribution on the passing rerun:
-        - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.2ms` total,
-          `0.1ms` max, still dominant
-        - `interactionMiscStateSync`: `1`, `0ms` total
-        - `interactionReactFlowStateSync`: `1`, `0ms` total
-        - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms`
-          total
-        - `pixiViewportPresent`: `0`
-        - `reactFlowViewportPublish`: `0`
-        - `reactFlowTransformSubscriptionCallback`: `0`
-        - `reactFlowTransformFollowerCallback`: `0`
-        - `viewportPersistenceDispatch`: `0`
-    - fresh-context CDP verification remained untrustworthy on the same
-      `run-028` pair:
-      - verifier 1 could reach both `/settings` surfaces and reported:
-        - worktree `3076` `/settings` mounted the settings surface
-        - read-only `main` `3087` `/settings` mounted the settings surface
-        - `rotaryParamCodeObjDefault` appeared in the `All Settings` list on
-          both
-        - no obvious blank-shell, spinner, or renderer crash was observed
-      - verifier 1 then timed out on a target-section click after about `64s`,
-        so it did not finish a bounded graph-surface visual compare
-      - verifier 2 in a separate fresh context reported
-        `chrome-devtools-mcp was inaccessible from this session`, so no second
-        smoke confirmation completed
-    - reading:
-      - the automated oracle is healthy again on the fresh `run-028` runtime
-        pair once runtime facts are refreshed from `dev-runtime-info`
-      - the pending blocker is no longer stale runtime input; it is still
-        inconsistent fresh-context CDP availability / interaction stability for
-        the required visual gate
-      - per item `310`'s explicit instruction, stop here for tooling replan
-        instead of spending another recovery-only iteration or opening a new
-        product hypothesis
-  - item `310` spent one fresh loop-managed retry on item `308`'s pending
-    visual gate and is still blocked after the one allowed in-pass recovery on
-    the current `run-027` lifecycle:
-    - no product code changed on this pass; the work stayed bounded to
-      re-closing item `308`'s required CDP visual gate on a fresh runtime pair
-    - canonical automated oracle retry on the pre-recovery `run-027` runtime
-      pair did not produce a bounded verdict:
-      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<run-027 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-027 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
-      - output advanced through:
-        - `settings-graph-probe-phase-start reference: bootstrap page`
-        - `settings-graph-probe-phase-start reference: open settings`
-      - then stopped producing any further phase output well past the named
-        deadlines, so the hung rerun was killed instead of being treated as a
-        trustworthy automated verdict
+    - the direct post-recovery CDP retry still failed:
+      - `mcp__chrome_devtools__list_pages()` -> `Network.enable timed out`
+  - reading:
+    - this closes one micro-optimization hypothesis on the current
+      `presentedSceneSectionVisibilityFilter` owner, but it is not a
+      measured win on the canonical lane
+    - do not present this slice as a perf win; the next fresh pass should
+      restart the worktree lifecycle and re-close the required CDP visual
+      gate for item `308` before opening another product hypothesis
+- item `307` completed one bounded verifier-hardening slice on the canonical
+  `rotaryParamCodeObjDefault` lane and closed the current visual gate:
+  - landed explicit per-phase deadlines in
+    [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+    around:
+    - reference bootstrap
+    - normalized surface setup
+    - compare preflight
+    - baseline capture
+    - motion capture
+    - result capture
+  - the canonical cross-worktree perf probe now emits phase-start lines
+    before each major step, so the known post-banner stall shape no longer
+    disappears without naming the stuck phase
+  - refreshed canonical automated verdict on the current `run-024` runtime
+    pair:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh run-024 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-024 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `23.6s`)
+  - fresh normalized motion-perf output:
+    - legacy `main`: average `16.62ms`, max `33.4ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `16.63ms`, max `18.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - fresh canary motion attribution on the passing rerun:
+    - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, dominant owner
+    - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+    - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0.1ms` total
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `pixiViewportPresent`: `0`
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+  - required fresh CDP visual check completed via a fresh-context sub-agent:
+    - worktree `3075` `/settings` rendered the canary graph surface with
+      `All Settings` active after non-target chat chrome was collapsed
+    - read-only `main` `3087` `/settings` rendered the legacy graph surface
+      with `All Settings` active after non-target chat chrome was collapsed
+    - neither side showed a blank shell or spinner
+    - both fresh bootstrap tabs still rejected their tokens, so the visual
+      check used the mounted `/settings` surfaces directly instead of
+      `/__setta__/bootstrap`
+  - reading:
+    - the current verifier-only blocker is closed enough for sequencing; do
+      not spend another default iteration refreshing this same oracle lane
+    - the next real frontier is product work on the freshly re-measured
+      `presentedSceneSectionVisibilityFilter` owner, not another blind
+      reduction on already-zero owners and not another verifier-only rerun
+- item `306` restored one fresh trustworthy automated verdict for the landed
+  item-`305` presentation-owner split on the canonical
+  `rotaryParamCodeObjDefault` lane before the required visual gate re-blocked:
+  - no product/runtime code changed on this pass; the work stayed bounded to
+    refreshing the canonical measurement and recording the blocker
+  - the canonical cross-worktree motion probe exited cleanly on the
+    pre-recovery `run-023` runtime pair:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `47.4s`)
+  - fresh normalized motion-perf output:
+    - legacy `main`: average `17.06ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.82ms`, max `50.4ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - fresh canary motion attribution on the passing rerun:
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.1ms` total, dominant owner
+    - `presentedSceneSectionVisibilityFilter`: `40` calls, `0ms` total
+    - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
+    - `pixiViewportPresent`: `0`
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split-verdict.md`
+  - the required CDP visual gate is blocked again on this pass:
+    - first fresh-context sub-agent could not use `chrome-devtools-mcp` at
+      all on the existing runtime pair
     - one bounded headless worktree recovery was attempted as required:
-      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
-      - refreshed worktree runtime after recovery: frontend `3075` (from
-        restart logs; runtime helper again reported `frontendUrl: null` while
-        Vite was already serving), backend `8075`, debug port `9297`,
-        bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
-      - refreshed read-only `main` runtime for the retry: frontend `3087`,
-        backend `8087`, debug port `9309`, bootstrap
-        `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
-    - fresh-context post-recovery CDP retries still did not close the gate:
-      - first fresh-context verifier could not complete a trustworthy compare;
-        snapshot only showed shell-level content and the screenshot attempt
-        timed out
-      - second fresh-context verifier on the recovered worktree could reach the
-        devtools browser endpoint and load worktree `/settings` with title
-        `Settings` and body text `Connected to server`, but
-        `chrome-devtools-mcp` was still not directly usable from that agent
-        session so the side-by-side visual compare never ran
-      - direct main-session CDP fallback remained unhealthy after recovery:
-        - `mcp__chrome_devtools__list_pages()` -> timed out after `120s`
-    - reading:
-      - the landed item-`308` product slice still does not have the required
-        fresh CDP visual gate closed on `run-027`
-      - the blocker is now persistent CDP/tooling availability on the live
-        verification path, not a new renderer finding on the canonical
-        `rotaryParamCodeObjDefault` lane
-      - do not open another product hypothesis until the visual gate closes on
-        a fresh runtime pair; if the next fresh pass still cannot get a usable
-        CDP compare, escalate to tooling replan instead of spending another
-        recovery-only iteration
-  - item `309` spent the bounded blocker-resolution pass that item `308`
-    requested, but the required visual gate is still blocked after the one
-    allowed in-pass recovery on the current `run-026` lifecycle:
-    - no product code changed on this pass; the work stayed bounded to
-      classifying and retrying the pending visual gate for item `308`
-    - fresh-context CDP sub-agent on the pre-recovery runtime pair:
-      - worktree `3075` `/settings` mounted a stable graph shell with
-        `All Settings` active, but did not visibly show the canonical
-        `rotaryParamCodeObjDefault` lane
-      - read-only `main` `3087` `/settings` mounted a comparable settings
-        surface and did show `rotaryParamCodeObjDefault`
-      - neither side showed a blank shell or loading spinner
-    - shared automated preflight retry on the same pre-recovery runtime pair:
-      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-026 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-026 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
-      - result: failed in Playwright global setup because the worktree
-        bootstrap URL returned `401 Unauthorized`
-    - one bounded headless worktree recovery was attempted as required:
-      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
-      - refreshed worktree runtime after recovery: frontend `3075` (from
-        restart logs; runtime helper temporarily returned `frontendUrl: null`
-        while Vite was already serving), backend `8075`, debug port `9297`,
-        bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
-    - fresh-context post-recovery CDP retry still did not close the gate:
-      - worktree `/settings` mounted and main `/settings` mounted
-      - main bootstrap token still rejected when retried directly
-      - worktree CDP page became unresponsive after keyboard activation of
-        `All Settings`; `press_key` timed out and the follow-up snapshot also
-        timed out
-    - reading:
-      - the blocker is currently lifecycle / CDP health on the live worktree
-        verification path, not a new product-code regression on the landed
-        item-`308` overlap fast path
-      - do not open another product hypothesis until a fresh loop-managed
-        lifecycle closes item `308`'s required visual gate on the restarted
-        runtime pair
-  - item `308` completed one bounded product hypothesis on the canonical
-    `rotaryParamCodeObjDefault` lane, then re-blocked on the required CDP gate
-    after the one allowed headless recovery:
-    - landed one direct-overlap fast path in
-      [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
-      for presented shell visibility:
-      - returns the full section list immediately when viewport culling is
-        unavailable
-      - uses direct world-rect overlap checks for shell presentation instead of
-        allocating an intersection rect for the boolean-only path
-      - keeps the body-mount threshold path unchanged
-    - added focused guards in
-      [`settingsGraphSubstrateCanarySectionPresentation.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts)
-      for:
-      - no-authoritative-bounds sections remaining presented
-      - edge-touching shells staying offscreen
-    - focused coverage passed:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx` -> passed (`2 files`, `11 tests`)
-      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts` -> passed
-    - canonical cross-worktree motion probe on the current `run-025` runtime
-      pair:
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-025 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-025 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `29.2s`)
-    - fresh normalized motion-perf output:
-      - legacy `main`: average `17.04ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `17.05ms`, max `33.2ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-    - fresh canary motion attribution on the passing rerun:
-      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, still dominant
-      - `interactionMiscStateSync`: `1`, `0.1ms` total
-      - `interactionReactFlowStateSync`: `1`, `0.1ms` total
-      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
-      - `pixiViewportPresent`: `0`
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+      - refreshed worktree runtime after recovery: backend `8076`, debug
+        port `9297`, bootstrap
+        `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+    - the fresh-context CDP retry still failed after recovery:
+      - `chrome-devtools-mcp` could not connect to Chrome because
+        `http://127.0.0.1:9297/json/version` was unavailable
+    - retrying the canonical Playwright probe after recovery failed in global
+      setup because the fresh worktree bootstrap token returned
+      `401 Unauthorized` at `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+  - reading:
+    - item `305` now has a fresh numeric verdict, and neither split
+      presentation owner carries measurable duration on the captured motion
+      burst
+    - the remaining non-zero owner on that run is the one-off
+      `interactionReactFlowStateSync` entry, so do not open another blind
+      reduction on the two split presentation owners
+    - the next bounded pass must restore current worktree CDP/bootstrap
+      health and close the required visual gate before this lane moves on
+- item `305` completed one bounded attribution split on the residual
+  presentation-path owner named by item `304`:
+  - landed two non-overlapping motion-attribution owners in
+    [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts):
+    - `presentedSceneVisibleViewportWorldRectResolve`
+    - `presentedSceneSectionVisibilityFilter`
+  - moved the presentation-path measurement into
+    [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
+    so the canary no longer wraps the entire resolver in one
+    `presentedSceneSectionsResolve` bucket
+  - updated focused instrumentation expectations in
+    [`SettingsGraphSubstrateCanary.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx)
+    and widened the canonical residual-owner allowlist in
+    [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+    to match the new split owners
+  - focused coverage passed:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts` -> passed (`3 files`, `13 tests`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split.md`
+  - the canonical cross-worktree probe is untrustworthy again on this slice:
+    - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - it reached the Playwright banner / spec body on the current `run-022`
+      runtime pair and then re-entered the known post-banner stall shape
+      without printing a verdict or timeout
+    - after it exceeded the recent healthy runtime window by a wide margin,
+      the orphaned Playwright processes were terminated manually; treat this
+      as verifier debt on the lane, not as evidence that the owner split
+      changed renderer behavior
+  - required CDP visual retries were not trustworthy on this pass:
+    - direct `/settings` checks on both worktree `3076` and read-only `main`
+      `3087` only showed the connected-shell / blank state rather than a
+      comparable settings graph surface
+    - bootstrap retries were inconclusive:
+      - worktree advanced past bootstrap into app UI but still did not show
+        graph root/canvas on `/settings`
+      - main bootstrap rejected the token before reaching comparable graph
+        content
+  - reading:
+    - the finer attribution seam is landed, but there is still no fresh
+      trustworthy numeric verdict naming which of the two split owners now
+      dominates the canonical motion burst
+    - do not open another product reduction on this lane until the verifier
+      is repaired or narrowed enough to produce one trustworthy measurement
+- item `304` restored one fresh trustworthy automated verdict for the
+  landed item-`303` world-space culling slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - no product/runtime code changed on this pass; the work stayed bounded to
+    refreshing the canonical measurement on the current `run-021`
+    worktree/reference runtimes with fresh runtime-info-derived bootstrap
+    data
+  - the canonical cross-worktree probe exited cleanly again:
+    - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `49.6s`)
+  - fresh normalized motion-perf output:
+    - legacy `main`: average `17.46ms`, max `66.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.87ms`, max `51.9ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - fresh canary motion attribution on the passing rerun:
+    - `presentedSceneSectionsResolve`: `40` calls, `0.6ms` total, `0.1ms` max, dominant owner
+    - `pixiViewportPresent`: `0`
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling-verdict.md`
+  - required fresh CDP visual check completed via a fresh-context sub-agent:
+    - worktree `3076` `/settings` rendered Settings graph content with
+      `canvasCount: 1` and `spinnerCount: 0`
+    - read-only `main` `3087` `/settings` rendered Settings graph content
+      with `spinnerCount: 0`
+  - reading:
+    - the verifier/runtime blocker recorded on item `303` did not reproduce
+      on the current runtime pair; the canonical probe is trustworthy again
+    - the landed world-space culling slice is now backed by a fresh verdict
+      and should not trigger another verifier-only rerun by default
+    - `presentedSceneSectionsResolve` still names the remaining repeated
+      measured owner, so the next bounded frontier should add finer
+      attribution inside that path before another blind product reduction
+- item `303` completed one bounded product reduction on the named
+  `presentedSceneSectionsResolve` hotspot:
+  - landed world-space presented-section culling in
+    [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
+    and
+    [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx)
+    so the canary resolves one visible viewport world rect per pass instead
+    of projecting every section into screen space during presented subset /
+    body-mount culling
+  - focused coverage passed:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`3 files`, `22 tests`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx` -> passed
+  - the canonical cross-worktree probe became untrustworthy again on this
+    slice:
+    - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - it reached the Playwright banner / spec body and then re-entered the
+      known post-banner stall shape without printing a verdict or timeout
+    - after it exceeded recent healthy runtimes by a wide margin, the orphaned
+      Playwright processes were terminated manually; treat this as verifier
+      debt on the lane, not as evidence that the new world-space culling
+      regressed renderer behavior
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling.md`
+  - required fresh CDP visual check completed via a fresh-context sub-agent:
+    - worktree `3076` `/settings` rendered the Settings shell and a small
+      graph node/card after the chat surface was closed; no spinner or blank
+      shell was present
+    - read-only `main` `3087` `/settings` rendered multiple settings
+      node/cards across the All Settings surface; no spinner or blank shell
+      was present
+- item `302` restored one fresh trustworthy automated verdict on the
+  canonical `rotaryParamCodeObjDefault` lane after the item-`301`
+  presentation-path attribution seam:
+  - no product/runtime code changed on this pass; the work stayed bounded to
+    refreshing the canonical measurement on the current `run-019`
+    worktree/reference runtimes with fresh runtime-info-derived bootstrap
+    tokens
+  - the canonical cross-worktree probe exited cleanly again:
+    - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `48.5s`)
+  - fresh normalized motion-perf output:
+    - legacy `main`: average `17.04ms`, max `50ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `18.62ms`, max `66.6ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - fresh canary motion attribution on the passing rerun:
+    - `presentedSceneSectionsResolve`: `40` calls, `0.4ms` total, `0.1ms` max, dominant owner
+    - `pixiViewportPresent`: `0`
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.1ms` total
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presentation-path-owner-verdict.md`
+  - required CDP visual signal is reused from item `301`:
+    - no renderer/runtime product code changed on item `302`
+    - the existing fresh-context smoke check already confirmed both worktree
+      `3076` and read-only `main` `3087` `/settings` pages rendered the All
+      Settings graph surface instead of a spinner or blank shell
+- item `301` completed one bounded attribution slice on the canary-owned
+  viewport presentation path after item `300`:
+  - landed new motion-attribution owners in
+    [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts):
+    - `presentedSceneSectionsResolve`
+    - `pixiViewportPresent`
+  - instrumented the two product call sites:
+    - shared presented-section subset resolve in
+      [`SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx)
+    - Pixi viewport-present path in
+      [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+  - updated focused coverage:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed (`3 files`, `13 tests`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+  - widened the canonical probe allowlist in
+    [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+    so the new non-React-Flow owners are treated as expected attribution
+    candidates while the old closed owners (`reactFlowViewportPublish`,
+    `reactFlowTransformSubscriptionCallback`,
+    `reactFlowTransformFollowerCallback`) still must remain `0`
+  - verifier/runtime state on the live lane regressed again:
+    - the canonical cross-worktree probe launched with fresh runtime-info
+      tokens and reached the test banner, then re-entered the known
+      post-banner stall shape without yielding a pass/fail verdict
+    - a narrower worktree-only canary E2E with a freshly minted worktree
+      token passed global setup but timed out at `120000ms` and then reported
+      `page.evaluate: Target page, context or browser has been closed` while
+      `normalizeSettingsGraphComparePaneState(...)` was running
+    - treat both failures as verifier/runtime debt for this lane, not as
+      evidence that the new attribution owners broke the renderer
+  - perf note:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-presentation-attribution.md`
+  - required CDP visual check completed via a fresh-context sub-agent:
+    - direct `/settings` comparisons on worktree `3076` and read-only `main`
+      `3087` both rendered the full All Settings graph surface rather than a
+      spinner or blank shell
+    - no gross worktree-vs-main visual regression was seen at this smoke
+      level
+    - the worktree bootstrap token was rejected immediately in-browser, so
+      the smoke check used the route render directly instead of a fresh
+      bootstrap page
+- item `300` restored one trustworthy automated verdict on the canonical
+  `rotaryParamCodeObjDefault` perf lane after item `299`:
+  - the remaining verifier issue was not a product regression on the landed
+    `reactFlowViewportPublish` removal; the probe still hit the documented
+    zero-publish motion window, but reruns could stall because the
+    requestAnimationFrame-gated motion sequence was being driven on a page
+    that was no longer foregrounded after the cross-page reference capture
+  - landed one bounded verifier-only fix in
+    [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts):
+    - call `targetPage.bringToFront()` before the normalized lane setup and
+      again immediately before `startSettingsGraphMotionPerfCapture(...)`
+    - replace the brittle
+      `dominantCanaryMotionAttributionOwner === null` assertion with the real
+      post-item-299 contract:
       - `reactFlowViewportPublish`: `0`
       - `reactFlowTransformSubscriptionCallback`: `0`
       - `reactFlowTransformFollowerCallback`: `0`
-      - `viewportPersistenceDispatch`: `0`
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-overlap-fast-path.md`
-    - required CDP visual gate is blocked on this pass:
-      - fresh-context CDP sub-agent could not use `chrome-devtools-mcp`
-        because the tool was not exposed in the spawned agent session
-      - direct main-session `chrome-devtools-mcp` retries failed before
-        recovery:
-        - `mcp__chrome_devtools__new_page(...)` -> timed out
-        - `mcp__chrome_devtools__list_pages()` -> `Network.enable timed out`
-      - one bounded headless worktree recovery was attempted as required:
-        - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
-        - refreshed worktree runtime after recovery: frontend `3076`,
-          backend `8076`, debug port `9298`, bootstrap
-          `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
-      - the direct post-recovery CDP retry still failed:
-        - `mcp__chrome_devtools__list_pages()` -> `Network.enable timed out`
-    - reading:
-      - this closes one micro-optimization hypothesis on the current
-        `presentedSceneSectionVisibilityFilter` owner, but it is not a
-        measured win on the canonical lane
-      - do not present this slice as a perf win; the next fresh pass should
-        restart the worktree lifecycle and re-close the required CDP visual
-        gate for item `308` before opening another product hypothesis
-  - item `307` completed one bounded verifier-hardening slice on the canonical
-    `rotaryParamCodeObjDefault` lane and closed the current visual gate:
-    - landed explicit per-phase deadlines in
-      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
-      around:
-      - reference bootstrap
-      - normalized surface setup
-      - compare preflight
-      - baseline capture
-      - motion capture
-      - result capture
-    - the canonical cross-worktree perf probe now emits phase-start lines
-      before each major step, so the known post-banner stall shape no longer
-      disappears without naming the stuck phase
-    - refreshed canonical automated verdict on the current `run-024` runtime
-      pair:
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh run-024 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-024 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `23.6s`)
-    - fresh normalized motion-perf output:
-      - legacy `main`: average `16.62ms`, max `33.4ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `16.63ms`, max `18.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-    - fresh canary motion attribution on the passing rerun:
-      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, dominant owner
-      - `interactionReactFlowStateSync`: `1`, `0.2ms` total
-      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0.1ms` total
-      - `interactionMiscStateSync`: `1`, `0ms` total
-      - `pixiViewportPresent`: `0`
-      - `reactFlowViewportPublish`: `0`
-      - `reactFlowTransformSubscriptionCallback`: `0`
-      - `reactFlowTransformFollowerCallback`: `0`
-      - `viewportPersistenceDispatch`: `0`
-    - required fresh CDP visual check completed via a fresh-context sub-agent:
-      - worktree `3075` `/settings` rendered the canary graph surface with
-        `All Settings` active after non-target chat chrome was collapsed
-      - read-only `main` `3087` `/settings` rendered the legacy graph surface
-        with `All Settings` active after non-target chat chrome was collapsed
-      - neither side showed a blank shell or spinner
-      - both fresh bootstrap tabs still rejected their tokens, so the visual
-        check used the mounted `/settings` surfaces directly instead of
-        `/__setta__/bootstrap`
-    - reading:
-      - the current verifier-only blocker is closed enough for sequencing; do
-        not spend another default iteration refreshing this same oracle lane
-      - the next real frontier is product work on the freshly re-measured
-        `presentedSceneSectionVisibilityFilter` owner, not another blind
-        reduction on already-zero owners and not another verifier-only rerun
-  - item `306` restored one fresh trustworthy automated verdict for the landed
-    item-`305` presentation-owner split on the canonical
-    `rotaryParamCodeObjDefault` lane before the required visual gate re-blocked:
-    - no product/runtime code changed on this pass; the work stayed bounded to
-      refreshing the canonical measurement and recording the blocker
-    - the canonical cross-worktree motion probe exited cleanly on the
-      pre-recovery `run-023` runtime pair:
-      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `47.4s`)
-    - fresh normalized motion-perf output:
-      - legacy `main`: average `17.06ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `17.82ms`, max `50.4ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-    - fresh canary motion attribution on the passing rerun:
-      - `interactionMiscStateSync`: `1`, `0ms` total
-      - `interactionReactFlowStateSync`: `1`, `0.1ms` total, dominant owner
-      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0ms` total
-      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
-      - `pixiViewportPresent`: `0`
-      - `reactFlowViewportPublish`: `0`
-      - `reactFlowTransformSubscriptionCallback`: `0`
-      - `reactFlowTransformFollowerCallback`: `0`
-      - `viewportPersistenceDispatch`: `0`
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split-verdict.md`
-    - the required CDP visual gate is blocked again on this pass:
-      - first fresh-context sub-agent could not use `chrome-devtools-mcp` at
-        all on the existing runtime pair
-      - one bounded headless worktree recovery was attempted as required:
-        - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
-        - refreshed worktree runtime after recovery: backend `8076`, debug
-          port `9297`, bootstrap
-          `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
-      - the fresh-context CDP retry still failed after recovery:
-        - `chrome-devtools-mcp` could not connect to Chrome because
-          `http://127.0.0.1:9297/json/version` was unavailable
-      - retrying the canonical Playwright probe after recovery failed in global
-        setup because the fresh worktree bootstrap token returned
-        `401 Unauthorized` at `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
-    - reading:
-      - item `305` now has a fresh numeric verdict, and neither split
-        presentation owner carries measurable duration on the captured motion
-        burst
-      - the remaining non-zero owner on that run is the one-off
-        `interactionReactFlowStateSync` entry, so do not open another blind
-        reduction on the two split presentation owners
-      - the next bounded pass must restore current worktree CDP/bootstrap
-        health and close the required visual gate before this lane moves on
-  - item `305` completed one bounded attribution split on the residual
-    presentation-path owner named by item `304`:
-    - landed two non-overlapping motion-attribution owners in
-      [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts):
-      - `presentedSceneVisibleViewportWorldRectResolve`
-      - `presentedSceneSectionVisibilityFilter`
-    - moved the presentation-path measurement into
-      [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
-      so the canary no longer wraps the entire resolver in one
-      `presentedSceneSectionsResolve` bucket
-    - updated focused instrumentation expectations in
-      [`SettingsGraphSubstrateCanary.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx)
-      and widened the canonical residual-owner allowlist in
-      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
-      to match the new split owners
-    - focused coverage passed:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts` -> passed (`3 files`, `13 tests`)
-      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split.md`
-    - the canonical cross-worktree probe is untrustworthy again on this slice:
-      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
-      - it reached the Playwright banner / spec body on the current `run-022`
-        runtime pair and then re-entered the known post-banner stall shape
-        without printing a verdict or timeout
-      - after it exceeded the recent healthy runtime window by a wide margin,
-        the orphaned Playwright processes were terminated manually; treat this
-        as verifier debt on the lane, not as evidence that the owner split
-        changed renderer behavior
-    - required CDP visual retries were not trustworthy on this pass:
-      - direct `/settings` checks on both worktree `3076` and read-only `main`
-        `3087` only showed the connected-shell / blank state rather than a
-        comparable settings graph surface
-      - bootstrap retries were inconclusive:
-        - worktree advanced past bootstrap into app UI but still did not show
-          graph root/canvas on `/settings`
-        - main bootstrap rejected the token before reaching comparable graph
-          content
-    - reading:
-      - the finer attribution seam is landed, but there is still no fresh
-        trustworthy numeric verdict naming which of the two split owners now
-        dominates the canonical motion burst
-      - do not open another product reduction on this lane until the verifier
-        is repaired or narrowed enough to produce one trustworthy measurement
-  - item `304` restored one fresh trustworthy automated verdict for the
-    landed item-`303` world-space culling slice on the canonical
-    `rotaryParamCodeObjDefault` lane:
-    - no product/runtime code changed on this pass; the work stayed bounded to
-      refreshing the canonical measurement on the current `run-021`
-      worktree/reference runtimes with fresh runtime-info-derived bootstrap
-      data
-    - the canonical cross-worktree probe exited cleanly again:
-      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `49.6s`)
-    - fresh normalized motion-perf output:
-      - legacy `main`: average `17.46ms`, max `66.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `17.87ms`, max `51.9ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-    - fresh canary motion attribution on the passing rerun:
-      - `presentedSceneSectionsResolve`: `40` calls, `0.6ms` total, `0.1ms` max, dominant owner
-      - `pixiViewportPresent`: `0`
+      - no non-zero owners outside the residual
+        `interactionMiscStateSync` /
+        `interactionReactFlowStateSync` pair
+  - final focused verification passed on fresh runtime-info-derived tokens:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+    - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `39.8s`)
+  - normalized motion-perf output on the passing rerun:
+    - legacy `main`: average `17.05ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `18.17ms`, max `50ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - measured canary motion attribution on the passing rerun:
       - `interactionMiscStateSync`: `1`, `0ms` total
       - `interactionReactFlowStateSync`: `1`, `0.2ms` total
       - `reactFlowViewportPublish`: `0`
       - `reactFlowTransformSubscriptionCallback`: `0`
       - `reactFlowTransformFollowerCallback`: `0`
       - `viewportPersistenceDispatch`: `0`
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling-verdict.md`
-    - required fresh CDP visual check completed via a fresh-context sub-agent:
-      - worktree `3076` `/settings` rendered Settings graph content with
-        `canvasCount: 1` and `spinnerCount: 0`
-      - read-only `main` `3087` `/settings` rendered Settings graph content
-        with `spinnerCount: 0`
-    - reading:
-      - the verifier/runtime blocker recorded on item `303` did not reproduce
-        on the current runtime pair; the canonical probe is trustworthy again
-      - the landed world-space culling slice is now backed by a fresh verdict
-        and should not trigger another verifier-only rerun by default
-      - `presentedSceneSectionsResolve` still names the remaining repeated
-        measured owner, so the next bounded frontier should add finer
-        attribution inside that path before another blind product reduction
-  - item `303` completed one bounded product reduction on the named
-    `presentedSceneSectionsResolve` hotspot:
-    - landed world-space presented-section culling in
-      [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
-      and
-      [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx)
-      so the canary resolves one visible viewport world rect per pass instead
-      of projecting every section into screen space during presented subset /
-      body-mount culling
-    - focused coverage passed:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`3 files`, `22 tests`)
-      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx` -> passed
-    - the canonical cross-worktree probe became untrustworthy again on this
-      slice:
-      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
-      - it reached the Playwright banner / spec body and then re-entered the
-        known post-banner stall shape without printing a verdict or timeout
-      - after it exceeded recent healthy runtimes by a wide margin, the orphaned
-        Playwright processes were terminated manually; treat this as verifier
-        debt on the lane, not as evidence that the new world-space culling
-        regressed renderer behavior
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling.md`
-    - required fresh CDP visual check completed via a fresh-context sub-agent:
-      - worktree `3076` `/settings` rendered the Settings shell and a small
-        graph node/card after the chat surface was closed; no spinner or blank
-        shell was present
-      - read-only `main` `3087` `/settings` rendered multiple settings
-        node/cards across the All Settings surface; no spinner or blank shell
-        was present
-  - item `302` restored one fresh trustworthy automated verdict on the
-    canonical `rotaryParamCodeObjDefault` lane after the item-`301`
-    presentation-path attribution seam:
-    - no product/runtime code changed on this pass; the work stayed bounded to
-      refreshing the canonical measurement on the current `run-019`
-      worktree/reference runtimes with fresh runtime-info-derived bootstrap
-      tokens
-    - the canonical cross-worktree probe exited cleanly again:
-      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `48.5s`)
-    - fresh normalized motion-perf output:
-      - legacy `main`: average `17.04ms`, max `50ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `18.62ms`, max `66.6ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-    - fresh canary motion attribution on the passing rerun:
-      - `presentedSceneSectionsResolve`: `40` calls, `0.4ms` total, `0.1ms` max, dominant owner
-      - `pixiViewportPresent`: `0`
-      - `interactionMiscStateSync`: `1`, `0ms` total
-      - `interactionReactFlowStateSync`: `1`, `0.1ms` total
+  - required CDP visual signal is reused from item `299`:
+    - no product renderer/runtime code changed in item `300`
+    - the existing fresh-context CDP check already confirmed both worktree and
+      read-only `main` `/settings` pages rendered the All Settings graph
+      surface rather than a spinner/blank shell
+- item `299` completed one bounded product reduction on the named
+  `reactFlowViewportPublish` hotspot:
+  - landed a canary viewport-override seam so local pan-only motion can read
+    the authoritative canary viewport through shared helpers without
+    republishing the React Flow transform on every step
+  - narrowed the canary runtime so React Flow only gets:
+    - metadata syncs
+    - the initial canary transform publish
+    - later zoom-driven transform publishes
+  - focused unit coverage passed after adding a new pan-only regression test:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/forks/xyflow/core/hooks/useViewportHelper.test.ts` -> passed (`2 files`, `12 tests`)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/hooks/useViewportHelper.ts src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed before the final probe reruns
+  - the canonical Playwright probe produced one successful measurement window on the updated product slice before failing only on the old expectation:
+    - legacy `main`: average `17.05ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.76ms`, max `50.1ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - measured canary motion attribution on that run:
       - `reactFlowViewportPublish`: `0`
       - `reactFlowTransformSubscriptionCallback`: `0`
       - `reactFlowTransformFollowerCallback`: `0`
+      - `interactionMiscStateSync`: `1`
+      - `interactionReactFlowStateSync`: `1`
       - `viewportPersistenceDispatch`: `0`
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presentation-path-owner-verdict.md`
-    - required CDP visual signal is reused from item `301`:
-      - no renderer/runtime product code changed on item `302`
-      - the existing fresh-context smoke check already confirmed both worktree
-        `3076` and read-only `main` `3087` `/settings` pages rendered the All
-        Settings graph surface instead of a spinner or blank shell
-  - item `301` completed one bounded attribution slice on the canary-owned
-    viewport presentation path after item `300`:
-    - landed new motion-attribution owners in
-      [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts):
-      - `presentedSceneSectionsResolve`
-      - `pixiViewportPresent`
-    - instrumented the two product call sites:
-      - shared presented-section subset resolve in
-        [`SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx)
-      - Pixi viewport-present path in
-        [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
-    - updated focused coverage:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed (`3 files`, `13 tests`)
-      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
-    - widened the canonical probe allowlist in
-      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
-      so the new non-React-Flow owners are treated as expected attribution
-      candidates while the old closed owners (`reactFlowViewportPublish`,
-      `reactFlowTransformSubscriptionCallback`,
-      `reactFlowTransformFollowerCallback`) still must remain `0`
-    - verifier/runtime state on the live lane regressed again:
-      - the canonical cross-worktree probe launched with fresh runtime-info
-        tokens and reached the test banner, then re-entered the known
-        post-banner stall shape without yielding a pass/fail verdict
-      - a narrower worktree-only canary E2E with a freshly minted worktree
-        token passed global setup but timed out at `120000ms` and then reported
-        `page.evaluate: Target page, context or browser has been closed` while
-        `normalizeSettingsGraphComparePaneState(...)` was running
-      - treat both failures as verifier/runtime debt for this lane, not as
-        evidence that the new attribution owners broke the renderer
-    - perf note:
-      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-presentation-attribution.md`
-    - required CDP visual check completed via a fresh-context sub-agent:
-      - direct `/settings` comparisons on worktree `3076` and read-only `main`
-        `3087` both rendered the full All Settings graph surface rather than a
-        spinner or blank shell
-      - no gross worktree-vs-main visual regression was seen at this smoke
-        level
-      - the worktree bootstrap token was rejected immediately in-browser, so
-        the smoke check used the route render directly instead of a fresh
-        bootstrap page
-  - item `300` restored one trustworthy automated verdict on the canonical
-    `rotaryParamCodeObjDefault` perf lane after item `299`:
-    - the remaining verifier issue was not a product regression on the landed
-      `reactFlowViewportPublish` removal; the probe still hit the documented
-      zero-publish motion window, but reruns could stall because the
-      requestAnimationFrame-gated motion sequence was being driven on a page
-      that was no longer foregrounded after the cross-page reference capture
-    - landed one bounded verifier-only fix in
-      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts):
-      - call `targetPage.bringToFront()` before the normalized lane setup and
-        again immediately before `startSettingsGraphMotionPerfCapture(...)`
-      - replace the brittle
-        `dominantCanaryMotionAttributionOwner === null` assertion with the real
-        post-item-299 contract:
-        - `reactFlowViewportPublish`: `0`
-        - `reactFlowTransformSubscriptionCallback`: `0`
-        - `reactFlowTransformFollowerCallback`: `0`
-        - no non-zero owners outside the residual
-          `interactionMiscStateSync` /
-          `interactionReactFlowStateSync` pair
-    - final focused verification passed on fresh runtime-info-derived tokens:
-      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
-      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `39.8s`)
-    - normalized motion-perf output on the passing rerun:
-      - legacy `main`: average `17.05ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `18.17ms`, max `50ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-      - measured canary motion attribution on the passing rerun:
-        - `interactionMiscStateSync`: `1`, `0ms` total
-        - `interactionReactFlowStateSync`: `1`, `0.2ms` total
-        - `reactFlowViewportPublish`: `0`
-        - `reactFlowTransformSubscriptionCallback`: `0`
-        - `reactFlowTransformFollowerCallback`: `0`
-        - `viewportPersistenceDispatch`: `0`
-    - required CDP visual signal is reused from item `299`:
-      - no product renderer/runtime code changed in item `300`
-      - the existing fresh-context CDP check already confirmed both worktree and
-        read-only `main` `/settings` pages rendered the All Settings graph
-        surface rather than a spinner/blank shell
-  - item `299` completed one bounded product reduction on the named
-    `reactFlowViewportPublish` hotspot:
-    - landed a canary viewport-override seam so local pan-only motion can read
-      the authoritative canary viewport through shared helpers without
-      republishing the React Flow transform on every step
-    - narrowed the canary runtime so React Flow only gets:
-      - metadata syncs
-      - the initial canary transform publish
-      - later zoom-driven transform publishes
-    - focused unit coverage passed after adding a new pan-only regression test:
-      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/forks/xyflow/core/hooks/useViewportHelper.test.ts` -> passed (`2 files`, `12 tests`)
-      - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/hooks/useViewportHelper.ts src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed before the final probe reruns
-    - the canonical Playwright probe produced one successful measurement window on the updated product slice before failing only on the old expectation:
-      - legacy `main`: average `17.05ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `17.76ms`, max `50.1ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-      - measured canary motion attribution on that run:
-        - `reactFlowViewportPublish`: `0`
-        - `reactFlowTransformSubscriptionCallback`: `0`
-        - `reactFlowTransformFollowerCallback`: `0`
-        - `interactionMiscStateSync`: `1`
-        - `interactionReactFlowStateSync`: `1`
-        - `viewportPersistenceDispatch`: `0`
-    - the shared probe expectation is now updated to match that new contract:
-      - no React Flow viewport publish or transform-subscription callback should appear inside the measured motion window on the canary lane
-    - required CDP visual check completed via a fresh-context sub-agent:
-      - both `/settings` pages on `3076` and `3087` rendered the All Settings graph surface instead of sticking on a spinner or blank shell
-      - the only visual note was that the worktree center canvas looked whiter / emptier than `main`; no hard render failure was seen
-    - remaining verifier blocker on this lane:
-      - after the probe expectation update, repeated reruns still started the canonical Playwright lane and then hung after the test banner without yielding a pass/fail verdict
-      - fresh one-time bootstrap tokens had to be minted manually from the live `setta_files_dev/runtime/sessions` registries for both the worktree and `main`; plain `status --connect-info` tokens and stale bootstrap URLs were rejected with `401`
-      - treat the post-banner hang as verifier/runtime debt for this lane, not as evidence that the `reactFlowViewportPublish` reduction regressed product behavior
-  - item `293` remains landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
-  - item `298` completed the attribution-led pass that the `05:49 EDT` progress review handed off:
-    - landed one bounded motion-attribution seam across the remaining transform / shared-store consumers on the canonical lane
-    - instrumented owners: `reactFlowViewportPublish`, `reactFlowTransformSubscriptionCallback`, `reactFlowTransformFollowerCallback`, `interactionReactFlowStateSync`, `interactionMiscStateSync`, and `viewportPersistenceDispatch`
-    - focused unit coverage passed and the canonical cross-worktree motion probe passed on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes
-    - normalized motion-perf output on the landed branch:
-      - legacy `main`: average `16.62ms`, max `34.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `17.02ms`, max `33.4ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-    - the landed attribution report now names one concrete remaining owner on the measured sequence:
-      - `reactFlowViewportPublish`: `20` calls, `1.6ms` total, `0.2ms` max
-      - `reactFlowTransformSubscriptionCallback`: `20` calls, `0ms` total
-      - `reactFlowTransformFollowerCallback`: `20` calls, `0ms` total
-      - `interactionReactFlowStateSync`: `1` call, `0.1ms` total
-      - `interactionMiscStateSync`: `1` call, `0ms` total
-      - `viewportPersistenceDispatch`: `0` calls
-    - the canonical motion probe initially stalled after entering the spec body; a narrow verifier-only cleanup fix now lets this specific perf probe restore backend state without forcing a last `applyProjectStateUpdate(...)` sync before teardown, and the same command completed in `24.2s`
-  - the required CDP visual check for item `298` is still pending:
-    - first fresh-context sub-agent read the quickstart and reached both `/settings` pages, but both stayed on the connected-shell spinner rather than rendering the expected Settings graph surfaces
-    - second fresh-context sub-agent was retried with fresh worktree and main bootstrap URLs, but it did not return a trustworthy graph-surface result before shutdown
-    - treat this as a deferred visual gate for the instrumentation slice, not as renderer evidence
-  - progress review checkpoint after ten successful loop iterations:
-    - item `291` and item `293` were the last clear measured wins on this canonical lane
-    - items `295`, `296`, and `297` each closed a bounded hypothesis without improving the lane
-    - that pattern now counts as diminishing returns for blind transform-consumer / shared-store mirror toggles without stronger attribution
-  - item `297` tested and closed one additional transform-subscriber / shared-store mirror hypothesis on the same lane:
-    - temporary product experiment: extend the existing pointer-event suppression hook so `viewportInteractionActive` also disables inner section pointer events during active canary motion
-    - the same cross-worktree motion-perf probe on the live worktree/reference runtimes moved in the wrong direction:
-      - legacy `main`: average `18.56ms`, max `116.8ms`, `44` samples, long-task total `185ms`, root DOM `7628`, target section DOM `132`, visible section count `46`
-      - worktree canary with the temporary suppression: average `21.11ms`, max `100.1ms`, `45` samples, long-task total `320ms`, root DOM `131`, target section DOM `128`, visible section count `1`
-    - because the lane regressed materially, the temporary product/test change was reverted; this closes the viewport-interaction pointer-suppression hypothesis without leaving production code behind
-  - the required CDP visual retry for item `297` is blocked again after the one allowed in-pass lifecycle recovery:
-    - headless `./aireset.sh` recovery succeeded and refreshed the worktree runtime to frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, debug port `9297`
-    - two fresh-context CDP sub-agents still could not complete the visual check:
-      - first retry failed before page inspection because chrome-devtools MCP hung on browser-tool startup (`Network.enable` timeout)
-      - second retry on the restarted runtime could read the quickstart, but the chrome-devtools MCP browser tools were not accessible in that session at all
-    - the required visual check is therefore still pending due transport/tool access, not due a renderer regression claim
-  - the production probes from the prior pass still stand:
-    - worktree-only instrumentation probe stayed stable on the focused lane:
-      - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
-      - auto-fit still showed `42`
-    - the cross-worktree motion-perf probe showed a real improvement for this slice:
-      - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-      - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-  - item `296` tested and closed one focused viewport-sync / shared-store mirror hypothesis on the same lane:
-    - temporary product experiment: defer the debounced viewport-persistence scheduling during active canary interaction bursts and schedule one write after the interaction settles
-    - the same cross-worktree motion-perf probe on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes stayed effectively flat:
-      - legacy `main`: average `17.80ms`, max `82.4ms`, `44` samples, long-task total `155ms`
-      - worktree canary with the temporary deferral: average `18.99ms`, max `83.4ms`, `43` samples, long-task total `150ms`
-    - because the lane did not improve, the temporary product/test change was reverted; this closes the per-tick viewport-persistence scheduling hypothesis without leaving production code behind
-  - the fresh-loop CDP smoke retry on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes passed:
-    - refreshed runtime info resolved worktree frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9297`
-    - refreshed runtime info resolved main frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
-    - fresh-context Chrome DevTools MCP smoke-check reached both Settings pages and confirmed live workspace signals on both sides (`RootWebArea "Settings"`, `main`, `/home`, `Connected to server`)
-    - the worktree smoke-check saw one transient `navigate_page` timeout at `10000ms`, but the retry succeeded and the transport stayed usable
-    - this closes the smoke gate only; it is not a focused parity proof
-  - item `295` tested and closed one focused Pixi/scene hypothesis on the same lane:
-    - temporary product experiment: cache the Pixi shell host size and stop re-reading `clientWidth` / `clientHeight` during viewport-only presents
-    - focused worktree instrumentation stayed stable on the same `rotaryParamCodeObjDefault` path:
-      - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
-      - `pixiSyncCount` stayed `1`
-      - `sceneSyncCount` stayed `2`
-    - the same cross-worktree motion-perf probe on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes did not show a win:
-      - legacy `main`: average `17.80ms`, max `83.3ms`, `44` samples, long-task total `144ms`
-      - worktree canary with the temporary cache: average `20.15ms`, max `116.7ms`, `43` samples, long-task total `187ms`
-    - because the lane did not improve, the temporary product change was reverted; this closes the Pixi host-size read hypothesis without leaving production code behind
+  - the shared probe expectation is now updated to match that new contract:
+    - no React Flow viewport publish or transform-subscription callback should appear inside the measured motion window on the canary lane
+  - required CDP visual check completed via a fresh-context sub-agent:
+    - both `/settings` pages on `3076` and `3087` rendered the All Settings graph surface instead of sticking on a spinner or blank shell
+    - the only visual note was that the worktree center canvas looked whiter / emptier than `main`; no hard render failure was seen
+  - remaining verifier blocker on this lane:
+    - after the probe expectation update, repeated reruns still started the canonical Playwright lane and then hung after the test banner without yielding a pass/fail verdict
+    - fresh one-time bootstrap tokens had to be minted manually from the live `setta_files_dev/runtime/sessions` registries for both the worktree and `main`; plain `status --connect-info` tokens and stale bootstrap URLs were rejected with `401`
+    - treat the post-banner hang as verifier/runtime debt for this lane, not as evidence that the `reactFlowViewportPublish` reduction regressed product behavior
+- item `293` remains landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
+- item `298` completed the attribution-led pass that the `05:49 EDT` progress review handed off:
+  - landed one bounded motion-attribution seam across the remaining transform / shared-store consumers on the canonical lane
+  - instrumented owners: `reactFlowViewportPublish`, `reactFlowTransformSubscriptionCallback`, `reactFlowTransformFollowerCallback`, `interactionReactFlowStateSync`, `interactionMiscStateSync`, and `viewportPersistenceDispatch`
+  - focused unit coverage passed and the canonical cross-worktree motion probe passed on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes
+  - normalized motion-perf output on the landed branch:
+    - legacy `main`: average `16.62ms`, max `34.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.02ms`, max `33.4ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - the landed attribution report now names one concrete remaining owner on the measured sequence:
+    - `reactFlowViewportPublish`: `20` calls, `1.6ms` total, `0.2ms` max
+    - `reactFlowTransformSubscriptionCallback`: `20` calls, `0ms` total
+    - `reactFlowTransformFollowerCallback`: `20` calls, `0ms` total
+    - `interactionReactFlowStateSync`: `1` call, `0.1ms` total
+    - `interactionMiscStateSync`: `1` call, `0ms` total
+    - `viewportPersistenceDispatch`: `0` calls
+  - the canonical motion probe initially stalled after entering the spec body; a narrow verifier-only cleanup fix now lets this specific perf probe restore backend state without forcing a last `applyProjectStateUpdate(...)` sync before teardown, and the same command completed in `24.2s`
+- the required CDP visual check for item `298` is still pending:
+  - first fresh-context sub-agent read the quickstart and reached both `/settings` pages, but both stayed on the connected-shell spinner rather than rendering the expected Settings graph surfaces
+  - second fresh-context sub-agent was retried with fresh worktree and main bootstrap URLs, but it did not return a trustworthy graph-surface result before shutdown
+  - treat this as a deferred visual gate for the instrumentation slice, not as renderer evidence
+- progress review checkpoint after ten successful loop iterations:
+  - item `291` and item `293` were the last clear measured wins on this canonical lane
+  - items `295`, `296`, and `297` each closed a bounded hypothesis without improving the lane
+  - that pattern now counts as diminishing returns for blind transform-consumer / shared-store mirror toggles without stronger attribution
+- item `297` tested and closed one additional transform-subscriber / shared-store mirror hypothesis on the same lane:
+  - temporary product experiment: extend the existing pointer-event suppression hook so `viewportInteractionActive` also disables inner section pointer events during active canary motion
+  - the same cross-worktree motion-perf probe on the live worktree/reference runtimes moved in the wrong direction:
+    - legacy `main`: average `18.56ms`, max `116.8ms`, `44` samples, long-task total `185ms`, root DOM `7628`, target section DOM `132`, visible section count `46`
+    - worktree canary with the temporary suppression: average `21.11ms`, max `100.1ms`, `45` samples, long-task total `320ms`, root DOM `131`, target section DOM `128`, visible section count `1`
+  - because the lane regressed materially, the temporary product/test change was reverted; this closes the viewport-interaction pointer-suppression hypothesis without leaving production code behind
+- the required CDP visual retry for item `297` is blocked again after the one allowed in-pass lifecycle recovery:
+  - headless `./aireset.sh` recovery succeeded and refreshed the worktree runtime to frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, debug port `9297`
+  - two fresh-context CDP sub-agents still could not complete the visual check:
+    - first retry failed before page inspection because chrome-devtools MCP hung on browser-tool startup (`Network.enable` timeout)
+    - second retry on the restarted runtime could read the quickstart, but the chrome-devtools MCP browser tools were not accessible in that session at all
+  - the required visual check is therefore still pending due transport/tool access, not due a renderer regression claim
+- the production probes from the prior pass still stand:
+  - worktree-only instrumentation probe stayed stable on the focused lane:
+    - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
+    - auto-fit still showed `42`
+  - the cross-worktree motion-perf probe showed a real improvement for this slice:
+    - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+- item `296` tested and closed one focused viewport-sync / shared-store mirror hypothesis on the same lane:
+  - temporary product experiment: defer the debounced viewport-persistence scheduling during active canary interaction bursts and schedule one write after the interaction settles
+  - the same cross-worktree motion-perf probe on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes stayed effectively flat:
+    - legacy `main`: average `17.80ms`, max `82.4ms`, `44` samples, long-task total `155ms`
+    - worktree canary with the temporary deferral: average `18.99ms`, max `83.4ms`, `43` samples, long-task total `150ms`
+  - because the lane did not improve, the temporary product/test change was reverted; this closes the per-tick viewport-persistence scheduling hypothesis without leaving production code behind
+- the fresh-loop CDP smoke retry on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes passed:
+  - refreshed runtime info resolved worktree frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9297`
+  - refreshed runtime info resolved main frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
+  - fresh-context Chrome DevTools MCP smoke-check reached both Settings pages and confirmed live workspace signals on both sides (`RootWebArea "Settings"`, `main`, `/home`, `Connected to server`)
+  - the worktree smoke-check saw one transient `navigate_page` timeout at `10000ms`, but the retry succeeded and the transport stayed usable
+  - this closes the smoke gate only; it is not a focused parity proof
+- item `295` tested and closed one focused Pixi/scene hypothesis on the same lane:
+  - temporary product experiment: cache the Pixi shell host size and stop re-reading `clientWidth` / `clientHeight` during viewport-only presents
+  - focused worktree instrumentation stayed stable on the same `rotaryParamCodeObjDefault` path:
+    - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
+    - `pixiSyncCount` stayed `1`
+    - `sceneSyncCount` stayed `2`
+  - the same cross-worktree motion-perf probe on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes did not show a win:
+    - legacy `main`: average `17.80ms`, max `83.3ms`, `44` samples, long-task total `144ms`
+    - worktree canary with the temporary cache: average `20.15ms`, max `116.7ms`, `43` samples, long-task total `187ms`
+  - because the lane did not improve, the temporary product change was reverted; this closes the Pixi host-size read hypothesis without leaving production code behind
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -1246,6 +1289,7 @@ Do not use the next iteration for:
         - `viewportPersistenceDispatch`: `0`
     - `CDP visual check: done (reused item 299 fresh-context confirmation because item 300 changed only the Playwright verifier and did not change renderer/runtime product code)`
   - Lane status:
+
     - the canonical Playwright perf lane is trustworthy again
     - the `reactFlowViewportPublish` reduction remains landed and should not be reopened by default
     - the next product hotspot is still not fully named beyond the residual one-off interaction-sync pair, so the next useful pass should add one bounded attribution seam on that remaining cost
@@ -1269,6 +1313,7 @@ Do not use the next iteration for:
     - those later reruns still hung after the test banner without returning a verdict, so the clean canonical probe result remains pending on a verifier/runtime issue rather than a known product regression
     - `CDP visual check: done (fresh-context sub-agent confirmed both worktree and main /settings All Settings surfaces rendered; worktree center looked whiter than main but not blank/spinner)`
   - Lane status:
+
     - the `reactFlowViewportPublish` reduction is landed and should not be reopened by default
     - the next immediate blocker is the canonical Playwright probe hang after the test banner
     - the next product hotspot is unknown until that verifier exits cleanly again

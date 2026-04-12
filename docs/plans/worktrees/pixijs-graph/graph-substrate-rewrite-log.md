@@ -12075,6 +12075,7 @@ LOOP_TERMINAL_MARKER: none
     `presentedSceneSectionVisibilityFilter` owner on the same
     `rotaryParamCodeObjDefault` lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-08 09:42 EDT - Ralph item 308
 
 - Canonical target section: `rotaryParamCodeObjDefault`
@@ -12396,18 +12397,18 @@ LOOP_TERMINAL_MARKER: none
       -> passed
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-010/main-ai.log`
       -> logged:
-        - `settings-graph-probe-phase-start reference: bootstrap page`
-        - `settings-graph-probe-phase-start reference: open settings`
-        - `settings-graph-reference-open-settings-progress` at `69ms`,
-          `1618ms`, and `29677ms`
-      -> the final readiness snapshot still showed mounted `All Settings` on
-      read-only `main` with `graphSurfaceMounted=true`,
-      `settingsContentMounted=true`, `projectIsLoading=false`,
-      `legacyPaneCount=1`, and `visibleArticleCount=323`
-      -> after that, the probe emitted no new
-      `settings-graph-probe-phase-start` lines for either side during an
-      additional bounded wait window, so the run was terminated manually
-      before numeric perf output
+      - `settings-graph-probe-phase-start reference: bootstrap page`
+      - `settings-graph-probe-phase-start reference: open settings`
+      - `settings-graph-reference-open-settings-progress` at `69ms`,
+        `1618ms`, and `29677ms`
+        -> the final readiness snapshot still showed mounted `All Settings` on
+        read-only `main` with `graphSurfaceMounted=true`,
+        `settingsContentMounted=true`, `projectIsLoading=false`,
+        `legacyPaneCount=1`, and `visibleArticleCount=323`
+        -> after that, the probe emitted no new
+        `settings-graph-probe-phase-start` lines for either side during an
+        additional bounded wait window, so the run was terminated manually
+        before numeric perf output
   - Reading:
     - the current blocker is no longer coarse `capture motion perf` and no
       longer `reference: open settings`
@@ -12449,6 +12450,42 @@ LOOP_TERMINAL_MARKER: none
       reference root DOM rose to `9527` and editable controls to `129`
     - next frontier: explain or normalize the recurring reference-side motion
       probe inflation before another canary-side product reduction
+- LOOP_TERMINAL_MARKER: none
+- 2026-04-12 16:24 UTC | item 323 | cache Pixi shell drawable models per section
+  - Picked one bounded product-side perf slice on the canonical
+    `rotaryParamCodeObjDefault` lane after the last successful probe named
+    `pixiDrawableModelResolve` as the current worktree-side dominant motion
+    owner.
+  - Product code changed in the Pixi shell drawable path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+      now caches per-section drawable resolution inputs and reuses the cached
+      drawable object when those inputs are unchanged
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      now passes the previous cache back into the drawable resolver on the next
+      render
+  - Added focused reuse/invalidation coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`.
+  - Added
+    `perf/reports/frontend/2026-04-12_settings-graph-pixi-drawable-cache-reuse.md`
+    to record the slice and current runtime reading.
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `18` tests)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-012/main-ai.log`
+      -> progressed through read-only `main` bootstrap/open-settings and both
+      sides' project-config/project-state/view-mode/target-section resolution
+      -> failed before numeric perf output with `Timed out after 30000ms during
+settings graph probe phase: worktree: capture initial pane state.`
+    - Chrome DevTools MCP smoke on worktree `3075` and read-only `main` `3087`
+      -> both `/settings` surfaces mounted without blanking or obvious visual
+      drift in the inspected graph substrate area
+  - Result:
+    - this slice removes avoidable Pixi shell model rebuild work for unchanged
+      sections, but it does not claim a measured frame win yet because the
+      canonical probe never reached numeric motion output on this runtime
+    - the next bounded frontier is to classify or recover the live worktree
+      stall at `capture initial pane state` before judging the remaining motion
+      owner
 - LOOP_TERMINAL_MARKER: none
 - 2026-04-12 16:02 UTC | item 322 | isolate post-bootstrap setup phases on canonical probe
   - Picked the one remaining allowed probe-only pass on the canonical
@@ -12508,16 +12545,16 @@ LOOP_TERMINAL_MARKER: none
       -> passed
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-main-reference-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/worktree-ai.log --main-worktree /home/ubuntu/dev/setta --main-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-008/main-ai.log`
       -> logged progress snapshots at:
-        - `91ms`: titlebar attached, no graph surface, no settings content,
-          `projectIsLoading=false`
-        - `1644ms`: no graph surface, no settings content,
-          `projectIsLoading=true`
-        - `25028ms`: graph surface mounted, settings content mounted,
-          `projectIsLoading=false`, `legacyPaneCount=1`,
-          `visibleArticleCount=323`
-      -> progressed past `reference: open settings`, then failed on the
-      existing perf assertions with reference average `40.37ms` and worktree
-      average `48.11ms`
+      - `91ms`: titlebar attached, no graph surface, no settings content,
+        `projectIsLoading=false`
+      - `1644ms`: no graph surface, no settings content,
+        `projectIsLoading=true`
+      - `25028ms`: graph surface mounted, settings content mounted,
+        `projectIsLoading=false`, `legacyPaneCount=1`,
+        `visibleArticleCount=323`
+        -> progressed past `reference: open settings`, then failed on the
+        existing perf assertions with reference average `40.37ms` and worktree
+        average `48.11ms`
   - Result:
     - the recurring read-only `main` blocker is no longer an opaque readiness
       timeout on this runtime; startup completed in about `25s`

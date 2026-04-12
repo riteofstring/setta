@@ -74,6 +74,41 @@ export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   topDragHandle: SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null;
 };
 
+type SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry = {
+  darkMode: boolean;
+  drawable: SettingsGraphSubstrateCanarySectionShellPixiDrawable | null;
+  isActiveSection: boolean;
+  isSurfaceFrameHovered: boolean;
+  isTopDragHandleVisible: boolean;
+  previewStyleColor: string | null | undefined;
+  sceneBoundsHeight: number | null;
+  sceneBoundsWidth: number | null;
+  sectionHeight: number | null;
+  sectionId: string;
+  sectionIsInOtherProjectConfigs: boolean;
+  sectionPositionAndSizeLocked: boolean;
+  sectionRenderedX: number;
+  sectionRenderedY: number;
+  sectionSeedHeight: number | null;
+  sectionSeedSizeAuthority:
+    | SettingsGraphSubstrateCanarySectionSeedNode["sizeAuthority"]
+    | null;
+  sectionSeedWidth: number | null;
+  sectionSizeAuthority: SettingsGraphSubstrateCanarySceneSection["sizeAuthority"];
+  sectionStyleColor: string | null | undefined;
+  sectionTextBlockMetaControlStyle: boolean;
+  sectionTypeName: SectionTypeEnum;
+  sectionWidth: number | null;
+};
+
+export type SettingsGraphSubstrateCanarySectionShellPixiDrawableResolution = {
+  cacheBySectionId: Map<
+    string,
+    SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry
+  >;
+  drawables: Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>;
+};
+
 export function areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
   left: ReadonlyArray<SettingsGraphSubstrateCanarySectionShellPixiDrawable>,
   right: ReadonlyArray<SettingsGraphSubstrateCanarySectionShellPixiDrawable>,
@@ -106,6 +141,7 @@ export function areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
 }
 
 export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+  previousCacheBySectionId,
   activeSectionIds,
   darkMode,
   draggingSectionId,
@@ -114,6 +150,10 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   sceneSections,
   sectionSeedNodes,
 }: {
+  previousCacheBySectionId?: ReadonlyMap<
+    string,
+    SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry
+  >;
   activeSectionIds: ReadonlyArray<string>;
   darkMode: boolean;
   draggingSectionId: string | null;
@@ -121,34 +161,172 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   previewStyleColors: Record<string, string | null | undefined>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes;
-}): Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable> {
+}): SettingsGraphSubstrateCanarySectionShellPixiDrawableResolution {
   const activeSectionIdSet = new Set(activeSectionIds);
   const drawables: Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable> =
     [];
+  const cacheBySectionId = new Map<
+    string,
+    SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry
+  >();
 
   for (const section of sceneSections) {
     const isHoveredSection =
       section.sectionId === hoveredSectionId ||
       section.sectionId === draggingSectionId;
     const sectionSeedNode = sectionSeedNodes.get(section.sectionId);
+    const isActiveSection =
+      activeSectionIdSet.has(section.sectionId) ||
+      section.isActiveSection === true;
+    const previewStyleColor = previewStyleColors[section.sectionId];
+    const previousCacheEntry = previousCacheBySectionId?.get(section.sectionId);
     const drawable =
-      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
+      isSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntryReusable(
+        previousCacheEntry,
+        {
+          darkMode,
+          isActiveSection,
+          isSurfaceFrameHovered: isHoveredSection,
+          isTopDragHandleVisible: isHoveredSection,
+          previewStyleColor,
+          section,
+          sectionSeedNode,
+        },
+      )
+        ? previousCacheEntry.drawable
+        : resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
+            darkMode,
+            isActiveSection,
+            isSurfaceFrameHovered: isHoveredSection,
+            isTopDragHandleVisible: isHoveredSection,
+            previewStyleColor,
+            section,
+            sectionSeedNode,
+          });
+    cacheBySectionId.set(
+      section.sectionId,
+      createSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry({
         darkMode,
-        isActiveSection:
-          activeSectionIdSet.has(section.sectionId) ||
-          section.isActiveSection === true,
+        drawable,
+        isActiveSection,
         isSurfaceFrameHovered: isHoveredSection,
         isTopDragHandleVisible: isHoveredSection,
-        previewStyleColor: previewStyleColors[section.sectionId],
+        previewStyleColor,
         section,
         sectionSeedNode,
-      });
+      }),
+    );
     if (drawable) {
       drawables.push(drawable);
     }
   }
 
-  return drawables;
+  return {
+    cacheBySectionId,
+    drawables,
+  };
+}
+
+function createSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry({
+  darkMode,
+  drawable,
+  isActiveSection,
+  isSurfaceFrameHovered,
+  isTopDragHandleVisible,
+  previewStyleColor,
+  section,
+  sectionSeedNode,
+}: {
+  darkMode: boolean;
+  drawable: SettingsGraphSubstrateCanarySectionShellPixiDrawable | null;
+  isActiveSection: boolean;
+  isSurfaceFrameHovered: boolean;
+  isTopDragHandleVisible: boolean;
+  previewStyleColor: string | null | undefined;
+  section: SettingsGraphSubstrateCanarySceneSection;
+  sectionSeedNode: SettingsGraphSubstrateCanarySectionSeedNode | undefined;
+}): SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry {
+  return {
+    darkMode,
+    drawable,
+    isActiveSection,
+    isSurfaceFrameHovered,
+    isTopDragHandleVisible,
+    previewStyleColor,
+    sceneBoundsHeight: section.sceneBoundsSize?.height ?? null,
+    sceneBoundsWidth: section.sceneBoundsSize?.width ?? null,
+    sectionHeight: section.height ?? null,
+    sectionId: section.sectionId,
+    sectionIsInOtherProjectConfigs: section.isInOtherProjectConfigs ?? false,
+    sectionPositionAndSizeLocked: section.positionAndSizeLocked,
+    sectionRenderedX: section.renderedPosition.x,
+    sectionRenderedY: section.renderedPosition.y,
+    sectionSeedHeight: sectionSeedNode?.height ?? null,
+    sectionSeedSizeAuthority: sectionSeedNode?.sizeAuthority ?? null,
+    sectionSeedWidth: sectionSeedNode?.width ?? null,
+    sectionSizeAuthority: section.sizeAuthority,
+    sectionStyleColor: section.styleColor,
+    sectionTextBlockMetaControlStyle:
+      section.textBlockMetaControlStyle ?? false,
+    sectionTypeName: section.sectionTypeName ?? SectionTypeEnum.Code,
+    sectionWidth: section.width ?? null,
+  };
+}
+
+function isSettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntryReusable(
+  cacheEntry:
+    | SettingsGraphSubstrateCanarySectionShellPixiDrawableCacheEntry
+    | undefined,
+  {
+    darkMode,
+    isActiveSection,
+    isSurfaceFrameHovered,
+    isTopDragHandleVisible,
+    previewStyleColor,
+    section,
+    sectionSeedNode,
+  }: {
+    darkMode: boolean;
+    isActiveSection: boolean;
+    isSurfaceFrameHovered: boolean;
+    isTopDragHandleVisible: boolean;
+    previewStyleColor: string | null | undefined;
+    section: SettingsGraphSubstrateCanarySceneSection;
+    sectionSeedNode: SettingsGraphSubstrateCanarySectionSeedNode | undefined;
+  },
+) {
+  if (!cacheEntry) {
+    return false;
+  }
+
+  return (
+    cacheEntry.sectionId === section.sectionId &&
+    cacheEntry.darkMode === darkMode &&
+    cacheEntry.isActiveSection === isActiveSection &&
+    cacheEntry.isSurfaceFrameHovered === isSurfaceFrameHovered &&
+    cacheEntry.isTopDragHandleVisible === isTopDragHandleVisible &&
+    cacheEntry.previewStyleColor === previewStyleColor &&
+    cacheEntry.sectionRenderedX === section.renderedPosition.x &&
+    cacheEntry.sectionRenderedY === section.renderedPosition.y &&
+    cacheEntry.sectionWidth === (section.width ?? null) &&
+    cacheEntry.sectionHeight === (section.height ?? null) &&
+    cacheEntry.sceneBoundsWidth === (section.sceneBoundsSize?.width ?? null) &&
+    cacheEntry.sceneBoundsHeight ===
+      (section.sceneBoundsSize?.height ?? null) &&
+    cacheEntry.sectionSizeAuthority === section.sizeAuthority &&
+    cacheEntry.sectionTypeName ===
+      (section.sectionTypeName ?? SectionTypeEnum.Code) &&
+    cacheEntry.sectionStyleColor === section.styleColor &&
+    cacheEntry.sectionTextBlockMetaControlStyle ===
+      (section.textBlockMetaControlStyle ?? false) &&
+    cacheEntry.sectionPositionAndSizeLocked === section.positionAndSizeLocked &&
+    cacheEntry.sectionIsInOtherProjectConfigs ===
+      (section.isInOtherProjectConfigs ?? false) &&
+    cacheEntry.sectionSeedWidth === (sectionSeedNode?.width ?? null) &&
+    cacheEntry.sectionSeedHeight === (sectionSeedNode?.height ?? null) &&
+    cacheEntry.sectionSeedSizeAuthority ===
+      (sectionSeedNode?.sizeAuthority ?? null)
+  );
 }
 
 function areSettingsGraphSubstrateCanarySectionShellPixiDrawableEqual(

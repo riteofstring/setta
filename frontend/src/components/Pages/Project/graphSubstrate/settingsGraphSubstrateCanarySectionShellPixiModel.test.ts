@@ -16,7 +16,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       textBlockMetaControlStyle: false,
     });
 
-    const drawables =
+    const { drawables } =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
@@ -60,7 +60,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
   });
 
   it("skips sections whose remaining shell chrome is only the hidden hover handle", () => {
-    const drawables =
+    const { drawables } =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
@@ -82,7 +82,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
   });
 
   it("projects the shell-owned top drag handle into Pixi when the section is hovered", () => {
-    const drawables =
+    const { drawables } =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
@@ -122,7 +122,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
   });
 
   it("uses dark-mode shell colors for unthemed active sections", () => {
-    const drawables =
+    const { drawables } =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: ["section-a"],
         darkMode: true,
@@ -153,7 +153,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
   });
 
   it("projects the meta-control hover frame into Pixi without needing the DOM surface frame", () => {
-    const drawables =
+    const { drawables } =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
@@ -189,7 +189,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
   });
 
   it("uses shared-node seed size for unresolved shell geometry", () => {
-    const drawables =
+    const { drawables } =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
@@ -221,6 +221,75 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       height: 190,
       width: 280,
     });
+  });
+
+  it("reuses cached drawable objects for semantically unchanged sections", () => {
+    const firstResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previewStyleColors: {},
+        sceneSections: [createSceneSection()],
+        sectionSeedNodes: new Map(),
+      });
+
+    const secondResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previousCacheBySectionId: firstResolution.cacheBySectionId,
+        previewStyleColors: {},
+        sceneSections: [createSceneSection()],
+        sectionSeedNodes: new Map(),
+      });
+
+    expect(secondResolution.drawables[0]).toBe(firstResolution.drawables[0]);
+  });
+
+  it("invalidates the cached drawable for sections whose drawable inputs changed", () => {
+    const firstResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({ sectionId: "section-a" }),
+          createSceneSection({
+            positionAndSizeLocked: true,
+            sectionId: "section-b",
+          }),
+        ],
+        sectionSeedNodes: new Map(),
+      });
+
+    const secondResolution =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previousCacheBySectionId: firstResolution.cacheBySectionId,
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({ sectionId: "section-a" }),
+          createSceneSection({
+            positionAndSizeLocked: false,
+            sectionId: "section-b",
+          }),
+        ],
+        sectionSeedNodes: new Map(),
+      });
+
+    expect(secondResolution.drawables[0]).toBe(firstResolution.drawables[0]);
+    expect(secondResolution.drawables[1]).not.toBe(
+      firstResolution.drawables[1],
+    );
   });
 });
 
