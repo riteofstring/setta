@@ -212,54 +212,37 @@ func (r *Registry) HasKnownPluginSetting(pluginID string, localSettingID string)
 func (r *Registry) MissingSettingError(settingID string) error {
 	normalizedSettingID, err := normalizeSettingID(settingID)
 	if err != nil {
-		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", strings.TrimSpace(settingID))
+		return newUnknownSettingIDError(settingID)
 	}
 
-	pluginID, localSettingID, ok := parsePluginSettingID(normalizedSettingID)
-	if !ok {
-		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+	pluginID, _, ok := parsePluginSettingID(normalizedSettingID)
+	if !ok || !r.HasKnownPlugin(pluginID) {
+		return newUnknownSettingIDError(normalizedSettingID)
 	}
-	if !r.HasKnownPlugin(pluginID) {
-		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
-	}
-
-	status, ok := r.pluginStatusByPluginID[pluginID]
-	if ok {
-		if !status.Operational() {
-			observedState := describeObservedPluginStates(status.ObservedStates)
-			if observedState == "" {
-				return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable.", pluginID)
-			}
-			return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable (state=%s).", pluginID, observedState)
-		}
-		if !status.RuntimeEntryAvailable {
-			observedState := describeObservedPluginStates(status.ObservedStates)
-			if observedState == "" {
-				observedState = "unknown"
-			}
-			return newSettingError(
-				ErrorCodePluginUnavailable,
-				"Plugin %s is unavailable (state=%s, runtime entry missing).",
-				pluginID,
-				observedState,
-			)
-		}
-		if !status.SupportsUISettings {
-			return newSettingError(
-				ErrorCodePluginUnavailable,
-				"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
-				pluginID,
-			)
-		}
+	if err := r.missingPluginStatusError(pluginID); err != nil {
+		return err
 	}
 	if settingErr, ok := r.invalidPluginSettings[normalizedSettingID]; ok {
 		return newSettingError(settingErr.Code, "%s", settingErr.Message)
 	}
+	return newUnknownSettingIDError(normalizedSettingID)
+}
 
-	if !r.HasKnownPluginSetting(pluginID, localSettingID) {
-		return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+func (r *Registry) missingPluginStatusError(pluginID string) error {
+	status, ok := r.pluginStatusByPluginID[pluginID]
+	if !ok {
+		return nil
 	}
-	return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", normalizedSettingID)
+	if err := status.requireOperationalState(pluginID); err != nil {
+		return err
+	}
+	if err := status.requireRuntimeEntry(pluginID); err != nil {
+		return err
+	}
+	if err := status.requireUISettingsCapability(pluginID); err != nil {
+		return err
+	}
+	return nil
 }
 
 func scoreEntry(entry Entry, normalizedQuery string, tokens []string) int {
@@ -385,6 +368,27 @@ func cloneSettingErrorMap(values map[string]SettingError) map[string]SettingErro
 	return cloned
 }
 
+func (s pluginRegistryStatus) requireOperationalState(pluginID string) error {
+	if s.Operational() {
+		return nil
+	}
+	return newPluginUnavailableStateError(pluginID, describeObservedPluginStates(s.ObservedStates))
+}
+
+func (s pluginRegistryStatus) requireRuntimeEntry(pluginID string) error {
+	if s.RuntimeEntryAvailable {
+		return nil
+	}
+	return newPluginRuntimeEntryMissingError(pluginID, describeObservedPluginStates(s.ObservedStates))
+}
+
+func (s pluginRegistryStatus) requireUISettingsCapability(pluginID string) error {
+	if s.SupportsUISettings {
+		return nil
+	}
+	return newPluginUISettingsCapabilityError(pluginID)
+}
+
 func describeObservedPluginStates(states []string) string {
 	trimmed := make([]string, 0, len(states))
 	for _, state := range states {
@@ -403,4 +407,40 @@ func describeObservedPluginStates(states []string) string {
 		return trimmed[0]
 	}
 	return strings.Join(trimmed, ",")
+}
+
+func newUnknownSettingIDError(settingID string) error {
+	return newSettingError(ErrorCodeSettingNotFound, "Unknown setting id: %s", strings.TrimSpace(settingID))
+}
+
+func newPluginUnavailableStateError(pluginID string, observedState string) error {
+	if observedState == "" {
+		return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable.", pluginID)
+	}
+	return newSettingError(
+		ErrorCodePluginUnavailable,
+		"Plugin %s is unavailable (state=%s).",
+		pluginID,
+		observedState,
+	)
+}
+
+func newPluginRuntimeEntryMissingError(pluginID string, observedState string) error {
+	if observedState == "" {
+		observedState = "unknown"
+	}
+	return newSettingError(
+		ErrorCodePluginUnavailable,
+		"Plugin %s is unavailable (state=%s, runtime entry missing).",
+		pluginID,
+		observedState,
+	)
+}
+
+func newPluginUISettingsCapabilityError(pluginID string) error {
+	return newSettingError(
+		ErrorCodePluginUnavailable,
+		"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
+		pluginID,
+	)
 }

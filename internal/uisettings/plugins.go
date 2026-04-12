@@ -45,6 +45,14 @@ type pluginUISettingParseResult struct {
 	InvalidSettingErrors map[string]SettingError
 }
 
+type pluginUISettingRequiredFields struct {
+	LocalSettingID string
+	Title          string
+	Description    string
+	PaneID         string
+	RevealKey      string
+}
+
 type ScopedRegistryOptions struct {
 	Runtime           CoreProjectState
 	WorkspaceRoot     string
@@ -760,43 +768,21 @@ func (s pluginRuntimeSnapshot) requireOperationalState() error {
 	if pluginStatesAreOperational(s.observedStates) {
 		return nil
 	}
-	observedState := s.describeObservedState()
-	if observedState == "" {
-		return newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable.", s.trimmedPluginID)
-	}
-	return newSettingError(
-		ErrorCodePluginUnavailable,
-		"Plugin %s is unavailable (state=%s).",
-		s.trimmedPluginID,
-		observedState,
-	)
+	return newPluginUnavailableStateError(s.trimmedPluginID, s.describeObservedState())
 }
 
 func (s pluginRuntimeSnapshot) requireRuntimeEntry() error {
 	if s.hasRuntimeEntry {
 		return nil
 	}
-	observedState := s.describeObservedState()
-	if observedState == "" {
-		observedState = "unknown"
-	}
-	return newSettingError(
-		ErrorCodePluginUnavailable,
-		"Plugin %s is unavailable (state=%s, runtime entry missing).",
-		s.trimmedPluginID,
-		observedState,
-	)
+	return newPluginRuntimeEntryMissingError(s.trimmedPluginID, s.describeObservedState())
 }
 
 func (s pluginRuntimeSnapshot) requireUISettingsCapability() error {
 	if pluginHasRegisterPaneCapability(s.pluginEntry.EffectiveCapabilities) {
 		return nil
 	}
-	return newSettingError(
-		ErrorCodePluginUnavailable,
-		"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
-		s.trimmedPluginID,
-	)
+	return newPluginUISettingsCapabilityError(s.trimmedPluginID)
 }
 
 func (s pluginRuntimeSnapshot) describeObservedState() string {
@@ -1008,23 +994,7 @@ func parsePluginUISettingDefinition(pluginID string, schemaJSON map[string]any, 
 		return pluginUISettingDefinition{}, fmt.Errorf("plugin %s %s[%d] must be an object", pluginID, pluginUISettingsSchemaKey, index)
 	}
 
-	localSettingID, err := requirePluginUISettingID(definitionMap, pluginID, index)
-	if err != nil {
-		return pluginUISettingDefinition{}, err
-	}
-	title, err := requirePluginUISettingStringField(definitionMap, pluginID, index, "title")
-	if err != nil {
-		return pluginUISettingDefinition{}, err
-	}
-	description, err := requirePluginUISettingStringField(definitionMap, pluginID, index, "description")
-	if err != nil {
-		return pluginUISettingDefinition{}, err
-	}
-	paneID, err := requirePluginUISettingStringField(definitionMap, pluginID, index, "paneId")
-	if err != nil {
-		return pluginUISettingDefinition{}, err
-	}
-	revealKey, err := requirePluginUISettingStringField(definitionMap, pluginID, index, "revealKey")
+	requiredFields, err := requirePluginUISettingFields(definitionMap, pluginID, index)
 	if err != nil {
 		return pluginUISettingDefinition{}, err
 	}
@@ -1040,26 +1010,54 @@ func parsePluginUISettingDefinition(pluginID string, schemaJSON map[string]any, 
 	if err != nil {
 		return pluginUISettingDefinition{}, err
 	}
-	valueSchema, err := resolvePluginValueSchema(pluginID, localSettingID, schemaJSON, definitionMap["valueSchema"], configPath)
+	valueSchema, err := resolvePluginValueSchema(pluginID, requiredFields.LocalSettingID, schemaJSON, definitionMap["valueSchema"], configPath)
 	if err != nil {
 		return pluginUISettingDefinition{}, err
 	}
-	defaultValue, err := resolvePluginUISettingDefaultValue(definitionMap, pluginID, localSettingID, valueSchema)
+	defaultValue, err := resolvePluginUISettingDefaultValue(definitionMap, pluginID, requiredFields.LocalSettingID, valueSchema)
 	if err != nil {
 		return pluginUISettingDefinition{}, err
 	}
 	return pluginUISettingDefinition{
-		LocalSettingID: localSettingID,
-		Title:          title,
-		Description:    description,
+		LocalSettingID: requiredFields.LocalSettingID,
+		Title:          requiredFields.Title,
+		Description:    requiredFields.Description,
 		Synonyms:       synonyms,
-		PaneID:         paneID,
-		RevealKey:      revealKey,
+		PaneID:         requiredFields.PaneID,
+		RevealKey:      requiredFields.RevealKey,
 		ConfigPath:     configPath,
 		Mutability:     mutability,
 		ValueSchema:    valueSchema,
 		DefaultValue:   cloneJSONValue(defaultValue),
 	}, nil
+}
+
+func requirePluginUISettingFields(definitionMap map[string]any, pluginID string, index int) (pluginUISettingRequiredFields, error) {
+	requiredFields := pluginUISettingRequiredFields{}
+
+	localSettingID, err := requirePluginUISettingID(definitionMap, pluginID, index)
+	if err != nil {
+		return pluginUISettingRequiredFields{}, err
+	}
+	requiredFields.LocalSettingID = localSettingID
+
+	stringFields := []struct {
+		name   string
+		target *string
+	}{
+		{name: "title", target: &requiredFields.Title},
+		{name: "description", target: &requiredFields.Description},
+		{name: "paneId", target: &requiredFields.PaneID},
+		{name: "revealKey", target: &requiredFields.RevealKey},
+	}
+	for _, field := range stringFields {
+		value, err := requirePluginUISettingStringField(definitionMap, pluginID, index, field.name)
+		if err != nil {
+			return pluginUISettingRequiredFields{}, err
+		}
+		*field.target = value
+	}
+	return requiredFields, nil
 }
 
 func requirePluginUISettingID(definitionMap map[string]any, pluginID string, index int) (string, error) {

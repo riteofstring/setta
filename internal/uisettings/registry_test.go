@@ -2,6 +2,7 @@ package uisettings
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -160,6 +161,99 @@ func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
 				entry.Metadata.Location.OverviewTabKey,
 			)
 		}
+	}
+}
+
+func TestRegistryMissingSettingErrorReportsPluginAvailabilityFailures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		registry *Registry
+		wantCode ErrorCode
+		wantMsg  string
+	}{
+		{
+			name: "inactive plugin state",
+			registry: &Registry{
+				knownPluginIDs: map[string]struct{}{"plugin.alpha": {}},
+				pluginStatusByPluginID: map[string]pluginRegistryStatus{
+					"plugin.alpha": {ObservedStates: []string{"inactive"}},
+				},
+			},
+			wantCode: ErrorCodePluginUnavailable,
+			wantMsg:  "Plugin plugin.alpha is unavailable (state=inactive).",
+		},
+		{
+			name: "missing runtime entry",
+			registry: &Registry{
+				knownPluginIDs: map[string]struct{}{"plugin.alpha": {}},
+				pluginStatusByPluginID: map[string]pluginRegistryStatus{
+					"plugin.alpha": {
+						ObservedStates:        []string{"active"},
+						RuntimeEntryAvailable: false,
+						SupportsUISettings:    true,
+					},
+				},
+			},
+			wantCode: ErrorCodePluginUnavailable,
+			wantMsg:  "Plugin plugin.alpha is unavailable (state=active, runtime entry missing).",
+		},
+		{
+			name: "missing ui settings capability",
+			registry: &Registry{
+				knownPluginIDs: map[string]struct{}{"plugin.alpha": {}},
+				pluginStatusByPluginID: map[string]pluginRegistryStatus{
+					"plugin.alpha": {
+						ObservedStates:        []string{"active"},
+						RuntimeEntryAvailable: true,
+						SupportsUISettings:    false,
+					},
+				},
+			},
+			wantCode: ErrorCodePluginUnavailable,
+			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane capability not effective).",
+		},
+		{
+			name: "invalid plugin setting",
+			registry: &Registry{
+				knownPluginIDs: map[string]struct{}{"plugin.alpha": {}},
+				invalidPluginSettings: map[string]SettingError{
+					buildPluginSettingID("plugin.alpha", "theme_mode"): {
+						Code:    ErrorCodePluginUnavailable,
+						Message: "Plugin plugin.alpha setting theme_mode is unavailable for UI setting access (bad schema).",
+					},
+				},
+				pluginStatusByPluginID: map[string]pluginRegistryStatus{
+					"plugin.alpha": {
+						ObservedStates:        []string{"active"},
+						RuntimeEntryAvailable: true,
+						SupportsUISettings:    true,
+					},
+				},
+			},
+			wantCode: ErrorCodePluginUnavailable,
+			wantMsg:  "Plugin plugin.alpha setting theme_mode is unavailable for UI setting access (bad schema).",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.registry.MissingSettingError(buildPluginSettingID("plugin.alpha", "theme_mode"))
+			var settingErr *SettingError
+			if !errors.As(err, &settingErr) {
+				t.Fatalf("expected SettingError, got %T (%v)", err, err)
+			}
+			if settingErr.Code != tt.wantCode {
+				t.Fatalf("expected code %q, got %q", tt.wantCode, settingErr.Code)
+			}
+			if settingErr.Message != tt.wantMsg {
+				t.Fatalf("expected message %q, got %q", tt.wantMsg, settingErr.Message)
+			}
+		})
 	}
 }
 
