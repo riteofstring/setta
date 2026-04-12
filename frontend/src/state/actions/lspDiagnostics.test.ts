@@ -320,6 +320,30 @@ describe("processLspDiagnostics", () => {
     expect(diagnostics).toEqual([baseDiagnostic, formatterDiagnostic]);
   });
 
+  it("merges formatter diagnostics with incoming unmapped gen-code diagnostics", () => {
+    useLspDiagnostics.setState({
+      codeSections: {},
+      unmappedGenCode: [formatterDiagnostic],
+    });
+    const payload: LSPDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {},
+      unmappedGenCode: [baseDiagnostic],
+    };
+
+    processLspDiagnostics(payload);
+
+    expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([
+      baseDiagnostic,
+      formatterDiagnostic,
+    ]);
+  });
+
   it("keeps incoming formatter diagnostics without duplicating previous ones", () => {
     const incomingFormatter: LSPDiagnostic = {
       ...formatterDiagnostic,
@@ -390,6 +414,36 @@ describe("processLspDiagnostics", () => {
     processLspDiagnostics(payload);
 
     expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([]);
+  });
+
+  it("preserves existing unmapped gen-code arrays when unchanged", () => {
+    useLspDiagnostics.setState({
+      codeSections: {},
+      unmappedGenCode: [baseDiagnostic],
+    });
+    const prevArray = useLspDiagnostics.getState().unmappedGenCode;
+    const payload: LSPDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {},
+      unmappedGenCode: [
+        {
+          ...baseDiagnostic,
+          range: {
+            start: { ...baseDiagnostic.range.start },
+            end: { ...baseDiagnostic.range.end },
+          },
+        },
+      ],
+    };
+
+    processLspDiagnostics(payload);
+
+    expect(useLspDiagnostics.getState().unmappedGenCode).toBe(prevArray);
   });
 
   describe("immediate clears", () => {

@@ -76,73 +76,83 @@ function areDiagnosticsListEqual(
   }
   return true;
 }
+function mergeFormatterDiagnostics(
+  previous: Array<LSPDiagnostic>,
+  incoming: Array<LSPDiagnostic>,
+) {
+  if (incoming.length === 0) {
+    return [];
+  }
+  if (getFormatterDiagnostics(incoming).length > 0) {
+    return incoming;
+  }
+  const previousFormatter = getFormatterDiagnostics(previous);
+  if (previousFormatter.length === 0) {
+    return incoming;
+  }
+  return incoming.concat(previousFormatter);
+}
+function mergeDiagnosticsList(
+  previous: Array<LSPDiagnostic> | undefined,
+  incoming: Array<LSPDiagnostic>,
+) {
+  const previousDiagnostics = previous ?? [];
+  const mergedDiagnostics = mergeFormatterDiagnostics(
+    previousDiagnostics,
+    incoming,
+  );
+  if (mergedDiagnostics.length === 0) {
+    return {
+      diagnostics: mergedDiagnostics,
+      changed: previousDiagnostics.length > 0,
+    };
+  }
+  if (previous && areDiagnosticsListEqual(previous, mergedDiagnostics)) {
+    return { diagnostics: previous, changed: false };
+  }
+  return { diagnostics: mergedDiagnostics, changed: true };
+}
+function hasRemovedSectionDiagnostics(
+  previous: Record<string, Array<LSPDiagnostic>>,
+  incoming: Record<string, Array<LSPDiagnostic>>,
+) {
+  for (const [sectionId, diagnostics] of Object.entries(previous)) {
+    if (
+      !Object.prototype.hasOwnProperty.call(incoming, sectionId) &&
+      diagnostics.length > 0
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 function mergeDiagnosticsBySection(
   previous: Record<string, Array<LSPDiagnostic>>,
   incoming: Record<string, Array<LSPDiagnostic>>,
 ) {
-  let changed = false;
-  const merged: Record<string, Array<LSPDiagnostic>> = {};
-  const seen = new Set<string>();
+  let changed = hasRemovedSectionDiagnostics(previous, incoming);
+  const codeSections: Record<string, Array<LSPDiagnostic>> = {};
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
-    seen.add(sectionId);
-    const prevDiagnostics = previous[sectionId];
-    const prevFormatter = getFormatterDiagnostics(prevDiagnostics ?? []);
-    const incomingFormatter = getFormatterDiagnostics(nextDiagnostics);
-    let mergedDiagnostics: Array<LSPDiagnostic> = [];
-    if (nextDiagnostics.length > 0) {
-      if (incomingFormatter.length > 0) {
-        mergedDiagnostics = nextDiagnostics;
-      } else {
-        mergedDiagnostics = nextDiagnostics.concat(prevFormatter);
-      }
-    }
-    if (mergedDiagnostics.length === 0) {
-      if (prevDiagnostics?.length) {
-        changed = true;
-      }
-      continue;
-    }
-    if (
-      prevDiagnostics &&
-      areDiagnosticsListEqual(prevDiagnostics, mergedDiagnostics)
-    ) {
-      merged[sectionId] = prevDiagnostics;
-      continue;
-    }
-    merged[sectionId] = mergedDiagnostics;
-    if (!prevDiagnostics || prevDiagnostics !== mergedDiagnostics) {
+    const merged = mergeDiagnosticsList(previous[sectionId], nextDiagnostics);
+    if (merged.changed) {
       changed = true;
     }
-  }
-  for (const sectionId of Object.keys(previous)) {
-    if (seen.has(sectionId)) {
+    if (merged.diagnostics.length === 0) {
       continue;
     }
-    const prevDiagnostics = previous[sectionId] ?? [];
-    if (prevDiagnostics.length > 0) {
-      changed = true;
-    }
+    codeSections[sectionId] = merged.diagnostics;
   }
-  return { codeSections: merged, changed };
+  return { codeSections, changed };
 }
 function mergeUnmappedGenCode(
   previous: Array<LSPDiagnostic>,
   incoming: Array<LSPDiagnostic>,
 ) {
-  const prevFormatter = getFormatterDiagnostics(previous);
-  const incomingFormatter = getFormatterDiagnostics(incoming);
-  let mergedDiagnostics: Array<LSPDiagnostic> = [];
-  if (incoming.length > 0) {
-    if (incomingFormatter.length > 0) {
-      mergedDiagnostics = incoming;
-    } else {
-      mergedDiagnostics = incoming.concat(prevFormatter);
-    }
-  }
-  if (areDiagnosticsListEqual(previous, mergedDiagnostics)) {
-    return { unmappedGenCode: previous, changed: false };
-  }
-  return { unmappedGenCode: mergedDiagnostics, changed: true };
+  const merged = mergeDiagnosticsList(previous, incoming);
+  return {
+    unmappedGenCode: merged.diagnostics,
+    changed: merged.changed,
+  };
 }
 export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
   if (useShareSession.getState().isDeploymentMode) {
