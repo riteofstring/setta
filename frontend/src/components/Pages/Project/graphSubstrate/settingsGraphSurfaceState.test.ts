@@ -3,6 +3,7 @@ import {
   isSettingsGraphAppReady,
   isSettingsGraphProjectSurfaceLoading,
   resolveSettingsGraphSurfaceKind,
+  shouldContinueWaitingForSettingsGraphAppReady,
 } from "./settingsGraphSurfaceState";
 
 describe("settingsGraphSurfaceState", () => {
@@ -70,5 +71,37 @@ describe("settingsGraphSurfaceState", () => {
         settingsContentMounted: true,
       }),
     ).toBe(false);
+  });
+
+  it("stops polling when the latest snapshot is already ready at the timeout boundary", () => {
+    expect(
+      shouldContinueWaitingForSettingsGraphAppReady({
+        deadlineMs: 1_000,
+        nowMs: 1_000,
+        snapshot: {
+          appShellMounted: true,
+          canaryRootMounted: false,
+          legacyPaneMounted: true,
+          projectSurfaceLoadingMounted: false,
+          settingsContentMounted: true,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps polling while the app is still unready before the timeout", () => {
+    expect(
+      shouldContinueWaitingForSettingsGraphAppReady({
+        deadlineMs: 1_000,
+        nowMs: 999,
+        snapshot: {
+          appShellMounted: true,
+          canaryRootMounted: false,
+          legacyPaneMounted: false,
+          projectSurfaceLoadingMounted: true,
+          settingsContentMounted: false,
+        },
+      }),
+    ).toBe(true);
   });
 });

@@ -39,6 +39,7 @@ import {
   isSettingsGraphAppReady,
   isSettingsGraphProjectSurfaceLoading,
   resolveSettingsGraphSurfaceKind,
+  shouldContinueWaitingForSettingsGraphAppReady,
   type SettingsGraphSurfacePresenceSnapshot,
 } from "components/Pages/Project/graphSubstrate/settingsGraphSurfaceState";
 import { postBackend } from "../helpers";
@@ -1821,12 +1822,19 @@ async function waitForSettingsGraphAppReady(page: Page): Promise<void> {
       const deadline = Date.now() + timeoutMs;
       let lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
 
-      while (Date.now() < deadline) {
-        if (isSettingsGraphAppReady(lastSnapshot)) {
-          return;
-        }
+      while (
+        shouldContinueWaitingForSettingsGraphAppReady({
+          deadlineMs: deadline,
+          nowMs: Date.now(),
+          snapshot: lastSnapshot,
+        })
+      ) {
         await page.waitForTimeout(pollIntervalMs);
         lastSnapshot = await readSettingsGraphSurfacePresenceSnapshot(page);
+      }
+
+      if (isSettingsGraphAppReady(lastSnapshot)) {
+        return;
       }
 
       const loadingDetail = isSettingsGraphProjectSurfaceLoading(lastSnapshot)

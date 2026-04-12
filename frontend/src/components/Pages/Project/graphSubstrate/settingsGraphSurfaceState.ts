@@ -45,3 +45,13 @@ export function isSettingsGraphProjectSurfaceLoading(
     !snapshot.settingsContentMounted
   );
 }
+
+export function shouldContinueWaitingForSettingsGraphAppReady(args: {
+  deadlineMs: number;
+  nowMs: number;
+  snapshot: SettingsGraphSurfacePresenceSnapshot;
+}): boolean {
+  return (
+    !isSettingsGraphAppReady(args.snapshot) && args.nowMs < args.deadlineMs
+  );
+}

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 09:22 UTC
+Last updated: 2026-04-15 09:43 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `486` removed a false timeout from the canonical
+  `rotaryParamCodeObjDefault` lane-health helper so the live probe no longer
+  misclassifies a ready final snapshot as an app-readiness failure after the
+  compare-pane reload:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      `waitForSettingsGraphAppReady(...)` now rechecks the last-read snapshot
+      after the polling loop instead of throwing immediately when the deadline
+      is crossed, which avoids missing a ready legacy/canary surface that
+      appears on the final poll
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+      now exports the shared
+      `shouldContinueWaitingForSettingsGraphAppReady(...)` poll guard used by
+      the Playwright helper
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      now covers the timeout-boundary edge case where the latest snapshot is
+      already ready plus the still-unready pre-timeout path
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> passed (`1` file, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-017/worktree-ai.log`
+      -> passed; refreshed bootstrap token for session `ecd2b5`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> progressed through
+         `app_router_loading -> app_shell_without_surface -> settings_loading -> project_loading -> surface_ready`
+      -> no longer failed with
+         `Timed out waiting for settings graph app readiness after 30000ms`
+         on the post-reload helper path
+      -> still stalled after real `surface_ready` until the outer
+         `timeout 180s` killed the process; the remaining live blocker is
+         again the post-`surface_ready` owner, not the helper timeout
+  - reading:
+    - this is a direct unblocker for the canonical live lane, not another new
+      oracle family
+    - the lane is now back to the true boundary recorded after item `485`:
+      something still hangs after a mounted surface is present
+    - next: instrument or inspect the first post-`surface_ready` owner in the
+      lane-health spec path, starting with compare-pane normalization /
+      project-config synchronization after the mounted surface, rather than
+      revisiting readiness polling
 
 - item `485` narrowed the frontend `surface_ready` synchronization path on the
   canonical `rotaryParamCodeObjDefault` lane by removing the full normalized

@@ -20385,6 +20385,45 @@ LOOP_TERMINAL_MARKER: none
       that next owner precisely rather than revisiting the old store-read wait
 - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-15 09:43 UTC | item `486` | removed the false app-readiness timeout on the canonical lane-health reload
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      `waitForSettingsGraphAppReady(...)` now rechecks the last-read snapshot
+      after the polling loop so a ready final snapshot at the deadline is not
+      misclassified as an app-readiness timeout
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts`
+      exports the shared
+      `shouldContinueWaitingForSettingsGraphAppReady(...)` poll guard
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      covers both the ready-at-deadline and still-unready-before-timeout cases
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
+      -> passed (`1` file, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - runtime refresh:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph-panzoom-pivot/. --runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-017/worktree-ai.log`
+      -> passed; worktree session `ecd2b5`, frontend `3053`, backend `8053`,
+         debug port `9275`
+    - live canonical lane rerun with fresh token:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3053/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8053 SETTA_BOOTSTRAP_TOKEN=<fresh token from ./scripts/dev-runtime-info.sh> timeout 180s pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=60000`
+      -> reached
+         `app_router_loading -> app_shell_without_surface -> settings_loading -> project_loading -> surface_ready`
+      -> no longer reproduced the previous
+         `Timed out waiting for settings graph app readiness after 30000ms`
+         error from the post-reload compare-pane helper
+      -> still stalled after real `surface_ready` until the outer
+         `timeout 180s` killed the process, so the lane remains unproven
+  - reading:
+    - this closes the false helper timeout as a real blocker
+    - the remaining frontier is now the first true post-`surface_ready` owner
+      on the canonical live lane, not readiness polling
+    - next: inspect the first step after the mounted surface in the
+      lane-health path and name the stalled owner precisely before taking any
+      more helper cleanup
+- LOOP_TERMINAL_MARKER: none
+
 - 2026-04-14 14:08 UTC | item `472` | completed unpinned-area attribution split and hardened probe pane-state setup
   - canonical target section: `rotaryParamCodeObjDefault`
   - code/test changes:
