@@ -20,6 +20,7 @@ import {
 import {
   formatSettingsGraphPaneStateReadDiagnostic,
   readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState,
+  resolveSettingsGraphLocalPaneStateStorePatch,
   writePersistedSettingsGraphLocalPaneState,
   type SettingsGraphLocalPaneState,
   type SettingsGraphPaneStateReadDiagnostic,
@@ -232,12 +233,7 @@ async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
   }
 
   try {
-    const replacementPage = await page.context().newPage();
-    await replacementPage.goto(diagnostic.pageUrl, {
-      waitUntil: "domcontentloaded",
-    });
-    await waitForSettingsGraphAppReady(replacementPage);
-    return replacementPage;
+    await page.context().storageState();
   } catch (error) {
     if (isSettingsGraphPageLifecycleClosureError(error)) {
       throw new Error(
@@ -250,6 +246,13 @@ async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
     }
     throw error;
   }
+
+  const replacementPage = await page.context().newPage();
+  await replacementPage.goto(diagnostic.pageUrl, {
+    waitUntil: "domcontentloaded",
+  });
+  await waitForSettingsGraphAppReady(replacementPage);
+  return replacementPage;
 }
 
 async function runWithRecoverableSettingsGraphPageAction<T>(args: {
@@ -739,81 +742,6 @@ export function findSharedVisibleSettingsGraphSection(
 export async function getLocalPaneState(
   page: Page,
 ): Promise<SettingsGraphLocalPaneState> {
-  const persistedPaneState = await runWithSettingsGraphPageLifecycleGuard(
-    page,
-    "reading persisted local pane state from page local storage",
-    () =>
-      page.evaluate(() => {
-        const persistedPaneStateRaw = window.localStorage.getItem("setta_data");
-        if (!persistedPaneStateRaw) {
-          return null;
-        }
-
-        try {
-          const parsedPersistedState = JSON.parse(persistedPaneStateRaw) as {
-            overviewTrueWidth?: unknown;
-            overviewVis?: unknown;
-            snapToGrid?: unknown;
-            state?: {
-              overviewTrueWidth?: unknown;
-              overviewVis?: unknown;
-              snapToGrid?: unknown;
-              uiEditorTrueWidth?: unknown;
-              uiEditorVis?: unknown;
-            };
-            uiEditorTrueWidth?: unknown;
-            uiEditorVis?: unknown;
-          };
-          const paneState =
-            parsedPersistedState.state &&
-            typeof parsedPersistedState.state === "object" &&
-            !Array.isArray(parsedPersistedState.state)
-              ? parsedPersistedState.state
-              : parsedPersistedState;
-          if (
-            typeof paneState.overviewVis !== "boolean" ||
-            typeof paneState.overviewTrueWidth !== "number" ||
-            typeof paneState.snapToGrid !== "boolean" ||
-            typeof paneState.uiEditorVis !== "boolean" ||
-            typeof paneState.uiEditorTrueWidth !== "number"
-          ) {
-            return null;
-          }
-
-          return {
-            overviewVisible: paneState.overviewVis,
-            overviewTrueWidth: paneState.overviewTrueWidth,
-            snapToGrid: paneState.snapToGrid,
-            uiEditorVisible: paneState.uiEditorVis,
-            uiEditorTrueWidth: paneState.uiEditorTrueWidth,
-          };
-        } catch {
-          return null;
-        }
-      }),
-    2000,
-  );
-  if (persistedPaneState) {
-    return persistedPaneState;
-  }
-
-  const pageOrigin = new URL(page.url()).origin;
-  const storageState = await runWithSettingsGraphPageLifecycleGuard(
-    page,
-    "reading browser storage state for persisted local pane state",
-    () => page.context().storageState(),
-    5000,
-  );
-  const browserContextPersistedPaneState =
-    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
-      key: "setta_data",
-      origin: pageOrigin,
-      origins: storageState.origins,
-    });
-  if (browserContextPersistedPaneState) {
-    return browserContextPersistedPaneState;
-  }
-
   const paneStateReadResult = await runWithSettingsGraphPageLifecycleGuard(
     page,
     "reading local pane state from in-page storage/store",
@@ -862,7 +790,68 @@ export async function getLocalPaneState(
               };
             };
 
+          const readPersistedPaneState =
+            (): SettingsGraphLocalPaneState | null => {
+              const persistedPaneStateRaw =
+                window.localStorage.getItem("setta_data");
+              if (!persistedPaneStateRaw) {
+                return null;
+              }
+
+              try {
+                const parsedPersistedState = JSON.parse(
+                  persistedPaneStateRaw,
+                ) as {
+                  overviewTrueWidth?: unknown;
+                  overviewVis?: unknown;
+                  snapToGrid?: unknown;
+                  state?: {
+                    overviewTrueWidth?: unknown;
+                    overviewVis?: unknown;
+                    snapToGrid?: unknown;
+                    uiEditorTrueWidth?: unknown;
+                    uiEditorVis?: unknown;
+                  };
+                  uiEditorTrueWidth?: unknown;
+                  uiEditorVis?: unknown;
+                };
+                const persistedPaneState =
+                  parsedPersistedState.state &&
+                  typeof parsedPersistedState.state === "object" &&
+                  !Array.isArray(parsedPersistedState.state)
+                    ? parsedPersistedState.state
+                    : parsedPersistedState;
+                if (
+                  typeof persistedPaneState.overviewVis !== "boolean" ||
+                  typeof persistedPaneState.overviewTrueWidth !== "number" ||
+                  typeof persistedPaneState.snapToGrid !== "boolean" ||
+                  typeof persistedPaneState.uiEditorVis !== "boolean" ||
+                  typeof persistedPaneState.uiEditorTrueWidth !== "number"
+                ) {
+                  return null;
+                }
+
+                return {
+                  overviewVisible: persistedPaneState.overviewVis,
+                  overviewTrueWidth: persistedPaneState.overviewTrueWidth,
+                  snapToGrid: persistedPaneState.snapToGrid,
+                  uiEditorVisible: persistedPaneState.uiEditorVis,
+                  uiEditorTrueWidth: persistedPaneState.uiEditorTrueWidth,
+                };
+              } catch {
+                return null;
+              }
+            };
+
           try {
+            const persistedPaneState = readPersistedPaneState();
+            if (persistedPaneState) {
+              return {
+                kind: "success" as const,
+                paneState: persistedPaneState,
+              };
+            }
+
             return await Promise.race([
               (async () => {
                 const { useLocalStorage } = await import(
@@ -912,6 +901,23 @@ export async function getLocalPaneState(
     return paneStateReadResult.paneState;
   }
 
+  const pageOrigin = new URL(page.url()).origin;
+  const storageState = await runWithSettingsGraphPageLifecycleGuard(
+    page,
+    "reading browser storage state after in-page pane state fallback",
+    () => page.context().storageState(),
+    5000,
+  );
+  const browserContextPersistedPaneState =
+    readPersistedSettingsGraphLocalPaneStateFromBrowserStorageState({
+      key: "setta_data",
+      origin: pageOrigin,
+      origins: storageState.origins,
+    });
+  if (browserContextPersistedPaneState) {
+    return browserContextPersistedPaneState;
+  }
+
   if (paneStateReadResult.kind === "timeout") {
     throw new Error(
       `Timed out reading local pane state from in-page store after ${LOCAL_PANE_STATE_STORE_READ_TIMEOUT_MS}ms. ${formatSettingsGraphPaneStateReadDiagnostic(
@@ -931,29 +937,39 @@ export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
 ): Promise<Page> {
+  const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
+    paneState,
+    rawPersistedState: null,
+  });
+  const nextPaneStatePatch =
+    resolveSettingsGraphLocalPaneStateStorePatch(paneState);
+
   const { page: activePage } = await runWithRecoverableSettingsGraphPageAction({
     description: "writing normalized compare pane state",
     page,
     action: async (targetPage) => {
-      const existingPersistedPaneState = await targetPage.evaluate(() =>
-        window.localStorage.getItem("setta_data"),
-      );
-      const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
-        paneState,
-        rawPersistedState: existingPersistedPaneState,
-      });
-
       await targetPage.evaluate(
-        ({ key, value }: { key: string; value: string }) => {
+        async ({
+          key,
+          paneStatePatch,
+          value,
+        }: {
+          key: string;
+          paneStatePatch: ReturnType<
+            typeof resolveSettingsGraphLocalPaneStateStorePatch
+          >;
+          value: string;
+        }) => {
+          const { useLocalStorage } = await import("/src/state/definitions.ts");
           window.localStorage.setItem(key, value);
+          useLocalStorage.setState(paneStatePatch);
         },
         {
           key: "setta_data",
+          paneStatePatch: nextPaneStatePatch,
           value: nextPersistedPaneState,
         },
       );
-
-      await targetPage.reload({ waitUntil: "domcontentloaded" });
     },
   });
 
@@ -968,18 +984,9 @@ export async function normalizeSettingsGraphComparePaneState(
     page,
     SETTINGS_GRAPH_COMPARE_PANE_STATE,
   );
-
-  const { page: normalizedPage } =
-    await runWithRecoverableSettingsGraphPageAction({
-      description: "settling normalized compare pane state",
-      page: activePage,
-      action: async (targetPage) => {
-        await waitForSettingsGraphComparePaneChrome(targetPage);
-        await waitForSettingsGraphCompareTransientChrome(targetPage);
-      },
-    });
-
-  return normalizedPage;
+  await waitForSettingsGraphComparePaneChrome(activePage);
+  await waitForSettingsGraphCompareTransientChrome(activePage);
+  return activePage;
 }
 
 export async function fitGraphViewportToSection(
@@ -1791,7 +1798,8 @@ async function waitForSettingsGraphCompareTransientChrome(
       });
 
       const deadline = Date.now() + timeoutMs;
-      let lastSnapshot = await page.evaluate(() => {
+      let lastSnapshot = await page.evaluate(async () => {
+        const { useProjectLoading } = await import("/src/state/definitions.ts");
         const legacyPaneCount =
           document.querySelectorAll(".react-flow__pane").length;
         const canaryRootCount = document.querySelectorAll(
@@ -1804,10 +1812,7 @@ async function waitForSettingsGraphCompareTransientChrome(
           graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
           headerNotificationVisible:
             document.querySelector(".header-notification-fade") !== null,
-          projectIsLoading:
-            document.querySelector(
-              '[data-testid="project-surface-loading-state"]',
-            ) !== null,
+          projectIsLoading: useProjectLoading.getState().projectIsLoading,
           settingsContentMounted: articleElements.some((element) => {
             const htmlElement =
               element instanceof HTMLElement ? element : element.parentElement;
@@ -1821,7 +1826,10 @@ async function waitForSettingsGraphCompareTransientChrome(
           return;
         }
         await page.waitForTimeout(pollIntervalMs);
-        lastSnapshot = await page.evaluate(() => {
+        lastSnapshot = await page.evaluate(async () => {
+          const { useProjectLoading } = await import(
+            "/src/state/definitions.ts"
+          );
           const legacyPaneCount =
             document.querySelectorAll(".react-flow__pane").length;
           const canaryRootCount = document.querySelectorAll(
@@ -1834,10 +1842,7 @@ async function waitForSettingsGraphCompareTransientChrome(
             graphSurfaceMounted: legacyPaneCount > 0 || canaryRootCount > 0,
             headerNotificationVisible:
               document.querySelector(".header-notification-fade") !== null,
-            projectIsLoading:
-              document.querySelector(
-                '[data-testid="project-surface-loading-state"]',
-              ) !== null,
+            projectIsLoading: useProjectLoading.getState().projectIsLoading,
             settingsContentMounted: articleElements.some((element) => {
               const htmlElement =
                 element instanceof HTMLElement
