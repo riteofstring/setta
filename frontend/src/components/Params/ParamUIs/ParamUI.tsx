@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuard,
-  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -68,6 +68,378 @@ type ParamUIProps = {
   isPasswordRevealPending?: boolean;
   maybeErrorMessage?: string;
 };
+
+type ParamUIState = {
+  codeObjType: CodeObjTypeEnum;
+  passwordHasSecret: boolean;
+  configLanguage: string;
+  defaultVal: string;
+  disabledOrFrozen: boolean;
+  dropzoneMode: DropzoneModeEnum;
+  dropzoneMaxAttachments: number | null;
+  dropzonePlaceholder: string;
+  timeControlMode: TimeControlMode;
+  timeDisplayFormat: TimeDisplayFormat;
+  timeDisplayTransparent: boolean;
+  timeDisplayScale: number;
+  timeDisplayFont: TimeDisplayFont;
+  dateDisplayFormat: DateDisplayFormat;
+  dateControlMode: DateControlMode;
+  dateSelectionMode: DateSelectionMode;
+  dateCalendarWeekStart: DateCalendarWeekStart;
+  dateIncludesTime: boolean;
+};
+
+type ParamUIRenderContext = ParamUIProps & {
+  isDisabled: boolean;
+  isSelectingParams: boolean;
+  onEscape: () => void;
+  paramUiState: ParamUIState;
+  showPasswordReveal: boolean;
+  passwordPlaceholder?: string;
+  waitingForResult: boolean;
+};
+
+function createBaseParamUIState({
+  codeObjType,
+  defaultVal,
+  configLanguage,
+  disabledOrFrozen,
+}: {
+  codeObjType: CodeObjTypeEnum;
+  defaultVal: string;
+  configLanguage: string;
+  disabledOrFrozen: boolean;
+}): ParamUIState {
+  return {
+    codeObjType,
+    passwordHasSecret: false,
+    configLanguage,
+    defaultVal,
+    disabledOrFrozen,
+    dropzoneMode: DropzoneModeEnum.STATEFUL,
+    dropzoneMaxAttachments: null,
+    dropzonePlaceholder: "",
+    timeControlMode: TimeControlModeEnum.display,
+    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+    timeDisplayTransparent: false,
+    timeDisplayScale: 1,
+    timeDisplayFont: TimeDisplayFontEnum.monospace,
+    dateDisplayFormat: DateDisplayFormatEnum.iso,
+    dateControlMode: DateControlModeEnum.input,
+    dateSelectionMode: DateSelectionModeEnum.single,
+    dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+    dateIncludesTime: false,
+  };
+}
+
+function useParamUIState(
+  sectionId: string,
+  paramInfoId: string,
+): ParamUIState | null {
+  return useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+      x,
+      sectionId,
+      paramInfoId,
+      isBaseChildlessCodeObjImpl,
+    );
+    if (!impl || !codeObjImpl) {
+      return null;
+    }
+
+    const baseState = createBaseParamUIState({
+      codeObjType: codeObjImpl.type,
+      defaultVal: codeObjImpl.defaultVal,
+      configLanguage: impl.configLanguage,
+      disabledOrFrozen: impl.isFrozen,
+    });
+
+    switch (codeObjImpl.type) {
+      case CodeObjTypeEnum.PasswordParam:
+        return {
+          ...baseState,
+          passwordHasSecret: codeObjImpl.hasSecret,
+        };
+      case CodeObjTypeEnum.DropzoneParam:
+        return {
+          ...baseState,
+          dropzoneMode: codeObjImpl.mode,
+          dropzoneMaxAttachments: codeObjImpl.maxAttachments ?? null,
+          dropzonePlaceholder: codeObjImpl.placeholder,
+        };
+      case CodeObjTypeEnum.TimeParam:
+        return {
+          ...baseState,
+          timeControlMode: codeObjImpl.timeControlMode,
+          timeDisplayFormat: codeObjImpl.timeDisplayFormat,
+          timeDisplayTransparent: codeObjImpl.timeDisplayTransparent,
+          timeDisplayScale: codeObjImpl.timeDisplayScale,
+          timeDisplayFont: codeObjImpl.timeDisplayFont,
+        };
+      case CodeObjTypeEnum.DateParam:
+        return {
+          ...baseState,
+          dateDisplayFormat: codeObjImpl.dateDisplayFormat,
+          dateControlMode: codeObjImpl.dateControlMode,
+          dateSelectionMode: codeObjImpl.dateSelectionMode,
+          dateCalendarWeekStart: codeObjImpl.dateCalendarWeekStart,
+          dateIncludesTime: codeObjImpl.dateIncludesTime,
+        };
+      default:
+        return baseState;
+    }
+  }, _.isEqual);
+}
+
+function isTextLikeParamType(codeObjType: CodeObjTypeEnum): boolean {
+  return (
+    codeObjType === CodeObjTypeEnum.CodeParam ||
+    codeObjType === CodeObjTypeEnum.TextParam ||
+    codeObjType === CodeObjTypeEnum.TextAreaParam
+  );
+}
+
+function resolveParamUIDisabled({
+  isSelectingParams,
+  disabledOrFrozen,
+  canEditParams,
+  isDeploymentMode,
+  isCodeParam,
+}: {
+  isSelectingParams: boolean;
+  disabledOrFrozen: boolean;
+  canEditParams: boolean;
+  isDeploymentMode: boolean;
+  isCodeParam: boolean;
+}): boolean {
+  return (
+    isSelectingParams ||
+    disabledOrFrozen ||
+    !canEditParams ||
+    (isDeploymentMode && isCodeParam)
+  );
+}
+
+function resolvePasswordRevealState({
+  isDeploymentMode,
+  value,
+  hasSecret,
+}: {
+  isDeploymentMode: boolean;
+  value: string;
+  hasSecret: boolean;
+}): {
+  showPasswordReveal: boolean;
+  passwordPlaceholder?: string;
+} {
+  return {
+    showPasswordReveal:
+      !isDeploymentMode &&
+      shouldShowPasswordReveal({
+        value,
+        hasSecret,
+      }),
+    passwordPlaceholder: hasSecret && value === "" ? "Saved" : undefined,
+  };
+}
+
+function renderTextLikeParam({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onEscape,
+  maybeErrorMessage,
+  isDisabled,
+  isSelectingParams,
+  paramUiState,
+  waitingForResult,
+}: ParamUIRenderContext) {
+  if (!isTextLikeParamType(paramUiState.codeObjType)) {
+    return null;
+  }
+
+  return (
+    <TextParamConfigured
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      defaultVal={paramUiState.defaultVal}
+      onChange={onChange}
+      onEscape={onEscape}
+      maybeErrorMessage={maybeErrorMessage}
+      isDisabled={isDisabled}
+      configLanguage={paramUiState.configLanguage}
+      waitingForResult={waitingForResult}
+      isSelectingParams={isSelectingParams}
+    />
+  );
+}
+
+function renderDateTimeParam({
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+  paramUiState,
+}: ParamUIRenderContext) {
+  if (paramUiState.codeObjType === CodeObjTypeEnum.DateParam) {
+    return (
+      <TextParamDateTimeConfigured
+        value={value}
+        onChange={onChange}
+        onEscape={onEscape}
+        isDisabled={isDisabled}
+        uiType={TextParamInputUITypeEnum.date}
+        timeControlMode={TimeControlModeEnum.display}
+        timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+        timeDisplayTransparent={false}
+        timeDisplayScale={1}
+        timeDisplayFont={TimeDisplayFontEnum.monospace}
+        dateDisplayFormat={paramUiState.dateDisplayFormat}
+        dateControlMode={paramUiState.dateControlMode}
+        dateSelectionMode={paramUiState.dateSelectionMode}
+        dateCalendarWeekStart={paramUiState.dateCalendarWeekStart}
+        dateIncludesTime={paramUiState.dateIncludesTime}
+      />
+    );
+  }
+
+  if (paramUiState.codeObjType !== CodeObjTypeEnum.TimeParam) {
+    return null;
+  }
+
+  return (
+    <TextParamDateTimeConfigured
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+      uiType={TextParamInputUITypeEnum.time}
+      timeControlMode={paramUiState.timeControlMode}
+      timeDisplayFormat={paramUiState.timeDisplayFormat}
+      timeDisplayTransparent={paramUiState.timeDisplayTransparent}
+      timeDisplayScale={paramUiState.timeDisplayScale}
+      timeDisplayFont={paramUiState.timeDisplayFont}
+      dateDisplayFormat={DateDisplayFormatEnum.iso}
+      dateControlMode={DateControlModeEnum.input}
+      dateSelectionMode={DateSelectionModeEnum.single}
+      dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+      dateIncludesTime={false}
+    />
+  );
+}
+
+function renderSpecializedParam(context: ParamUIRenderContext) {
+  const {
+    sectionId,
+    paramInfoId,
+    value,
+    onChange,
+    onDropzoneStateless,
+    onRevealPassword,
+    isPasswordRevealPending,
+    isDisabled,
+    isSelectingParams,
+    onEscape,
+    paramUiState,
+    showPasswordReveal,
+    passwordPlaceholder,
+  } = context;
+
+  switch (paramUiState.codeObjType) {
+    case CodeObjTypeEnum.SliderParam:
+      return (
+        <SliderParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+        />
+      );
+    case CodeObjTypeEnum.RotaryParam:
+      return (
+        <RotaryParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+        />
+      );
+    case CodeObjTypeEnum.SwitchParam:
+      return (
+        <SwitchParamConfigured
+          value={value}
+          defaultVal={paramUiState.defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+        />
+      );
+    case CodeObjTypeEnum.ColorPickerParam:
+      return (
+        <ColorPickerParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+        />
+      );
+    case CodeObjTypeEnum.DropdownParam:
+      return (
+        <DropdownParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          isDisabled={isDisabled}
+        />
+      );
+    case CodeObjTypeEnum.PasswordParam: {
+      return (
+        <PasswordParamConfigured
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          isSelectingParams={isSelectingParams}
+          showReveal={showPasswordReveal}
+          onReveal={onRevealPassword}
+          isRevealing={isPasswordRevealPending ?? false}
+          placeholder={passwordPlaceholder}
+        />
+      );
+    }
+    case CodeObjTypeEnum.DropzoneParam:
+      return (
+        <DropzoneParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={onChange}
+          onStatelessDrop={onDropzoneStateless}
+          isDisabled={isDisabled}
+          mode={paramUiState.dropzoneMode}
+          maxAttachments={paramUiState.dropzoneMaxAttachments}
+          placeholder={paramUiState.dropzonePlaceholder || undefined}
+        />
+      );
+    default:
+      return null;
+  }
+}
 
 export function ParamUIConfig({
   sectionId,
@@ -151,282 +523,63 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
-  const {
-    codeObjType,
-    passwordHasSecret,
-    configLanguage,
-    defaultVal,
-    disabledOrFrozen,
-    dropzoneMode,
-    dropzoneMaxAttachments,
-    dropzonePlaceholder,
-    timeControlMode,
-    timeDisplayFormat,
-    timeDisplayTransparent,
-    timeDisplayScale,
-    timeDisplayFont,
-    dateDisplayFormat,
-    dateControlMode,
-    dateSelectionMode,
-    dateCalendarWeekStart,
-    dateIncludesTime,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseChildlessCodeObjImpl,
-    );
-    const isDropzone = codeObjImpl.type === CodeObjTypeEnum.DropzoneParam;
-    const hasPasswordSecret =
-      codeObjImpl.type === CodeObjTypeEnum.PasswordParam
-        ? codeObjImpl.hasSecret
-        : false;
-    const isDateParam = codeObjImpl.type === CodeObjTypeEnum.DateParam;
-    const isTimeParam = codeObjImpl.type === CodeObjTypeEnum.TimeParam;
-    return {
-      codeObjType: codeObjImpl.type,
-      passwordHasSecret: hasPasswordSecret,
-      configLanguage: impl.configLanguage,
-      defaultVal: codeObjImpl.defaultVal,
-      disabledOrFrozen: impl.isFrozen,
-      dropzoneMode: isDropzone ? codeObjImpl.mode : null,
-      dropzoneMaxAttachments: isDropzone
-        ? codeObjImpl.maxAttachments ?? null
-        : null,
-      dropzonePlaceholder: isDropzone ? codeObjImpl.placeholder : null,
-      timeControlMode: isTimeParam
-        ? codeObjImpl.timeControlMode
-        : TimeControlModeEnum.display,
-      timeDisplayFormat: isTimeParam
-        ? codeObjImpl.timeDisplayFormat
-        : TimeDisplayFormatEnum.twenty_four_hour,
-      timeDisplayTransparent: isTimeParam
-        ? codeObjImpl.timeDisplayTransparent
-        : false,
-      timeDisplayScale: isTimeParam ? codeObjImpl.timeDisplayScale : 1,
-      timeDisplayFont: isTimeParam
-        ? codeObjImpl.timeDisplayFont
-        : TimeDisplayFontEnum.monospace,
-      dateDisplayFormat: isDateParam
-        ? codeObjImpl.dateDisplayFormat
-        : DateDisplayFormatEnum.iso,
-      dateControlMode: isDateParam
-        ? codeObjImpl.dateControlMode
-        : DateControlModeEnum.input,
-      dateSelectionMode: isDateParam
-        ? codeObjImpl.dateSelectionMode
-        : DateSelectionModeEnum.single,
-      dateCalendarWeekStart: isDateParam
-        ? codeObjImpl.dateCalendarWeekStart
-        : DateCalendarWeekStartEnum.sunday,
-      dateIncludesTime: isDateParam ? codeObjImpl.dateIncludesTime : false,
-    };
-  }, _.isEqual);
-
+  const paramUiState = useParamUIState(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId,
   });
-  const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
-  const isDisabled =
-    isSelectingParams ||
-    disabledOrFrozen ||
-    !canEditParams ||
-    (isDeploymentMode && isCodeParam);
-  const showPasswordReveal =
-    !isDeploymentMode &&
-    shouldShowPasswordReveal({
+  if (paramUiState === null) {
+    return null;
+  }
+
+  const isCodeParam = paramUiState.codeObjType === CodeObjTypeEnum.CodeParam;
+  const isDisabled = resolveParamUIDisabled({
+    isSelectingParams,
+    disabledOrFrozen: paramUiState.disabledOrFrozen,
+    canEditParams,
+    isDeploymentMode,
+    isCodeParam,
+  });
+  const { showPasswordReveal, passwordPlaceholder } =
+    resolvePasswordRevealState({
+      isDeploymentMode,
       value,
-      hasSecret: passwordHasSecret,
+      hasSecret: paramUiState.passwordHasSecret,
     });
-  const passwordPlaceholder =
-    passwordHasSecret && value === "" ? "Saved" : undefined;
 
   function onEscape() {
     focusOnSection(null, sectionId, false);
   }
 
-  // need to put the group/textinput in a higher div
+  const renderContext = {
+    sectionId,
+    paramInfoId,
+    value,
+    onChange,
+    onDropzoneStateless,
+    onRevealPassword,
+    isPasswordRevealPending,
+    maybeErrorMessage,
+    isDisabled,
+    isSelectingParams,
+    onEscape,
+    paramUiState,
+    showPasswordReveal,
+    passwordPlaceholder,
+    waitingForResult,
+  } satisfies ParamUIRenderContext;
 
-  switch (codeObjType) {
-    case CodeObjTypeEnum.CodeParam:
-      return (
-        <TextParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          maybeErrorMessage={maybeErrorMessage}
-          isDisabled={isDisabled}
-          configLanguage={configLanguage}
-          waitingForResult={waitingForResult}
-          isSelectingParams={isSelectingParams}
-        />
-      );
-    case CodeObjTypeEnum.TextParam:
-      return (
-        <TextParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          maybeErrorMessage={maybeErrorMessage}
-          isDisabled={isDisabled}
-          configLanguage={configLanguage}
-          waitingForResult={waitingForResult}
-          isSelectingParams={isSelectingParams}
-        />
-      );
-    case CodeObjTypeEnum.DateParam:
-      return (
-        <TextParamDateTimeConfigured
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          uiType={TextParamInputUITypeEnum.date}
-          timeControlMode={TimeControlModeEnum.display}
-          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
-          timeDisplayTransparent={false}
-          timeDisplayScale={1}
-          timeDisplayFont={TimeDisplayFontEnum.monospace}
-          dateDisplayFormat={dateDisplayFormat}
-          dateControlMode={dateControlMode}
-          dateSelectionMode={dateSelectionMode}
-          dateCalendarWeekStart={dateCalendarWeekStart}
-          dateIncludesTime={dateIncludesTime}
-        />
-      );
-    case CodeObjTypeEnum.TimeParam:
-      return (
-        <TextParamDateTimeConfigured
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          uiType={TextParamInputUITypeEnum.time}
-          timeControlMode={timeControlMode}
-          timeDisplayFormat={timeDisplayFormat}
-          timeDisplayTransparent={timeDisplayTransparent}
-          timeDisplayScale={timeDisplayScale}
-          timeDisplayFont={timeDisplayFont}
-          dateDisplayFormat={DateDisplayFormatEnum.iso}
-          dateControlMode={DateControlModeEnum.input}
-          dateSelectionMode={DateSelectionModeEnum.single}
-          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
-          dateIncludesTime={false}
-        />
-      );
-    case CodeObjTypeEnum.SliderParam:
-      return (
-        <SliderParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.RotaryParam:
-      return (
-        <RotaryParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.SwitchParam:
-      return (
-        <SwitchParamConfigured
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.ColorPickerParam:
-      return (
-        <ColorPickerParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.DropdownParam:
-      return (
-        <DropdownParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          isDisabled={isDisabled}
-        />
-      );
-    case CodeObjTypeEnum.PasswordParam:
-      return (
-        <PasswordParamConfigured
-          value={value}
-          onChange={onChange}
-          onEscape={onEscape}
-          isDisabled={isDisabled}
-          isSelectingParams={isSelectingParams}
-          showReveal={showPasswordReveal}
-          onReveal={onRevealPassword}
-          isRevealing={isPasswordRevealPending ?? false}
-          placeholder={passwordPlaceholder}
-        />
-      );
-    case CodeObjTypeEnum.TextAreaParam:
-      return (
-        <TextParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          maybeErrorMessage={maybeErrorMessage}
-          isDisabled={isDisabled}
-          configLanguage={configLanguage}
-          waitingForResult={waitingForResult}
-          isSelectingParams={isSelectingParams}
-        />
-      );
-    case CodeObjTypeEnum.DropzoneParam:
-      return (
-        <DropzoneParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          onChange={onChange}
-          onStatelessDrop={onDropzoneStateless}
-          isDisabled={isDisabled}
-          mode={dropzoneMode}
-          maxAttachments={dropzoneMaxAttachments}
-          placeholder={dropzonePlaceholder ?? undefined}
-        />
-      );
-    default:
-      return codeObjType satisfies never;
+  const textLikeParam = renderTextLikeParam(renderContext);
+  if (textLikeParam !== null) {
+    return textLikeParam;
   }
+
+  const dateTimeParam = renderDateTimeParam(renderContext);
+  if (dateTimeParam !== null) {
+    return dateTimeParam;
+  }
+
+  return renderSpecializedParam(renderContext);
 }
 
 function TextParamConfigured({

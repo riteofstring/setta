@@ -5,7 +5,6 @@ import {
   createListRootSectionImpl,
   createProjectConfig,
   createSingletonSections,
-  createUserDefaultListRootSectionImpl,
   createVariant,
   ListRootViewModeEnum,
 } from "utils/generatedTypes";
@@ -24,13 +23,10 @@ describe("list root view mode performance", () => {
       }),
       sections: {},
       sectionImpls: {
-        [implId]: createListRootSectionImpl(
-          createUserDefaultListRootSectionImpl(),
-          {
-            id: implId,
-            viewMode: ListRootViewModeEnum.kanban,
-          },
-        ),
+        [implId]: createListRootSectionImpl({
+          id: implId,
+          viewMode: ListRootViewModeEnum.kanban,
+        }),
       },
       sectionVariants: {
         [variantId]: createVariant({
