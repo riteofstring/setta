@@ -31,10 +31,7 @@ import {
 import { useProjectState, useShareSession } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  ConfigLanguageEnum,
-  isBaseDictSectionImpl,
-} from "utils/generatedTypes";
+import { ConfigLanguageEnum } from "utils/generatedTypes";
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
   const { canEditVariants } = useShareCapabilities();
@@ -236,6 +233,266 @@ function OneVariantSortable({
   );
 }
 type VariantSortableItem = ReturnType<typeof useSortableListItem>;
+type VariantRowActionProps = {
+  sectionId: string;
+  id: string;
+  canEditVariants: boolean;
+  isDefault: boolean;
+  isFrozen: boolean;
+  isJsonSource: boolean;
+  canUseJsonSource: boolean;
+};
+type VariantActionButtonProps = {
+  className: string;
+  disabled: boolean;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  children: React.ReactNode;
+};
+
+function getVariantRowClassName(canEditVariants: boolean, isCurr: boolean) {
+  return `section-key-value group/versionitem flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors ${canEditVariants ? "cursor-pointer" : "cursor-not-allowed opacity-60"} ${
+    isCurr
+      ? "bg-white text-blue-600 shadow-sm dark:bg-setta-800"
+      : "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50"
+  }`;
+}
+
+function getVariantLabelClassName(isCurr: boolean) {
+  return `section-key min-w-0 flex-1 truncate text-left ${
+    isCurr
+      ? "font-medium text-blue-600 dark:text-blue-300"
+      : "text-setta-500 dark:text-setta-300"
+  }`;
+}
+
+function previewVariant(sectionId: string, id: string) {
+  useProjectState.setState((state) => {
+    state.previewSectionVariantMap[sectionId] = id;
+  });
+}
+
+function selectSectionVariant(sectionId: string, id: string) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      state.projectConfig.sectionVariantMap[sectionId] = id;
+    },
+    send: (frontendOpId) =>
+      callOpenAPI(
+        setSectionVariant({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            variantId: id,
+            frontendOpId,
+          },
+        } as Parameters<typeof setSectionVariant>[0]),
+      ),
+  });
+}
+
+function setDefaultVariantSelection(sectionId: string, id: string) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      getSectionCore(state, sectionId).defaultVariant = id;
+    },
+    send: (frontendOpId) =>
+      callOpenAPI(
+        setDefaultSectionVariant({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            variantId: id,
+            frontendOpId,
+          },
+        } as Parameters<typeof setDefaultSectionVariant>[0]),
+      ),
+  });
+}
+
+function toggleSectionVariantFrozen(id: string) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      const variant = getSectionVariant(state, id);
+      variant.isFrozen = !variant.isFrozen;
+    },
+    send: (frontendOpId) =>
+      callOpenAPI(
+        toggleVariantFrozen({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            variantId: id,
+            frontendOpId,
+          },
+        } as Parameters<typeof toggleVariantFrozen>[0]),
+      ),
+  });
+}
+
+function toggleSectionVariantJsonSource(sectionId: string, id: string) {
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      const { impl } = getVariantBaseAndEffectiveSectionImpl(
+        state,
+        getSectionCore(state, sectionId),
+        id,
+      );
+      if (impl.type !== "Dict") {
+        return;
+      }
+      const nextIsJsonSource = !impl.isJsonSource;
+      const nextConfigLanguage = nextIsJsonSource
+        ? ConfigLanguageEnum.json
+        : ConfigLanguageEnum.python;
+      setCurrEffectiveSectionImplValue<"BaseDictSection">(state, sectionId, {
+        isJsonSource: nextIsJsonSource,
+        configLanguage: nextConfigLanguage,
+      });
+    },
+    send: (frontendOpId) =>
+      callOpenAPI(
+        toggleVariantJsonSource({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            variantId: id,
+            frontendOpId,
+          },
+        } as Parameters<typeof toggleVariantJsonSource>[0]),
+      ),
+  });
+}
+
+function getVariantRowClickHandler(
+  sectionId: string,
+  id: string,
+  canEditVariants: boolean,
+) {
+  if (!canEditVariants) {
+    return undefined;
+  }
+  return () => {
+    selectSectionVariant(sectionId, id);
+  };
+}
+
+function createVariantActionHandler(
+  canEditVariants: boolean,
+  action: () => void,
+) {
+  return (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!canEditVariants) {
+      return;
+    }
+    event.stopPropagation();
+    action();
+  };
+}
+
+function stopVariantActionPointerDown(event: React.PointerEvent<HTMLElement>) {
+  event.stopPropagation();
+}
+
+function VariantDragHandle({
+  sortable,
+}: {
+  sortable: VariantSortableItem | null;
+}) {
+  const className = sortable
+    ? "inline-flex h-full w-4 shrink-0 cursor-grab items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+    : "inline-flex h-full w-4 shrink-0 cursor-default items-center justify-center text-setta-400 opacity-60 dark:text-setta-600";
+
+  return (
+    <span
+      ref={sortable?.setActivatorNodeRef}
+      data-testid="section-variant-drag-handle"
+      className={`${className} touch-none`}
+      {...(sortable?.attributes ?? {})}
+      {...(sortable?.listeners ?? {})}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+    </span>
+  );
+}
+
+function VariantActionButton({
+  className,
+  disabled,
+  onClick,
+  children,
+}: VariantActionButtonProps) {
+  return (
+    <button
+      className={`cursor-pointer bg-transparent ${className}`}
+      onClick={onClick}
+      onPointerDown={stopVariantActionPointerDown}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+}
+
+function VariantRowActions({
+  sectionId,
+  id,
+  canEditVariants,
+  isDefault,
+  isFrozen,
+  isJsonSource,
+  canUseJsonSource,
+}: VariantRowActionProps) {
+  const onSetDefault = createVariantActionHandler(canEditVariants, () => {
+    setDefaultVariantSelection(sectionId, id);
+  });
+  const onToggleFrozen = createVariantActionHandler(canEditVariants, () => {
+    toggleSectionVariantFrozen(id);
+  });
+  const onToggleJsonSource = createVariantActionHandler(canEditVariants, () => {
+    toggleSectionVariantJsonSource(sectionId, id);
+  });
+
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <VariantActionButton
+        className={
+          isDefault
+            ? "text-green-500"
+            : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
+        }
+        onClick={onSetDefault}
+        disabled={!canEditVariants}
+      >
+        <HiHome />
+      </VariantActionButton>
+      <VariantActionButton
+        className={
+          isFrozen
+            ? "text-blue-500"
+            : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
+        }
+        onClick={onToggleFrozen}
+        disabled={!canEditVariants}
+      >
+        <FaRegSnowflake />
+      </VariantActionButton>
+      {canUseJsonSource && (
+        <VariantActionButton
+          className={
+            isJsonSource
+              ? "text-orange-500"
+              : "text-transparent hover:!text-orange-400 group-hover/versionitem:text-setta-400/50"
+          }
+          onClick={onToggleJsonSource}
+          disabled={!canEditVariants}
+        >
+          <FiFileText />
+        </VariantActionButton>
+      )}
+    </div>
+  );
+}
+
 function OneVariantContent({
   sectionId,
   id,
@@ -258,7 +515,7 @@ function OneVariantContent({
         getSectionCore(x, sectionId),
         id,
       );
-      const canUseJsonSource = isBaseDictSectionImpl(impl);
+      const canUseJsonSource = impl.type === "Dict";
       const isJsonSource = canUseJsonSource && impl.isJsonSource;
       return {
         name: variant.name,
@@ -269,190 +526,32 @@ function OneVariantContent({
     },
     _.isEqual,
   );
-  const rowClasses = `section-key-value group/versionitem flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors ${canEditVariants ? "cursor-pointer" : "cursor-not-allowed opacity-60"} ${
-    isCurr
-      ? "bg-white text-blue-600 shadow-sm dark:bg-setta-800"
-      : "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50"
-  }`;
-  const dragHandleClasses = sortable
-    ? "inline-flex h-full w-4 shrink-0 cursor-grab items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-    : "inline-flex h-full w-4 shrink-0 cursor-default items-center justify-center text-setta-400 opacity-60 dark:text-setta-600";
-  const labelClassName = `section-key min-w-0 flex-1 truncate text-left ${
-    isCurr
-      ? "font-medium text-blue-600 dark:text-blue-300"
-      : "text-setta-500 dark:text-setta-300"
-  }`;
-  const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
-    event.stopPropagation();
-  };
+  const rowClasses = getVariantRowClassName(canEditVariants, isCurr);
+  const labelClassName = getVariantLabelClassName(isCurr);
+  const onClick = getVariantRowClickHandler(sectionId, id, canEditVariants);
+
   return (
     <li
       ref={sortable?.setNodeRef}
       data-testid="section-variant-row"
       data-variant-id={id}
       style={sortable?.style}
-      onMouseEnter={() =>
-        useProjectState.setState((x) => {
-          x.previewSectionVariantMap[sectionId] = id;
-        })
-      }
-      onClick={
-        canEditVariants
-          ? () =>
-              dispatchOptimisticProjectStateUpdate({
-                apply: (state) => {
-                  state.projectConfig.sectionVariantMap[sectionId] = id;
-                },
-                send: (frontendOpId) =>
-                  callOpenAPI(
-                    setSectionVariant({
-                      body: {
-                        projectConfigId: getCurrProjectConfigId(),
-                        sectionId,
-                        variantId: id,
-                        frontendOpId,
-                      },
-                    } as Parameters<typeof setSectionVariant>[0]),
-                  ),
-              })
-          : undefined
-      }
+      onMouseEnter={() => previewVariant(sectionId, id)}
+      onClick={onClick}
       aria-disabled={!canEditVariants}
       className={rowClasses}
     >
-      <span
-        ref={sortable?.setActivatorNodeRef}
-        data-testid="section-variant-drag-handle"
-        className={`${dragHandleClasses} touch-none`}
-        {...(sortable ? sortable.attributes : {})}
-        {...(sortable ? sortable.listeners : {})}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-      </span>
+      <VariantDragHandle sortable={sortable} />
       <p className={labelClassName}>{name}</p>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          className={`cursor-pointer bg-transparent ${
-            isDefault
-              ? "text-green-500"
-              : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
-          }`}
-          onClick={(e) => {
-            if (!canEditVariants) {
-              return;
-            }
-            e.stopPropagation(); // so that you can click on it without clicking on the variant
-            dispatchOptimisticProjectStateUpdate({
-              apply: (state) => {
-                getSectionCore(state, sectionId).defaultVariant = id;
-              },
-              send: (frontendOpId) =>
-                callOpenAPI(
-                  setDefaultSectionVariant({
-                    body: {
-                      projectConfigId: getCurrProjectConfigId(),
-                      sectionId,
-                      variantId: id,
-                      frontendOpId,
-                    },
-                  } as Parameters<typeof setDefaultSectionVariant>[0]),
-                ),
-            });
-          }}
-          onPointerDown={stopDragPointerDown}
-          disabled={!canEditVariants}
-        >
-          <HiHome />
-        </button>
-        <button
-          className={`cursor-pointer bg-transparent ${
-            isFrozen
-              ? "text-blue-500"
-              : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
-          }`}
-          onClick={(e) => {
-            if (!canEditVariants) {
-              return;
-            }
-            e.stopPropagation(); // so that you can click on it without clicking on the variant
-            dispatchOptimisticProjectStateUpdate({
-              apply: (state) => {
-                const variant = getSectionVariant(state, id);
-                variant.isFrozen = !variant.isFrozen;
-              },
-              send: (frontendOpId) =>
-                callOpenAPI(
-                  toggleVariantFrozen({
-                    body: {
-                      projectConfigId: getCurrProjectConfigId(),
-                      variantId: id,
-                      frontendOpId,
-                    },
-                  } as Parameters<typeof toggleVariantFrozen>[0]),
-                ),
-            });
-          }}
-          onPointerDown={stopDragPointerDown}
-          disabled={!canEditVariants}
-        >
-          <FaRegSnowflake />
-        </button>
-        {canUseJsonSource && (
-          <button
-            className={`cursor-pointer bg-transparent ${
-              isJsonSource
-                ? "text-orange-500"
-                : "text-transparent hover:!text-orange-400 group-hover/versionitem:text-setta-400/50"
-            }`}
-            onClick={(e) => {
-              if (!canEditVariants) {
-                return;
-              }
-              e.stopPropagation(); // so that you can click on it without clicking on the variant
-              dispatchOptimisticProjectStateUpdate({
-                apply: (state) => {
-                  const { impl } = getVariantBaseAndEffectiveSectionImpl(
-                    state,
-                    getSectionCore(state, sectionId),
-                    id,
-                  );
-                  if (!isBaseDictSectionImpl(impl)) {
-                    return;
-                  }
-                  const nextIsJsonSource = !impl.isJsonSource;
-                  const nextConfigLanguage = nextIsJsonSource
-                    ? ConfigLanguageEnum.json
-                    : ConfigLanguageEnum.python;
-                  setCurrEffectiveSectionImplValue<"BaseDictSection">(
-                    state,
-                    sectionId,
-                    {
-                      isJsonSource: nextIsJsonSource,
-                      configLanguage: nextConfigLanguage,
-                    },
-                  );
-                },
-                send: (frontendOpId) =>
-                  callOpenAPI(
-                    toggleVariantJsonSource({
-                      body: {
-                        projectConfigId: getCurrProjectConfigId(),
-                        sectionId,
-                        variantId: id,
-                        frontendOpId,
-                      },
-                    } as Parameters<typeof toggleVariantJsonSource>[0]),
-                  ),
-              });
-            }}
-            onPointerDown={stopDragPointerDown}
-            disabled={!canEditVariants}
-          >
-            <FiFileText />
-          </button>
-        )}
-      </div>
+      <VariantRowActions
+        sectionId={sectionId}
+        id={id}
+        canEditVariants={canEditVariants}
+        isDefault={isDefault}
+        isFrozen={isFrozen}
+        isJsonSource={isJsonSource}
+        canUseJsonSource={canUseJsonSource}
+      />
     </li>
   );
 }
