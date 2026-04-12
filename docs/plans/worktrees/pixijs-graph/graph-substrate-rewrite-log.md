@@ -15035,6 +15035,44 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 03:39 UTC
+
+- item `384` landed one bounded mounted minimized-edge-handle selector
+  reduction on the live canary lane:
+  - changed
+    `frontend/src/components/Section/Container/MinimizedDataEdgeHandles.tsx`
+    so the selector for `{ isMinimized, edgeInputParams, edgeOutputPorts[*].id }`
+    now uses a purpose-built port-id comparator instead of `lodash/isEqual`
+  - added
+    `frontend/src/components/Section/Container/MinimizedDataEdgeHandles.test.tsx`
+    to prove mounted minimized edge handles stay out of unrelated
+    `previewSectionVariantMap` commits while still re-rendering when this
+    section's minimized output ports change
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-minimized-data-edge-handles-selector.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/MinimizedDataEdgeHandles.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/MinimizedDataEdgeHandles.tsx src/components/Section/Container/MinimizedDataEdgeHandles.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> first attempt hit a blank-root stale worktree session
+      -> bounded self-recovery ran
+         `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> after runtime refresh, direct `/settings` mounted visible `Settings`
+         chrome and populated settings content
+      -> the refreshed bootstrap URL still rejected the token, so bootstrap
+         handoff remains separate tooling debt from this selector slice
+- result:
+  - this keeps the same source-of-truth inputs while removing generic
+    deep-equality work from a broad per-section shell edge-handle subscription
+- next:
+  - inspect the next broad mounted section-body/chrome subscriber or shared
+    write fan-out that still accepts unrelated `useProjectState` churn on the
+    live settings canary
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 21:01 UTC
 
 - item `350` landed one bounded Playwright global-setup stable-home landing

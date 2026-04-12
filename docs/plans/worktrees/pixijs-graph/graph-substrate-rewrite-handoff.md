@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 03:29 UTC
+Last updated: 2026-04-13 03:39 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `384` landed one bounded mounted minimized-edge-handle selector
+  reduction on the live canary lane:
+  - product code changed in:
+    - `frontend/src/components/Section/Container/MinimizedDataEdgeHandles.tsx`
+      so the mounted minimized-edge-handle selector now uses a purpose-built
+      port-id comparator instead of `lodash/isEqual` while preserving the same
+      subscribed inputs: `{ isMinimized, edgeInputParams, edgeOutputPorts[*].id }`
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Container/MinimizedDataEdgeHandles.test.tsx`
+      to prove mounted minimized edge handles stay out of unrelated
+      `previewSectionVariantMap` commits while still re-rendering when this
+      section's minimized output ports change
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-minimized-data-edge-handles-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/MinimizedDataEdgeHandles.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/MinimizedDataEdgeHandles.tsx src/components/Section/Container/MinimizedDataEdgeHandles.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on `http://127.0.0.1:3075/settings`
+      -> first attempt showed a blank root on the stale worktree session
+      -> after one bounded `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+         recovery plus runtime refresh, the direct `/settings` page mounted
+         visible `Settings` chrome and populated settings content
+      -> note: the refreshed bootstrap URL itself still rejected the token, so
+         use direct `/settings` for the current smoke path unless the bootstrap
+         handoff is independently being debugged
+  - reading:
+    - this is another real per-section shell/body subscription reduction on the
+      live canary, not a harness-only pass
+    - the previous selector mapped output-port ids every store read and then
+      paid generic deep equality across the whole derived object on unrelated
+      writes
+    - the new comparator keeps the same source-of-truth fields while reducing
+      equality overhead on a broad section-shell edge-handle path
+  - next default frontier:
+    - identify the next broad mounted section-body/chrome subscriber or shared
+      write fan-out that still accepts unrelated `useProjectState` churn on the
+      live worktree, preferring another section-wide wrapper/body owner over a
+      return to one-off header-button selectors
 
 - item `383` landed one bounded mounted section-container shell selector
   reduction on the live canary lane:
