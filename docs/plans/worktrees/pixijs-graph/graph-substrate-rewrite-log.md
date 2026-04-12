@@ -151,6 +151,65 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 06:44 UTC
+
+- Item: Close the repeated `worktree_unhealthy` blocker on the
+  `rotaryParamCodeObjDefault` worktree-only perf lane by rerunning the fresh
+  phase-attribution probe on the current runtime.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change production or test code.
+  - Re-read the current plan/handoff first and did not reopen the already
+    reduced `presentedSceneSectionVisibilityFilter` lane by inspection alone.
+  - Chose the narrowest blocker-resolving step because the same live-probe
+    runtime-health failure had repeated across the last two iterations.
+  - Reran the canonical worktree-only probe on run `024`:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-024/worktree-ai.log`
+    - result: passed (`1` Playwright test, `1.3m`)
+  - Required CDP verification needed one bounded worktree lifecycle recovery:
+    - first fresh-context `/settings` smoke stayed on the loading shell and a
+      second bootstrap attempt failed with a Chrome DevTools transport timeout
+      (`Network.enable timed out`)
+    - used the allowed self-recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts via
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-024/worktree-ai.log`
+    - post-recovery fresh-context CDP smoke passed after consuming the
+      refreshed bootstrap URL first
+    - visible evidence included `OVERVIEW`, `Open settings`, and
+      `All Settings`
+  - Fresh runtime phase-attribution read on the canonical
+    `rotaryParamCodeObjDefault` lane:
+    - `longTaskCount`: `5`
+    - `longTaskTotalDurationMs`: `1137ms`
+    - `longTaskMaxDurationMs`: `395ms`
+    - `averageFrameDurationMs`: `40.53ms`
+    - per-phase breakdown:
+      - `panForward`: `397ms`
+      - `panReturn`: `395ms`
+      - `zoomIn`: `182ms`
+      - `zoomOut`: `163ms`
+      - `captureWarmup`: `0ms`
+      - `postSequenceSettle`: `0ms`
+      - `unknown`: `0ms`
+  - Named canary motion owners stayed tiny on the same run:
+    - `pixiDrawableModelResolve`: `1.0ms` total
+    - `presentedSceneSectionVisibilityFilter`: `0.3ms` total
+    - `presentedSceneBodyMountFilter`: `0.3ms` total
+  - Reading:
+    - the repeated `worktree_unhealthy` blocker did not reproduce on this run
+    - the next bounded attribution slice should focus on synchronous pan work,
+      because about `792ms` of `1137ms` total long-task cost sits in
+      `panForward` + `panReturn`
+    - do not spend the next default pass on another named-canary-owner
+      micro-optimization without first instrumenting the pan-phase owner split
+- Next action:
+  - add one bounded pan-phase attribution seam on the worktree-only
+    `rotaryParamCodeObjDefault` lane so the next product slice can name the
+    synchronous owner behind the pan long tasks
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 05:13 UTC
 
 - progress review for loop `001` runs `011` through `020`:

@@ -63,3 +63,40 @@ aggregate long-task totals.
   during zoom, or during the final settle
 - the remaining verification blocker is runtime health, not missing phase
   instrumentation
+
+## Fresh Runtime Rerun
+
+- worktree-only live probe on a fresh runtime:
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-024/worktree-ai.log`
+  - result:
+    - passed (`1` Playwright test, `1.3m`)
+    - the repeated `worktree_unhealthy` blocker did not reproduce on this run
+- fresh phase breakdown on the canonical `rotaryParamCodeObjDefault` lane:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1137ms`
+  - `longTaskMaxDurationMs`: `395ms`
+  - `measurementWindowMs`: `1797.3ms`
+  - `averageFrameDurationMs`: `40.53ms`
+  - dominant instrumented canary owner stayed tiny:
+    `pixiDrawableModelResolve` at `1.0ms` total
+- per-phase long-task split:
+  - `panForward`: `2` tasks, `397ms` total, `275ms` max
+  - `panReturn`: `1` task, `395ms` total, `395ms` max
+  - `zoomIn`: `1` task, `182ms` total, `182ms` max
+  - `zoomOut`: `1` task, `163ms` total, `163ms` max
+  - `captureWarmup`: `0`
+  - `postSequenceSettle`: `0`
+  - `unknown`: `0`
+
+## Updated Reading
+
+- the long-task attribution lane is now healthy enough to use for product
+  sequencing again; the blocker is no longer runtime health
+- about `792ms` of the `1137ms` total clusters in the pan phases
+  (`panForward` + `panReturn`), so the next bounded attribution slice should
+  focus on synchronous work triggered during pan rather than zoom or warmup
+- because the named canary motion owners remain near-zero on the same run, the
+  next owner is likely outside the current instrumentation set and needs a
+  narrow pan-phase owner split rather than another micro-optimization inside
+  `pixiDrawableModelResolve` or `presentedSceneSectionVisibilityFilter`

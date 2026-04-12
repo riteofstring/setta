@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 06:11 UTC
+Last updated: 2026-04-13 06:44 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,58 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `399` closed the repeated runtime-health blocker on the canonical
+  `rotaryParamCodeObjDefault` worktree-only probe lane by rerunning the fresh
+  phase-attribution probe on the current runtime:
+  - local ranking/readout for this iteration:
+    - re-read the current handoff and avoided reopening the already-small
+      named canary owner lane by inspection alone
+    - chose the narrowest blocker-resolving step after the repeated
+      `worktree_unhealthy` failure: rerun the worktree-only canonical probe on
+      the fresh runtime before picking any new product owner
+    - the probe passed on run `024`, so the lane now has the first usable
+      long-task phase split instead of another runtime-health note
+  - code changed:
+    - none; this iteration only appended the existing perf report plus the
+      handoff/history with fresh runtime evidence
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+  - focused verification:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-024/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> `longTaskCount`: `5`
+      -> `longTaskTotalDurationMs`: `1137ms`
+      -> `longTaskMaxDurationMs`: `395ms`
+      -> per-phase split:
+         `panForward` `397ms`, `panReturn` `395ms`, `zoomIn` `182ms`,
+         `zoomOut` `163ms`, `captureWarmup` `0ms`, `postSequenceSettle` `0ms`
+      -> named canary motion owners stayed tiny on the same run:
+         `pixiDrawableModelResolve` `1.0ms` total,
+         `presentedSceneSectionVisibilityFilter` `0.3ms` total,
+         `presentedSceneBodyMountFilter` `0.3ms` total
+    - bounded lifecycle recovery for CDP transport:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime info via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-024/worktree-ai.log`
+    - fresh-context headless CDP visual smoke after recovery
+      -> passed
+      -> used the refreshed bootstrap URL first, then verified
+         `http://127.0.0.1:3075/settings`
+      -> visible evidence included `OVERVIEW`, `Open settings`, and
+         `All Settings`
+  - reading:
+    - the repeated `worktree_unhealthy` blocker is no longer the active
+      frontier on this lane
+    - about `792ms` of `1137ms` total long-task cost clusters in the pan
+      phases, so the next product-facing attribution slice should target
+      synchronous pan work rather than zoom or warmup
+    - because all currently named canary motion owners remain near-zero on the
+      same run, the next owner is outside the current instrumentation set
+  - next default frontier:
+    - add one bounded pan-phase attribution split on the worktree-only
+      `rotaryParamCodeObjDefault` lane so the next product pass names the
+      synchronous owner behind the `panForward` / `panReturn` long tasks
 
 - item `398` landed one bounded attribution seam for the remaining live canary
   long-task cost on the canonical `rotaryParamCodeObjDefault` lane:
