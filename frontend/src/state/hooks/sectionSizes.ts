@@ -40,6 +40,21 @@ type SizeMode = {
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
 
+type EffectiveSectionImpl = ReturnType<typeof getCurrEffectiveSectionImpl>;
+
+type SectionMeasuredHeights = {
+  kwargsControlsHeight: number;
+  paramsFixedHeight: number;
+  sectionHeaderHeight: number;
+  sectionSearchHeight: number;
+};
+
+type SectionMinDimensions = {
+  metaControlSizeMode: SizeMode | null;
+  minHeight: number;
+  minWidth: number;
+};
+
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
@@ -196,6 +211,188 @@ function getSizeMode({
   return { height: SIZE_MODE.any, width: SIZE_MODE.any };
 }
 
+function hasPinnedNonEdgeParams(
+  shown: ZustandProjectState["shownParamIds"][string] | undefined,
+  edgeInputParams: string[],
+) {
+  if (!shown) {
+    return false;
+  }
+  const edgeInputSet = new Set(edgeInputParams);
+  return shown.pinned.topLevelParamIds.some(
+    (paramId) => !edgeInputSet.has(paramId),
+  );
+}
+
+function getResolvedUnpinnedMinHeight({
+  hasPinnedParams,
+  hideUnpinnedParams,
+  sizingPolicy,
+}: {
+  hasPinnedParams: boolean;
+  hideUnpinnedParams: boolean;
+  sizingPolicy: SectionSizingPolicy;
+}) {
+  if (hideUnpinnedParams) {
+    return 0;
+  }
+
+  const baseUnpinnedMinHeight = Number.isFinite(
+    sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+  )
+    ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+    : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+  const normalizedUnpinnedMinHeight =
+    baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      : baseUnpinnedMinHeight;
+
+  if (
+    hasPinnedParams &&
+    normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+  ) {
+    return UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED;
+  }
+
+  return normalizedUnpinnedMinHeight;
+}
+
+function getRequiredParamsMinHeight({
+  hideParams,
+  impl,
+  isMinimized,
+  measuredHeights,
+  projectState,
+  sectionId,
+  sizingPolicy,
+}: {
+  hideParams: boolean;
+  impl: EffectiveSectionImpl;
+  isMinimized: boolean;
+  measuredHeights: SectionMeasuredHeights;
+  projectState: ZustandProjectState;
+  sectionId: string;
+  sizingPolicy: SectionSizingPolicy;
+}) {
+  if (isMinimized || hideParams || !isBaseSectionWithParamsImpl(impl)) {
+    return 0;
+  }
+
+  const variantId = getCurrSectionVariantId(projectState, sectionId, true);
+  const shown = projectState.shownParamIds[variantId];
+  const fixedTopHeight =
+    measuredHeights.sectionHeaderHeight +
+    measuredHeights.sectionSearchHeight +
+    measuredHeights.kwargsControlsHeight +
+    SECTION_GRID_GUTTER_HEIGHT;
+
+  return (
+    fixedTopHeight +
+    measuredHeights.paramsFixedHeight +
+    getResolvedUnpinnedMinHeight({
+      hasPinnedParams: hasPinnedNonEdgeParams(shown, impl.edgeInputParams),
+      hideUnpinnedParams: impl.hideUnpinnedParams,
+      sizingPolicy,
+    })
+  );
+}
+
+function getMetaControlMinDimensions({
+  controlParamId,
+  minHeight,
+  minWidth,
+  projectState,
+  sectionId,
+  sectionType,
+  sizingPolicy,
+}: {
+  controlParamId: string | null | undefined;
+  minHeight: number;
+  minWidth: number;
+  projectState: ZustandProjectState;
+  sectionId: string;
+  sectionType: SectionType;
+  sizingPolicy: SectionSizingPolicy;
+}): SectionMinDimensions {
+  if (sectionType !== SectionTypeEnum.MetaControl) {
+    return { minHeight, minWidth, metaControlSizeMode: null };
+  }
+
+  const metaControlEntry = getMetaControlSizingPolicyEntry({
+    projectState,
+    sectionId,
+    controlParamId,
+    sizingPolicy,
+  });
+  return {
+    minHeight: metaControlEntry
+      ? Math.max(minHeight, metaControlEntry.minHeight)
+      : minHeight,
+    minWidth: metaControlEntry
+      ? Math.max(minWidth, metaControlEntry.minWidth)
+      : minWidth,
+    metaControlSizeMode: resolveMetaControlSizeMode(metaControlEntry),
+  };
+}
+
+function getSectionMinDimensions({
+  hideParams,
+  hideSearch,
+  impl,
+  isMinimized,
+  measuredHeights,
+  projectState,
+  sectionId,
+  sectionType,
+  sizingPolicy,
+}: {
+  hideParams: boolean;
+  hideSearch: boolean;
+  impl: EffectiveSectionImpl;
+  isMinimized: boolean;
+  measuredHeights: SectionMeasuredHeights;
+  projectState: ZustandProjectState;
+  sectionId: string;
+  sectionType: SectionType;
+  sizingPolicy: SectionSizingPolicy;
+}): SectionMinDimensions {
+  const minHeight = Math.max(
+    getMinSectionHeight({
+      sectionType,
+      hideSearch,
+      hideParams,
+      isMinimized,
+      sizingPolicy,
+    }),
+    getRequiredParamsMinHeight({
+      hideParams,
+      impl,
+      isMinimized,
+      measuredHeights,
+      projectState,
+      sectionId,
+      sizingPolicy,
+    }),
+  );
+  const minWidth = getMinSectionWidth({
+    sectionType,
+    sizingPolicy,
+  });
+
+  return getMetaControlMinDimensions({
+    controlParamId:
+      sectionType === SectionTypeEnum.MetaControl
+        ? impl.metaControlParamId
+        : null,
+    minHeight,
+    minWidth,
+    projectState,
+    sectionId,
+    sectionType,
+    sizingPolicy,
+  });
+}
+
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
@@ -222,15 +419,6 @@ export function useSectionMinMaxDims(sectionId: string) {
     const hideSearch = impl.hideSearch;
     const hideParams = impl.hideParams;
     const isMinimized = impl.isMinimized;
-
-    let minHeight = getMinSectionHeight({
-      sectionType,
-      hideSearch,
-      hideParams,
-      isMinimized,
-      sizingPolicy,
-    });
-
     const policyMaxHeight = getMaxSectionHeight({
       sectionType,
       isMinimized,
@@ -240,74 +428,27 @@ export function useSectionMinMaxDims(sectionId: string) {
     const isResizing = resizeEvent === "start";
     const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
 
-    let minWidth = getMinSectionWidth({
-      sectionType,
-      sizingPolicy,
-    });
     const maxWidth = getMaxSectionWidth({
       sectionType,
       sizingPolicy,
     });
-
-    if (!isMinimized && isBaseSectionWithParamsImpl(impl) && !hideParams) {
-      const variantId = getCurrSectionVariantId(x, sectionId, true);
-      const shown = x.shownParamIds[variantId];
-      let requiredParamsHeight = 0;
-      let hasPinnedParams = false;
-      if (shown) {
-        const pinned = shown.pinned;
-        const edgeInputSet = new Set(impl.edgeInputParams);
-        hasPinnedParams = pinned.topLevelParamIds.some(
-          (paramId) => !edgeInputSet.has(paramId),
-        );
-      }
-      const showsUnpinnedParams = !impl.hideUnpinnedParams;
-      const baseUnpinnedMinHeight = Number.isFinite(
-        sizingPolicy.globals.unpinnedParamsAreaMinHeight,
-      )
-        ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
-        : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
-      const normalizedUnpinnedMinHeight =
-        baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-          ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-          : baseUnpinnedMinHeight;
-      const resolvedUnpinnedPolicyMinHeight =
-        hasPinnedParams &&
-        normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-          ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
-          : normalizedUnpinnedMinHeight;
-      const resolvedUnpinnedMinHeight = showsUnpinnedParams
-        ? resolvedUnpinnedPolicyMinHeight
-        : 0;
-      const fixedTopHeight =
-        sectionHeaderHeight +
-        sectionSearchHeight +
-        kwargsControlsHeight +
-        SECTION_GRID_GUTTER_HEIGHT;
-      requiredParamsHeight += fixedTopHeight;
-      requiredParamsHeight += paramsFixedHeight;
-      if (resolvedUnpinnedMinHeight > 0) {
-        requiredParamsHeight += resolvedUnpinnedMinHeight;
-      }
-      if (requiredParamsHeight > 0) {
-        minHeight = Math.max(minHeight, requiredParamsHeight);
-      }
-    }
-
-    let metaControlSizeMode: SizeMode | null = null;
-    if (sectionType === SectionTypeEnum.MetaControl) {
-      const metaControlEntry = getMetaControlSizingPolicyEntry({
+    const { minHeight, minWidth, metaControlSizeMode } =
+      getSectionMinDimensions({
+        hideParams,
+        hideSearch,
+        impl,
+        isMinimized,
+        measuredHeights: {
+          kwargsControlsHeight,
+          paramsFixedHeight,
+          sectionHeaderHeight,
+          sectionSearchHeight,
+        },
         projectState: x,
         sectionId,
-        controlParamId: impl.metaControlParamId,
+        sectionType,
         sizingPolicy,
       });
-      if (metaControlEntry) {
-        minHeight = Math.max(minHeight, metaControlEntry.minHeight);
-        minWidth = Math.max(minWidth, metaControlEntry.minWidth);
-      }
-      metaControlSizeMode = resolveMetaControlSizeMode(metaControlEntry);
-    }
 
     const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);
     const maxHeight =
@@ -395,14 +536,14 @@ async function setSectionToHaveAspectRatioAndMinSize(
   imgSize: { width: number; height: number },
 ) {
   const sectionType = getSectionType(sectionId);
-  const state = useProjectState.getState();
+  const projectState = useProjectState.getState();
   const sizingPolicy = useSettings.getState().sectionSizingPolicy;
   const minHeight = getMinSectionHeight({ sectionType, sizingPolicy });
   const minWidth = getMinSectionWidth({
     sectionType,
     sizingPolicy,
   });
-  const currSize = useProjectState.getState().sections[sectionId].size;
+  const currSize = projectState.sections[sectionId].size;
 
   let adjustedSize = adjustAspectRatio(
     currSize.height,
@@ -428,31 +569,6 @@ async function setSectionToHaveAspectRatioAndMinSize(
       state,
     });
   });
-}
-
-function useImgArtifactAreaSize(sectionId, image) {
-  const [imgSize, setImgSize] = useState(null);
-
-  const widthOrHeightIsAuto = useProjectState((x) => {
-    const { width, height } = x.sections[sectionId].size;
-    return width === "auto" || height === "auto";
-  });
-
-  useEffect(() => {
-    const x = { width: image.width, height: image.height };
-    if (!_.isEqual(x, imgSize)) {
-      setSectionToHaveAspectRatioAndMinSize(sectionId, x);
-    }
-    setImgSize(x);
-  }, [image.src]);
-
-  useEffect(() => {
-    if (imgSize) {
-      setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize);
-    }
-  }, [widthOrHeightIsAuto]);
-
-  return imgSize !== null;
 }
 
 export function setDrawAreaSectionSize(
