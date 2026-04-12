@@ -142,11 +142,10 @@ function AgenticScopeHighlightsUpdater() {
 }
 
 const _AgenticEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow(
+  const { width, height } = useReactFlow(
     (state) => ({
       width: state.width,
       height: state.height,
-      multiSelectionActive: state.multiSelectionActive,
     }),
     shallow,
   );
@@ -370,7 +369,10 @@ const _AgenticEdgeRenderer = () => {
               return;
             }
             event.stopPropagation();
-            toggleAgenticEdgeSelection(edge.id, multiSelectionActive);
+            toggleAgenticEdgeSelection(
+              edge.id,
+              useReactFlow.getState().multiSelectionActive,
+            );
           };
 
           return (

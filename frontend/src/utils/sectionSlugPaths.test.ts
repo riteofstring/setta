@@ -3,7 +3,9 @@ import {
   createCore,
   createGroupSectionImpl,
   createProjectConfig,
-  createSingleConfig,
+  createProjectStateSingleConfig,
+  createUserDefaultCodeSectionImpl,
+  createUserDefaultGroupSectionImpl,
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -14,7 +16,6 @@ function createSectionState(input: {
   sections: Record<string, { name: string }>;
   parentSectionMap: Record<string, string | null>;
   groupChildrenById?: Record<string, Array<string>>;
-  sectionIdsByPathSlug?: Record<string, Array<string>>;
 }) {
   const sectionCores: Record<string, ReturnType<typeof createCore>> = {};
   const sectionImpls: Record<
@@ -34,11 +35,11 @@ function createSectionState(input: {
     });
     const groupChildren = input.groupChildrenById?.[sectionId];
     sectionImpls[implId] = groupChildren
-      ? createGroupSectionImpl({
+      ? createGroupSectionImpl(createUserDefaultGroupSectionImpl(), {
           id: implId,
           children: groupChildren,
         })
-      : createCodeSectionImpl({
+      : createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
           id: implId,
         });
     sectionVariants[variantId] = createVariant({
@@ -49,12 +50,11 @@ function createSectionState(input: {
     sectionVariantMap[sectionId] = variantId;
   }
 
-  return createSingleConfig({
+  return createProjectStateSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-config-id",
       name: "Test Project",
       sectionVariantMap,
-      sectionIdsByPathSlug: input.sectionIdsByPathSlug ?? {},
     }),
     sections: sectionCores,
     sectionImpls,
@@ -76,9 +76,6 @@ describe("sectionSlugPaths", () => {
       },
       groupChildrenById: {
         parent: ["child"],
-      },
-      sectionIdsByPathSlug: {
-        parent_blue_star: ["child"],
       },
     });
 
@@ -116,9 +113,6 @@ describe("sectionSlugPaths", () => {
         first: null,
         second: null,
       },
-      sectionIdsByPathSlug: {
-        foo_bar: ["first", "second"],
-      },
     });
 
     expect(resolveStandaloneSectionSlug(state, "foo_bar")).toEqual({
@@ -136,9 +130,6 @@ describe("sectionSlugPaths", () => {
       parentSectionMap: {
         chatSection: null,
       },
-      sectionIdsByPathSlug: {
-        chat: ["chatSection"],
-      },
     });
 
     expect(resolveStandaloneSectionSlug(state, "chat")).toEqual({
@@ -149,7 +140,7 @@ describe("sectionSlugPaths", () => {
     });
   });
 
-  it("uses backend-owned slug maps instead of recomputing after a local rename", () => {
+  it("reflects production-shaped in-place section renames immediately", () => {
     const state = createSectionState({
       sections: {
         parent: { name: "Parent" },
@@ -161,9 +152,6 @@ describe("sectionSlugPaths", () => {
       },
       groupChildrenById: {
         parent: ["child"],
-      },
-      sectionIdsByPathSlug: {
-        parent_blue_star: ["child"],
       },
     });
 
@@ -177,21 +165,6 @@ describe("sectionSlugPaths", () => {
     state.sections.child.name = "Green Star";
 
     expect(resolveStandaloneSectionSlug(state, "parent_green_star")).toEqual({
-      kind: "not_found",
-      sectionSlug: "parent_green_star",
-    });
-    expect(resolveStandaloneSectionSlug(state, "parent_blue_star")).toEqual({
-      kind: "found",
-      sectionId: "child",
-      sectionName: "Green Star",
-      sectionType: SectionTypeEnum.Code,
-    });
-
-    state.projectConfig.sectionIdsByPathSlug = {
-      parent_green_star: ["child"],
-    };
-
-    expect(resolveStandaloneSectionSlug(state, "parent_green_star")).toEqual({
       kind: "found",
       sectionId: "child",
       sectionName: "Green Star",
@@ -203,7 +176,7 @@ describe("sectionSlugPaths", () => {
     });
   });
 
-  it("uses backend-owned slug maps instead of recomputing after local reparenting", () => {
+  it("reflects production-shaped in-place reparenting immediately", () => {
     const state = createSectionState({
       sections: {
         parentA: { name: "Parent A" },
@@ -219,9 +192,6 @@ describe("sectionSlugPaths", () => {
         parentA: ["child"],
         parentB: [],
       },
-      sectionIdsByPathSlug: {
-        parent_a_blue_star: ["child"],
-      },
     });
 
     expect(resolveStandaloneSectionSlug(state, "parent_a_blue_star")).toEqual({
@@ -232,29 +202,20 @@ describe("sectionSlugPaths", () => {
     });
 
     state.parentSectionMap.child = "parentB";
-    state.sectionImpls["impl-parentA"] = createGroupSectionImpl({
-      id: "impl-parentA",
-      children: [],
-    });
-    state.sectionImpls["impl-parentB"] = createGroupSectionImpl({
-      id: "impl-parentB",
-      children: ["child"],
-    });
-
-    expect(resolveStandaloneSectionSlug(state, "parent_a_blue_star")).toEqual({
-      kind: "found",
-      sectionId: "child",
-      sectionName: "Blue Star",
-      sectionType: SectionTypeEnum.Code,
-    });
-    expect(resolveStandaloneSectionSlug(state, "parent_b_blue_star")).toEqual({
-      kind: "not_found",
-      sectionSlug: "parent_b_blue_star",
-    });
-
-    state.projectConfig.sectionIdsByPathSlug = {
-      parent_b_blue_star: ["child"],
-    };
+    state.sectionImpls["impl-parentA"] = createGroupSectionImpl(
+      createUserDefaultGroupSectionImpl(),
+      {
+        id: "impl-parentA",
+        children: [],
+      },
+    );
+    state.sectionImpls["impl-parentB"] = createGroupSectionImpl(
+      createUserDefaultGroupSectionImpl(),
+      {
+        id: "impl-parentB",
+        children: ["child"],
+      },
+    );
 
     expect(resolveStandaloneSectionSlug(state, "parent_a_blue_star")).toEqual({
       kind: "not_found",
