@@ -41,13 +41,10 @@ import {
   DRAFT_THREAD_ENTRY_ID,
   PINNED_THREAD_DOMAIN,
   UNPINNED_THREAD_DOMAIN,
-  getProjectChatDeleteRecoveryTooltipContent,
   getThreadIdFromDndId,
   type ProjectChatHistoryEntry,
   type ThreadDropTarget,
 } from "./projectChatHistoryShared";
-
-export { getProjectChatDeleteRecoveryTooltipContent };
 
 export function ProjectChatHistory({
   chatId,
