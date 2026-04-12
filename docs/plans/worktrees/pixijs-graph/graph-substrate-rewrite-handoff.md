@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 23:18 UTC
+Last updated: 2026-04-12 23:19 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,57 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `360` landed one bounded product-side attribution-entry transition guard
+  on the canonical `rotaryParamCodeObjDefault` lane inside the measured
+  `interactionMiscStateSync` owner:
+
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      so `syncViewportInteractionState(...)` now returns before entering the
+      measured `interactionMiscStateSync` block when the effective
+      `isPanScrolling` boolean already matches the misc store
+    - the root `data-viewport-interaction-active` attribute mirror still
+      updates exactly as before
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      to prove repeated interaction-sync calls keep both misc-store writes and
+      `interactionMiscStateSync` attribution counts at the two real pan-state
+      transitions
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-interaction-misc-state-sync-attribution-transition-guard.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-049/worktree-ai.log`
+      -> failed before the live motion capture lane
+      -> blocker moved to
+         `waitForInitialSettingsGraphReady(...)` timing out after `30000ms`
+         at `frontend/tests/e2e/settings/settings-view-modes.spec.ts:5112`
+    - fresh-context headless CDP check on `http://127.0.0.1:3075/settings`
+      -> page stayed on the authenticated loading shell with
+         `PREPARING SETTA`, `Loading settings…`, and
+         `Backend: Starting backend services`
+      -> no mounted graph surface was visible
+      -> treat the live CDP visual gate for this slice as deferred, not passed
+  - reading:
+    - this is another real product-side reduction inside the current dominant
+      owner, not a seam-lift or harness-only pass
+    - the reduction removes repeated no-op attribution timing from the hot lane
+      in addition to the already-landed redundant misc-store write guard
+    - the current blocker is runtime health on direct `/settings`, not the
+      canonical motion lane itself, because both Playwright and CDP stopped on
+      the same loading-shell state before the lane action
+  - next default frontier:
+    - first choice: classify or recover the direct `/settings` loading-shell
+      runtime enough to re-establish a healthy mounted canary, then rerun the
+      same `rotaryParamCodeObjDefault` worktree-only probe for a numeric readout
+    - fallback only if the runtime still cannot mount a healthy settings
+      surface in one bounded slice: move to the next measured product owner
+      with the loading-shell debt kept explicit instead of reopening broad
+      oracle/setup churn
 
 - item `359` landed one bounded worktree bootstrap-readiness recovery on the
   canonical `rotaryParamCodeObjDefault` lane so the live worktree-only motion

@@ -381,13 +381,13 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       "data-viewport-interaction-active",
       isViewportInteractionActive ? "true" : "false",
     );
+    const nextPanScrolling = isViewportPanning || isPanScrolling;
+    if (useMisc.getState().isPanScrolling === nextPanScrolling) {
+      return;
+    }
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "interactionMiscStateSync",
       () => {
-        const nextPanScrolling = isViewportPanning || isPanScrolling;
-        if (useMisc.getState().isPanScrolling === nextPanScrolling) {
-          return;
-        }
         useMisc.setState({
           isPanScrolling: nextPanScrolling,
         });

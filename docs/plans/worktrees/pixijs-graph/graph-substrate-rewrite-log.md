@@ -75,6 +75,49 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 23:19 UTC
+
+- item `360` landed one bounded product-side attribution-entry transition
+  guard on the canonical `rotaryParamCodeObjDefault` lane:
+  - changed
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    so `syncViewportInteractionState(...)` computes the next
+    `isPanScrolling` flag first and returns before entering
+    `interactionMiscStateSync` attribution when the misc store already matches
+  - extended
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    so the repeated interaction-sync sequence now proves both:
+    - only two misc-store writes occur for the two real pan-state transitions
+    - `interactionMiscStateSync` attribution count also stays at `2`
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-misc-state-sync-attribution-transition-guard.md`
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed (`1` file, `11` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-049/worktree-ai.log`
+      -> failed before the live motion capture lane
+      -> blocker moved to
+         `waitForInitialSettingsGraphReady(...)` timing out after `30000ms`
+         at `frontend/tests/e2e/settings/settings-view-modes.spec.ts:5112`
+    - fresh-context headless CDP check on `http://127.0.0.1:3075/settings`
+      -> page stayed on the authenticated loading shell with
+         `PREPARING SETTA`, `Loading settings…`, and
+         `Backend: Starting backend services`
+      -> no mounted graph surface was visible
+      -> treat the live CDP visual gate for this slice as deferred, not passed
+  - reading:
+    - this is another real product-side reduction inside the dominant
+      `interactionMiscStateSync` owner
+    - the current runtime health issue is now explicit on direct `/settings`
+      and should not reopen broad oracle/setup churn
+    - next frontier: recover or classify the direct `/settings` loading-shell
+      state enough to re-establish a healthy mounted canary, then rerun the
+      same `rotaryParamCodeObjDefault` worktree-only probe for a numeric readout
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 23:18 UTC
 
 - item `359` landed one bounded worktree bootstrap-readiness recovery on the

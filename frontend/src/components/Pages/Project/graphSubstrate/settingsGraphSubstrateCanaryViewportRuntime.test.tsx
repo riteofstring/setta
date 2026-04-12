@@ -10,6 +10,11 @@ import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "./settingsGraphSubstrateCanaryInstrumentation";
+import {
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
@@ -87,6 +92,7 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     useReactFlow.setState({
       ...initialReactFlowState,
       fitViewOnInit: false,
@@ -111,6 +117,7 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     host.remove();
     document.body.innerHTML = "";
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     useReactFlow.setState({ ...initialReactFlowState });
     vi.unstubAllGlobals();
   });
@@ -339,6 +346,9 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
       typeof useSettingsGraphSubstrateCanaryViewportRuntime
     > | null = null;
     const setMiscStateSpy = vi.spyOn(useMisc, "setState");
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
 
     await act(async () => {
       root.render(
@@ -395,6 +405,10 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(setMiscStateSpy).toHaveBeenNthCalledWith(2, {
       isPanScrolling: false,
     });
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.interactionMiscStateSync.count,
+    ).toBe(2);
   });
 
   it("does not mirror canary viewport interaction flags into the React Flow store", async () => {
