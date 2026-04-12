@@ -75,6 +75,40 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 23:47 UTC
+
+- item `361` landed one bounded direct-`/settings` readiness classification
+  slice on the canonical `rotaryParamCodeObjDefault` lane:
+  - no product renderer code changed in this slice
+  - changed `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so
+    `waitForInitialSettingsGraphReady(...)` stops polling the removed
+    fullscreen-button test ids and instead waits for the authenticated shell
+    plus either a mounted graph surface or mounted settings article
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-worktree-initial-settings-ready-classification.md`
+    to record the sharper blocker classification
+  - verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-050/worktree-ai.log`
+      -> failed before the live motion lane again
+      -> after the stale wait removal, the page still never reached either a
+         mounted graph surface or mounted settings article within `30000ms`
+    - fresh-context headless CDP check on
+      `http://127.0.0.1:3075/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+      -> settled on `http://127.0.0.1:3075/settings`
+      -> `.react-flow__pane`, `[data-testid="graph-substrate-canary"]`, and
+         `article` were all absent
+      -> visible state was a blank settings shell with only a `Home` link
+  - reading:
+    - this closes the stale-fullscreen-button branch of the blocker; the live
+      runtime issue is now specifically “direct authenticated `/settings` can
+      settle blank with no mounted settings content”
+    - next pass should inspect the route/settings-load handoff that produces
+      the blank shell instead of touching this same wait helper again
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 23:19 UTC
 
 - item `360` landed one bounded product-side attribution-entry transition

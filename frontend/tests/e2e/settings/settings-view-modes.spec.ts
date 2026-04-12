@@ -5112,22 +5112,22 @@ async function waitForInitialSettingsGraphReady(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        const [
-          canaryRootCount,
-          legacyPaneCount,
-          overviewFullscreenCount,
-          uiEditorFullscreenCount,
-        ] = await Promise.all([
-          page.getByTestId("graph-substrate-canary").count(),
-          page.locator(READY_SELECTOR).count(),
-          page.getByTestId("overview-pane-fullscreen-button").count(),
-          page.getByTestId("uiEditor-pane-fullscreen-button").count(),
-        ]);
-        const fullscreenPaneReady =
-          overviewFullscreenCount > 0 || uiEditorFullscreenCount > 0;
-        return (
-          legacyPaneCount > 0 || canaryRootCount > 0 || fullscreenPaneReady
-        );
+        return page.evaluate(() => {
+          const snapshot = {
+            appShellMounted:
+              document.querySelector(".setta-titlebar-offset") !== null,
+            graphSurfaceMounted:
+              document.querySelector(".react-flow__pane") !== null ||
+              document.querySelector(
+                '[data-testid="graph-substrate-canary"]',
+              ) !== null,
+            settingsContentMounted: document.querySelector("article") !== null,
+          };
+          return (
+            snapshot.appShellMounted &&
+            (snapshot.graphSurfaceMounted || snapshot.settingsContentMounted)
+          );
+        });
       },
       { timeout: 30000 },
     )

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 23:19 UTC
+Last updated: 2026-04-12 23:47 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,51 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `361` landed one bounded direct-`/settings` readiness classification
+  slice on the canonical `rotaryParamCodeObjDefault` lane:
+
+  - no product renderer code changed in this slice
+  - support/probe code changed in:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      so `waitForInitialSettingsGraphReady(...)` no longer polls the removed
+      `overview-pane-fullscreen-button` /
+      `uiEditor-pane-fullscreen-button` test ids and instead waits for the
+      authenticated app shell plus either a mounted graph surface or mounted
+      settings article
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-worktree-initial-settings-ready-classification.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-050/worktree-ai.log`
+      -> still failed before the live motion capture lane
+      -> after removing the stale fullscreen-button dependency, the helper
+         still never observed a mounted graph surface or mounted settings
+         article within `30000ms`
+    - fresh-context headless CDP check on
+      `http://127.0.0.1:3075/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+      -> current URL settled to `http://127.0.0.1:3075/settings`
+      -> `.react-flow__pane`, `[data-testid="graph-substrate-canary"]`, and
+         `article` were all absent
+      -> visible state was a blank settings shell with only a `Home` link
+      -> treat the live CDP visual gate for this slice as done for blocker
+         classification, not passed for renderer viability
+  - reading:
+    - the old readiness wait was genuinely stale, so this slice removed a bad
+      probe assumption without changing product behavior
+    - the remaining blocker is now sharper: direct authenticated `/settings`
+      can settle on a blank shell with no mounted graph surface and no mounted
+      settings content, so the worktree-only probe is blocked before the
+      canonical motion lane
+    - do not spend the next pass reopening this same wait helper; the next
+      useful slice is to inspect why direct `/settings` loses the mounted
+      settings content after auth/bootstrap
+  - next default frontier:
+    - trace the direct `/settings` navigation path from `ensureAppReady(...)`
+      to the blank-shell outcome and identify whether the missing mount comes
+      from route state, settings-load retry state, or backend-origin/session
+      handoff
 
 - item `360` landed one bounded product-side attribution-entry transition guard
   on the canonical `rotaryParamCodeObjDefault` lane inside the measured
