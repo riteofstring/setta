@@ -147,24 +147,41 @@ func (p *Project) SetCallable(
 	if p == nil {
 		return SetCallableResponse{}, ErrProjectNotFound
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	request, err := p.prepareSetCallableRequest(sectionID, callableName)
 	if err != nil {
 		return SetCallableResponse{}, err
 	}
+	if response, handled, err := p.handleSetCallableShortCircuit(request, refetchParams); handled {
+		return response, err
+	}
+	return p.setCallableFromResolvedSignature(ctx, resolver, request)
+}
+
+func (p *Project) handleSetCallableShortCircuit(
+	request setCallableRequest,
+	refetchParams bool,
+) (SetCallableResponse, bool, error) {
 	if request.shouldSkipRefetch(refetchParams) {
-		return p.buildSetCallableResponse(request.sectionID, request.currentCallableID, SignatureHelpStatusSkipped)
+		response, err := p.buildSetCallableResponse(request.sectionID, request.currentCallableID, SignatureHelpStatusSkipped)
+		return response, true, err
 	}
 	if request.callableName == "" {
-		return p.clearCallableSelection(request.sectionID)
+		response, err := p.clearCallableSelection(request.sectionID)
+		return response, true, err
 	}
 	if request.shouldReusePreviousSelection(refetchParams) {
-		return p.commitCallableSelection(request.sectionID, request.prevSelectedID, SignatureHelpStatusSkipped)
+		response, err := p.commitCallableSelection(request.sectionID, request.prevSelectedID, SignatureHelpStatusSkipped)
+		return response, true, err
 	}
+	return SetCallableResponse{}, false, nil
+}
 
+func (p *Project) setCallableFromResolvedSignature(
+	ctx context.Context,
+	resolver CallableSignatureResolver,
+	request setCallableRequest,
+) (SetCallableResponse, error) {
 	signatureResult, ok, err := resolveCallableSignature(ctx, resolver, p.Clone(), request.sectionID, request.callableName)
 	if err != nil {
 		return SetCallableResponse{}, err
@@ -182,12 +199,21 @@ func (p *Project) SetCallable(
 	if err != nil {
 		return SetCallableResponse{}, err
 	}
+	return p.finalizeResolvedCallableSelection(request.sectionID, callableID, created, signatureResult)
+}
+
+func (p *Project) finalizeResolvedCallableSelection(
+	sectionID string,
+	callableID string,
+	created bool,
+	signatureResult CallableSignatureResult,
+) (SetCallableResponse, error) {
 	if shouldApplyCallableParamProposals(signatureResult.Status, created) {
-		if err := p.applyCallableParamProposals(request.sectionID, callableID, signatureResult.Params); err != nil {
+		if err := p.applyCallableParamProposals(sectionID, callableID, signatureResult.Params); err != nil {
 			return SetCallableResponse{}, err
 		}
 	}
-	return p.commitCallableSelection(request.sectionID, callableID, signatureResult.Status)
+	return p.commitCallableSelection(sectionID, callableID, signatureResult.Status)
 }
 
 type setCallableRequest struct {
@@ -314,6 +340,9 @@ func resolveCallableSignature(
 	sectionID string,
 	callableName string,
 ) (CallableSignatureResult, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if strings.TrimSpace(callableName) == "" {
 		return CallableSignatureResult{
 			Status: SignatureHelpStatusSkipped,
