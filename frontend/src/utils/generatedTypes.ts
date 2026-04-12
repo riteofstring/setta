@@ -3614,6 +3614,7 @@ export const AgenticEdgeKindEnum = {
   section_chat: "section_chat",
   chat_section: "chat_section",
 } as const;
+export type AgenticEdgeKind = gt.AgenticEdgeKind;
 
 export const AppGenerationModeEnum = {
   json_render: "json_render",

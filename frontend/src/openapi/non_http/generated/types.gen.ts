@@ -129,7 +129,7 @@ type AgenticEdgeContextMode = "reference_only" | "inline_text" | "summary";
 /**
  * AgenticEdgeKind
  */
-type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
+export type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
 
 /**
  * AgenticSummaryCacheStatus
