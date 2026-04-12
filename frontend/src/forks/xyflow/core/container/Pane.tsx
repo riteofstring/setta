@@ -19,10 +19,7 @@ import { openFileAsSectionForDrop } from "state/actions/sections/createSections"
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useSettings } from "state/definitions";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
-import {
-  SelectionModeEnum,
-  SettaNotificationTypeEnum,
-} from "utils/generatedTypes";
+import { NotificationTypeEnum, SelectionModeEnum } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
@@ -50,6 +47,7 @@ const wrapHandler = (
 
 const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,
+  dragging: s.paneDragging,
 });
 
 const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
@@ -250,14 +248,14 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       if (result.status === "unsupported_binary") {
         addTemporaryNotification(
           "Binary files cannot be auto-opened as sections from drag-and-drop.",
-          SettaNotificationTypeEnum.warning,
+          NotificationTypeEnum.warning,
         );
         return;
       }
       if (result.status === "failed") {
         addTemporaryNotification(
           "Failed to create a section from the dropped file.",
-          SettaNotificationTypeEnum.error,
+          NotificationTypeEnum.error,
         );
       }
     };
@@ -276,7 +274,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       if (importResult.status !== "ok") {
         addTemporaryNotification(
           importResult.error,
-          SettaNotificationTypeEnum.error,
+          NotificationTypeEnum.error,
         );
         return;
       }

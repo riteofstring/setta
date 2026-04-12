@@ -1,5 +1,3 @@
-import _ from "lodash";
-
 export const isMacOs = () =>
   typeof navigator !== "undefined" && navigator?.userAgent?.indexOf("Mac") >= 0;
 
@@ -28,22 +26,6 @@ export function insertIntoArray<T>(
     // part of the array after the specified index
     ...arr.slice(index),
   ];
-}
-
-export function asyncDebounce(func, wait, options = {}) {
-  const debounced = _.debounce(
-    (resolve, reject, args) => {
-      func(...args)
-        .then(resolve)
-        .catch(reject);
-    },
-    wait,
-    options,
-  );
-  return (...args) =>
-    new Promise((resolve, reject) => {
-      debounced(resolve, reject, args);
-    });
 }
 
 export function tryParseJSON(x) {

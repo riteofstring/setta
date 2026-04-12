@@ -23,60 +23,76 @@ export type CodeMirrorParserLike = {
   parse: (input: string) => unknown;
 };
 
+type CodeMirrorLanguageSupport = {
+  getExtensions: (useJsx: boolean) => Array<Extension>;
+  getParser: (useJsx: boolean) => CodeMirrorParserLike;
+};
+
+const CODE_MIRROR_LANGUAGE_SUPPORT: Record<string, CodeMirrorLanguageSupport> =
+  {
+    python: {
+      getExtensions: () => [python()],
+      getParser: () => pythonLanguage.parser,
+    },
+    typescript: {
+      getExtensions: (useJsx) => [
+        javascript({ typescript: true, jsx: useJsx }),
+      ],
+      getParser: (useJsx) =>
+        useJsx ? tsxLanguage.parser : typescriptLanguage.parser,
+    },
+    javascript: {
+      getExtensions: (useJsx) => [javascript({ jsx: useJsx })],
+      getParser: (useJsx) =>
+        useJsx ? jsxLanguage.parser : javascriptLanguage.parser,
+    },
+    json: {
+      getExtensions: () => [json()],
+      getParser: () => jsonLanguage.parser,
+    },
+    yaml: {
+      getExtensions: () => [yaml()],
+      getParser: () => yamlLanguage.parser,
+    },
+    toml: {
+      getExtensions: () => [TOML_LANGUAGE],
+      getParser: () => TOML_LANGUAGE.parser,
+    },
+    markdown: {
+      getExtensions: () => [markdown()],
+      getParser: () => markdownLanguage.parser,
+    },
+  };
+
+const PATH_PARSER_OVERRIDES: ReadonlyArray<
+  readonly [suffix: string, parser: CodeMirrorParserLike]
+> = [
+  [".tsx", tsxLanguage.parser],
+  [".jsx", jsxLanguage.parser],
+  [".cjs", javascriptLanguage.parser],
+];
+
+function getCodeMirrorLanguageSupport(
+  language: CodeLanguage | null | undefined,
+): CodeMirrorLanguageSupport | null {
+  if (!language) {
+    return null;
+  }
+  return CODE_MIRROR_LANGUAGE_SUPPORT[language] ?? null;
+}
+
 export function getCodeMirrorLanguageExtensions(
   language: CodeLanguage | null | undefined,
   useJsx: boolean,
 ): Array<Extension> {
-  if (language === "python") {
-    return [python()];
-  }
-  if (language === "typescript") {
-    return [javascript({ typescript: true, jsx: useJsx })];
-  }
-  if (language === "javascript") {
-    return [javascript({ jsx: useJsx })];
-  }
-  if (language === "json") {
-    return [json()];
-  }
-  if (language === "yaml") {
-    return [yaml()];
-  }
-  if (language === "toml") {
-    return [TOML_LANGUAGE];
-  }
-  if (language === "markdown") {
-    return [markdown()];
-  }
-  return [];
+  return getCodeMirrorLanguageSupport(language)?.getExtensions(useJsx) ?? [];
 }
 
 export function getCodeMirrorLanguageParser(
   language: CodeLanguage | null | undefined,
   useJsx: boolean,
 ): CodeMirrorParserLike | null {
-  if (language === "python") {
-    return pythonLanguage.parser;
-  }
-  if (language === "typescript") {
-    return useJsx ? tsxLanguage.parser : typescriptLanguage.parser;
-  }
-  if (language === "javascript") {
-    return useJsx ? jsxLanguage.parser : javascriptLanguage.parser;
-  }
-  if (language === "json") {
-    return jsonLanguage.parser;
-  }
-  if (language === "yaml") {
-    return yamlLanguage.parser;
-  }
-  if (language === "toml") {
-    return TOML_LANGUAGE.parser;
-  }
-  if (language === "markdown") {
-    return markdownLanguage.parser;
-  }
-  return null;
+  return getCodeMirrorLanguageSupport(language)?.getParser(useJsx) ?? null;
 }
 
 export function getCodeMirrorLanguageParserForPath(
@@ -86,14 +102,11 @@ export function getCodeMirrorLanguageParserForPath(
     return null;
   }
   const normalized = path.toLowerCase();
-  if (normalized.endsWith(".tsx")) {
-    return tsxLanguage.parser;
-  }
-  if (normalized.endsWith(".jsx")) {
-    return jsxLanguage.parser;
-  }
-  if (normalized.endsWith(".cjs")) {
-    return javascriptLanguage.parser;
+  const override = PATH_PARSER_OVERRIDES.find(([suffix]) =>
+    normalized.endsWith(suffix),
+  );
+  if (override) {
+    return override[1];
   }
   const language = resolveCodeLanguageFromPath(path);
   return getCodeMirrorLanguageParser(language, false);

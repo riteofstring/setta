@@ -1,3 +1,6 @@
+/* @vitest-environment jsdom */
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   useAIStore,
@@ -5,15 +8,17 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
+  AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
   createAgenticEdge,
-  createAllLLMConfigs,
+  createAgenticSummaryCacheStatus,
+  createAllConfigs,
   createChatSectionImpl,
   createCore,
   createEngineConfig,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
   EngineTypeEnum,
   SectionTypeEnum,
@@ -23,24 +28,29 @@ import {
   ChatAreaSettings,
   filterExecutableLinkedChatTargets,
 } from "./ChatAreaSettings";
-
 let mockCanEditLayout = true;
-
+const routeGetAgenticSummaryCacheStatusMock = vi.fn();
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getAgenticSummaryCacheStatus: (...args: unknown[]) =>
+      routeGetAgenticSummaryCacheStatusMock(...args),
+  };
+});
 vi.mock(
   "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState",
   () => ({
     useHydrateAgenticState: () => {},
   }),
 );
-
 vi.mock("components/Panes/Overview/ProjectLevelAI/useHydrateLLMState", () => ({
   useHydrateLLMState: () => {},
 }));
-
 vi.mock("components/Params/ParamUIs/SwitchInput", () => ({
   SwitchInput: () => <div data-testid="mock-switch-input" />,
 }));
-
 vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
   IdNameCombobox: ({ isDisabled }: { isDisabled?: boolean }) => (
     <div
@@ -49,7 +59,6 @@ vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
     />
   ),
 }));
-
 vi.mock("state/hooks/share", () => ({
   useShareCapabilities: () => ({
     canEditLayout: mockCanEditLayout,
@@ -57,7 +66,6 @@ vi.mock("state/hooks/share", () => ({
     canEditStructure: true,
   }),
 }));
-
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
   getInitialState?: () => Record<string, unknown>;
@@ -67,15 +75,40 @@ function syncStoreInitialState(store: {
   }
   Object.assign(store.getInitialState(), store.getState());
 }
-
-function seedChatSections() {
+type RenderedChatAreaSettings = {
+  host: HTMLDivElement;
+  root: Root;
+};
+async function renderChatAreaSettings(sectionId: string) {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(<ChatAreaSettings sectionId={sectionId} />);
+  });
+  return { host, root } satisfies RenderedChatAreaSettings;
+}
+async function flushEffects(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+function seedChatSections(
+  options: {
+    includeSummaryContextEdge?: boolean;
+  } = {},
+) {
+  const { includeSummaryContextEdge = false } = options;
   const sourceSectionId = "chat-source";
   const targetSectionId = "chat-target";
   const sourceVariantId = "variant-source";
   const targetVariantId = "variant-target";
   const sourceImplId = "impl-source";
   const targetImplId = "impl-target";
-
+  const contextSectionId = "source-context";
+  const contextVariantId = "variant-context";
+  const contextImplId = "impl-context";
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
       id: "project-1",
@@ -94,6 +127,17 @@ function seedChatSections() {
           targetSectionId,
           kind: AgenticEdgeKindEnum.chat_chat,
         }),
+        ...(includeSummaryContextEdge
+          ? [
+              createAgenticEdge({
+                id: "edge-summary",
+                sourceSectionId,
+                targetSectionId: contextSectionId,
+                kind: AgenticEdgeKindEnum.chat_section,
+                contextMode: AgenticEdgeContextModeEnum.summary,
+              }),
+            ]
+          : []),
       ],
     });
     state.sections = {
@@ -109,6 +153,16 @@ function seedChatSections() {
         variants: [targetVariantId],
         defaultVariant: targetVariantId,
       }),
+      ...(includeSummaryContextEdge
+        ? {
+            [contextSectionId]: createCore({
+              id: contextSectionId,
+              name: "Source Context",
+              variants: [contextVariantId],
+              defaultVariant: contextVariantId,
+            }),
+          }
+        : {}),
     };
     state.sectionVariants = {
       [sourceVariantId]: createVariant({
@@ -123,30 +177,41 @@ function seedChatSections() {
         impl: targetImplId,
         nonPresetImpls: [],
       }),
+      ...(includeSummaryContextEdge
+        ? {
+            [contextVariantId]: createVariant({
+              id: contextVariantId,
+              name: "Context Variant",
+              impl: contextImplId,
+              nonPresetImpls: [],
+            }),
+          }
+        : {}),
     };
     state.sectionImpls = {
-      [sourceImplId]: createChatSectionImpl(
-        createUserDefaultChatSectionImpl(),
-        {
-          id: sourceImplId,
-          managed: true,
-          engineConfigId: "engine-source",
-        },
-      ),
-      [targetImplId]: createChatSectionImpl(
-        createUserDefaultChatSectionImpl(),
-        {
-          id: targetImplId,
-          managed: true,
-          engineConfigId: "engine-target",
-        },
-      ),
+      [sourceImplId]: createChatSectionImpl({
+        id: sourceImplId,
+        managed: true,
+        engineConfigId: "engine-source",
+      }),
+      [targetImplId]: createChatSectionImpl({
+        id: targetImplId,
+        managed: true,
+        engineConfigId: "engine-target",
+      }),
+      ...(includeSummaryContextEdge
+        ? {
+            [contextImplId]: {
+              id: contextImplId,
+              type: SectionTypeEnum.TextBlock,
+            },
+          }
+        : {}),
     };
   });
   syncStoreInitialState(useProjectState);
-
   useAIStore.setState({
-    allLLMConfigs: createAllLLMConfigs({
+    allLLMConfigs: createAllConfigs({
       configs: {
         primary: {
           id: "primary",
@@ -176,7 +241,6 @@ function seedChatSections() {
     transcriptionProfiles: [],
   });
   syncStoreInitialState(useAIStore);
-
   useShareSession.setState({
     isDeploymentMode: false,
     sharePolicy: null,
@@ -187,20 +251,18 @@ function seedChatSections() {
     deploymentMode: null,
   });
   syncStoreInitialState(useShareSession);
-
   return { sourceSectionId, targetSectionId };
 }
-
 describe("ChatAreaSettings", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
     resetProjectStores();
+    routeGetAgenticSummaryCacheStatusMock.mockReset();
   });
-
   afterEach(() => {
     resetProjectStores();
+    document.body.innerHTML = "";
   });
-
   it("filters linked-agent targets down to executable managed chats", () => {
     const targets = filterExecutableLinkedChatTargets({
       sectionOptions: [
@@ -259,7 +321,7 @@ describe("ChatAreaSettings", () => {
         },
       ],
       externalAgentConfigs: [],
-      allLLMConfigs: createAllLLMConfigs({
+      allLLMConfigs: createAllConfigs({
         configs: {
           primary: {
             id: "primary",
@@ -271,33 +333,93 @@ describe("ChatAreaSettings", () => {
         default_config_id: "primary",
       }),
     });
-
     expect(targets.map((entry) => entry.id)).toEqual(["chat-managed"]);
   });
-
   it("keeps linked chats out of the read scope summary", () => {
     // The linked chat should remain visible in the linked-agents section only.
     const { sourceSectionId } = seedChatSections();
-
     const markup = renderToStaticMarkup(
       <ChatAreaSettings sectionId={sourceSectionId} />,
     );
-
     expect(markup).toContain("No readable sections.");
     expect(markup).toContain("Linked agents");
     expect(markup).toContain("Target Chat");
     expect(markup.match(/Target Chat/g)?.length ?? 0).toBe(1);
   });
-
   it("disables the chat mode combobox when layout edits are disallowed", () => {
     mockCanEditLayout = false;
     const { sourceSectionId } = seedChatSections();
-
     const markup = renderToStaticMarkup(
       <ChatAreaSettings sectionId={sourceSectionId} />,
     );
-
     expect(markup).toContain('data-testid="chat-area-settings-chat-mode"');
     expect(markup).toContain('data-disabled="true"');
+  });
+  it("loads summary cache status through the Go route for summary context links", async () => {
+    routeGetAgenticSummaryCacheStatusMock.mockResolvedValue({
+      data: createAgenticSummaryCacheStatus({
+        cachedSectionIds: ["source-context"],
+        summarySectionIds: ["source-context", "source-extra"],
+        consideredSectionIds: ["source-context"],
+        missingSectionIds: ["source-extra"],
+        emptySourceSectionIds: [],
+        maxSummariesPerRun: 3,
+      }),
+      error: undefined,
+      response: new Response(null, { status: 200 }),
+    });
+    const { sourceSectionId } = seedChatSections({
+      includeSummaryContextEdge: true,
+    });
+    const { host, root } = await renderChatAreaSettings(sourceSectionId);
+    try {
+      await flushEffects();
+      // Summary links should trigger the Go-owned cache-status read and render
+      // the returned cache/missing counts in the settings panel.
+      expect(routeGetAgenticSummaryCacheStatusMock).toHaveBeenCalledWith({
+        body: {
+          projectConfigId: "project-1",
+          chatSectionId: sourceSectionId,
+        },
+      });
+      expect(host.textContent).toContain("Summary cache");
+      expect(host.textContent).toContain("Cached: 1/2. Missing: 1.");
+      expect(host.textContent).toContain("Deferred due to cap (3): 0.");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+  it("renders the Go route error detail when summary cache status fails to load", async () => {
+    routeGetAgenticSummaryCacheStatusMock.mockResolvedValue({
+      data: undefined,
+      error: { detail: "cache unavailable" },
+      response: new Response(null, { status: 503 }),
+    });
+    const { sourceSectionId } = seedChatSections({
+      includeSummaryContextEdge: true,
+    });
+    const { host, root } = await renderChatAreaSettings(sourceSectionId);
+    try {
+      await flushEffects();
+      // Non-200 responses should surface the backend-provided detail instead of
+      // silently hiding the summary-cache status failure.
+      expect(routeGetAgenticSummaryCacheStatusMock).toHaveBeenCalledWith({
+        body: {
+          projectConfigId: "project-1",
+          chatSectionId: sourceSectionId,
+        },
+      });
+      expect(host.textContent).toContain(
+        "Failed to load summary cache status: cache unavailable",
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });
