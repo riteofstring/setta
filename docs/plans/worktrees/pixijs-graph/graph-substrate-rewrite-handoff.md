@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 20:11 UTC
+Last updated: 2026-04-12 20:22 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,44 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `346` landed one bounded section-shell scope-highlight selector split
+  on the settings graph section-chrome path:
+
+  - product code changed in the mounted section shell path:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      now subscribes to `useAgenticScopeHighlights(...)` through per-section
+      `isReadScope` / `isWriteScope` booleans instead of subscribing to the
+      whole `readSectionIdsByProjectConfigId[projectConfigId]` /
+      `writeSectionIdsByProjectConfigId[projectConfigId]` maps and deriving
+      the current section highlight after render
+    - this keeps mounted section shells out of unrelated scope-highlight
+      commits while preserving read-vs-write shell decoration precedence
+  - focused regression coverage added in:
+    - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+      to assert a mounted shell does not commit when an unrelated section gains
+      a scope highlight and still re-renders when the current section flips
+      from read scope to write scope
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-section-container-core-scope-highlight-boolean-selector.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCore.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` mounted successfully
+      -> settings graph surface rendered with populated section shells
+      -> no obvious blank graph region, layout collapse, or missing shell
+         surface was observed
+  - reading:
+    - this is a wider mounted section-shell boundary than another
+      edge/control-only split, even though it is not a direct pan/zoom state
+      selector
+    - the next bounded frontier should return to attribution-led evidence on
+      the canonical `rotaryParamCodeObjDefault` lane and name the next larger
+      mounted section-body/chrome subscriber or shared write fan-out before
+      another opportunistic micro-split
 
 - item `345` landed one bounded section-header follow-selection selector split
   on the settings graph section-chrome path:

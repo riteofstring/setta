@@ -13394,6 +13394,45 @@ LOOP_TERMINAL_MARKER: none
     opportunistic micro-split
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-12 20:22 UTC
+
+- item `346` landed one bounded section-shell scope-highlight selector split
+  on the canonical `rotaryParamCodeObjDefault` worktree-side lane:
+  - changed `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    so the mounted shell subscribes to
+    `useAgenticScopeHighlights(...)` through per-section booleans instead of
+    whole project-config read/write scope maps
+  - kept the existing read-vs-write shell decoration precedence by deriving
+    `showReadScope` from the narrowed booleans after selector equality
+  - added focused profiler regression coverage in
+    `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+    to prove:
+    - the mounted shell does not commit when an unrelated section gains a
+      scope highlight
+    - the same shell still re-renders when its own highlight changes from
+      read to write
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-section-container-core-scope-highlight-boolean-selector.md`
+    to record the slice and reasoning
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerCore.test.tsx`
+      -> passed (`1` file, `2` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `/settings`
+      -> `/settings` loaded successfully
+      -> settings graph surface rendered with populated section shells
+      -> no obvious blank graph region, layout collapse, or missing shell
+         surface was observed
+  - reading:
+    - this lands a mounted section-shell subscriber reduction with wider reach
+      than another leaf handle/control split
+    - next default frontier: use existing canary instrumentation plus focused
+      profiler/render-count evidence to name the next larger mounted
+      section-body/chrome subscriber or shared write fan-out before another
+      opportunistic micro-split
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 19:52 UTC
 
 - item `344` landed one bounded ReactFlow-root connecting-attribute

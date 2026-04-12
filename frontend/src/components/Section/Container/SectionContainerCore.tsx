@@ -87,17 +87,18 @@ function _SectionContainerCore({
   }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
-  const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
+  const { isReadScope, isWriteScope } = useAgenticScopeHighlights(
     (state) => ({
-      scopeReadMap:
-        state.readSectionIdsByProjectConfigId[projectConfigId] ?? null,
-      scopeWriteMap:
-        state.writeSectionIdsByProjectConfigId[projectConfigId] ?? null,
+      isWriteScope: Boolean(
+        state.writeSectionIdsByProjectConfigId[projectConfigId]?.[sectionId],
+      ),
+      isReadScope: Boolean(
+        state.readSectionIdsByProjectConfigId[projectConfigId]?.[sectionId],
+      ),
     }),
     shallow,
   );
-  const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
-  const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
+  const showReadScope = !isWriteScope && isReadScope;
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
@@ -112,7 +113,7 @@ function _SectionContainerCore({
     isGlobalVariables,
     isInOtherProjectConfigs,
     showAiHighlight,
-    isReadScope,
+    isReadScope: showReadScope,
     isWriteScope,
   });
   const sectionShellClassName = getSectionContainerShellClassName({
