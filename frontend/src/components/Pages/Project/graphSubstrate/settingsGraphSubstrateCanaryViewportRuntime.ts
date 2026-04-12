@@ -387,25 +387,6 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
         });
       },
     );
-    measureSettingsGraphSubstrateCanaryMotionAttribution(
-      "interactionReactFlowStateSync",
-      () => {
-        const nextViewportInteractionActive =
-          isViewportPanning || isPanScrolling || isWheelZooming;
-        const currentReactFlowState = useReactFlow.getState();
-        if (
-          currentReactFlowState.paneDragging === isViewportPanning &&
-          currentReactFlowState.viewportInteractionActive ===
-            nextViewportInteractionActive
-        ) {
-          return;
-        }
-        useReactFlow.setState({
-          paneDragging: isViewportPanning,
-          viewportInteractionActive: nextViewportInteractionActive,
-        });
-      },
-    );
   }
 
   useEffect(() => {

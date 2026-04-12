@@ -334,6 +334,53 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     );
   });
 
+  it("does not mirror canary viewport interaction flags into the React Flow store", async () => {
+    let latestRuntime: ReturnType<
+      typeof useSettingsGraphSubstrateCanaryViewportRuntime
+    > | null = null;
+    useReactFlow.setState({
+      paneDragging: true,
+      viewportInteractionActive: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          onRuntime={(runtime) => {
+            latestRuntime = runtime;
+          }}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(latestRuntime?.resolvedViewport).not.toBeNull();
+    });
+
+    await act(async () => {
+      latestRuntime?.syncViewportInteractionState({
+        isPanScrolling: false,
+        isViewportPanning: false,
+        isWheelZooming: false,
+      });
+    });
+
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.paneDragging).toBe(true);
+    expect(reactFlowState.viewportInteractionActive).toBe(true);
+  });
+
   it("seeds the canary viewport from the current React Flow transform without auto-fitting over it", async () => {
     const reactFlowViewport = { x: 320, y: -180, zoom: 0.42 };
     useReactFlow.setState({

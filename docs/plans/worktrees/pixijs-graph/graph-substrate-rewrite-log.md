@@ -12668,6 +12668,38 @@ settings graph probe phase: worktree: capture initial pane state.`
       probe and see whether the dominant owner or average motion cost moved
       after this resolver reuse path landed
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-12 17:13 UTC
+
+- item `329` removed the remaining canary-owned React Flow interaction-flag
+  writes on the canonical `rotaryParamCodeObjDefault` lane:
+  - changed
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    so `syncViewportInteractionState(...)` no longer writes
+    `paneDragging` / `viewportInteractionActive` into the legacy React Flow
+    store for the canary path
+  - added focused regression coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    to prove canary interaction sync leaves existing React Flow interaction
+    flags untouched while the root attribute still reflects activity
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-canary-write-removal.md`
+    to record the slice and verification
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/forks/xyflow/core/container/Pane.test.tsx`
+      -> passed (`3` files, `18` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on worktree `3075` and read-only
+      `main` `3087`
+      -> both `/settings` graph surfaces mounted after a short startup wait
+      -> no obvious visual drift observed for this slice
+  - result:
+    - this closes the remaining canary-side write path that was still feeding
+      the measured `interactionReactFlowStateSync` owner
+    - next bounded frontier: rerun the canonical perf lane from a fresh
+      healthy lifecycle and verify whether `interactionReactFlowStateSync`
+      drops out after the item `328` + `329` reductions
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-12 16:59 UTC
 
 - item `327` landed one bounded probe-helper slice on the canonical

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 17:05 UTC
+Last updated: 2026-04-12 17:13 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,39 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `329` landed one bounded product-side perf slice inside the measured
+  dominant motion owner `interactionReactFlowStateSync` on the named
+  `rotaryParamCodeObjDefault` lane:
+
+  - product code changed in the canary viewport runtime path:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      no longer mirrors canary viewport interaction flags into the legacy
+      React Flow store via `paneDragging` /
+      `viewportInteractionActive`
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      to assert canary interaction sync leaves existing React Flow interaction
+      flags untouched while the root attribute still toggles
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-canary-write-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/forks/xyflow/core/container/Pane.test.tsx`
+      -> passed (`3` files, `18` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on explicit worktree/reference
+      `/settings` URLs
+      -> both settings graph surfaces mounted successfully after a short
+      startup wait
+      -> no obvious graph-substrate visual drift observed for this slice
+  - reading:
+    - this removes the remaining canary-owned React Flow interaction-flag
+      writes rather than only pruning consumers of those fields
+    - the next bounded frontier should rerun the canonical
+      `rotaryParamCodeObjDefault` perf lane from a fresh healthy lifecycle to
+      confirm whether `interactionReactFlowStateSync` drops out after both the
+      subscriber-prune and write-removal slices
 
 - item `328` landed one bounded product-side perf slice inside the measured
   dominant motion owner `interactionReactFlowStateSync` on the named
