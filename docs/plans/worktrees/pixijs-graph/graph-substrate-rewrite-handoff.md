@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 21:58 UTC
+Last updated: 2026-04-12 22:19 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,45 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `355` landed one bounded minimap shared transform subscription
+  reduction on the canonical `rotaryParamCodeObjDefault` lane inside the
+  measured `interactionReactFlowStateSync` owner:
+
+  - product code changed in:
+    - `frontend/src/forks/xyflow/minimap/MiniMap.tsx`
+      so the default-visible minimap no longer subscribes through the React
+      render path to the viewport transform
+    - the mounted SVG now keeps its `viewBox` and viewport mask path in sync
+      imperatively via `useReactFlow.subscribe(...)`
+  - focused regression coverage added in:
+    - `frontend/src/forks/xyflow/minimap/MiniMap.test.ts`
+      to prove transform-only updates do not re-commit the mounted minimap
+      while the SVG `viewBox` and mask path still update
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-minimap-transform-subscription-removal.md`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/minimap/MiniMap.test.ts`
+      -> passed (`1` file, `8` tests)
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/minimap/MiniMap.tsx src/forks/xyflow/minimap/MiniMap.test.ts`
+      -> passed
+    - fresh-context headless CDP smoke:
+      -> first attempt only reached the shell/loading state before the DevTools
+      transport dropped
+      -> one bounded self-recovery restarted the current worktree lifecycle
+      with the loop headless env and refreshed runtime facts
+      -> retry reached live `/settings` graph content with visible section
+      cards and no blank graph region or canvas collapse
+      -> minimap DOM/SVG structure was present with a non-empty `viewBox`, but
+      the panel was clipped against the far-right viewport edge, so treat this
+      as a structural smoke check rather than a full visibility/parity pass
+  - reading:
+    - this is another real product-side motion-surface reduction on a mounted
+      transform subscriber, not another probe-only iteration
+    - now that viewport, background, and minimap transform-path subscriptions
+      have all moved off the React render path, the next bounded frontier
+      should be a fresh canonical attribution rerun or the next measured
+      mounted subscriber it identifies rather than another blind support pass
 
 - item `354` landed one bounded background-layer shared transform subscription
   reduction on the canonical `rotaryParamCodeObjDefault` lane inside the

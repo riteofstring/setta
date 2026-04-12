@@ -75,6 +75,50 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 22:19 UTC
+
+- item `355` landed one bounded minimap transform-subscription reduction on
+  the canonical `rotaryParamCodeObjDefault` lane:
+  - changed `frontend/src/forks/xyflow/minimap/MiniMap.tsx` so the default
+    minimap no longer re-renders from the React Flow viewport transform
+  - the mounted SVG now keeps its `viewBox` and viewport mask path synchronized
+    imperatively via `useReactFlow.subscribe(...)`
+  - added focused coverage in
+    `frontend/src/forks/xyflow/minimap/MiniMap.test.ts` proving:
+    - the mounted minimap does not commit on transform-only updates
+    - the reactive `viewBox` and mask path still update to the latest viewport
+      state
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-interaction-reactflow-state-sync-minimap-transform-subscription-removal.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/minimap/MiniMap.test.ts`
+    - passed (`1` file, `8` tests)
+  - `pnpm -C frontend exec prettier --check src/forks/xyflow/minimap/MiniMap.tsx src/forks/xyflow/minimap/MiniMap.test.ts`
+    - passed
+  - fresh-context headless CDP smoke:
+    - first attempt stalled on loading state and then lost the DevTools
+      transport
+    - one bounded self-recovery restarted the worktree lifecycle with
+      `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime facts with
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-044/worktree-ai.log`
+    - retry reached live `/settings` graph content with visible section cards
+      and no blank graph region or canvas collapse
+    - minimap DOM/SVG structure was present with a non-empty `viewBox`, but the
+      panel was clipped at the far-right viewport edge, so this remains a
+      structural smoke check instead of a full visibility/parity pass
+- Result:
+  - this pass removed another default-visible transform subscriber from the
+    `interactionReactFlowStateSync` render path without changing live minimap
+    SVG updates
+  - the worktree runtime is healthy again after the bounded recovery
+- Next:
+  - rerun the canonical attribution lane on a fresh runtime before pruning
+    another surface blindly; if `interactionReactFlowStateSync` still dominates,
+    use that rerun to name the next mounted subscriber
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 21:58 UTC
 
 - item `354` landed one bounded background transform subscription removal
