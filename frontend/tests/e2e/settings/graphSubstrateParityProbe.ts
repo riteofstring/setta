@@ -189,7 +189,7 @@ const CANARY_SETTINGS_GRAPH_SECTION_SELECTOR =
   '[data-testid="graph-substrate-canary-section"]';
 const CANARY_SETTINGS_GRAPH_VIEWPORT_SELECTOR =
   '[data-testid="graph-substrate-canary-viewport"]';
-const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow";
+const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow__pane";
 const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
 const PROJECT_SURFACE_LOADING_SELECTOR =
@@ -406,6 +406,16 @@ export async function getLatestProjectState(
     throw new Error("Missing project state payload.");
   }
   return payload;
+}
+
+export async function applyProjectStateUpdate(
+  page: Page,
+  payload: ProjectStateSingleConfigWithCompletedOpIds,
+): Promise<void> {
+  await page.evaluate(async (stateUpdate) => {
+    const mod = await import("/src/state/actions/sectionInfos");
+    mod.processProjectStateUpdateFromBackend(stateUpdate);
+  }, payload);
 }
 
 export async function applyAuthoritativeViewportFromBackend(

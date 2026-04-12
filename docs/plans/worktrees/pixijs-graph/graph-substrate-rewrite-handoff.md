@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 09:41 UTC
+Last updated: 2026-04-14 09:58 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,50 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `459` landed one bounded oracle-normalization fix for the canonical
+  `rotaryParamCodeObjDefault` lane so the lane-health probe stops treating the
+  canary's shared `.react-flow` class as proof that legacy ReactFlow is also
+  mounted:
+  - code/test changes kept in the tree:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now treats `.react-flow__pane` as the legacy-only marker inside
+      `readSettingsGraphSurfacePresenceSnapshot(...)` while keeping the
+      existing canary root selector unchanged
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now exports `applyProjectStateUpdate(...)` so the dedicated lane-health
+      spec can use the shared helper instead of carrying a private stale copy
+    - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      now asserts `surfacePresence.legacyPaneMounted === false` on the canary
+      lane, waits longer for initial graph readiness on the live worktree, and
+      resolves the active config id through `/loadProjectConfig`
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts`
+      -> passed (`2` files, `9` tests)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+      -> passed
+    - live worktree lane-health rerun with a freshly extracted bootstrap token:
+      `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+      -> still blocked by the known page/context-closure path during
+         `normalizeSettingsGraphComparePaneState(...)`
+      -> latest failure:
+         `browserContext.newPage: Target page, context or browser has been closed`
+         from `reopenSettingsGraphPageIfRecoverable(...)`
+    - required CDP visual confirmation:
+      -> fresh-context sub-agent again hit DevTools transport instability
+      -> `/settings` stayed on the startup shell (`PREPARING SETTA`,
+         `Loading settings…`, `Backend: Starting backend services`)
+         and timed out before `All Settings` / `graph-substrate-canary`
+         became inspectable
+  - reading:
+    - the earlier mixed-surface classification was at least partly oracle noise:
+      the helper had been counting the canary root itself as a legacy mount
+    - the next iteration should not spend another pass on selector cleanup for
+      this lane
+    - the next real frontier is to stabilize the live lane-health probe's
+      page/context lifecycle path enough to capture one fresh normalized
+      `rotaryParamCodeObjDefault` snapshot, then use that cleaner oracle to
+      decide whether any real mixed-surface product bug remains
 
 - item `458` completed the handoff-directed lane-health/classification pass on
   the canonical `rotaryParamCodeObjDefault` worktree canary:

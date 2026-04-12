@@ -16,29 +16,43 @@ const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 
 async function waitForInitialSettingsGraphReady(page: Page) {
   await expect
-    .poll(async () => {
-      const snapshot = await page.evaluate(async () => {
-        const { useProjectLoading } = await import("/src/state/definitions.ts");
-        return {
-          canaryRootMounted:
-            document.querySelector('[data-testid="graph-substrate-canary"]') !==
-            null,
-          legacyPaneMounted:
-            document.querySelector(".react-flow__pane") !== null,
-          projectIsLoading: useProjectLoading.getState().projectIsLoading,
-        };
-      });
-      return (
-        (snapshot.canaryRootMounted || snapshot.legacyPaneMounted) &&
-        snapshot.projectIsLoading === false
-      );
-    })
+    .poll(
+      async () => {
+        const snapshot = await page.evaluate(async () => {
+          const { useProjectLoading } = await import(
+            "/src/state/definitions.ts"
+          );
+          return {
+            canaryRootMounted:
+              document.querySelector(
+                '[data-testid="graph-substrate-canary"]',
+              ) !== null,
+            legacyPaneMounted:
+              document.querySelector(".react-flow__pane") !== null,
+            projectIsLoading: useProjectLoading.getState().projectIsLoading,
+          };
+        });
+        return (
+          (snapshot.canaryRootMounted || snapshot.legacyPaneMounted) &&
+          snapshot.projectIsLoading === false
+        );
+      },
+      { timeout: 30000 },
+    )
     .toBe(true);
 }
 
 async function getProjectConfigIdFromBackend(page: Page) {
-  const payload = await postBackend(page, "/singleConfig", null);
-  return payload.projectConfigId as string;
+  const pathParts = new URL(page.url()).pathname.split("/").filter(Boolean);
+  const projectConfigName = pathParts[0] ?? "settings";
+  const payload = await postBackend<{
+    projectConfig?: { id?: string | null } | null;
+  }>(page, "/loadProjectConfig", { projectConfigName });
+  const projectConfigId = payload?.projectConfig?.id;
+  if (!projectConfigId) {
+    throw new Error("Missing projectConfig id from backend.");
+  }
+  return projectConfigId;
 }
 
 test("settings graph worktree lane health captures the normalized rotaryParamCodeObjDefault canary state", async ({
@@ -100,6 +114,7 @@ test("settings graph worktree lane health captures the normalized rotaryParamCod
     expect(laneHealth.preflight.issues).toEqual([]);
     expect(laneHealth.preflight.targetSectionId).toBe(targetSectionId);
     expect(laneHealth.surfacePresence.canaryRootMounted).toBe(true);
+    expect(laneHealth.surfacePresence.legacyPaneMounted).toBe(false);
     expect(laneHealth.targetSectionMetrics?.surfaceKind).toBe("canary");
     expect(laneHealth.targetSectionMetrics?.transform).not.toBeNull();
     expect(laneHealth.targetSectionVisible).toBe(true);

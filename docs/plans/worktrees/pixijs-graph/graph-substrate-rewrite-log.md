@@ -3834,6 +3834,48 @@ LOOP_TERMINAL_MARKER: none
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-14 09:58 UTC
+
+- item `459` fixed one bounded oracle-normalization bug on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    now treats `.react-flow__pane` as the legacy-only marker inside
+    `readSettingsGraphSurfacePresenceSnapshot(...)` instead of treating the
+    canary root's shared `.react-flow` class as legacy presence
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    now exports `applyProjectStateUpdate(...)` for the dedicated lane-health
+    spec
+  - `frontend/tests/e2e/settings/settings-graph-lane-health.spec.ts`
+    now asserts `legacyPaneMounted === false` on the canary lane, uses the
+    current `/loadProjectConfig` path for config id resolution, and gives the
+    live worktree a longer initial readiness window
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphLaneHealth.test.ts`
+    -> passed (`2` files, `9` tests)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-graph-lane-health.spec.ts`
+    -> passed
+  - live worktree rerun with fresh runtime/token extraction:
+    `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-graph-lane-health.spec.ts --reporter=line --timeout=180000`
+    -> reached the real lane, then failed on the known lifecycle closure path
+       during `normalizeSettingsGraphComparePaneState(...)`
+    -> final error:
+       `browserContext.newPage: Target page, context or browser has been closed`
+       from `reopenSettingsGraphPageIfRecoverable(...)`
+- CDP verification:
+  - fresh-context sub-agent again hit DevTools transport instability
+  - `/settings` stayed on the startup shell (`PREPARING SETTA`,
+    `Loading settings…`, `Backend: Starting backend services`)
+    and timed out before `All Settings` / `graph-substrate-canary`
+    became inspectable
+- interpretation:
+  - the earlier mixed-surface classification was partly oracle noise from the
+    helper selector, so do not spend another pass on the same selector family
+  - the next bounded frontier is to stabilize or bypass the page/context
+    closure path in the dedicated lane-health probe so one fresh normalized
+    `rotaryParamCodeObjDefault` snapshot can say whether any real mixed-surface
+    product bug remains
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-14 - item 456 - Param row owner split attribution
 
 - reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
