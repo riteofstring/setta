@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 13:30 UTC
+Last updated: 2026-04-13 13:48 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,81 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `430` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the remaining
+  `ParamGroupContainer` motion cost across its immediate subtree owners:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named
+      `rotaryParamCodeObjDefault` lane instead of reopening shell/oracle work
+    - chose one deeper attribution seam inside `ParamGroupContainer` because
+      the previous Dict-path split had already shown `KwargsControls` was too
+      small and that the remaining cost lived inside the param-group subtree
+    - kept the slice bounded to one instrumentation seam, one focused new
+      component regression, one live worktree probe rerun, one perf note, and
+      one fresh-context headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with three new motion owners:
+      `presentedSceneSectionParamGroupEdgesStripReactRender`,
+      `presentedSceneSectionParamGroupPinnedParamsReactRender`, and
+      `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+    - `frontend/src/components/Params/GroupContainer.tsx` so the mounted
+      `ParamGroupContainer` branch records `React.Profiler` durations
+      separately for `EdgesStrip`, pinned params, and unpinned params
+    - `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      with focused regression coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the existing perf probe allowlist accepts the new named attribution
+      owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-param-group-container-subtree-attribution.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Params/GroupContainer.instrumentation.test.tsx src/components/Params/GroupContainer.test.tsx src/components/Section/Layouts/DictArea.instrumentation.test.tsx`
+      -> passed (`4` files, `13` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.instrumentation.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-055/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.6m`)
+      -> direct-open phase sequence on the worktree:
+         `127ms app_router_loading` -> `2464ms settings_loading` ->
+         `4025ms app_shell_without_surface` -> `7412ms project_loading` ->
+         `13627ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+      -> new ParamGroup split on this motion lane:
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `508.0ms` total / `61.7ms` max,
+         `presentedSceneSectionParamGroupEdgesStripReactRender`
+         `2.2ms` total / `0.3ms` max,
+         `presentedSceneSectionParamGroupPinnedParamsReactRender`
+         `1.7ms` total / `0.6ms` max
+    - fresh-context headless CDP smoke check on direct
+      `http://127.0.0.1:3075/settings`
+      -> still observed the loading shell rather than a mounted settings graph
+         surface
+      -> visible text included `Settings`, `pixijs-graph`,
+         `Loading project...`, and `Waiting for project data to load.`
+      -> keep treating that direct unauthenticated `/settings` CDP state as a
+         smoke-only signal while the authenticated Playwright probe still
+         reaches the mounted canary on the same runtime
+  - reading:
+    - the remaining `ParamGroupContainer` motion cost on this lane is almost
+      entirely inside `GetUnpinnedParams`
+    - `EdgesStrip` and pinned params are effectively noise on the canonical
+      lane
+    - `KwargsControls` is still materially smaller than the unpinned params
+      subtree
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - take the next bounded attribution or production slice one level deeper
+      inside the unpinned params path on the same canonical lane, likely
+      around `ParamDndList` / row rendering; do not reopen edge-strip,
+      pinned-param, or `KwargsControls` work unless fresh evidence points back
+      there
 
 - item `429` landed one bounded attribution slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by splitting the live `DictArea`

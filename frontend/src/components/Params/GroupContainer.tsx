@@ -47,6 +47,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "../Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import {
   buildParamAreaMeasureKey,
@@ -58,6 +59,39 @@ import { ParamDndList } from "./ParamDndList";
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
+
+function handleEdgesStripRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamGroupEdgesStripReactRender",
+    actualDuration,
+  );
+}
+
+function handlePinnedParamsRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamGroupPinnedParamsReactRender",
+    actualDuration,
+  );
+}
+
+function handleUnpinnedParamsRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionParamGroupUnpinnedParamsReactRender",
+    actualDuration,
+  );
+}
 
 function _ParamGroupContainer({
   sectionId,
@@ -213,18 +247,33 @@ function _ParamGroupContainer({
           </div>
         )}
         <>
-          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-          <GetPinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-            sectionTypeName={sectionTypeName}
-          />
-          <GetUnpinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-          />
+          <React.Profiler
+            id={`param-group-edges-strip:${sectionId}`}
+            onRender={handleEdgesStripRender}
+          >
+            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+          </React.Profiler>
+          <React.Profiler
+            id={`param-group-pinned-params:${sectionId}`}
+            onRender={handlePinnedParamsRender}
+          >
+            <GetPinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+              sectionTypeName={sectionTypeName}
+            />
+          </React.Profiler>
+          <React.Profiler
+            id={`param-group-unpinned-params:${sectionId}`}
+            onRender={handleUnpinnedParamsRender}
+          >
+            <GetUnpinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+            />
+          </React.Profiler>
         </>
       </div>
     </ParamDndContext>

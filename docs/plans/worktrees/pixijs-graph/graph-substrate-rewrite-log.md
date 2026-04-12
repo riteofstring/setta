@@ -118,6 +118,54 @@ Record:
 
 - item `385` landed one bounded mounted prompt-section body selector
   reduction on the live canary lane:
+
+## 2026-04-13 13:48 UTC
+
+- Item: Split the canonical `rotaryParamCodeObjDefault` `ParamGroupContainer`
+  motion lane across edges, pinned params, and unpinned params.
+- Status: `done`
+- Details:
+  - Re-read `RALPH.md`, the rewrite plan, and the durable handoff before
+    selecting the next subtask.
+  - Stayed on the canonical `rotaryParamCodeObjDefault` lane instead of
+    reopening shell/oracle work because the prior pass had already isolated the
+    remaining Dict-path cost to `ParamGroupContainer`.
+  - Added three canary attribution owners:
+    - `presentedSceneSectionParamGroupEdgesStripReactRender`
+    - `presentedSceneSectionParamGroupPinnedParamsReactRender`
+    - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+  - Wrapped `EdgesStrip`, `GetPinnedParams`, and `GetUnpinnedParams` in
+    `ParamGroupContainer` with `React.Profiler` so the mounted canary snapshot
+    can name which immediate subtree still dominates motion cost.
+  - Added focused regression coverage in
+    `frontend/src/components/Params/GroupContainer.instrumentation.test.tsx`
+    and extended the shared instrumentation snapshot test plus the perf probe
+    owner allowlists.
+  - Live worktree probe on the canonical lane passed and showed:
+    - `presentedSceneSectionParamGroupUnpinnedParamsReactRender`:
+      `24` count / `508.0ms` total / `61.7ms` max
+    - `presentedSceneSectionParamGroupEdgesStripReactRender`:
+      `16` count / `2.2ms` total / `0.3ms` max
+    - `presentedSceneSectionParamGroupPinnedParamsReactRender`:
+      `16` count / `1.7ms` total / `0.6ms` max
+    - `presentedSceneSectionParamGroupContainerReactRender` remained
+      `577.3ms` total / `65.5ms` max
+    - dominant owner still remained
+      `presentedSceneSectionSubtreeReactRender`
+  - Reading:
+    - the remaining `ParamGroupContainer` motion cost is almost entirely in
+      the unpinned params subtree
+    - edge strip and pinned params are effectively noise on this lane
+    - `KwargsControls` remains materially smaller than the unpinned params path
+  - Headless CDP smoke check on direct `http://127.0.0.1:3075/settings`
+    still showed only the loading shell with `Settings`, `pixijs-graph`,
+    `Loading project...`, and `Waiting for project data to load.`
+    Keep treating that direct route as smoke-only while the authenticated
+    Playwright probe reaches the mounted canary.
+- Next action:
+  - Split the unpinned params path one level deeper on the same canonical lane,
+    likely around `ParamDndList` or row rendering, and avoid reopening
+    edge-strip, pinned-param, or `KwargsControls` work without fresh evidence.
   - changed `frontend/src/components/Section/Layouts/PromptArea.tsx` so the
     mounted prompt-body selector now uses `zustand/shallow` for
     `{ projectConfigId, promptTemplateId, template, format, isFrozen, renderedText, renderError }`
