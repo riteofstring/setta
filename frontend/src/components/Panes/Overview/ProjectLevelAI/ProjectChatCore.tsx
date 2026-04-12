@@ -86,6 +86,7 @@ import {
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
   resolveProjectChatProviderDictationTranscribeEnabled,
+  resolveProjectChatRedoTarget,
   resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
   resolveProjectChatSubmitAppGeneration,
@@ -119,16 +120,6 @@ const DEFAULT_CHAT_APP_GENERATION_DETAILS =
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
 type AIStoreState = ReturnType<typeof useAIStore.getState>;
-type ResolveProjectChatRedoTargetInput = {
-  chatId: string | null | undefined;
-  lastChatId: string | null;
-  waitingForResponse: boolean;
-  requiresNewThreadContinuation: boolean;
-  engineConfigId: string | null;
-  isExternalEngine: boolean;
-  hasLLMConfig: boolean;
-  externalEngineAvailable: boolean;
-};
 
 // eslint-disable-next-line complexity
 function selectProjectChatCoreState(
@@ -166,32 +157,6 @@ function selectProjectChatCoreState(
     ...appGenerationDetails,
     usingPendingDraftDetails: false,
   };
-}
-
-function resolveProjectChatRedoTarget({
-  chatId,
-  lastChatId,
-  waitingForResponse,
-  requiresNewThreadContinuation,
-  engineConfigId,
-  isExternalEngine,
-  hasLLMConfig,
-  externalEngineAvailable,
-}: ResolveProjectChatRedoTargetInput): { resolvedChatId: string } | null {
-  const resolvedChatId = typeof chatId === "string" ? chatId : lastChatId;
-  if (!resolvedChatId || waitingForResponse || requiresNewThreadContinuation) {
-    return null;
-  }
-  if (!engineConfigId) {
-    return null;
-  }
-  if (!isExternalEngine && !hasLLMConfig) {
-    return null;
-  }
-  if (isExternalEngine && !externalEngineAvailable) {
-    return null;
-  }
-  return { resolvedChatId };
 }
 
 function useWorkspaceRootIdentity(

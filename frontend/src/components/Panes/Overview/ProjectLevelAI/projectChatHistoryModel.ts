@@ -26,6 +26,13 @@ import {
   type ProjectChatHistoryEntry,
 } from "./projectChatHistoryShared";
 
+const THREAD_AGENT_BADGE_LABEL_BY_TOOL_TYPE: Partial<
+  Record<ToolTypeEnum, string>
+> = {
+  [ToolTypeEnum.codex]: "codex",
+  [ToolTypeEnum.claude_code]: "claude",
+};
+
 export function useProjectChatHistoryModel({
   agentRuns,
   agentRunsInitialLoadComplete,
@@ -537,7 +544,26 @@ function buildSearchableConversationTextMap({
   return byChatId;
 }
 
-function resolveThreadAgentBadgeLabel({
+function resolveExternalAgentBadgeLabel(
+  engineConfig: EngineConfig,
+  externalAgentConfigById: Map<string, ExternalAgentConfig>,
+): string | null {
+  const externalAgentConfigId = engineConfig.externalAgentConfigId;
+  if (!externalAgentConfigId) {
+    return null;
+  }
+  const externalAgentConfig = externalAgentConfigById.get(
+    externalAgentConfigId,
+  );
+  if (!externalAgentConfig) {
+    return null;
+  }
+  return (
+    THREAD_AGENT_BADGE_LABEL_BY_TOOL_TYPE[externalAgentConfig.toolType] ?? null
+  );
+}
+
+export function resolveThreadAgentBadgeLabel({
   entry,
   engineConfigById,
   externalAgentConfigById,
@@ -547,35 +573,23 @@ function resolveThreadAgentBadgeLabel({
   externalAgentConfigById: Map<string, ExternalAgentConfig>;
 }): string | null {
   const llmFallbackBadge = entry.runType === "llm_chat" ? "setta" : null;
-  if (!entry.engineConfigId) {
-    return llmFallbackBadge;
-  }
-  const engineConfig = engineConfigById.get(entry.engineConfigId);
+  const engineConfig = entry.engineConfigId
+    ? engineConfigById.get(entry.engineConfigId)
+    : undefined;
   if (!engineConfig) {
     return llmFallbackBadge;
   }
-  if (engineConfig.engineType === EngineTypeEnum.setta_llm) {
-    return "setta";
+  switch (engineConfig.engineType) {
+    case EngineTypeEnum.setta_llm:
+      return "setta";
+    case EngineTypeEnum.external_agent:
+      return resolveExternalAgentBadgeLabel(
+        engineConfig,
+        externalAgentConfigById,
+      );
+    default:
+      return null;
   }
-  if (engineConfig.engineType !== EngineTypeEnum.external_agent) {
-    return null;
-  }
-  if (!engineConfig.externalAgentConfigId) {
-    return null;
-  }
-  const externalAgentConfig = externalAgentConfigById.get(
-    engineConfig.externalAgentConfigId,
-  );
-  if (!externalAgentConfig) {
-    return null;
-  }
-  if (externalAgentConfig.toolType === ToolTypeEnum.codex) {
-    return "codex";
-  }
-  if (externalAgentConfig.toolType === ToolTypeEnum.claude_code) {
-    return "claude";
-  }
-  return null;
 }
 
 function getPlaceholderText(

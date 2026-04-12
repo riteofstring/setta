@@ -269,44 +269,69 @@ type ApiKeyEntry = {
   configLabels: string[];
 };
 
+function resolveApiKeyConfigLabel(
+  configId: string,
+  typedConfig: LLMConfig,
+): string {
+  return typeof typedConfig.provider === "string"
+    ? `${configId} (${typedConfig.provider})`
+    : configId;
+}
+
+function ensureApiKeyEntry(
+  entriesByKey: Map<string, ApiKeyEntry>,
+  envKey: string,
+): ApiKeyEntry {
+  const existing = entriesByKey.get(envKey);
+  if (existing) {
+    return existing;
+  }
+  const createdEntry = {
+    envKey,
+    configLabels: [],
+  };
+  entriesByKey.set(envKey, createdEntry);
+  return createdEntry;
+}
+
+function appendConfiguredApiKeyEntries(
+  entriesByKey: Map<string, ApiKeyEntry>,
+  configs: AllConfigs["configs"] | null | undefined,
+): void {
+  if (!configs) {
+    return;
+  }
+  for (const [configId, config] of Object.entries(configs)) {
+    const typedConfig = config as LLMConfig;
+    const apiKeyEnv = typedConfig.api_key_env;
+    if (!apiKeyEnv || typeof apiKeyEnv !== "string") {
+      continue;
+    }
+    ensureApiKeyEntry(entriesByKey, apiKeyEnv).configLabels.push(
+      resolveApiKeyConfigLabel(configId, typedConfig),
+    );
+  }
+}
+
+function appendManualApiKeyEntries(
+  entriesByKey: Map<string, ApiKeyEntry>,
+  apiKeys: APIKeys,
+): void {
+  for (const envKey of Object.keys(apiKeys)) {
+    ensureApiKeyEntry(entriesByKey, envKey);
+  }
+}
+
+function compareApiKeyEntries(left: ApiKeyEntry, right: ApiKeyEntry): number {
+  return left.envKey.localeCompare(right.envKey);
+}
+
 export function buildApiKeyEntries(
   allLLMConfigs: AllConfigs | null,
   apiKeys: APIKeys,
 ): ApiKeyEntry[] {
   const entriesByKey = new Map<string, ApiKeyEntry>();
-  if (allLLMConfigs && allLLMConfigs.configs) {
-    for (const [configId, config] of Object.entries(allLLMConfigs.configs)) {
-      const typedConfig = config as LLMConfig;
-      const apiKeyEnv = typedConfig.api_key_env;
-      if (!apiKeyEnv || typeof apiKeyEnv !== "string") {
-        continue;
-      }
-      const label =
-        typeof typedConfig.provider === "string"
-          ? `${configId} (${typedConfig.provider})`
-          : configId;
-      const existing = entriesByKey.get(apiKeyEnv);
-      if (existing) {
-        existing.configLabels.push(label);
-      } else {
-        entriesByKey.set(apiKeyEnv, {
-          envKey: apiKeyEnv,
-          configLabels: [label],
-        });
-      }
-    }
-  }
-
-  for (const envKey of Object.keys(apiKeys)) {
-    if (entriesByKey.has(envKey)) {
-      continue;
-    }
-    entriesByKey.set(envKey, {
-      envKey,
-      configLabels: [],
-    });
-  }
-  return Array.from(entriesByKey.values()).sort((a, b) =>
-    a.envKey.localeCompare(b.envKey),
-  );
+  appendConfiguredApiKeyEntries(entriesByKey, allLLMConfigs?.configs);
+  appendManualApiKeyEntries(entriesByKey, apiKeys);
+  return Array.from(entriesByKey.values()).sort(compareApiKeyEntries);
 }

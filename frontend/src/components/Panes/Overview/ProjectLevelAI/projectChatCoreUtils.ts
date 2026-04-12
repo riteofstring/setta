@@ -509,6 +509,48 @@ export function buildProjectChatSubmitReadinessKey({
   });
 }
 
+type ProjectChatEngineAvailabilityInput = {
+  engineConfigId: string | null;
+  externalEngineAvailable: boolean;
+  hasLLMConfig: boolean;
+  isExternalEngine: boolean;
+};
+
+function isProjectChatEngineAvailable({
+  engineConfigId,
+  externalEngineAvailable,
+  hasLLMConfig,
+  isExternalEngine,
+}: ProjectChatEngineAvailabilityInput): boolean {
+  if (!engineConfigId) {
+    return false;
+  }
+  return isExternalEngine ? externalEngineAvailable : hasLLMConfig;
+}
+
+type ResolveProjectChatRedoTargetInput = ProjectChatEngineAvailabilityInput & {
+  chatId: string | null | undefined;
+  lastChatId: string | null;
+  waitingForResponse: boolean;
+  requiresNewThreadContinuation: boolean;
+};
+
+export function resolveProjectChatRedoTarget({
+  chatId,
+  lastChatId,
+  waitingForResponse,
+  requiresNewThreadContinuation,
+  ...engineAvailability
+}: ResolveProjectChatRedoTargetInput): { resolvedChatId: string } | null {
+  const resolvedChatId = typeof chatId === "string" ? chatId : lastChatId;
+  if (!resolvedChatId || waitingForResponse || requiresNewThreadContinuation) {
+    return null;
+  }
+  return isProjectChatEngineAvailable(engineAvailability)
+    ? { resolvedChatId }
+    : null;
+}
+
 export function resolveProjectChatSubmitPreflightResult({
   attachments,
   engineConfigId,
@@ -533,13 +575,14 @@ export function resolveProjectChatSubmitPreflightResult({
   if (requiresNewThreadContinuation) {
     return "failed";
   }
-  if (!engineConfigId) {
-    return "retry_later";
-  }
-  if (!isExternalEngine && !hasLLMConfig) {
-    return "retry_later";
-  }
-  if (isExternalEngine && !externalEngineAvailable) {
+  if (
+    !isProjectChatEngineAvailable({
+      engineConfigId,
+      externalEngineAvailable,
+      hasLLMConfig,
+      isExternalEngine,
+    })
+  ) {
     return "retry_later";
   }
   return null;
