@@ -73,14 +73,14 @@ function ProjectRootRedirect() {
   return <Navigate to={`/${encodeURIComponent(projectConfigName)}`} replace />;
 }
 
-function resolveShareHomeContent(doneLoading: boolean, is404: boolean) {
+export function resolveShareHomeContent(doneLoading: boolean, is404: boolean) {
   if (!doneLoading) {
     return <LoadingSpinner />;
   }
   if (is404) {
     return <NotFound />;
   }
-  return <HomePage />;
+  return <HomeRouteSurface />;
 }
 
 function resolveDefaultProjectConfigName(

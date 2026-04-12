@@ -151,6 +151,58 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 04:56 UTC
+
+- item `394` landed one bounded startup-path reduction on the live worktree
+  runtime by removing the last direct share-home reference to `HomePage` from
+  the eager router chunk:
+  - local ranking/readout for this iteration:
+    - re-read `frontend/src/components/Pages/router.tsx` after the recent
+      route-surface splits instead of repeating another generic wrapper lift
+    - found one remaining startup-lane regression in the share-home branch:
+      `resolveShareHomeContent(...)` still returned `HomePage` directly rather
+      than the existing lazy `HomeRouteSurface`
+    - selected that bounded fix because it removes one real direct page
+      dependency from router startup without inventing a new abstraction lane
+  - product code changed in:
+    - `frontend/src/components/Pages/router.tsx`
+      so `resolveShareHomeContent(...)` now returns `HomeRouteSurface` after
+      loading completes instead of rendering `HomePage` directly
+  - focused regression coverage added in:
+    - `frontend/src/components/Pages/router.test.tsx`
+      to prove the share-home helper resolves to `HomeRouteSurface` on the
+      ready path while preserving the loading and not-found branches
+  - verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/router.test.tsx`
+      -> passed (`1` file, `13` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/router.tsx src/components/Pages/router.test.tsx`
+      -> passed
+    - fresh-context headless CDP smoke on the current worktree bootstrap URL
+      -> failed before recovery: redirected to
+         `http://127.0.0.1:3075/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8075`
+         with no visible text and a blank root
+    - bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime via
+        `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-019/worktree-ai.log`
+    - fresh-context headless CDP smoke after recovery
+      -> still failed on the same frontend URL with no visible text and a
+         blank root
+- reading:
+  - the startup slice is real and removes one remaining eager page reference
+    from the router chunk
+  - the required live visual check is currently blocked by persistent
+    worktree startup health, not by a failing targeted regression test
+  - the next iteration should stay on the startup lane and debug why the app
+    no longer reaches even the visible router-loading fallback on fresh
+    bootstrap sessions
+- next:
+  - instrument or debug the fresh-bootstrap blank-root path after the recent
+    router splits, starting with what synchronous initialization now fails or
+    stalls before `app-router-loading-state` renders
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 04:44 UTC
 
 - item `392` landed one bounded startup-path reduction on the live worktree
