@@ -1,4 +1,4 @@
-import { RunStatusEnum, createAgentRun } from "utils/generatedTypes";
+import { AgentRunStatusEnum, createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { getActiveSectionIdsFromRuns } from "./aiActivity";
 
@@ -7,7 +7,9 @@ describe("aiActivity (perf)", () => {
     const runs = Array.from({ length: 12000 }, (_, index) =>
       createAgentRun({
         status:
-          index % 3 === 0 ? RunStatusEnum.running : RunStatusEnum.completed,
+          index % 3 === 0
+            ? AgentRunStatusEnum.running
+            : AgentRunStatusEnum.completed,
         inputs:
           index % 5 === 0
             ? {

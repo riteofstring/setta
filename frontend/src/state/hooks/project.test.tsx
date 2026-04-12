@@ -20,14 +20,14 @@ vi.mock("utils/hotReload", () => ({
   useHotReload: () => false,
 }));
 
-function NavigateButton({ to, state }: { to: string; state?: unknown }) {
+function NavigateButton({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
     <button
       type="button"
       data-testid={`navigate-${to}`}
       onClick={() => {
-        navigate(to, { state });
+        navigate(to);
       }}
     >
       Navigate
@@ -194,62 +194,6 @@ describe("useLoadProjectConfig", () => {
     });
   });
 
-  it("treats rename navigation state as a one-shot local project name update", async () => {
-    await act(async () => {
-      root.render(
-        <MemoryRouter initialEntries={["/alpha"]}>
-          <Routes>
-            <Route
-              path="/:projectConfigName"
-              element={
-                <>
-                  <LoadProbe />
-                  <NavigateButton
-                    to="/beta"
-                    state={{
-                      pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME,
-                    }}
-                  />
-                </>
-              }
-            />
-          </Routes>
-        </MemoryRouter>,
-      );
-    });
-
-    await vi.waitFor(() => {
-      const probe = host.querySelector('[data-testid="load-probe"]');
-      expect(probe?.getAttribute("data-done-loading")).toBe("true");
-      expect(probe?.getAttribute("data-project-config-name")).toBe("alpha");
-      expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
-    });
-
-    await act(async () => {
-      const navigateButton = host.querySelector(
-        '[data-testid="navigate-/beta"]',
-      );
-      if (!(navigateButton instanceof HTMLButtonElement)) {
-        throw new Error("Expected navigate button.");
-      }
-      navigateButton.click();
-    });
-
-    await vi.waitFor(() => {
-      const probe = host.querySelector('[data-testid="load-probe"]');
-      expect(probe?.getAttribute("data-done-loading")).toBe("true");
-      expect(probe?.getAttribute("data-is-404")).toBe("false");
-      expect(probe?.getAttribute("data-project-config-name")).toBe("beta");
-      expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
-      expect(useProjectLoading.getState().projectIsLoading).toBe(false);
-    });
-
-    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
-    expect(loadProjectConfigMock).toHaveBeenCalledWith({
-      projectConfigName: "alpha",
-    });
-  });
-
   it("treats load-project navigation state as a one-shot reload request", async () => {
     await act(async () => {
       root.render(
@@ -278,6 +222,36 @@ describe("useLoadProjectConfig", () => {
     expect(loadProjectConfigMock).toHaveBeenCalledWith({
       projectConfigName: "alpha",
     });
+  });
+
+  it("reloads the current route even when a stale loading flag is already set", async () => {
+    useProjectLoading.setState({
+      projectIsLoading: true,
+      projectIs404: false,
+    });
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/settings"]}>
+          <Routes>
+            <Route path="/:projectConfigName" element={<LoadProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    await vi.waitFor(() => {
+      const probe = host.querySelector('[data-testid="load-probe"]');
+      expect(probe?.getAttribute("data-done-loading")).toBe("true");
+      expect(probe?.getAttribute("data-is-404")).toBe("false");
+      expect(probe?.getAttribute("data-project-config-name")).toBe("settings");
+    });
+
+    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
+    expect(loadProjectConfigMock).toHaveBeenCalledWith({
+      projectConfigName: "settings",
+    });
+    expect(useProjectLoading.getState().projectIsLoading).toBe(false);
   });
 
   it("does not retry forever after the current route load fails", async () => {

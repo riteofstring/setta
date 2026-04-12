@@ -1,6 +1,4 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { setSectionHideUnpinnedParams } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -8,7 +6,9 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_section_hide_unpinned_params } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+
 export function HideShowUnpinnedParamsButton({ sectionId }) {
   const hideUnpinnedParams = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -18,6 +18,7 @@ export function HideShowUnpinnedParamsButton({ sectionId }) {
     );
     return impl.hideUnpinnedParams;
   });
+
   function onClick() {
     const nextHideUnpinnedParams = !hideUnpinnedParams;
     dispatchOptimisticProjectStateUpdate({
@@ -31,18 +32,15 @@ export function HideShowUnpinnedParamsButton({ sectionId }) {
         );
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setSectionHideUnpinnedParams({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              hideUnpinnedParams: nextHideUnpinnedParams,
-              frontendOpId,
-            },
-          } as Parameters<typeof setSectionHideUnpinnedParams>[0]),
-        ),
+        route_set_section_hide_unpinned_params({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          hideUnpinnedParams: nextHideUnpinnedParams,
+          frontendOpId,
+        }),
     });
   }
+
   // only show this option if there are no parameters
   // and the search bar isn't hidden (we don't want to hide both params and search)
   return (

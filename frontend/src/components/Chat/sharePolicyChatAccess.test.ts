@@ -5,6 +5,8 @@ import {
   createCore,
   createProjectConfig,
   createTextBlockSectionImpl,
+  createUserDefaultChatSectionImpl,
+  createUserDefaultTextBlockSectionImpl,
   createVariant,
   createWindowSpaceConfig,
   createWindowSpaceWindow,
@@ -15,6 +17,7 @@ import {
   canUseManagedChatLLM,
   filterManagedChatThreadSlashCommands,
   standaloneSectionRequiresManagedChat,
+  standaloneWindowRequiresManagedChat,
   standaloneWindowSpaceHasAllowedWindows,
   windowSurfaceRequiresManagedChat,
   type ManagedChatSurfaceAuthorityState,
@@ -86,17 +89,26 @@ function createManagedChatAuthorityState(): {
         }),
       },
       sectionImpls: {
-        [managedImplId]: createChatSectionImpl({
-          id: managedImplId,
-          managed: true,
-        }),
-        [scriptableImplId]: createChatSectionImpl({
-          id: scriptableImplId,
-          managed: false,
-        }),
-        [textImplId]: createTextBlockSectionImpl({
-          id: textImplId,
-        }),
+        [managedImplId]: createChatSectionImpl(
+          createUserDefaultChatSectionImpl(),
+          {
+            id: managedImplId,
+            managed: true,
+          },
+        ),
+        [scriptableImplId]: createChatSectionImpl(
+          createUserDefaultChatSectionImpl(),
+          {
+            id: scriptableImplId,
+            managed: false,
+          },
+        ),
+        [textImplId]: createTextBlockSectionImpl(
+          createUserDefaultTextBlockSectionImpl(),
+          {
+            id: textImplId,
+          },
+        ),
       },
     },
     managedSectionId,
@@ -197,7 +209,7 @@ describe("sharePolicyChatAccess", () => {
       createManagedChatAuthorityState();
 
     expect(
-      windowSurfaceRequiresManagedChat(
+      standaloneWindowRequiresManagedChat(
         createWindowSpaceWindow({
           surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
           mode: ChatWindowModeEnum.project_ai_mode,
@@ -215,7 +227,7 @@ describe("sharePolicyChatAccess", () => {
       ),
     ).toBe(true);
     expect(
-      windowSurfaceRequiresManagedChat(
+      standaloneWindowRequiresManagedChat(
         createWindowSpaceWindow({
           surfaceKind: WindowSpaceSurfaceKindEnum.section,
           sectionIdOrNull: managedSectionId,
@@ -234,7 +246,7 @@ describe("sharePolicyChatAccess", () => {
       ),
     ).toBe(true);
     expect(
-      windowSurfaceRequiresManagedChat(
+      standaloneWindowRequiresManagedChat(
         createWindowSpaceWindow({
           surfaceKind: WindowSpaceSurfaceKindEnum.section,
           sectionIdOrNull: scriptableSectionId,
@@ -253,7 +265,7 @@ describe("sharePolicyChatAccess", () => {
       ),
     ).toBe(false);
     expect(
-      windowSurfaceRequiresManagedChat(
+      standaloneWindowRequiresManagedChat(
         createWindowSpaceWindow({
           surfaceKind: WindowSpaceSurfaceKindEnum.section,
           sectionIdOrNull: textSectionId,
@@ -272,7 +284,7 @@ describe("sharePolicyChatAccess", () => {
       ),
     ).toBe(false);
     expect(
-      windowSurfaceRequiresManagedChat(
+      standaloneWindowRequiresManagedChat(
         createWindowSpaceWindow({
           surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
           mode: ChatWindowModeEnum.git_graph_mode,

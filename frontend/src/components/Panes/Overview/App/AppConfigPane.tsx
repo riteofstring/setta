@@ -2,12 +2,6 @@ import {
   PaneAccordion,
   type PaneAccordionItem,
 } from "components/Panes/Common/PaneAccordion";
-import {
-  getAppDefinition,
-  setAppDefinition,
-  validateAppDefinition,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -17,6 +11,11 @@ import {
   useProjectState,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  route_get_app_definition,
+  route_set_app_definition,
+  route_validate_app_definition,
+} from "utils/generatedEndpoints";
 import { type AppDefinition } from "utils/generatedTypes";
 import {
   parseDraftAppAssets,
@@ -24,52 +23,9 @@ import {
   parseDraftAppTheme,
   type AppThemeMode,
 } from "./appDraftPreview";
+
 type AppSpecPayload = Record<string, unknown>;
-type ProjectMetadataOption = {
-  id: string;
-  name: string;
-};
-type AppDefinitionValidationResult = {
-  errors: Array<{
-    message: string;
-  }>;
-  warnings: Array<{
-    message: string;
-    elementKey?: string | null;
-  }>;
-  capabilities: {
-    catalogId: string;
-    catalogVersion: string;
-    appSpecVersion: string;
-    themeSchemaVersion: string;
-    features: Record<string, boolean>;
-  };
-};
-type HydratedAppDefinition = {
-  savedSpec: unknown;
-  savedDefinition: AppDefinition | null;
-};
-type HydratedAppDraftState = {
-  appSpec: unknown;
-  appDefinition: AppDefinition | null;
-  draftSpec: string;
-  catalogId: string;
-  specVersion: string;
-  appSpecPath: string;
-  draftTheme: string;
-  draftAssets: string;
-  themeMode: AppThemeMode;
-  previewSpecOverride: Record<string, unknown> | null;
-  previewThemeOverride: Record<string, unknown> | null;
-  previewAssetsOverride: unknown[];
-};
-type ParsedAppDefinitionRequest = {
-  catalogId?: string;
-  appSpecVersion?: string;
-  appSpecPath?: string;
-  theme: Record<string, unknown>;
-  assets: unknown[];
-};
+
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
 const DEFAULT_THEME_MODE: AppThemeMode = "auto";
@@ -77,9 +33,11 @@ const ADVANCED_ACCORDION_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.app-config-advanced-chevron]:rotate-180";
 const ADVANCED_ACCORDION_TRIGGER_DISABLED_CLASSES =
   "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left opacity-60";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+
 function resolveThemeMode(theme: unknown): AppThemeMode {
   if (isRecord(theme)) {
     const mode = theme.mode;
@@ -89,6 +47,7 @@ function resolveThemeMode(theme: unknown): AppThemeMode {
   }
   return DEFAULT_THEME_MODE;
 }
+
 function buildDefaultSpec(): AppSpecPayload {
   const root: AppSpecPayload = {
     key: "app-root",
@@ -160,6 +119,7 @@ function buildDefaultSpec(): AppSpecPayload {
     elements: buildElementIndex(root as AppSpecPayload),
   };
 }
+
 function buildElementIndex(
   root: AppSpecPayload,
 ): Record<string, AppSpecPayload> {
@@ -186,6 +146,7 @@ function buildElementIndex(
   }
   return elements;
 }
+
 function parseThemePayloadForRequest({
   draftTheme,
   themeMode,
@@ -221,15 +182,10 @@ function parseThemePayloadForRequest({
     },
   };
 }
-function parseAssetsPayloadForRequest(draftAssets: string):
-  | {
-      ok: true;
-      value: unknown[];
-    }
-  | {
-      ok: false;
-      error: string;
-    } {
+
+function parseAssetsPayloadForRequest(
+  draftAssets: string,
+): { ok: true; value: unknown[] } | { ok: false; error: string } {
   if (draftAssets.trim().length === 0) {
     return { ok: true, value: [] };
   }
@@ -244,15 +200,10 @@ function parseAssetsPayloadForRequest(draftAssets: string):
   }
   return { ok: true, value: rawAssets };
 }
-function parseSpecPayloadForRequest(draftSpec: string):
-  | {
-      ok: true;
-      value: AppSpecPayload;
-    }
-  | {
-      ok: false;
-      error: string;
-    } {
+
+function parseSpecPayloadForRequest(
+  draftSpec: string,
+): { ok: true; value: AppSpecPayload } | { ok: false; error: string } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(draftSpec) as unknown;
@@ -264,443 +215,7 @@ function parseSpecPayloadForRequest(draftSpec: string):
   }
   return { ok: true, value: parsed };
 }
-function formatOptionalJson(value: unknown): string {
-  return value == null ? "" : JSON.stringify(value, null, 2);
-}
-function trimOptionalInput(value: string): string | undefined {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-function buildHydratedAppMetadata(savedDefinition: AppDefinition | null) {
-  return {
-    catalogId: savedDefinition?.catalogId ?? DEFAULT_CATALOG_ID,
-    specVersion: savedDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
-    appSpecPath: savedDefinition?.appSpecPath ?? "",
-  };
-}
-function buildHydratedPreviewState({
-  savedAssets,
-  savedSpec,
-  savedTheme,
-}: {
-  savedAssets: unknown[];
-  savedSpec: unknown;
-  savedTheme: unknown;
-}) {
-  return {
-    previewSpecOverride: isRecord(savedSpec) ? savedSpec : null,
-    previewThemeOverride: isRecord(savedTheme) ? savedTheme : null,
-    previewAssetsOverride: savedAssets,
-  };
-}
-function buildHydratedAppDraftState({
-  savedSpec,
-  savedDefinition,
-}: HydratedAppDefinition): HydratedAppDraftState {
-  const savedTheme = savedDefinition?.theme ?? null;
-  const savedAssets = savedDefinition?.assets ?? [];
-  const metadata = buildHydratedAppMetadata(savedDefinition);
-  const previewState = buildHydratedPreviewState({
-    savedAssets,
-    savedSpec,
-    savedTheme,
-  });
-  return {
-    appSpec: savedSpec,
-    appDefinition: savedDefinition,
-    draftSpec: formatOptionalJson(savedSpec),
-    ...metadata,
-    draftTheme: formatOptionalJson(savedTheme),
-    draftAssets: JSON.stringify(savedAssets, null, 2),
-    themeMode: resolveThemeMode(savedTheme),
-    ...previewState,
-  };
-}
-function buildAppDefinitionRequest({
-  appSpecPath,
-  catalogId,
-  draftAssets,
-  draftTheme,
-  specVersion,
-  themeMode,
-}: {
-  appSpecPath: string;
-  catalogId: string;
-  draftAssets: string;
-  draftTheme: string;
-  specVersion: string;
-  themeMode: AppThemeMode;
-}):
-  | {
-      ok: true;
-      value: ParsedAppDefinitionRequest;
-    }
-  | {
-      ok: false;
-      error: string;
-    } {
-  const themePayload = parseThemePayloadForRequest({
-    draftTheme,
-    themeMode,
-  });
-  if (!themePayload.ok) {
-    return themePayload;
-  }
-  const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
-  if (!assetsPayload.ok) {
-    return assetsPayload;
-  }
-  return {
-    ok: true,
-    value: {
-      appSpecPath: trimOptionalInput(appSpecPath),
-      appSpecVersion: trimOptionalInput(specVersion),
-      catalogId: trimOptionalInput(catalogId),
-      theme: themePayload.value,
-      assets: assetsPayload.value,
-    },
-  };
-}
-function buildValidationSuccessMessage(warningCount: number): string {
-  if (warningCount === 0) {
-    return "Validation passed.";
-  }
-  return `Validation passed with ${warningCount} warning(s).`;
-}
-function ErrorMessageBanner({ message }: { message: string | null }) {
-  if (!message) {
-    return null;
-  }
-  return (
-    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
-      {message}
-    </div>
-  );
-}
-function ValidationResultPanel({
-  result,
-}: {
-  result: AppDefinitionValidationResult | null;
-}) {
-  if (!result) {
-    return null;
-  }
-  const validationSummary = `${result.errors.length} error(s), ${result.warnings.length} warning(s)`;
-  const catalogVersionLabel = result.capabilities.catalogVersion
-    ? `(${result.capabilities.catalogVersion})`
-    : "";
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-          Validation
-        </span>
-        <span className="text-[11px] text-setta-500 dark:text-setta-400">
-          {validationSummary}
-        </span>
-      </div>
-      {result.errors.length > 0 ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
-          <div className="font-semibold">Errors</div>
-          <ul className="mt-1 list-disc pl-4">
-            {result.errors.map((err, idx) => (
-              <li key={`${idx}-${err.message}`}>{err.message}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {result.warnings.length > 0 ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/30 dark:text-amber-200">
-          <div className="font-semibold">Warnings</div>
-          <ul className="mt-1 list-disc pl-4">
-            {result.warnings.map((warn, idx) => (
-              <li key={`${idx}-${warn.message}`}>
-                {warn.message}
-                {warn.elementKey ? ` (element ${warn.elementKey})` : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      <div className="text-[11px] text-setta-500 dark:text-setta-400">
-        Capabilities: {result.capabilities.catalogId} {catalogVersionLabel}
-      </div>
-    </div>
-  );
-}
-function AppConfigToolbar({
-  hasDraft,
-  isPreviewEnabled,
-  loading,
-  onCreateDefault,
-  onSave,
-  onTogglePreview,
-  onValidate,
-  validating,
-}: {
-  hasDraft: boolean;
-  isPreviewEnabled: boolean;
-  loading: boolean;
-  onCreateDefault: () => void;
-  onSave: () => void;
-  onTogglePreview: () => void;
-  onValidate: () => void;
-  validating: boolean;
-}) {
-  const actionDisabled = loading || validating || !hasDraft;
-  return (
-    <>
-      <header className="flex justify-end">
-        <button
-          className="rounded-full border border-setta-200 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={onTogglePreview}
-          type="button"
-        >
-          {isPreviewEnabled ? "Hide Preview" : "Show Preview"}
-        </button>
-      </header>
 
-      <div className="flex items-center justify-between text-xs text-setta-500 dark:text-setta-400">
-        <span>App Spec JSON</span>
-        <div className="flex gap-2">
-          <button
-            className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            disabled={loading}
-            onClick={onCreateDefault}
-            type="button"
-          >
-            Create Default
-          </button>
-          <button
-            className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            disabled={actionDisabled}
-            onClick={onValidate}
-            type="button"
-          >
-            {validating ? "Validating..." : "Validate"}
-          </button>
-          <button
-            className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={actionDisabled}
-            onClick={onSave}
-            type="button"
-          >
-            {loading ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-function DraftSpecEditor({
-  appSpec,
-  draftSpec,
-  draftSpecError,
-  onDraftSpecChange,
-}: {
-  appSpec: unknown;
-  draftSpec: string;
-  draftSpecError: string | null;
-  onDraftSpecChange: (value: string) => void;
-}) {
-  const placeholder = appSpec
-    ? "Edit the app spec JSON."
-    : "No app spec yet. Create or generate one.";
-  return (
-    <>
-      <textarea
-        aria-label="App Spec JSON"
-        className="min-h-[280px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-        placeholder={placeholder}
-        value={draftSpec}
-        onChange={(event) => onDraftSpecChange(event.target.value)}
-      />
-      {draftSpecError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
-        >
-          {draftSpecError}
-        </div>
-      ) : null}
-    </>
-  );
-}
-function AppConfigAdvancedContent({
-  appSpecPath,
-  catalogId,
-  draftAssets,
-  draftAssetsError,
-  draftTheme,
-  draftThemeError,
-  onAppSpecPathChange,
-  onCatalogIdChange,
-  onDraftAssetsChange,
-  onDraftThemeChange,
-  onPreviewConfigIdChange,
-  onSpecVersionChange,
-  onThemeModeChange,
-  previewConfigId,
-  projectMetadata,
-  specVersion,
-  themeMode,
-}: {
-  appSpecPath: string;
-  catalogId: string;
-  draftAssets: string;
-  draftAssetsError: string | null;
-  draftTheme: string;
-  draftThemeError: string | null;
-  onAppSpecPathChange: (value: string) => void;
-  onCatalogIdChange: (value: string) => void;
-  onDraftAssetsChange: (value: string) => void;
-  onDraftThemeChange: (value: string) => void;
-  onPreviewConfigIdChange: (value: string | null) => void;
-  onSpecVersionChange: (value: string) => void;
-  onThemeModeChange: (value: AppThemeMode) => void;
-  previewConfigId: string | null;
-  projectMetadata: ProjectMetadataOption[];
-  specVersion: string;
-  themeMode: AppThemeMode;
-}) {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-3">
-        <label
-          className="flex flex-col gap-1 text-xs"
-          data-setting-anchor="core.app.catalog_id"
-        >
-          Catalog ID
-          <input
-            aria-label="Catalog ID"
-            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            value={catalogId}
-            onChange={(event) => onCatalogIdChange(event.target.value)}
-          />
-        </label>
-        <label
-          className="flex flex-col gap-1 text-xs"
-          data-setting-anchor="core.app.spec_version"
-        >
-          Spec version
-          <input
-            aria-label="Spec version"
-            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            value={specVersion}
-            onChange={(event) => onSpecVersionChange(event.target.value)}
-          />
-        </label>
-        <label
-          className="flex flex-col gap-1 text-xs"
-          data-setting-anchor="core.app.theme_mode"
-        >
-          Theme mode
-          <select
-            aria-label="Theme mode"
-            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            value={themeMode}
-            onChange={(event) =>
-              onThemeModeChange(event.target.value as AppThemeMode)
-            }
-          >
-            <option value="auto">auto</option>
-            <option value="dark">dark</option>
-            <option value="light">light</option>
-          </select>
-          <span className="text-[11px] text-setta-500 dark:text-setta-400">
-            App deployments default to auto. Force dark or light here, then
-            republish.
-          </span>
-        </label>
-        <label
-          className="flex flex-col gap-1 text-xs"
-          data-setting-anchor="core.app.spec_path"
-        >
-          Spec path
-          <input
-            aria-label="Spec path"
-            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            placeholder="app_specs/app.json"
-            value={appSpecPath}
-            onChange={(event) => onAppSpecPathChange(event.target.value)}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          Preview config
-          <select
-            aria-label="Preview config"
-            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            value={previewConfigId ?? ""}
-            onChange={(event) => {
-              const value = event.target.value;
-              onPreviewConfigIdChange(value ? value : null);
-            }}
-          >
-            <option value="">Active config</option>
-            {projectMetadata.map((config) => (
-              <option key={config.id} value={config.id}>
-                {config.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-[11px] text-setta-500 dark:text-setta-400">
-            Select which project config the preview should target.
-          </span>
-        </label>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="text-xs text-setta-500 dark:text-setta-400">
-          <span>Theme JSON</span>
-          <span className="ml-2 text-[11px]">
-            Advanced styling can be set via <code>vars</code> (keys must start
-            with <code>--app-</code>).
-          </span>
-        </div>
-        <textarea
-          aria-label="Theme JSON"
-          className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-          placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
-          value={draftTheme}
-          onChange={(event) => onDraftThemeChange(event.target.value)}
-        />
-        {draftThemeError ? (
-          <div
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
-          >
-            {draftThemeError}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="text-xs text-setta-500 dark:text-setta-400">
-          <span>Assets JSON</span>
-          <span className="ml-2 text-[11px]">
-            Links are injected as <code>&lt;link&gt;</code> tags. External URLs
-            are gated by the deployment policy.
-          </span>
-        </div>
-        <textarea
-          aria-label="Assets JSON"
-          className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-          placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
-          value={draftAssets}
-          onChange={(event) => onDraftAssetsChange(event.target.value)}
-        />
-        {draftAssetsError ? (
-          <div
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
-          >
-            {draftAssetsError}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 export function AppConfigPane() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appSpec = useAppDefinition((state) => state.appSpec);
@@ -721,77 +236,71 @@ export function AppConfigPane() {
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [validationResult, setValidationResult] =
-    useState<AppDefinitionValidationResult | null>(null);
+  const [validationResult, setValidationResult] = useState<{
+    errors: Array<{ message: string }>;
+    warnings: Array<{ message: string; elementKey?: string | null }>;
+    capabilities: {
+      catalogId: string;
+      catalogVersion: string;
+      appSpecVersion: string;
+      themeSchemaVersion: string;
+      features: Record<string, boolean>;
+    };
+  } | null>(null);
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
-  const clearDraftErrors = useCallback(() => {
-    setDraftSpecError(null);
-    setDraftThemeError(null);
-    setDraftAssetsError(null);
-  }, []);
-  const clearPreviewOverrides = useCallback(() => {
-    useAppPreview.setState({
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
-  }, []);
-  const applyHydratedAppDraftState = useCallback(
-    (hydratedState: HydratedAppDraftState) => {
-      setDraftSpec(hydratedState.draftSpec);
-      setCatalogId(hydratedState.catalogId);
-      setSpecVersion(hydratedState.specVersion);
-      setAppSpecPath(hydratedState.appSpecPath);
-      setDraftTheme(hydratedState.draftTheme);
-      setDraftAssets(hydratedState.draftAssets);
-      setThemeMode(hydratedState.themeMode);
+
+  const hydrateSavedAppDefinition = useCallback(
+    ({
+      savedSpec,
+      savedDefinition,
+    }: {
+      savedSpec: unknown;
+      savedDefinition: AppDefinition | null;
+    }) => {
+      const savedTheme = savedDefinition?.theme ?? null;
+      const savedAssets = savedDefinition?.assets ?? [];
+      useAppDefinition.setState({
+        appSpec: savedSpec,
+        appDefinition: savedDefinition,
+      });
+      setDraftSpec(savedSpec ? JSON.stringify(savedSpec, null, 2) : "");
+      setCatalogId(savedDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
+      setSpecVersion(savedDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION);
+      setAppSpecPath(savedDefinition?.appSpecPath ?? "");
+      setDraftTheme(savedTheme ? JSON.stringify(savedTheme, null, 2) : "");
+      setDraftAssets(JSON.stringify(savedAssets, null, 2));
+      setThemeMode(resolveThemeMode(savedTheme));
+      useAppPreview.setState({
+        previewSpecOverride: isRecord(savedSpec) ? savedSpec : null,
+        previewThemeOverride: savedTheme,
+        previewAssetsOverride: savedAssets,
+      });
+      setDraftSpecError(null);
+      setDraftThemeError(null);
+      setDraftAssetsError(null);
     },
     [],
   );
-  const loadSavedAppDefinition = useCallback(
-    (savedAppDefinition: HydratedAppDefinition) => {
-      const hydratedState = buildHydratedAppDraftState(savedAppDefinition);
-      useAppDefinition.setState({
-        appSpec: hydratedState.appSpec,
-        appDefinition: hydratedState.appDefinition,
-      });
-      applyHydratedAppDraftState(hydratedState);
-    },
-    [applyHydratedAppDraftState],
-  );
-  const hydrateSavedAppDefinition = useCallback(
-    (savedAppDefinition: HydratedAppDefinition) => {
-      const hydratedState = buildHydratedAppDraftState(savedAppDefinition);
-      useAppDefinition.setState({
-        appSpec: hydratedState.appSpec,
-        appDefinition: hydratedState.appDefinition,
-      });
-      applyHydratedAppDraftState(hydratedState);
-      useAppPreview.setState({
-        previewSpecOverride: hydratedState.previewSpecOverride,
-        previewThemeOverride: hydratedState.previewThemeOverride,
-        previewAssetsOverride: hydratedState.previewAssetsOverride,
-      });
-      clearDraftErrors();
-    },
-    [applyHydratedAppDraftState, clearDraftErrors],
-  );
+
   useEffect(() => {
     let isMounted = true;
+
     async function load() {
       if (!projectConfigId) {
         return;
       }
-      clearPreviewOverrides();
-      clearDraftErrors();
+      useAppPreview.setState({
+        previewSpecOverride: undefined,
+        aiPreviewSpecOverride: undefined,
+        previewThemeOverride: undefined,
+        previewAssetsOverride: undefined,
+      });
+      setDraftSpecError(null);
+      setDraftThemeError(null);
+      setDraftAssetsError(null);
       setLoading(true);
       setErrorMessage(null);
-      const response = await callOpenAPI(
-        getAppDefinition({ body: {} } as Parameters<
-          typeof getAppDefinition
-        >[0]),
-      );
+      const response = await route_get_app_definition({});
       setLoading(false);
       if (!res200(response)) {
         if (isMounted) {
@@ -800,24 +309,36 @@ export function AppConfigPane() {
         }
         return;
       }
+      const nextSpec = response.data.appSpec ?? null;
+      useAppDefinition.setState({
+        appSpec: nextSpec,
+        appDefinition: response.data.appDefinition ?? null,
+      });
       if (!isMounted) {
         return;
       }
-      loadSavedAppDefinition({
-        savedSpec: response.data.appSpec ?? null,
-        savedDefinition: response.data.appDefinition ?? null,
-      });
+      setDraftSpec(nextSpec ? JSON.stringify(nextSpec, null, 2) : "");
+      setCatalogId(
+        response.data.appDefinition?.catalogId ?? DEFAULT_CATALOG_ID,
+      );
+      setSpecVersion(
+        response.data.appDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
+      );
+      setAppSpecPath(response.data.appDefinition?.appSpecPath ?? "");
+      const theme = response.data.appDefinition?.theme ?? null;
+      setDraftTheme(theme ? JSON.stringify(theme, null, 2) : "");
+      setDraftAssets(
+        JSON.stringify(response.data.appDefinition?.assets ?? [], null, 2),
+      );
+      setThemeMode(resolveThemeMode(theme));
     }
+
     void load();
     return () => {
       isMounted = false;
     };
-  }, [
-    clearDraftErrors,
-    clearPreviewOverrides,
-    loadSavedAppDefinition,
-    projectConfigId,
-  ]);
+  }, [projectConfigId]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (draftSpec.trim().length === 0) {
@@ -833,10 +354,12 @@ export function AppConfigPane() {
       }
       setDraftSpecError(parsed.error);
     }, 300);
+
     return () => {
       clearTimeout(timeoutId);
     };
   }, [draftSpec]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const parsed = parseDraftAppTheme(draftTheme, themeMode);
@@ -853,10 +376,12 @@ export function AppConfigPane() {
           : { mode: themeMode },
       });
     }, 300);
+
     return () => {
       clearTimeout(timeoutId);
     };
   }, [draftTheme, themeMode]);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const parsed = parseDraftAppAssets(draftAssets);
@@ -867,10 +392,12 @@ export function AppConfigPane() {
       }
       setDraftAssetsError(parsed.error);
     }, 300);
+
     return () => {
       clearTimeout(timeoutId);
     };
   }, [draftAssets]);
+
   const saveAndHydrateAppDefinition = useCallback(
     async ({
       appSpec: nextSpec,
@@ -881,29 +408,30 @@ export function AppConfigPane() {
       failureMessage: string;
       withLoading: boolean;
     }): Promise<boolean> => {
-      const request = buildAppDefinitionRequest({
-        appSpecPath,
-        catalogId,
-        draftAssets,
+      const themePayload = parseThemePayloadForRequest({
         draftTheme,
-        specVersion,
         themeMode,
       });
-      if (!request.ok) {
-        setErrorMessage(request.error);
+      if (!themePayload.ok) {
+        setErrorMessage(themePayload.error);
+        return false;
+      }
+      const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
+      if (!assetsPayload.ok) {
+        setErrorMessage(assetsPayload.error);
         return false;
       }
       if (withLoading) {
         setLoading(true);
       }
-      const response = await callOpenAPI(
-        setAppDefinition({
-          body: {
-            appSpec: nextSpec,
-            ...request.value,
-          },
-        } as Parameters<typeof setAppDefinition>[0]),
-      );
+      const response = await route_set_app_definition({
+        appSpec: nextSpec,
+        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
+        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+        theme: themePayload.value,
+        assets: assetsPayload.value,
+      });
       if (withLoading) {
         setLoading(false);
       }
@@ -928,6 +456,7 @@ export function AppConfigPane() {
       themeMode,
     ],
   );
+
   function handleCreateDefault() {
     const spec = buildDefaultSpec();
     setDraftSpec(JSON.stringify(spec, null, 2));
@@ -935,6 +464,7 @@ export function AppConfigPane() {
       setAppSpecPath("app_specs/app.json");
     }
   }
+
   async function handleSave() {
     setErrorMessage(null);
     const specPayload = parseSpecPayloadForRequest(draftSpec);
@@ -952,6 +482,7 @@ export function AppConfigPane() {
     }
     addTemporaryNotification("App spec saved.");
   }
+
   async function handleValidate() {
     setErrorMessage(null);
     setValidationResult(null);
@@ -960,30 +491,28 @@ export function AppConfigPane() {
       setErrorMessage(specPayload.error);
       return;
     }
-    const request = buildAppDefinitionRequest({
-      appSpecPath,
-      catalogId,
-      draftAssets,
+    const themePayload = parseThemePayloadForRequest({
       draftTheme,
-      specVersion,
       themeMode,
     });
-    if (!request.ok) {
-      setErrorMessage(request.error);
+    if (!themePayload.ok) {
+      setErrorMessage(themePayload.error);
       return;
     }
+    const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
+    if (!assetsPayload.ok) {
+      setErrorMessage(assetsPayload.error);
+      return;
+    }
+
     setValidating(true);
-    const response = await callOpenAPI(
-      validateAppDefinition({
-        body: {
-          appSpec: specPayload.value,
-          appSpecVersion: request.value.appSpecVersion,
-          catalogId: request.value.catalogId,
-          theme: request.value.theme,
-          assets: request.value.assets,
-        },
-      } as Parameters<typeof validateAppDefinition>[0]),
-    );
+    const response = await route_validate_app_definition({
+      appSpec: specPayload.value,
+      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+      theme: themePayload.value,
+      assets: assetsPayload.value,
+    });
     setValidating(false);
     if (!res200(response)) {
       const detail = getErrorDetail(response.data);
@@ -993,59 +522,130 @@ export function AppConfigPane() {
     setValidationResult(response.data);
     if (response.data.errors.length === 0) {
       addTemporaryNotification(
-        buildValidationSuccessMessage(response.data.warnings.length),
+        response.data.warnings.length > 0
+          ? `Validation passed with ${response.data.warnings.length} warning(s).`
+          : "Validation passed.",
       );
     }
   }
-  const handleTogglePreview = useCallback(() => {
-    useAppPreview.setState((state) => ({
-      isPreviewEnabled: !state.isPreviewEnabled,
-    }));
-  }, []);
-  const handleDraftSpecChange = useCallback((value: string) => {
-    setDraftSpec(value);
-    setValidationResult(null);
-  }, []);
-  const handleDraftThemeChange = useCallback((value: string) => {
-    setDraftTheme(value);
-    setValidationResult(null);
-  }, []);
-  const handleDraftAssetsChange = useCallback((value: string) => {
-    setDraftAssets(value);
-    setValidationResult(null);
-  }, []);
-  const handlePreviewConfigIdChange = useCallback((value: string | null) => {
-    useAppPreview.setState({
-      previewConfigId: value,
-    });
-  }, []);
+
   return (
     <section className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-4 pb-4 text-sm text-setta-600 dark:text-setta-300">
-      <AppConfigToolbar
-        hasDraft={hasDraft}
-        isPreviewEnabled={isPreviewEnabled}
-        loading={loading}
-        onCreateDefault={handleCreateDefault}
-        onSave={() => {
-          void handleSave();
+      <header className="flex justify-end">
+        <button
+          className="rounded-full border border-setta-200 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+          onClick={() =>
+            useAppPreview.setState((state) => ({
+              isPreviewEnabled: !state.isPreviewEnabled,
+            }))
+          }
+          type="button"
+        >
+          {isPreviewEnabled ? "Hide Preview" : "Show Preview"}
+        </button>
+      </header>
+
+      {errorMessage ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {validationResult ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Validation
+            </span>
+            <span className="text-[11px] text-setta-500 dark:text-setta-400">
+              {validationResult.errors.length} error(s),{" "}
+              {validationResult.warnings.length} warning(s)
+            </span>
+          </div>
+          {validationResult.errors.length > 0 ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
+              <div className="font-semibold">Errors</div>
+              <ul className="mt-1 list-disc pl-4">
+                {validationResult.errors.map((err, idx) => (
+                  <li key={`${idx}-${err.message}`}>{err.message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {validationResult.warnings.length > 0 ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/30 dark:text-amber-200">
+              <div className="font-semibold">Warnings</div>
+              <ul className="mt-1 list-disc pl-4">
+                {validationResult.warnings.map((warn, idx) => (
+                  <li key={`${idx}-${warn.message}`}>
+                    {warn.message}
+                    {warn.elementKey ? ` (element ${warn.elementKey})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="text-[11px] text-setta-500 dark:text-setta-400">
+            Capabilities: {validationResult.capabilities.catalogId}{" "}
+            {validationResult.capabilities.catalogVersion
+              ? `(${validationResult.capabilities.catalogVersion})`
+              : ""}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-between text-xs text-setta-500 dark:text-setta-400">
+        <span>App Spec JSON</span>
+        <div className="flex gap-2">
+          <button
+            className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+            disabled={loading}
+            onClick={handleCreateDefault}
+            type="button"
+          >
+            Create Default
+          </button>
+          <button
+            className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+            disabled={loading || validating || !hasDraft}
+            onClick={() => void handleValidate()}
+            type="button"
+          >
+            {validating ? "Validating..." : "Validate"}
+          </button>
+          <button
+            className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading || validating || !hasDraft}
+            onClick={() => void handleSave()}
+            type="button"
+          >
+            {loading ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+
+      <textarea
+        aria-label="App Spec JSON"
+        className="min-h-[280px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+        placeholder={
+          appSpec
+            ? "Edit the app spec JSON."
+            : "No app spec yet. Create or generate one."
+        }
+        value={draftSpec}
+        onChange={(event) => {
+          setDraftSpec(event.target.value);
+          setValidationResult(null);
         }}
-        onTogglePreview={handleTogglePreview}
-        onValidate={() => {
-          void handleValidate();
-        }}
-        validating={validating}
       />
-
-      <ErrorMessageBanner message={errorMessage} />
-
-      <ValidationResultPanel result={validationResult} />
-
-      <DraftSpecEditor
-        appSpec={appSpec}
-        draftSpec={draftSpec}
-        draftSpecError={draftSpecError}
-        onDraftSpecChange={handleDraftSpecChange}
-      />
+      {draftSpecError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+        >
+          {draftSpecError}
+        </div>
+      ) : null}
 
       <PaneAccordion
         items={
@@ -1056,25 +656,149 @@ export function AppConfigPane() {
               description: "Theme, assets, preview targeting, and metadata.",
               triggerTestId: "app-config-advanced-accordion",
               content: (
-                <AppConfigAdvancedContent
-                  appSpecPath={appSpecPath}
-                  catalogId={catalogId}
-                  draftAssets={draftAssets}
-                  draftAssetsError={draftAssetsError}
-                  draftTheme={draftTheme}
-                  draftThemeError={draftThemeError}
-                  onAppSpecPathChange={setAppSpecPath}
-                  onCatalogIdChange={setCatalogId}
-                  onDraftAssetsChange={handleDraftAssetsChange}
-                  onDraftThemeChange={handleDraftThemeChange}
-                  onPreviewConfigIdChange={handlePreviewConfigIdChange}
-                  onSpecVersionChange={setSpecVersion}
-                  onThemeModeChange={setThemeMode}
-                  previewConfigId={previewConfigId}
-                  projectMetadata={projectMetadata as ProjectMetadataOption[]}
-                  specVersion={specVersion}
-                  themeMode={themeMode}
-                />
+                <div className="flex flex-col gap-4">
+                  <div className="grid gap-3">
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.catalog_id"
+                    >
+                      Catalog ID
+                      <input
+                        aria-label="Catalog ID"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={catalogId}
+                        onChange={(event) => setCatalogId(event.target.value)}
+                      />
+                    </label>
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.spec_version"
+                    >
+                      Spec version
+                      <input
+                        aria-label="Spec version"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={specVersion}
+                        onChange={(event) => setSpecVersion(event.target.value)}
+                      />
+                    </label>
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.theme_mode"
+                    >
+                      Theme mode
+                      <select
+                        aria-label="Theme mode"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={themeMode}
+                        onChange={(event) =>
+                          setThemeMode(event.target.value as AppThemeMode)
+                        }
+                      >
+                        <option value="auto">auto</option>
+                        <option value="dark">dark</option>
+                        <option value="light">light</option>
+                      </select>
+                      <span className="text-[11px] text-setta-500 dark:text-setta-400">
+                        App deployments default to auto. Force dark or light
+                        here, then republish.
+                      </span>
+                    </label>
+                    <label
+                      className="flex flex-col gap-1 text-xs"
+                      data-setting-anchor="core.app.spec_path"
+                    >
+                      Spec path
+                      <input
+                        aria-label="Spec path"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        placeholder="app_specs/app.json"
+                        value={appSpecPath}
+                        onChange={(event) => setAppSpecPath(event.target.value)}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs">
+                      Preview config
+                      <select
+                        aria-label="Preview config"
+                        className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                        value={previewConfigId ?? ""}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          useAppPreview.setState({
+                            previewConfigId: value ? value : null,
+                          });
+                        }}
+                      >
+                        <option value="">Active config</option>
+                        {projectMetadata.map((config) => (
+                          <option key={config.id} value={config.id}>
+                            {config.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[11px] text-setta-500 dark:text-setta-400">
+                        Select which project config the preview should target.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs text-setta-500 dark:text-setta-400">
+                      <span>Theme JSON</span>
+                      <span className="ml-2 text-[11px]">
+                        Advanced styling can be set via <code>vars</code> (keys
+                        must start with <code>--app-</code>).
+                      </span>
+                    </div>
+                    <textarea
+                      aria-label="Theme JSON"
+                      className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                      placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
+                      value={draftTheme}
+                      onChange={(event) => {
+                        setDraftTheme(event.target.value);
+                        setValidationResult(null);
+                      }}
+                    />
+                    {draftThemeError ? (
+                      <div
+                        role="alert"
+                        className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+                      >
+                        {draftThemeError}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs text-setta-500 dark:text-setta-400">
+                      <span>Assets JSON</span>
+                      <span className="ml-2 text-[11px]">
+                        Links are injected as <code>&lt;link&gt;</code> tags.
+                        External URLs are gated by the deployment policy.
+                      </span>
+                    </div>
+                    <textarea
+                      aria-label="Assets JSON"
+                      className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+                      placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
+                      value={draftAssets}
+                      onChange={(event) => {
+                        setDraftAssets(event.target.value);
+                        setValidationResult(null);
+                      }}
+                    />
+                    {draftAssetsError ? (
+                      <div
+                        role="alert"
+                        className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+                      >
+                        {draftAssetsError}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               ),
             },
           ] satisfies Array<PaneAccordionItem>
