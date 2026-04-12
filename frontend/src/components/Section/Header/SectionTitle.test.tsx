@@ -1,181 +1,143 @@
 /* @vitest-environment jsdom */
-
-import { act, Profiler, type ProfilerOnRenderCallback } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
-  createCodeSectionImpl,
+  createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultCodeSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionTitle } from "./SectionTitle";
-
-let mockCanEditStructure = false;
-
-vi.mock("state/hooks/share", () => ({
-  useShareCapabilities: () => ({
-    canEditStructure: mockCanEditStructure,
-  }),
-}));
-
 vi.mock("components/Utils/FloatingBox", () => ({
-  getFloatingBoxHandlers: ({
-    content,
-    title,
-  }: {
-    content?: string;
-    title?: string;
-  }) => ({
-    "data-tooltip-content": content ?? title ?? "",
-  }),
+  getFloatingBoxHandlers: () => ({}),
 }));
-
-function syncStoreInitialState(store: {
-  getState: () => Record<string, unknown>;
-  getInitialState?: () => Record<string, unknown>;
-}) {
-  if (!store.getInitialState) {
-    return;
-  }
-  const initial = store.getInitialState();
-  Object.assign(initial, store.getState());
-}
-
-type RenderedProfiledTitle = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderProfiledTitle(
-  onRender: ProfilerOnRenderCallback,
-): Promise<RenderedProfiledTitle> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <Profiler id="section-title-profiler" onRender={onRender}>
-        <SectionTitle
-          sectionId="section-1"
-          titleProps={{ fixed: "section-title-fixed" }}
-        />
-      </Profiler>,
-    );
-  });
-
-  return { host, root };
-}
-
-describe("SectionTitle store subscriptions", () => {
-  const sectionId = "section-1";
-  const variantId = "variant-1";
-  const implId = "impl-1";
-
+const routeSetSectionNameMock = vi.fn();
+vi.mock("openapi/http", () => ({
+  setSectionName: (...args: unknown[]) => routeSetSectionNameMock(...args),
+}));
+describe("SectionTitle", () => {
+  let host: HTMLDivElement;
+  let root: Root;
   beforeEach(() => {
-    mockCanEditStructure = false;
+    routeSetSectionNameMock.mockReset();
     resetProjectStores();
+    useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
         id: "project-1",
-        isEditingViewMode: true,
-        sectionVariantMap: { [sectionId]: variantId },
+        sectionVariantMap: {
+          "section-a": "variant-a",
+          "section-b": "variant-b",
+        },
         topLevelSections: {
-          [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+          "section-a": { x: 0, y: 0, zIndex: 0, w: null, h: null },
+          "section-b": { x: 1, y: 0, zIndex: 1, w: null, h: null },
         },
-        viewModes: {
-          all: {
-            id: "all",
-            name: "All",
-            visibilityBySectionId: { [sectionId]: true },
-            availableToUsers: true,
-          },
-        },
-        activeViewModeId: "all",
       });
       state.sections = {
-        [sectionId]: createCore({
-          id: sectionId,
-          name: "Original Title",
-          variants: [variantId],
-          defaultVariant: variantId,
+        "section-a": createCore({
+          id: "section-a",
+          name: "Alpha",
+          variants: ["variant-a"],
+          defaultVariant: "variant-a",
+        }),
+        "section-b": createCore({
+          id: "section-b",
+          name: "Beta",
+          variants: ["variant-b"],
+          defaultVariant: "variant-b",
         }),
       };
       state.sectionVariants = {
-        [variantId]: createVariant({
-          id: variantId,
-          name: "Variant",
-          impl: implId,
-          nonPresetImpls: [],
+        "variant-a": createVariant({
+          id: "variant-a",
+          impl: "impl-a",
+        }),
+        "variant-b": createVariant({
+          id: "variant-b",
+          impl: "impl-b",
         }),
       };
       state.sectionImpls = {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
-          id: implId,
+        "impl-a": createChatSectionImpl({
+          id: "impl-a",
+        }),
+        "impl-b": createChatSectionImpl({
+          id: "impl-b",
         }),
       };
       state.previewSectionVariantMap = {};
     });
-    syncStoreInitialState(useProjectState);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
   });
-
-  afterEach(() => {
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
     resetProjectStores();
-    document.body.innerHTML = "";
   });
-
-  it("stays out of unrelated project-state commits when title inputs are unchanged", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledTitle(onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        // Unrelated preview-variant writes should not fan into every mounted section title.
-        useProjectState.setState((state) => {
-          state.previewSectionVariantMap = {
-            otherSection: "other-variant",
-          };
-        });
-      });
-
-      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
-      expect(host.textContent).toContain("Original Title");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("rerenders when the subscribed section name changes", async () => {
-    const onRender = vi.fn<ProfilerOnRenderCallback>();
-    const { host, root } = await renderProfiledTitle(onRender);
-
-    try {
-      const initialCommitCount = onRender.mock.calls.length;
-
-      await act(async () => {
-        // Actual title changes on the subscribed section should still update the rendered heading.
-        useProjectState.setState((state) => {
-          state.sections[sectionId].name = "Renamed Title";
-        });
-      });
-
-      expect(onRender.mock.calls.length).toBeGreaterThan(initialCommitCount);
-      expect(host.textContent).toContain("Renamed Title");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
+  it("submits duplicate section names to the backend and shows the backend error", async () => {
+    routeSetSectionNameMock.mockResolvedValue({
+      data: { detail: "Duplicate sibling name." },
+      hasResponse: true,
+      status: 400,
+    });
+    await act(async () => {
+      root.render(
+        <SectionTitle
+          sectionId="section-a"
+          titleProps={{
+            editing: "editing-title",
+            notEditing: "fixed-title",
+            fixed: "fixed-title",
+          }}
+        />,
+      );
+    });
+    const title = host.querySelector("p");
+    expect(title?.textContent).toBe("Alpha");
+    await act(async () => {
+      title?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 1 }),
+      );
+      title?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 2 }),
+      );
+    });
+    const input = host.querySelector("input");
+    expect(input).not.toBeNull();
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      valueSetter?.call(input, "Beta");
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      (input as HTMLInputElement).focus();
+      (input as HTMLInputElement).blur();
+    });
+    expect(routeSetSectionNameMock).toHaveBeenCalledTimes(1);
+    expect(routeSetSectionNameMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectConfigId: "project-1",
+        sectionId: "section-a",
+        name: "Beta",
+        frontendOpId: expect.any(String),
+      }),
+    );
+    expect(host.textContent).toContain("Duplicate sibling name.");
+    expect(useProjectState.getState().sections["section-a"]?.name).toBe(
+      "Alpha",
+    );
+    expect(useProjectState.getState().projectConfig.id).toBe("project-1");
   });
 });

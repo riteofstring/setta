@@ -1,206 +1,4 @@
-import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
-import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
-import { useLocalStorage, useSectionRefs } from "state/definitions";
-import { HOME_ROUTER_PATH, OverviewTabNameEnum } from "./constants";
-import { SectionTypeEnum } from "./generatedTypes";
-
-function overviewPaneOnKeyDown(e) {
-  if (e.code !== "Tab" || e.shiftKey) {
-    return;
-  }
-  if (e.target === lastFocusableElement(e.currentTarget)) {
-    tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
-  }
-}
-
-function uiEditorPaneOnKeyDown(e) {
-  if (e.code !== "Tab" || e.shiftKey) {
-    return;
-  }
-  if (e.target === lastFocusableElement(e.currentTarget)) {
-    e.preventDefault();
-    document.getElementById("SiteLogo").focus();
-  }
-}
-
-function siteLogoOnKeyDown(e, navigate, location, homePath = HOME_ROUTER_PATH) {
-  if (location.pathname === homePath) {
-    return;
-  }
-  if (e.code === "Space") {
-    navigate(homePath);
-  } else if (e.code === "Tab" && e.shiftKey) {
-    tabToLastFocusablePaneElement(e);
-  }
-}
-
-function homePageProjectItemOnKeyDown(e, navigate, projectPath) {
-  if (e.code === "Space") {
-    if (!projectPath) {
-      return;
-    }
-    navigate(projectPath);
-  }
-}
-
-function withinSectionTabbingHelper(focusEl) {
-  focusEl.focus({ preventScroll: true });
-  movePaneToIncludeElement(focusEl);
-}
-
-function sectionContainerCoreOnKeyDown(e, ref, sectionId) {
-  if (e.code !== "Tab") {
-    return;
-  }
-  e.preventDefault();
-  e.stopPropagation();
-  const highestAncestorRef =
-    useSectionRefs.getState().withNested[getHighestAncestor(sectionId)];
-  const focusableArray = getFocusableElements(highestAncestorRef);
-
-  if (e.shiftKey) {
-    const focusEl = getPrevElement(e, ref, focusableArray);
-    if (!focusEl) {
-      shiftTabBackToOverviewListItem(e, sectionId);
-    } else {
-      withinSectionTabbingHelper(focusEl);
-    }
-  } else {
-    const focusEl = getNextElement(e, ref, focusableArray);
-    if (!focusEl) {
-      tabToFirstEnabledUIEditorButtonOrToSiteLogo(e);
-    } else {
-      withinSectionTabbingHelper(focusEl);
-    }
-  }
-}
-
-function getNextElement(e, ref, focusableArray) {
-  if (e.target === ref.current) {
-    return firstFocusableElement(ref.current);
-  }
-  return focusableArray[getCurrentElementIndex(e, focusableArray) + 1];
-}
-
-function getPrevElement(e, ref, focusableArray) {
-  if (e.target === ref.current) {
-    const firstElement = firstFocusableElement(ref.current);
-    return focusableArray[focusableArray.indexOf(firstElement) - 1];
-  }
-  return focusableArray[getCurrentElementIndex(e, focusableArray) - 1];
-}
-
-function getCurrentElementIndex(e, focusableArray) {
-  return e.target.cmView
-    ? focusableArray.findIndex((f) => f.id.startsWith("CodeMirror-"))
-    : focusableArray.indexOf(document.activeElement);
-}
-
-function tabFromDocumentBody(e) {
-  if (document.activeElement === document.body) {
-    focusOnProjectOverviewButton(e);
-  }
-}
-
-function tabToFirstEnabledUIEditorButtonOrToSiteLogo(e) {
-  e.preventDefault();
-  const element =
-    firstFocusableElement(document.getElementById("UiEditorPane")) ??
-    document.getElementById("SiteLogo");
-  element.focus();
-}
-
-function tabToLastFocusablePaneElement(e) {
-  e.preventDefault();
-  const didFocus = focusOnLastElementOf(
-    document.getElementById("UiEditorPane"),
-  );
-  if (!didFocus) {
-    focusOnLastElementOf(document.getElementById("OverviewPane"));
-  }
-}
-
-function focusOnLastElementOf(container) {
-  const lastElement = lastFocusableElement(container);
-  if (lastElement) {
-    lastElement.focus();
-    return true;
-  }
-  return false;
-}
-
-function focusOnProjectOverviewButton(e) {
-  e.preventDefault();
-  firstFocusableElement(document.getElementById("OverviewPane")).focus();
-}
-
-function shiftTabBackToOverviewListItem(e, sectionId) {
-  const overviewVis = useLocalStorage.getState().overviewVis;
-  const overviewTab = useLocalStorage.getState().overviewTab;
-  if (overviewVis && overviewTab === OverviewTabNameEnum.Overview) {
-    e.preventDefault();
-    const element = document.getElementById(`${sectionId}-OverviewListItem`);
-    element.focus();
-  } else {
-    focusOnProjectOverviewButton(e);
-  }
-}
-
-function focusOnSection(e, sectionId, focusOnFirstElement = true) {
-  e?.preventDefault();
-  if (getSectionType(sectionId) === SectionTypeEnum.Group) {
-    useSectionRefs
-      .getState()
-      .withNested[sectionId].focus({ preventScroll: true });
-  } else {
-    if (focusOnFirstElement) {
-      firstFocusableElement(
-        useSectionRefs.getState().selfOnly[sectionId],
-      ).focus({ preventScroll: true });
-    } else {
-      // focus on withNested here because this allows
-      // react-flow controls (like arrow key) to work
-      useSectionRefs
-        .getState()
-        .withNested[sectionId].focus({ preventScroll: true });
-    }
-  }
-}
-
-const getFocusableElements = (container) => {
-  return Array.from(
-    container.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]):not([role="menubar"])',
-    ),
-  ).filter((element) => {
-    // Check if the element is visible and not disabled
-    return (
-      !element.hasAttribute("disabled") &&
-      !element.getAttribute("aria-hidden") &&
-      element.offsetParent !== null
-    );
-  });
-};
-
-const lastFocusableElement = (container) => {
-  const focusableElements = getFocusableElements(container);
-
-  if (focusableElements.length === 0) {
-    return null;
-  }
-
-  return focusableElements[focusableElements.length - 1];
-};
-
-const firstFocusableElement = (container) => {
-  const focusableElements = getFocusableElements(container);
-
-  if (focusableElements.length === 0) {
-    return null;
-  }
-
-  return focusableElements[0];
-};
+import { useSectionRefs } from "state/definitions";
 
 export function focusOnSectionSearch(sectionId: string) {
   document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
@@ -233,46 +31,86 @@ export function clearPendingSectionTextFocus(sectionId: string) {
   pendingSectionTextFocus.delete(sectionId);
 }
 
-export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
-  if (attempt === 0) {
-    if (pendingSectionTextFocus.has(sectionId)) {
-      return;
-    }
-    pendingSectionTextFocus.add(sectionId);
+function beginSectionTextFocus(sectionId: string, attempt: number): boolean {
+  if (attempt > 0) {
+    return true;
   }
-  const ref =
-    useSectionRefs.getState().selfOnly[sectionId] ??
-    useSectionRefs.getState().withNested[sectionId];
+  if (pendingSectionTextFocus.has(sectionId)) {
+    return false;
+  }
+  pendingSectionTextFocus.add(sectionId);
+  return true;
+}
+
+function getSectionFocusRef(sectionId: string): HTMLElement | null {
+  const refs = useSectionRefs.getState();
+  return refs.selfOnly[sectionId] ?? refs.withNested[sectionId] ?? null;
+}
+
+function hasRetainedSectionFocus(ref: HTMLElement | null): boolean {
+  const activeElement = document.activeElement;
+  return (
+    ref instanceof HTMLElement &&
+    activeElement instanceof HTMLElement &&
+    ref.contains(activeElement)
+  );
+}
+
+function tryFocusSectionTextInput(
+  sectionId: string,
+  ref: HTMLElement | null,
+): boolean {
   const focusTarget = getSectionTextInputTarget(ref);
-  if (focusTarget instanceof HTMLElement) {
-    focusTarget.focus({ preventScroll: true });
-    const active = document.activeElement;
-    if (ref && active instanceof HTMLElement && ref.contains(active)) {
-      if (!focusTarget.matches(TERMINAL_INPUT_SELECTOR)) {
-        clearPendingSectionTextFocus(sectionId);
-      }
-      return;
-    }
+  if (!(focusTarget instanceof HTMLElement)) {
+    return false;
+  }
+  focusTarget.focus({ preventScroll: true });
+  if (!hasRetainedSectionFocus(ref)) {
+    return false;
+  }
+  if (!focusTarget.matches(TERMINAL_INPUT_SELECTOR)) {
+    clearPendingSectionTextFocus(sectionId);
+  }
+  return true;
+}
+
+function shouldAbortSectionTextFocusRetry(
+  attempt: number,
+  ref: HTMLElement | null,
+): boolean {
+  if (attempt === 0 || !(ref instanceof HTMLElement)) {
+    return false;
   }
   const activeElement = document.activeElement;
-  if (
-    attempt > 0 &&
-    ref &&
+  return (
     activeElement instanceof HTMLElement &&
     !ref.contains(activeElement) &&
     activeElement !== document.body &&
     activeElement !== document.documentElement
-  ) {
+  );
+}
+
+function scheduleSectionTextInputRetry(sectionId: string, attempt: number) {
+  if (attempt >= MAX_SECTION_TEXT_FOCUS_ATTEMPTS) {
     clearPendingSectionTextFocus(sectionId);
     return;
   }
-  if (attempt < MAX_SECTION_TEXT_FOCUS_ATTEMPTS) {
-    requestAnimationFrame(() =>
-      focusOnSectionTextInput(sectionId, attempt + 1),
-    );
-  } else {
-    clearPendingSectionTextFocus(sectionId);
+  requestAnimationFrame(() => focusOnSectionTextInput(sectionId, attempt + 1));
+}
+
+export function focusOnSectionTextInput(sectionId: string, attempt = 0) {
+  if (!beginSectionTextFocus(sectionId, attempt)) {
+    return;
   }
+  const ref = getSectionFocusRef(sectionId);
+  if (tryFocusSectionTextInput(sectionId, ref)) {
+    return;
+  }
+  if (shouldAbortSectionTextFocusRetry(attempt, ref)) {
+    clearPendingSectionTextFocus(sectionId);
+    return;
+  }
+  scheduleSectionTextInputRetry(sectionId, attempt);
 }
 
 function getSectionTextInputTarget(

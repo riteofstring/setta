@@ -1,6 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { HandlePosition } from "forks/xyflow/core/types";
 import {
   createSharedChatEdgeFromConnection,
@@ -20,40 +21,49 @@ type SharedChatConnectionVisibility = {
   hasOutgoing: boolean;
 };
 
+type SectionConnectionEdge = {
+  sourceSectionId: string;
+  targetSectionId: string;
+};
+
+function mergeSharedChatConnectionVisibility(
+  visibility: SharedChatConnectionVisibility,
+  edge: SectionConnectionEdge,
+  sectionId: string,
+): void {
+  visibility.hasIncoming ||= edge.targetSectionId === sectionId;
+  visibility.hasOutgoing ||= edge.sourceSectionId === sectionId;
+}
+
 function getSharedChatConnectionVisibility(
   sectionId: string,
   state: ReturnType<typeof useProjectState.getState>,
 ): SharedChatConnectionVisibility {
-  let hasIncoming = false;
-  let hasOutgoing = false;
+  const visibility = {
+    hasIncoming: false,
+    hasOutgoing: false,
+  };
   for (const edge of state.projectConfig.agenticEdges) {
-    if (edge.targetSectionId === sectionId) {
-      hasIncoming = true;
-    }
-    if (edge.sourceSectionId === sectionId) {
-      hasOutgoing = true;
-    }
-    if (hasIncoming && hasOutgoing) {
-      return { hasIncoming, hasOutgoing };
+    mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
+    if (visibility.hasIncoming && visibility.hasOutgoing) {
+      return visibility;
     }
   }
   for (const edge of state.projectConfig.stateMachineEdges) {
-    if (edge.targetSectionId === sectionId) {
-      hasIncoming = true;
-    }
-    if (edge.sourceSectionId === sectionId) {
-      hasOutgoing = true;
-    }
-    if (hasIncoming && hasOutgoing) {
-      return { hasIncoming, hasOutgoing };
+    mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
+    if (visibility.hasIncoming && visibility.hasOutgoing) {
+      return visibility;
     }
   }
-  return { hasIncoming, hasOutgoing };
+  return visibility;
 }
 
 export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
+  const isSelectingEdge = useReactFlow(
+    (state) => state.connectionStartHandle !== null,
+  );
   const chatSharedEdgeMode = useLocalStorage(
     (state) => state.chatSharedEdgeMode,
   );
@@ -88,7 +98,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart}
         type="source"
         position={HandlePosition.Left}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--target agentic-handle--reverse-start${connectionVisibility.hasIncoming ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--target agentic-handle--reverse-start${connectionVisibility.hasIncoming ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         data-testid={`chat-shared-reverse-start-handle-${sectionId}`}
         data-reverse-start="true"
         aria-hidden="true"
@@ -104,7 +114,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={SHARED_CHAT_EDGE_HANDLE_IDS.target}
         type="target"
         position={HandlePosition.Left}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--target${connectionVisibility.hasIncoming ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--target${connectionVisibility.hasIncoming ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         data-testid={`chat-shared-target-handle-${sectionId}`}
         isConnectable={canEditStructure}
         isConnectableStart={false}
@@ -124,7 +134,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={SHARED_CHAT_EDGE_HANDLE_IDS.source}
         type="source"
         position={HandlePosition.Right}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--source${connectionVisibility.hasOutgoing ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--source${connectionVisibility.hasOutgoing ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         data-testid={`chat-shared-source-handle-${sectionId}`}
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
