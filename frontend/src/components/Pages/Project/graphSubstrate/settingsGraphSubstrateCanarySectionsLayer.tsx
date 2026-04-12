@@ -98,6 +98,41 @@ function handleSettingsGraphSubstrateCanarySectionBodyRender(
   );
 }
 
+type SettingsGraphSubstrateCanarySectionEntryBodyProps = {
+  sectionBody: SettingsGraphSubstrateCanarySectionBody;
+  sectionId: string;
+  shouldMountBody: boolean;
+};
+
+function _SettingsGraphSubstrateCanarySectionEntryBody({
+  sectionBody,
+  sectionId,
+  shouldMountBody,
+}: SettingsGraphSubstrateCanarySectionEntryBodyProps) {
+  if (!shouldMountBody) {
+    return null;
+  }
+
+  return (
+    <Profiler
+      id={`settings-graph-substrate-canary-section-body:${sectionId}`}
+      onRender={handleSettingsGraphSubstrateCanarySectionBodyRender}
+    >
+      <SettingsGraphSubstrateCanarySectionBodyDomAdapter
+        sectionBody={sectionBody}
+      />
+    </Profiler>
+  );
+}
+
+const SettingsGraphSubstrateCanarySectionEntryBody = React.memo(
+  _SettingsGraphSubstrateCanarySectionEntryBody,
+  (previousProps, nextProps) =>
+    previousProps.sectionBody === nextProps.sectionBody &&
+    previousProps.sectionId === nextProps.sectionId &&
+    previousProps.shouldMountBody === nextProps.shouldMountBody,
+);
+
 function _SettingsGraphSubstrateCanarySectionEntry({
   finishSectionDrag,
   handleSectionPointerDown,
@@ -117,16 +152,11 @@ function _SettingsGraphSubstrateCanarySectionEntry({
       onHoveredSectionChange={onHoveredSectionChange}
       section={section}
     >
-      {shouldMountBody ? (
-        <Profiler
-          id={`settings-graph-substrate-canary-section-body:${section.sectionId}`}
-          onRender={handleSettingsGraphSubstrateCanarySectionBodyRender}
-        >
-          <SettingsGraphSubstrateCanarySectionBodyDomAdapter
-            sectionBody={sectionBody}
-          />
-        </Profiler>
-      ) : null}
+      <SettingsGraphSubstrateCanarySectionEntryBody
+        sectionBody={sectionBody}
+        sectionId={section.sectionId}
+        shouldMountBody={shouldMountBody}
+      />
     </SettingsGraphSubstrateCanarySectionShell>
   );
 }

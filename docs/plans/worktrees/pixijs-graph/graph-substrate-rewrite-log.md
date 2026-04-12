@@ -18282,3 +18282,82 @@ LOOP_TERMINAL_MARKER: none
     boundary named by this ranking instead of reopening another row/list memo
     or another support-only probe pass
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-14 - item 450 - Section entry body memo boundary
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first, then checked the
+  recent lane pattern before choosing the next slice:
+  - the last two completed iterations were one product cut (`448`) and one
+    attribution readout (`449`), so the next bounded move was a real
+    production cut at the nearest section container/body boundary named by the
+    ranking, not another probe-only pass
+  - chose the section-entry body split because the mounted body subtree
+    profiler still sat inline inside the shell entry render path even though
+    the body inputs themselves were already stable
+- selected one bounded product slice on the canonical
+  `rotaryParamCodeObjDefault` lane:
+  - move the mounted canary body subtree behind its own memo boundary so
+    shell-only motion rerenders can reuse the mounted body path when
+    `sectionBody` and `shouldMountBody` stay stable
+- code/doc changes kept in tree:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - now renders the mounted canary body subtree through its own memoized
+      `SettingsGraphSubstrateCanarySectionEntryBody` boundary
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - now proves position-only and drag-only shell rerenders do not re-enter
+      the mounted body subtree
+  - `perf/reports/frontend/2026-04-14_settings-graph-section-entry-body-memo-boundary.md`
+    - records the canonical readout and closes this as a non-winning live
+      hypothesis
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed (`1` file, `6` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> passed
+- canonical live probe:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-004/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> fresh readout versus item `449`:
+      - `presentedSceneSectionSubtreeReactRender`
+        `887.2ms total` / `249.8ms max` / `30` samples -> `933.6ms total` /
+        `342.3ms max` / `30` samples
+      - `presentedSceneSectionBodySubtreeReactRender`
+        `874.4ms total` / `115.0ms max` / `32` samples -> `915.7ms total` /
+        `152.4ms max` / `32` samples
+      - `presentedSceneSectionContainerReactRender`
+        `861.4ms total` / `113.9ms max` / `32` samples -> `906.4ms total` /
+        `151.5ms max` / `32` samples
+      - `presentedSceneSectionCoreShellLayerReactRender`
+        `856.2ms total` / `113.4ms max` / `32` samples -> `897.8ms total` /
+        `150.9ms max` / `32` samples
+      - `presentedSceneSectionBodyContentReactRender`
+        `568.9ms total` / `87.5ms max` / `24` samples -> `579.8ms total` /
+        `118.1ms max` / `24` samples
+      - `longTaskTotalDurationMs`
+        `1162` -> `1151`
+      - `averageFrameDurationMs`
+        `41.47` -> `39.00`
+- CDP verification:
+  - initial sub-agent attempt failed at DevTools transport setup with
+    `Network.enable timed out`
+  - bounded lifecycle recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> refreshed worktree frontend `http://127.0.0.1:3075/`, backend
+       `http://127.0.0.1:8075`, session `3d6226`, debug port `9297`
+  - runtime refresh:
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-004/worktree-ai.log`
+    -> confirmed the refreshed runtime facts
+  - fresh-context sub-agent retry:
+    - `http://127.0.0.1:3075/settings` settled on `All Settings`
+    - `graph-substrate-canary` was mounted and
+      `rotaryParamCodeObjDefault` was visible at zoom `1.0`
+    - no obvious visual issues and no error-level console messages
+- interpretation:
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - this closes the section-entry body memo idea as a non-winning live cut;
+    do not spend the next pass adding more entry-level memo layers without
+    fresh attribution
+  - the next real frontier should stay inside the store-subscribed section
+    container/body subtree and either add a new attribution split there or take
+    a different production boundary inside that subtree
+- LOOP_TERMINAL_MARKER: none

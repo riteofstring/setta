@@ -194,7 +194,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
   });
 
-  it("reuses the cached body model when only a section position changes", async () => {
+  it("keeps the mounted body subtree out of position-only shell rerenders", async () => {
     const sceneSections = [createSceneSection({ sectionId: "section-a" })];
 
     await act(async () => {
@@ -229,7 +229,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
     expect(mockSectionShell).toHaveBeenCalledTimes(2);
-    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
   });
 
   it("rerenders only the changed sibling when one section body input changes", async () => {
@@ -315,7 +315,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
 
     expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
     expect(mockSectionShell).toHaveBeenCalledTimes(3);
-    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(3);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
   });
 
   it("skips body resolution and shell work for offscreen inactive sections", async () => {
