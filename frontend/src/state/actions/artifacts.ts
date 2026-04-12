@@ -16,7 +16,6 @@ import {
 } from "state/utils/revisions";
 import { res200 } from "utils/endpointUtils";
 import {
-  ArtifactType,
   ArtifactTypeEnum,
   BrushStrokeArtifact,
   ChartDataArtifact,
@@ -44,6 +43,13 @@ type StoreUpdate<T extends ArtifactByType> = {
   deletedIds: Set<string>;
   commit: () => void;
 };
+type ArtifactStoreUpdates = {
+  images: StoreUpdate<ImageArtifact>;
+  brushStrokes: StoreUpdate<BrushStrokeArtifact>;
+  transforms: StoreUpdate<DrawAreaLayerItemTransformArtifact>;
+  chartData: StoreUpdate<ChartDataArtifact>;
+};
+
 function cloneArtifact<T extends ArtifactByType>(artifact: T): T {
   return _.cloneDeep(artifact);
 }
@@ -115,94 +121,110 @@ function applyUpdate<T extends ArtifactByType>(
     storeUpdate.changedIds.add(artifact.id);
   }
 }
+
+function createArtifactStoreUpdates(): ArtifactStoreUpdates {
+  return {
+    images: createStoreUpdate(useImages.getState().x, useImages.setState),
+    brushStrokes: createStoreUpdate(
+      useBrushStrokes.getState().x,
+      useBrushStrokes.setState,
+    ),
+    transforms: createStoreUpdate(
+      useDrawAreaLayerItemTransform.getState().x,
+      useDrawAreaLayerItemTransform.setState,
+      { mode: "mutate" },
+    ),
+    chartData: createStoreUpdate(
+      useChartData.getState().x,
+      useChartData.setState,
+    ),
+  };
+}
+
+function applyArtifactStoreUpdate(
+  storeUpdates: ArtifactStoreUpdates,
+  artifact: ArtifactByType,
+  updateType: UpdateArtifactsContent["updateType"],
+) {
+  switch (artifact.type) {
+    case ArtifactTypeEnum.Image:
+      applyUpdate(storeUpdates.images, artifact, updateType);
+      return;
+    case ArtifactTypeEnum.BrushStroke:
+      applyUpdate(storeUpdates.brushStrokes, artifact, updateType);
+      return;
+    case ArtifactTypeEnum.DrawAreaLayerItemTransform:
+      applyUpdate(storeUpdates.transforms, artifact, updateType);
+      return;
+    case ArtifactTypeEnum.ChartData:
+      applyUpdate(storeUpdates.chartData, artifact, updateType);
+      return;
+    case ArtifactTypeEnum.File:
+      return;
+    default:
+      artifact satisfies never;
+  }
+}
+
+function commitArtifactStoreUpdates(storeUpdates: ArtifactStoreUpdates) {
+  storeUpdates.images.commit();
+  storeUpdates.brushStrokes.commit();
+  storeUpdates.transforms.commit();
+  storeUpdates.chartData.commit();
+}
+
+function removeDeletedDecodedImages(deletedIds: Iterable<string>) {
+  const ids = Array.from(deletedIds);
+  if (ids.length === 0) {
+    return;
+  }
+
+  useDecodedImages.setState((state) => {
+    const next = { ...state.x };
+    for (const id of ids) {
+      const existing = next[id];
+      if (!existing) {
+        continue;
+      }
+
+      const existingUrl = existing.dataset.objectUrl;
+      if (existingUrl) {
+        URL.revokeObjectURL(existingUrl);
+      }
+      delete next[id];
+    }
+
+    const revisions = removeRevisionEntries(
+      {
+        revisionById: state.revisionById,
+        localRevisionById: state.localRevisionById,
+      },
+      ids,
+    );
+
+    return {
+      x: next,
+      ...revisions,
+    };
+  });
+}
+
 export function updateArtifacts(artifactUpdate: UpdateArtifactsContent) {
   if (!artifactUpdate.artifacts || artifactUpdate.artifacts.length === 0) {
     return;
   }
-  const imagesUpdate = createStoreUpdate(
-    useImages.getState().x,
-    useImages.setState,
-  );
-  const brushStrokeUpdate = createStoreUpdate(
-    useBrushStrokes.getState().x,
-    useBrushStrokes.setState,
-  );
-  const transformUpdate = createStoreUpdate(
-    useDrawAreaLayerItemTransform.getState().x,
-    useDrawAreaLayerItemTransform.setState,
-    { mode: "mutate" },
-  );
-  const chartDataUpdate = createStoreUpdate(
-    useChartData.getState().x,
-    useChartData.setState,
-  );
+
+  const storeUpdates = createArtifactStoreUpdates();
   for (const artifact of artifactUpdate.artifacts) {
-    switch (artifact.type) {
-      case ArtifactTypeEnum.Image:
-        applyUpdate(imagesUpdate, artifact, artifactUpdate.updateType);
-        break;
-      case ArtifactTypeEnum.BrushStroke:
-        applyUpdate(brushStrokeUpdate, artifact, artifactUpdate.updateType);
-        break;
-      case ArtifactTypeEnum.DrawAreaLayerItemTransform:
-        applyUpdate(transformUpdate, artifact, artifactUpdate.updateType);
-        break;
-      case ArtifactTypeEnum.ChartData:
-        applyUpdate(chartDataUpdate, artifact, artifactUpdate.updateType);
-        break;
-      case ArtifactTypeEnum.File:
-        break;
-      default:
-        artifact satisfies never;
-    }
+    applyArtifactStoreUpdate(storeUpdates, artifact, artifactUpdate.updateType);
   }
-  imagesUpdate.commit();
-  brushStrokeUpdate.commit();
-  transformUpdate.commit();
-  chartDataUpdate.commit();
-  if (
-    artifactUpdate.updateType === "delete" &&
-    imagesUpdate.deletedIds.size > 0
-  ) {
-    const deletedIds = Array.from(imagesUpdate.deletedIds);
-    useDecodedImages.setState((state) => {
-      const next = { ...state.x };
-      for (const id of deletedIds) {
-        const existing = next[id];
-        if (!existing) {
-          continue;
-        }
-        const existingUrl = existing.dataset.objectUrl;
-        if (existingUrl) {
-          URL.revokeObjectURL(existingUrl);
-        }
-        delete next[id];
-      }
-      const revisions = removeRevisionEntries(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        deletedIds,
-      );
-      return {
-        x: next,
-        ...revisions,
-      };
-    });
+
+  commitArtifactStoreUpdates(storeUpdates);
+  if (artifactUpdate.updateType === "delete") {
+    removeDeletedDecodedImages(storeUpdates.images.deletedIds);
   }
 }
-function getNamePathTypeKey(artifact: {
-  name?: string;
-  path?: string;
-  type: string | ArtifactType;
-}) {
-  return JSON.stringify([
-    artifact.name ?? "",
-    artifact.path ?? "",
-    artifact.type,
-  ]);
-}
+
 const SYNCED_ARTIFACT_TYPES = [
   ArtifactTypeEnum.BrushStroke,
   ArtifactTypeEnum.DrawAreaLayerItemTransform,
