@@ -82,41 +82,17 @@ func (r Request) ValidateForIntent() error {
 }
 
 func (r Request) StoredPayload() map[string]any {
-	payload := map[string]any{}
-	if r.FieldProvided("workspaceRoot") {
-		payload["workspaceRoot"] = nullableStringValue(r.WorkspaceRoot)
-	}
-	if r.FieldProvided("profile") {
-		payload["profile"] = nullableStringValue(r.Profile)
-	}
-	if r.FieldProvided("settaHome") {
-		payload["settaHome"] = nullableStringValue(r.SettaHome)
-	}
-	if r.FieldProvided("settaFilesRoot") {
-		payload["settaFilesRoot"] = nullableStringValue(r.SettaFilesRoot)
-	}
-	if r.FieldProvided("settaFilesLocation") {
-		payload["settaFilesLocation"] = nullableStringValue(r.SettaFilesLocation)
-	}
-	if r.FieldProvided("runtimeRoot") {
-		payload["runtimeRoot"] = nullableStringValue(r.RuntimeRoot)
-	}
-	if r.FieldProvided("sshTarget") {
-		payload["sshTarget"] = nullableStringValue(r.SSHTarget)
-	}
-	if r.FieldProvided("sshArgs") {
-		payload["sshArgs"] = nullableStringValue(r.SSHArgs)
-	}
-	if r.FieldProvided("remoteCmd") {
-		payload["remoteCmd"] = nullableStringValue(r.RemoteCmd)
-	}
-	if r.FieldProvided("localPort") {
-		if r.LocalPort == nil {
-			payload["localPort"] = nil
-		} else {
-			payload["localPort"] = *r.LocalPort
-		}
-	}
+	payload := make(map[string]any, len(r.fieldSet))
+	storeProvidedField(payload, r.fieldSet, "workspaceRoot", r.WorkspaceRoot)
+	storeProvidedField(payload, r.fieldSet, "profile", r.Profile)
+	storeProvidedField(payload, r.fieldSet, "settaHome", r.SettaHome)
+	storeProvidedField(payload, r.fieldSet, "settaFilesRoot", r.SettaFilesRoot)
+	storeProvidedField(payload, r.fieldSet, "settaFilesLocation", r.SettaFilesLocation)
+	storeProvidedField(payload, r.fieldSet, "runtimeRoot", r.RuntimeRoot)
+	storeProvidedField(payload, r.fieldSet, "sshTarget", r.SSHTarget)
+	storeProvidedField(payload, r.fieldSet, "sshArgs", r.SSHArgs)
+	storeProvidedField(payload, r.fieldSet, "remoteCmd", r.RemoteCmd)
+	storeProvidedField(payload, r.fieldSet, "localPort", r.LocalPort)
 	return payload
 }
 
@@ -142,9 +118,13 @@ func trimmedStringPointer(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-func nullableStringValue(value *string) any {
-	if value == nil {
-		return nil
+func storeProvidedField[T any](payload map[string]any, fieldSet map[string]struct{}, fieldName string, value *T) {
+	if _, ok := fieldSet[fieldName]; !ok {
+		return
 	}
-	return *value
+	if value == nil {
+		payload[fieldName] = nil
+		return
+	}
+	payload[fieldName] = *value
 }

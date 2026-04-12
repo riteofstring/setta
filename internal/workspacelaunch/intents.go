@@ -421,47 +421,7 @@ func (s *intentStore) read() (map[string]StoredIntent, error) {
 			Message: fmt.Sprintf("Failed reading launch-intent store: %s", s.path),
 		}
 	}
-	if len(strings.TrimSpace(string(content))) == 0 {
-		return map[string]StoredIntent{}, nil
-	}
-	var raw any
-	if err := json.Unmarshal(content, &raw); err != nil {
-		return nil, &IntentStoreStateError{Message: "Launch intent store contains invalid JSON."}
-	}
-	topLevel, ok := raw.(map[string]any)
-	if !ok {
-		return nil, &IntentStoreStateError{Message: "Launch intent store payload must be an object."}
-	}
-	record := make(map[string]StoredIntent, len(topLevel))
-	for tokenDigest, rawStored := range topLevel {
-		entry, ok := rawStored.(map[string]any)
-		if !ok {
-			return nil, &IntentStoreStateError{Message: "Launch intent store entries must be objects."}
-		}
-		sessionID, ok := entry["sessionId"].(string)
-		if !ok {
-			return nil, &IntentStoreStateError{Message: "Launch intent store session ids must be strings."}
-		}
-		returnURL, ok := entry["returnUrl"].(string)
-		if !ok {
-			return nil, &IntentStoreStateError{Message: "Launch intent store return URLs must be strings."}
-		}
-		exp, ok := normalizeJSONInteger(entry["exp"])
-		if !ok {
-			return nil, &IntentStoreStateError{Message: "Launch intent store expiry values must be integers."}
-		}
-		requestPayload, ok := entry["launchRequestPayload"].(map[string]any)
-		if !ok {
-			return nil, &IntentStoreStateError{Message: "Launch intent store launchRequestPayload must be an object."}
-		}
-		record[tokenDigest] = StoredIntent{
-			SessionID:            sessionID,
-			LaunchRequestPayload: requestPayload,
-			ReturnURL:            returnURL,
-			Exp:                  exp,
-		}
-	}
-	return record, nil
+	return decodeStoredIntentRecord(content)
 }
 
 func (s *intentStore) write(record map[string]StoredIntent) error {
@@ -503,6 +463,90 @@ func pruneIntents(record map[string]StoredIntent, now int64) {
 			delete(record, tokenDigest)
 		}
 	}
+}
+
+func decodeStoredIntentRecord(content []byte) (map[string]StoredIntent, error) {
+	if len(strings.TrimSpace(string(content))) == 0 {
+		return map[string]StoredIntent{}, nil
+	}
+	topLevel, err := decodeStoredIntentTopLevel(content)
+	if err != nil {
+		return nil, err
+	}
+	record := make(map[string]StoredIntent, len(topLevel))
+	for tokenDigest, rawStored := range topLevel {
+		stored, err := decodeStoredIntentEntry(rawStored)
+		if err != nil {
+			return nil, err
+		}
+		record[tokenDigest] = stored
+	}
+	return record, nil
+}
+
+func decodeStoredIntentTopLevel(content []byte) (map[string]any, error) {
+	var raw any
+	if err := json.Unmarshal(content, &raw); err != nil {
+		return nil, &IntentStoreStateError{Message: "Launch intent store contains invalid JSON."}
+	}
+	return expectStoredIntentObject(raw, "Launch intent store payload must be an object.")
+}
+
+func decodeStoredIntentEntry(rawStored any) (StoredIntent, error) {
+	entry, err := expectStoredIntentObject(rawStored, "Launch intent store entries must be objects.")
+	if err != nil {
+		return StoredIntent{}, err
+	}
+	sessionID, err := expectStoredIntentString(entry, "sessionId", "Launch intent store session ids must be strings.")
+	if err != nil {
+		return StoredIntent{}, err
+	}
+	returnURL, err := expectStoredIntentString(entry, "returnUrl", "Launch intent store return URLs must be strings.")
+	if err != nil {
+		return StoredIntent{}, err
+	}
+	exp, err := expectStoredIntentInteger(entry, "exp", "Launch intent store expiry values must be integers.")
+	if err != nil {
+		return StoredIntent{}, err
+	}
+	requestPayload, err := expectStoredIntentObjectField(entry, "launchRequestPayload", "Launch intent store launchRequestPayload must be an object.")
+	if err != nil {
+		return StoredIntent{}, err
+	}
+	return StoredIntent{
+		SessionID:            sessionID,
+		LaunchRequestPayload: requestPayload,
+		ReturnURL:            returnURL,
+		Exp:                  exp,
+	}, nil
+}
+
+func expectStoredIntentObject(raw any, message string) (map[string]any, error) {
+	entry, ok := raw.(map[string]any)
+	if !ok {
+		return nil, &IntentStoreStateError{Message: message}
+	}
+	return entry, nil
+}
+
+func expectStoredIntentObjectField(entry map[string]any, fieldName string, message string) (map[string]any, error) {
+	return expectStoredIntentObject(entry[fieldName], message)
+}
+
+func expectStoredIntentString(entry map[string]any, fieldName string, message string) (string, error) {
+	value, ok := entry[fieldName].(string)
+	if !ok {
+		return "", &IntentStoreStateError{Message: message}
+	}
+	return value, nil
+}
+
+func expectStoredIntentInteger(entry map[string]any, fieldName string, message string) (int64, error) {
+	value, ok := normalizeJSONInteger(entry[fieldName])
+	if !ok {
+		return 0, &IntentStoreStateError{Message: message}
+	}
+	return value, nil
 }
 
 func normalizeJSONInteger(value any) (int64, bool) {

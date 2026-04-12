@@ -801,6 +801,73 @@ func TestIntentStoreMapsUnavailableReadAndLockParentFailures(t *testing.T) {
 	})
 }
 
+func TestIntentStoreReadRejectsMalformedEntries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		payload string
+		wantErr string
+	}{
+		{
+			name:    "entry must be object",
+			payload: `{"token-1":"not-an-object"}`,
+			wantErr: "Launch intent store entries must be objects.",
+		},
+		{
+			name: "session id must be string",
+			payload: `{"token-1":{
+				"sessionId":1,
+				"returnUrl":"http://localhost/home",
+				"exp":120,
+				"launchRequestPayload":{"workspaceRoot":"/tmp/workspace"}
+			}}`,
+			wantErr: "Launch intent store session ids must be strings.",
+		},
+		{
+			name: "expiry must be integer",
+			payload: `{"token-1":{
+				"sessionId":"session-1",
+				"returnUrl":"http://localhost/home",
+				"exp":120.5,
+				"launchRequestPayload":{"workspaceRoot":"/tmp/workspace"}
+			}}`,
+			wantErr: "Launch intent store expiry values must be integers.",
+		},
+		{
+			name: "launch request payload must be object",
+			payload: `{"token-1":{
+				"sessionId":"session-1",
+				"returnUrl":"http://localhost/home",
+				"exp":120,
+				"launchRequestPayload":"bad"
+			}}`,
+			wantErr: "Launch intent store launchRequestPayload must be an object.",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			store := newIntentStoreForTest(filepath.Join(t.TempDir(), launchIntentStoreFileName), defaultMaxIntentsPerSession, defaultMaxIntentsTotal)
+			if err := os.WriteFile(store.path, []byte(tc.payload), 0o600); err != nil {
+				t.Fatalf("write malformed store: %v", err)
+			}
+
+			_, err := store.read()
+			var stateErr *IntentStoreStateError
+			if !errors.As(err, &stateErr) {
+				t.Fatalf("expected state error, got %v", err)
+			}
+			if stateErr.Message != tc.wantErr {
+				t.Fatalf("expected state error %q, got %#v", tc.wantErr, stateErr)
+			}
+		})
+	}
+}
+
 func TestIntentStoreUpdatePreservesCallbackError(t *testing.T) {
 	t.Parallel()
 
