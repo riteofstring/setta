@@ -519,36 +519,113 @@ function drawingOnMouseMove({
       return;
     }
     const point = getXY(e);
-    if (canvasMode === DrawAreaModeEnum.erase && eraserStrokeRef.current) {
-      eraserStrokeRef.current.points.push(point);
-      prevPointRef.current = point;
-      const [layer, layerCanvas] = getActiveLayerAndCanvas(
+    if (
+      handleEraserMouseMove({
+        canvasMode,
+        eraserStrokeRef,
+        point,
+        prevPointRef,
         layers,
         layerCanvasRefs,
         activeLayerIdx,
-      );
-      if (!layer || !layerCanvas) {
-        return;
-      }
-      drawOneLayer({
-        layer,
-        layerCanvas,
         tempCanvasRefs,
-        realTimeEraserStroke: eraserStrokeRef.current,
-      });
-      notifyRealtimeDirty();
-    } else if (
-      canvasMode === DrawAreaModeEnum.draw &&
-      draftCanvasRef.current &&
-      strokeRef.current &&
-      prevPointRef.current
+        notifyRealtimeDirty,
+      })
     ) {
-      drawStroke(draftCanvasRef.current, prevPointRef.current, point);
-      strokeRef.current.value.points.push(point);
-      prevPointRef.current = point;
-      notifyRealtimeDirty();
+      return;
     }
+
+    handleDrawMouseMove({
+      canvasMode,
+      draftCanvasRef,
+      strokeRef,
+      prevPointRef,
+      point,
+      notifyRealtimeDirty,
+    });
   };
+}
+
+function handleEraserMouseMove({
+  canvasMode,
+  eraserStrokeRef,
+  point,
+  prevPointRef,
+  layers,
+  layerCanvasRefs,
+  activeLayerIdx,
+  tempCanvasRefs,
+  notifyRealtimeDirty,
+}: {
+  canvasMode: DrawAreaMode;
+  eraserStrokeRef: React.RefObject<BrushStroke | null>;
+  point: CanvasPoint;
+  prevPointRef: React.RefObject<CanvasPoint | null>;
+  layers: Array<DrawAreaLayer>;
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
+  activeLayerIdx: number;
+  tempCanvasRefs: React.RefObject<TempCanvasesType>;
+  notifyRealtimeDirty: () => void;
+}): boolean {
+  const activeEraserStroke = eraserStrokeRef.current;
+  if (canvasMode !== DrawAreaModeEnum.erase || !activeEraserStroke) {
+    return false;
+  }
+
+  activeEraserStroke.points.push(point);
+  prevPointRef.current = point;
+
+  const [layer, layerCanvas] = getActiveLayerAndCanvas(
+    layers,
+    layerCanvasRefs,
+    activeLayerIdx,
+  );
+  if (!layer || !layerCanvas) {
+    return true;
+  }
+
+  drawOneLayer({
+    layer,
+    layerCanvas,
+    tempCanvasRefs,
+    realTimeEraserStroke: activeEraserStroke,
+  });
+  notifyRealtimeDirty();
+  return true;
+}
+
+function handleDrawMouseMove({
+  canvasMode,
+  draftCanvasRef,
+  strokeRef,
+  prevPointRef,
+  point,
+  notifyRealtimeDirty,
+}: {
+  canvasMode: DrawAreaMode;
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
+  prevPointRef: React.RefObject<CanvasPoint | null>;
+  point: CanvasPoint;
+  notifyRealtimeDirty: () => void;
+}) {
+  const draftCanvas = draftCanvasRef.current;
+  const activeStroke = strokeRef.current;
+  const previousPoint = prevPointRef.current;
+
+  if (
+    canvasMode !== DrawAreaModeEnum.draw ||
+    !draftCanvas ||
+    !activeStroke ||
+    !previousPoint
+  ) {
+    return;
+  }
+
+  drawStroke(draftCanvas, previousPoint, point);
+  activeStroke.value.points.push(point);
+  prevPointRef.current = point;
+  notifyRealtimeDirty();
 }
 
 function drawingOnMouseUp({
