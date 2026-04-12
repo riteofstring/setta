@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-14 11:45 UTC
+Last updated: 2026-04-14 12:15 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,65 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `466` landed one bounded product cut above the canonical
+  `rotaryParamCodeObjDefault` unpinned-row seam by removing the redundant
+  parent-level unpinned scrollability subscription from `GetUnpinnedParams`:
+  - code/test changes kept in the tree:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+      no longer calls `useIsScrollable()` or builds scroll refs in
+      `GetUnpinnedParams`; the real observer remains in
+      `UnpinnedParamsArea`, which owns the rendered scroll container
+    - `frontend/src/components/Params/GroupContainer.render-stability.test.tsx`
+      now partially mocks `useIsScrollable()` and proves
+      `ParamGroupContainer` subscribes to unpinned scrollability once per
+      rendered container
+    - perf note:
+      `perf/reports/frontend/2026-04-14_settings-graph-group-container-scrollability-subscription-trim.md`
+  - focused verification:
+    - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+      -> passed (`2` files, `5` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+      -> passed
+    - first live probe run:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-026/worktree-ai.log`
+      -> failed with
+         `Worktree unhealthy: page closed while writing normalized compare pane state`
+    - bounded recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded
+      -> refreshed runtime facts with
+         `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.j3RAmS/loop-001/run-026/worktree-ai.log`
+    - retrying the same probe after recovery:
+      -> passed (`1` Playwright test, `1.9m`)
+      -> canonical live readout stayed
+         `dominantCanaryMotionAttributionOwner: presentedSceneSectionSubtreeReactRender`
+      -> top narrow owners stayed
+         `presentedSceneSectionParamGroupContainerReactRender`,
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`, and
+         `presentedSceneSectionUnpinnedParamDndListRowsReactRender`
+      -> compared with the previous item `465` baseline, this slice was a live
+         win:
+         `averageFrameDurationMs 43.56 -> 39.02`,
+         `longTaskTotalDurationMs 1256 -> 1099`,
+         `ParamGroupContainer 561.3ms -> 487.3ms`,
+         `UnpinnedParams 454.3ms -> 429.2ms`,
+         `UnpinnedParamDndListRows 454.3ms -> 411.1ms`
+    - required fresh-context CDP check:
+      -> passed as a health check on the restarted runtime
+      -> `/settings`, the app shell, and the canary graph surface looked
+         visually healthy with no obvious blank-card or detached-body
+         regression
+      -> `rotaryParamCodeObjDefault` was not visually reachable in that CDP
+         session after exact-name filtering, so treat this as a successful
+         live health pass rather than a target-section screenshot oracle
+  - reading:
+    - this closes the duplicate unpinned scrollability-subscription lane as a
+      winning product cut above the row seam
+    - do not reopen the adjacent `GetParamSwitch` / row-map trimming lane; the
+      next slice should stay at the larger `ParamGroupContainer` /
+      `ParamGroupUnpinnedParams` boundary or take the first scene-owned static
+      body cut if fresh evidence justifies it
 
 - item `465` completed one bounded product cut on the canonical
   `rotaryParamCodeObjDefault` unpinned-row lane by scoping

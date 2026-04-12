@@ -23,9 +23,27 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const renderCalls = vi.hoisted(() => ({
+  useIsScrollable: vi.fn(() => ({
+    ref: { current: null },
+    isScrollable: false,
+  })),
+}));
+
 vi.mock("./ParamDndList", () => ({
   ParamDndList: vi.fn(() => <div data-testid="param-dnd-list" />),
 }));
+
+vi.mock("state/hooks/sectionSizes", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/hooks/sectionSizes")
+  >("state/hooks/sectionSizes");
+
+  return {
+    ...actual,
+    useIsScrollable: renderCalls.useIsScrollable,
+  };
+});
 
 const resizeObserverCallbacks = new Set<ResizeObserverCallback>();
 
@@ -246,6 +264,7 @@ describe("ParamGroupContainer render stability", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     vi.mocked(ParamDndList).mockClear();
+    renderCalls.useIsScrollable.mockClear();
     vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => {
       cb(0);
       return 1;
@@ -353,5 +372,21 @@ describe("ParamGroupContainer render stability", () => {
     });
 
     expect(vi.mocked(ParamDndList)).toHaveBeenCalledTimes(1);
+  });
+
+  it("subscribes to unpinned scrollability once per rendered container", async () => {
+    const sectionId = seedParamGroupContainerState();
+
+    await act(async () => {
+      root.render(
+        <ParamGroupContainer
+          sectionId={sectionId}
+          bgColor="bg-transparent"
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(renderCalls.useIsScrollable).toHaveBeenCalledTimes(1);
   });
 });

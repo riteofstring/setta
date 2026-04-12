@@ -19330,3 +19330,33 @@ LOOP_TERMINAL_MARKER: none
     first scene-owned static body cut that removes measured DOM work instead of
     trimming another row-local data path
 - LOOP_TERMINAL_MARKER: none
+# 2026-04-14 12:15 UTC
+
+- item `466` removed the redundant parent-level unpinned scrollability
+  subscription from `GetUnpinnedParams` so only `UnpinnedParamsArea` owns the
+  rendered scroll-container observer:
+  - added a render-stability guard proving `ParamGroupContainer` now calls
+    `useIsScrollable()` once per rendered container
+  - focused verification passed:
+    - `source activate.sh && pnpm -C frontend exec vitest run src/components/Params/GroupContainer.render-stability.test.tsx src/components/Params/GroupContainer.instrumentation.test.tsx`
+    - `pnpm -C frontend exec prettier --check src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.render-stability.test.tsx`
+  - first live worktree probe on run-026 failed with
+    `Worktree unhealthy: page closed while writing normalized compare pane state`
+  - bounded recovery succeeded with headless
+    `./aireset.sh`, runtime facts refreshed via `./scripts/dev-runtime-info.sh`,
+    and the probe retry passed
+  - canonical lane comparison versus item `465`:
+    - `averageFrameDurationMs 43.56 -> 39.02`
+    - `longTaskTotalDurationMs 1256 -> 1099`
+    - `ParamGroupContainer 561.3ms -> 487.3ms`
+    - `ParamGroupUnpinnedParams 454.3ms -> 429.2ms`
+    - `UnpinnedParamDndListRows 454.3ms -> 411.1ms`
+  - fresh-context CDP visual check on the restarted runtime:
+    - `/settings` and the canary graph surface were visually healthy with no
+      obvious detached/blank regression
+    - exact-name filtering did not visually surface
+      `rotaryParamCodeObjDefault`, so this check is a health confirmation, not
+      a trustworthy target-section screenshot oracle
+  - next frontier: stay above the row seam and target the remaining
+    `ParamGroupContainer` / `ParamGroupUnpinnedParams` cost or take the first
+    scene-owned static body slice if fresh evidence justifies it

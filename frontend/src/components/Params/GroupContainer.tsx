@@ -1016,16 +1016,6 @@ function GetUnpinnedParams({
     !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const { ref: scrollRef, isScrollable } = useIsScrollable();
-
-  const setContainerRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      containerRef.current = node;
-      scrollRef.current = node;
-    },
-    [scrollRef],
-  );
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
