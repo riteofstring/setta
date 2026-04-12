@@ -120,7 +120,7 @@ function buildPendingWorkspaceLaunch(params: {
   };
 }
 
-export async function createPendingWorkspaceLaunchFromIntent({
+async function createPendingWorkspaceLaunchFromIntent({
   launchRequest,
   returnUrl,
 }: {
@@ -240,7 +240,7 @@ function parseLocalTunnelPort(
   };
 }
 
-export function createWorkspaceLaunchRequestFromFormState(
+function createWorkspaceLaunchRequestFromFormState(
   formState: WorkspaceSwitcherFormState,
 ): CreateWorkspaceLaunchRequestResult {
   const workspaceRoot = formState.workspaceRoot.trim();
