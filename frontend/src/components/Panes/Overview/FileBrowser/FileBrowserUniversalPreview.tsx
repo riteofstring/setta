@@ -34,6 +34,17 @@ const urlPreviewErrorIcons: Record<
   video: <IoVideocam size={22} />,
 };
 
+const unavailablePreviewByKind = {
+  archive: {
+    icon: <FiArchive size={22} />,
+    message: "Archive preview not available.",
+  },
+  other: {
+    icon: <FiFileText size={22} />,
+    message: "Preview not available.",
+  },
+} satisfies Record<"archive" | "other", { icon: ReactNode; message: string }>;
+
 function createSelectedPreviewFile(
   selectedNode: Extract<FileNode, { type: "file" }>,
 ): SelectedPreviewFile {
@@ -127,7 +138,7 @@ function TextFilePreview({
   );
 }
 
-function FilePreviewContent({
+function DownloadUrlPreviewContent({
   previewKind,
   fileUrl,
   selectedFileName,
@@ -188,6 +199,56 @@ function FilePreviewContent({
   );
 }
 
+function resolveNonDownloadPreview(args: {
+  previewKind: ReturnType<typeof resolveFileBrowserPreviewKind>;
+  selectedFile: SelectedPreviewFile;
+  textPreview: TextPreviewState;
+}): JSX.Element | null {
+  if (args.previewKind === "spreadsheet") {
+    return <SpreadsheetPreview selectedFile={args.selectedFile} />;
+  }
+  if (args.previewKind === "text") {
+    return (
+      <TextFilePreview
+        selectedFile={args.selectedFile}
+        textPreview={args.textPreview}
+      />
+    );
+  }
+  if (args.previewKind === "archive" || args.previewKind === "other") {
+    const preview = unavailablePreviewByKind[args.previewKind];
+    return <UnavailablePreview icon={preview.icon} message={preview.message} />;
+  }
+  return null;
+}
+
+function DownloadUrlPreviewState(args: {
+  fileUrl: string | null;
+  isUrlLoading: boolean;
+  previewKind: FileBrowserDownloadUrlPreviewKind;
+  selectedFileName: string;
+  urlError: string | null;
+}) {
+  if (args.isUrlLoading) {
+    return <LoadingPreview message="Loading preview…" />;
+  }
+  if (args.urlError || !args.fileUrl) {
+    return (
+      <UnavailablePreview
+        icon={urlPreviewErrorIcons[args.previewKind]}
+        message={args.urlError ?? "Preview unavailable."}
+      />
+    );
+  }
+  return (
+    <DownloadUrlPreviewContent
+      previewKind={args.previewKind}
+      fileUrl={args.fileUrl}
+      selectedFileName={args.selectedFileName}
+    />
+  );
+}
+
 function SelectedFilePreview({
   selectedFile,
 }: {
@@ -202,50 +263,25 @@ function SelectedFilePreview({
       selectedFilePath: selectedFile.fullPath,
       previewKind,
     });
+  const nonDownloadPreview = resolveNonDownloadPreview({
+    previewKind,
+    selectedFile,
+    textPreview,
+  });
 
-  if (previewKind === "spreadsheet") {
-    return <SpreadsheetPreview selectedFile={selectedFile} />;
-  }
-  if (previewKind === "text") {
-    return (
-      <TextFilePreview selectedFile={selectedFile} textPreview={textPreview} />
-    );
-  }
-  if (previewKind === "archive") {
-    return (
-      <UnavailablePreview
-        icon={<FiArchive size={22} />}
-        message="Archive preview not available."
-      />
-    );
-  }
-  if (previewKind === "other") {
-    return (
-      <UnavailablePreview
-        icon={<FiFileText size={22} />}
-        message="Preview not available."
-      />
-    );
+  if (nonDownloadPreview) {
+    return nonDownloadPreview;
   }
   if (!isFileBrowserDownloadUrlPreviewKind(previewKind)) {
     return <PreviewPlaceholder message="Preview unavailable." />;
   }
-  if (isUrlLoading) {
-    return <LoadingPreview message="Loading preview…" />;
-  }
-  if (urlError || !fileUrl) {
-    return (
-      <UnavailablePreview
-        icon={urlPreviewErrorIcons[previewKind]}
-        message={urlError ?? "Preview unavailable."}
-      />
-    );
-  }
   return (
-    <FilePreviewContent
-      previewKind={previewKind}
+    <DownloadUrlPreviewState
       fileUrl={fileUrl}
+      isUrlLoading={isUrlLoading}
+      previewKind={previewKind}
       selectedFileName={selectedFile.name}
+      urlError={urlError}
     />
   );
 }

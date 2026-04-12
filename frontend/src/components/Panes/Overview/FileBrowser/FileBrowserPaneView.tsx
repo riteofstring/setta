@@ -39,7 +39,7 @@ function shouldShowInitializedBadge(args: {
   );
 }
 
-function FileBrowserPaneMeta(args: {
+type FileBrowserPaneMetaProps = {
   breadcrumbs: Array<{ path: string; label: string }>;
   fileBrowserState: typeof import("state/definitions").useFileBrowserState;
   metaPaddingClassName?: string;
@@ -53,46 +53,91 @@ function FileBrowserPaneMeta(args: {
   showFilter: boolean;
   showPathNavigation: boolean;
   handleNavigateToPath: (path: string) => void;
-}) {
+};
+
+function FileBrowserPathNavigationSection(
+  args: Pick<
+    FileBrowserPaneMetaProps,
+    | "breadcrumbs"
+    | "handleNavigateToPath"
+    | "parentPath"
+    | "pathCompletionSource"
+    | "pathInputId"
+    | "rootPath"
+    | "showPathNavigation"
+  >,
+) {
+  if (!args.showPathNavigation) {
+    return null;
+  }
+  return (
+    <>
+      <div className="flex min-w-0 items-center gap-2">
+        <FileBrowserGoUpButton
+          disabled={!args.parentPath}
+          onClick={() => {
+            if (args.parentPath) {
+              args.handleNavigateToPath(args.parentPath);
+            }
+          }}
+        />
+        <FileBrowserPathInput
+          inputId={`CodeMirror-file-browser-path-${args.pathInputId}`}
+          dataTestId="file-browser-path-input"
+          value={args.rootPath ?? ""}
+          onCommit={args.handleNavigateToPath}
+          completionSource={args.pathCompletionSource}
+        />
+      </div>
+      <FileBrowserBreadcrumbs
+        breadcrumbs={args.breadcrumbs}
+        currentPath={args.rootPath ?? ""}
+        onSelect={args.handleNavigateToPath}
+      />
+    </>
+  );
+}
+
+function FileBrowserFilterSection(
+  args: Pick<FileBrowserPaneMetaProps, "fileBrowserState" | "showFilter">,
+) {
+  if (!args.showFilter) {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <FileBrowserFilter useFileBrowserStateHook={args.fileBrowserState} />
+    </div>
+  );
+}
+
+function FileBrowserRootError({ rootError }: { rootError: string | null }) {
+  if (!rootError) {
+    return null;
+  }
+  return <p className="text-xs text-red-500">{rootError}</p>;
+}
+
+function FileBrowserPaneMeta(args: FileBrowserPaneMetaProps) {
   if (!args.showFilter && !args.showPathNavigation && !args.rootError) {
     return null;
   }
   return (
     <div className={`flex flex-col gap-2 ${args.metaPaddingClassName ?? ""}`}>
-      {args.showPathNavigation ? (
-        <>
-          <div className="flex min-w-0 items-center gap-2">
-            <FileBrowserGoUpButton
-              disabled={!args.parentPath}
-              onClick={() => {
-                if (args.parentPath) {
-                  args.handleNavigateToPath(args.parentPath);
-                }
-              }}
-            />
-            <FileBrowserPathInput
-              inputId={`CodeMirror-file-browser-path-${args.pathInputId}`}
-              dataTestId="file-browser-path-input"
-              value={args.rootPath ?? ""}
-              onCommit={args.handleNavigateToPath}
-              completionSource={args.pathCompletionSource}
-            />
-          </div>
-          <FileBrowserBreadcrumbs
-            breadcrumbs={args.breadcrumbs}
-            currentPath={args.rootPath ?? ""}
-            onSelect={args.handleNavigateToPath}
-          />
-        </>
-      ) : null}
-      {args.showFilter ? (
-        <div className="flex flex-col gap-1">
-          <FileBrowserFilter useFileBrowserStateHook={args.fileBrowserState} />
-        </div>
-      ) : null}
-      {args.rootError ? (
-        <p className="text-xs text-red-500">{args.rootError}</p>
-      ) : null}
+      <FileBrowserPathNavigationSection
+        breadcrumbs={args.breadcrumbs}
+        handleNavigateToPath={args.handleNavigateToPath}
+        parentPath={args.parentPath}
+        pathCompletionSource={args.pathCompletionSource}
+        pathInputId={args.pathInputId}
+        rootPath={args.rootPath}
+        showPathNavigation={args.showPathNavigation}
+      />
+      <FileBrowserFilterSection
+        fileBrowserState={args.fileBrowserState}
+        showFilter={args.showFilter}
+      />
+      <FileBrowserRootError rootError={args.rootError} />
     </div>
   );
 }

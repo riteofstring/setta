@@ -14,7 +14,14 @@ import {
   type FileBrowserFilterProps,
 } from "./fileBrowserPaneShared";
 
-const SEARCH_SCOPE_OPTIONS = [
+type SearchScopeOptionConfig = {
+  value: FileBrowserSearchScope;
+  icon: typeof TbFolder;
+  title: string;
+  description: string;
+};
+
+const SEARCH_SCOPE_OPTIONS: SearchScopeOptionConfig[] = [
   {
     value: "recursive",
     icon: TbFolders,
@@ -27,12 +34,7 @@ const SEARCH_SCOPE_OPTIONS = [
     title: "Local search",
     description: "Search only the current folder.",
   },
-] satisfies Array<{
-  value: FileBrowserSearchScope;
-  icon: typeof TbFolder;
-  title: string;
-  description: string;
-}>;
+];
 
 function useSearchMenuReposition(searchMenuOpen: boolean): void {
   useEffect(() => {
@@ -99,6 +101,83 @@ function SearchScopeOption(args: {
   );
 }
 
+function SaveSearchButton(args: {
+  enabled: boolean;
+  onSave: () => void;
+  visible: boolean;
+}): JSX.Element | null {
+  if (!args.visible) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      aria-label="Save search"
+      title="Save search"
+      className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 disabled:cursor-default disabled:opacity-40 ${
+        args.enabled
+          ? "bg-transparent text-setta-400 hover:bg-setta-50 dark:text-setta-500 dark:hover:bg-setta-800"
+          : "bg-transparent text-setta-300 dark:text-setta-700"
+      }`}
+      disabled={!args.enabled}
+      onClick={args.onSave}
+    >
+      <FiSave size={14} />
+    </button>
+  );
+}
+
+function SearchScopePopover(args: {
+  onOpenChange: (nextOpen: boolean) => void;
+  onSelect: (scope: FileBrowserSearchScope) => void;
+  open: boolean;
+  searchScope: FileBrowserSearchScope;
+}): JSX.Element {
+  return (
+    <StandardPopover
+      open={args.open}
+      onOpenChange={args.onOpenChange}
+      arrowClasses="h-2 w-4 -translate-y-px fill-white/95 stroke-setta-200/80 stroke-1 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+      contentClasses="z-[320] w-[252px] overflow-visible rounded-xl border border-solid border-setta-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur outline-none dark:border-setta-700/70 dark:bg-setta-900/95 dark:ring-setta-800/60"
+      contentProps={{
+        sideOffset: 8,
+        collisionPadding: 16,
+        align: "center",
+        updatePositionStrategy: "always",
+      }}
+      trigger={
+        <button
+          type="button"
+          aria-label="Search scope options"
+          className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-setta-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 dark:hover:bg-setta-800 ${
+            args.open
+              ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600"
+              : "bg-transparent text-setta-400 dark:text-setta-500"
+          }`}
+        >
+          <HiChevronDown size={14} />
+        </button>
+      }
+    >
+      <div className="overflow-hidden rounded-[inherit] p-2.5">
+        <div className="flex flex-col gap-1.5 text-xs text-setta-700 dark:text-setta-200">
+          {SEARCH_SCOPE_OPTIONS.map((option) => (
+            <SearchScopeOption
+              key={option.value}
+              value={option.value}
+              icon={option.icon}
+              title={option.title}
+              description={option.description}
+              selected={args.searchScope === option.value}
+              onSelect={args.onSelect}
+            />
+          ))}
+        </div>
+      </div>
+    </StandardPopover>
+  );
+}
+
 export function FileBrowserFilter({
   useFileBrowserStateHook,
   className,
@@ -142,6 +221,7 @@ export function FileBrowserFilter({
 
   const canShowSaveButton = (saveSearchConfig?.canSave ?? false) === true;
   const hasSearchValue = filterInput.trim().length > 0;
+  const showSaveButton = saveSearchConfig != null && hasSearchValue;
   const handleSave = () => {
     if (!canShowSaveButton || !saveSearchConfig) {
       return;
@@ -182,63 +262,17 @@ export function FileBrowserFilter({
         tooltipParentDivId={tooltipParentDivId}
       />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-        {saveSearchConfig && hasSearchValue ? (
-          <button
-            type="button"
-            aria-label="Save search"
-            title="Save search"
-            className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 disabled:cursor-default disabled:opacity-40 ${
-              canShowSaveButton
-                ? "bg-transparent text-setta-400 hover:bg-setta-50 dark:text-setta-500 dark:hover:bg-setta-800"
-                : "bg-transparent text-setta-300 dark:text-setta-700"
-            }`}
-            disabled={!canShowSaveButton}
-            onClick={handleSave}
-          >
-            <FiSave size={14} />
-          </button>
-        ) : null}
-        <StandardPopover
+        <SaveSearchButton
+          visible={showSaveButton}
+          enabled={canShowSaveButton}
+          onSave={handleSave}
+        />
+        <SearchScopePopover
           open={searchMenuOpen}
           onOpenChange={setSearchMenuOpen}
-          arrowClasses="h-2 w-4 -translate-y-px fill-white/95 stroke-setta-200/80 stroke-1 dark:fill-setta-900/95 dark:stroke-setta-700/70"
-          contentClasses="z-[320] w-[252px] overflow-visible rounded-xl border border-solid border-setta-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur outline-none dark:border-setta-700/70 dark:bg-setta-900/95 dark:ring-setta-800/60"
-          contentProps={{
-            sideOffset: 8,
-            collisionPadding: 16,
-            align: "center",
-            updatePositionStrategy: "always",
-          }}
-          trigger={
-            <button
-              type="button"
-              aria-label="Search scope options"
-              className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-setta-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 dark:hover:bg-setta-800 ${
-                searchMenuOpen
-                  ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600"
-                  : "bg-transparent text-setta-400 dark:text-setta-500"
-              }`}
-            >
-              <HiChevronDown size={14} />
-            </button>
-          }
-        >
-          <div className="overflow-hidden rounded-[inherit] p-2.5">
-            <div className="flex flex-col gap-1.5 text-xs text-setta-700 dark:text-setta-200">
-              {SEARCH_SCOPE_OPTIONS.map((option) => (
-                <SearchScopeOption
-                  key={option.value}
-                  value={option.value}
-                  icon={option.icon}
-                  title={option.title}
-                  description={option.description}
-                  selected={searchScope === option.value}
-                  onSelect={handleSearchScopeChange}
-                />
-              ))}
-            </div>
-          </div>
-        </StandardPopover>
+          onSelect={handleSearchScopeChange}
+          searchScope={searchScope}
+        />
       </div>
     </search>
   );
