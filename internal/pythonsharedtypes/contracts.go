@@ -14,20 +14,10 @@ func defaultSourcesFromSidecar(
 	sidecar sharedtypes.SemanticSidecar,
 	profiles ...string,
 ) (map[reflect.Type]reflect.Value, error) {
-	profileRank := map[string]int{}
-	for index, profile := range profiles {
-		profile = strings.TrimSpace(profile)
-		if profile == "" {
-			continue
-		}
-		if _, exists := profileRank[profile]; exists {
-			continue
-		}
-		profileRank[profile] = index
-	}
+	profileRank := defaultSourceProfileRank(profiles)
 
 	defaultSources := map[reflect.Type]reflect.Value{}
-	selectedProfileByType := map[reflect.Type]string{}
+	selectedRankByType := map[reflect.Type]int{}
 	for _, entry := range sidecar.Defaults {
 		entryProfile := strings.TrimSpace(entry.Profile)
 		rank, ok := profileRank[entryProfile]
@@ -38,18 +28,12 @@ func defaultSourcesFromSidecar(
 		if !ok {
 			return nil, fmt.Errorf("python shared types: missing discovered type for sidecar default %s", entry.Type)
 		}
-		if existingProfile, exists := selectedProfileByType[typ]; exists {
-			existingRank := profileRank[existingProfile]
-			if existingRank < rank {
-				continue
-			}
-			if existingRank == rank {
-				return nil, fmt.Errorf(
-					"python shared types: duplicate sidecar default %s for profile %s",
-					entry.Type,
-					entryProfile,
-				)
-			}
+		applyEntry, err := shouldApplyDefaultSourceRank(selectedRankByType, typ, rank, entry.Type, entryProfile)
+		if err != nil {
+			return nil, err
+		}
+		if !applyEntry {
+			continue
 		}
 		value, ok, err := coerceDefaultSourceValue(typ, entry.Value)
 		if err != nil {
@@ -59,9 +43,48 @@ func defaultSourcesFromSidecar(
 			continue
 		}
 		defaultSources[typ] = value
-		selectedProfileByType[typ] = entryProfile
+		selectedRankByType[typ] = rank
 	}
 	return defaultSources, nil
+}
+
+func defaultSourceProfileRank(profiles []string) map[string]int {
+	profileRank := map[string]int{}
+	for index, profile := range profiles {
+		trimmedProfile := strings.TrimSpace(profile)
+		if trimmedProfile == "" {
+			continue
+		}
+		if _, exists := profileRank[trimmedProfile]; exists {
+			continue
+		}
+		profileRank[trimmedProfile] = index
+	}
+	return profileRank
+}
+
+func shouldApplyDefaultSourceRank(
+	selectedRankByType map[reflect.Type]int,
+	typ reflect.Type,
+	rank int,
+	entryType string,
+	entryProfile string,
+) (bool, error) {
+	existingRank, exists := selectedRankByType[typ]
+	if !exists {
+		return true, nil
+	}
+	if existingRank < rank {
+		return false, nil
+	}
+	if existingRank == rank {
+		return false, fmt.Errorf(
+			"python shared types: duplicate sidecar default %s for profile %s",
+			entryType,
+			entryProfile,
+		)
+	}
+	return true, nil
 }
 
 func coerceDefaultSourceValue(

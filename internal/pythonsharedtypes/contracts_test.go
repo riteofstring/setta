@@ -1,8 +1,12 @@
 package pythonsharedtypes
 
 import (
+	"reflect"
 	"strings"
 	"testing"
+
+	"setta/internal/projectview"
+	"setta/internal/sharedtypes"
 )
 
 func TestBuildUsesSchemaGeneratedGoValueDefaultsForProjectConfig(t *testing.T) {
@@ -62,5 +66,71 @@ func TestBuildUsesAuthoritativeSharedRouteInventory(t *testing.T) {
 	}
 	if !strings.Contains(generated.PythonModule, `from pydantic import TypeAdapter`) {
 		t.Fatalf("expected generated module to import TypeAdapter for structured go_value defaults")
+	}
+}
+
+func TestDefaultSourcesFromSidecarPrefersLowerRankProfiles(t *testing.T) {
+	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
+	contractName := sharedtypes.ContractNameForType(ownerType)
+	preferred := projectview.ProjectConfig{Name: "preferred"}
+	fallback := projectview.ProjectConfig{Name: "fallback"}
+
+	defaultSources, err := defaultSourcesFromSidecar(
+		sharedtypes.SemanticSidecar{
+			Defaults: []sharedtypes.DefaultEntry{
+				{
+					Profile: sharedtypes.DefaultProfileFrontend,
+					Type:    contractName,
+					Value:   fallback,
+				},
+				{
+					Profile: sharedtypes.DefaultProfilePythonShared,
+					Type:    contractName,
+					Value:   preferred,
+				},
+			},
+		},
+		sharedtypes.DefaultProfilePythonShared,
+		sharedtypes.DefaultProfileFrontend,
+	)
+	if err != nil {
+		t.Fatalf("defaultSourcesFromSidecar() error = %v", err)
+	}
+
+	got, ok := defaultSources[ownerType]
+	if !ok {
+		t.Fatalf("defaultSources missing %s", contractName)
+	}
+	if resolved := got.Interface().(projectview.ProjectConfig); resolved.Name != preferred.Name {
+		t.Fatalf("preferred default name = %q, want %q", resolved.Name, preferred.Name)
+	}
+}
+
+func TestDefaultSourcesFromSidecarRejectsDuplicateDefaultsInSameProfile(t *testing.T) {
+	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
+	contractName := sharedtypes.ContractNameForType(ownerType)
+
+	_, err := defaultSourcesFromSidecar(
+		sharedtypes.SemanticSidecar{
+			Defaults: []sharedtypes.DefaultEntry{
+				{
+					Profile: sharedtypes.DefaultProfilePythonShared,
+					Type:    contractName,
+					Value:   projectview.ProjectConfig{Name: "first"},
+				},
+				{
+					Profile: sharedtypes.DefaultProfilePythonShared,
+					Type:    contractName,
+					Value:   projectview.ProjectConfig{Name: "second"},
+				},
+			},
+		},
+		sharedtypes.DefaultProfilePythonShared,
+	)
+	if err == nil {
+		t.Fatal("defaultSourcesFromSidecar() error = nil, want duplicate default error")
+	}
+	if got := err.Error(); !strings.Contains(got, "duplicate sidecar default "+contractName+" for profile "+sharedtypes.DefaultProfilePythonShared) {
+		t.Fatalf("defaultSourcesFromSidecar() error = %q", got)
 	}
 }
