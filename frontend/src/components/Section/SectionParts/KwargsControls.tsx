@@ -36,10 +36,12 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import { getKwargsControlsContainerClassName } from "./kwargsControlsStyles";
+import {
+  getKwargsControlsActionState,
+  getKwargsControlsThemeState,
+} from "./kwargsControlsState";
 type KwargsControlsProps = {
   sectionId: string;
 };
@@ -62,41 +64,8 @@ function getDeletableSelectedParamIds(
 }
 export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
-  const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
-  useLayoutEffect(() => {
-    const node = controlsRef.current;
-    if (!node) {
-      lastMeasuredHeightRef.current = null;
-      useTemporaryMiscState.setState({ [heightKey]: 0 });
-      return;
-    }
-    const updateHeight = () => {
-      const style = window.getComputedStyle(node);
-      const marginHeight =
-        (Number.parseFloat(style.marginTop) || 0) +
-        (Number.parseFloat(style.marginBottom) || 0);
-      const measuredHeight = node.offsetHeight + marginHeight;
-      const nextHeight = Math.ceil(measuredHeight);
-      if (lastMeasuredHeightRef.current === nextHeight) {
-        return;
-      }
-      lastMeasuredHeightRef.current = nextHeight;
-      useTemporaryMiscState.setState({
-        [heightKey]: nextHeight > 0 ? nextHeight : 0,
-      });
-    };
-    updateHeight();
-    const observer = new ResizeObserver(() => {
-      updateHeight();
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      lastMeasuredHeightRef.current = null;
-      useTemporaryMiscState.setState({ [heightKey]: 0 });
-    };
-  }, [heightKey]);
+  useKwargsControlsHeightMeasurement(controlsRef, heightKey);
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -123,21 +92,16 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   );
   const resolvedStyleColor =
     previewStyleColor === undefined ? styleColor : previewStyleColor;
-  const hasSectionStyleTheme = Boolean(
-    resolvedStyleColor
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null,
-  );
-  const controlsContainerClassName = getKwargsControlsContainerClassName({
+  const {
     hasSectionStyleTheme,
+    controlsContainerClassName,
+    argsLabelColorClassName,
+    argsIconButtonColorClassName,
+  } = getKwargsControlsThemeState({
+    resolvedStyleColor,
+    darkMode,
     isCallableSection,
   });
-  const argsLabelColorClassName = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-muted-text)]"
-    : "text-setta-600/70 dark:text-setta-400/30";
-  const argsIconButtonColorClassName = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]"
-    : "text-setta-500 hover:text-blue-500 dark:hover:text-blue-500";
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
@@ -177,18 +141,27 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     sectionVariants,
     selectedParams,
   ]);
-  const selectedAreAllEdgeInputs =
-    selectedParams.length > 0 &&
-    selectedParams.every((paramId) => edgeInputParams.includes(paramId));
-  const selectedHasAnyEdgeInputs = selectedParams.some((paramId) =>
-    edgeInputParams.includes(paramId),
-  );
-  const canPinParams =
-    selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
-  const pinParamsDisabled = !canPinParams;
-  const shouldUnpinSelected =
-    selectedParams.length > 0 &&
-    selectedParams.every((paramId) => pinnedParams.includes(paramId));
+  const {
+    selectedAreAllEdgeInputs,
+    selectedHasAnyEdgeInputs,
+    shouldUnpinSelected,
+    canPinParams,
+    pinParamsDisabled,
+    canConvertToEdge,
+    convertToEdgeDisabled,
+    convertToEdgeAriaLabel,
+    convertToEdgeIconClassName,
+    convertToEdgeTooltip,
+    deleteSelectedDisabled,
+  } = getKwargsControlsActionState({
+    selectedParams,
+    edgeInputParams,
+    pinnedParams,
+    deletableSelectedParamIds,
+    canEditLayout,
+    canEditStructure,
+    variantIsFrozen,
+  });
   const pinButtonLabel = shouldUnpinSelected
     ? "Unpin selected args"
     : "Pin selected args";
@@ -257,29 +230,8 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         ),
     });
   }
-  const canConvertToEdge =
-    selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
-  const convertToEdgeDisabled = !canConvertToEdge;
-  const convertToEdgeAriaLabel = selectedAreAllEdgeInputs
-    ? "Convert selected edge args back to params"
-    : "Convert to edge connectors";
-  const convertToEdgeIconClassName = selectedAreAllEdgeInputs
-    ? "gg-unlink"
-    : "gg-link";
-  let convertToEdgeTooltip = "Convert selected args to edge connectors";
-  if (selectedAreAllEdgeInputs) {
-    convertToEdgeTooltip = "Convert selected edge args back to params";
-    if (canEditLayout) {
-      convertToEdgeTooltip = "Move selected edge args back to unpinned";
-    }
-  }
-  const canDeleteSelected =
-    deletableSelectedParamIds.length > 0 &&
-    !variantIsFrozen &&
-    canEditStructure;
-  const deleteSelectedDisabled = !canDeleteSelected;
   function onClickDeleteSelectedKwargs() {
-    if (!canDeleteSelected) {
+    if (deleteSelectedDisabled) {
       return;
     }
     const payload = {
@@ -564,6 +516,48 @@ function ParamFilter({
     </search>
   );
 }
+
+function useKwargsControlsHeightMeasurement(
+  controlsRef: React.RefObject<HTMLElement | null>,
+  heightKey: string,
+) {
+  const lastMeasuredHeightRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    const node = controlsRef.current;
+    if (!node) {
+      lastMeasuredHeightRef.current = null;
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      return;
+    }
+
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
+      const nextHeight = Math.ceil(measuredHeight);
+      if (lastMeasuredHeightRef.current === nextHeight) {
+        return;
+      }
+      lastMeasuredHeightRef.current = nextHeight;
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight > 0 ? nextHeight : 0,
+      });
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      lastMeasuredHeightRef.current = null;
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+    };
+  }, [controlsRef, heightKey]);
+}
+
 const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {

@@ -207,34 +207,55 @@ func scanPartialJSONStrings(buffer string) ([]partialJSONStringToken, error) {
 }
 
 func (s *partialJSONScanner) consume(buffer string, index int) (int, bool, error) {
-	switch buffer[index] {
-	case '"':
+	token := buffer[index]
+	if token == '"' {
 		return s.consumeString(buffer, index)
+	}
+	if s.consumeStructuralToken(token) {
+		return index + 1, false, nil
+	}
+	if container := s.currentContainer(); container != nil && container.shouldConsumeNonStringValue(token) {
+		return consumeNonStringValue(buffer, index, container), false, nil
+	}
+	return index + 1, false, nil
+}
+
+func (s *partialJSONScanner) consumeStructuralToken(token byte) bool {
+	switch token {
 	case '{':
 		s.pushContainer(jsonContainerState{
 			kind:         jsonContainerObject,
 			expectingKey: true,
 		})
+		return true
 	case '[':
 		s.pushContainer(jsonContainerState{kind: jsonContainerArray})
+		return true
 	case ':':
-		if container := s.currentContainer(); container != nil {
+		s.updateCurrentContainer(func(container *jsonContainerState) {
 			container.noteObjectValueStart()
-		}
+		})
+		return true
 	case ',':
-		if container := s.currentContainer(); container != nil {
+		s.updateCurrentContainer(func(container *jsonContainerState) {
 			container.noteObjectEntrySeparator()
-		}
+		})
+		return true
 	case '}':
 		s.popContainer(jsonContainerObject)
+		return true
 	case ']':
 		s.popContainer(jsonContainerArray)
+		return true
 	default:
-		if container := s.currentContainer(); container != nil && container.shouldConsumeNonStringValue(buffer[index]) {
-			return consumeNonStringValue(buffer, index, container), false, nil
-		}
+		return false
 	}
-	return index + 1, false, nil
+}
+
+func (s *partialJSONScanner) updateCurrentContainer(update func(*jsonContainerState)) {
+	if container := s.currentContainer(); container != nil {
+		update(container)
+	}
 }
 
 func (s *partialJSONScanner) consumeString(buffer string, startIndex int) (int, bool, error) {

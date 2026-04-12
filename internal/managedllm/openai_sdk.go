@@ -342,49 +342,65 @@ func buildOpenAIProviderMessage(message map[string]any) (map[string]any, bool, e
 	payload := map[string]any{"role": role}
 	switch role {
 	case "system", "user":
-		content, include, err := normalizeProviderMessageContent(message["content"])
-		if err != nil {
-			return nil, false, err
-		}
-		payload["content"] = content
-		return payload, include, nil
+		return buildOpenAIStandardProviderMessage(payload, message["content"])
 	case "assistant":
-		content, include, err := normalizeProviderMessageContent(message["content"])
-		if err != nil {
-			return nil, false, err
-		}
-		toolCalls, hasToolCalls, err := normalizeProviderToolCalls(message["tool_calls"], role)
-		if err != nil {
-			return nil, false, err
-		}
-		payload["content"] = providerContentValue(content)
-		if hasToolCalls {
-			payload["tool_calls"] = messagesToAnyList(toolCalls)
-			return payload, true, nil
-		}
-		return payload, include, nil
+		return buildOpenAIAssistantProviderMessage(payload, message)
 	case "tool":
-		content, include, err := normalizeProviderMessageContent(message["content"])
-		if err != nil {
-			return nil, false, err
-		}
-		if !include {
-			fallback, fallbackErr := normalizeProviderToolResultContent(message["result"])
-			if fallbackErr != nil {
-				return nil, false, fallbackErr
-			}
-			content = fallback
-		}
-		toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
-		if toolCallID == "" {
-			return nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
-		}
-		payload["content"] = content
-		payload["tool_call_id"] = toolCallID
-		return payload, true, nil
+		return buildOpenAIToolProviderMessage(payload, message)
 	default:
 		return nil, false, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
 	}
+}
+
+func buildOpenAIStandardProviderMessage(payload map[string]any, raw any) (map[string]any, bool, error) {
+	content, include, err := normalizeProviderMessageContent(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	payload["content"] = content
+	return payload, include, nil
+}
+
+func buildOpenAIAssistantProviderMessage(payload map[string]any, message map[string]any) (map[string]any, bool, error) {
+	content, include, err := normalizeProviderMessageContent(message["content"])
+	if err != nil {
+		return nil, false, err
+	}
+	toolCalls, hasToolCalls, err := normalizeProviderToolCalls(message["tool_calls"], "assistant")
+	if err != nil {
+		return nil, false, err
+	}
+	payload["content"] = providerContentValue(content)
+	if hasToolCalls {
+		payload["tool_calls"] = messagesToAnyList(toolCalls)
+		return payload, true, nil
+	}
+	return payload, include, nil
+}
+
+func buildOpenAIToolProviderMessage(payload map[string]any, message map[string]any) (map[string]any, bool, error) {
+	content, err := resolveOpenAIToolProviderContent(message)
+	if err != nil {
+		return nil, false, err
+	}
+	toolCallID := strings.TrimSpace(stringValue(message["tool_call_id"]))
+	if toolCallID == "" {
+		return nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+	}
+	payload["content"] = content
+	payload["tool_call_id"] = toolCallID
+	return payload, true, nil
+}
+
+func resolveOpenAIToolProviderContent(message map[string]any) (string, error) {
+	content, include, err := normalizeProviderMessageContent(message["content"])
+	if err != nil {
+		return "", err
+	}
+	if include {
+		return content, nil
+	}
+	return normalizeProviderToolResultContent(message["result"])
 }
 
 func buildOpenAIResponseInputItems(transcript []map[string]any) (responses.ResponseInputParam, error) {

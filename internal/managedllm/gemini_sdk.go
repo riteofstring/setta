@@ -35,6 +35,22 @@ var geminiConfigKeyAliases = map[string]string{
 	"thinking_config":      "thinkingConfig",
 }
 
+var geminiSkippedConfigKeys = map[string]struct{}{
+	"":                    {},
+	"model":               {},
+	"messages":            {},
+	"stream":              {},
+	"api_key":             {},
+	"custom_llm_provider": {},
+	"api_base":            {},
+	"tools":               {},
+	"tool_choice":         {},
+	"functions":           {},
+	"function_call":       {},
+	"thinking":            {},
+	"thinkingConfig":      {},
+}
+
 type geminiStreamState struct {
 	toolCallIndexes map[string]int
 	nextToolIndex   int
@@ -87,67 +103,89 @@ func buildGeminiGenerateContentConfig(
 	systemPrompt string,
 	toolDefinitions []map[string]any,
 ) (*genai.GenerateContentConfig, error) {
-	payload := map[string]any{}
-	for key, value := range request.RequestParams {
-		normalizedKey := normalizeGeminiConfigKey(strings.TrimSpace(key))
-		switch normalizedKey {
-		case "",
-			"model",
-			"messages",
-			"stream",
-			"api_key",
-			"custom_llm_provider",
-			"api_base",
-			"tools",
-			"tool_choice",
-			"functions",
-			"function_call",
-			"thinking",
-			"thinkingConfig":
-			continue
-		default:
-			payload[normalizedKey] = cloneJSONValue(value)
-		}
-	}
-
-	config := &genai.GenerateContentConfig{}
-	if len(payload) > 0 {
-		rawPayload, err := json.Marshal(payload)
-		if err != nil {
-			return nil, fmt.Errorf("encode gemini config payload: %w", err)
-		}
-		decoder := json.NewDecoder(bytes.NewReader(rawPayload))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(config); err != nil {
-			return nil, fmt.Errorf("decode gemini config payload: %w", err)
-		}
-	}
-
-	if strings.TrimSpace(systemPrompt) != "" {
-		config.SystemInstruction = genai.NewContentFromText(systemPrompt, genai.RoleUser)
-	}
-	if len(toolDefinitions) > 0 {
-		tools, err := buildGeminiTools(toolDefinitions)
-		if err != nil {
-			return nil, err
-		}
-		config.Tools = tools
-		if config.ToolConfig == nil {
-			config.ToolConfig = &genai.ToolConfig{
-				FunctionCallingConfig: &genai.FunctionCallingConfig{
-					Mode: genai.FunctionCallingConfigModeAuto,
-				},
-			}
-		}
-	}
-	thinkingConfig, enabled, err := resolveGeminiThinkingConfig(request)
+	config, err := decodeGeminiGenerateContentConfig(buildGeminiConfigPayload(request.RequestParams))
 	if err != nil {
 		return nil, err
+	}
+	applyGeminiSystemInstruction(config, systemPrompt)
+	if err := applyGeminiToolDefinitions(config, toolDefinitions); err != nil {
+		return nil, err
+	}
+	if err := applyGeminiThinkingSettings(config, request); err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+func buildGeminiConfigPayload(params map[string]any) map[string]any {
+	payload := map[string]any{}
+	for key, value := range params {
+		normalizedKey := normalizeGeminiConfigKey(strings.TrimSpace(key))
+		if shouldSkipGeminiConfigKey(normalizedKey) {
+			continue
+		}
+		payload[normalizedKey] = cloneJSONValue(value)
+	}
+	return payload
+}
+
+func shouldSkipGeminiConfigKey(normalizedKey string) bool {
+	_, skip := geminiSkippedConfigKeys[normalizedKey]
+	return skip
+}
+
+func decodeGeminiGenerateContentConfig(payload map[string]any) (*genai.GenerateContentConfig, error) {
+	config := &genai.GenerateContentConfig{}
+	if len(payload) == 0 {
+		return config, nil
+	}
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encode gemini config payload: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(rawPayload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(config); err != nil {
+		return nil, fmt.Errorf("decode gemini config payload: %w", err)
+	}
+	return config, nil
+}
+
+func applyGeminiSystemInstruction(config *genai.GenerateContentConfig, systemPrompt string) {
+	if strings.TrimSpace(systemPrompt) == "" {
+		return
+	}
+	config.SystemInstruction = genai.NewContentFromText(systemPrompt, genai.RoleUser)
+}
+
+func applyGeminiToolDefinitions(config *genai.GenerateContentConfig, toolDefinitions []map[string]any) error {
+	if len(toolDefinitions) == 0 {
+		return nil
+	}
+	tools, err := buildGeminiTools(toolDefinitions)
+	if err != nil {
+		return err
+	}
+	config.Tools = tools
+	if config.ToolConfig == nil {
+		config.ToolConfig = &genai.ToolConfig{
+			FunctionCallingConfig: &genai.FunctionCallingConfig{
+				Mode: genai.FunctionCallingConfigModeAuto,
+			},
+		}
+	}
+	return nil
+}
+
+func applyGeminiThinkingSettings(config *genai.GenerateContentConfig, request agentruns.ExecutionRequest) error {
+	thinkingConfig, enabled, err := resolveGeminiThinkingConfig(request)
+	if err != nil {
+		return err
 	}
 	if enabled {
 		config.ThinkingConfig = thinkingConfig
 	}
-	return config, nil
+	return nil
 }
 
 func resolveGeminiThinkingConfig(request agentruns.ExecutionRequest) (*genai.ThinkingConfig, bool, error) {
