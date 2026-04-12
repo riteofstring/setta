@@ -186,6 +186,30 @@ type SkillActivityCollection = {
   hasStructuredMetadata: boolean;
 };
 
+function shouldCollectCodexSkillActivity({
+  engineType,
+  externalAgentToolType,
+}: {
+  engineType: EngineConfig["engineType"] | null;
+  externalAgentToolType: string | null;
+}): boolean {
+  return (
+    engineType === EngineTypeEnum.external_agent &&
+    externalAgentToolType === ToolTypeEnum.codex
+  );
+}
+
+function recordActiveSkillName(
+  activeByName: Map<string, string>,
+  activitySource: string,
+  skillName: string | null,
+): void {
+  if (!skillName) {
+    return;
+  }
+  activeByName.set(normalizeSkillToken(skillName), activitySource);
+}
+
 function stripMcpToolNamespace(toolName: string): string {
   if (!toolName.startsWith("mcp__")) {
     return toolName;
@@ -258,6 +282,46 @@ function extractSkillNameFromInvocation({
   return null;
 }
 
+function collectStructuredSkillActivityFromAssistantMessage(
+  message: BaseChatMessageUnion,
+  activeByName: Map<string, string>,
+  activitySource: string,
+): boolean {
+  if (message.role !== "assistant" || !Array.isArray(message.tool_calls)) {
+    return false;
+  }
+  for (const toolCall of message.tool_calls) {
+    recordActiveSkillName(
+      activeByName,
+      activitySource,
+      extractSkillNameFromInvocation({
+        toolName: toolCall.function.name,
+        toolArguments: toolCall.function.arguments,
+      }),
+    );
+  }
+  return true;
+}
+
+function collectStructuredSkillActivityFromToolMessage(
+  message: BaseChatMessageUnion,
+  activeByName: Map<string, string>,
+  activitySource: string,
+): boolean {
+  if (message.role !== "tool") {
+    return false;
+  }
+  recordActiveSkillName(
+    activeByName,
+    activitySource,
+    extractSkillNameFromInvocation({
+      toolName: message.tool_name,
+      toolArguments: message.arguments,
+    }),
+  );
+  return true;
+}
+
 function collectActiveSkillNames({
   engineType,
   externalAgentToolType,
@@ -272,40 +336,25 @@ function collectActiveSkillNames({
   if (!messages || messages.length === 0) {
     return { activeByName, hasStructuredMetadata };
   }
-  if (engineType !== EngineTypeEnum.external_agent) {
-    return { activeByName, hasStructuredMetadata };
-  }
-  if (externalAgentToolType !== ToolTypeEnum.codex) {
+  if (!shouldCollectCodexSkillActivity({ engineType, externalAgentToolType })) {
     return { activeByName, hasStructuredMetadata };
   }
   const activitySource = "codex_skill_tool";
   for (const message of messages) {
-    if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
+    const foundStructuredMetadata =
+      collectStructuredSkillActivityFromAssistantMessage(
+        message,
+        activeByName,
+        activitySource,
+      ) ||
+      collectStructuredSkillActivityFromToolMessage(
+        message,
+        activeByName,
+        activitySource,
+      );
+    if (foundStructuredMetadata) {
       hasStructuredMetadata = true;
-      for (const toolCall of message.tool_calls) {
-        const skillName = extractSkillNameFromInvocation({
-          toolName: toolCall.function.name,
-          toolArguments: toolCall.function.arguments,
-        });
-        if (!skillName) {
-          continue;
-        }
-        activeByName.set(normalizeSkillToken(skillName), activitySource);
-      }
-      continue;
     }
-    if (message.role !== "tool") {
-      continue;
-    }
-    hasStructuredMetadata = true;
-    const skillName = extractSkillNameFromInvocation({
-      toolName: message.tool_name,
-      toolArguments: message.arguments,
-    });
-    if (!skillName) {
-      continue;
-    }
-    activeByName.set(normalizeSkillToken(skillName), activitySource);
   }
   return { activeByName, hasStructuredMetadata };
 }
@@ -653,51 +702,72 @@ function normalizeAgentNativeSlashCommandsStatus(
   }
 }
 
-function extractAgentNativeSlashCommandsFromRun(
+function resolveAgentNativeSlashCommandsMetadata(
   run: AgentRun,
-): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
-  if (!isRecord(run.outputs)) {
+): Record<string, unknown> | null {
+  if (!isRecord(run.outputs) || !isRecord(run.outputs.metadata)) {
     return null;
   }
-  const metadata = run.outputs.metadata;
-  if (!isRecord(metadata)) {
-    return null;
-  }
-  const rawEngineConfigId = metadata.engineConfigId;
-  if (
-    typeof rawEngineConfigId !== "string" ||
-    rawEngineConfigId.trim() === ""
-  ) {
-    return null;
-  }
-  const hasCommandsField = Array.isArray(metadata.agentNativeSlashCommands);
-  const commands = normalizeSlashCommandList(metadata.agentNativeSlashCommands);
-  const status = normalizeAgentNativeSlashCommandsStatus(
+  return run.outputs.metadata;
+}
+
+function resolveAgentNativeSlashCommandsStatus({
+  commands,
+  hasCommandsField,
+  metadata,
+}: {
+  commands: string[];
+  hasCommandsField: boolean;
+  metadata: Record<string, unknown>;
+}): AgentNativeSlashCommandsEntry | null {
+  const normalizedStatus = normalizeAgentNativeSlashCommandsStatus(
     metadata.agentNativeSlashCommandsStatus,
   );
   const statusDetail = normalizeOptionalString(
     metadata.agentNativeSlashCommandsStatusDetail,
   );
-  let resolvedStatus = status;
-  if (commands.length > 0 && resolvedStatus === "unknown") {
-    resolvedStatus = "available";
-  } else if (hasCommandsField && resolvedStatus === "unknown") {
-    resolvedStatus = "none";
-  }
-  if (
-    commands.length === 0 &&
-    resolvedStatus === "unknown" &&
-    statusDetail === null
-  ) {
+  const status =
+    normalizedStatus !== "unknown"
+      ? normalizedStatus
+      : commands.length > 0
+        ? "available"
+        : hasCommandsField
+          ? "none"
+          : "unknown";
+  if (commands.length === 0 && status === "unknown" && statusDetail === null) {
     return null;
   }
   return {
-    engineConfigId: rawEngineConfigId,
-    entry: {
-      commands,
-      status: resolvedStatus,
-      statusDetail,
-    },
+    commands,
+    status,
+    statusDetail,
+  };
+}
+
+function extractAgentNativeSlashCommandsFromRun(
+  run: AgentRun,
+): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
+  const metadata = resolveAgentNativeSlashCommandsMetadata(run);
+  if (!metadata) {
+    return null;
+  }
+  const engineConfigId = normalizeOptionalString(metadata.engineConfigId);
+  if (!engineConfigId) {
+    return null;
+  }
+  const hasCommandsField = Array.isArray(metadata.agentNativeSlashCommands);
+  const commands = normalizeSlashCommandList(metadata.agentNativeSlashCommands);
+  const entry = resolveAgentNativeSlashCommandsStatus({
+    commands,
+    hasCommandsField,
+    metadata,
+  });
+  if (!entry) {
+    return null;
+  }
+  return {
+    engineConfigId,
+    entry,
   };
 }
 
@@ -890,36 +960,46 @@ function normalizeRuntimeServerQuickInfo({
   return `Unknown: ${detailSuffix}`;
 }
 
-export function toRuntimeStatusByServerId(
-  runtimeStatuses: Array<{
-    serverId: string;
-    state: unknown;
-    quickInfo?: string | null;
-    lastError?: string | null;
-    missingEnvVar?: string | null;
-    toolCount?: number;
-  }>,
-): Record<string, McpRuntimeServerStatus> {
-  const statuses: Record<string, McpRuntimeServerStatus> = {};
-  for (const runtimeStatus of runtimeStatuses) {
-    const serverId = runtimeStatus.serverId.trim();
-    if (!serverId) {
-      continue;
-    }
-    const state = normalizeRuntimeServerState(runtimeStatus.state);
-    const issue = runtimeStatus.lastError?.trim() || null;
-    const missingEnvVar = runtimeStatus.missingEnvVar?.trim() || null;
-    const registeredToolCount =
-      typeof runtimeStatus.toolCount === "number" &&
-      Number.isFinite(runtimeStatus.toolCount) &&
-      runtimeStatus.toolCount >= 0
-        ? runtimeStatus.toolCount
-        : 0;
-    statuses[serverId] = {
+type RuntimeStatusInput = {
+  serverId: string;
+  state: unknown;
+  quickInfo?: string | null;
+  lastError?: string | null;
+  missingEnvVar?: string | null;
+  toolCount?: number;
+};
+
+function normalizeRegisteredToolCount(toolCount: unknown): number {
+  if (
+    typeof toolCount !== "number" ||
+    !Number.isFinite(toolCount) ||
+    toolCount < 0
+  ) {
+    return 0;
+  }
+  return toolCount;
+}
+
+function buildRuntimeServerStatusEntry(
+  runtimeStatus: RuntimeStatusInput,
+): [string, McpRuntimeServerStatus] | null {
+  const serverId = runtimeStatus.serverId.trim();
+  if (!serverId) {
+    return null;
+  }
+  const state = normalizeRuntimeServerState(runtimeStatus.state);
+  const issue = normalizeOptionalString(runtimeStatus.lastError);
+  const missingEnvVar = normalizeOptionalString(runtimeStatus.missingEnvVar);
+  const registeredToolCount = normalizeRegisteredToolCount(
+    runtimeStatus.toolCount,
+  );
+  return [
+    serverId,
+    {
       state,
       quickInfo: normalizeRuntimeServerQuickInfo({
         state,
-        quickInfo: runtimeStatus.quickInfo?.trim() || null,
+        quickInfo: normalizeOptionalString(runtimeStatus.quickInfo),
         issue,
         missingEnvVar,
         registeredToolCount,
@@ -927,24 +1007,36 @@ export function toRuntimeStatusByServerId(
       registeredToolCount,
       issue,
       missingEnvVar,
-    };
+    },
+  ];
+}
+
+export function toRuntimeStatusByServerId(
+  runtimeStatuses: RuntimeStatusInput[],
+): Record<string, McpRuntimeServerStatus> {
+  const statuses: Record<string, McpRuntimeServerStatus> = {};
+  for (const runtimeStatus of runtimeStatuses) {
+    const entry = buildRuntimeServerStatusEntry(runtimeStatus);
+    if (!entry) {
+      continue;
+    }
+    const [serverId, normalizedStatus] = entry;
+    statuses[serverId] = normalizedStatus;
   }
   return statuses;
 }
 
-export function resolveMcpServerStatus({
-  serverId,
+function resolvePendingMcpServerStatus({
   endpoint,
-  runtimeStatusByServerId,
   runtimeStatusLoading,
   runtimeStatusError,
+  runtimeStatusByServerId,
 }: {
-  serverId: string;
   endpoint: string;
   runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
   runtimeStatusLoading: boolean;
   runtimeStatusError: string | null;
-}): McpServerStatus {
+}): McpServerStatus | null {
   if (endpoint === "(no endpoint)") {
     return {
       color: "red",
@@ -970,6 +1062,43 @@ export function resolveMcpServerStatus({
       quickInfo: "Status unknown: MCP runtime status data is not available.",
     };
   }
+  return null;
+}
+
+function resolveRuntimeStatusColor(
+  state: McpRuntimeServerState,
+): McpServerStatusColor {
+  if (state === "connected") {
+    return "green";
+  }
+  if (state === "error") {
+    return "red";
+  }
+  return "yellow";
+}
+
+export function resolveMcpServerStatus({
+  serverId,
+  endpoint,
+  runtimeStatusByServerId,
+  runtimeStatusLoading,
+  runtimeStatusError,
+}: {
+  serverId: string;
+  endpoint: string;
+  runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
+  runtimeStatusLoading: boolean;
+  runtimeStatusError: string | null;
+}): McpServerStatus {
+  const pendingStatus = resolvePendingMcpServerStatus({
+    endpoint,
+    runtimeStatusByServerId,
+    runtimeStatusLoading,
+    runtimeStatusError,
+  });
+  if (pendingStatus) {
+    return pendingStatus;
+  }
   const runtimeStatus = runtimeStatusByServerId[serverId] ?? null;
   if (!runtimeStatus) {
     return {
@@ -978,25 +1107,8 @@ export function resolveMcpServerStatus({
         "Status unknown: server is configured but not reported by MCP runtime status.",
     };
   }
-  if (runtimeStatus.state === "connected") {
-    return {
-      color: "green",
-      quickInfo: runtimeStatus.quickInfo,
-    };
-  }
-  if (
-    runtimeStatus.state === "connecting" ||
-    runtimeStatus.state === "retrying" ||
-    runtimeStatus.state === "disabled" ||
-    runtimeStatus.state === "unknown"
-  ) {
-    return {
-      color: "yellow",
-      quickInfo: runtimeStatus.quickInfo,
-    };
-  }
   return {
-    color: "red",
+    color: resolveRuntimeStatusColor(runtimeStatus.state),
     quickInfo: runtimeStatus.quickInfo,
   };
 }
@@ -1012,6 +1124,102 @@ function resolveEngineDisplayName(config: EngineConfig): string {
   return "Setta LLM";
 }
 
+function buildAvailableConfigIds(
+  allLLMConfigs: AllConfigs | null,
+  apiKeys: APIKeys,
+): Set<string> {
+  const availableConfigIds = new Set<string>();
+  const availableConfigGroups = buildLLMConfigGroups(allLLMConfigs, apiKeys);
+  for (const group of availableConfigGroups) {
+    for (const item of group.items) {
+      availableConfigIds.add(item.id);
+    }
+  }
+  return availableConfigIds;
+}
+
+function buildExternalAgentHealthByConfigId(
+  externalAgentHealth: ExternalAgentHealthStatus[],
+): Map<string, ExternalAgentHealthStatus> {
+  return new Map(
+    externalAgentHealth.map((healthStatus) => [
+      healthStatus.configId,
+      healthStatus,
+    ]),
+  );
+}
+
+function resolveSlashCommandAvailability({
+  engineConfig,
+  defaultConfigId,
+  availableConfigIds,
+  externalAgentHealthByConfigId,
+  externalAgentHealthInitialLoadComplete,
+}: {
+  engineConfig: EngineConfig;
+  defaultConfigId: string | null;
+  availableConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  externalAgentHealthInitialLoadComplete: boolean;
+}): { permissionsEnabled: boolean; searchEnabled: boolean } {
+  if (engineConfig.engineType !== EngineTypeEnum.external_agent) {
+    const selectedConfigId = engineConfig.settaLlmConfigId ?? defaultConfigId;
+    const hasLLMConfig = Boolean(
+      selectedConfigId && availableConfigIds.has(selectedConfigId),
+    );
+    return {
+      permissionsEnabled: hasLLMConfig,
+      searchEnabled: hasLLMConfig,
+    };
+  }
+  const externalEngineStatus = externalAgentHealthInitialLoadComplete
+    ? externalAgentHealthByConfigId.get(
+        engineConfig.externalAgentConfigId ?? "",
+      )
+    : null;
+  return {
+    permissionsEnabled: Boolean(
+      externalEngineStatus?.available && externalEngineStatus.supported,
+    ),
+    searchEnabled: false,
+  };
+}
+
+function buildSlashCommandsForEngine({
+  engineConfig,
+  defaultConfigId,
+  availableConfigIds,
+  externalAgentHealthByConfigId,
+  externalAgentHealthInitialLoadComplete,
+}: {
+  engineConfig: EngineConfig;
+  defaultConfigId: string | null;
+  availableConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  externalAgentHealthInitialLoadComplete: boolean;
+}): SlashCommandsByEngine {
+  const { permissionsEnabled, searchEnabled } = resolveSlashCommandAvailability(
+    {
+      engineConfig,
+      defaultConfigId,
+      availableConfigIds,
+      externalAgentHealthByConfigId,
+      externalAgentHealthInitialLoadComplete,
+    },
+  );
+  return {
+    engineId: engineConfig.id,
+    engineName: resolveEngineDisplayName(engineConfig),
+    engineType: engineConfig.engineType,
+    commands: buildChatSlashCommands({
+      model: true,
+      permissions: permissionsEnabled,
+      search: searchEnabled,
+      appGenerationModes: true,
+    }),
+  };
+}
+
 export function buildSlashCommandsByEngine({
   engineConfigs,
   allLLMConfigs,
@@ -1025,52 +1233,19 @@ export function buildSlashCommandsByEngine({
   externalAgentHealth: ExternalAgentHealthStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
 }): SlashCommandsByEngine[] {
-  const availableConfigIds = new Set<string>();
-  const availableConfigGroups = buildLLMConfigGroups(allLLMConfigs, apiKeys);
-  for (const group of availableConfigGroups) {
-    for (const item of group.items) {
-      availableConfigIds.add(item.id);
-    }
-  }
+  const availableConfigIds = buildAvailableConfigIds(allLLMConfigs, apiKeys);
   const defaultConfigId = pickDefaultConfigId(allLLMConfigs);
-  return engineConfigs.map((engineConfig) => {
-    const isExternalEngine =
-      engineConfig.engineType === EngineTypeEnum.external_agent;
-    const hasLLMConfig = !isExternalEngine
-      ? Boolean(
-          (engineConfig.settaLlmConfigId ?? defaultConfigId) &&
-            availableConfigIds.has(
-              engineConfig.settaLlmConfigId ?? defaultConfigId ?? "",
-            ),
-        )
-      : false;
-    const externalEngineStatus =
-      isExternalEngine && externalAgentHealthInitialLoadComplete
-        ? externalAgentHealth.find(
-            (status) => status.configId === engineConfig.externalAgentConfigId,
-          ) ?? null
-        : null;
-    const externalEngineAvailable = isExternalEngine
-      ? Boolean(
-          externalEngineStatus?.available && externalEngineStatus.supported,
-        )
-      : false;
-    const permissionsEnabled = isExternalEngine
-      ? externalEngineAvailable
-      : hasLLMConfig;
-    const searchEnabled = !isExternalEngine && hasLLMConfig;
-    return {
-      engineId: engineConfig.id,
-      engineName: resolveEngineDisplayName(engineConfig),
-      engineType: engineConfig.engineType,
-      commands: buildChatSlashCommands({
-        model: true,
-        permissions: permissionsEnabled,
-        search: searchEnabled,
-        appGenerationModes: true,
-      }),
-    };
-  });
+  const externalAgentHealthByConfigId =
+    buildExternalAgentHealthByConfigId(externalAgentHealth);
+  return engineConfigs.map((engineConfig) =>
+    buildSlashCommandsForEngine({
+      engineConfig,
+      defaultConfigId,
+      availableConfigIds,
+      externalAgentHealthByConfigId,
+      externalAgentHealthInitialLoadComplete,
+    }),
+  );
 }
 
 export function buildReservedSlashCommandTokens({

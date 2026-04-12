@@ -205,6 +205,44 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ).toBe("codex_skill_tool");
   });
 
+  it("marks codex skills active when tool messages carry structured skill arguments", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_agents_skills::frontend-design",
+          name: "frontend-design",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "frontend-design",
+          isEditable: true,
+          editabilityReason: null,
+          description: "Create polished frontend interfaces.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "codex",
+      messages: [
+        {
+          id: "tool-1",
+          role: "tool",
+          tool_name: "mcp__codex__skill",
+          arguments: JSON.stringify({
+            skillName: "frontend-design",
+          }),
+          content: [],
+          attachments: [],
+        },
+      ],
+    });
+
+    expect(
+      statuses["workspace_agents_skills::frontend-design"]?.activityState,
+    ).toBe("active");
+    expect(
+      statuses["workspace_agents_skills::frontend-design"]?.activitySource,
+    ).toBe("codex_skill_tool");
+  });
+
   it("fails closed when multiple skills match the same runtime identifier", () => {
     const statuses = buildSkillStatusBySkillId({
       skills: [
@@ -903,6 +941,37 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         commands: ["/deploy"],
         status: "available",
         statusDetail: null,
+      },
+    });
+  });
+
+  it("preserves explicit authoritative native slash status details without commands", () => {
+    const resolved = resolveAgentNativeSlashCommandsByEngineId({
+      runs: [
+        createAgentRun({
+          id: "run-project-a-error",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: [],
+              agentNativeSlashCommandsStatus: "error",
+              agentNativeSlashCommandsStatusDetail: "tool discovery failed",
+            },
+          },
+        }),
+      ],
+      projectConfigId: "project-a",
+      engineConfigIds: ["engine-live"],
+    });
+
+    expect(resolved).toEqual({
+      "engine-live": {
+        commands: [],
+        status: "error",
+        statusDetail: "tool discovery failed",
       },
     });
   });
