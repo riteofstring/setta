@@ -54,6 +54,20 @@ function setTextareaValue(textarea: HTMLTextAreaElement, value: string): void {
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+function createDeferredPromise<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve: ((value: T) => void) | null = null;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  if (!resolve) {
+    throw new Error("Expected deferred promise resolver.");
+  }
+  return { promise, resolve };
+}
+
 describe("ChatInput queued slash-command replay", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -340,6 +354,64 @@ describe("ChatInput queued slash-command replay", () => {
       "/app-json dashboard for support ops",
     );
     expect(host.textContent).toContain("Failed to submit /app-json.");
+  });
+
+  it("restores the original slash-command draft when async submission fails", async () => {
+    const deferredSubmit = createDeferredPromise<boolean>();
+    const onSubmit = vi.fn(() => deferredSubmit.promise);
+    const onStartNewChat = vi.fn();
+    const onResumeLatestChat = vi.fn(async () => false);
+    const onSetPermissionMode = vi.fn();
+    const onSetSearchEnabled = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={false}
+          slashCommands={APP_GENERATION_COMMANDS}
+          recognizedSlashCommands={APP_GENERATION_COMMANDS}
+          onSubmit={onSubmit}
+          onSlashCommand={(command) =>
+            executeManagedChatSlashCommand({
+              command,
+              slashCommands: APP_GENERATION_COMMANDS,
+              onStartNewChat,
+              onResumeLatestChat,
+              resumeFeedback: {
+                success: "resumed",
+                notFound: "not found",
+              },
+              onSetPermissionMode,
+              searchEnabled: true,
+              onSetSearchEnabled,
+              modelFeedback: "Use the model selector.",
+            })
+          }
+        />,
+      );
+    });
+
+    const { textarea, submitButton } = getComposerElements(host);
+
+    await act(async () => {
+      setTextareaValue(textarea, "/app-json support dashboard");
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(textarea.value).toBe("");
+
+    deferredSubmit.resolve(false);
+
+    await act(async () => {
+      await deferredSubmit.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(textarea.value).toBe("/app-json support dashboard");
   });
 
   it("blocks /app-image until an image attachment is present", async () => {
@@ -1218,5 +1290,96 @@ describe("ChatInput queued slash-command replay", () => {
       appGeneration: null,
     });
     expect(host.querySelector('[data-chat-queued-draft="true"]')).toBeNull();
+  });
+});
+
+describe("ChatInput plain-message submit", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
+  it("clears the composer immediately while an async plain-message submit is pending", async () => {
+    const deferredSubmit = createDeferredPromise<boolean>();
+    const onSubmit = vi.fn(() => deferredSubmit.promise);
+
+    await act(async () => {
+      root.render(
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={false}
+          onSubmit={onSubmit}
+        />,
+      );
+    });
+
+    const { textarea, submitButton } = getComposerElements(host);
+
+    await act(async () => {
+      setTextareaValue(textarea, "Hello from chat");
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith("Hello from chat", [], undefined);
+    expect(textarea.value).toBe("");
+
+    deferredSubmit.resolve(true);
+
+    await act(async () => {
+      await deferredSubmit.promise;
+      await Promise.resolve();
+    });
+
+    expect(textarea.value).toBe("");
+  });
+
+  it("restores the plain-message draft if the async submit fails", async () => {
+    const deferredSubmit = createDeferredPromise<boolean>();
+    const onSubmit = vi.fn(() => deferredSubmit.promise);
+
+    await act(async () => {
+      root.render(
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={false}
+          onSubmit={onSubmit}
+        />,
+      );
+    });
+
+    const { textarea, submitButton } = getComposerElements(host);
+
+    await act(async () => {
+      setTextareaValue(textarea, "Retry this draft");
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(textarea.value).toBe("");
+
+    deferredSubmit.resolve(false);
+
+    await act(async () => {
+      await deferredSubmit.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(textarea.value).toBe("Retry this draft");
   });
 });

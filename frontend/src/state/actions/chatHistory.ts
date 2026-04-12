@@ -1,12 +1,13 @@
 import {
   AgentRun,
-  AgentRunStatusEnum,
   BaseChatMessageUnion,
+  ChatRunTypesByName,
+  RunStatusEnum,
 } from "utils/generatedTypes";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 
 type ChatTitleSource = "llm" | "deterministic" | "reused" | "external";
-export type ChatRunType = "llm_chat" | "external_agent" | "scriptable_chat";
+export type ChatRunType = keyof typeof ChatRunTypesByName;
 export type ChatHistoryCompatibility = {
   runType: ChatRunType;
   engineConfigId: string | null;
@@ -42,6 +43,24 @@ type ChatRunSummary = {
   latestRun: AgentRun;
   lastUpdatedMs: number;
   waitingForResponse: boolean;
+};
+
+type ChatRunSummaryFilter = {
+  projectConfigId: string | null;
+  sectionId: string | null;
+  unscopedOnly: boolean;
+  compatibility: ChatHistoryCompatibility | null;
+};
+
+type ChatRunProvenanceCandidate = {
+  runType: ChatRunType;
+  engineConfigId: string | null;
+  lastUpdatedMs: number;
+};
+
+type ChatRunSummaryCandidate = {
+  runChatId: string;
+  summary: ChatRunSummary;
 };
 
 type BuildChatHistoryEntriesOptions = {
@@ -109,40 +128,63 @@ export function resolveScopedChatProvenanceForChatId(
   if (!normalizedChatId) {
     return { status: "missing" };
   }
-  const normalizedSectionId = normalizeRunSectionId(sectionId ?? null);
-  const normalizedProjectConfigId = normalizeProjectConfigId(
-    projectConfigId ?? null,
+  const filter = createChatRunSummaryFilter({
+    projectConfigId,
+    sectionId,
+    unscopedOnly,
+  });
+  const candidates = collectScopedChatProvenanceCandidates(
+    runs,
+    normalizedChatId,
+    filter,
   );
-  const candidates: Array<{
-    runType: ChatRunType;
-    engineConfigId: string | null;
-    lastUpdatedMs: number;
-  }> = [];
+  return resolveScopedChatProvenanceCandidates(candidates);
+}
+
+function collectScopedChatProvenanceCandidates(
+  runs: Array<AgentRun>,
+  normalizedChatId: string,
+  filter: ChatRunSummaryFilter,
+): Array<ChatRunProvenanceCandidate> {
+  const candidates: Array<ChatRunProvenanceCandidate> = [];
   for (const run of runs) {
-    const runChatId = getRunChatId(run);
-    if (runChatId !== normalizedChatId) {
-      continue;
+    const candidate = toScopedChatProvenanceCandidate(
+      run,
+      normalizedChatId,
+      filter,
+    );
+    if (candidate) {
+      candidates.push(candidate);
     }
-    if (
-      !shouldCollectRunForChatSummary(run, {
-        projectConfigId: normalizedProjectConfigId,
-        sectionId: normalizedSectionId,
-        unscopedOnly: unscopedOnly === true,
-        compatibility: null,
-      })
-    ) {
-      continue;
-    }
-    const runType = getRunType(run);
-    if (!runType) {
-      continue;
-    }
-    candidates.push({
-      runType,
-      engineConfigId: getRunInputString(run, "engineConfigId"),
-      lastUpdatedMs: getRunLastUpdatedMs(run),
-    });
   }
+  return candidates;
+}
+
+function toScopedChatProvenanceCandidate(
+  run: AgentRun,
+  normalizedChatId: string,
+  filter: ChatRunSummaryFilter,
+): ChatRunProvenanceCandidate | null {
+  if (getRunChatId(run) !== normalizedChatId) {
+    return null;
+  }
+  if (!shouldCollectRunForChatSummary(run, filter)) {
+    return null;
+  }
+  const runType = getRunType(run);
+  if (!runType) {
+    return null;
+  }
+  return {
+    runType,
+    engineConfigId: getRunInputString(run, "engineConfigId"),
+    lastUpdatedMs: getRunLastUpdatedMs(run),
+  };
+}
+
+function resolveScopedChatProvenanceCandidates(
+  candidates: Array<ChatRunProvenanceCandidate>,
+): ScopedChatProvenanceLookupResult {
   if (candidates.length === 0) {
     return { status: "missing" };
   }
@@ -179,69 +221,68 @@ function collectChatRunSummaries(
   options: BuildChatHistoryEntriesOptions,
   includeBranchChats: boolean,
 ): Map<string, ChatRunSummary> {
-  const sectionId = normalizeRunSectionId(options.sectionId ?? null);
-  const projectConfigId = normalizeProjectConfigId(
-    options.projectConfigId ?? null,
-  );
-  const unscopedOnly = options.unscopedOnly === true;
-  const compatibility = options.compatibility ?? null;
+  const filter = createChatRunSummaryFilter(options);
   const branchChatIds = includeBranchChats
     ? new Set<string>()
-    : collectBranchChatIds(runs, {
-        projectConfigId,
-        sectionId,
-        unscopedOnly,
-        compatibility,
-      });
+    : collectBranchChatIds(runs, filter);
   const grouped = new Map<string, ChatRunSummary>();
   for (const run of runs) {
-    if (
-      !shouldCollectRunForChatSummary(run, {
-        projectConfigId,
-        sectionId,
-        unscopedOnly,
-        compatibility,
-      })
-    ) {
-      continue;
-    }
-    const runChatId = getRunChatId(run);
-    if (!runChatId) {
-      continue;
-    }
-    if (branchChatIds.has(runChatId)) {
-      continue;
-    }
-    const lastUpdatedMs = getRunLastUpdatedMs(run);
-    const waitingForResponse = run.status === AgentRunStatusEnum.running;
-    const existing = grouped.get(runChatId);
-    if (!existing) {
-      grouped.set(runChatId, {
-        latestRun: run,
-        lastUpdatedMs,
-        waitingForResponse,
-      });
-      continue;
-    }
-    if (lastUpdatedMs >= existing.lastUpdatedMs) {
-      grouped.set(runChatId, {
-        latestRun: run,
-        lastUpdatedMs,
-        waitingForResponse,
-      });
+    const candidate = buildChatRunSummaryCandidate(run, filter, branchChatIds);
+    if (candidate) {
+      upsertChatRunSummary(grouped, candidate.runChatId, candidate.summary);
     }
   }
   return grouped;
 }
 
+function createChatRunSummaryFilter(
+  options: BuildChatHistoryEntriesOptions,
+): ChatRunSummaryFilter {
+  return {
+    projectConfigId: normalizeProjectConfigId(options.projectConfigId ?? null),
+    sectionId: normalizeRunSectionId(options.sectionId ?? null),
+    unscopedOnly: options.unscopedOnly === true,
+    compatibility: options.compatibility ?? null,
+  };
+}
+
+function buildChatRunSummaryCandidate(
+  run: AgentRun,
+  filter: ChatRunSummaryFilter,
+  branchChatIds: Set<string>,
+): ChatRunSummaryCandidate | null {
+  if (!shouldCollectRunForChatSummary(run, filter)) {
+    return null;
+  }
+  const runChatId = getRunChatId(run);
+  if (!runChatId || branchChatIds.has(runChatId)) {
+    return null;
+  }
+  return {
+    runChatId,
+    summary: {
+      latestRun: run,
+      lastUpdatedMs: getRunLastUpdatedMs(run),
+      waitingForResponse: run.status === RunStatusEnum.running,
+    },
+  };
+}
+
+function upsertChatRunSummary(
+  grouped: Map<string, ChatRunSummary>,
+  runChatId: string,
+  summary: ChatRunSummary,
+): void {
+  const existing = grouped.get(runChatId);
+  if (existing && summary.lastUpdatedMs < existing.lastUpdatedMs) {
+    return;
+  }
+  grouped.set(runChatId, summary);
+}
+
 function shouldCollectRunForChatSummary(
   run: AgentRun,
-  options: {
-    projectConfigId: string | null;
-    sectionId: string | null;
-    unscopedOnly: boolean;
-    compatibility: ChatHistoryCompatibility | null;
-  },
+  options: ChatRunSummaryFilter,
 ): boolean {
   if (!isChatRun(run)) {
     return false;
@@ -266,12 +307,7 @@ function shouldCollectRunForChatSummary(
 
 function collectBranchChatIds(
   runs: Array<AgentRun>,
-  options: {
-    projectConfigId: string | null;
-    sectionId: string | null;
-    unscopedOnly: boolean;
-    compatibility: ChatHistoryCompatibility | null;
-  },
+  options: ChatRunSummaryFilter,
 ): Set<string> {
   const branchChatIds = new Set<string>();
   for (const run of runs) {
@@ -333,15 +369,18 @@ function getRunChatId(run: AgentRun): string | null {
 }
 
 function getRunType(run: AgentRun): ChatRunType | null {
-  const runType = getRunInputString(run, "runType");
-  if (
-    runType === "llm_chat" ||
-    runType === "external_agent" ||
-    runType === "scriptable_chat"
-  ) {
-    return runType;
+  return parseChatRunType(getRunInputString(run, "runType"));
+}
+
+function parseChatRunType(runType: string | null): ChatRunType | null {
+  if (!runType || !isChatRunType(runType)) {
+    return null;
   }
-  return null;
+  return runType;
+}
+
+function isChatRunType(value: string): value is ChatRunType {
+  return Object.prototype.hasOwnProperty.call(ChatRunTypesByName, value);
 }
 
 function isChatRun(run: AgentRun): boolean {
