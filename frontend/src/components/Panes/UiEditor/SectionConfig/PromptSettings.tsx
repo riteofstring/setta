@@ -1,12 +1,6 @@
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import {
-  setPromptFormat,
-  setPromptTemplate,
-  setPromptTemplateLink,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -20,17 +14,25 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  route_set_prompt_format,
+  route_set_prompt_template,
+  route_set_prompt_template_link,
+} from "utils/generatedEndpoints";
+import { PromptFormatEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { resolvePromptSectionSource } from "utils/promptSectionSource";
+
 type PromptSettingsProps = {
   sectionId: string;
 };
+
 export function PromptSettings({ sectionId }: PromptSettingsProps) {
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const canEdit = !isDeploymentMode || canEditParams;
+
   const { promptTemplateId, template, format, isFrozen } = useProjectState(
     (state) => {
       const impl = getCurrEffectiveSectionImplOfType(
@@ -47,6 +49,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     },
     _.isEqual,
   );
+
   const { promptTemplates, promptTemplatesInitialLoadComplete } = useAIStore(
     (state) => ({
       promptTemplates: state.promptTemplates,
@@ -55,6 +58,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     }),
     _.isEqual,
   );
+
   const resolvedSource = useMemo(
     () =>
       resolvePromptSectionSource(
@@ -71,11 +75,18 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
   const isDisabled = isFrozen || !canEdit;
   const linkedTemplateDescription =
     resolvedSource.linkedTemplate?.description ?? "";
+
   const [templateText, setTemplateText] = useState(resolvedSource.templateText);
+
   useEffect(() => {
     setTemplateText(resolvedSource.templateText);
   }, [resolvedSource.templateText]);
-  const promptFormatOptions = useMemo(() => Object.values(FormatEnum), []);
+
+  const promptFormatOptions = useMemo(
+    () => Object.values(PromptFormatEnum),
+    [],
+  );
+
   const templateGroups = useMemo(
     () => [
       {
@@ -88,6 +99,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     ],
     [promptTemplates],
   );
+
   const updatePromptTemplate = useCallback(
     (nextTemplate: string) => {
       dispatchOptimisticProjectStateUpdate({
@@ -98,20 +110,17 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
           });
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setPromptTemplate({
-              body: {
-                projectConfigId,
-                sectionId,
-                template: nextTemplate,
-                frontendOpId,
-              },
-            } as Parameters<typeof setPromptTemplate>[0]),
-          ),
+          route_set_prompt_template({
+            projectConfigId,
+            sectionId,
+            template: nextTemplate,
+            frontendOpId,
+          }),
       });
     },
     [projectConfigId, sectionId],
   );
+
   const updatePromptTemplateLink = useCallback(
     (nextPromptTemplateId: string | null) => {
       dispatchOptimisticProjectStateUpdate({
@@ -129,16 +138,12 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
           });
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setPromptTemplateLink({
-              body: {
-                projectConfigId,
-                sectionId,
-                promptTemplateId: nextPromptTemplateId,
-                frontendOpId,
-              },
-            } as Parameters<typeof setPromptTemplateLink>[0]),
-          ),
+          route_set_prompt_template_link({
+            projectConfigId,
+            sectionId,
+            promptTemplateId: nextPromptTemplateId,
+            frontendOpId,
+          }),
       });
     },
     [
@@ -149,8 +154,9 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
       sectionId,
     ],
   );
+
   const updatePromptFormat = useCallback(
-    (nextFormat: FormatEnum) => {
+    (nextFormat: PromptFormatEnum) => {
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"PromptSection">(state, sectionId, {
@@ -158,20 +164,17 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
           });
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setPromptFormat({
-              body: {
-                projectConfigId,
-                sectionId,
-                format: nextFormat,
-                frontendOpId,
-              },
-            } as Parameters<typeof setPromptFormat>[0]),
-          ),
+          route_set_prompt_format({
+            projectConfigId,
+            sectionId,
+            format: nextFormat,
+            frontendOpId,
+          }),
       });
     },
     [projectConfigId, sectionId],
   );
+
   const handleTemplateLinkChange = useCallback(
     (nextPromptTemplateId: string | null) => {
       if (isDisabled) {
@@ -181,6 +184,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     },
     [isDisabled, updatePromptTemplateLink],
   );
+
   const handleTemplateChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const nextTemplate = event.target.value;
@@ -192,9 +196,10 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     },
     [isDisabled, isLinked, updatePromptTemplate],
   );
+
   const handleFormatChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const nextFormat = event.target.value as FormatEnum;
+      const nextFormat = event.target.value as PromptFormatEnum;
       if (isDisabled || isLinked || nextFormat === format) {
         return;
       }
@@ -202,6 +207,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     },
     [format, isDisabled, isLinked, updatePromptFormat],
   );
+
   const handleMakeLocalCopy = useCallback(() => {
     if (isDisabled || !resolvedSource.linkedTemplate) {
       return;
@@ -214,6 +220,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     resolvedSource.templateText,
     updatePromptTemplateLink,
   ]);
+
   const linkedTemplateInfo = useMemo(() => {
     if (!isLinked) {
       return "";
@@ -237,6 +244,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     resolvedSource.linkedTemplate,
     resolvedSource.linkedTemplateMissing,
   ]);
+
   return (
     <div className="flex w-full flex-col gap-3">
       <div className="flex w-full flex-col gap-2">
