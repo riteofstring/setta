@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 09:18 UTC
+Last updated: 2026-04-13 09:26 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,62 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `410` landed one bounded production reduction against the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane by reusing unchanged
+  per-section body models inside the DOM sections layer:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and stayed on the named owner
+      `presentedSceneSectionSubtreeReactRender` instead of reopening another
+      verifier or seam-lift slice
+    - chose the narrowest remaining subtree fan-out cut in the sections layer:
+      keep the previous body-model object for unchanged presented sections so
+      `React.memo` can skip sibling section entries when a nearby section body
+      input changes
+    - kept the change inside the existing sections-layer runtime seam and
+      avoided new harness work
+  - product code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      with per-section body-model identity reuse keyed by `sectionId`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      with a regression proving only the changed sibling rerenders when one
+      section body input changes
+    - `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+      with the fresh run-`035` live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      -> passed (`3` files, `23` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-035/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.9m`)
+      -> fresh canonical readout:
+         `longTaskCount` `5`, `longTaskTotalDurationMs` `1144ms`,
+         `longTaskMaxDurationMs` `416ms`, `averageFrameDurationMs` `41.08ms`
+      -> dominant named canary owner stayed
+         `presentedSceneSectionSubtreeReactRender`
+         (`894.2ms` total, `262.3ms` max, `30` commits)
+    - headless CDP visual check on the authenticated worktree bootstrap URL
+      -> first fresh-context sub-agent only saw the loading shell
+      -> bounded fresh-context retry passed after navigating to `/settings`
+      -> visible populated settings content included `OVERVIEW`,
+         `Select A Section to Edit`, and the `Core` /
+         `Section Defaults` / `Param Defaults` / `All Settings` tabs
+      -> treat this as a canary-surface health check, not a named-section
+         parity assertion, because the canonical target was not aligned in frame
+  - reading:
+    - this slice produced a small live reduction on the same dominant owner:
+      `presentedSceneSectionSubtreeReactRender` moved from
+      `899.5ms` / `264.5ms` to `894.2ms` / `262.3ms`
+    - the owner still dominates the motion burst, so the lane remains open
+    - the first CDP retry-only miss was bootstrap timing, not a renderer drift
+      claim
+  - next default frontier:
+    - stay on `presentedSceneSectionSubtreeReactRender` with one more bounded
+      production cut aimed at remaining unchanged visible section shell/body
+      commit fan-out, preferably by preserving section-entry props or shell
+      callbacks for siblings that do not change during the normalized motion
+      burst
 
 - item `409` landed one bounded production reduction against the canonical
   `rotaryParamCodeObjDefault` worktree perf lane by preserving scene snapshot

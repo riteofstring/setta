@@ -193,6 +193,53 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
   });
 
+  it("rerenders only the changed sibling when one section body input changes", async () => {
+    const sceneSections = [
+      createSceneSection({ sectionId: "section-a" }),
+      createSceneSection({
+        position: { x: 420, y: 80 },
+        renderedPosition: { x: 420, y: 80 },
+        sectionId: "section-b",
+      }),
+    ];
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(2);
+    expect(mockSectionShell).toHaveBeenCalledTimes(2);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            sceneSections[0]!,
+            createSceneSection({
+              position: { x: 420, y: 80 },
+              renderedPosition: { x: 420, y: 80 },
+              sectionId: "section-b",
+              styleColor: "blue",
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(4);
+    expect(mockSectionShell).toHaveBeenCalledTimes(3);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(3);
+  });
+
   it("skips body resolution and shell work for offscreen inactive sections", async () => {
     await act(async () => {
       root.render(

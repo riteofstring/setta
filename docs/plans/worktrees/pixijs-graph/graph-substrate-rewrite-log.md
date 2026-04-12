@@ -151,6 +151,59 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 09:26 UTC
+
+- reread the active plan/handoff first and kept the iteration on the canonical
+  `rotaryParamCodeObjDefault` worktree perf lane instead of repeating another
+  probe-only or seam-lift pass
+- chose one bounded production slice on the dominant owner
+  `presentedSceneSectionSubtreeReactRender`:
+  reuse unchanged per-section body-model objects inside the DOM sections layer
+  so `React.memo` can skip sibling section entries when one nearby section body
+  input changes
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  to retain previous `SettingsGraphSubstrateCanarySectionBody` objects by
+  `sectionId` when their fields are unchanged
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  with a sibling-change regression proving only the changed section rerenders
+  when one section body input changes
+- appended the fresh live readout to
+  `perf/reports/frontend/2026-04-13_settings-graph-motion-long-task-phase-breakdown.md`
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    -> pass (`3` files, `23` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-035/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.9m`)
+    -> canonical readout:
+       `longTaskCount` `5`, `longTaskTotalDurationMs` `1144ms`,
+       `longTaskMaxDurationMs` `416ms`, `averageFrameDurationMs` `41.08ms`
+    -> dominant named owner stayed
+       `presentedSceneSectionSubtreeReactRender`
+       (`894.2ms` total, `262.3ms` max, `30` commits)
+  - headless CDP visual check in fresh-context sub-agents:
+    -> first attempt only showed the loading shell
+    -> bounded retry passed after navigating to `/settings`
+    -> visible populated settings content included `OVERVIEW`,
+       `Select A Section to Edit`, and the `Core` /
+       `Section Defaults` / `Param Defaults` / `All Settings` tabs
+- reading:
+  - this produced a small live win versus run `034` on the same dominant owner:
+    `presentedSceneSectionSubtreeReactRender` improved from
+    `899.5ms` / `264.5ms` to `894.2ms` / `262.3ms`
+  - the lane remains open because that owner still dominates the normalized
+    motion burst
+  - the CDP miss on the first attempt was bootstrap timing noise, not a new
+    renderer claim
+- next:
+  - stay on `presentedSceneSectionSubtreeReactRender` and land one more bounded
+    product cut aimed at remaining unchanged visible shell/body commit fan-out
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 09:18 UTC
 
 - picked one bounded subtask after rereading the plan/handoff: stop the recent

@@ -102,6 +102,9 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     Array<SettingsGraphSubstrateCanarySceneSection>
   >([]);
   const stableMountedSectionBodyIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const stableSectionBodiesByIdRef = useRef<
+    Map<string, SettingsGraphSubstrateCanarySectionBody>
+  >(new Map());
   const resolvedPresentedSceneSections = useMemo(() => {
     if (presentedSceneSections) {
       return presentedSceneSections;
@@ -195,19 +198,38 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   }, [resolvedMountedSectionBodyIds]);
 
   const sectionBodiesById = useMemo(() => {
-    return new Map(
-      resolvedPresentedSceneSections.map((section) => [
+    const previousSectionBodiesById = stableSectionBodiesByIdRef.current;
+    const nextSectionBodiesById = new Map<
+      string,
+      SettingsGraphSubstrateCanarySectionBody
+    >();
+
+    for (const section of resolvedPresentedSceneSections) {
+      const nextSectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+        positionAndSizeLocked: section.positionAndSizeLocked,
+        sectionId: section.sectionId,
+        sectionTypeName: section.sectionTypeName ?? SectionTypeEnum.Code,
+        shellChromeOwner: "shell-layer",
+        styleColor: section.styleColor ?? null,
+        textBlockMetaControlStyle: section.textBlockMetaControlStyle ?? false,
+      });
+      const previousSectionBody = previousSectionBodiesById.get(
         section.sectionId,
-        resolveSettingsGraphSubstrateCanarySectionBody({
-          positionAndSizeLocked: section.positionAndSizeLocked,
-          sectionId: section.sectionId,
-          sectionTypeName: section.sectionTypeName ?? SectionTypeEnum.Code,
-          shellChromeOwner: "shell-layer",
-          styleColor: section.styleColor ?? null,
-          textBlockMetaControlStyle: section.textBlockMetaControlStyle ?? false,
-        }),
-      ]),
-    );
+      );
+      nextSectionBodiesById.set(
+        section.sectionId,
+        previousSectionBody &&
+          areSettingsGraphSubstrateCanarySectionBodiesEqual(
+            previousSectionBody,
+            nextSectionBody,
+          )
+          ? previousSectionBody
+          : nextSectionBody,
+      );
+    }
+
+    stableSectionBodiesByIdRef.current = nextSectionBodiesById;
+    return nextSectionBodiesById;
   }, [resolvedPresentedSceneSections]);
 
   const handleSectionPointerDown = useCallback(
@@ -312,3 +334,17 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 export const SettingsGraphSubstrateCanarySectionsLayer = React.memo(
   _SettingsGraphSubstrateCanarySectionsLayer,
 );
+
+function areSettingsGraphSubstrateCanarySectionBodiesEqual(
+  left: SettingsGraphSubstrateCanarySectionBody,
+  right: SettingsGraphSubstrateCanarySectionBody,
+) {
+  return (
+    left.positionAndSizeLocked === right.positionAndSizeLocked &&
+    left.sectionId === right.sectionId &&
+    left.sectionTypeName === right.sectionTypeName &&
+    left.shellChromeOwner === right.shellChromeOwner &&
+    left.styleColor === right.styleColor &&
+    left.textBlockMetaControlStyle === right.textBlockMetaControlStyle
+  );
+}

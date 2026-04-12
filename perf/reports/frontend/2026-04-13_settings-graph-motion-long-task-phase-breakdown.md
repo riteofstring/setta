@@ -279,6 +279,64 @@ aggregate long-task totals.
   - `waitForSettingsGraphAppReady(...)` polls the same snapshot shape instead
     of composing multiple locator queries across the post-reload loading window
 
+## 2026-04-13 Section-Body Identity Reuse Slice
+
+- changed
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  so the sections layer reuses the previous per-section body model when a
+  section's body inputs are unchanged instead of rebuilding a fresh object for
+  every presented section on each rerender
+- extended
+  `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  with a sibling-change regression proving only the changed section entry
+  rerenders when one section body input changes
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - passed (`3` files, `23` tests)
+- `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+  - passed
+- live worktree probe on run `035`
+  - command:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-035/worktree-ai.log`
+  - result:
+    - passed (`1` Playwright test, `1.9m`)
+
+### Fresh Readout
+
+- canonical lane: `rotaryParamCodeObjDefault`
+- normalized compare-pane state held steady before and after motion:
+  - `overviewVisible`: `false`
+  - `overviewTrueWidth`: `420`
+  - `uiEditorVisible`: `false`
+  - `uiEditorTrueWidth`: `260`
+- post-change motion readout:
+  - `longTaskCount`: `5`
+  - `longTaskTotalDurationMs`: `1144ms`
+  - `longTaskMaxDurationMs`: `416ms`
+  - `measurementWindowMs`: `1789ms`
+  - `averageFrameDurationMs`: `41.08ms`
+  - `panForward`: `2` tasks, `423ms` total, `261ms` max
+  - `panReturn`: `1` task, `416ms` total, `416ms` max
+  - `zoomIn`: `1` task, `147ms` total, `147ms` max
+  - `zoomOut`: `1` task, `158ms` total, `158ms` max
+- dominant named canary owner stayed
+  `presentedSceneSectionSubtreeReactRender`
+  (`894.2ms` total, `262.3ms` max, `30` commits)
+
+### Reading
+
+- this slice produced a small live win on the same dominant owner versus run
+  `034`:
+  `presentedSceneSectionSubtreeReactRender` moved from
+  `899.5ms` / `264.5ms` to `894.2ms` / `262.3ms`
+- the owner still dominates the normalized motion burst, so the lane remains
+  open
+- the next bounded product cut should stay on the same subtree and target
+  remaining shell/body commit fan-out for unchanged visible sections rather than
+  reopening harness work
+
 ### Verification
 
 - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSurfaceState.test.ts`
