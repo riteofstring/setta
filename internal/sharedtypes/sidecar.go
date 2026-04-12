@@ -436,7 +436,6 @@ func contractKindForType(t reflect.Type) string {
 }
 
 type discriminatedFamilyTypeIndex struct {
-	byContractName  map[string]reflect.Type
 	byPackageAndKey map[string]reflect.Type
 }
 
@@ -447,7 +446,6 @@ type resolvedDiscriminatedFamilyMember struct {
 
 func newDiscriminatedFamilyTypeIndex(allTypes []reflect.Type) discriminatedFamilyTypeIndex {
 	index := discriminatedFamilyTypeIndex{
-		byContractName:  make(map[string]reflect.Type, len(allTypes)),
 		byPackageAndKey: make(map[string]reflect.Type, len(allTypes)),
 	}
 	for _, candidate := range allTypes {
@@ -456,9 +454,6 @@ func newDiscriminatedFamilyTypeIndex(allTypes []reflect.Type) discriminatedFamil
 			continue
 		}
 		index.byPackageAndKey[discriminatedFamilyPackageKey(t.PkgPath(), t.Name())] = t
-		if name := strings.TrimSpace(ContractNameForType(t)); name != "" {
-			index.byContractName[name] = t
-		}
 	}
 	return index
 }
@@ -476,10 +471,6 @@ func (index discriminatedFamilyTypeIndex) candidateType(
 		return nil
 	}
 	return index.byPackageAndKey[discriminatedFamilyPackageKey(baseType.PkgPath(), "Frontend"+discriminatorValue+suffix)]
-}
-
-func (index discriminatedFamilyTypeIndex) typeByContractName(contractName string) reflect.Type {
-	return index.byContractName[strings.TrimSpace(contractName)]
 }
 
 func resolvedDiscriminatedFamilyMemberEntries(
@@ -568,35 +559,6 @@ func validateDiscriminatedFamilyMember(
 		candidate,
 		ContractNameForType(baseType),
 	)
-}
-
-func discriminatedFamilyTraits(
-	family frontendbindingmeta.DiscriminatedObjectFamily,
-	members []DiscriminatedFamilyMemberEntry,
-	allTypes []reflect.Type,
-) []DiscriminatedTraitEntry {
-	return buildDiscriminatedFamilyTraits(
-		family,
-		resolveDiscriminatedFamilyMembersByName(members, newDiscriminatedFamilyTypeIndex(allTypes)),
-	)
-}
-
-func resolveDiscriminatedFamilyMembersByName(
-	members []DiscriminatedFamilyMemberEntry,
-	typeIndex discriminatedFamilyTypeIndex,
-) []resolvedDiscriminatedFamilyMember {
-	resolvedMembers := make([]resolvedDiscriminatedFamilyMember, 0, len(members))
-	for _, member := range members {
-		memberType := typeIndex.typeByContractName(member.Name)
-		if memberType == nil {
-			continue
-		}
-		resolvedMembers = append(resolvedMembers, resolvedDiscriminatedFamilyMember{
-			entry: member,
-			typ:   memberType,
-		})
-	}
-	return resolvedMembers
 }
 
 func buildDiscriminatedFamilyTraits(

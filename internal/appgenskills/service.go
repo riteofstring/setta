@@ -33,11 +33,6 @@ var (
 		"dist":         {},
 		"build":        {},
 	}
-	customSkillRootPriority = []string{
-		"agents_home_skills",
-		"user_agents_skills",
-		"workspace_agents_skills",
-	}
 	customSkillEditableRootIDs = map[string]struct{}{
 		"agents_home_skills":      {},
 		"user_agents_skills":      {},

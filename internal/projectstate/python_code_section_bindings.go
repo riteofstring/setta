@@ -2,8 +2,6 @@ package projectstate
 
 import "sort"
 
-const pythonCodeFileExtension = ".py"
-
 type PythonCodeSectionFile struct {
 	SectionID     string
 	Binding       CodeFileBinding

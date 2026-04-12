@@ -33,49 +33,6 @@ func TestCanonicalFrontendBindingTypeLeavesOwnerTypesUnchanged(t *testing.T) {
 	}
 }
 
-func TestSemanticDefaultValueForTypePreservesInitializedCollections(t *testing.T) {
-	t.Parallel()
-
-	viewModeValue, ok, err := semanticDefaultValueForType(
-		reflect.TypeOf(projectstate.ViewMode{}),
-		semanticDefaultProfileFrontend,
-	)
-	if err != nil {
-		t.Fatalf("semanticDefaultValueForType(ViewMode): %v", err)
-	}
-	if !ok {
-		t.Fatalf("semanticDefaultValueForType(ViewMode) returned no default")
-	}
-	viewMode, ok := viewModeValue.(projectstate.ViewMode)
-	if !ok {
-		t.Fatalf("semanticDefaultValueForType(ViewMode) type = %T, want projectstate.ViewMode", viewModeValue)
-	}
-	if viewMode.VisibilityBySectionID == nil {
-		t.Fatalf("ViewMode visibility map should stay initialized")
-	}
-	if viewMode.TopLevelSections == nil {
-		t.Fatalf("ViewMode top-level sections map should stay initialized")
-	}
-
-	singleConfigValue, ok, err := semanticDefaultValueForType(
-		reflect.TypeOf(projectview.SingleConfig{}),
-		semanticDefaultProfileFrontend,
-	)
-	if err != nil {
-		t.Fatalf("semanticDefaultValueForType(SingleConfig): %v", err)
-	}
-	if !ok {
-		t.Fatalf("semanticDefaultValueForType(SingleConfig) returned no default")
-	}
-	singleConfig, ok := singleConfigValue.(projectview.SingleConfig)
-	if !ok {
-		t.Fatalf("semanticDefaultValueForType(SingleConfig) type = %T, want projectview.SingleConfig", singleConfigValue)
-	}
-	if singleConfig.ArtifactGroups == nil {
-		t.Fatalf("SingleConfig artifact groups should stay initialized")
-	}
-}
-
 func TestGoBackedCreateFunctionUsesFieldCreateExprTagsInCreateBody(t *testing.T) {
 	t.Parallel()
 

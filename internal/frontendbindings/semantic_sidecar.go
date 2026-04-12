@@ -229,29 +229,6 @@ func semanticExportedValueDeclarations() ([]TypeDeclaration, error) {
 	return declarations, nil
 }
 
-func semanticDefaultValueForType(
-	t reflect.Type,
-	profile string,
-) (any, bool, error) {
-	typeName, matched, err := semanticDefaultEntryForType(t, profile)
-	if err != nil {
-		return nil, false, err
-	}
-	if matched == nil {
-		return nil, false, nil
-	}
-	value, err := decodeSemanticDefaultValue(canonicalFrontendBindingType(t), matched.Value)
-	if err != nil {
-		return nil, false, fmt.Errorf(
-			"frontend semantic sidecar default %s for profile %s: %w",
-			typeName,
-			profile,
-			err,
-		)
-	}
-	return value, true, nil
-}
-
 func semanticDefaultLiteralForType(
 	t reflect.Type,
 	profile string,
@@ -471,14 +448,6 @@ func memberTypeNameForDiscriminator(members []semanticDiscriminatedMember, discr
 		}
 	}
 	return "", false
-}
-
-func decodeSemanticDefaultValue(t reflect.Type, rawDefault json.RawMessage) (any, error) {
-	valuePtr := reflect.New(t)
-	if err := json.Unmarshal(rawDefault, valuePtr.Interface()); err != nil {
-		return nil, err
-	}
-	return valuePtr.Elem().Interface(), nil
 }
 
 func decodeSemanticJSONValue(rawValue json.RawMessage) (any, error) {
