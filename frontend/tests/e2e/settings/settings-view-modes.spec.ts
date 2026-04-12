@@ -453,6 +453,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
   test.slow();
   test.setTimeout(180000);
 
+  let activePage = page;
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await waitForInitialSettingsGraphReady(page);
@@ -470,7 +471,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
     await expect
       .poll(async () => {
         const metrics = await captureSettingsGraphSectionMetrics(
-          page,
+          activePage,
           targetSectionId,
         );
         return metrics.rect && metrics.transform && metrics.titleRect
@@ -479,26 +480,29 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       })
       .toBe("ready");
 
-    return captureSettingsGraphSectionMetrics(page, targetSectionId);
+    return captureSettingsGraphSectionMetrics(activePage, targetSectionId);
   };
 
   try {
-    await normalizeSettingsGraphComparePaneState(page);
-    await postBackend(page, "/setActiveViewMode", {
+    activePage = await normalizeSettingsGraphComparePaneState(activePage);
+    await postBackend(activePage, "/setActiveViewMode", {
       projectConfigId,
       activeViewModeId: allSettingsViewModeId,
     });
-    await postBackend(page, "/setViewport", {
+    await postBackend(activePage, "/setViewport", {
       projectConfigId,
       viewport: null,
     });
-    const normalizedState = await getLatestProjectState(page, projectConfigId);
-    await applyProjectStateUpdate(page, normalizedState);
+    const normalizedState = await getLatestProjectState(
+      activePage,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(activePage, normalizedState);
 
     const preflight = await runSettingsGraphComparePreflight({
       expectedSurfaceKind: "canary",
       expectedViewModeName: "All Settings",
-      page,
+      page: activePage,
       projectConfigId,
       requireFitView: true,
       side: "worktree",
@@ -510,9 +514,9 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
 
     const beforeMetrics = await readSettledMetrics();
 
-    const motionPoint = await findSettingsGraphPanePoint(page);
-    await startSettingsGraphMotionPerfCapture(page);
-    await runSettingsGraphMotionPerfSequence(page, {
+    const motionPoint = await findSettingsGraphPanePoint(activePage);
+    await startSettingsGraphMotionPerfCapture(activePage);
+    await runSettingsGraphMotionPerfSequence(activePage, {
       modifierKey: MOD_KEY,
       point: motionPoint,
       settleFrameCount: 2,
@@ -524,7 +528,7 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
       ],
     });
     const perf = await stopSettingsGraphMotionPerfCapture(
-      page,
+      activePage,
       targetSectionId,
     );
 
@@ -639,14 +643,16 @@ test("settings graph worktree performance probe measures the normalized rotaryPa
     expect(afterMetrics.titleRect?.width ?? 0).toBeGreaterThan(0);
   } finally {
     if (initialPaneState) {
-      await setLocalPaneState(page, initialPaneState).catch(() => {});
+      activePage = await setLocalPaneState(activePage, initialPaneState).catch(
+        () => activePage,
+      );
     }
-    await postBackend(page, "/setViewport", {
+    await postBackend(activePage, "/setViewport", {
       projectConfigId,
       viewport: initialViewport,
     }).catch(() => {});
     if (initialActiveViewModeId) {
-      await postBackend(page, "/setActiveViewMode", {
+      await postBackend(activePage, "/setActiveViewMode", {
         projectConfigId,
         activeViewModeId: initialActiveViewModeId,
       }).catch(() => {});

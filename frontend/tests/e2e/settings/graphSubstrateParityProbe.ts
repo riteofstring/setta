@@ -15,6 +15,7 @@ import {
   type SettingsGraphPaneStateReadDiagnostic,
 } from "components/Pages/Project/graphSubstrate/settingsGraphPersistedPaneState";
 import {
+  canRecoverSettingsGraphClosedPage,
   formatSettingsGraphPageLifecycleDiagnostic,
   isSettingsGraphPageLifecycleClosureError,
   type SettingsGraphPageLifecycleDiagnostic,
@@ -200,6 +201,20 @@ function readSettingsGraphPageLifecycleDiagnostic(
     pageClosed: page.isClosed(),
     pageUrl: page.url(),
   };
+}
+
+async function reopenSettingsGraphPageIfRecoverable(page: Page): Promise<Page> {
+  const diagnostic = readSettingsGraphPageLifecycleDiagnostic(page);
+  if (!canRecoverSettingsGraphClosedPage(diagnostic)) {
+    return page;
+  }
+
+  const replacementPage = await page.context().newPage();
+  await replacementPage.goto(diagnostic.pageUrl, {
+    waitUntil: "domcontentloaded",
+  });
+  await waitForSettingsGraphAppReady(replacementPage);
+  return replacementPage;
 }
 
 async function runWithSettingsGraphPageLifecycleGuard<T>(
@@ -748,7 +763,8 @@ export async function getLocalPaneState(
 export async function setLocalPaneState(
   page: Page,
   paneState: SettingsGraphLocalPaneState,
-): Promise<void> {
+): Promise<Page> {
+  const activePage = await reopenSettingsGraphPageIfRecoverable(page);
   const nextPersistedPaneState = writePersistedSettingsGraphLocalPaneState({
     paneState,
     rawPersistedState: null,
@@ -757,10 +773,10 @@ export async function setLocalPaneState(
     resolveSettingsGraphLocalPaneStateStorePatch(paneState);
 
   await runWithSettingsGraphPageLifecycleGuard(
-    page,
+    activePage,
     "writing normalized compare pane state",
     async () => {
-      await page.evaluate(
+      await activePage.evaluate(
         async ({
           key,
           paneStatePatch,
@@ -785,15 +801,20 @@ export async function setLocalPaneState(
     },
   );
 
-  await waitForSettingsGraphAppReady(page);
+  await waitForSettingsGraphAppReady(activePage);
+  return activePage;
 }
 
 export async function normalizeSettingsGraphComparePaneState(
   page: Page,
-): Promise<void> {
-  await setLocalPaneState(page, SETTINGS_GRAPH_COMPARE_PANE_STATE);
-  await waitForSettingsGraphComparePaneChrome(page);
-  await waitForSettingsGraphCompareTransientChrome(page);
+): Promise<Page> {
+  const activePage = await setLocalPaneState(
+    page,
+    SETTINGS_GRAPH_COMPARE_PANE_STATE,
+  );
+  await waitForSettingsGraphComparePaneChrome(activePage);
+  await waitForSettingsGraphCompareTransientChrome(activePage);
+  return activePage;
 }
 
 export async function fitGraphViewportToSection(

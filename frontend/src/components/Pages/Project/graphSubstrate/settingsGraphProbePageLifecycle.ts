@@ -20,6 +20,16 @@ export function isSettingsGraphPageLifecycleClosureError(
   );
 }
 
+export function canRecoverSettingsGraphClosedPage(
+  diagnostic: SettingsGraphPageLifecycleDiagnostic,
+): boolean {
+  return (
+    diagnostic.browserConnected === true &&
+    diagnostic.pageClosed &&
+    diagnostic.pageUrl.length > 0
+  );
+}
+
 export function formatSettingsGraphPageLifecycleDiagnostic(
   diagnostic: SettingsGraphPageLifecycleDiagnostic,
 ): string {

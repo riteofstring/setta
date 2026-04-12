@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canRecoverSettingsGraphClosedPage,
   formatSettingsGraphPageLifecycleDiagnostic,
   isSettingsGraphPageLifecycleClosureError,
 } from "./settingsGraphProbePageLifecycle";
@@ -31,6 +32,41 @@ describe("settingsGraphProbePageLifecycle", () => {
     expect(isSettingsGraphPageLifecycleClosureError("plain string")).toBe(
       false,
     );
+  });
+
+  it("only marks a closed page as recoverable when the browser is still connected", () => {
+    expect(
+      canRecoverSettingsGraphClosedPage({
+        browserConnected: true,
+        openPageCount: 0,
+        pageClosed: true,
+        pageUrl: "http://127.0.0.1:3075/settings",
+      }),
+    ).toBe(true);
+    expect(
+      canRecoverSettingsGraphClosedPage({
+        browserConnected: false,
+        openPageCount: 0,
+        pageClosed: true,
+        pageUrl: "http://127.0.0.1:3075/settings",
+      }),
+    ).toBe(false);
+    expect(
+      canRecoverSettingsGraphClosedPage({
+        browserConnected: true,
+        openPageCount: 1,
+        pageClosed: false,
+        pageUrl: "http://127.0.0.1:3075/settings",
+      }),
+    ).toBe(false);
+    expect(
+      canRecoverSettingsGraphClosedPage({
+        browserConnected: true,
+        openPageCount: 0,
+        pageClosed: true,
+        pageUrl: "",
+      }),
+    ).toBe(false);
   });
 
   it("formats lifecycle diagnostics as a compact JSON snapshot", () => {

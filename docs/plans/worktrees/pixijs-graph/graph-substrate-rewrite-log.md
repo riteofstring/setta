@@ -3778,6 +3778,75 @@ LOOP_TERMINAL_MARKER: none
       subscribes to motion-heavy React Flow state on the canonical lane
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 17:40 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff before picking work
+- checked the recent lane shape before choosing the subtask:
+  - the last completed pass on `rotaryParamCodeObjDefault` was a closed
+    negative `ParamSwitch` product hypothesis
+  - avoided another nearby row refactor without a fresh live read
+- selected one bounded canonical-lane blocker slice:
+  recover the worktree-only performance probe when the Playwright page closes
+  before compare-pane normalization, then rerun the same live lane
+- code/doc changes kept in the tree:
+  - added `canRecoverSettingsGraphClosedPage(...)` in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts`
+  - added focused lifecycle recovery coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+  - updated
+    `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    so `setLocalPaneState(...)` and
+    `normalizeSettingsGraphComparePaneState(...)` can reopen the same
+    `/settings` URL once and return the active replacement page
+  - updated the canonical worktree probe in
+    `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    to keep using that active page handle through normalization, motion
+    capture, and restore
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-13_settings-graph-worktree-probe-page-recovery.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+    -> passed (`1` file, `4` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    -> passed
+  - canonical live rerun:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-014/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.1m`)
+    -> fresh readout:
+       `presentedSceneSectionSubtreeReactRender`
+       `903.9ms total` / `230.7ms max`
+       `presentedSceneSectionBodySubtreeReactRender`
+       `884.5ms total` / `132.5ms max`
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `426.4ms total` / `69.8ms max`
+       `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+       `454.6ms total` / `72.0ms max`
+       `presentedSceneSectionParamInputReactRender`
+       `239.3ms total` / `8.8ms max`
+       `longTaskTotalDurationMs 1173`
+- bounded lifecycle recovery for the required CDP gate:
+  - restarted the current worktree with
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - refreshed runtime facts via
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-014/worktree-ai.log`
+    -> new session `4844d9`, frontend `http://127.0.0.1:3075/`, backend
+       `http://127.0.0.1:8075`, debug port `9297`
+- fresh-context CDP verification after recovery:
+  - `http://127.0.0.1:3075/settings` loaded and settled on
+    `Settings -> All Settings`
+  - graph substrate was visibly mounted and the surface showed `Rotary Param`
+    at normal zoom
+  - console had no error-level runtime messages
+  - the exact `rotaryParamCodeObjDefault` token was not directly discoverable
+    in the accessibility tree on this smoke pass
+- interpretation:
+  - the immediate blocker was probe health, not a new renderer regression
+  - keep canonical target section `rotaryParamCodeObjDefault`
+  - next pass should return to a bounded product or attribution cut on the
+    same live row/body subtree, with `ParamInput` now a concrete measurable
+    sub-owner inside the still-dominant subtree
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 19:26 UTC
 
 - item `341` removed one mounted connection-start subscription fan-out from

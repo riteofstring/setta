@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 17:25 UTC
+Last updated: 2026-04-13 17:40 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,69 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `445` landed one bounded probe-normalization recovery on the canonical
+  `rotaryParamCodeObjDefault` lane after the worktree-only performance probe
+  started failing before compare-pane normalization:
+  - local ranking/readout for this iteration:
+    - reread the plan/handoff first and avoided reopening another blind
+      `ParamSwitch` product hypothesis without a fresh live read
+    - selected one bounded support slice only because the concrete blocker was
+      the canonical probe itself: the Playwright page was already closed before
+      `setLocalPaneState(...)` could write the normalized compare pane state
+    - kept the scope to one recoverable page-lifecycle path on the existing
+      worktree probe lane rather than a broader lifecycle/bootstrap rewrite
+  - code/doc changes kept in the tree:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts`
+      now exposes the narrow `canRecoverSettingsGraphClosedPage(...)` predicate
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+      covers that predicate plus the existing closure diagnostics
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      can reopen the same `/settings` URL once and return the active
+      replacement page from `setLocalPaneState(...)` /
+      `normalizeSettingsGraphComparePaneState(...)`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      now keeps using the active page handle through the canonical worktree
+      probe and restore flow
+    - `perf/reports/frontend/2026-04-13_settings-graph-worktree-probe-page-recovery.md`
+      records the blocker, the recovery slice, and the fresh live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts`
+      -> passed (`1` file, `4` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.ts src/components/Pages/Project/graphSubstrate/settingsGraphProbePageLifecycle.test.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-014/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.1m`)
+      -> fresh readout:
+         `presentedSceneSectionSubtreeReactRender`
+         `903.9ms total` / `230.7ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `884.5ms total` / `132.5ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `426.4ms total` / `69.8ms max`
+         `presentedSceneSectionParamGroupUnpinnedParamsReactRender`
+         `454.6ms total` / `72.0ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `239.3ms total` / `8.8ms max`
+         `longTaskTotalDurationMs 1173`
+    - fresh-context CDP verification after one bounded lifecycle restart:
+      -> `http://127.0.0.1:3075/settings` loaded and settled on
+         `Settings -> All Settings`
+      -> graph substrate was visibly mounted at normal zoom and console had no
+         error-level runtime messages
+      -> the exact `rotaryParamCodeObjDefault` token was not directly visible
+         in the accessibility tree, although `Rotary Param` content was
+         visible on the graph surface
+  - reading:
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - this closes the immediate probe-health blocker on the active lane; the
+      next default pass should return to product or attribution work rather
+      than spending another default iteration on lifecycle recovery
+    - the remaining live owner shape still points at the broader
+      `presentedSceneSectionSubtreeReactRender` / unpinned row subtree, with
+      `ParamInput` now clearly visible as a measurable sub-owner inside that
+      same lane
 
 - item `444` closed one bounded negative-result product hypothesis on the
   canonical `rotaryParamCodeObjDefault` lane by testing, then reverting, a
