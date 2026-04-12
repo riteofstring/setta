@@ -438,72 +438,130 @@ func formatRSTParameterBlocks(lines []string) string {
 
 func rstDirectiveLinesToMarkdown(text string) string {
 	lines := strings.Split(text, "\n")
-	output := make([]string, 0, len(lines))
-	lastParams := map[string]rstDirectiveParamState{}
-	convertedAny := false
+	state := rstDirectiveConversionState{
+		output:     make([]string, 0, len(lines)),
+		lastParams: map[string]rstDirectiveParamState{},
+	}
 
 	for _, line := range lines {
-		switch {
-		case rstParamTyped.MatchString(line):
-			matches := rstParamTyped.FindStringSubmatch(line)
-			state := rstDirectiveParamState{
-				index:       len(output),
-				description: matches[3],
-				valueType:   matches[1],
-				renderType:  renderRSTDirectiveQuotedType,
-			}
-			output = append(output, buildRSTDirectiveParamEntry(matches[2], state))
-			lastParams[matches[2]] = state
-			convertedAny = true
-		case rstParam.MatchString(line):
-			matches := rstParam.FindStringSubmatch(line)
-			state := rstDirectiveParamState{
-				index:       len(output),
-				description: matches[2],
-			}
-			output = append(output, buildRSTDirectiveParamEntry(matches[1], state))
-			lastParams[matches[1]] = state
-			convertedAny = true
-		case rstType.MatchString(line):
-			matches := rstType.FindStringSubmatch(line)
-			if state, ok := lastParams[matches[1]]; ok {
-				state.valueType = matches[2]
-				state.renderType = renderRSTDirectivePlainType
-				output[state.index] = buildRSTDirectiveParamEntry(matches[1], state)
-				lastParams[matches[1]] = state
-			} else {
-				output = append(output, "- type `"+matches[1]+"`: "+matches[2])
-			}
-			convertedAny = true
-		case rstReturn.MatchString(line):
-			matches := rstReturn.FindStringSubmatch(line)
-			entry := "- returns:"
-			if strings.TrimSpace(matches[1]) != "" {
-				entry += " " + matches[1]
-			}
-			output = append(output, entry)
-			convertedAny = true
-		case rstReturnType.MatchString(line):
-			matches := rstReturnType.FindStringSubmatch(line)
-			output = append(output, "- return type: `"+matches[1]+"`")
-			convertedAny = true
-		case rstRaises.MatchString(line):
-			matches := rstRaises.FindStringSubmatch(line)
-			entry := "- raises `" + matches[1] + "`:"
-			if strings.TrimSpace(matches[2]) != "" {
-				entry += " " + matches[2]
-			}
-			output = append(output, entry)
-			convertedAny = true
-		default:
-			output = append(output, line)
+		if state.handleRSTDirectiveLine(line) {
+			continue
 		}
+		state.output = append(state.output, line)
 	}
 
-	if !convertedAny {
+	if !state.convertedAny {
 		return text
 	}
-	return strings.TrimRight(strings.Join(output, "\n"), "\n") + "\n"
+	return strings.TrimRight(strings.Join(state.output, "\n"), "\n") + "\n"
+}
+
+type rstDirectiveConversionState struct {
+	output       []string
+	lastParams   map[string]rstDirectiveParamState
+	convertedAny bool
+}
+
+type rstDirectiveLineHandler func(line string, state *rstDirectiveConversionState) bool
+
+var rstDirectiveLineHandlers = []rstDirectiveLineHandler{
+	handleRSTTypedParamDirectiveLine,
+	handleRSTParamDirectiveLine,
+	handleRSTTypeDirectiveLine,
+	handleRSTReturnDirectiveLine,
+	handleRSTReturnTypeDirectiveLine,
+	handleRSTRaisesDirectiveLine,
+}
+
+func (state *rstDirectiveConversionState) handleRSTDirectiveLine(line string) bool {
+	for _, handler := range rstDirectiveLineHandlers {
+		if handler(line, state) {
+			state.convertedAny = true
+			return true
+		}
+	}
+	return false
+}
+
+func handleRSTTypedParamDirectiveLine(line string, state *rstDirectiveConversionState) bool {
+	matches := rstParamTyped.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	paramState := rstDirectiveParamState{
+		index:       len(state.output),
+		description: matches[3],
+		valueType:   matches[1],
+		renderType:  renderRSTDirectiveQuotedType,
+	}
+	state.output = append(state.output, buildRSTDirectiveParamEntry(matches[2], paramState))
+	state.lastParams[matches[2]] = paramState
+	return true
+}
+
+func handleRSTParamDirectiveLine(line string, state *rstDirectiveConversionState) bool {
+	matches := rstParam.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	paramState := rstDirectiveParamState{
+		index:       len(state.output),
+		description: matches[2],
+	}
+	state.output = append(state.output, buildRSTDirectiveParamEntry(matches[1], paramState))
+	state.lastParams[matches[1]] = paramState
+	return true
+}
+
+func handleRSTTypeDirectiveLine(line string, state *rstDirectiveConversionState) bool {
+	matches := rstType.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	if paramState, ok := state.lastParams[matches[1]]; ok {
+		paramState.valueType = matches[2]
+		paramState.renderType = renderRSTDirectivePlainType
+		state.output[paramState.index] = buildRSTDirectiveParamEntry(matches[1], paramState)
+		state.lastParams[matches[1]] = paramState
+		return true
+	}
+	state.output = append(state.output, "- type `"+matches[1]+"`: "+matches[2])
+	return true
+}
+
+func handleRSTReturnDirectiveLine(line string, state *rstDirectiveConversionState) bool {
+	matches := rstReturn.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	entry := "- returns:"
+	if strings.TrimSpace(matches[1]) != "" {
+		entry += " " + matches[1]
+	}
+	state.output = append(state.output, entry)
+	return true
+}
+
+func handleRSTReturnTypeDirectiveLine(line string, state *rstDirectiveConversionState) bool {
+	matches := rstReturnType.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	state.output = append(state.output, "- return type: `"+matches[1]+"`")
+	return true
+}
+
+func handleRSTRaisesDirectiveLine(line string, state *rstDirectiveConversionState) bool {
+	matches := rstRaises.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	entry := "- raises `" + matches[1] + "`:"
+	if strings.TrimSpace(matches[2]) != "" {
+		entry += " " + matches[2]
+	}
+	state.output = append(state.output, entry)
+	return true
 }
 
 type rstDirectiveParamState struct {

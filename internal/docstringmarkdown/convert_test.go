@@ -108,6 +108,16 @@ func TestConvertMatchesRSTTypedDirectiveOutput(t *testing.T) {
 			text: "Summary line.\n:param x: value\n:type x: int\n:return: result\n",
 			want: "Summary line.\n- `x` (int): value\n- returns: result\n",
 		},
+		{
+			name: "standalone type",
+			text: "Summary line.\n:type x: int\n:return: result\n",
+			want: "Summary line.\n- type `x`: int\n- returns: result\n",
+		},
+		{
+			name: "raises directive",
+			text: "Summary line.\n:raises ValueError: bad input\n",
+			want: "Summary line.\n- raises `ValueError`: bad input\n",
+		},
 	} {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
