@@ -149,7 +149,7 @@ export function getExtensions({
   return extensions;
 }
 
-export function getLanguageExtensions(
+function getLanguageExtensions(
   language: CodeLanguage | null | undefined,
   useJsx: boolean,
 ) {

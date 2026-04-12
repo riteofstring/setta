@@ -1,20 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { getLanguageExtensions } from "./getExtensions";
+import { getExtensions } from "./getExtensions";
 
-describe("getLanguageExtensions", () => {
-  it("returns language support extensions for json, yaml, and toml", () => {
-    const jsonExtensions = getLanguageExtensions("json", false);
-    const yamlExtensions = getLanguageExtensions("yaml", false);
-    const tomlExtensions = getLanguageExtensions("toml", false);
+describe("getExtensions", () => {
+  it("includes distinct language support extensions for json, yaml, and toml", () => {
+    const jsonExtensions = getExtensions({
+      language: "json",
+      wrapLines: false,
+    });
+    const yamlExtensions = getExtensions({
+      language: "yaml",
+      wrapLines: false,
+    });
+    const tomlExtensions = getExtensions({
+      language: "toml",
+      wrapLines: false,
+    });
+    const noLanguageExtensions = getExtensions({
+      language: null,
+      wrapLines: false,
+    });
 
-    expect(jsonExtensions).toHaveLength(1);
-    expect(yamlExtensions).toHaveLength(1);
-    expect(tomlExtensions).toHaveLength(1);
-    expect(jsonExtensions[0]).not.toBe(yamlExtensions[0]);
-    expect(tomlExtensions[0]).not.toBe(yamlExtensions[0]);
+    expect(jsonExtensions).toHaveLength(noLanguageExtensions.length + 1);
+    expect(yamlExtensions).toHaveLength(noLanguageExtensions.length + 1);
+    expect(tomlExtensions).toHaveLength(noLanguageExtensions.length + 1);
+    expect(jsonExtensions[1]).not.toBe(yamlExtensions[1]);
+    expect(tomlExtensions[1]).not.toBe(yamlExtensions[1]);
   });
 
-  it("returns no language extension for null language", () => {
-    expect(getLanguageExtensions(null, false)).toEqual([]);
+  it("omits language support when no language is provided", () => {
+    expect(getExtensions({ language: null, wrapLines: false })).toHaveLength(2);
   });
 });
