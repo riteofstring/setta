@@ -25,7 +25,7 @@ const CODE_OBJ_TYPE_FILTERS = {
 
 export const CALENDAR_PRESET_ID = "__setta_text_param_calendar__";
 
-export function getVirtualDateTimePresetItemsForFilter(
+function getVirtualDateTimePresetItemsForFilter(
   filterKey: CodeObjTypeFilterKey,
 ): ComboboxItemArrayType<string> {
   const typeSet = CODE_OBJ_TYPE_FILTERS[filterKey];
