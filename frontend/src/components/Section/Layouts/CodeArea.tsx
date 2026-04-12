@@ -14,7 +14,6 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeMirrorTooltipParent";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
-import _ from "lodash";
 import React, {
   useCallback,
   useEffect,
@@ -639,7 +638,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       variantIsFrozen: impl.isFrozen,
       bindingPath: impl.codeFileBinding?.canonical_path ?? null,
     };
-  }, _.isEqual);
+  }, shallow);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const previewCode = useToolArgumentPreview((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];

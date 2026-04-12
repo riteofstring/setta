@@ -151,6 +151,54 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-13 12:35 UTC
+
+- reread the plan/handoff first and kept the lane on the mounted body owner
+  chain for the canonical `rotaryParamCodeObjDefault` canary instead of
+  reopening startup or oracle work
+- landed one bounded body selector slice in
+  `frontend/src/components/Section/Layouts/CodeArea.tsx`:
+  `CoreCodeArea` now uses `zustand/shallow` instead of `lodash/isEqual` for
+  the selector that reads the code value, frozen flag, and bound file path
+- extended `frontend/src/components/Section/Layouts/CodeArea.test.tsx` with a
+  profiler regression proving unrelated `previewSectionVariantMap` writes do
+  not re-commit a mounted ordinary `CodeArea`
+- added
+  `perf/reports/frontend/2026-04-13_settings-graph-code-area-core-shallow-selector.md`
+  with the live readout
+- verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CodeArea.test.tsx`
+    -> pass (`5` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+    -> pass
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-049/worktree-ai.log`
+    -> pass (`1` Playwright test, `1.3m`)
+    -> direct-open phases:
+       `65ms app_router_loading` -> `2285ms settings_loading` ->
+       `3901ms app_shell_without_surface` -> `6713ms project_loading` ->
+       `18509ms surface_ready`
+    -> canonical target stayed `rotaryParamCodeObjDefault`
+    -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+       (`871.8ms` total / `258.3ms` max)
+    -> inner body owner stayed
+       `presentedSceneSectionBodySubtreeReactRender`
+       (`853.0ms` total / `108.8ms` max)
+  - fresh-context headless CDP visual check on direct
+    `http://127.0.0.1:3075/settings`
+    -> page still showed the project-loading shell, not the mounted graph
+       surface
+    -> visible strings included `pixijs-graph`, `Loading project...`, and
+       `Waiting for project data to load.`
+- reading:
+  - this removed comparator overhead from a broad mounted code-editor body
+    selector but did not move the dominant runtime owner, so count it as one
+    bounded non-winning body-owner hypothesis
+  - next pass should take at most one more bounded mounted-body product cut; if
+    that still fails to move the owner, pivot to fresh inner-body attribution
+    instead of repeating the same selector shape
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-13 12:25 UTC
 
 - item `423` landed one bounded mounted-body production slice on the canonical

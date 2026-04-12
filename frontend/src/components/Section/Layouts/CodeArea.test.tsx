@@ -266,6 +266,30 @@ describe("CodeArea LSP diagnostics wiring", () => {
     }
   });
 
+  it("keeps code areas out of unrelated project-state commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledCodeArea(onRender);
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState({
+          previewSectionVariantMap: {
+            "other-section": "other-variant",
+          },
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("keeps generated code areas out of unrelated project-state commits", async () => {
     const projectConfig = createProjectConfig({
       id: "project-1",

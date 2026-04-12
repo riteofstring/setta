@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 12:25 UTC
+Last updated: 2026-04-13 12:35 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,70 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `424` landed one bounded mounted-body production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by removing deep-equality comparator
+  work from the ordinary `CoreCodeArea` selector:
+  - local ranking/readout for this iteration:
+    - re-read the active plan/handoff first and did not reopen the startup
+      attribution or pane-normalization families after item `423`
+    - checked the next mounted-body candidate instead of forcing another shell
+      seam move: ordinary mounted code editors were still using
+      `lodash/isEqual` on a selector that only returns primitive fields
+    - kept the slice bounded to one body selector equality change, one focused
+      profiler regression update, one live worktree probe rerun, and one fresh
+      headless CDP smoke check; no new oracle lane opened
+  - code changed in:
+    - `frontend/src/components/Section/Layouts/CodeArea.tsx` so
+      `CoreCodeArea` now uses `zustand/shallow` for the selector that reads the
+      current code value, frozen state, and bound file path
+    - `frontend/src/components/Section/Layouts/CodeArea.test.tsx` with a
+      regression proving unrelated `previewSectionVariantMap` commits do not
+      re-commit an ordinary mounted `CodeArea`
+    - `perf/reports/frontend/2026-04-13_settings-graph-code-area-core-shallow-selector.md`
+      with the live readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed (`5` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Layouts/CodeArea.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.2KScG0/loop-001/run-049/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> direct-open phase sequence on the worktree:
+         `65ms app_router_loading` -> `2285ms settings_loading` ->
+         `3901ms app_shell_without_surface` -> `6713ms project_loading` ->
+         `18509ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> worktree canary still reached `surfaceKind: "canary"` and kept the
+         same dominant owner family:
+         `presentedSceneSectionSubtreeReactRender`
+    - fresh-context headless CDP visual check on direct
+      `http://127.0.0.1:3075/settings`
+      -> still observed the project-loading shell rather than the mounted
+         settings graph surface
+      -> visible text included `pixijs-graph`, `Loading project...`, and
+         `Waiting for project data to load.`
+  - reading:
+    - this stayed on the mounted section-body owner chain rather than falling
+      back to another header-control-only cut
+    - the subscribed source-of-truth fields stayed unchanged, so the slice only
+      reduced comparator overhead on a broad mounted code-editor body selector
+    - the live canary still spends most motion time inside the mounted body
+      subtree rather than the outer shell boundary:
+      `presentedSceneSectionSubtreeReactRender` `871.8ms` total /
+      `258.3ms` max, with
+      `presentedSceneSectionBodySubtreeReactRender` still at `853.0ms` total
+    - treat this as one bounded non-winning product hypothesis on the mounted
+      body owner chain, not as a perf win
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - stay on the mounted body owner chain for at most one more bounded
+      product cut; if that next cut also fails to move the dominant owner, add
+      fresh attribution that names the next inner body owner before taking a
+      third hypothesis
+    - do not reopen direct `/settings` startup classification unless the phase
+      sequence changes or the authenticated Playwright lane stops reaching the
+      canary
 
 - item `423` landed one bounded mounted-body production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by moving default
