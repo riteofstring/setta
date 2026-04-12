@@ -153,33 +153,41 @@ function handleArrowNavigation(args: {
   return true;
 }
 
-function handleHorizontalNavigation(args: {
-  event: ReactKeyboardEvent<HTMLDivElement>;
+type HorizontalNavigationArgs = {
   currentItem: FlattenedNode;
   expandedPaths: Record<string, boolean>;
   childrenByPath: Record<string, string[]>;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
-}): boolean {
-  if (args.event.key === "ArrowRight") {
-    if (args.currentItem.type !== "folder") {
-      return false;
-    }
-    args.event.preventDefault();
-    if (args.expandedPaths[args.currentItem.fullPath] !== true) {
-      args.onToggle(args.currentItem.fullPath);
-      return true;
-    }
-    const firstChild = args.childrenByPath[args.currentItem.fullPath]?.[0];
-    if (firstChild) {
-      args.onSelect(firstChild);
-    }
-    return true;
-  }
-  if (args.event.key !== "ArrowLeft") {
+};
+
+function handleArrowRightNavigation(
+  args: HorizontalNavigationArgs,
+  event: ReactKeyboardEvent<HTMLDivElement>,
+): boolean {
+  if (event.key !== "ArrowRight" || args.currentItem.type !== "folder") {
     return false;
   }
-  args.event.preventDefault();
+  event.preventDefault();
+  if (args.expandedPaths[args.currentItem.fullPath] !== true) {
+    args.onToggle(args.currentItem.fullPath);
+    return true;
+  }
+  const firstChild = args.childrenByPath[args.currentItem.fullPath]?.[0];
+  if (firstChild) {
+    args.onSelect(firstChild);
+  }
+  return true;
+}
+
+function handleArrowLeftNavigation(
+  args: HorizontalNavigationArgs,
+  event: ReactKeyboardEvent<HTMLDivElement>,
+): boolean {
+  if (event.key !== "ArrowLeft") {
+    return false;
+  }
+  event.preventDefault();
   if (
     args.currentItem.type === "folder" &&
     args.expandedPaths[args.currentItem.fullPath] === true
@@ -191,6 +199,27 @@ function handleHorizontalNavigation(args: {
     args.onSelect(args.currentItem.parentPath);
   }
   return true;
+}
+
+function handleHorizontalNavigation(args: {
+  event: ReactKeyboardEvent<HTMLDivElement>;
+  currentItem: FlattenedNode;
+  expandedPaths: Record<string, boolean>;
+  childrenByPath: Record<string, string[]>;
+  onToggle: (path: string) => void;
+  onSelect: (path: string) => void;
+}): boolean {
+  const navigationArgs: HorizontalNavigationArgs = {
+    currentItem: args.currentItem,
+    expandedPaths: args.expandedPaths,
+    childrenByPath: args.childrenByPath,
+    onToggle: args.onToggle,
+    onSelect: args.onSelect,
+  };
+  return (
+    handleArrowRightNavigation(navigationArgs, args.event) ||
+    handleArrowLeftNavigation(navigationArgs, args.event)
+  );
 }
 
 export function handleFileBrowserKeyDown(args: {

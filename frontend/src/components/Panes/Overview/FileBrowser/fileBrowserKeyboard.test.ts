@@ -157,6 +157,30 @@ describe("handleFileBrowserKeyDown", () => {
     expect(onSelect).toHaveBeenCalledWith("/root/folder/child.txt");
   });
 
+  it("ignores ArrowRight for files", () => {
+    const onToggle = vi.fn();
+    const onSelect = vi.fn();
+    const event = buildKeyboardEvent({ key: "ArrowRight" });
+
+    runKeyDown({
+      event,
+      displayedItems: [
+        buildNode({
+          fullPath: "/root/file.txt",
+          name: "file.txt",
+        }),
+      ],
+      selectedIndex: 0,
+      rootPath: "/root",
+      onToggle,
+      onSelect,
+    });
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("selects the parent folder on ArrowLeft when the current item is not an expanded folder", () => {
     const onSelect = vi.fn();
 
@@ -175,5 +199,32 @@ describe("handleFileBrowserKeyDown", () => {
     });
 
     expect(onSelect).toHaveBeenCalledWith("/root/folder");
+  });
+
+  it("collapses an expanded folder on ArrowLeft", () => {
+    const onToggle = vi.fn();
+    const onSelect = vi.fn();
+    const event = buildKeyboardEvent({ key: "ArrowLeft" });
+
+    runKeyDown({
+      event,
+      displayedItems: [
+        buildNode({
+          fullPath: "/root/folder",
+          name: "folder",
+          type: "folder",
+          parentPath: "/root",
+        }),
+      ],
+      selectedIndex: 0,
+      rootPath: "/root",
+      expandedPaths: { "/root/folder": true },
+      onToggle,
+      onSelect,
+    });
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(onToggle).toHaveBeenCalledWith("/root/folder");
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
