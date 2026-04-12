@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -145,6 +146,67 @@ func TestDocumentLoadAllJSONSourceVariantsFromDiskSupportsStructuredDataFormats(
 				payloadStringField(peerPayload, "topLevelParamId"),
 			)
 		})
+	}
+}
+
+func TestCollectJSONSourceLoadTargetsSortsProjectsSectionsAndVariants(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := jsonSourceSharedLoadTestDocument(t, false)
+
+	projectAlpha := document.Projects["project-alpha"]
+	sectionA := projectAlpha.Sections["json-section-a"]
+	sectionA.VariantIDs = []string{"json-variant-a-extra", "json-variant-a"}
+	projectAlpha.Sections["json-section-a"] = sectionA
+	projectAlpha.SectionVariants["json-variant-a-extra"] = SectionVariant{
+		ID:     "json-variant-a-extra",
+		Name:   "data/extra.json",
+		ImplID: "json-impl-a",
+	}
+	projectAlpha.Sections["non-source-section"] = Section{
+		ID:               "non-source-section",
+		VariantIDs:       []string{"non-source-variant"},
+		DefaultVariantID: "non-source-variant",
+	}
+	projectAlpha.SectionVariants["non-source-variant"] = SectionVariant{
+		ID:     "non-source-variant",
+		Name:   "data/ignored.json",
+		ImplID: "non-source-impl",
+	}
+	projectAlpha.SectionImpls["non-source-impl"] = SectionImpl{
+		ID:   "non-source-impl",
+		Kind: SectionKind("dict"),
+		Payload: mustMarshalProjectObject(map[string]any{
+			"id":           "non-source-impl",
+			"type":         "Dict",
+			"isJsonSource": false,
+		}),
+	}
+	document.Projects["project-alpha"] = projectAlpha
+
+	projectBeta := jsonSourceSharedLoadTestDocumentForPath(t, false, "data/beta.json").Projects["project-alpha"]
+	projectBeta.ID = "project-beta"
+	document.Projects["project-beta"] = projectBeta
+
+	targets, err := collectJSONSourceLoadTargets(document, workspaceRoot)
+	if err != nil {
+		t.Fatalf("collectJSONSourceLoadTargets returned error: %v", err)
+	}
+
+	got := make([]string, 0, len(targets))
+	for _, target := range targets {
+		got = append(got, target.ProjectID+"|"+target.SectionID+"|"+target.VariantID+"|"+target.ResolvedPath)
+	}
+	want := []string{
+		"project-alpha|json-section-a|json-variant-a|" + filepath.Join(workspaceRoot, "data", "source.json"),
+		"project-alpha|json-section-a|json-variant-a-extra|" + filepath.Join(workspaceRoot, "data", "extra.json"),
+		"project-alpha|json-section-b|json-variant-b|" + filepath.Join(workspaceRoot, "data", "source.json"),
+		"project-beta|json-section-a|json-variant-a|" + filepath.Join(workspaceRoot, "data", "beta.json"),
+		"project-beta|json-section-b|json-variant-b|" + filepath.Join(workspaceRoot, "data", "beta.json"),
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected sorted json source load targets %#v, got %#v", want, got)
 	}
 }
 

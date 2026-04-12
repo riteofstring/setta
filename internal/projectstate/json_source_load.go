@@ -28,55 +28,114 @@ func (d *Document) LoadAllJSONSourceVariantsFromDisk(workspaceRoot string) error
 }
 
 func collectJSONSourceLoadTargets(document Document, workspaceRoot string) ([]jsonSourceLoadTarget, error) {
-	projectIDs := make([]string, 0, len(document.Projects))
-	for projectID := range document.Projects {
-		projectIDs = append(projectIDs, projectID)
-	}
-	sort.Strings(projectIDs)
-
 	targets := make([]jsonSourceLoadTarget, 0)
-	for _, projectID := range projectIDs {
-		project := document.Projects[projectID]
-		sectionIDs := make([]string, 0, len(project.Sections))
-		for sectionID := range project.Sections {
-			sectionIDs = append(sectionIDs, sectionID)
+	for _, projectID := range sortedJSONSourceLoadProjectIDs(document.Projects) {
+		projectTargets, err := collectProjectJSONSourceLoadTargets(projectID, document.Projects[projectID], workspaceRoot)
+		if err != nil {
+			return nil, err
 		}
-		sort.Strings(sectionIDs)
-		for _, sectionID := range sectionIDs {
-			section := project.Sections[sectionID]
-			variantIDs := append([]string(nil), section.VariantIDs...)
-			sort.Strings(variantIDs)
-			for _, variantID := range variantIDs {
-				variant, ok := project.SectionVariants[variantID]
-				if !ok {
-					return nil, ErrSectionVariantNotFound
-				}
-				impl, ok := project.SectionImpls[variant.ImplID]
-				if !ok {
-					return nil, ErrSectionImplNotFound
-				}
-				payload, err := effectiveSectionPayload(project, sectionID, variantID)
-				if err != nil {
-					return nil, err
-				}
-				if canonicalSectionType(payloadStringField(payload, "type"), impl) != "Dict" || !payloadBoolField(payload, "isJsonSource") {
-					continue
-				}
-				resolvedPath, err := resolveJSONSourceLoadPath(workspaceRoot, variant.Name)
-				if err != nil {
-					return nil, err
-				}
-				targets = append(targets, jsonSourceLoadTarget{
-					ProjectID:      projectID,
-					SectionID:      sectionID,
-					VariantID:      variantID,
-					ResolvedPath:   resolvedPath,
-					JSONSourceKeys: append([]string(nil), payloadStringArrayField(payload, "jsonSourceKeys")...),
-				})
-			}
-		}
+		targets = append(targets, projectTargets...)
 	}
 	return targets, nil
+}
+
+func collectProjectJSONSourceLoadTargets(
+	projectID string,
+	project Project,
+	workspaceRoot string,
+) ([]jsonSourceLoadTarget, error) {
+	targets := make([]jsonSourceLoadTarget, 0)
+	for _, sectionID := range sortedJSONSourceLoadSectionIDs(project.Sections) {
+		sectionTargets, err := collectSectionJSONSourceLoadTargets(projectID, project, sectionID, workspaceRoot)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, sectionTargets...)
+	}
+	return targets, nil
+}
+
+func collectSectionJSONSourceLoadTargets(
+	projectID string,
+	project Project,
+	sectionID string,
+	workspaceRoot string,
+) ([]jsonSourceLoadTarget, error) {
+	section := project.Sections[sectionID]
+	variantIDs := append([]string(nil), section.VariantIDs...)
+	sort.Strings(variantIDs)
+
+	targets := make([]jsonSourceLoadTarget, 0, len(variantIDs))
+	for _, variantID := range variantIDs {
+		target, ok, err := buildJSONSourceLoadTarget(projectID, project, sectionID, variantID, workspaceRoot)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		targets = append(targets, target)
+	}
+	return targets, nil
+}
+
+func buildJSONSourceLoadTarget(
+	projectID string,
+	project Project,
+	sectionID string,
+	variantID string,
+	workspaceRoot string,
+) (jsonSourceLoadTarget, bool, error) {
+	variant, ok := project.SectionVariants[variantID]
+	if !ok {
+		return jsonSourceLoadTarget{}, false, ErrSectionVariantNotFound
+	}
+	impl, ok := project.SectionImpls[variant.ImplID]
+	if !ok {
+		return jsonSourceLoadTarget{}, false, ErrSectionImplNotFound
+	}
+	payload, err := effectiveSectionPayload(project, sectionID, variantID)
+	if err != nil {
+		return jsonSourceLoadTarget{}, false, err
+	}
+	if !isJSONSourceLoadVariant(payload, impl) {
+		return jsonSourceLoadTarget{}, false, nil
+	}
+
+	resolvedPath, err := resolveJSONSourceLoadPath(workspaceRoot, variant.Name)
+	if err != nil {
+		return jsonSourceLoadTarget{}, false, err
+	}
+	return jsonSourceLoadTarget{
+		ProjectID:      projectID,
+		SectionID:      sectionID,
+		VariantID:      variantID,
+		ResolvedPath:   resolvedPath,
+		JSONSourceKeys: append([]string(nil), payloadStringArrayField(payload, "jsonSourceKeys")...),
+	}, true, nil
+}
+
+func sortedJSONSourceLoadProjectIDs(projects map[string]Project) []string {
+	ids := make([]string, 0, len(projects))
+	for projectID := range projects {
+		ids = append(ids, projectID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func sortedJSONSourceLoadSectionIDs(sections map[string]Section) []string {
+	ids := make([]string, 0, len(sections))
+	for sectionID := range sections {
+		ids = append(ids, sectionID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func isJSONSourceLoadVariant(payload map[string]any, impl SectionImpl) bool {
+	return canonicalSectionType(payloadStringField(payload, "type"), impl) == "Dict" &&
+		payloadBoolField(payload, "isJsonSource")
 }
 
 func jsonSourceLoadGroupKey(resolvedPath string, jsonSourceKeys []string) string {
