@@ -143,6 +143,7 @@ type ThinkingContentItem = Extract<
 >;
 
 type ToolResultValue = ToolChatMessage["result"] | string;
+type ToolResultContentEntry = NonNullable<ToolChatMessage["content"]>[number];
 type ToolCallRenderEntry = {
   toolCall: ToolCall;
   isStreaming: boolean;
@@ -2658,7 +2659,7 @@ function resolveThinkingRowRunState(
   return "success";
 }
 
-function useThinkingAccordionState({
+function useActivityAccordionState({
   defaultOpen,
   hasExpandableContent,
   expandAllSignal,
@@ -3100,7 +3101,7 @@ function resolveThinkingExpandableState({
   };
 }
 
-function normalizeThinkingAccordionValue(
+function normalizeActivityAccordionValue(
   nextValue: string | undefined,
 ): string | undefined {
   return nextValue === ACTIVITY_ROW_DETAILS_VALUE
@@ -3172,7 +3173,7 @@ const ThinkingBox = memo(function ThinkingBox({
       hasThinkingText,
       isSummaryTitleTruncated,
     });
-  const [accordionValue, setAccordionValue] = useThinkingAccordionState({
+  const [accordionValue, setAccordionValue] = useActivityAccordionState({
     defaultOpen,
     hasExpandableContent,
     expandAllSignal,
@@ -3209,7 +3210,7 @@ const ThinkingBox = memo(function ThinkingBox({
       className="w-full"
       value={accordionValue}
       onValueChange={(nextValue) => {
-        setAccordionValue(normalizeThinkingAccordionValue(nextValue));
+        setAccordionValue(normalizeActivityAccordionValue(nextValue));
       }}
     >
       <Accordion.Item
@@ -4517,6 +4518,43 @@ function resolveActivityToolLikeMeta(
   };
 }
 
+function resolveActivityDurationClassName(runState: ToolCallRunState): string {
+  return runState === "failed" || runState === "stopped"
+    ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
+    : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
+}
+
+function useActivityToolLikeAccordionState({
+  defaultOpen,
+  expandAllSignal,
+  collapseAllSignal,
+  runKey,
+  onExpansionChange,
+}: {
+  defaultOpen: boolean;
+  expandAllSignal: number;
+  collapseAllSignal: number;
+  runKey: string;
+  onExpansionChange?: (activityKey: string, isExpanded: boolean) => void;
+}) {
+  const [accordionValue, setAccordionValue] = useActivityAccordionState({
+    defaultOpen,
+    hasExpandableContent: true,
+    expandAllSignal,
+    collapseAllSignal,
+  });
+  const isExpanded = accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
+
+  useEffect(() => {
+    onExpansionChange?.(runKey, isExpanded);
+  }, [isExpanded, onExpansionChange, runKey]);
+
+  return {
+    accordionValue,
+    setAccordionValue,
+  };
+}
+
 const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
   rowKind,
   label,
@@ -4568,40 +4606,15 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
     isRunning: runState === "running",
   });
   const timestampMs = resolveActivityTimestampMs(startedAtMs, completedAtMs);
-  const durationClassName =
-    runState === "failed" || runState === "stopped"
-      ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
-      : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(
-    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
-  );
-  const lastExpandAllSignalRef = useRef(expandAllSignal);
-  const lastCollapseAllSignalRef = useRef(collapseAllSignal);
-  const isExpanded = accordionValue === ACTIVITY_ROW_DETAILS_VALUE;
-
-  useEffect(() => {
-    if (expandAllSignal === lastExpandAllSignalRef.current) {
-      return;
-    }
-    lastExpandAllSignalRef.current = expandAllSignal;
-    if (expandAllSignal > 0) {
-      setAccordionValue(ACTIVITY_ROW_DETAILS_VALUE);
-    }
-  }, [expandAllSignal]);
-
-  useEffect(() => {
-    if (collapseAllSignal === lastCollapseAllSignalRef.current) {
-      return;
-    }
-    lastCollapseAllSignalRef.current = collapseAllSignal;
-    if (collapseAllSignal > 0) {
-      setAccordionValue(undefined);
-    }
-  }, [collapseAllSignal]);
-
-  useEffect(() => {
-    onExpansionChange?.(runKey, isExpanded);
-  }, [isExpanded, onExpansionChange, runKey]);
+  const durationClassName = resolveActivityDurationClassName(runState);
+  const { accordionValue, setAccordionValue } =
+    useActivityToolLikeAccordionState({
+      defaultOpen,
+      expandAllSignal,
+      collapseAllSignal,
+      runKey,
+      onExpansionChange,
+    });
 
   return (
     <Accordion.Root
@@ -4610,11 +4623,7 @@ const ActivityToolLikeItem = memo(function ActivityToolLikeItem({
       className="w-full"
       value={accordionValue}
       onValueChange={(nextValue) => {
-        setAccordionValue(
-          nextValue === ACTIVITY_ROW_DETAILS_VALUE
-            ? ACTIVITY_ROW_DETAILS_VALUE
-            : undefined,
-        );
+        setAccordionValue(normalizeActivityAccordionValue(nextValue));
       }}
     >
       <Accordion.Item
@@ -5409,12 +5418,54 @@ type ToolSectionTimingAnchors = {
   completedAtMs: number | null;
 };
 
+type ResolvedActivityEntryTiming = ToolSectionTimingAnchors & {
+  runState: ToolCallRunState;
+};
+
 function resolveToolResultTimingAnchors(
   toolResult: ToolChatMessage | undefined,
 ): ToolSectionTimingAnchors {
   return {
     startedAtMs: parseIsoTimestampMs(toolResult?.started_at),
     completedAtMs: parseIsoTimestampMs(toolResult?.completed_at),
+  };
+}
+
+function mergeToolSectionTimingAnchor(
+  currentValue: number | null,
+  nextValue: number | null,
+  merge: (left: number, right: number) => number,
+): number | null {
+  if (nextValue === null) {
+    return currentValue;
+  }
+  return currentValue === null ? nextValue : merge(currentValue, nextValue);
+}
+
+function resolveActivityTimelineEntryTiming(
+  entry: ActivityTimelineEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): ResolvedActivityEntryTiming {
+  if (entry.kind === "thinking") {
+    return {
+      runState: resolveThinkingRowRunState(
+        resolveThinkingSectionState({
+          isStreaming: entry.thinkingEntry.isStreaming,
+          wasInterrupted: entry.thinkingEntry.wasInterrupted,
+        }),
+      ),
+      startedAtMs: null,
+      completedAtMs: null,
+    };
+  }
+
+  const toolResult = toolResultsById[entry.toolEntry.toolCall.id];
+  return {
+    runState: resolveToolCallRunState(
+      toolResult ? !toolResult.is_error : undefined,
+      entry.toolEntry.isStreaming,
+    ),
+    ...resolveToolResultTimingAnchors(toolResult),
   };
 }
 
@@ -5433,41 +5484,22 @@ function resolveActivitySectionTiming({
   let startedAtMs: number | null = null;
   let completedAtMs: number | null = null;
   for (const entry of timelineEntries) {
-    if (entry.kind === "thinking") {
-      const thinkingSectionState = resolveThinkingSectionState({
-        isStreaming: entry.thinkingEntry.isStreaming,
-        wasInterrupted: entry.thinkingEntry.wasInterrupted,
-      });
-      runStates.push(
-        thinkingSectionState === "running"
-          ? "running"
-          : thinkingSectionState === "stopped"
-            ? "stopped"
-            : "success",
-      );
-      continue;
-    }
-
-    const toolResult = toolResultsById[entry.toolEntry.toolCall.id];
-    const runState = resolveToolCallRunState(
-      toolResult ? !toolResult.is_error : undefined,
-      entry.toolEntry.isStreaming,
-    );
+    const {
+      runState,
+      startedAtMs: entryStartedAtMs,
+      completedAtMs: entryCompletedAtMs,
+    } = resolveActivityTimelineEntryTiming(entry, toolResultsById);
     runStates.push(runState);
-    const { startedAtMs: entryStartedAtMs, completedAtMs: entryCompletedAtMs } =
-      resolveToolResultTimingAnchors(toolResult);
-    if (entryStartedAtMs !== null) {
-      startedAtMs =
-        startedAtMs === null
-          ? entryStartedAtMs
-          : Math.min(startedAtMs, entryStartedAtMs);
-    }
-    if (entryCompletedAtMs !== null) {
-      completedAtMs =
-        completedAtMs === null
-          ? entryCompletedAtMs
-          : Math.max(completedAtMs, entryCompletedAtMs);
-    }
+    startedAtMs = mergeToolSectionTimingAnchor(
+      startedAtMs,
+      entryStartedAtMs,
+      Math.min,
+    );
+    completedAtMs = mergeToolSectionTimingAnchor(
+      completedAtMs,
+      entryCompletedAtMs,
+      Math.max,
+    );
   }
   return {
     sectionState: resolveToolCallSectionState(runStates),
@@ -7717,30 +7749,32 @@ function formatToolResult(
   }
   if (Array.isArray(toolResult.content) && toolResult.content.length > 0) {
     const renderedEntries = toolResult.content
-      .map((entry) => {
-        if (entry.type === "text") {
-          return entry.text;
-        }
-        if (entry.type === "tool_reference") {
-          return `Tool reference: ${entry.tool_name}`;
-        }
-        if (entry.type === "resource") {
-          const label = entry.resource?.uri
-            ? `Resource: ${entry.resource.uri}`
-            : "Resource";
-          return entry.resource?.mimeType
-            ? `${label} (${entry.resource.mimeType})`
-            : label;
-        }
-        if (entry.type === "image") {
-          return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
-        }
-        return JSON.stringify(entry, null, 2);
-      })
+      .map(formatToolResultContentEntry)
       .filter((entry) => entry.trim().length > 0);
     if (renderedEntries.length > 0) {
       return renderedEntries.join("\n\n");
     }
   }
   return toolResult.result;
+}
+
+function formatToolResultContentEntry(entry: ToolResultContentEntry): string {
+  if (entry.type === "text") {
+    return entry.text;
+  }
+  if (entry.type === "tool_reference") {
+    return `Tool reference: ${entry.tool_name}`;
+  }
+  if (entry.type === "resource") {
+    const label = entry.resource?.uri
+      ? `Resource: ${entry.resource.uri}`
+      : "Resource";
+    return entry.resource?.mimeType
+      ? `${label} (${entry.resource.mimeType})`
+      : label;
+  }
+  if (entry.type === "image") {
+    return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
+  }
+  return JSON.stringify(entry, null, 2);
 }
