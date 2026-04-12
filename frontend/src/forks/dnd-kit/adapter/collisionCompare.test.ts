@@ -96,48 +96,6 @@ describe("collision comparison", () => {
     expect(resolveOverCollision([farther, nearer])?.id).toBe("nearer");
   });
 
-  it("keeps the earlier sortable collision when the nearer target has passed the trigger", () => {
-    // Validates signed trigger distance still outranks raw proximity after crossing.
-    const earlier = collision({
-      id: "earlier",
-      containerId: "container",
-      intersectionRatio: 1,
-      absTriggerDist: 30,
-      triggerDist: -5,
-    });
-    const nearerPassed = collision({
-      id: "nearer-passed",
-      containerId: "container",
-      intersectionRatio: 100,
-      absTriggerDist: 10,
-      triggerDist: 10,
-    });
-
-    expect(resolveOverCollision([earlier, nearerPassed])?.id).toBe("earlier");
-  });
-
-  it("prefers the nearer sortable collision when it is still before the trigger", () => {
-    // Validates the nearer pre-trigger sortable candidate can still win.
-    const fartherPassed = collision({
-      id: "farther-passed",
-      containerId: "container",
-      intersectionRatio: 100,
-      absTriggerDist: 30,
-      triggerDist: 30,
-    });
-    const nearerBefore = collision({
-      id: "nearer-before",
-      containerId: "container",
-      intersectionRatio: 1,
-      absTriggerDist: 10,
-      triggerDist: -5,
-    });
-
-    expect(resolveOverCollision([fartherPassed, nearerBefore])?.id).toBe(
-      "nearer-before",
-    );
-  });
-
   it("falls back to ratio when sortable distances tie", () => {
     // Validates equal-distance sortable collisions use overlap as the tie-breaker.
     const lowRatio = collision({

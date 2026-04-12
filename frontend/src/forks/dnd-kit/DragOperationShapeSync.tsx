@@ -66,21 +66,27 @@ export function DragOperationShapeSync({
         isParamDrag,
       });
 
-      const { baseRect, refreshedBaseRect } = resolveDragBaseRect({
-        activeId,
-        previousActiveId: activeIdRef.current,
-        previousBaseRect: baseRectRef.current,
-        selectionRect,
-        droppable,
-        fallbackRect,
-      });
-      if (!baseRect) {
-        return;
+      const currentShape = droppable?.shape ?? null;
+      if (activeIdRef.current !== activeId || !baseRectRef.current) {
+        if (selectionRect) {
+          baseRectRef.current = selectionRect;
+        } else {
+          const refreshedShape = droppable?.refreshShape();
+          const nextShape = refreshedShape ?? currentShape ?? null;
+          if (nextShape) {
+            baseRectRef.current = nextShape.boundingRectangle;
+          } else if (fallbackRect) {
+            baseRectRef.current = fallbackRect;
+          } else {
+            return;
+          }
+        }
+        activeIdRef.current = activeId;
       }
 
-      if (refreshedBaseRect) {
-        baseRectRef.current = refreshedBaseRect;
-        activeIdRef.current = activeId;
+      const baseRect = selectionRect ?? baseRectRef.current ?? fallbackRect;
+      if (!baseRect) {
+        return;
       }
 
       const transform = manager.dragOperation.transform;
@@ -112,78 +118,7 @@ type DragRect = {
   height: number;
 };
 
-type DragShape = {
-  boundingRectangle: BoundingRectangle;
-};
-
-type DragDroppable =
-  | {
-      shape?: DragShape | null;
-      refreshShape?: () => DragShape | null | undefined;
-    }
-  | null
-  | undefined;
-
-type ResolveDragBaseRectArgs = {
-  activeId: string | number;
-  previousActiveId: string | number | null;
-  previousBaseRect: BoundingRectangle | null;
-  selectionRect: BoundingRectangle | null;
-  droppable: DragDroppable;
-  fallbackRect: BoundingRectangle | null;
-};
-
-type ResolveDragBaseRectResult = {
-  baseRect: BoundingRectangle | null;
-  refreshedBaseRect: BoundingRectangle | null;
-};
-
-export function resolveDragBaseRect({
-  activeId,
-  previousActiveId,
-  previousBaseRect,
-  selectionRect,
-  droppable,
-  fallbackRect,
-}: ResolveDragBaseRectArgs): ResolveDragBaseRectResult {
-  const needsFreshBaseRect =
-    previousActiveId !== activeId || previousBaseRect === null;
-  const refreshedBaseRect = needsFreshBaseRect
-    ? resolveFreshDragBaseRect({
-        selectionRect,
-        droppable,
-        fallbackRect,
-      })
-    : null;
-  const storedBaseRect = refreshedBaseRect ?? previousBaseRect;
-
-  return {
-    baseRect: selectionRect ?? storedBaseRect ?? fallbackRect,
-    refreshedBaseRect,
-  };
-}
-
-function resolveFreshDragBaseRect({
-  selectionRect,
-  droppable,
-  fallbackRect,
-}: {
-  selectionRect: BoundingRectangle | null;
-  droppable: DragDroppable;
-  fallbackRect: BoundingRectangle | null;
-}): BoundingRectangle | null {
-  if (selectionRect) {
-    return selectionRect;
-  }
-
-  return (
-    droppable?.refreshShape?.()?.boundingRectangle ??
-    droppable?.shape?.boundingRectangle ??
-    fallbackRect
-  );
-}
-
-export function resolveSelectionBoundingRect({
+function resolveSelectionBoundingRect({
   draggingIds,
   draggingRectsById,
   isMovingFree,
