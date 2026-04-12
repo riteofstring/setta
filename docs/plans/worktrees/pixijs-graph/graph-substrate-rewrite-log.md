@@ -75,6 +75,53 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 23:18 UTC
+
+- item `359` landed one bounded worktree bootstrap-readiness recovery on the
+  canonical `rotaryParamCodeObjDefault` lane so the live worktree-only motion
+  probe can produce a fresh numeric sample after item `358` regressed:
+  - changed `frontend/tests/e2e/global-setup.ts` so Playwright global setup
+    now waits for authenticated readiness on the expected frontend URL instead
+    of always blocking on `.setta-titlebar-offset`
+  - added `frontend/tests/e2e/globalSetupUtils.ts` to hold the expected-URL
+    matcher plus `waitForAuthenticatedShellReady(...)`, which accepts either a
+    rendered titlebar or an already-present `setta_auth_*` cookie as the
+    readiness signal
+  - added
+    `perf/reports/frontend/2026-04-12_settings-graph-worktree-bootstrap-cookie-readiness-recovery.md`
+    to record the slice and the recovered numeric sample
+- verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts tests/e2e/globalSetupUtils.ts`
+    - passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-048/worktree-ai.log`
+    - passed (`1` test, `1.9m`)
+    - produced a fresh live worktree attribution sample:
+      - dominant owner `interactionMiscStateSync` (`9` calls, `8.1ms` total)
+      - `presentedSceneSectionVisibilityFilter` (`40` calls, `3.0ms`)
+      - `pixiDrawableModelResolve` (`36` calls, `1.6ms`)
+      - `interactionReactFlowStateSync` (`0` calls, `0ms`)
+  - fresh-context headless CDP check:
+    - first sub-agent could not reach the browser bridge
+    - one bounded retry attached successfully and loaded
+      `http://127.0.0.1:3075/settings`
+    - the retry only showed the authenticated shell/startup state, not a
+      clearly rendered graph surface, so this slice keeps
+      `LOOP_VERIFY_RESULT: deferred_visual_gate`
+- reading:
+  - on this runtime, bootstrap can finish auth before the frontend-root
+    titlebar selector mounts; the auth cookie is the more robust readiness
+    signal for global setup
+  - this restores the numeric verification path for item `358` without
+    reopening the closed cross-worktree lane
+  - the next default frontier is back on product-side
+    `interactionMiscStateSync` reductions on the same named
+    `rotaryParamCodeObjDefault` lane
+  - if the next slice truly needs a live CDP surface, first narrow the direct
+    `/settings` loading-shell mismatch enough to classify whether it is
+    bootstrap/profile debt or a real worktree runtime health issue
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 23:54 UTC
 
 - item `357` landed one bounded worktree-only motion probe recovery on the

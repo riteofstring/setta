@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 22:47 UTC
+Last updated: 2026-04-12 23:18 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,53 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `359` landed one bounded worktree bootstrap-readiness recovery on the
+  canonical `rotaryParamCodeObjDefault` lane so the live worktree-only motion
+  probe can produce numbers again after item `358`:
+
+  - no product renderer code changed in this slice
+  - support/probe code changed in:
+    - `frontend/tests/e2e/global-setup.ts`
+      so global setup now waits for authenticated readiness instead of always
+      requiring `.setta-titlebar-offset` to appear on the frontend root
+    - `frontend/tests/e2e/globalSetupUtils.ts`
+      which now owns the expected-URL matcher plus
+      `waitForAuthenticatedShellReady(...)`
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-worktree-bootstrap-cookie-readiness-recovery.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts tests/e2e/globalSetupUtils.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-048/worktree-ai.log`
+      -> passed (`1` test, `1.9m`)
+      -> produced a fresh live worktree attribution sample after the item `358`
+         regression
+    - fresh-context headless CDP check on `http://127.0.0.1:3075/settings`
+      -> browser bridge attached on retry
+      -> page showed the authenticated shell/startup state, but the visible
+         snapshot did not show a clearly rendered graph surface
+      -> treat the live CDP visual gate for this slice as deferred, not passed
+  - reading:
+    - on this runtime, bootstrap can establish the `setta_auth_*` cookie
+      before the frontend-root titlebar selector mounts, so the auth cookie is
+      the more reliable global-setup readiness signal
+    - this restores the numeric verification path for item `358` without
+      reopening the closed cross-worktree lane
+    - the fresh live ranking still points at `interactionMiscStateSync`
+      (`9` calls, `8.1ms` total) with secondary residuals in
+      `presentedSceneSectionVisibilityFilter` (`40` calls, `3.0ms`) and
+      `pixiDrawableModelResolve` (`36` calls, `1.6ms`)
+    - the direct CDP `/settings` loading-shell mismatch is now explicit
+      tooling/runtime debt; do not let it reopen broad oracle-hygiene churn
+      unless the next product slice actually needs a trustworthy live CDP
+      surface
+  - next default frontier:
+    - return to product-side work inside `interactionMiscStateSync` on the same
+      named `rotaryParamCodeObjDefault` lane
+    - if the next slice needs a live CDP gate, first narrow the direct
+      `/settings` loading-shell mismatch enough to classify whether it is a
+      bootstrap/profile issue or a true worktree runtime health problem
 
 - item `358` landed one bounded product-side redundant misc-store write guard
   on the canonical `rotaryParamCodeObjDefault` lane inside the measured

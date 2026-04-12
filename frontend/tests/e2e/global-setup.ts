@@ -1,5 +1,9 @@
 import type { ConsoleMessage, Page } from "@playwright/test";
 import { chromium, type FullConfig } from "@playwright/test";
+import {
+  matchesExpectedProjectUrl,
+  waitForAuthenticatedShellReady,
+} from "./globalSetupUtils";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -12,21 +16,6 @@ const PROJECT_URL =
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-
-function matchesExpectedProjectUrl(
-  candidateUrl: string,
-  expectedProjectUrl: URL,
-): boolean {
-  const parsedCandidateUrl = new URL(candidateUrl);
-  const expectedPathname = expectedProjectUrl.pathname;
-  return (
-    parsedCandidateUrl.origin === expectedProjectUrl.origin &&
-    (parsedCandidateUrl.pathname === expectedPathname ||
-      // Default bootstrap can settle on launcher home after the initial
-      // frontend-root handoff; treat that as a ready authenticated shell.
-      (expectedPathname === "/" && parsedCandidateUrl.pathname === "/home"))
-  );
-}
 
 async function globalSetup(config: FullConfig) {
   if (!BOOTSTRAP_TOKEN) {
@@ -75,9 +64,12 @@ async function globalSetup(config: FullConfig) {
     if (!matchesExpectedProjectUrl(page.url(), expectedProjectUrl)) {
       await waitForExpectedProjectUrl(page, expectedProjectUrl, 30000);
     }
-    // `.app-shell` exists in static index.html, but `.setta-titlebar-offset` only
-    // appears once React renders `AppShell`.
-    await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });
+    await waitForAuthenticatedShellReady({
+      context,
+      expectedProjectUrl,
+      page,
+      timeoutMs: 30000,
+    });
 
     await context.storageState({ path: storagePath });
   } catch (err) {
