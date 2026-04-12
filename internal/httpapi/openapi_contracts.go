@@ -155,12 +155,6 @@ func withOpenAPISummary(summary string) openAPIOperationOption {
 	}
 }
 
-func withOpenAPIAuthRequirement(requirement string) openAPIOperationOption {
-	return func(operation *openAPIOperation) {
-		operation.AuthRequirement = strings.TrimSpace(requirement)
-	}
-}
-
 func withOpenAPIModeRequirement(requirement string) openAPIOperationOption {
 	return func(operation *openAPIOperation) {
 		operation.ModeRequirement = strings.TrimSpace(requirement)

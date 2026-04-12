@@ -743,13 +743,6 @@ func isASCIILetter(ch byte) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
-func asciiToLower(ch byte) byte {
-	if ch >= 'A' && ch <= 'Z' {
-		return ch + ('a' - 'A')
-	}
-	return ch
-}
-
 func compareInts(left int, right int) int {
 	switch {
 	case left < right:

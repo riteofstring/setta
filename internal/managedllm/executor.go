@@ -2573,18 +2573,6 @@ func currentAssistantThinkingProviderItemIDAtIndex(message map[string]any, index
 	return currentAssistantBlockStringAtIndex(message, index, "thinking", "provider_item_id")
 }
 
-func currentAssistantProviderMessageID(message map[string]any) string {
-	return strings.TrimSpace(stringValue(message["provider_message_id"]))
-}
-
-func currentAssistantProviderMessagePhase(message map[string]any) string {
-	return strings.TrimSpace(stringValue(message["provider_message_phase"]))
-}
-
-func currentAssistantProviderMessageContentType(message map[string]any) string {
-	return strings.TrimSpace(stringValue(message["provider_message_content_type"]))
-}
-
 func currentAssistantBlockStringAtIndex(message map[string]any, index int, blockType string, field string) string {
 	content, _ := message["content"].([]any)
 	if index < 0 || index >= len(content) {
@@ -2696,26 +2684,6 @@ func hasThinkingBlock(message map[string]any) bool {
 			continue
 		}
 		if strings.TrimSpace(stringValue(block["type"])) == "thinking" {
-			return true
-		}
-	}
-	return false
-}
-
-func hasMessageThinkingText(message map[string]any) bool {
-	content, ok := message["content"].([]any)
-	if !ok {
-		return false
-	}
-	for _, entry := range content {
-		block, ok := entry.(map[string]any)
-		if !ok {
-			continue
-		}
-		if strings.TrimSpace(stringValue(block["type"])) != "thinking" {
-			continue
-		}
-		if strings.TrimSpace(stringValue(block["thinking"])) != "" {
 			return true
 		}
 	}

@@ -64,12 +64,6 @@ func resolveLauncherArtifactRuntimeRoot(settaHome string) (string, error) {
 	return filepath.Join(launcherDir, launcherArtifactRuntimeDir), nil
 }
 
-func buildLauncherArtifactCommand(targetCommand []string, settaHome string) []string {
-	command := append([]string(nil), targetCommand...)
-	command = append(command, launcherArtifactRunFlag, "--setta-home", settaHome)
-	return command
-}
-
 func artifactWritePathOptionKeys() map[string]struct{} {
 	switch runtime.GOOS {
 	case "darwin":

@@ -182,21 +182,6 @@ func WriteManagedAPIKeysWithExpectedRevision(path string, payload map[string]str
 	return WriteManagedAPIKeysWithExpectedRevisionInLockRoot(path, payload, expectedRevision, configuredProviderKeyNames, "")
 }
 
-func ResolveEffectiveAPIKeys(configs AllConfigs, managedEnv map[string]string, processEnv map[string]string) map[string]string {
-	merged := map[string]string{}
-	for key, value := range FilterEnvVarsForConfig(processEnv, configs) {
-		merged[key] = value
-	}
-	for key, value := range cloneStringMap(managedEnv) {
-		trimmedKey := strings.TrimSpace(key)
-		if trimmedKey == "" {
-			continue
-		}
-		merged[trimmedKey] = value
-	}
-	return merged
-}
-
 func withManagedAPIKeysLock[T any](path string, lockRoot string, fn func() (T, error)) (T, error) {
 	var zero T
 	lockPath, err := managedAPIKeysLockPath(path, lockRoot)
