@@ -6,7 +6,7 @@ import {
   type FilebrowserFileContentResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import {
   getErrorDetail,
@@ -89,18 +89,6 @@ export function resolveFileBrowserPreviewKind({
     mimeType: null,
     size: null,
   });
-}
-
-export function isFileBrowserPreviewRequestStale(args: {
-  activeRequestId: number;
-  requestId: number;
-  currentSelectedPath: string | null;
-  requestedPath: string;
-}): boolean {
-  return (
-    args.activeRequestId !== args.requestId ||
-    args.currentSelectedPath !== args.requestedPath
-  );
 }
 
 export function isFileBrowserDownloadUrlPreviewKind(
@@ -214,12 +202,6 @@ export function useFileBrowserPreviewState({
   const [textPreview, setTextPreview] = useState<TextPreviewState>(
     createEmptyTextPreviewState,
   );
-  const selectedFilePathRef = useRef<string | null>(selectedFilePath);
-  const textPreviewRequestIdRef = useRef(0);
-
-  useEffect(() => {
-    selectedFilePathRef.current = selectedFilePath;
-  }, [selectedFilePath]);
 
   useEffect(() => {
     setFileUrl(null);
@@ -255,20 +237,10 @@ export function useFileBrowserPreviewState({
     if (!selectedFilePath || previewKind !== "text") {
       return;
     }
-    const requestId = textPreviewRequestIdRef.current + 1;
-    textPreviewRequestIdRef.current = requestId;
-    const requestedPath = selectedFilePath;
-    const isStaleRequest = () =>
-      isFileBrowserPreviewRequestStale({
-        activeRequestId: textPreviewRequestIdRef.current,
-        requestId,
-        currentSelectedPath: selectedFilePathRef.current,
-        requestedPath,
-      });
     let cancelled = false;
     setTextPreview(createLoadingTextPreviewState());
-    void loadTextPreview(requestedPath).then((nextState) => {
-      if (cancelled || isStaleRequest()) {
+    void loadTextPreview(selectedFilePath).then((nextState) => {
+      if (cancelled) {
         return;
       }
       setTextPreview(nextState);

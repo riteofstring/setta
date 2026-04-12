@@ -4,7 +4,6 @@ import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import type { FileNode } from "./FileBrowserPane";
 import {
   isFileBrowserDownloadUrlPreviewKind,
-  isFileBrowserPreviewRequestStale,
   resolveFileBrowserPreviewKind,
   useFileBrowserPreviewState,
   type FileBrowserDownloadUrlPreviewKind,
@@ -305,5 +304,3 @@ export function FileBrowserUniversalPreview({
     />
   );
 }
-
-export { isFileBrowserPreviewRequestStale, resolveFileBrowserPreviewKind };

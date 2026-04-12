@@ -11,11 +11,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  FileBrowserUniversalPreview,
-  isFileBrowserPreviewRequestStale,
-  resolveFileBrowserPreviewKind,
-} from "./FileBrowserUniversalPreview";
+import { FileBrowserUniversalPreview } from "./FileBrowserUniversalPreview";
+import { resolveFileBrowserPreviewKind } from "./fileBrowserUniversalPreviewState";
 
 const openAPI = vi.hoisted(() => ({
   getFileBrowserDownloadUrls: vi.fn(),
@@ -104,6 +101,14 @@ function createFileBrowserDownloadUrlEntry(
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe("FileBrowserUniversalPreview kind resolution", () => {
   it("classifies spreadsheet paths as spreadsheet previews", () => {
     expect(
@@ -145,33 +150,6 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
         fileName: "blob.bin",
       }),
     ).toBe("other");
-  });
-
-  it("detects stale async preview requests", () => {
-    expect(
-      isFileBrowserPreviewRequestStale({
-        activeRequestId: 2,
-        requestId: 1,
-        currentSelectedPath: "/workspace/a.txt",
-        requestedPath: "/workspace/a.txt",
-      }),
-    ).toBe(true);
-    expect(
-      isFileBrowserPreviewRequestStale({
-        activeRequestId: 1,
-        requestId: 1,
-        currentSelectedPath: "/workspace/b.txt",
-        requestedPath: "/workspace/a.txt",
-      }),
-    ).toBe(true);
-    expect(
-      isFileBrowserPreviewRequestStale({
-        activeRequestId: 1,
-        requestId: 1,
-        currentSelectedPath: "/workspace/a.txt",
-        requestedPath: "/workspace/a.txt",
-      }),
-    ).toBe(false);
   });
 
   it("loads text previews through the Go file-content and binary routes", async () => {
@@ -218,6 +196,142 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
           '[data-testid="file-browser-universal-preview-text"]',
         )?.textContent,
       ).toContain("Hello from the Go file browser.");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("ignores stale text preview responses after the selected file changes", async () => {
+    const fileContentResponses = new Map<
+      string,
+      ReturnType<
+        typeof createDeferred<{
+          data: FilebrowserFileContentResponse;
+          status: number;
+          hasResponse: true;
+        }>
+      >
+    >();
+    const binaryResponses = new Map<
+      string,
+      ReturnType<
+        typeof createDeferred<{
+          data: Blob;
+          status: number;
+          hasResponse: true;
+        }>
+      >
+    >();
+
+    vi.mocked(getFileBrowserFileContent).mockImplementation(({ body }) => {
+      const deferred = createDeferred<{
+        data: FilebrowserFileContentResponse;
+        status: number;
+        hasResponse: true;
+      }>();
+      fileContentResponses.set(body.path, deferred);
+      return deferred.promise;
+    });
+    vi.mocked(downloadBinary).mockImplementation(({ path }) => {
+      const deferred = createDeferred<{
+        data: Blob;
+        status: number;
+        hasResponse: true;
+      }>();
+      binaryResponses.set(path.contentId, deferred);
+      return deferred.promise;
+    });
+
+    const { host, root } = await renderFileBrowserUniversalPreview({
+      selectedNode: {
+        name: "first.md",
+        fullPath: "/workspace/first.md",
+        type: "file",
+        parentPath: "/workspace",
+      },
+    });
+
+    try {
+      await flushEffects();
+      expect(fileContentResponses.has("/workspace/first.md")).toBe(true);
+
+      await act(async () => {
+        root.render(
+          createElement(FileBrowserUniversalPreview, {
+            selectedNode: {
+              name: "second.md",
+              fullPath: "/workspace/second.md",
+              type: "file",
+              parentPath: "/workspace",
+            },
+          }),
+        );
+      });
+
+      await flushEffects();
+      expect(fileContentResponses.has("/workspace/second.md")).toBe(true);
+
+      await act(async () => {
+        fileContentResponses.get("/workspace/second.md")?.resolve({
+          data: createFileContentResponse({
+            path: "/workspace/second.md",
+            contentId: "content-second",
+            mimeType: "text/markdown",
+          }),
+          status: 200,
+          hasResponse: true,
+        });
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        binaryResponses.get("content-second")?.resolve({
+          data: new Blob(["Second preview"], { type: "text/plain" }),
+          status: 200,
+          hasResponse: true,
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(
+        host.querySelector(
+          '[data-testid="file-browser-universal-preview-text"]',
+        )?.textContent,
+      ).toContain("Second preview");
+
+      await act(async () => {
+        fileContentResponses.get("/workspace/first.md")?.resolve({
+          data: createFileContentResponse({
+            path: "/workspace/first.md",
+            contentId: "content-first",
+            mimeType: "text/markdown",
+          }),
+          status: 200,
+          hasResponse: true,
+        });
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        binaryResponses.get("content-first")?.resolve({
+          data: new Blob(["First preview"], { type: "text/plain" }),
+          status: 200,
+          hasResponse: true,
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(
+        host.querySelector(
+          '[data-testid="file-browser-universal-preview-text"]',
+        )?.textContent,
+      ).toContain("Second preview");
+      expect(host.textContent).not.toContain("First preview");
     } finally {
       await act(async () => {
         root.unmount();
