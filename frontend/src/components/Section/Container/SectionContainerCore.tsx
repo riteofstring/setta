@@ -1,3 +1,4 @@
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -7,16 +8,16 @@ import {
 import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import {
-  type SectionChromeBodySurface,
   getSectionContainerShellClassName,
   resolveSectionChromeShellDecorations,
+  type SectionChromeBodySurface,
 } from "./sectionChrome";
 import { useSectionChromeAppearance } from "./sectionChromeAppearance";
 import {
@@ -25,6 +26,25 @@ import {
 } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
+
+export type SectionContainerShellLayerSnapshot = {
+  hasSectionStyleTheme: boolean;
+  isInOtherProjectConfigs: boolean;
+  positionAndSizeLocked: boolean;
+  sectionStyleVars: React.CSSProperties | undefined;
+  sectionTypeName: SectionType;
+};
+
+function handleSectionContainerCoreShellLayerRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionCoreShellLayerReactRender",
+    actualDuration,
+  );
+}
 
 type SectionContainerCoreProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
@@ -42,9 +62,21 @@ type SectionContainerCoreProps = {
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  shellLayerSnapshot?: SectionContainerShellLayerSnapshot;
 };
 
-function SectionContainerCoreShellLayer({
+type SectionContainerCoreShellLayerSharedProps = Pick<
+  SectionContainerCoreProps,
+  | "bodySurfaceOverride"
+  | "forceTransparentBackground"
+  | "forceHideFrameBorder"
+  | "forceHideTopDragHandle"
+  | "headerRenderer"
+  | "isUserView"
+  | "sectionId"
+>;
+
+function SectionContainerCoreShellLayerLayout({
   bodySurfaceOverride,
   forceTransparentBackground = false,
   headerRenderer,
@@ -52,29 +84,78 @@ function SectionContainerCoreShellLayer({
   isUserView,
   forceHideFrameBorder = false,
   forceHideTopDragHandle = false,
-}: SectionContainerCoreProps) {
+  shellLayerSnapshot,
+}: SectionContainerCoreShellLayerSharedProps & {
+  shellLayerSnapshot: SectionContainerShellLayerSnapshot;
+}) {
+  const isAttachedTerminalChild = useProjectState(
+    (x) => getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null,
+  );
+  const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const {
-    sectionTypeName,
+    hasSectionStyleTheme,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
-    textBlockMetaControlStyle,
-    isAttachedTerminalChild,
+    sectionStyleVars,
+    sectionTypeName,
+  } = shellLayerSnapshot;
+
+  return (
+    <React.Profiler
+      id={`section-container-core-shell-layer:${sectionId}`}
+      onRender={handleSectionContainerCoreShellLayerRender}
+    >
+      <section
+        className="z-10"
+        onClick={getOnSectionClick(sectionId)}
+        ref={refForPosition}
+        data-section-id={sectionId}
+        data-section-type={sectionTypeName}
+        data-section-active="false"
+        data-shell-chrome-owner="shell-layer"
+        data-setta-viewport-interaction-shell="true"
+        style={sectionStyleVars}
+      >
+        <SectionContainerCoreResizable
+          bodySurfaceOverride={bodySurfaceOverride}
+          forceTransparentBackground={forceTransparentBackground}
+          headerRenderer={headerRenderer}
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          isUserView={isUserView}
+          positionAndSizeLocked={positionAndSizeLocked}
+          hideHeader={isAttachedTerminalChild}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          forceHideFrameBorder={forceHideFrameBorder}
+          forceHideTopDragHandle={forceHideTopDragHandle}
+        />
+      </section>
+    </React.Profiler>
+  );
+}
+
+function SectionContainerCoreShellLayerWithStore(
+  props: SectionContainerCoreShellLayerSharedProps,
+) {
+  const { sectionId } = props;
+  const {
+    isInOtherProjectConfigs,
+    positionAndSizeLocked,
+    sectionTypeName,
     styleColor,
+    textBlockMetaControlStyle,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const isAttachedTerminalChild =
-      getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null;
     return {
-      sectionTypeName: impl.type,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      sectionTypeName: impl.type,
+      styleColor: impl.styleColor,
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      isAttachedTerminalChild,
-      styleColor: impl.styleColor,
     };
   }, shallow);
-  const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const { hasSectionStyleTheme, sectionStyleVars } = useSectionChromeAppearance(
     {
       sectionId,
@@ -85,33 +166,32 @@ function SectionContainerCoreShellLayer({
   );
 
   return (
-    <section
-      className="z-10"
-      onClick={getOnSectionClick(sectionId)}
-      ref={refForPosition}
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-section-active="false"
-      data-shell-chrome-owner="shell-layer"
-      data-setta-viewport-interaction-shell="true"
-      style={sectionStyleVars}
-    >
-      <SectionContainerCoreResizable
-        bodySurfaceOverride={bodySurfaceOverride}
-        forceTransparentBackground={forceTransparentBackground}
-        headerRenderer={headerRenderer}
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        isUserView={isUserView}
-        positionAndSizeLocked={positionAndSizeLocked}
-        hideHeader={isAttachedTerminalChild}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        forceHideFrameBorder={forceHideFrameBorder}
-        forceHideTopDragHandle={forceHideTopDragHandle}
-      />
-    </section>
+    <SectionContainerCoreShellLayerLayout
+      {...props}
+      shellLayerSnapshot={{
+        hasSectionStyleTheme,
+        isInOtherProjectConfigs,
+        positionAndSizeLocked,
+        sectionStyleVars,
+        sectionTypeName,
+      }}
+    />
   );
+}
+
+function SectionContainerCoreShellLayer(props: SectionContainerCoreProps) {
+  const { shellLayerSnapshot, ...sharedProps } = props;
+
+  if (shellLayerSnapshot) {
+    return (
+      <SectionContainerCoreShellLayerLayout
+        {...sharedProps}
+        shellLayerSnapshot={shellLayerSnapshot}
+      />
+    );
+  }
+
+  return <SectionContainerCoreShellLayerWithStore {...sharedProps} />;
 }
 
 function SectionContainerCoreSectionBody({
@@ -293,5 +373,6 @@ export const SectionContainerCore = React.memo(
     previousProps.hideAgenticEdgeHandles === nextProps.hideAgenticEdgeHandles &&
     previousProps.omitAgenticHandleScopeClass ===
       nextProps.omitAgenticHandleScopeClass &&
-    previousProps.joinedCorners === nextProps.joinedCorners,
+    previousProps.joinedCorners === nextProps.joinedCorners &&
+    previousProps.shellLayerSnapshot === nextProps.shellLayerSnapshot,
 );

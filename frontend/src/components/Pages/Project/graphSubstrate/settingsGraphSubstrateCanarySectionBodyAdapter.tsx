@@ -1,4 +1,5 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
+import type { SectionContainerShellLayerSnapshot } from "components/Section/Container/SectionContainerCore";
 import {
   resolveSectionChromeSurfaceDecorations,
   type SectionChromeBodySurface,
@@ -13,6 +14,7 @@ export type SettingsGraphSubstrateCanarySectionBodyShellChromeOwner =
   | "shell-layer";
 
 export type SettingsGraphSubstrateCanarySectionBody = {
+  isInOtherProjectConfigs: boolean;
   positionAndSizeLocked: boolean;
   sectionId: string;
   sectionTypeName: SectionType;
@@ -22,6 +24,7 @@ export type SettingsGraphSubstrateCanarySectionBody = {
 };
 
 export function resolveSettingsGraphSubstrateCanarySectionBody({
+  isInOtherProjectConfigs,
   positionAndSizeLocked,
   sectionId,
   sectionTypeName,
@@ -30,6 +33,7 @@ export function resolveSettingsGraphSubstrateCanarySectionBody({
   textBlockMetaControlStyle,
 }: SettingsGraphSubstrateCanarySectionBody): SettingsGraphSubstrateCanarySectionBody {
   return {
+    isInOtherProjectConfigs,
     positionAndSizeLocked,
     sectionId,
     sectionTypeName,
@@ -81,6 +85,7 @@ function useSettingsGraphSubstrateCanarySectionBodySurface(
   sectionBody: SettingsGraphSubstrateCanarySectionBody,
 ): {
   bodySurface: SectionChromeBodySurface;
+  shellLayerSnapshot: SectionContainerShellLayerSnapshot;
   shellLayerOwnsBackground: boolean;
 } {
   const sectionChromeAppearance = useSectionChromeAppearance({
@@ -104,12 +109,22 @@ function useSettingsGraphSubstrateCanarySectionBodySurface(
         sectionTypeName: sectionBody.sectionTypeName,
         useMetaControlStyle: sectionChromeAppearance.useMetaControlStyle,
       }),
+      shellLayerSnapshot: {
+        hasSectionStyleTheme: sectionChromeAppearance.hasSectionStyleTheme,
+        isInOtherProjectConfigs: sectionBody.isInOtherProjectConfigs,
+        positionAndSizeLocked: sectionBody.positionAndSizeLocked,
+        sectionStyleVars: sectionChromeAppearance.sectionStyleVars,
+        sectionTypeName: sectionBody.sectionTypeName,
+      },
       shellLayerOwnsBackground,
     };
   }, [
+    sectionChromeAppearance.hasSectionStyleTheme,
     sectionBody.shellChromeOwner,
+    sectionBody.isInOtherProjectConfigs,
     sectionChromeAppearance.bgColor,
     sectionChromeAppearance.backgroundColor,
+    sectionChromeAppearance.sectionStyleVars,
     sectionChromeAppearance.useMetaControlStyle,
     sectionBody.positionAndSizeLocked,
     sectionBody.sectionTypeName,
@@ -123,8 +138,11 @@ type SettingsGraphSubstrateCanarySectionBodyDomAdapterProps = {
 function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
   sectionBody,
 }: SettingsGraphSubstrateCanarySectionBodyDomAdapterProps) {
-  const { bodySurface: bodySurfaceOverride, shellLayerOwnsBackground } =
-    useSettingsGraphSubstrateCanarySectionBodySurface(sectionBody);
+  const {
+    bodySurface: bodySurfaceOverride,
+    shellLayerOwnsBackground,
+    shellLayerSnapshot,
+  } = useSettingsGraphSubstrateCanarySectionBodySurface(sectionBody);
 
   return (
     <SectionContainer
@@ -134,6 +152,11 @@ function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
       sectionId={sectionBody.sectionId}
       isTopLevel={true}
       shellChromeOwner={sectionBody.shellChromeOwner}
+      shellLayerSnapshot={
+        sectionBody.shellChromeOwner === "shell-layer"
+          ? shellLayerSnapshot
+          : undefined
+      }
       {...getSectionContainerChromeSuppression(sectionBody.shellChromeOwner)}
     />
   );
@@ -142,6 +165,8 @@ function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
 export const SettingsGraphSubstrateCanarySectionBodyDomAdapter = React.memo(
   _SettingsGraphSubstrateCanarySectionBodyDomAdapter,
   (previousProps, nextProps) =>
+    previousProps.sectionBody.isInOtherProjectConfigs ===
+      nextProps.sectionBody.isInOtherProjectConfigs &&
     previousProps.sectionBody.positionAndSizeLocked ===
       nextProps.sectionBody.positionAndSizeLocked &&
     previousProps.sectionBody.sectionId === nextProps.sectionBody.sectionId &&

@@ -1,3 +1,4 @@
+import { recordSettingsGraphSubstrateCanaryMotionAttributionDuration } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
 import React from "react";
@@ -20,10 +21,24 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
-import { SectionContainerCore } from "./SectionContainerCore";
+import {
+  SectionContainerCore,
+  type SectionContainerShellLayerSnapshot,
+} from "./SectionContainerCore";
 import type { SectionContainerHeaderRenderProps } from "./SectionContainerCoreResizabe";
 import type { SectionChromeBodySurface } from "./sectionChrome";
 import { getOutlineColor } from "./utils";
+
+function handleSectionContainerRender(
+  _id: string,
+  _phase: "mount" | "nested-update" | "update",
+  actualDuration: number,
+) {
+  recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+    "presentedSceneSectionContainerReactRender",
+    actualDuration,
+  );
+}
 
 function areBodySurfaceOverridesEqual(
   previousBodySurfaceOverride: SectionChromeBodySurface | undefined,
@@ -60,6 +75,7 @@ function _SectionContainer({
   forceHideFrameBorder = false,
   forceTransparentBorder = false,
   forceHideTopDragHandle = false,
+  shellLayerSnapshot,
 }: {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   forceTransparentBackground?: boolean;
@@ -74,6 +90,7 @@ function _SectionContainer({
   forceHideFrameBorder?: boolean;
   forceTransparentBorder?: boolean;
   forceHideTopDragHandle?: boolean;
+  shellLayerSnapshot?: SectionContainerShellLayerSnapshot;
 }) {
   const {
     visibility,
@@ -95,7 +112,20 @@ function _SectionContainer({
       x,
     );
     const viewMode = getActiveViewModeConfig(x);
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    const shellLayerTypeName =
+      shellChromeOwner === "shell-layer"
+        ? shellLayerSnapshot?.sectionTypeName
+        : undefined;
+    const impl =
+      shellLayerTypeName === undefined
+        ? getCurrEffectiveSectionImpl(x, sectionId)
+        : null;
+    const sectionTypeName = shellLayerTypeName ?? impl?.type;
+    if (!sectionTypeName) {
+      throw new Error(
+        `Missing section type for section container ${sectionId}.`,
+      );
+    }
     const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     let isJoinedAttachedTerminalGroup = false;
     let attachedTerminalId: string | null = null;
@@ -112,15 +142,22 @@ function _SectionContainer({
       visibility,
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
-      isGroup: impl.type === SectionTypeEnum.Group,
-      isCode: isBaseCodeSectionType(impl.type),
-      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
-      isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
+      isGroup: sectionTypeName === SectionTypeEnum.Group,
+      isCode: isBaseCodeSectionType(sectionTypeName),
+      isGenPython: sectionTypeName === SectionTypeEnum.GenPythonCode,
+      isGenPythonMetadata:
+        sectionTypeName === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
-      sectionTypeName: impl.type,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      sectionTypeName,
+      positionAndSizeLocked:
+        shellChromeOwner === "shell-layer" && shellLayerSnapshot
+          ? shellLayerSnapshot.positionAndSizeLocked
+          : impl?.positionAndSizeLocked ?? false,
+      isInOtherProjectConfigs:
+        shellChromeOwner === "shell-layer" && shellLayerSnapshot
+          ? shellLayerSnapshot.isInOtherProjectConfigs
+          : impl?.isInOtherProjectConfigs ?? false,
       attachedTerminalId,
       isJoinedAttachedTerminalGroup,
     };
@@ -138,66 +175,72 @@ function _SectionContainer({
   }
 
   return (
-    <NodeIdProvider value={sectionId}>
-      <ContainerSwitch
-        isGroup={isGroup}
-        sectionId={sectionId}
-        dragListeners={dragListeners}
-        isTopLevel={isTopLevel}
-        visibility={visibility}
-        isEditingViewMode={isEditingViewMode}
-        isUserView={isUserView}
-      >
-        <>
-          {!isGroup && isJoinedAttachedTerminalGroup ? (
-            <JoinedCodeTerminalGroupSectionContainer
-              bodySurfaceOverride={bodySurfaceOverride}
-              forceHideFrameBorder={forceHideFrameBorder}
-              forceHideOutline={forceHideOutline}
-              forceHideTopDragHandle={forceHideTopDragHandle}
-              forceTransparentBackground={forceTransparentBackground}
-              forceTransparentBorder={forceTransparentBorder}
-              headerRenderer={headerRenderer}
-              attachedTerminalId={attachedTerminalId}
-              isInOtherProjectConfigs={isInOtherProjectConfigs}
-              isUserView={isUserView}
-              positionAndSizeLocked={positionAndSizeLocked}
-              sectionId={sectionId}
-              shellChromeOwner={shellChromeOwner}
-            />
-          ) : (
-            <>
-              {!isGroup && (
-                <SectionContainerCore
-                  bodySurfaceOverride={bodySurfaceOverride}
-                  forceTransparentBackground={forceTransparentBackground}
-                  shellChromeOwner={shellChromeOwner}
-                  headerRenderer={headerRenderer}
-                  sectionId={sectionId}
-                  isUserView={isUserView}
-                  forceHideOutline={forceHideOutline}
-                  forceHideFrameBorder={forceHideFrameBorder}
-                  forceTransparentBorder={forceTransparentBorder}
-                  forceHideTopDragHandle={forceHideTopDragHandle}
-                />
-              )}
-              {isCode ? (
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                  layoutVariant="tight"
-                />
-              ) : (
-                <MaybeManyNestedSections
-                  sectionId={sectionId}
-                  isGroup={isGroup}
-                />
-              )}
-            </>
-          )}
-        </>
-      </ContainerSwitch>
-    </NodeIdProvider>
+    <React.Profiler
+      id={`section-container:${sectionId}`}
+      onRender={handleSectionContainerRender}
+    >
+      <NodeIdProvider value={sectionId}>
+        <ContainerSwitch
+          isGroup={isGroup}
+          sectionId={sectionId}
+          dragListeners={dragListeners}
+          isTopLevel={isTopLevel}
+          visibility={visibility}
+          isEditingViewMode={isEditingViewMode}
+          isUserView={isUserView}
+        >
+          <>
+            {!isGroup && isJoinedAttachedTerminalGroup ? (
+              <JoinedCodeTerminalGroupSectionContainer
+                bodySurfaceOverride={bodySurfaceOverride}
+                forceHideFrameBorder={forceHideFrameBorder}
+                forceHideOutline={forceHideOutline}
+                forceHideTopDragHandle={forceHideTopDragHandle}
+                forceTransparentBackground={forceTransparentBackground}
+                forceTransparentBorder={forceTransparentBorder}
+                headerRenderer={headerRenderer}
+                attachedTerminalId={attachedTerminalId}
+                isInOtherProjectConfigs={isInOtherProjectConfigs}
+                isUserView={isUserView}
+                positionAndSizeLocked={positionAndSizeLocked}
+                sectionId={sectionId}
+                shellChromeOwner={shellChromeOwner}
+              />
+            ) : (
+              <>
+                {!isGroup && (
+                  <SectionContainerCore
+                    bodySurfaceOverride={bodySurfaceOverride}
+                    forceTransparentBackground={forceTransparentBackground}
+                    shellChromeOwner={shellChromeOwner}
+                    headerRenderer={headerRenderer}
+                    sectionId={sectionId}
+                    isUserView={isUserView}
+                    forceHideOutline={forceHideOutline}
+                    forceHideFrameBorder={forceHideFrameBorder}
+                    forceTransparentBorder={forceTransparentBorder}
+                    forceHideTopDragHandle={forceHideTopDragHandle}
+                    shellLayerSnapshot={shellLayerSnapshot}
+                  />
+                )}
+                {isCode ? (
+                  <MaybeManyNestedSections
+                    sectionId={sectionId}
+                    isGroup={isGroup}
+                    layoutVariant="tight"
+                  />
+                ) : (
+                  <MaybeManyNestedSections
+                    sectionId={sectionId}
+                    isGroup={isGroup}
+                  />
+                )}
+              </>
+            )}
+          </>
+        </ContainerSwitch>
+      </NodeIdProvider>
+    </React.Profiler>
   );
 }
 export const SectionContainer = React.memo(
@@ -217,6 +260,7 @@ export const SectionContainer = React.memo(
     previousProps.forceHideFrameBorder === nextProps.forceHideFrameBorder &&
     previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
     previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
+    previousProps.shellLayerSnapshot === nextProps.shellLayerSnapshot &&
     _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
 );
 

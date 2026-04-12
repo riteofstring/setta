@@ -49,6 +49,8 @@ function doSettingsGraphSubstrateCanarySectionBodyInputsMatchSceneSection(
   sceneSection: SettingsGraphSubstrateCanarySceneSection,
 ) {
   return (
+    sectionBody.isInOtherProjectConfigs ===
+      (sceneSection.isInOtherProjectConfigs ?? false) &&
     sectionBody.positionAndSizeLocked === sceneSection.positionAndSizeLocked &&
     sectionBody.sectionId === sceneSection.sectionId &&
     sectionBody.sectionTypeName ===
@@ -249,6 +251,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         continue;
       }
       const nextSectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+        isInOtherProjectConfigs: section.isInOtherProjectConfigs ?? false,
         positionAndSizeLocked: section.positionAndSizeLocked,
         sectionId: section.sectionId,
         sectionTypeName: section.sectionTypeName ?? SectionTypeEnum.Code,
@@ -387,6 +390,7 @@ function areSettingsGraphSubstrateCanarySectionBodiesEqual(
   right: SettingsGraphSubstrateCanarySectionBody,
 ) {
   return (
+    left.isInOtherProjectConfigs === right.isInOtherProjectConfigs &&
     left.positionAndSizeLocked === right.positionAndSizeLocked &&
     left.sectionId === right.sectionId &&
     left.sectionTypeName === right.sectionTypeName &&

@@ -17867,3 +17867,128 @@ LOOP_TERMINAL_MARKER: none
       evidence
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-13 15:31 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first; did not continue
+  the prior param-row leaf lane once the canonical probe was healthy again on a
+  fresh runtime
+- landed one bounded attribution slice on canonical target
+  `rotaryParamCodeObjDefault` by splitting the still-broad section-body path
+  above `AreaSwitch` into two new shared canary owners:
+  `presentedSceneSectionContainerReactRender` and
+  `presentedSceneSectionCoreShellLayerReactRender`
+- changed:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+  - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - `perf/reports/frontend/2026-04-13_settings-graph-section-container-shell-layer-attribution.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    -> passed (`3` files, `12` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    -> passed
+  - first live probe after the code change reached the canary and showed the
+    new owners, but failed only because the perf-probe allowlist did not yet
+    include them
+  - second live probe retry failed with
+    `Worktree unhealthy: page already closed before writing normalized compare pane state`
+  - bounded recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> restarted to session `739ed1`
+  - refreshed runtime facts with
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-005/worktree-ai.log`
+  - final rerun:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-005/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.9m`)
+    -> lane readout on the passing run:
+       `presentedSceneSectionSubtreeReactRender`
+       `924.1ms total` / `287.2ms max`
+       `presentedSceneSectionContainerReactRender`
+       `890.8ms total` / `109.1ms max`
+       `presentedSceneSectionCoreShellLayerReactRender`
+       `872.0ms total` / `107.3ms max`
+       `presentedSceneSectionBodySubtreeReactRender`
+       `902.1ms total` / `109.9ms max`
+       `presentedSceneSectionAreaSwitchReactRender`
+       `582.9ms total` / `73.4ms max`
+       `presentedSceneSectionParamGroupContainerReactRender`
+       `538.7ms total` / `68.1ms max`
+       `presentedSceneSectionParamDndListRowsReactRender`
+       `456.3ms total` / `63.8ms max`
+       `presentedSceneSectionParamInputReactRender`
+       `241.0ms total` / `9.2ms max`
+  - fresh-context CDP smoke attempt via sub-agent:
+    -> blocked
+    -> `list_pages` hung before attaching to the debug browser, so no visual
+       smoke result or console inspection was available
+- reading:
+  - the next product frontier on this lane is above `AreaSwitch`, in the
+    section-container / shell-layer core path, not another param-row leaf
+  - this iteration should remain non-terminal because the required CDP visual
+    gate is still blocked after the one allowed recovery
+  - no commit was created in this iteration
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-13 15:55 UTC
+
+- reread `RALPH.md`, the rewrite plan, and the handoff first; did not continue
+  the attribution-only pattern after item `436` because the next meaningful
+  lane was a real product cut above `AreaSwitch`
+- landed one bounded production slice on canonical target
+  `rotaryParamCodeObjDefault` by reusing the canary-resolved shell-layer
+  snapshot inside `SectionContainer` / `SectionContainerCore` instead of
+  re-subscribing to duplicate section chrome state in the shell-layer DOM path
+- changed:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+  - `perf/reports/frontend/2026-04-13_settings-graph-shell-layer-snapshot-reuse.md`
+- focused verification:
+  - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    -> passed (`3` files, `10` tests)
+  - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    -> passed
+  - canonical rerun:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-006/worktree-ai.log`
+    -> passed (`1` Playwright test, `1.3m`)
+    -> lane readout on the passing run:
+       `presentedSceneSectionSubtreeReactRender`
+       `843.0ms total` / `215.4ms max`
+       `presentedSceneSectionContainerReactRender`
+       `815.0ms total` / `109.7ms max`
+       `presentedSceneSectionCoreShellLayerReactRender`
+       `796.0ms total` / `107.2ms max`
+       `presentedSceneSectionBodySubtreeReactRender`
+       `825.2ms total` / `111.2ms max`
+  - first fresh-context CDP smoke attempt via sub-agent:
+    -> blocked
+    -> browser MCP bridge unavailable in that fresh session
+  - bounded recovery:
+    `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    -> restarted to session `7b7c7f`
+  - refreshed runtime facts with
+    `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-006/worktree-ai.log`
+  - second fresh-context CDP smoke attempt via sub-agent:
+    -> passed
+    -> authenticated bootstrap loaded, `Settings` -> `All Settings` rendered,
+       the settings graph canary mounted, and `rotaryParamCodeObjDefault` was
+       present at normal zoom
+    -> console noise limited to two favicon `404`s plus one React Router
+       future-flag warning
+- reading:
+  - this slice improved the live shell-layer/container totals but the hottest
+    remaining owner is still the broader section subtree path
+  - keep the canonical target section `rotaryParamCodeObjDefault`
+  - next pass should stay above `AreaSwitch` and explain the remaining
+    `~215ms` max commit instead of reopening param-row leaves
+
+LOOP_TERMINAL_MARKER: none

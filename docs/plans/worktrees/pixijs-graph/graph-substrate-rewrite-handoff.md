@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-13 15:10 UTC
+Last updated: 2026-04-13 15:55 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,191 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `437` landed one bounded production slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by reusing the canary-resolved
+  shell-layer snapshot inside `SectionContainer` / `SectionContainerCore`
+  instead of re-subscribing to duplicate shell chrome state in the mounted DOM
+  body path:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and did not continue the recent
+      attribution-only pattern now that item `436` had already isolated the
+      remaining hot path above `AreaSwitch`
+    - chose one bounded product cut on that exact lane by feeding the
+      shell-layer path with the canary's own section chrome snapshot instead of
+      taking another param-row or harness-only guess
+    - kept the slice bounded to the shell-layer snapshot path, focused jsdom
+      coverage, one live canonical rerun, one append-only perf note, and the
+      required fresh-context CDP smoke check after the allowed lifecycle
+      recovery
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      so the canary body model now carries `isInOtherProjectConfigs` and
+      resolves one reusable shell-layer snapshot for the mounted DOM path
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      so the shell-layer canary path can use the provided snapshot instead of
+      re-reading duplicate section type / chrome metadata from store
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      so the shell-layer core has a snapshot-backed branch and only keeps the
+      narrow attached-terminal subscription when the snapshot is present
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      and `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+      with focused regression coverage for the snapshot path
+    - `perf/reports/frontend/2026-04-13_settings-graph-shell-layer-snapshot-reuse.md`
+      with the before/after live probe readout
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      -> passed (`3` files, `10` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      -> passed
+    - canonical live rerun:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-006/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.3m`)
+      -> direct-open phases:
+         `51ms app_router_loading` -> `2257ms settings_loading` ->
+         `3916ms app_shell_without_surface` -> `7434ms project_loading` ->
+         `19596ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> lane readout on the passing run:
+         `presentedSceneSectionSubtreeReactRender`
+         `843.0ms total` / `215.4ms max`
+         `presentedSceneSectionContainerReactRender`
+         `815.0ms total` / `109.7ms max`
+         `presentedSceneSectionCoreShellLayerReactRender`
+         `796.0ms total` / `107.2ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `825.2ms total` / `111.2ms max`
+         `presentedSceneSectionBodyContentReactRender`
+         `514.8ms total` / `77.2ms max`
+         `presentedSceneSectionAreaSwitchReactRender`
+         `509.8ms total` / `76.2ms max`
+    - first fresh-context CDP smoke attempt via sub-agent:
+      -> blocked
+      -> browser MCP bridge unavailable in that fresh session
+    - allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree to session `7b7c7f` on `3075` / `8075`
+    - refreshed runtime facts with:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-006/worktree-ai.log`
+    - second fresh-context CDP smoke attempt via sub-agent:
+      -> passed
+      -> authenticated bootstrap loaded, `Settings` -> `All Settings`
+         rendered, the settings graph canary mounted, and
+         `rotaryParamCodeObjDefault` was present at normal zoom
+      -> console noise limited to two favicon `404`s during bootstrap plus one
+         React Router future-flag warning
+  - reading:
+    - this slice reduced the shell-layer/container totals on the live canary,
+      but the worst single commit is still broad enough that the next pass
+      should stay on the section subtree / container lane rather than reopening
+      param-row guesses
+    - keep canonical target section `rotaryParamCodeObjDefault`
+    - the CDP smoke gate is no longer blocked on this slice
+  - next default frontier:
+    - keep the canonical lane and take the next bounded product or attribution
+      cut inside the remaining `presentedSceneSectionSubtreeReactRender` /
+      section-container path above `AreaSwitch`, with emphasis on whichever
+      owner still explains the `~215ms` max commit
+
+- item `436` landed one bounded attribution slice on the canonical
+  `rotaryParamCodeObjDefault` canary lane by splitting the still-broad
+  section-body path above `AreaSwitch` into section-container and shell-layer
+  core owners:
+  - local ranking/readout for this iteration:
+    - reread the active plan/handoff first and did not continue the prior
+      param-row leaf pattern once a fresh runtime made the canonical probe
+      healthy again
+    - used the fresh live readout to pick one bounded attribution cut inside
+      the remaining broad section-body subtree instead of another row-child
+      hypothesis
+    - kept the slice bounded to shared canary owner expansion, focused unit
+      coverage, allowlist updates for the existing worktree/main-reference
+      perf probes, one perf note, one successful canonical rerun after the
+      allowed lifecycle recovery, and one fresh-context CDP smoke attempt
+  - code changed in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+      with new owners
+      `presentedSceneSectionContainerReactRender` and
+      `presentedSceneSectionCoreShellLayerReactRender`
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      with a profiler around the top-level section container path
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      with a profiler around the shell-layer section core path
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`,
+      `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`,
+      and
+      `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      with focused regression coverage
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` and
+      `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      so the canonical perf probes allow the two new owners
+    - `perf/reports/frontend/2026-04-13_settings-graph-section-container-shell-layer-attribution.md`
+      with the live readout and recovery note
+  - focused verification:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+      -> passed (`3` files, `12` tests)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCore.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      -> passed
+    - first live probe after the code change reached the canary and exposed the
+      new owners, but failed only because the probe allowlist still rejected
+      them
+    - second live probe retry hit the recurring worktree lifecycle failure:
+      `Worktree unhealthy: page already closed before writing normalized compare pane state`
+    - allowed recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> restarted the worktree to session `739ed1` on `3075` / `8075`
+    - refreshed runtime facts with:
+      `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.pixijs-graph/. --runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-005/worktree-ai.log`
+    - final canonical rerun after recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.wUe785/loop-001/run-005/worktree-ai.log`
+      -> passed (`1` Playwright test, `1.9m`)
+      -> direct-open phases:
+         `103ms app_router_loading` -> `1767ms settings_loading` ->
+         `2849ms app_shell_without_surface` -> `6900ms project_loading` ->
+         `12218ms surface_ready`
+      -> canonical target stayed `rotaryParamCodeObjDefault`
+      -> dominant owner stayed `presentedSceneSectionSubtreeReactRender`
+         (`924.1ms total` / `287.2ms max`)
+      -> new owner split:
+         `presentedSceneSectionContainerReactRender`
+         `890.8ms total` / `109.1ms max`
+         `presentedSceneSectionCoreShellLayerReactRender`
+         `872.0ms total` / `107.3ms max`
+         `presentedSceneSectionBodySubtreeReactRender`
+         `902.1ms total` / `109.9ms max`
+         `presentedSceneSectionAreaSwitchReactRender`
+         `582.9ms total` / `73.4ms max`
+         `presentedSceneSectionParamGroupContainerReactRender`
+         `538.7ms total` / `68.1ms max`
+         `presentedSceneSectionParamDndListRowsReactRender`
+         `456.3ms total` / `63.8ms max`
+         `presentedSceneSectionParamInputReactRender`
+         `241.0ms total` / `9.2ms max`
+    - fresh-context CDP smoke attempt:
+      -> blocked
+      -> the required sub-agent reported
+         `list_pages` hung before it could attach to the debug browser, so the
+         visual smoke check could not be completed
+  - reading:
+    - the remaining cost on the canonical lane is concentrated in the
+      top-level section container and shell-layer section core path above
+      `AreaSwitch`
+    - do not take another param-row product guess until a shell-layer /
+      section-container product cut or selector split is evaluated
+    - automated coverage and the canonical Playwright perf probe are green for
+      this slice, but the required CDP visual gate is still outstanding because
+      the DevTools MCP transport did not attach cleanly after the one allowed
+      recovery
+    - keep canonical target section `rotaryParamCodeObjDefault`
+  - next default frontier:
+    - start the next iteration by retrying the required fresh-context CDP smoke
+      check on the live worktree; if CDP attaches cleanly, keep the current
+      lane and take the next bounded shell-layer / section-container product or
+      selector cut above `AreaSwitch`
+    - if Chrome DevTools MCP still cannot attach on the fresh pass, keep the
+      tooling blocker explicit instead of claiming visual verification
 
 - item `435` landed one bounded production slice on the canonical
   `rotaryParamCodeObjDefault` canary lane by stabilizing the hot

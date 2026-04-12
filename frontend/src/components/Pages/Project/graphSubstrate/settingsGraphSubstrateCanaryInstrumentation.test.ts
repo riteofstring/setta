@@ -169,6 +169,14 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       3.25,
     );
     recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionContainerReactRender",
+      1.25,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
+      "presentedSceneSectionCoreShellLayerReactRender",
+      2.75,
+    );
+    recordSettingsGraphSubstrateCanaryMotionAttributionDuration(
       "presentedSceneSectionSubtreeReactRender",
       2.25,
     );
@@ -274,6 +282,20 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       count: 1,
       maxDurationMs: 2.25,
       totalDurationMs: 2.25,
+    });
+    expect(motionAttribution.presentedSceneSectionContainerReactRender).toEqual(
+      {
+        count: 1,
+        maxDurationMs: 1.25,
+        totalDurationMs: 1.25,
+      },
+    );
+    expect(
+      motionAttribution.presentedSceneSectionCoreShellLayerReactRender,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 2.75,
+      totalDurationMs: 2.75,
     });
     expect(motionAttribution.presentedSceneSectionCodeAreaReactRender).toEqual({
       count: 1,

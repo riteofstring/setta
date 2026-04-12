@@ -1,6 +1,11 @@
 /* @vitest-environment jsdom */
 
 import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
+import {
   act,
   Profiler,
   type ComponentProps,
@@ -231,6 +236,7 @@ describe("SectionContainerCore", () => {
 
   afterEach(() => {
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     document.body.innerHTML = "";
   });
 
@@ -340,6 +346,75 @@ describe("SectionContainerCore", () => {
       );
       expect(shell?.dataset.shellChromeOwner).toBe("shell-layer");
       expect(shell?.className).toContain("z-10");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("uses the provided shell-layer snapshot to stay out of unrelated impl commits", async () => {
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderSectionContainerCore(onRender, {
+      shellChromeOwner: "shell-layer",
+      shellLayerSnapshot: {
+        hasSectionStyleTheme: false,
+        isInOtherProjectConfigs: false,
+        positionAndSizeLocked: false,
+        sectionStyleVars: undefined,
+        sectionTypeName: SectionTypeEnum.Code,
+      },
+    });
+
+    try {
+      const initialCommitCount = onRender.mock.calls.length;
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          const impl = state.sectionImpls["impl-a"];
+          if (!impl || impl.type !== SectionTypeEnum.Code) {
+            throw new Error("Missing impl-a code section impl");
+          }
+          impl.isInOtherProjectConfigs = true;
+          impl.styleColor = "amber";
+        });
+      });
+
+      expect(onRender).toHaveBeenCalledTimes(initialCommitCount);
+      const shell = host.querySelector<HTMLElement>(
+        "[data-section-id='section-a']",
+      );
+      expect(shell?.dataset.shellChromeOwner).toBe("shell-layer");
+      expect(shell?.dataset.sectionType).toBe(SectionTypeEnum.Code);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("records shell-layer core attribution when canary motion capture is active", async () => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderSectionContainerCore(onRender, {
+      shellChromeOwner: "shell-layer",
+    });
+
+    try {
+      expect(
+        readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+          .motionAttribution.presentedSceneSectionCoreShellLayerReactRender
+          .count,
+      ).toBeGreaterThan(0);
+      expect(
+        host.querySelector(
+          '[data-testid="mock-section-container-core-resizable"]',
+        ),
+      ).not.toBeNull();
     } finally {
       await act(async () => {
         root.unmount();

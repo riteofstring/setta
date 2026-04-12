@@ -24,6 +24,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       forceHideTopDragHandle,
       headerRenderer,
       isTopLevel,
+      shellLayerSnapshot,
       shellChromeOwner,
     }: {
       bodySurfaceOverride?: {
@@ -40,6 +41,12 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       forceTransparentBorder?: boolean;
       headerRenderer?: unknown;
       isTopLevel?: boolean;
+      shellLayerSnapshot?: {
+        hasSectionStyleTheme: boolean;
+        isInOtherProjectConfigs: boolean;
+        positionAndSizeLocked: boolean;
+        sectionTypeName: string;
+      };
       shellChromeOwner?: string;
       sectionId: string;
     }) => (
@@ -57,6 +64,10 @@ const { mockSectionContainer } = vi.hoisted(() => ({
         }
         data-is-top-level={isTopLevel ? "true" : "false"}
         data-shell-chrome-owner={shellChromeOwner ?? ""}
+        data-shell-snapshot-type={shellLayerSnapshot?.sectionTypeName ?? ""}
+        data-shell-snapshot-in-other-project-configs={
+          shellLayerSnapshot?.isInOtherProjectConfigs ? "true" : "false"
+        }
         data-surface-bg-color={bodySurfaceOverride?.bgColor ?? ""}
         data-surface-layout={
           bodySurfaceOverride?.surfaceDecorations.layout ?? ""
@@ -121,6 +132,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
   it("suppresses duplicate DOM shell chrome when the shell layer owns the shell visuals", async () => {
     const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+      isInOtherProjectConfigs: true,
       positionAndSizeLocked: false,
       sectionId: "section-a",
       sectionTypeName: SectionTypeEnum.Code,
@@ -154,12 +166,20 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
       isTopLevel: true,
       headerRenderer: SettingsGraphSubstrateCanarySectionHeaderDomAdapter,
       shellChromeOwner: "shell-layer",
+      shellLayerSnapshot: {
+        hasSectionStyleTheme: false,
+        isInOtherProjectConfigs: true,
+        positionAndSizeLocked: false,
+        sectionStyleVars: undefined,
+        sectionTypeName: SectionTypeEnum.Code,
+      },
       sectionId: "section-a",
     });
   });
 
   it("keeps the DOM body chrome enabled when the section body owns the shell chrome", async () => {
     const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+      isInOtherProjectConfigs: false,
       positionAndSizeLocked: false,
       sectionId: "section-b",
       sectionTypeName: SectionTypeEnum.Code,

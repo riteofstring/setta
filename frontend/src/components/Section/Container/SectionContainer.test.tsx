@@ -1,6 +1,11 @@
 /* @vitest-environment jsdom */
 
 import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
+import {
   act,
   Profiler,
   type ProfilerOnRenderCallback,
@@ -137,6 +142,7 @@ describe("SectionContainer", () => {
 
   afterEach(() => {
     resetProjectStores();
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
     document.body.innerHTML = "";
   });
 
@@ -159,6 +165,29 @@ describe("SectionContainer", () => {
         host.querySelector('[data-testid="mock-section-container-core"]')
           ?.textContent,
       ).toBe("core:section-1");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("records section-container attribution when canary motion capture is active", async () => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+    const onRender = vi.fn<ProfilerOnRenderCallback>();
+    const { host, root } = await renderProfiledContainer(onRender);
+
+    try {
+      expect(
+        readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+          .motionAttribution.presentedSceneSectionContainerReactRender.count,
+      ).toBeGreaterThan(0);
+      expect(
+        host.querySelector('[data-testid="mock-section-container-core"]'),
+      ).not.toBeNull();
     } finally {
       await act(async () => {
         root.unmount();
