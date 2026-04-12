@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-12 22:22 UTC
+Last updated: 2026-04-12 23:54 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,49 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `357` landed one bounded worktree-only motion probe recovery on the
+  canonical `rotaryParamCodeObjDefault` lane:
+
+  - no product renderer code changed in this slice
+  - support/probe code changed in:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      with a dedicated live-worktree motion probe for the normalized
+      `All Settings` canary lane
+    - `scripts/run-settings-graph-worktree-probe.sh`
+      so the probe resolves current worktree runtime facts before running
+    - `frontend/tests/e2e/global-setup.ts`
+      so bootstrap now polls for the already-settled authenticated shell URL
+      instead of relying on a navigation event that this runtime can miss
+  - recorded the slice in:
+    - `perf/reports/frontend/2026-04-12_settings-graph-worktree-only-motion-probe.md`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-046/worktree-ai.log`
+      -> passed (`1` test, `1.4m`)
+      -> produced a fresh live worktree attribution sample on the canonical lane
+  - reading:
+    - this recovers the "worktree-only measurement path" option that item
+      `356` explicitly allowed after closing the unstable cross-worktree lane
+    - the current live ranking changed materially:
+      - dominant owner `interactionMiscStateSync` (`11` calls, `1.0ms` total)
+      - `interactionReactFlowStateSync` dropped to `0` calls / `0ms`
+      - secondary residuals are `pixiDrawableModelResolve` (`36` calls,
+        `0.8ms`) plus `presentedSceneBodyMountFilter` and
+        `presentedSceneSectionVisibilityFilter` (`40` calls, `0.5ms` each)
+      - `reactFlowViewportPublish`,
+        `reactFlowTransformSubscriptionCallback`, and
+        `reactFlowTransformFollowerCallback` all remained `0`
+    - next default frontier:
+      - stop choosing blind `interactionReactFlowStateSync` micro-splits by
+        default
+      - isolate the concrete mounted surfaces or shared writes inside
+        `interactionMiscStateSync` on the same named
+        `rotaryParamCodeObjDefault` lane
+      - keep `pixiDrawableModelResolve` and the presented-scene filters as the
+        current secondary residuals if local attribution shows
+        `interactionMiscStateSync` is already narrow
 
 - item `356` closed the canonical `rotaryParamCodeObjDefault` main-reference
   probe lane as unstable for default sequencing after one fresh post-reduction

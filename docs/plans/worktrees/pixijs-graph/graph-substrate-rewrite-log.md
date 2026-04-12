@@ -75,6 +75,47 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-12 23:54 UTC
+
+- item `357` landed one bounded worktree-only motion probe recovery on the
+  canonical `rotaryParamCodeObjDefault` lane:
+  - added a dedicated live-worktree motion probe in
+    `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - added `scripts/run-settings-graph-worktree-probe.sh` so the probe resolves
+    current runtime facts from `dev-runtime-info.sh`
+  - fixed `frontend/tests/e2e/global-setup.ts` so bootstrap polls for the
+    expected authenticated shell URL instead of relying on a navigation event
+    that can already be missed on this runtime
+  - recorded the slice in
+    `perf/reports/frontend/2026-04-12_settings-graph-worktree-only-motion-probe.md`
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/global-setup.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.txhNpj/loop-001/run-046/worktree-ai.log`
+    - passed (`1` test, `1.4m`)
+    - produced a fresh live worktree sample:
+      - dominant owner `interactionMiscStateSync` (`11` calls, `1.0ms`)
+      - `interactionReactFlowStateSync`: `0` calls, `0ms`
+      - `pixiDrawableModelResolve`: `36` calls, `0.8ms`
+      - `presentedSceneBodyMountFilter`: `40` calls, `0.5ms`
+      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.5ms`
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+- Result:
+  - the worktree-only measurement path is now healthy enough to provide fresh
+    numeric attribution without reopening the unstable cross-worktree default
+    lane
+  - this runtime no longer supports continuing blind
+    `interactionReactFlowStateSync` micro-splits as the default frontier
+- Next:
+  - isolate the concrete mounted surfaces or shared writes inside
+    `interactionMiscStateSync` on the named `rotaryParamCodeObjDefault` lane,
+    with `pixiDrawableModelResolve` and presented-scene filters as secondary
+    residuals if the misc-state owner is already narrow
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-12 22:22 UTC
 
 - item `356` closed the canonical `rotaryParamCodeObjDefault` main-reference

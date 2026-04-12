@@ -1,4 +1,4 @@
-import type { ConsoleMessage } from "@playwright/test";
+import type { ConsoleMessage, Page } from "@playwright/test";
 import { chromium, type FullConfig } from "@playwright/test";
 
 const BACKEND_ORIGIN =
@@ -73,12 +73,7 @@ async function globalSetup(config: FullConfig) {
     );
     const expectedProjectUrl = new URL(PROJECT_URL);
     if (!matchesExpectedProjectUrl(page.url(), expectedProjectUrl)) {
-      await page.waitForURL(
-        (url) => {
-          return matchesExpectedProjectUrl(url.toString(), expectedProjectUrl);
-        },
-        { waitUntil: "domcontentloaded" },
-      );
+      await waitForExpectedProjectUrl(page, expectedProjectUrl, 30000);
     }
     // `.app-shell` exists in static index.html, but `.setta-titlebar-offset` only
     // appears once React renders `AppShell`.
@@ -109,6 +104,23 @@ async function globalSetup(config: FullConfig) {
 }
 
 export default globalSetup;
+
+async function waitForExpectedProjectUrl(
+  page: Page,
+  expectedProjectUrl: URL,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (matchesExpectedProjectUrl(page.url(), expectedProjectUrl)) {
+      return;
+    }
+    await page.waitForTimeout(250);
+  }
+  throw new Error(
+    `Timed out waiting for expected project URL. Current URL: ${page.url()}`,
+  );
+}
 
 async function waitForBackend(
   origin: string,

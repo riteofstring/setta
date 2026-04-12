@@ -18,8 +18,11 @@ import {
   normalizeSettingsGraphComparePaneState,
   readSettingsGraphCanaryInstrumentationSnapshot,
   runSettingsGraphComparePreflight,
+  runSettingsGraphMotionPerfSequence,
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
+  startSettingsGraphMotionPerfCapture,
+  stopSettingsGraphMotionPerfCapture,
   type ProjectStateSingleConfigWithCompletedOpIds,
 } from "./graphSubstrateParityProbe";
 
@@ -434,6 +437,175 @@ test("settings graph substrate canary exposes live instrumentation on normalized
     ).catch(() => null);
     if (restoredState) {
       await applyProjectStateUpdate(page, restoredState).catch(() => {});
+    }
+  }
+});
+
+test("settings graph worktree performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on the live canary", async ({
+  page,
+}) => {
+  test.slow();
+  test.setTimeout(180000);
+
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await waitForInitialSettingsGraphReady(page);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const initialViewport = initialState.projectState.projectConfig.viewport;
+  const initialPaneState = await getLocalPaneState(page).catch(() => null);
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const targetSectionName = "rotaryParamCodeObjDefault";
+  const targetSectionId = findSectionIdByName(initialState, targetSectionName);
+  const readSettledMetrics = async () => {
+    await expect
+      .poll(async () => {
+        const metrics = await captureSettingsGraphSectionMetrics(
+          page,
+          targetSectionId,
+        );
+        return metrics.rect && metrics.transform && metrics.titleRect
+          ? "ready"
+          : "pending";
+      })
+      .toBe("ready");
+
+    return captureSettingsGraphSectionMetrics(page, targetSectionId);
+  };
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const normalizedState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, normalizedState);
+
+    const preflight = await runSettingsGraphComparePreflight({
+      expectedSurfaceKind: "canary",
+      expectedViewModeName: "All Settings",
+      page,
+      projectConfigId,
+      requireFitView: true,
+      side: "worktree",
+      targetSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(targetSectionId);
+
+    const beforeMetrics = await readSettledMetrics();
+
+    const motionPoint = await findSettingsGraphPanePoint(page);
+    await startSettingsGraphMotionPerfCapture(page);
+    await runSettingsGraphMotionPerfSequence(page, {
+      modifierKey: MOD_KEY,
+      point: motionPoint,
+      settleFrameCount: 2,
+      steps: [
+        { deltaX: 160, deltaY: 120, modified: false, repeat: 6 },
+        { deltaX: -160, deltaY: -120, modified: false, repeat: 6 },
+        { deltaX: 0, deltaY: -180, modified: true, repeat: 4 },
+        { deltaX: 0, deltaY: 180, modified: true, repeat: 4 },
+      ],
+    });
+    const perf = await stopSettingsGraphMotionPerfCapture(
+      page,
+      targetSectionId,
+    );
+
+    const afterMetrics = await readSettledMetrics();
+
+    console.info(
+      "settings-graph-worktree-performance-probe",
+      JSON.stringify(
+        {
+          afterMetrics,
+          beforeMetrics,
+          perf,
+          targetSectionId,
+          targetSectionName,
+        },
+        null,
+        2,
+      ),
+    );
+
+    expect(perf.surfaceKind).toBe("canary");
+    expect(perf.sampleCount).toBeGreaterThanOrEqual(20);
+    expect(perf.pageHiddenDuringCapture).toBe(false);
+    expect(perf.visibilityLossCount).toBe(0);
+    expect(perf.hiddenDurationMs).toBe(0);
+    expect(perf.focusLossCount).toBe(0);
+    expect(perf.endedVisible).toBe(true);
+    expect(perf.motionAttribution).not.toBeNull();
+    expect(perf.rootDomNodeCount).toBeGreaterThan(0);
+    expect(perf.sectionDomNodeCount).toBeGreaterThan(0);
+    expect(perf.visibleSectionCount).toBeGreaterThan(0);
+    expect(perf.transform).not.toBeNull();
+
+    const allowedResidualCanaryMotionOwners = [
+      "interactionMiscStateSync",
+      "interactionReactFlowStateSync",
+      "pixiDrawableModelResolve",
+      "pixiViewportPresent",
+      "presentedSceneBodyMountFilter",
+      "presentedSceneSectionVisibilityFilter",
+      "presentedSceneVisibleViewportWorldRectResolve",
+    ] as const;
+    const unexpectedCanaryMotionOwners = Object.entries(
+      perf.motionAttribution ?? {},
+    )
+      .filter(([owner, entry]) => {
+        return (
+          !allowedResidualCanaryMotionOwners.includes(
+            owner as (typeof allowedResidualCanaryMotionOwners)[number],
+          ) &&
+          (entry.count > 0 ||
+            entry.totalDurationMs > 0 ||
+            entry.maxDurationMs > 0)
+        );
+      })
+      .map(([owner]) => owner);
+
+    expect(perf.motionAttribution?.reactFlowViewportPublish.count ?? 0).toBe(0);
+    expect(
+      perf.motionAttribution?.reactFlowTransformSubscriptionCallback.count ?? 0,
+    ).toBe(0);
+    expect(
+      perf.motionAttribution?.reactFlowTransformFollowerCallback.count ?? 0,
+    ).toBe(0);
+    expect(unexpectedCanaryMotionOwners).toEqual([]);
+    expect([null, ...allowedResidualCanaryMotionOwners]).toContain(
+      perf.dominantCanaryMotionAttributionOwner,
+    );
+    expect(beforeMetrics.surfaceKind).toBe("canary");
+    expect(afterMetrics.surfaceKind).toBe("canary");
+    expect(beforeMetrics.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(afterMetrics.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(beforeMetrics.titleRect?.width ?? 0).toBeGreaterThan(0);
+    expect(afterMetrics.titleRect?.width ?? 0).toBeGreaterThan(0);
+  } finally {
+    if (initialPaneState) {
+      await setLocalPaneState(page, initialPaneState).catch(() => {});
+    }
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialViewport,
+    }).catch(() => {});
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      }).catch(() => {});
     }
   }
 });
