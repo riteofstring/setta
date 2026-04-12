@@ -16,7 +16,7 @@ const inFlightWorkspacePythonSignalLoads = new Map<
   string,
   Promise<boolean | null>
 >();
-export function getCachedWorkspacePythonSignal(
+function getCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
   rootPath: string,
   nowMs: number = Date.now(),
@@ -39,7 +39,7 @@ export function getCachedWorkspacePythonSignal(
   }
   return cached.hasPython;
 }
-export function setCachedWorkspacePythonSignal(
+function setCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
   rootPath: string,
   hasPython: boolean,
