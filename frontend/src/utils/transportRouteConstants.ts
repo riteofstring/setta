@@ -47,15 +47,6 @@ export function buildBinaryDownloadRoute(contentId: string): string {
   });
 }
 
-export function buildListenerWebsocketRoute(listenerId: string): string {
-  return replaceTransportRoutePathParams(
-    WEBSOCKET_TRANSPORT_ROUTES.listenerById,
-    {
-      listenerID: listenerId,
-    },
-  );
-}
-
 export function buildTerminalWebsocketRoute(
   projectConfigId: string,
   sectionId: string,

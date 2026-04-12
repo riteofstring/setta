@@ -1,5 +1,4 @@
 import {
-  buildListenerWebsocketRoute,
   buildTerminalWebsocketRoute,
   ROOT_TRANSPORT_ROUTES,
   WEBSOCKET_TRANSPORT_ROUTES,
@@ -8,12 +7,6 @@ import {
   buildBackendOriginURL as buildBackendOriginURLInternal,
   buildBackendOriginWebsocketURL as buildBackendOriginWebsocketURLInternal,
 } from "./transportUrlCore";
-
-type BuildListenerWebsocketUrlOptions = {
-  listenerId: string;
-  projectConfigId: string;
-  shareSessionId: string | null;
-};
 
 type BuildTerminalWebsocketUrlOptions = {
   projectConfigId: string;
@@ -51,20 +44,6 @@ export function buildFrontendWebsocketUrl(
   return buildBackendOriginWebsocketURL(FRONTEND_WEBSOCKET_ROUTE, {
     shareSessionId: shareSessionId ?? undefined,
   });
-}
-
-export function buildListenerWebsocketUrl({
-  listenerId,
-  projectConfigId,
-  shareSessionId,
-}: BuildListenerWebsocketUrlOptions): string {
-  return buildBackendOriginWebsocketURL(
-    buildListenerWebsocketRoute(listenerId),
-    {
-      projectId: projectConfigId,
-      shareSessionId: shareSessionId ?? undefined,
-    },
-  );
 }
 
 export function buildTerminalWebsocketUrl({

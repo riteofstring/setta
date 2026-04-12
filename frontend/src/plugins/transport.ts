@@ -1,13 +1,4 @@
-import {
-  buildBackendOriginURL,
-  buildListenerWebsocketUrl,
-} from "utils/backendOriginTransport";
-
-type BuildPluginListenerWebsocketUrlOptions = {
-  listenerId: string;
-  projectConfigId: string;
-  shareSessionId: string | null;
-};
+import { buildBackendOriginURL } from "utils/backendOriginTransport";
 
 export function buildPluginAssetUrl(url: string | null): string | null {
   if (!url) {
@@ -20,16 +11,4 @@ export function buildPluginAssetUrl(url: string | null): string | null {
     return buildBackendOriginURL(url);
   }
   return url;
-}
-
-function buildPluginListenerWebsocketUrl({
-  listenerId,
-  projectConfigId,
-  shareSessionId,
-}: BuildPluginListenerWebsocketUrlOptions): string {
-  return buildListenerWebsocketUrl({
-    listenerId,
-    projectConfigId,
-    shareSessionId,
-  });
 }
