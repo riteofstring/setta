@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import {
   createAgentRun,
-  createAllConfigs,
+  createAllLLMConfigs,
   createEngineConfig,
+  createExternalAgentPreflightStatus,
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
@@ -20,31 +20,9 @@ import {
   resolveAgentNativeSlashCommandsByEngineId,
   resolveMcpServerStatus,
   resolveVisibleAgentNativeSlashCommandsByEngineId,
+  SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
-
-function buildExternalAgentPreflightStatus(
-  overrides: Partial<HttpapiExternalAgentPreflightStatus> = {},
-): HttpapiExternalAgentPreflightStatus {
-  return {
-    available: true,
-    baseUrl: null,
-    cliVersion: null,
-    configId: "external-agent-config",
-    envVars: {
-      missing: [],
-      present: [],
-    },
-    issues: [],
-    name: "Codex",
-    runMode: "subprocess",
-    sdkVersion: null,
-    supported: true,
-    toolType: "codex",
-    workingDir: null,
-    ...overrides,
-  };
-}
 
 describe("projectChatSkillsMcpViewerUtils", () => {
   it("filters skills by name/path/root/description", () => {
@@ -205,44 +183,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ).toBe("codex_skill_tool");
   });
 
-  it("marks codex skills active when tool messages carry structured skill arguments", () => {
-    const statuses = buildSkillStatusBySkillId({
-      skills: [
-        {
-          skillId: "workspace_agents_skills::frontend-design",
-          name: "frontend-design",
-          rootLabel: "Workspace .agents/skills",
-          rootPath: "/workspace/.agents/skills",
-          relativePath: "frontend-design",
-          isEditable: true,
-          editabilityReason: null,
-          description: "Create polished frontend interfaces.",
-        },
-      ],
-      engineType: "external_agent",
-      externalAgentToolType: "codex",
-      messages: [
-        {
-          id: "tool-1",
-          role: "tool",
-          tool_name: "mcp__codex__skill",
-          arguments: JSON.stringify({
-            skillName: "frontend-design",
-          }),
-          content: [],
-          attachments: [],
-        },
-      ],
-    });
-
-    expect(
-      statuses["workspace_agents_skills::frontend-design"]?.activityState,
-    ).toBe("active");
-    expect(
-      statuses["workspace_agents_skills::frontend-design"]?.activitySource,
-    ).toBe("codex_skill_tool");
-  });
-
   it("fails closed when multiple skills match the same runtime identifier", () => {
     const statuses = buildSkillStatusBySkillId({
       skills: [
@@ -358,6 +298,63 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
+  it("keeps cross-ecosystem duplicates active only for the applicable opencode root", () => {
+    const statuses = buildSkillStatusBySkillId({
+      skills: [
+        {
+          skillId: "workspace_opencode_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .opencode/skills",
+          rootPath: "/workspace/.opencode/skills",
+          relativePath: "triage",
+          isEditable: false,
+          editabilityReason: null,
+          description: "OpenCode triage instructions.",
+        },
+        {
+          skillId: "workspace_claude_skills::triage",
+          name: "triage",
+          rootLabel: "Workspace .claude/skills",
+          rootPath: "/workspace/.claude/skills",
+          relativePath: "triage",
+          isEditable: false,
+          editabilityReason: null,
+          description: "Claude triage instructions.",
+        },
+      ],
+      engineType: "external_agent",
+      externalAgentToolType: "opencode",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "skill/triage",
+                arguments: {},
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(statuses["workspace_opencode_skills::triage"]?.activityState).toBe(
+      "active",
+    );
+    expect(statuses["workspace_opencode_skills::triage"]?.activitySource).toBe(
+      "opencode_skill_tool",
+    );
+    expect(statuses["workspace_claude_skills::triage"]?.activityState).toBe(
+      "inactive",
+    );
+  });
+
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
@@ -401,9 +398,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
       mcpConfigPath: "/tmp/workspace/setta_files_dev/llm_config.json",
       settaFilesLocation: "custom",
-      runtimeServers: [
+      externalRuntimeServers: [
         {
           serverId: "codex-remote",
+          source: "external_agent",
           transport: "sse",
           endpoint: "http://127.0.0.1:9999/mcp",
         },
@@ -416,42 +414,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[1]?.servers[0]?.serverId).toBe("codex-remote");
   });
 
-  it("prefers live external runtime transport for configured servers", () => {
-    const groups = groupMcpServersByConfigPath({
-      mcpServers: {
-        setta: {
-          transport: "sse",
-          url: "http://127.0.0.1:8019/mcp",
-        },
-      },
-      mcpConfigPath: "/tmp/workspace/setta_files/llm_config.json",
-      settaFilesLocation: "local",
-      runtimeServers: [
-        {
-          serverId: "setta",
-          transport: "streamable_http",
-          endpoint: "http://127.0.0.1:8019/mcp",
-        },
-      ],
-    });
-
-    expect(groups).toHaveLength(1);
-    expect(groups[0]?.configLabel).toBe("Active local setta_files");
-    expect(groups[0]?.servers).toEqual([
-      {
-        serverId: "setta",
-        transport: "streamable_http",
-        endpoint: "http://127.0.0.1:8019/mcp",
-      },
-    ]);
-  });
-
   it("marks runtime connected servers as available", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
-        "figma-desktop": {
+        "setta_mcp:figma-desktop": {
           state: "connected",
           quickInfo: "Available: connected with 8 tools.",
           registeredToolCount: 8,
@@ -470,9 +439,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime error servers as unavailable", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: {
-        pencil: {
+        "setta_mcp:pencil": {
           state: "error",
           quickInfo: "Unavailable: command not found",
           registeredToolCount: 0,
@@ -491,9 +461,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime connecting servers as yellow", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
-        "figma-desktop": {
+        "setta_mcp:figma-desktop": {
           state: "connecting",
           quickInfo: "Connecting...",
           registeredToolCount: 0,
@@ -512,6 +483,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime lookup failures as unknown status", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: null,
       runtimeStatusLoading: false,
@@ -525,6 +497,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks per-server runtime mapping gaps as unknown", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
+      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {},
       runtimeStatusLoading: false,
@@ -539,17 +512,16 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "figma-desktop",
+        source: "setta_mcp",
         state: "connected",
-        quickInfo: "Connected: 8 tools",
         lastError: null,
         missingEnvVar: null,
         toolCount: 8,
       },
       {
         serverId: "broken-server",
+        source: "setta_mcp",
         state: "error",
-        quickInfo:
-          "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
         lastError: "command not found",
         missingEnvVar: "OPENAI_API_KEY",
         toolCount: 0,
@@ -557,14 +529,14 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ]);
 
     expect(runtimeStatuses).toEqual({
-      "figma-desktop": {
+      "setta_mcp:figma-desktop": {
         state: "connected",
         quickInfo: "Connected: 8 tools",
         registeredToolCount: 8,
         issue: null,
         missingEnvVar: null,
       },
-      "broken-server": {
+      "setta_mcp:broken-server": {
         state: "error",
         quickInfo:
           "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
@@ -579,6 +551,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "legacy-state-server",
+        source: "setta_mcp",
         state: "available",
         lastError: null,
         missingEnvVar: null,
@@ -586,82 +559,58 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
     ]);
 
-    expect(runtimeStatuses["legacy-state-server"]?.state).toBe("unknown");
-    expect(runtimeStatuses["legacy-state-server"]?.quickInfo).toBe(
+    expect(runtimeStatuses["setta_mcp:legacy-state-server"]?.state).toBe(
+      "unknown",
+    );
+    expect(runtimeStatuses["setta_mcp:legacy-state-server"]?.quickInfo).toBe(
       "Unknown: 3 tools",
     );
   });
 
-  it("synthesizes runtime quick info from issue details when the backend omits it", () => {
-    const runtimeStatuses = toRuntimeStatusByServerId([
-      {
-        serverId: "disabled-server",
-        state: "disabled",
-        lastError: "disabled by config",
-        missingEnvVar: "OPENAI_API_KEY",
-        toolCount: 0,
-      },
-    ]);
-
-    expect(runtimeStatuses["disabled-server"]).toEqual({
-      state: "disabled",
-      quickInfo:
-        "Disabled: missing env var OPENAI_API_KEY | disabled by config | 0 tools",
-      registeredToolCount: 0,
-      issue: "disabled by config",
-      missingEnvVar: "OPENAI_API_KEY",
-    });
-  });
-
-  it("uses backend-resolved rows directly for shared server ids", () => {
+  it("keeps statuses distinct when server ids collide across sources", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "shared",
+        source: "setta_mcp",
         state: "connected",
-        quickInfo: "Connected: 79 tools",
         lastError: null,
         missingEnvVar: null,
-        toolCount: 79,
+        toolCount: 4,
+      },
+      {
+        serverId: "shared",
+        source: "external_runtime",
+        state: "error",
+        lastError: "auth failed",
+        missingEnvVar: null,
+        toolCount: 0,
       },
     ]);
-    expect(Object.keys(runtimeStatuses)).toEqual(["shared"]);
+    expect(Object.keys(runtimeStatuses).sort()).toEqual([
+      "external_runtime:shared",
+      "setta_mcp:shared",
+    ]);
 
-    const status = resolveMcpServerStatus({
+    const settaSourceStatus = resolveMcpServerStatus({
       serverId: "shared",
+      source: "setta_mcp",
       endpoint: "http://127.0.0.1:8000/mcp",
       runtimeStatusByServerId: runtimeStatuses,
       runtimeStatusLoading: false,
       runtimeStatusError: null,
     });
-
-    expect(status.color).toBe("green");
-    expect(status.quickInfo).toBe("Connected: 79 tools");
-  });
-
-  it("uses backend-resolved transport and endpoint for configured rows", () => {
-    const groups = groupMcpServersByConfigPath({
-      mcpServers: {
-        setta: {
-          transport: "sse",
-          url: "http://127.0.0.1:8019/mcp",
-        },
-      },
-      mcpConfigPath: "/tmp/setta_files/llm_config.json",
-      settaFilesLocation: "custom",
-      runtimeServers: [
-        {
-          serverId: "setta",
-          transport: "streamable_http",
-          endpoint: "http://127.0.0.1:8019/mcp",
-        },
-      ],
+    const externalSourceStatus = resolveMcpServerStatus({
+      serverId: "shared",
+      source: "external_runtime",
+      endpoint: "https://api.example.dev/mcp",
+      runtimeStatusByServerId: runtimeStatuses,
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
     });
 
-    expect(groups[0]?.servers[0]).toEqual({
-      serverId: "setta",
-      transport: "streamable_http",
-      endpoint: "http://127.0.0.1:8019/mcp",
-    });
+    expect(settaSourceStatus.color).toBe("green");
+    expect(externalSourceStatus.color).toBe("red");
+    expect(externalSourceStatus.quickInfo).toContain("auth failed");
   });
 
   it("builds slash commands by engine using setta/external availability", () => {
@@ -679,7 +628,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         externalAgentConfigId: "external-codex",
       }),
     ];
-    const allLLMConfigs = createAllConfigs({
+    const allLLMConfigs = createAllLLMConfigs({
       configs: {
         "cfg-openai": createLLMConfig({
           id: "cfg-openai",
@@ -690,7 +639,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
     });
     const externalAgentHealth = [
-      buildExternalAgentPreflightStatus({
+      createExternalAgentPreflightStatus({
         configId: "external-codex",
         name: "Codex Agent",
         toolType: "codex",
@@ -743,13 +692,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         engineType: "setta_llm",
       }),
       createEngineConfig({
-        id: "engine-codex",
-        name: "Codex",
+        id: "engine-opencode",
+        name: "OpenCode",
         engineType: "external_agent",
-        externalAgentConfigId: "external-codex",
+        externalAgentConfigId: "external-opencode",
       }),
     ];
-    const allLLMConfigs = createAllConfigs({
+    const allLLMConfigs = createAllLLMConfigs({
       configs: {
         "cfg-anthropic": createLLMConfig({
           id: "cfg-anthropic",
@@ -760,10 +709,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
     });
     const externalAgentHealth = [
-      buildExternalAgentPreflightStatus({
-        configId: "external-codex",
-        name: "Codex Agent",
-        toolType: "codex",
+      createExternalAgentPreflightStatus({
+        configId: "external-opencode",
+        name: "OpenCode Agent",
+        toolType: "opencode",
         runMode: "app_server",
         available: false,
         supported: true,
@@ -962,37 +911,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         commands: ["/deploy"],
         status: "available",
         statusDetail: null,
-      },
-    });
-  });
-
-  it("preserves explicit authoritative native slash status details without commands", () => {
-    const resolved = resolveAgentNativeSlashCommandsByEngineId({
-      runs: [
-        createAgentRun({
-          id: "run-project-a-error",
-          inputs: {
-            projectConfigId: "project-a",
-          },
-          outputs: {
-            metadata: {
-              engineConfigId: "engine-live",
-              agentNativeSlashCommands: [],
-              agentNativeSlashCommandsStatus: "error",
-              agentNativeSlashCommandsStatusDetail: "tool discovery failed",
-            },
-          },
-        }),
-      ],
-      projectConfigId: "project-a",
-      engineConfigIds: ["engine-live"],
-    });
-
-    expect(resolved).toEqual({
-      "engine-live": {
-        commands: [],
-        status: "error",
-        statusDetail: "tool discovery failed",
       },
     });
   });
