@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-15 07:12 UTC
+Last updated: 2026-04-15 07:31 UTC
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -60,6 +60,53 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 ## Active frontier
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- item `479` completed one bounded worktree-probe request-path hardening step
+  on the canonical `rotaryParamCodeObjDefault` lane so the shared settings
+  parity helper now prefers deterministic frontend/backend origins from the
+  live worktree environment before falling back to the guarded page helper:
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now resolves `SettingsGraphBackendRequestOptions` from
+      `PLAYWRIGHT_BASE_URL`, `SETTA_BACKEND_ORIGIN`, or the current page URL,
+      then reuses that direct request path for `getLatestProjectState(...)`
+      and related settings parity backend helpers instead of defaulting
+      immediately to `postBackend(...)`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - first canonical live probe rerun on run `010`:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-010/worktree-ai.log`
+      -> no longer failed inside the guarded `postBackend(...)` path
+      -> instead surfaced an explicit page-lifecycle failure during
+         pane-state normalization:
+         `Worktree unhealthy: browser context closed before page recovery`
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; refreshed worktree runtime served frontend `3053`,
+         backend `8053`, debug port `9275`, session `b4eabf`
+    - rerunning the same canonical probe after recovery:
+      -> still failed after direct-open reached `surface_ready`
+      -> current failure boundary is now the earliest
+         `getLatestProjectState(...)` call in the probe with
+         `apiRequestContext.post: Target page, context or browser has been closed`
+         through the direct request path, so the remaining blocker is a
+         browser/page-context shutdown on the live worktree probe rather than
+         the older guarded backend-helper path
+    - fresh-context CDP check:
+      -> not run; this iteration changed probe helpers only and the live
+         Playwright lane never reached a trustworthy post-motion state after
+         the bounded recovery attempt
+  - reading:
+    - this closes the older "guarded `postBackend(...)` killed the page before
+      the real error surfaced" theory on the canonical lane
+    - the active blocker is now a repeated Playwright/browser-context shutdown
+      on the live worktree probe after `/settings` reaches `surface_ready`
+    - next: inspect why the worktree Playwright browser context closes around
+      the earliest direct `getLatestProjectState(...)` call on the canonical
+      lane before taking another product-side attribution cut
 
 - item `478` completed one bounded `ParamGroupContainer` duplicate-index
   collapse on the canonical `rotaryParamCodeObjDefault` lane so the mounted

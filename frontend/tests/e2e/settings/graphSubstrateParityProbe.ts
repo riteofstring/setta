@@ -174,6 +174,38 @@ type SettingsGraphBackendRequestOptions = {
   frontendOrigin: string;
 };
 
+function resolveSettingsGraphBackendRequestOptions(
+  page: Page,
+  requestOptions?: SettingsGraphBackendRequestOptions,
+): SettingsGraphBackendRequestOptions | null {
+  if (requestOptions) {
+    return requestOptions;
+  }
+
+  const envFrontendOrigin = process.env.PLAYWRIGHT_BASE_URL
+    ? new URL(process.env.PLAYWRIGHT_BASE_URL).origin
+    : null;
+  const envBackendOrigin = process.env.SETTA_BACKEND_ORIGIN ?? null;
+
+  if (envFrontendOrigin && envBackendOrigin) {
+    return {
+      backendOrigin: envBackendOrigin,
+      frontendOrigin: envFrontendOrigin,
+    };
+  }
+
+  const currentUrl = page.url();
+  if (!currentUrl.startsWith("http://") && !currentUrl.startsWith("https://")) {
+    return null;
+  }
+
+  return {
+    backendOrigin:
+      process.env.SETTA_BACKEND_ORIGIN ?? new URL(currentUrl).origin,
+    frontendOrigin: new URL(currentUrl).origin,
+  };
+}
+
 export const SETTINGS_GRAPH_COMPARE_PANE_STATE: SettingsGraphLocalPaneState = {
   overviewVisible: false,
   overviewTrueWidth: 420,
@@ -424,17 +456,21 @@ async function postSettingsGraphBackend<T>(
   payload: Record<string, unknown> | null,
   requestOptions?: SettingsGraphBackendRequestOptions,
 ): Promise<T | null> {
-  if (!requestOptions) {
+  const resolvedRequestOptions = resolveSettingsGraphBackendRequestOptions(
+    page,
+    requestOptions,
+  );
+  if (!resolvedRequestOptions) {
     return postBackend<T>(page, path, payload);
   }
 
   const response = await page.request.post(
-    `${requestOptions.backendOrigin}/api${path}`,
+    `${resolvedRequestOptions.backendOrigin}/api${path}`,
     {
       data: payload,
       headers: {
-        Origin: requestOptions.frontendOrigin,
-        Referer: `${requestOptions.frontendOrigin}/`,
+        Origin: resolvedRequestOptions.frontendOrigin,
+        Referer: `${resolvedRequestOptions.frontendOrigin}/`,
       },
     },
   );

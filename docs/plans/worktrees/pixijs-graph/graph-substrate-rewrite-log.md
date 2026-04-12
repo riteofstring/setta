@@ -284,6 +284,53 @@ LOOP_TERMINAL_MARKER: none
     `ParamGroupUnpinnedParams` or the first justified scene-owned static body
     cut on the same canonical lane
 - LOOP_TERMINAL_MARKER: none
+- item `479` completed one bounded worktree-probe request-path hardening step
+  on the canonical `rotaryParamCodeObjDefault` lane so the shared settings
+  parity helper now prefers deterministic frontend/backend origins from the
+  live worktree environment before falling back to the guarded page helper:
+  - canonical target section: `rotaryParamCodeObjDefault`
+  - code/test changes:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      now resolves `SettingsGraphBackendRequestOptions` from
+      `PLAYWRIGHT_BASE_URL`, `SETTA_BACKEND_ORIGIN`, or the current page URL,
+      then reuses that direct request path for `getLatestProjectState(...)`
+      and related parity helper backend calls instead of defaulting
+      immediately to `postBackend(...)`
+  - focused verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+      -> passed
+    - first canonical live probe rerun on run `010`:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 bash ./scripts/run-settings-graph-worktree-probe.sh --worktree . --worktree-runtime-log /tmp/codex-supervisor.FqYaPr/loop-001/run-010/worktree-ai.log`
+      -> no longer failed through the guarded `postBackend(...)` helper
+      -> surfaced an explicit pane-state normalization lifecycle failure:
+         `Worktree unhealthy: browser context closed before page recovery`
+    - one allowed bounded worktree recovery:
+      `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      -> succeeded; refreshed worktree runtime served frontend `3053`,
+         backend `8053`, debug port `9275`, session `b4eabf`
+    - rerunning the same canonical probe after recovery:
+      -> still failed after direct-open reached `surface_ready`
+      -> current earliest failure boundary is the initial
+         `getLatestProjectState(...)` call in the probe with
+         `apiRequestContext.post: Target page, context or browser has been closed`
+         through the direct request path
+      -> treat this as a repeated live worktree browser/page-context shutdown,
+         not renderer drift and not the older guarded backend-helper path
+    - fresh-context CDP check:
+      -> not run; this iteration changed probe helpers only and the live lane
+         never reached a trustworthy post-motion state after the bounded
+         recovery attempt
+  - reading:
+    - this closes the older "guarded backend helper closes the page before the
+      real failure surfaces" theory on the canonical lane
+    - the active blocker is now a Playwright/browser-context shutdown on the
+      live worktree probe after `/settings` reaches `surface_ready`
+    - next: inspect why the worktree Playwright browser context closes around
+      the earliest direct `getLatestProjectState(...)` call on the canonical
+      lane before taking another product-side attribution cut
+- LOOP_TERMINAL_MARKER: none
 
 - 2026-04-15 07:12 UTC | item `478` | completed ParamGroupContainer duplicate-index collapse
   - canonical target section: `rotaryParamCodeObjDefault`
