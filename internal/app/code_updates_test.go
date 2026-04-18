@@ -18,7 +18,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspsignature"
 	"setta/internal/projectstate"
-	"setta/internal/pythonenv"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 type stubBoundSectionSynchronizer struct {
@@ -51,14 +51,11 @@ type syncOnlyBoundSectionSynchronizer struct {
 func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
 	t.Helper()
 
-	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
-	if err != nil {
-		t.Fatalf("resolve current-process interpreter: %v", err)
-	}
+	pythonBinary := firstpartyplugin.BasedpyrightLangserverCommand(t)
 	session, err := lsp.NewSession(lsp.SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       pythonBinary,
-		Args:          []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		Args:          []string{"--stdio"},
 		Environment:   os.Environ(),
 	})
 	if err != nil {

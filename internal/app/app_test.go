@@ -38,6 +38,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
+	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/transcriptionprofiles"
 )
 
@@ -8976,7 +8977,7 @@ func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSecti
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppRealBasedpyright(t)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8987,6 +8988,7 @@ func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSecti
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
 
 	seedAppRootWatchCodeBoundSectionProject(t, app)
 	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
@@ -9061,7 +9063,7 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppRealBasedpyright(t)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9072,6 +9074,7 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
 	if err := project.SetCode("section-main", "def cool_fn(a,b,c):\n    print(\"dog\")\n"); err != nil {
@@ -10274,9 +10277,7 @@ func TestAppStartsWithFirstPartyBasedpyrightPluginCompletion(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_PYTHON", appTestWorkerPython(t, repoRoot))
-	installAppRepoPlugin(t, cfg, "setta-basedpyright")
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -10313,8 +10314,7 @@ func TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen(t *te
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_PYTHON", appTestWorkerPython(t, repoRoot))
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
 	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
@@ -11510,12 +11510,11 @@ func prepareAppLSPFixture(t *testing.T) {
 	)
 }
 
-func prepareAppRealBasedpyright(t *testing.T) {
+func prepareAppFirstPartyBasedpyrightPlugin(t *testing.T, cfg config.Config) {
 	t.Helper()
 
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_LSP_COMMAND", filepath.Join(repoRoot, ".venv", "bin", "basedpyright-langserver"))
-	t.Setenv("SETTA_LSP_ARGS", "--stdio")
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
+	installAppRepoPlugin(t, cfg, "setta-basedpyright")
 }
 
 func prepareAppPluginLanguageServerFixture(t *testing.T) {
