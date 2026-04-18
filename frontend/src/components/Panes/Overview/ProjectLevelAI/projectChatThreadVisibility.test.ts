@@ -12,7 +12,7 @@ import {
   resolveProjectChatThreadVisibilityFromResize,
   resolveProjectChatWaitingForResponseForSurface,
   shouldProjectChatSkipEngineSyncForContinuation,
-} from "./ProjectChat";
+} from "./projectChatConversationState";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 
 describe("resolveProjectChatThreadVisibilityFromResize", () => {
