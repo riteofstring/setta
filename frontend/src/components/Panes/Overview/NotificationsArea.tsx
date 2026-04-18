@@ -1,5 +1,9 @@
 import _ from "lodash";
-import { deleteNotification, getNotifications } from "openapi/http";
+import {
+  deleteNotification,
+  getNotifications,
+  type NotificationsNotification,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -22,18 +26,32 @@ import {
   useProjectState,
 } from "state/definitions";
 import {
-  type OverviewNotificationsPaneTab,
+  coerceAppNotifications,
+  type AppNotification,
+} from "state/types/notifications";
+import {
   OverviewNotificationsPaneTabEnum,
+  type OverviewNotificationsPaneTab,
 } from "utils/constants";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  Notification,
-  NotificationList,
-  NotificationType,
   NotificationTypeEnum,
+  type NotificationType,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-type NotificationsRouteResponse = ResponseDataAndStatus<NotificationList>;
+type NotificationsRouteResponse =
+  ResponseDataAndStatus<Array<NotificationsNotification> | null>;
+type OpenAPIResult<TData, TError = unknown> =
+  | {
+      data: TData;
+      error?: undefined;
+      response: Response;
+    }
+  | {
+      data?: undefined;
+      error: TError;
+      response: Response;
+    };
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
   const notifications = useNotifications(
@@ -60,19 +78,21 @@ export function NotificationsArea() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = (await callOpenAPI(
+        const response = await (callOpenAPI(
           getNotifications({
             body: {
               projectConfigId,
             },
-          } as Parameters<typeof getNotifications>[0]),
-        )) as NotificationsRouteResponse;
+          } as Parameters<typeof getNotifications>[0]) as Promise<
+            OpenAPIResult<Array<NotificationsNotification> | null>
+          >,
+        ) as Promise<NotificationsRouteResponse>);
         if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({
             notifications: [
               ...state.notifications.filter((n) => n.temporary),
-              ...(response.data ?? []),
+              ...coerceAppNotifications(response.data ?? []),
             ],
           }));
         }
@@ -151,7 +171,7 @@ export function NotificationsArea() {
 function NotificationsList({
   notifications,
 }: {
-  notifications: Array<Notification>;
+  notifications: Array<AppNotification>;
 }) {
   return (
     <div
@@ -171,7 +191,7 @@ function NotificationsList({
     </div>
   );
 }
-function NotificationItem({ notification }: { notification: Notification }) {
+function NotificationItem({ notification }: { notification: AppNotification }) {
   const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
@@ -195,13 +215,15 @@ function NotificationItem({ notification }: { notification: Notification }) {
       }, 300); // Match transition duration
     } else {
       removeNotification(id);
-      await callOpenAPI(
+      await (callOpenAPI(
         deleteNotification({
           body: {
             notificationId: id,
           },
-        } as Parameters<typeof deleteNotification>[0]),
-      );
+        } as Parameters<typeof deleteNotification>[0]) as Promise<
+          OpenAPIResult<unknown>
+        >,
+      ) as Promise<ResponseDataAndStatus<unknown>>);
     }
   };
   // Handle marking a notification as read when interacted with
