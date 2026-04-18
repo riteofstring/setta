@@ -388,7 +388,7 @@ func (s *Service) uninstallPreparedLocked(uninstall preparedUninstall) (PluginUn
 	if err := s.store.RemoveInstallMetadata(uninstall.entry.PluginID, uninstall.scope); err != nil {
 		return PluginUninstallResponse{}, err
 	}
-	if err := s.removePluginFromEnablementLocked(uninstall.entry.PluginID, uninstall.scope); err != nil {
+	if err := s.removePluginFromEnablementLocked(uninstall.entry); err != nil {
 		return PluginUninstallResponse{}, err
 	}
 	if err := s.syncPendingRestartAfterUninstallLocked(uninstall.entry, restartRequired); err != nil {
@@ -863,11 +863,19 @@ func resolvedInstaller(installer *PluginInstallerBackend) PluginInstallerBackend
 }
 
 func (s *Service) rescanLocked() (DiscoverySnapshot, error) {
-	snapshot, err := s.discoveryService.Rescan()
+	snapshot, err := s.rescanDiscoverySnapshotLocked()
 	if err != nil {
 		return DiscoverySnapshot{}, err
 	}
+	snapshot = s.appendPendingRestartRemovedPlugins(snapshot)
+	return finalizeDiscoverySnapshot(snapshot), nil
+}
 
+func (s *Service) rescanDiscoverySnapshotLocked() (DiscoverySnapshot, error) {
+	return s.discoveryService.Rescan()
+}
+
+func (s *Service) appendPendingRestartRemovedPlugins(snapshot DiscoverySnapshot) DiscoverySnapshot {
 	discoveredPluginIDs := map[string]struct{}{}
 	for _, entry := range snapshot.Plugins {
 		discoveredPluginIDs[entry.PluginID] = struct{}{}
@@ -892,6 +900,10 @@ func (s *Service) rescanLocked() (DiscoverySnapshot, error) {
 			RestartRequired:       true,
 		})
 	}
+	return snapshot
+}
+
+func finalizeDiscoverySnapshot(snapshot DiscoverySnapshot) DiscoverySnapshot {
 	slices.SortFunc(snapshot.Plugins, compareDiscoveredPlugins)
 	snapshot.InstalledPlugins = 0
 	snapshot.ActivePlugins = 0
@@ -907,7 +919,7 @@ func (s *Service) rescanLocked() (DiscoverySnapshot, error) {
 			snapshot.InstalledPlugins++
 		}
 	}
-	return snapshot, nil
+	return snapshot
 }
 
 func (s *Service) resolveScopeAndEntryLocked(pluginID string, requestedScope *PluginScope) (PluginScope, DiscoveredPlugin, error) {
@@ -1167,14 +1179,16 @@ func (s *Service) applyEnablementAfterInstallLocked(pluginID string, scope Plugi
 	return s.store.SavePluginsGlobalState(globalState)
 }
 
-func (s *Service) removePluginFromEnablementLocked(pluginID string, scope PluginScope) error {
+func (s *Service) removePluginFromEnablementLocked(entry DiscoveredPlugin) error {
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
 		return err
 	}
+	pluginID := entry.PluginID
+	scope := entry.Scope
 	state.EnabledPluginIDs = removeString(state.EnabledPluginIDs, pluginID)
 	state.DisabledPluginIDs = removeString(state.DisabledPluginIDs, pluginID)
-	delete(state.PluginConfigByID, pluginConfigKey(pluginID, scope))
+	delete(state.PluginConfigByID, pluginConfigKeyForEntry(entry))
 	if err := s.store.SavePluginsState(state); err != nil {
 		return err
 	}
@@ -1207,8 +1221,20 @@ func (s *Service) discardPendingRestartBackendIDLocked(pluginID string) error {
 	return s.store.SavePluginsState(state)
 }
 
-func pluginConfigKey(pluginID string, scope PluginScope) string {
-	return fmt.Sprintf("%s:%s", scope, pluginID)
+func pluginConfigKey(pluginID string, scope PluginScope, sourceManager PluginSourceManager) string {
+	return fmt.Sprintf("%s:%s:%s", scope, sourceManager, pluginID)
+}
+
+func pluginConfigKeyForEntry(entry DiscoveredPlugin) string {
+	return pluginConfigKey(entry.PluginID, entry.Scope, entry.SourceManager)
+}
+
+func persistedPluginConfigRaw(entry DiscoveredPlugin, state *PluginsStateFile) (any, bool) {
+	if state == nil || state.PluginConfigByID == nil {
+		return nil, false
+	}
+	rawValue, ok := state.PluginConfigByID[pluginConfigKeyForEntry(entry)]
+	return rawValue, ok
 }
 
 func removeString(values []string, target string) []string {

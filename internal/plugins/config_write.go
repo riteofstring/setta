@@ -66,11 +66,7 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 		return preparedPluginConfigWrite{}, err
 	}
 	if entry.Manifest == nil {
-		return preparedPluginConfigWrite{}, newServiceError(
-			ServiceErrorCodeConfigInvalid,
-			"Plugin manifest missing for plugin: %s",
-			options.PluginID,
-		)
+		return preparedPluginConfigWrite{}, invalidPluginConfigWriteTargetError(entry, options.PluginID)
 	}
 	if err := validatePluginConfig(entry, options.Config); err != nil {
 		return preparedPluginConfigWrite{}, err
@@ -110,11 +106,25 @@ func pluginConfigWriteNoopResponse(
 	return PluginConfigWriteResponse{}, false
 }
 
+func invalidPluginConfigWriteTargetError(entry DiscoveredPlugin, pluginID string) error {
+	for _, entryError := range entry.Errors {
+		if entryError.Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+			continue
+		}
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "%s", entryError.Message)
+	}
+	return newServiceError(
+		ServiceErrorCodeConfigInvalid,
+		"Plugin manifest missing for plugin: %s",
+		pluginID,
+	)
+}
+
 func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (PluginConfigWriteResponse, error) {
 	if prepared.state.PluginConfigByID == nil {
 		prepared.state.PluginConfigByID = map[string]any{}
 	}
-	prepared.state.PluginConfigByID[pluginConfigKey(prepared.entry.PluginID, prepared.entry.Scope)] = prepared.requested
+	prepared.state.PluginConfigByID[pluginConfigKeyForEntry(prepared.entry)] = prepared.requested
 	if err := s.store.SavePluginsState(prepared.state); err != nil {
 		return PluginConfigWriteResponse{}, err
 	}
