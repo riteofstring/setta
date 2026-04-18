@@ -21,12 +21,18 @@ import {
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
 import {
+  measureSectionRelativeGraphSpaceRect,
+  normalizeViewportScale,
+  toGraphSpaceLength,
+} from "./sectionShellBackdropMeasurementMath";
+import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
+import { useReactFlow } from "../store";
 
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
@@ -103,29 +109,6 @@ function normalizeStoredHeight(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(value, 0)
     : 0;
-}
-
-function parseViewportScale(transformValue: string | null | undefined): number {
-  const transform = transformValue?.trim() ?? "";
-  if (transform.length === 0 || transform === "none") {
-    return 1;
-  }
-
-  const matrixMatch = /^matrix\(([^)]+)\)$/.exec(transform);
-  if (matrixMatch) {
-    const firstValue = Number.parseFloat(matrixMatch[1].split(",")[0]?.trim());
-    return Number.isFinite(firstValue) && firstValue > 0 ? firstValue : 1;
-  }
-
-  const matrix3dMatch = /^matrix3d\(([^)]+)\)$/.exec(transform);
-  if (matrix3dMatch) {
-    const firstValue = Number.parseFloat(
-      matrix3dMatch[1].split(",")[0]?.trim(),
-    );
-    return Number.isFinite(firstValue) && firstValue > 0 ? firstValue : 1;
-  }
-
-  return 1;
 }
 
 function areSwitchTrackBoxesEqual(
@@ -232,6 +215,7 @@ function areCanvasOwnedRestingTextLinesEqual(
 
 function measureCanvasOwnedSwitchTrackBoxes(
   sectionId: string,
+  viewportScale: number,
 ): Array<CanvasOwnedSwitchTrackBox> {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return [];
@@ -244,10 +228,6 @@ function measureCanvasOwnedSwitchTrackBoxes(
     return [];
   }
 
-  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
-  const viewportScale = parseViewportScale(
-    viewport ? window.getComputedStyle(viewport).transform : null,
-  );
   const sectionRect = section.getBoundingClientRect();
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return [];
@@ -257,8 +237,12 @@ function measureCanvasOwnedSwitchTrackBoxes(
     section.querySelectorAll<HTMLElement>(`[${SWITCH_TRACK_ATTRIBUTE}="true"]`),
   )
     .map((switchRoot) => {
-      const rect = switchRoot.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
+      const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+        rect: switchRoot.getBoundingClientRect(),
+        sectionRect,
+        viewportScale,
+      });
+      if (!graphSpaceRect) {
         return null;
       }
 
@@ -266,10 +250,10 @@ function measureCanvasOwnedSwitchTrackBoxes(
         checked:
           switchRoot.dataset.state === "checked" ||
           switchRoot.getAttribute("aria-checked") === "true",
-        height: rect.height / viewportScale,
-        offsetX: (rect.left - sectionRect.left) / viewportScale,
-        offsetY: (rect.top - sectionRect.top) / viewportScale,
-        width: rect.width / viewportScale,
+        height: graphSpaceRect.height,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY,
+        width: graphSpaceRect.width,
       };
     })
     .filter(
@@ -280,6 +264,7 @@ function measureCanvasOwnedSwitchTrackBoxes(
 
 function measureCanvasOwnedUnderlineBoxes(
   sectionId: string,
+  viewportScale: number,
 ): Array<CanvasOwnedUnderlineBox> {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return [];
@@ -292,10 +277,6 @@ function measureCanvasOwnedUnderlineBoxes(
     return [];
   }
 
-  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
-  const viewportScale = parseViewportScale(
-    viewport ? window.getComputedStyle(viewport).transform : null,
-  );
   const sectionRect = section.getBoundingClientRect();
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return [];
@@ -307,8 +288,12 @@ function measureCanvasOwnedUnderlineBoxes(
     ),
   )
     .map((underlineElement) => {
-      const rect = underlineElement.getBoundingClientRect();
-      if (rect.width <= 0) {
+      const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+        rect: underlineElement.getBoundingClientRect(),
+        sectionRect,
+        viewportScale,
+      });
+      if (!graphSpaceRect) {
         return null;
       }
 
@@ -325,15 +310,13 @@ function measureCanvasOwnedUnderlineBoxes(
         return null;
       }
 
-      const height = borderBottomWidth / viewportScale;
-      const offsetX = (rect.left - sectionRect.left) / viewportScale;
-      const offsetY = (rect.bottom - sectionRect.top) / viewportScale - height;
+      const height = toGraphSpaceLength(borderBottomWidth, viewportScale);
       return {
         fill,
         height,
-        offsetX,
-        offsetY,
-        width: rect.width / viewportScale,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY + graphSpaceRect.height - height,
+        width: graphSpaceRect.width,
       };
     })
     .filter(
@@ -344,6 +327,7 @@ function measureCanvasOwnedUnderlineBoxes(
 
 function measureCanvasOwnedFilterIconBoxes(
   sectionId: string,
+  viewportScale: number,
 ): Array<CanvasOwnedFilterIconBox> {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return [];
@@ -356,10 +340,6 @@ function measureCanvasOwnedFilterIconBoxes(
     return [];
   }
 
-  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
-  const viewportScale = parseViewportScale(
-    viewport ? window.getComputedStyle(viewport).transform : null,
-  );
   const sectionRect = section.getBoundingClientRect();
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return [];
@@ -411,16 +391,26 @@ function measureCanvasOwnedFilterIconBoxes(
 
     return barBoxes
       .map((barBox) => {
-        if (barBox.width <= 0 || barBox.height <= 0) {
+        const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+          rect: {
+            height: barBox.height,
+            left: barBox.left,
+            top: barBox.top,
+            width: barBox.width,
+          },
+          sectionRect,
+          viewportScale,
+        });
+        if (!graphSpaceRect) {
           return null;
         }
 
         return {
           fill,
-          height: barBox.height / viewportScale,
-          offsetX: (barBox.left - sectionRect.left) / viewportScale,
-          offsetY: (barBox.top - sectionRect.top) / viewportScale,
-          width: barBox.width / viewportScale,
+          height: graphSpaceRect.height,
+          offsetX: graphSpaceRect.offsetX,
+          offsetY: graphSpaceRect.offsetY,
+          width: graphSpaceRect.width,
         };
       })
       .filter(
@@ -431,6 +421,7 @@ function measureCanvasOwnedFilterIconBoxes(
 
 function measureCanvasOwnedNestedGuideBoxes(
   sectionId: string,
+  viewportScale: number,
 ): Array<CanvasOwnedNestedGuideBox> {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return [];
@@ -443,10 +434,6 @@ function measureCanvasOwnedNestedGuideBoxes(
     return [];
   }
 
-  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
-  const viewportScale = parseViewportScale(
-    viewport ? window.getComputedStyle(viewport).transform : null,
-  );
   const sectionRect = section.getBoundingClientRect();
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return [];
@@ -488,18 +475,30 @@ function measureCanvasOwnedNestedGuideBoxes(
         Number.isFinite(borderRadiusPx) && borderRadiusPx > 0
           ? borderRadiusPx
           : Math.min(widthPx, heightPx) / 2;
+      const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+        rect: {
+          height: heightPx,
+          left: guideRect.left + resolvedLeftPx,
+          top: guideRect.top + topPx,
+          width: widthPx,
+        },
+        sectionRect,
+        viewportScale,
+      });
+      if (!graphSpaceRect) {
+        return null;
+      }
 
       return {
-        cornerRadius:
-          Math.min(resolvedBorderRadiusPx, widthPx / 2, heightPx / 2) /
+        cornerRadius: toGraphSpaceLength(
+          Math.min(resolvedBorderRadiusPx, widthPx / 2, heightPx / 2),
           viewportScale,
+        ),
         fill,
-        height: heightPx / viewportScale,
-        offsetX: (guideRect.left - sectionRect.left + resolvedLeftPx) /
-          viewportScale,
-        offsetY:
-          (guideRect.top - sectionRect.top + topPx) / viewportScale,
-        width: widthPx / viewportScale,
+        height: graphSpaceRect.height,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY,
+        width: graphSpaceRect.width,
       };
     })
     .filter(
@@ -529,17 +528,21 @@ function measureCanvasOwnedRestingTextLinesForRoot(
   )
     .map((lineElement) => {
       const text = (lineElement.textContent ?? "").replace(/\u200b/gu, "");
-      const rect = lineElement.getBoundingClientRect();
-      if (text.length === 0 || rect.width <= 0 || rect.height <= 0) {
+      const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+        rect: lineElement.getBoundingClientRect(),
+        sectionRect,
+        viewportScale,
+      });
+      if (text.length === 0 || !graphSpaceRect) {
         return null;
       }
 
       return {
         fill,
         font,
-        maxWidth: rect.width / viewportScale,
-        offsetX: (rect.left - sectionRect.left) / viewportScale,
-        offsetY: (rect.top - sectionRect.top) / viewportScale,
+        maxWidth: graphSpaceRect.width,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY,
         text,
       };
     })
@@ -550,8 +553,12 @@ function measureCanvasOwnedRestingTextLinesForRoot(
   }
 
   const text = (textRoot.textContent ?? "").replace(/\u200b/gu, "");
-  const rect = textRoot.getBoundingClientRect();
-  if (text.length === 0 || rect.width <= 0 || rect.height <= 0) {
+  const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+    rect: textRoot.getBoundingClientRect(),
+    sectionRect,
+    viewportScale,
+  });
+  if (text.length === 0 || !graphSpaceRect) {
     return [];
   }
 
@@ -559,9 +566,9 @@ function measureCanvasOwnedRestingTextLinesForRoot(
     {
       fill,
       font,
-      maxWidth: rect.width / viewportScale,
-      offsetX: (rect.left - sectionRect.left) / viewportScale,
-      offsetY: (rect.top - sectionRect.top) / viewportScale,
+      maxWidth: graphSpaceRect.width,
+      offsetX: graphSpaceRect.offsetX,
+      offsetY: graphSpaceRect.offsetY,
       text,
     },
   ];
@@ -569,6 +576,7 @@ function measureCanvasOwnedRestingTextLinesForRoot(
 
 function measureCanvasOwnedRestingTextLines(
   sectionId: string,
+  viewportScale: number,
 ): Array<CanvasOwnedRestingTextLine> {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return [];
@@ -580,11 +588,6 @@ function measureCanvasOwnedRestingTextLines(
   if (!(section instanceof HTMLElement)) {
     return [];
   }
-
-  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
-  const viewportScale = parseViewportScale(
-    viewport ? window.getComputedStyle(viewport).transform : null,
-  );
 
   return Array.from(
     section.querySelectorAll<HTMLElement>(
@@ -602,6 +605,7 @@ function measureCanvasOwnedRestingTextLines(
 function useCanvasOwnedSwitchTrackBoxes(
   sectionId: string,
   layoutRefreshKey: string,
+  viewportScale: number,
 ) {
   const [switchTrackBoxes, setSwitchTrackBoxes] = useState<
     Array<CanvasOwnedSwitchTrackBox>
@@ -619,7 +623,10 @@ function useCanvasOwnedSwitchTrackBoxes(
     );
 
     const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedSwitchTrackBoxes(sectionId);
+      const nextBoxes = measureCanvasOwnedSwitchTrackBoxes(
+        sectionId,
+        viewportScale,
+      );
       setSwitchTrackBoxes((previousBoxes) =>
         areSwitchTrackBoxesEqual(previousBoxes, nextBoxes)
           ? previousBoxes
@@ -681,6 +688,7 @@ function useCanvasOwnedSwitchTrackBoxes(
 function useCanvasOwnedUnderlineBoxes(
   sectionId: string,
   layoutRefreshKey: string,
+  viewportScale: number,
 ) {
   const [underlineBoxes, setUnderlineBoxes] = useState<
     Array<CanvasOwnedUnderlineBox>
@@ -698,7 +706,10 @@ function useCanvasOwnedUnderlineBoxes(
     );
 
     const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedUnderlineBoxes(sectionId);
+      const nextBoxes = measureCanvasOwnedUnderlineBoxes(
+        sectionId,
+        viewportScale,
+      );
       setUnderlineBoxes((previousBoxes) =>
         areCanvasOwnedUnderlineBoxesEqual(previousBoxes, nextBoxes)
           ? previousBoxes
@@ -760,6 +771,7 @@ function useCanvasOwnedUnderlineBoxes(
 function useCanvasOwnedNestedGuideBoxes(
   sectionId: string,
   layoutRefreshKey: string,
+  viewportScale: number,
 ) {
   const [nestedGuideBoxes, setNestedGuideBoxes] = useState<
     Array<CanvasOwnedNestedGuideBox>
@@ -777,7 +789,10 @@ function useCanvasOwnedNestedGuideBoxes(
     );
 
     const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedNestedGuideBoxes(sectionId);
+      const nextBoxes = measureCanvasOwnedNestedGuideBoxes(
+        sectionId,
+        viewportScale,
+      );
       setNestedGuideBoxes((previousBoxes) =>
         areCanvasOwnedNestedGuideBoxesEqual(previousBoxes, nextBoxes)
           ? previousBoxes
@@ -839,6 +854,7 @@ function useCanvasOwnedNestedGuideBoxes(
 function useCanvasOwnedFilterIconBoxes(
   sectionId: string,
   layoutRefreshKey: string,
+  viewportScale: number,
 ) {
   const [filterIconBoxes, setFilterIconBoxes] = useState<
     Array<CanvasOwnedFilterIconBox>
@@ -856,7 +872,10 @@ function useCanvasOwnedFilterIconBoxes(
     );
 
     const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedFilterIconBoxes(sectionId);
+      const nextBoxes = measureCanvasOwnedFilterIconBoxes(
+        sectionId,
+        viewportScale,
+      );
       setFilterIconBoxes((previousBoxes) =>
         areCanvasOwnedFilterIconBoxesEqual(previousBoxes, nextBoxes)
           ? previousBoxes
@@ -918,6 +937,7 @@ function useCanvasOwnedFilterIconBoxes(
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
   layoutRefreshKey: string,
+  viewportScale: number,
 ) {
   const [restingTextLines, setRestingTextLines] = useState<
     Array<CanvasOwnedRestingTextLine>
@@ -935,7 +955,10 @@ function useCanvasOwnedRestingTextLines(
     );
 
     const updateMeasuredLines = () => {
-      const nextLines = measureCanvasOwnedRestingTextLines(sectionId);
+      const nextLines = measureCanvasOwnedRestingTextLines(
+        sectionId,
+        viewportScale,
+      );
       setRestingTextLines((previousLines) =>
         areCanvasOwnedRestingTextLinesEqual(previousLines, nextLines)
           ? previousLines
@@ -1003,10 +1026,12 @@ function useCanvasOwnedSectionBackdropMeasurements({
   nodeHeight,
   nodeWidth,
   sectionId,
+  viewportScale,
 }: {
   nodeHeight: number | undefined;
   nodeWidth: number | undefined;
   sectionId: string;
+  viewportScale: number;
 }): CanvasOwnedSectionBackdropMeasurements {
   const styleColor = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
@@ -1034,26 +1059,32 @@ function useCanvasOwnedSectionBackdropMeasurements({
     }),
     shallow,
   );
-  const layoutRefreshKey = `${nodeWidth ?? 0}:${nodeHeight ?? 0}:${headerHeight}:${kwargsControlsHeight}:${pinnedParamsHeight}:${searchHeight}`;
+  const stableViewportScale = normalizeViewportScale(viewportScale);
+  const layoutRefreshKey = `${nodeWidth ?? 0}:${nodeHeight ?? 0}:${headerHeight}:${kwargsControlsHeight}:${pinnedParamsHeight}:${searchHeight}:${stableViewportScale}`;
   const switchTrackBoxes = useCanvasOwnedSwitchTrackBoxes(
     sectionId,
     layoutRefreshKey,
+    stableViewportScale,
   );
   const underlineBoxes = useCanvasOwnedUnderlineBoxes(
     sectionId,
     layoutRefreshKey,
+    stableViewportScale,
   );
   const filterIconBoxes = useCanvasOwnedFilterIconBoxes(
     sectionId,
     layoutRefreshKey,
+    stableViewportScale,
   );
   const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
     sectionId,
     layoutRefreshKey,
+    stableViewportScale,
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     sectionId,
     layoutRefreshKey,
+    stableViewportScale,
   );
 
   return useMemo(
@@ -1087,6 +1118,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
 export default function SectionShellBackdropCanvas() {
   const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
   const darkMode = useLocalStorage((state) => state.darkMode);
+  const viewportScale = useReactFlow((state) => state.transform[2]);
   const callableNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
   const dictNode = nodes.get(DICT_CANVAS_OWNED_SECTION_SHELL_ID);
   const globalVariablesNode = nodes.get(
@@ -1096,17 +1128,20 @@ export default function SectionShellBackdropCanvas() {
     nodeHeight: callableNode?.height,
     nodeWidth: callableNode?.width,
     sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+    viewportScale,
   });
   const dictMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: dictNode?.height,
     nodeWidth: dictNode?.width,
     sectionId: DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+    viewportScale,
   });
   const globalVariablesMeasurements = useCanvasOwnedSectionBackdropMeasurements(
     {
       nodeHeight: globalVariablesNode?.height,
       nodeWidth: globalVariablesNode?.width,
       sectionId: GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      viewportScale,
     },
   );
   const backdropMeasurementsBySectionId = useMemo(

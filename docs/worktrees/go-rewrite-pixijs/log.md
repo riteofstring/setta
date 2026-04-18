@@ -931,3 +931,45 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the section-specific callable/dict/GlobalVariables chrome lanes closed and continue the camera/viewport lane by replacing retained-canvas DOM transform readback with shared React Flow transform state in the measurement path
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 038
+
+- Item: Progress review checkpoint after runs 011-020.
+- Status: `reviewed`
+- Details:
+  - Recent progress is still worthwhile overall because the loop did eventually pivot from section-specific inactive-chrome harvesting to a real graph-surface architecture move in item `037`, landing the first non-forwarding camera/viewport seam on the `settings` canary path.
+  - The stretch before that showed diminishing returns:
+    - runs `011` through `019` mostly expanded or closed dict / GlobalVariables micro-lanes
+    - those slices were not pure noise, but they were nearing churn because they kept widening existing ownership helpers and trusted probes without producing the next dense-scene architectural proof
+  - Durable sequencing is now tightened to prevent another drift back into row-level micro-lanes by default:
+    - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed
+    - the next must-do slice is shared-transform-state authority in the retained measurement path
+    - the pass after that must be a fresh dense `settings` -> `All Settings` measurement/report against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`
+  - Only reopen another section-family rollout after that measurement if the inactive DOM/resting-rendering path is still the measured blocker or a fresh visible defect appears on a closed canary lane.
+- Next action:
+  - continue automatically, but require the next iteration to stay on the camera/viewport lane by replacing retained-canvas DOM transform readback with shared React Flow transform state, then queue a fresh durable dense-scene measurement instead of more section-specific chrome ownership work
+
+## 2026-04-18 039
+
+- Item: Replace retained-canvas DOM transform readback with shared React Flow transform state in the measurement path.
+- Status: `done`
+- Details:
+  - Camera/viewport lane canonical target remains `settings-section__callableSectionDefault`.
+  - Removed the retained measurement path's `.react-flow__viewport` computed-style parsing from `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx`; switch-track, underline, filter-icon, nested-guide, and resting-text measurement now all consume shared React Flow zoom state from `useReactFlow((state) => state.transform[2])`.
+  - Added `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts` so graph-space rect normalization and length scaling live in one helper instead of being re-derived ad hoc from DOM transform strings.
+  - Threaded the normalized viewport scale through all retained measurement hooks and added that scale to the retained layout-refresh key, so zoom changes now force a fresh retained measurement pass without relying on unrelated DOM mutations.
+  - Added `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts` with a pure graph-space check proving equivalent `1x` and `2x` viewport measurements normalize to the same section-relative rect.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-021/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.0s)` on the live worktree runtime
+- CDP visual check is done:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` and `.react-flow__graph-surface-camera` were both present
+  - `settings-section__dictSectionDefault` was visually checked because that lane exercises the retained shell/text/icon/underline primitives touched by this measurement-authority slice
+  - no crash/error overlay, blank/detached content, or obvious shell/text/icon/underline breakage was visible
+  - reused the existing authenticated frontend session; the bootstrap URL was not needed
+- Next action:
+  - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and rerun the dense `settings` -> `All Settings` measurement/probe flow against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`, recording the result as the next durable perf report
+LOOP_TERMINAL_MARKER: none

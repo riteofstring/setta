@@ -521,6 +521,24 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `.react-flow__graph-surface-camera` was present as a sibling immediately before `.react-flow__viewport`
   - `settings-section__callableSectionDefault` remained visible and populated with no blank or detached section body
   - caveat: the supplied bootstrap token was already rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend route instead of the bootstrap URL
+- The next camera-lane transform-authority slice is now landed:
+  - canonical lane target remains `settings-section__callableSectionDefault`
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` no longer parses `.react-flow__viewport` computed CSS back from DOM to recover zoom scale for retained switch/underline/filter-icon/nested-guide/resting-text measurements
+  - the retained measurement path now reads shared React Flow zoom state through `useReactFlow((state) => state.transform[2])` and threads that scale into all retained graph-space measurement helpers
+  - new `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts` centralizes graph-space rect normalization, so measurement math now stays coupled to the same store-owned transform authority as the sibling camera layer instead of a second DOM readback source
+  - the retained measurement layout-refresh key now includes normalized viewport scale, so zoom changes force a fresh retained measurement pass without waiting for an unrelated DOM mutation
+  - focused coverage now exists at `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts` proving the new helper returns stable graph-space offsets/sizes across equivalent `1x` and `2x` viewport measurements
+- focused verification passed for the transform-authority slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-021/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.0s)` on the live worktree runtime
+- CDP visual check is done for the transform-authority slice:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` and `.react-flow__graph-surface-camera` were both present on the live surface
+  - `settings-section__dictSectionDefault` was checked at usable zoom because the shared dict probe exercises the retained shell/text/icon/underline primitives touched by this slice
+  - no crash/error overlay, blank/detached content, or obvious shell/text/icon/underline breakage was visible on that section
+  - the CDP pass reused the existing authenticated frontend session; the bootstrap URL was not needed
 
 ## Preservation rule
 
@@ -552,7 +570,9 @@ That leaves one primary architectural move:
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
-6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; with the first sibling camera-layer seam now landed, the next bounded product slice should make the retained canvas measurement/viewport math consume shared React Flow transform state directly instead of reading `.react-flow__viewport` computed CSS back from DOM.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the transform-authority slice is now landed, so the next bounded product slice is the fresh dense `settings` -> `All Settings` measurement run against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`.
+7. Record that dense-scene rerun as a new durable perf report under `perf/reports/frontend/`, using the current retained-canvas camera/measurement path instead of the older DOM-transform readback.
+8. Do not open another section-specific shell/text/filter/kwargs ownership lane before that fresh dense-scene measurement lands unless a concrete visual regression on the callable, dict, or GlobalVariables canary forces it.
 
 ## First product frontier
 
@@ -578,7 +598,7 @@ The first product frontier is:
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
 - with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
-- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and continue the camera/viewport lane by replacing retained-canvas DOM transform readback with shared React Flow transform state
+- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries, rerun the dense `All Settings` measurement path against the baseline with the new store-owned transform authority in place, then reopen a section-specific ownership lane only if that durable measurement still points back to inactive DOM cost or a fresh visual defect appears
 
 ## Hard rules
 
