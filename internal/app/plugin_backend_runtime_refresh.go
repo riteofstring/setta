@@ -233,14 +233,12 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 }
 
 func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
-	response, err := s.base.WriteConfig(ctx, options)
-	if err != nil || s.refresher == nil {
-		return response, err
+	if s.refresher == nil {
+		return s.base.WriteConfig(ctx, options)
 	}
-	if err := s.refresher.ReapplyAppliedLanguageServerPluginConfig(ctx, response.PluginID); err != nil {
-		return response, err
-	}
-	return response, nil
+	return s.base.WriteConfigTransactional(ctx, options, func(response plugins.PluginConfigWriteResponse) error {
+		return s.refresher.ReapplyAppliedLanguageServerPluginConfig(ctx, response.PluginID)
+	})
 }
 
 func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {

@@ -314,6 +314,21 @@ def test_first_party_basedpyright_plugin_honors_setta_go_bin_override(
     assert module_globals["resolve_go_binary"]() == str(go_binary)
 
 
+def test_first_party_basedpyright_plugin_honors_go_command_override(
+    monkeypatch,
+) -> None:
+    module_globals = _load_basedpyright_setup_module(monkeypatch)
+    monkeypatch.delenv("SETTA_GO_BIN", raising=False)
+    monkeypatch.setenv("GO", "go-custom")
+    monkeypatch.setattr(
+        module_globals["shutil"],
+        "which",
+        lambda name: "/tmp/go-custom" if name == "go-custom" else None,
+    )
+
+    assert module_globals["resolve_go_binary"]() == "/tmp/go-custom"
+
+
 def test_first_party_basedpyright_plugin_wheel_is_platform_specific_and_ships_backend(
     tmp_path: Path,
 ) -> None:

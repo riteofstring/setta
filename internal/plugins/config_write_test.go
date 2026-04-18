@@ -171,6 +171,50 @@ func TestServiceWriteConfigKeepsScopedValuesAcrossShadowingLifecycle(t *testing.
 	}
 }
 
+func TestServiceWriteConfigTransactionalRestoresPreviousConfigWhenApplyFails(t *testing.T) {
+	workspaceConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta)
+
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "before",
+		},
+	}); err != nil {
+		t.Fatalf("write initial plugin config: %v", err)
+	}
+
+	applyErr := errors.New("reapply applied language server config")
+	_, err := service.WriteConfigTransactional(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "after",
+		},
+	}, func(PluginConfigWriteResponse) error {
+		return applyErr
+	})
+	if !errors.Is(err, applyErr) {
+		t.Fatalf("expected apply error %v, got %v", applyErr, err)
+	}
+
+	state, err := service.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after rollback: %v", err)
+	}
+	savedConfig, ok := state.PluginConfigByID[workspaceConfigKey].(map[string]any)
+	if !ok {
+		t.Fatalf("expected rolled-back workspace config, got %#v", state.PluginConfigByID)
+	}
+	if got := savedConfig["label"]; got != "before" {
+		t.Fatalf("expected rollback to restore previous label, got %#v", got)
+	}
+}
+
 func TestServiceWriteConfigRejectsInvalidSchemaValue(t *testing.T) {
 	// Schema-backed config writes should reject invalid payloads with a plugin config error.
 	roots := newFilesystemResolverTestRoots(t)

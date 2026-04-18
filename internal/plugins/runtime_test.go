@@ -24,7 +24,7 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	})
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
-			string(PluginScopeWorkspace) + ":setta-fixture-full": map[string]any{
+			pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta): map[string]any{
 				"enabled": true,
 				"label":   "fixture",
 			},
@@ -227,7 +227,7 @@ func TestServiceRuntimeRedactsConfigAndSourceOutsideIDE(t *testing.T) {
 	})
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
-			string(PluginScopeWorkspace) + ":setta-fixture-full": map[string]any{
+			pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta): map[string]any{
 				"enabled": true,
 				"secret":  "value",
 			},

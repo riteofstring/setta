@@ -224,7 +224,7 @@ func TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid(t *t
 	writeJSONFile(t, schemaPath, schemaPayload)
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
-			string(PluginScopeWorkspace) + ":setta-fixture-full": "invalid-root",
+			pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta): "invalid-root",
 		},
 	})
 

@@ -27,11 +27,22 @@ def packaged_backend_relative_path() -> str:
     return f"backend/{packaged_backend_file_name()}"
 
 
+def resolve_go_override(raw_candidate: str) -> str | None:
+    candidate = raw_candidate.strip()
+    if not candidate:
+        return None
+
+    if Path(candidate).is_file():
+        return candidate
+
+    return shutil.which(candidate)
+
+
 def resolve_go_binary() -> str:
     for env_name in ("SETTA_GO_BIN", "GO"):
-        candidate = os.environ.get(env_name, "").strip()
-        if candidate and Path(candidate).is_file():
-            return candidate
+        resolved = resolve_go_override(os.environ.get(env_name, ""))
+        if resolved:
+            return resolved
 
     resolved = shutil.which("go")
     if resolved:

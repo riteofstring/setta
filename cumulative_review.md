@@ -1,3 +1,34 @@
+## 2026-04-18 04:43:44 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had three concrete issues: applied language-server plugin config writes could persist a rejected config before live reapply succeeded, packaged `setta-basedpyright` builds still ignored explicit `GO=...` command-name overrides on `PATH`, and several `internal/plugins` tests still seeded removed legacy `scope:pluginId` config keys instead of the canonical `scope:sourceManager:pluginId` format.
+- I implemented the fixes directly and simplified the ownership boundaries instead of adding more post-write special cases or keeping stale legacy test scaffolding alive.
+
+Fixes applied:
+- Reworked `internal/plugins/config_write.go` so config writes now snapshot the previous `PluginsStateFile`, restore it if the post-save rescan fails, and expose a transactional `WriteConfigTransactional(...)` helper for callers that must apply live side effects after persistence.
+- Updated `internal/app/plugin_backend_runtime_refresh.go` so the app-owned config write path uses that transactional helper. A failed `ReapplyAppliedLanguageServerPluginConfig(...)` call now restores the old persisted config instead of leaving the rejected config on disk for the next refresh or restart.
+- Updated `internal/plugins/discovery_test.go` and `internal/plugins/runtime_test.go` so normal discovery/runtime coverage now seeds the canonical plugin-config keys. Legacy-key fixtures remain only in the explicit ignore-legacy coverage.
+- Reworked `plugins/setta-basedpyright/setup.py` so `SETTA_GO_BIN` and `GO` are resolved as either explicit file paths or command names on `PATH` before falling back to bare `go`, and only then to repo `scripts/go.sh` on non-Windows hosts.
+
+Tests added or upgraded:
+- Go service coverage for transactional config-write rollback when the post-persist apply step fails.
+- Go app integration coverage for a real `/api/plugins/config` basedpyright write that fails during rematerialization, returns non-200, preserves the old runtime config, and keeps Python completions working afterward.
+- Updated `internal/plugins` discovery/runtime coverage so the canonical-key tests now exercise live config loading and redaction again instead of failing or passing vacuously on ignored legacy keys.
+- Python packaging coverage for `GO=go-custom` command-name overrides.
+- No Playwright coverage was added in this pass because the regressions were backend transactionality, packaging resolution, and stale backend test fixtures rather than browser-only behavior.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceWriteConfigTransactionalRestoresPreviousConfigWhenApplyFails|TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid|TestServiceRuntimeBuildsFrontendListAndStatusPayloads|TestServiceRuntimeRedactsConfigAndSourceOutsideIDE|TestServiceRuntimeIgnoresLegacyPluginConfigKeysForSameScopeDuplicates'`
+- `./scripts/go.sh test ./internal/app -run 'TestAppWriteConfigReappliesAppliedBasedpyrightSpec|TestAppWriteConfigRestoresPreviousBasedpyrightConfigWhenReapplyFails'`
+- `./scripts/go.sh test ./internal/plugins`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- Canonical plugin-config coverage is aligned with production again, packaged plugin builds now honor explicit `GO` command-name overrides, and failed live LSP config reapply no longer leaves rejected config persisted.
+
 ## 2026-04-18 04:15:47 PDT
 
 Summary:

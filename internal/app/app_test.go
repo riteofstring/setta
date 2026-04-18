@@ -42,6 +42,19 @@ import (
 	"setta/internal/transcriptionprofiles"
 )
 
+type failOnceProjectDocumentMaterializer struct {
+	err            error
+	failuresRemain int
+}
+
+func (m *failOnceProjectDocumentMaterializer) MaterializeDocument(context.Context, projectstate.Document) error {
+	if m != nil && m.failuresRemain > 0 {
+		m.failuresRemain--
+		return m.err
+	}
+	return nil
+}
+
 func TestAppServesFoundationRoutes(t *testing.T) {
 	t.Parallel()
 
@@ -7170,6 +7183,150 @@ func TestAppWriteConfigReappliesAppliedBasedpyrightSpec(t *testing.T) {
 	)
 	if len(completions) == 0 {
 		t.Fatal("expected Python completions after config write without a manual restart")
+	}
+}
+
+func TestAppWriteConfigRestoresPreviousBasedpyrightConfigWhenReapplyFails(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postPluginConfig := func(body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RoutePluginsConfig,
+			strings.NewReader(body),
+		)
+		if err != nil {
+			t.Fatalf("new basedpyright config request: %v", err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post basedpyright config: %v", err)
+		}
+		return response
+	}
+	readRuntimeConfig := func() map[string]any {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+		if err != nil {
+			t.Fatalf("new plugin runtime request: %v", err)
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("get plugin runtime: %v", err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+		}
+
+		var runtimePayload struct {
+			List struct {
+				Plugins []struct {
+					PluginID string `json:"pluginId"`
+					Config   struct {
+						CurrentConfig map[string]any `json:"currentConfig"`
+					} `json:"config"`
+				} `json:"plugins"`
+			} `json:"list"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&runtimePayload); err != nil {
+			t.Fatalf("decode plugin runtime payload: %v", err)
+		}
+		if len(runtimePayload.List.Plugins) != 1 {
+			t.Fatalf("expected one plugin runtime entry, got %#v", runtimePayload.List.Plugins)
+		}
+		return runtimePayload.List.Plugins[0].Config.CurrentConfig
+	}
+
+	initialResponse := postPluginConfig(`{"pluginId":"setta-basedpyright","config":{"basedpyright":{"analysis":{"diagnosticSeverityOverrides":{"reportUnknownVariableType":"warning"}}}}}`)
+	defer initialResponse.Body.Close()
+	if initialResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(initialResponse.Body)
+		t.Fatalf("expected initial basedpyright config 200, got %d with body %q", initialResponse.StatusCode, string(body))
+	}
+
+	initialCompletions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(initialCompletions) == 0 {
+		t.Fatal("expected Python completions before failing config write")
+	}
+
+	reapplyErr := errors.New("materialize document failed")
+	app.pluginRuntime.projectLSPSync = &failOnceProjectDocumentMaterializer{
+		err:            reapplyErr,
+		failuresRemain: 1,
+	}
+
+	failedResponse := postPluginConfig(`{"pluginId":"setta-basedpyright","config":{"basedpyright":{"analysis":{"diagnosticSeverityOverrides":{"reportUnknownVariableType":"error"}}}}}`)
+	defer failedResponse.Body.Close()
+	if failedResponse.StatusCode != http.StatusInternalServerError {
+		body, _ := io.ReadAll(failedResponse.Body)
+		t.Fatalf("expected failing basedpyright config write to return 500, got %d with body %q", failedResponse.StatusCode, string(body))
+	}
+
+	currentConfig := readRuntimeConfig()
+	basedpyrightSettings, ok := currentConfig["basedpyright"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected basedpyright config root after rollback, got %#v", currentConfig)
+	}
+	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected basedpyright analysis config after rollback, got %#v", basedpyrightSettings)
+	}
+	overrides, ok := analysis["diagnosticSeverityOverrides"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected diagnosticSeverityOverrides after rollback, got %#v", analysis)
+	}
+	if got := overrides["reportUnknownVariableType"]; got != "warning" {
+		t.Fatalf("expected runtime config rollback to preserve warning override, got %#v", got)
+	}
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions after failed config write rollback")
 	}
 }
 
