@@ -240,9 +240,7 @@ def parse_frontend_diagnostics(
         if not imports.get(module_path, {}).get(symbol, False):
             continue
 
-        priority = (
-            100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99
-        )
+        priority = 100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99
         add_bucket(
             buckets,
             kind="missing-runtime-export",
