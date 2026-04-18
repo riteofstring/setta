@@ -11,12 +11,12 @@ import {
   UIEditorTabNameEnum,
   isOverviewTabKey,
   type OverviewTabKey,
+  type UIEditorTabName,
 } from "utils/constants";
 import type {
   SectionType,
   UISettingRevealContent,
   UISettingRevealTarget,
-  UIEditorTabName,
 } from "utils/generatedTypes";
 import {
   restoreBackendAuthoritativeActiveSectionIds,

@@ -324,7 +324,7 @@ func marshalAppDefinitionRawJSON(value any, field string) (RawJSON, error) {
 	return normalizeRawJSON(encoded, field)
 }
 
-func decodeRawJSONObject(raw RawJSON, field string) (map[string]any, error) {
+func decodeAppDefinitionJSONObject(raw RawJSON, field string) (map[string]any, error) {
 	if len(strings.TrimSpace(string(raw))) == 0 {
 		return nil, nil
 	}
@@ -341,10 +341,6 @@ func decodeRawJSONObject(raw RawJSON, field string) (map[string]any, error) {
 		return nil, fmt.Errorf("%s must be a JSON object", field)
 	}
 	return object, nil
-}
-
-func decodeAppDefinitionJSONObject(raw RawJSON, field string) (map[string]any, error) {
-	return decodeRawJSONObject(raw, field)
 }
 
 func decodeAppDefinitionJSONArray(raw RawJSON, field string) ([]any, error) {
