@@ -160,9 +160,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires a developer-started browser session.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
-  - Specialized Codex loop for fixing actionable severe type errors only instead of broad repo type backlog cleanup.
-  - Starts a fresh Codex session every iteration, seeds a single-phase checklist plus a severe-type audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs as candidate generators rather than a blanket “fix everything” list.
-  - Requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable severe type errors under the loop rubric.
+  - Specialized Codex loop for fixing only actionable runtime-break type errors instead of broad repo type backlog cleanup.
+  - Starts a fresh Codex session every iteration, seeds a single-phase checklist plus a runtime-break audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs as candidate generators rather than a blanket “fix everything” list.
+  - Requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable runtime-break type errors under the loop rubric.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.

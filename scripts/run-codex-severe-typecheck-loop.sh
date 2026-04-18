@@ -6,7 +6,7 @@ usage() {
 Usage: ./scripts/run-codex-severe-typecheck-loop.sh [options] [-- <extra codex exec args>]
 
 Run Codex in a fresh-session loop with one strict phase:
-1. fix all actionable severe type errors without churning on non-severe type backlog
+1. fix only actionable runtime-break type errors without churning on non-critical type backlog
 
 Defaults:
 - Maximum iterations: 1000
@@ -15,7 +15,7 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Stop only when Codex explicitly reports that no actionable severe type errors remain
+- Stop only when Codex explicitly reports that no actionable runtime-break type errors remain
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the saved checklist/audit state
 
 Options:
@@ -257,45 +257,45 @@ Keep this file compact and current-state only.
 Overwrite stale notes instead of appending an iteration diary.
 
 ## Severity rubric
-- Severe:
-  - likely runtime or protocol breakage on supported production paths
-  - broken owner/generated contract drift across Go, Python, and TypeScript
-  - missing or renamed exports, imports, symbols, properties, discriminants, or required fields that production code depends on
-  - handler-map, enum, JSX, or component typing that points to a real live-code crash, dropped message, or broken dispatch path
+- Critical for this loop:
+  - the type error indicates a concrete supported-flow runtime break, crash, dropped message, broken dispatch path, or invalid live request/response shape
+  - missing or renamed exports, imports, symbols, properties, enum members, or discriminants that production code actively uses at runtime
+  - handler-map, enum, JSX, or component typing that proves live runtime wiring is broken
 - Duplication policy:
   - Do not introduce duplicate code or logic merely to satisfy the type checker.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first reuse an existing authoritative type or helper if one already exists.
   - If the only problem is that an owner-side helper type is private, prefer exporting and reusing it from the owner module instead of re-declaring the same shape locally.
   - If a normalization boundary is genuinely unavoidable because two owner surfaces are materially different, keep it minimal, make it the only such boundary for that concept, and record the reason briefly in this audit.
-- Usually not severe by default:
+- Usually not critical for this loop:
   - exactOptionalPropertyTypes or nullability churn that does not indicate runtime breakage
   - test-only fixture typing or helper typing backlog
-  - generated-file noise unless it points back to an owner-side severe contract drift
-  - broad legacy typing backlog that is not required to land the current severe fix
+  - contract precision or owner/generated narrowing drift that does not imply a concrete runtime failure on supported flows
+  - request or response typing mismatches where the existing runtime payload shape is already accepted and works in production code
+  - broad legacy typing backlog that is not required to land the current runtime-break fix
 
-## Current severe actionable findings
+## Current actionable runtime-break findings
 
 ## Current target
 
 ## High-risk contract surfaces checked
 - Before completion, explicitly audit high-risk shared-contract and runtime-dispatch surfaces that can evade raw typecheck output.
 
-## Deferred non-severe or test-only backlog
+## Deferred non-critical or test-only backlog
 
 ## Completion basis
-- Completion means no actionable severe type errors remain under the rubric above.
-- Non-severe type backlog may remain and should stay listed briefly here instead of consuming loop iterations.
+- Completion means no actionable runtime-break type errors remain under the rubric above.
+- Non-critical type backlog may remain and should stay listed briefly here instead of consuming loop iterations.
 EOF
 fi
 
 if [[ ! -f "${checklist_file}" ]]; then
   cat > "${checklist_file}" <<EOF
-# Severe Type Error Checklist
+# Runtime-Break Type Error Checklist
 
 Keep this file accurate while the loop runs.
 
 Rules:
-- This loop has one phase only: fix actionable severe type errors.
+- This loop has one phase only: fix actionable runtime-break type errors.
 - Treat ${severe_type_audit_file} as the current severity source of truth.
 - Mark an item \`[x]\` only after a fresh audit or verification proves it.
 - Do not delete items.
@@ -303,12 +303,12 @@ Rules:
 - The latest saved Python typecheck output should live at: ${python_typecheck_file}
 - Save Go typecheck output to: ${go_typecheck_file} when Go changes or before declaring completion.
 
-## Phase 1: Fix Severe Type Errors
+## Phase 1: Fix Runtime-Break Type Errors
 - [ ] Refresh ${frontend_typecheck_file} with ${frontend_typecheck_command} at the start of every iteration and save stdout/stderr there.
 - [ ] Refresh ${python_typecheck_file} with ${python_typecheck_command} at the start of every iteration and save stdout/stderr there.
-- [ ] Update ${severe_type_audit_file} on every iteration with only the current severe actionable findings, current target, and brief deferred non-severe backlog needed for triage.
-- [ ] Use the saved typecheck outputs as candidate generators, not a blanket todo list. Fix only actionable severe errors under the severity rubric.
-- [ ] Choose one highest-leverage severe error or tightly related severe error cluster and fix it fully before moving on.
+- [ ] Update ${severe_type_audit_file} on every iteration with only the current actionable runtime-break findings, current target, and brief deferred non-critical backlog needed for triage.
+- [ ] Use the saved typecheck outputs as candidate generators, not a blanket todo list. Fix only actionable runtime-break errors under the rubric.
+- [ ] Choose one highest-leverage runtime-break error or tightly related runtime-break error cluster and fix it fully before moving on.
 - [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
 - [ ] Manually audit high-risk shared-contract and dispatch surfaces that can evade raw typecheck output, especially generated enums or unions used by runtime handler maps.
 - [ ] When generated artifacts are implicated, fix the owner inputs and regenerate instead of manually editing generated files.
@@ -317,7 +317,7 @@ Rules:
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-typefix:\`.
 
 ## Completion
-- [ ] Mark completion only after a fresh severe-type audit plus fresh saved typecheck outputs show no remaining actionable severe type errors under the severity rubric, and the high-risk shared-contract/dispatch audit is also clean. Non-severe backlog may remain.
+- [ ] Mark completion only after a fresh audit plus fresh saved typecheck outputs show no remaining actionable runtime-break type errors under the rubric, and the high-risk shared-contract/dispatch audit is also clean. Non-critical backlog may remain.
 EOF
 fi
 
@@ -326,7 +326,7 @@ You are running inside an automated Codex loop for this repository.
 
 Mission:
 Complete the single phase of this loop:
-fix all actionable severe type errors in the repo without burning time on non-severe type backlog.
+fix only actionable runtime-break type errors in the repo without burning time on non-critical type backlog.
 
 Read first, in this order:
 - ${ROOT_DIR}/AGENTS.md
@@ -338,24 +338,25 @@ Read first, in this order:
 - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
 
 Severity rubric:
-- Count an error as severe when it points to likely runtime breakage or broken ownership/contract drift on supported production paths.
-- Typical severe examples:
+- Count an error as actionable for this loop only when it indicates a concrete supported-flow runtime break.
+- Typical actionable examples:
   - missing or renamed exports, imports, symbols, properties, enum members, discriminants, or required fields used by production code
   - generated contract drift that breaks protocol dispatch, handler maps, or other live runtime wiring
   - JSX/component type failures that imply a component may be undefined or called with impossible live props
-  - owner/generated mismatches across Go, Python, and TypeScript that indicate a broken shared contract
+  - request/response type errors where the current code would send or depend on a payload shape that the live runtime path cannot actually handle
 - Duplication policy for this loop:
   - Do not introduce duplicate code or logic merely to silence type errors.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first search for an existing authoritative type or helper and reuse it.
   - If the only issue is that an owner-side helper type is private, export and reuse it from the owner module instead of re-declaring the same structure locally.
   - If two owner surfaces are genuinely different and a normalization boundary is unavoidable, keep it minimal, keep exactly one such boundary for that concept, and record the reason in ${severe_type_audit_file}.
-- Usually not severe by default:
+- Usually not actionable for this loop:
   - exactOptionalPropertyTypes, nullability, or narrowing churn that does not indicate runtime breakage
   - test-only fixture typing, helper typing, or broad legacy test backlog
-  - generated-file noise unless it points back to an owner-side severe contract regression
-  - broad repo type backlog that is not required to land the current severe fix
-- If an error is ambiguous, use production-path runtime impact as the decision rule and record the rationale briefly in ${severe_type_audit_file}.
-- Typecheck outputs are candidate generators only. Some severe protocol and shared-contract regressions can evade raw typecheck output or be masked by generated types/tests.
+  - contract precision drift, union narrowing drift, or owner/generated type drift that does not imply a concrete runtime failure
+  - request/response typing mismatches where the existing live payload still decodes and the supported app flow still works
+  - broad repo type backlog that is not required to land the current runtime-break fix
+- If an error is ambiguous, do not fix it in this loop unless you can explain the concrete runtime failure path in ${severe_type_audit_file}.
+- Typecheck outputs are candidate generators only. Some runtime-break regressions can evade raw typecheck output or be masked by generated types/tests.
 
 Execution rules for every iteration:
 - Treat the checklist at ${checklist_file} and the audit at ${severe_type_audit_file} as the source of truth.
@@ -363,9 +364,9 @@ Execution rules for every iteration:
   - run ${frontend_typecheck_command} and save stdout/stderr to ${frontend_typecheck_file}
   - run ${python_typecheck_command} and save stdout/stderr to ${python_typecheck_file}
 - Run ${go_typecheck_command} and save stdout/stderr to ${go_typecheck_file} whenever you touch Go code or before declaring completion.
-- After refreshing outputs, update ${severe_type_audit_file} so it reflects only current severe actionable findings and the brief deferred non-severe backlog relevant to triage.
+- After refreshing outputs, update ${severe_type_audit_file} so it reflects only current actionable runtime-break findings and the brief deferred non-critical backlog relevant to triage.
 - Use the saved typecheck outputs as candidate generators, not as a blanket requirement to fix every reported issue.
-- Pick one actionable severe error or tightly related severe cluster that you can complete confidently in this session.
+- Pick one actionable runtime-break error or tightly related runtime-break cluster that you can complete confidently in this session.
 - Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
 - Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
 - Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
@@ -384,20 +385,20 @@ Execution rules for every iteration:
 - Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.
 
-Severe-only discipline:
-- Do not spend an iteration fixing broad non-severe type backlog just because it appears in the saved typecheck outputs.
-- It is acceptable to leave non-severe type errors in place when they do not indicate runtime breakage and do not block the current severe fix.
-- If you must touch a little non-severe typing to land a severe fix cleanly, keep that spillover minimal and targeted.
+Runtime-break-only discipline:
+- Do not spend an iteration fixing broad non-critical type backlog just because it appears in the saved typecheck outputs.
+- It is acceptable to leave non-critical type errors in place when they do not indicate runtime breakage and do not block the current runtime-break fix.
+- If you must touch a little non-critical typing to land a runtime-break fix cleanly, keep that spillover minimal and targeted.
 - Production code and shared contract surfaces matter more than test-only typing.
-- If a severe issue originates in shared contracts, generated frontend types, or Go-owned Python surfaces, fix the authoritative owner and regenerate downstream artifacts before cleanup.
+- If a runtime-break issue originates in shared contracts, generated frontend types, or Go-owned Python surfaces, fix the authoritative owner and regenerate downstream artifacts before cleanup.
 - A type-only duplication that papers over an existing authoritative helper or shape is not an acceptable fix for this loop.
 
 Completion rule:
-- If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable severe type errors under the severity rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
+- If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable runtime-break type errors under the rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
   ${complete_stop_sentinel}
 
 Completion discipline:
-- Any session that does not emit the stop sentinel must either produce a new clean commit or leave the repo unchanged while advancing the checklist and audit state needed for the next severe fix.
+- Any session that does not emit the stop sentinel must either produce a new clean commit or leave the repo unchanged while advancing the checklist and audit state needed for the next runtime-break fix.
 - Never end the session with uncommitted, unstaged, or untracked repo changes.
 EOF
 
@@ -464,7 +465,7 @@ if [[ ${#combined_codex_extra_args[@]} -gt 0 ]]; then
 fi
 
 echo "Checklist: ${checklist_file}"
-echo "Severe type audit file: ${severe_type_audit_file}"
+echo "Type audit file: ${severe_type_audit_file}"
 echo "Frontend typecheck log: ${frontend_typecheck_file}"
 echo "Python typecheck log: ${python_typecheck_file}"
 echo "Go typecheck log: ${go_typecheck_file}"
