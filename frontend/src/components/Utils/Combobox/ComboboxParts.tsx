@@ -72,17 +72,14 @@ function joinClasses(...classNames: Array<string | undefined>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getResolvedComboboxBg(
-  bg: string | undefined,
-  variant: ComboboxVariant,
-) {
-  return bg && bg.trim().length > 0 ? bg : DEFAULT_BG_BY_VARIANT[variant];
+function getResolvedComboboxBg(bg: string, variant: ComboboxVariant) {
+  return bg.trim().length > 0 ? bg : DEFAULT_BG_BY_VARIANT[variant];
 }
 
 function getComboboxInputStyles(
   variant: ComboboxVariant,
   small: boolean,
-  bg: string | undefined,
+  bg: string,
   inputThemeClassName: string,
 ) {
   const sizeKey = getComboboxSizeKey(small);
