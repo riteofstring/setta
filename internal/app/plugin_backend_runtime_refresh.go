@@ -10,6 +10,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/settingsstate"
 )
 
 type pluginBackendRuntimeRefresher struct {
@@ -17,6 +18,7 @@ type pluginBackendRuntimeRefresher struct {
 	logger      *slog.Logger
 	runtimeRoot string
 	mcpServer   *mcpx.Server
+	settings    *settingsstate.Runtime
 	runtime     *pluginBackendMCPRuntime
 	lspRouter   *lsp.Router
 	lspSpecs    []lsp.LanguageServerSpec
@@ -238,7 +240,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(snapshot)
+	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
 	if err != nil {
 		return err
 	}
@@ -293,7 +295,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 	if err != nil {
 		return nil, err
 	}
-	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(previewSnapshot)
+	nextLSPSpecs, err := r.selectedLanguageServerSpecs(previewSnapshot)
 	if err != nil {
 		closePluginBackendRuntime(nextRuntime)
 		return nil, err
@@ -374,6 +376,32 @@ func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
 	runtime := r.runtime
 	r.runtime = nil
 	return runtime.Close(ctx)
+}
+
+func (r *pluginBackendRuntimeRefresher) HasConfiguredLanguageServers() bool {
+	if r == nil {
+		return false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return len(r.lspSpecs) != 0
+}
+
+func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plugins.DiscoverySnapshot) ([]lsp.LanguageServerSpec, error) {
+	selections, err := r.selectedLanguageServerPlugins()
+	if err != nil {
+		return nil, err
+	}
+	return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
+}
+
+func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[string]*string, error) {
+	if r == nil || r.settings == nil {
+		return map[string]*string{}, nil
+	}
+	return settingsstate.LanguageServerSelectedByLanguage(r.settings.Snapshot().Document)
 }
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
@@ -465,6 +493,7 @@ func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServ
 	cloned := make([]lsp.LanguageServerSpec, 0, len(specs))
 	for _, spec := range specs {
 		cloned = append(cloned, lsp.LanguageServerSpec{
+			PluginID:    spec.PluginID,
 			Name:        spec.Name,
 			LanguageID:  spec.LanguageID,
 			Command:     spec.Command,
