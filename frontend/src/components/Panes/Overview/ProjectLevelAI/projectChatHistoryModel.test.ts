@@ -1,28 +1,38 @@
-import { describe, expect, it } from "vitest";
+/* @vitest-environment jsdom */
 
+import React, { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import "testUtils/reactRefreshPreamble";
 import {
+  createAgentRun,
   EngineTypeEnum,
   ToolTypeEnum,
+  type AgentRun,
   type EngineConfig,
   type ExternalAgentConfig,
 } from "utils/generatedTypes";
-import { resolveThreadAgentBadgeLabel } from "./projectChatHistoryModel";
-import { type ProjectChatHistoryEntry } from "./projectChatHistoryShared";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { useProjectChatHistoryModel } from "./projectChatHistoryModel";
 
-function buildHistoryEntry(
-  overrides: Partial<ProjectChatHistoryEntry> = {},
-): ProjectChatHistoryEntry {
-  return {
-    chatId: "thread-1",
-    label: "Thread 1",
-    nameSource: null,
-    lastUpdatedMs: 1,
-    waitingForResponse: false,
-    runType: "llm_chat",
-    engineConfigId: null,
-    ...overrides,
-  } as ProjectChatHistoryEntry;
-}
+vi.hoisted(() => {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+
+  Object.assign(globalThis, {
+    ResizeObserver: ResizeObserverStub,
+  });
+});
+
+type HistoryModel = ReturnType<typeof useProjectChatHistoryModel>;
+type HarnessProps = {
+  agentRuns?: Array<AgentRun>;
+  engineConfigs?: Array<EngineConfig>;
+  externalAgentConfigs?: Array<ExternalAgentConfig>;
+  registerModel: (model: HistoryModel) => void;
+};
 
 function buildEngineConfig(
   overrides: Partial<EngineConfig> = {},
@@ -45,30 +55,132 @@ function buildExternalAgentConfig(
   } as ExternalAgentConfig;
 }
 
-describe("resolveThreadAgentBadgeLabel", () => {
-  it("keeps the managed-chat fallback label when the saved engine config is gone", () => {
-    expect(
-      resolveThreadAgentBadgeLabel({
-        entry: buildHistoryEntry({
+function HistoryModelHarness({
+  agentRuns = [],
+  engineConfigs = [],
+  externalAgentConfigs = [],
+  registerModel,
+}: HarnessProps) {
+  const threadListScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const model = useProjectChatHistoryModel({
+    agentRuns,
+    agentRunsInitialLoadComplete: true,
+    agentRunsLoadError: null,
+    chatId: null,
+    draftThread: null,
+    engineConfigId: null,
+    engineConfigs,
+    externalAgentConfigs,
+    groupsSortableEnabledOverride: false,
+    masterSearchInput: "",
+    projectConfigId: "project-1",
+    runType: null,
+    threadAssignments: {},
+    threadGroups: [],
+    threadListScrollRef,
+    threadOrderIds: [],
+    pinnedThreadIds: [],
+    trashedThreadIds: [],
+    viewedThreadIds: [],
+  });
+
+  React.useEffect(() => {
+    registerModel(model);
+  }, [model, registerModel]);
+
+  return React.createElement("div", { ref: threadListScrollRef });
+}
+
+function buildChatRun(
+  overrides: {
+    chatId?: string;
+    engineConfigId?: string | null;
+    id?: string;
+    runType?: string | null;
+  } = {},
+): AgentRun {
+  const chatId = overrides.chatId ?? "thread-1";
+  return createAgentRun({
+    id: overrides.id ?? `run-${chatId}`,
+    inputs: {
+      chatId,
+      engineConfigId: overrides.engineConfigId ?? null,
+      projectConfigId: "project-1",
+      runType: overrides.runType ?? "llm_chat",
+    },
+    outputs: {
+      name: `Thread ${chatId}`,
+    },
+  });
+}
+
+async function renderHistoryModel(
+  props: Omit<HarnessProps, "registerModel"> = {},
+): Promise<{ root: Root; readBadgeLabel: (chatId: string) => string | null }> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  let currentModel: HistoryModel | null = null;
+
+  await act(async () => {
+    root.render(
+      React.createElement(HistoryModelHarness, {
+        ...props,
+        registerModel: (model: HistoryModel) => {
+          currentModel = model;
+        },
+      }),
+    );
+  });
+
+  return {
+    root,
+    readBadgeLabel: (chatId: string) => {
+      if (!currentModel) {
+        throw new Error("history model was not registered");
+      }
+      return currentModel.threadAgentBadgeLabelByChatId.get(chatId) ?? null;
+    },
+  };
+}
+
+afterEach(async () => {
+  document.body.innerHTML = "";
+});
+
+describe("useProjectChatHistoryModel thread badges", () => {
+  it("keeps the managed-chat fallback label when the saved engine config is gone", async () => {
+    const harness = await renderHistoryModel({
+      agentRuns: [
+        buildChatRun({
           engineConfigId: "missing-engine",
           runType: "llm_chat",
         }),
-        engineConfigById: new Map(),
-        externalAgentConfigById: new Map(),
-      }),
-    ).toBe("setta");
+      ],
+    });
+
+    expect(harness.readBadgeLabel("thread-1")).toBe("setta");
+
+    await act(async () => {
+      harness.root.unmount();
+    });
   });
 
-  it("returns the managed badge for setta engines", () => {
-    expect(
-      resolveThreadAgentBadgeLabel({
-        entry: buildHistoryEntry({ engineConfigId: "engine-1" }),
-        engineConfigById: new Map([
-          ["engine-1", buildEngineConfig({ id: "engine-1" })],
-        ]),
-        externalAgentConfigById: new Map(),
-      }),
-    ).toBe("setta");
+  it("returns the managed badge for setta engines", async () => {
+    const harness = await renderHistoryModel({
+      agentRuns: [
+        buildChatRun({
+          engineConfigId: "engine-1",
+        }),
+      ],
+      engineConfigs: [buildEngineConfig({ id: "engine-1" })],
+    });
+
+    expect(harness.readBadgeLabel("thread-1")).toBe("setta");
+
+    await act(async () => {
+      harness.root.unmount();
+    });
   });
 
   it.each([
@@ -76,61 +188,64 @@ describe("resolveThreadAgentBadgeLabel", () => {
     [ToolTypeEnum.claude_code, "claude"],
   ])(
     "maps supported external agent tool types to badge labels",
-    (toolType, expectedLabel) => {
-      expect(
-        resolveThreadAgentBadgeLabel({
-          entry: buildHistoryEntry({ engineConfigId: "engine-1" }),
-          engineConfigById: new Map([
-            [
-              "engine-1",
-              buildEngineConfig({
-                id: "engine-1",
-                engineType: EngineTypeEnum.external_agent,
-                externalAgentConfigId: "external-1",
-              }),
-            ],
-          ]),
-          externalAgentConfigById: new Map([
-            [
-              "external-1",
-              buildExternalAgentConfig({
-                id: "external-1",
-                toolType,
-              }),
-            ],
-          ]),
-        }),
-      ).toBe(expectedLabel);
+    async (toolType, expectedLabel) => {
+      const harness = await renderHistoryModel({
+        agentRuns: [
+          buildChatRun({
+            engineConfigId: "engine-1",
+            runType: "external_agent",
+          }),
+        ],
+        engineConfigs: [
+          buildEngineConfig({
+            id: "engine-1",
+            engineType: EngineTypeEnum.external_agent,
+            externalAgentConfigId: "external-1",
+          }),
+        ],
+        externalAgentConfigs: [
+          buildExternalAgentConfig({
+            id: "external-1",
+            toolType,
+          }),
+        ],
+      });
+
+      expect(harness.readBadgeLabel("thread-1")).toBe(expectedLabel);
+
+      await act(async () => {
+        harness.root.unmount();
+      });
     },
   );
 
-  it("returns null for unsupported external agent tool types", () => {
-    expect(
-      resolveThreadAgentBadgeLabel({
-        entry: buildHistoryEntry({
-          runType: "external_agent",
+  it("returns null for unsupported external agent tool types", async () => {
+    const harness = await renderHistoryModel({
+      agentRuns: [
+        buildChatRun({
           engineConfigId: "engine-1",
+          runType: "external_agent",
         }),
-        engineConfigById: new Map([
-          [
-            "engine-1",
-            buildEngineConfig({
-              id: "engine-1",
-              engineType: EngineTypeEnum.external_agent,
-              externalAgentConfigId: "external-1",
-            }),
-          ],
-        ]),
-        externalAgentConfigById: new Map([
-          [
-            "external-1",
-            buildExternalAgentConfig({
-              id: "external-1",
-              toolType: "unsupported_tool" as ToolTypeEnum,
-            }),
-          ],
-        ]),
-      }),
-    ).toBeNull();
+      ],
+      engineConfigs: [
+        buildEngineConfig({
+          id: "engine-1",
+          engineType: EngineTypeEnum.external_agent,
+          externalAgentConfigId: "external-1",
+        }),
+      ],
+      externalAgentConfigs: [
+        buildExternalAgentConfig({
+          id: "external-1",
+          toolType: "unsupported_tool" as ToolTypeEnum,
+        }),
+      ],
+    });
+
+    expect(harness.readBadgeLabel("thread-1")).toBeNull();
+
+    await act(async () => {
+      harness.root.unmount();
+    });
   });
 });

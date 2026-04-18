@@ -563,7 +563,7 @@ function resolveExternalAgentBadgeLabel(
   );
 }
 
-export function resolveThreadAgentBadgeLabel({
+function resolveThreadAgentBadgeLabel({
   entry,
   engineConfigById,
   externalAgentConfigById,
