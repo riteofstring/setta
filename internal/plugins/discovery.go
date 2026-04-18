@@ -412,7 +412,7 @@ func validatePersistedPluginConfigRoot(entry *DiscoveredPlugin, pluginsState Plu
 	if entry == nil || pluginsState.PluginConfigByID == nil {
 		return nil
 	}
-	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
+	rawValue, ok := persistedPluginConfigRaw(*entry, &pluginsState)
 	if !ok || rawValue == nil {
 		return nil
 	}

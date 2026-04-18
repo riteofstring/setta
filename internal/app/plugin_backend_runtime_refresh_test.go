@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -167,9 +168,155 @@ func TestBuildSelectedLanguageServerStatusesUsesPrimaryPluginEntryForClassificat
 	t.Fatalf("expected python selected language server status, got %#v", statuses)
 }
 
+func TestBuildSelectedLanguageServerStatusesKeepsMissingSelectionAppliedUntilRefresh(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		nil,
+		[]lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
+	)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one language status, got %#v", statuses)
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginMissing {
+		t.Fatalf("expected missing selection state, got %#v", statuses[0])
+	}
+	if !statuses[0].Applied {
+		t.Fatalf("expected missing selection to remain applied until refresh, got %#v", statuses[0])
+	}
+}
+
+func TestBuildSelectedLanguageServerStatusesTreatsInvalidSelectionAsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID:                  "setta-basedpyright",
+			State:                     plugins.PluginRuntimeStateInvalid,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{},
+		}},
+		nil,
+	)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one language status, got %#v", statuses)
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginUnavailable {
+		t.Fatalf("expected unavailable state for invalid selection, got %#v", statuses[0])
+	}
+}
+
+func TestUpdatedAppliedLanguageServerSpecsForPluginReplacesOnlyMatchingAppliedSpecs(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{
+		fixtureRefresherLanguageServerSpec(),
+		{
+			PluginID:   "other-plugin",
+			Name:       "other",
+			LanguageID: "javascript",
+			Command:    "node",
+			Settings: map[string]any{
+				"other": map[string]any{"enabled": true},
+			},
+		},
+	}
+	nextSpecs := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-basedpyright",
+			Name:       "basedpyright",
+			LanguageID: "python",
+			Command:    "python",
+			Settings: map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType": "error",
+						},
+					},
+				},
+			},
+		},
+		{
+			PluginID:   "another-plugin",
+			Name:       "another",
+			LanguageID: "rust",
+			Command:    "rust-analyzer",
+		},
+	}
+
+	updatedSpecs, changed := updatedAppliedLanguageServerSpecsForPlugin(
+		currentSpecs,
+		nextSpecs,
+		"setta-basedpyright",
+	)
+	if !changed {
+		t.Fatal("expected applied spec replacement to report a change")
+	}
+	if len(updatedSpecs) != len(currentSpecs) {
+		t.Fatalf("expected updated specs to preserve current spec count, got %#v", updatedSpecs)
+	}
+	pythonSettings := updatedSpecs[0].Settings["basedpyright"].(map[string]any)["analysis"].(map[string]any)["diagnosticSeverityOverrides"].(map[string]any)
+	if pythonSettings["reportUnknownVariableType"] != "error" {
+		t.Fatalf("expected updated python settings, got %#v", updatedSpecs[0].Settings)
+	}
+	if !reflect.DeepEqual(updatedSpecs[1], currentSpecs[1]) {
+		t.Fatalf("expected non-target applied spec to stay unchanged, got %#v", updatedSpecs[1])
+	}
+}
+
+func TestPluginBackendRuntimeRefresherRestartProjectRollsBackOnProjectFailure(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	nextSpecs := []lsp.LanguageServerSpec{{
+		PluginID:   "setta-basedpyright",
+		Name:       "basedpyright",
+		LanguageID: "python",
+		Command:    "python3",
+	}}
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs:       nextSpecs,
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	projectErr := errors.New("restart failed")
+	err := refresher.RestartProject(context.Background(), func() error {
+		return projectErr
+	})
+	if !errors.Is(err, projectErr) {
+		t.Fatalf("expected restart error %v, got %v", projectErr, err)
+	}
+	if service.commitCalls != 0 {
+		t.Fatalf("expected commit to be skipped on project failure, got %d calls", service.commitCalls)
+	}
+	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
+		t.Fatalf("expected refresher specs to roll back, got %#v", refresher.lspSpecs)
+	}
+	if len(router.replacedSpecs) != 2 {
+		t.Fatalf("expected apply and rollback replacements, got %#v", router.replacedSpecs)
+	}
+	if !reflect.DeepEqual(router.replacedSpecs[0], nextSpecs) {
+		t.Fatalf("expected staged specs to be applied first, got %#v", router.replacedSpecs[0])
+	}
+	if !reflect.DeepEqual(router.replacedSpecs[1], currentSpecs) {
+		t.Fatalf("expected rollback to restore previous specs, got %#v", router.replacedSpecs[1])
+	}
+}
+
 type stubPluginBackendRefreshService struct {
 	previewSnapshot plugins.DiscoverySnapshot
 	nextSpecs       []lsp.LanguageServerSpec
+	commitCalls     int
 }
 
 func (s *stubPluginBackendRefreshService) Rescan() (plugins.DiscoverySnapshot, error) {
@@ -181,6 +328,7 @@ func (s *stubPluginBackendRefreshService) PreviewBackendRuntimeRefresh() (plugin
 }
 
 func (s *stubPluginBackendRefreshService) CommitBackendRuntimeRefresh() (plugins.DiscoverySnapshot, error) {
+	s.commitCalls++
 	return s.previewSnapshot, nil
 }
 

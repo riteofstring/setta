@@ -1,3 +1,39 @@
+## 2026-04-18 01:54 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had six concrete issues: config writes for applied selected language-server plugins did not flow back into the live LSP spec path, `restartLanguageServer` committed plugin-runtime refresh too early and could clear pending state on restart failure, selected-language-server status could lie about `applied` state and misclassify invalid plugins as “wrong language,” persisted plugin config keys still collapsed same-scope Setta and package-manager sources, the Python distribution build wrapper still misread `python -m build` flags passed after `--`, and the header banner copy still treated every unavailable state as already unapplied.
+- I implemented the fixes directly and kept the design explicit: transactional restart stays in the existing refresh transition path, config-write reapplication updates only already-applied specs, and config persistence now uses source-aware keys instead of another compatibility layer.
+
+Fixes applied:
+- Added live config reapplication for currently applied selected language-server plugins in `internal/app/plugin_backend_runtime_refresh.go`. Successful config writes now rebuild authoritative specs from current discovery/settings and replace only the specs that are already applied, so config saves do not silently leave the live server stale or accidentally apply unrelated selection changes early.
+- Added a transactional restart path on `pluginBackendRuntimeRefresher` and switched `workspaceLSPAdmin` to use it. `restartLanguageServer` now stages runtime/spec replacement, runs project restart, commits on success, and rolls back on failure instead of clearing `pending_restart` before the project restart boundary is crossed.
+- Tightened selected-language-server status derivation so `applied` remains tied to the live applied spec, not just discovery state, and so invalid or otherwise non-active plugins are classified as `selected_plugin_unavailable` before any wrong-language check runs.
+- Reworked plugin config persistence to use source-aware keys keyed by `scope + sourceManager + pluginId`, added legacy-key migration during rescans, and updated config read/write/remove flows so same-scope Setta and package-manager plugins no longer overwrite each other.
+- Simplified `scripts/build_python_distribution_with_go_binaries.sh` argument handling so it always derives wheel/sdist/outdir behavior from the final `build_args` array, making direct flags and separator-passed flags behave identically.
+- Updated the Python language-server banner to distinguish “plugin is unavailable now” from “the currently applied server will remain available until restart,” and added unit/Playwright coverage for the new banner states.
+
+Tests added or upgraded:
+- Go unit coverage for transactional restart rollback, truthful selected-language-server status derivation, and applied-spec config replacement.
+- Go integration coverage for applied basedpyright config writes updating the live app-owned spec and for continued pending-restart behavior around selected Python LSP restart flows.
+- Go plugin persistence coverage for same-scope Setta/package-manager config isolation.
+- Python script-wiring coverage for `build_python_distribution_with_go_binaries.sh` with args passed after `--`.
+- Frontend unit coverage for missing/unavailable banner copy with the new `applied` semantics.
+- Playwright coverage for unavailable banner states, although the local harness remained environment-blocked before those assertions executed.
+
+Verification run:
+- `./scripts/go.sh test ./internal/app -run 'Test(AppWriteConfigReappliesAppliedBasedpyrightSpec|BuildSelectedLanguageServerStatuses|PluginBackendRuntimeRefresher|WorkspaceLSPAdmin)'`
+- `./scripts/go.sh test ./internal/app -run 'Test(AppSelectedPythonLanguageServerStaysUnappliedUntilRestart|AppPluginRestartClearsPendingBackendPluginState|AppStartsWithFirstPartyBasedpyrightPluginCompletion|AppWriteConfigReappliesAppliedBasedpyrightSpec)'`
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceWriteConfig|TestServiceUninstallClearsPersistedPluginConfigBeforeRelink'`
+- `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
+- `source activate.sh && pytest tests/start/test_distribution_script_wiring.py`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts` was attempted, but the disposable environment failed before banner assertions with frontend/backend fetch failures (`ERR_ALPN_NEGOTIATION_FAILED`) while the isolated project was bootstrapping.
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- No unresolved findings from this review pass remain recorded here.
+
 ## 2026-04-17 23:39:41 PDT
 
 Summary:

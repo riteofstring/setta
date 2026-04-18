@@ -31,6 +31,7 @@ type stubRuntimeLSPRefresher struct {
 	refreshCalls int
 	refreshErr   error
 	hasSpecs     bool
+	restartCalls int
 }
 
 func (s *stubRuntimeLSPRefresher) Refresh(_ context.Context) (plugins.DiscoverySnapshot, error) {
@@ -40,6 +41,20 @@ func (s *stubRuntimeLSPRefresher) Refresh(_ context.Context) (plugins.DiscoveryS
 
 func (s *stubRuntimeLSPRefresher) HasConfiguredLanguageServers() bool {
 	return s.hasSpecs
+}
+
+func (s *stubRuntimeLSPRefresher) RestartProject(_ context.Context, restart func() error) error {
+	s.restartCalls++
+	if s.refreshErr != nil {
+		return s.refreshErr
+	}
+	if !s.hasSpecs {
+		return lsp.ErrLanguageServerNotConfigured
+	}
+	if restart == nil {
+		return nil
+	}
+	return restart()
 }
 
 func TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync(t *testing.T) {
@@ -52,8 +67,8 @@ func TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync(t *testing.T) {
 	if err := admin.Restart(context.Background(), projectstate.Document{}); err != nil {
 		t.Fatalf("restart language server: %v", err)
 	}
-	if runtime.refreshCalls != 1 {
-		t.Fatalf("expected one runtime refresh, got %d", runtime.refreshCalls)
+	if runtime.restartCalls != 1 {
+		t.Fatalf("expected one runtime restart transition, got %d", runtime.restartCalls)
 	}
 	if projectAdmin.restartCalls != 1 {
 		t.Fatalf("expected one project restart, got %d", projectAdmin.restartCalls)

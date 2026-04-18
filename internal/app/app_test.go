@@ -7065,6 +7065,88 @@ func TestAppWritesPluginConfigAndUpdatesRuntime(t *testing.T) {
 	}
 }
 
+func TestAppWriteConfigReappliesAppliedBasedpyrightSpec(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+
+	readUnknownVariableSeverity := func() string {
+		t.Helper()
+
+		if app.pluginRuntime == nil {
+			t.Fatal("expected plugin runtime")
+		}
+		app.pluginRuntime.mu.Lock()
+		defer app.pluginRuntime.mu.Unlock()
+
+		if len(app.pluginRuntime.lspSpecs) != 1 {
+			t.Fatalf("expected one applied language server spec, got %#v", app.pluginRuntime.lspSpecs)
+		}
+		basedpyrightSettings, ok := app.pluginRuntime.lspSpecs[0].Settings["basedpyright"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected basedpyright settings root, got %#v", app.pluginRuntime.lspSpecs[0].Settings)
+		}
+		analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected basedpyright analysis settings, got %#v", basedpyrightSettings)
+		}
+		overrides, ok := analysis["diagnosticSeverityOverrides"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected diagnosticSeverityOverrides map, got %#v", analysis)
+		}
+		severity, ok := overrides["reportUnknownVariableType"].(string)
+		if !ok {
+			t.Fatalf("expected reportUnknownVariableType override, got %#v", overrides)
+		}
+		return severity
+	}
+
+	if got := readUnknownVariableSeverity(); got != "none" {
+		t.Fatalf("expected initial basedpyright override none, got %q", got)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	configRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RoutePluginsConfig,
+		strings.NewReader(`{"pluginId":"setta-basedpyright","config":{"basedpyright":{"analysis":{"diagnosticSeverityOverrides":{"reportUnknownVariableType":"error"}}}}}`),
+	)
+	if err != nil {
+		t.Fatalf("new basedpyright config request: %v", err)
+	}
+	configRequest.Header.Set("Content-Type", "application/json")
+	configRequest.AddCookie(authCookie)
+
+	configResponse, err := http.DefaultClient.Do(configRequest)
+	if err != nil {
+		t.Fatalf("post basedpyright config: %v", err)
+	}
+	defer configResponse.Body.Close()
+	if configResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(configResponse.Body)
+		t.Fatalf("expected basedpyright config 200, got %d with body %q", configResponse.StatusCode, string(body))
+	}
+
+	if got := readUnknownVariableSeverity(); got != "error" {
+		t.Fatalf("expected applied basedpyright spec to update after config write, got %q", got)
+	}
+}
+
 func TestAppHandlesPluginRescanEnableAndDisableRoutes(t *testing.T) {
 	// The real app should wire rescan plus enable/disable plugin lifecycle routes through the shared Go service.
 	cfg := testConfig(t)

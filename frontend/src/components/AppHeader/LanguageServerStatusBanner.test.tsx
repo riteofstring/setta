@@ -215,6 +215,31 @@ describe("LanguageServerStatusBanner", () => {
     }
   });
 
+  it("warns when the selected missing plugin is still applied until restart", async () => {
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-missing-python-lsp",
+        state: SelectedLanguageServerStateEnum.selected_plugin_missing,
+        applied: true,
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("will remain available until restart");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("warns when the selected plugin does not provide Python", async () => {
     selectedLanguageServers = [
       buildPythonStatus({
@@ -231,6 +256,31 @@ describe("LanguageServerStatusBanner", () => {
           '[data-testid="python-language-server-status-banner"]',
         )?.textContent,
       ).toContain("does not provide Python");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("warns when the selected unavailable plugin is no longer applied", async () => {
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-basedpyright",
+        state: SelectedLanguageServerStateEnum.selected_plugin_unavailable,
+        applied: false,
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("is unavailable");
     } finally {
       await act(async () => {
         root.unmount();

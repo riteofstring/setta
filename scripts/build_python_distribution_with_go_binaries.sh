@@ -23,19 +23,61 @@ build_outdir="dist"
 build_request_has_wheel=0
 build_request_has_sdist=0
 
-record_short_build_flags() {
-  local flag_cluster="$1"
-  local index=0
+resolve_build_request_metadata() {
+  build_request_has_wheel=0
+  build_request_has_sdist=0
+  build_outdir="dist"
 
-  while [[ "${index}" -lt "${#flag_cluster}" ]]; do
-    case "${flag_cluster:${index}:1}" in
-      w)
+  local index=0
+  while [[ "${index}" -lt "${#build_args[@]}" ]]; do
+    local argument="${build_args[${index}]}"
+
+    case "${argument}" in
+      --outdir)
+        index="$((index + 1))"
+        if [[ "${index}" -ge "${#build_args[@]}" ]]; then
+          echo "missing value for --outdir" >&2
+          exit 1
+        fi
+        build_outdir="${build_args[${index}]}"
+        ;;
+      --outdir=*)
+        build_outdir="${argument#--outdir=}"
+        ;;
+      -o)
+        index="$((index + 1))"
+        if [[ "${index}" -ge "${#build_args[@]}" ]]; then
+          echo "missing value for -o" >&2
+          exit 1
+        fi
+        build_outdir="${build_args[${index}]}"
+        ;;
+      -o?*)
+        build_outdir="${argument#-o}"
+        ;;
+      --wheel)
         build_request_has_wheel=1
         ;;
-      s)
+      --sdist)
         build_request_has_sdist=1
         ;;
+      -[!-]*)
+        local flag_cluster="${argument#-}"
+        local cluster_index=0
+        while [[ "${cluster_index}" -lt "${#flag_cluster}" ]]; do
+          case "${flag_cluster:${cluster_index}:1}" in
+            w)
+              build_request_has_wheel=1
+              ;;
+            s)
+              build_request_has_sdist=1
+              ;;
+          esac
+          cluster_index="$((cluster_index + 1))"
+        done
+        ;;
     esac
+
     index="$((index + 1))"
   done
 }
@@ -55,55 +97,14 @@ while [[ $# -gt 0 ]]; do
       build_args+=("$@")
       break
       ;;
-    --outdir)
-      if [[ $# -lt 2 ]]; then
-        echo "missing value for --outdir" >&2
-        exit 1
-      fi
-      build_outdir="$2"
-      build_args+=("$1" "$2")
-      shift 2
-      ;;
-    --outdir=*)
-      build_outdir="${1#--outdir=}"
-      build_args+=("$1")
-      shift
-      ;;
-    -o)
-      if [[ $# -lt 2 ]]; then
-        echo "missing value for -o" >&2
-        exit 1
-      fi
-      build_outdir="$2"
-      build_args+=("$1" "$2")
-      shift 2
-      ;;
-    -o?*)
-      build_outdir="${1#-o}"
-      build_args+=("$1")
-      shift
-      ;;
-    --wheel)
-      build_request_has_wheel=1
-      build_args+=("$1")
-      shift
-      ;;
-    --sdist)
-      build_request_has_sdist=1
-      build_args+=("$1")
-      shift
-      ;;
-    -[!-]*)
-      record_short_build_flags "${1#-}"
-      build_args+=("$1")
-      shift
-      ;;
     *)
       build_args+=("$1")
       shift
       ;;
   esac
 done
+
+resolve_build_request_metadata
 
 build_request_includes_wheel() {
   if (( ${#build_args[@]} == 0 )); then

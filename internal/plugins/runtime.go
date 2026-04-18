@@ -355,10 +355,7 @@ func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[strin
 }
 
 func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
-	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
-		return map[string]any{}
-	}
-	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
+	rawValue, ok := persistedPluginConfigRaw(entry, pluginsState)
 	if !ok || rawValue == nil {
 		return map[string]any{}
 	}

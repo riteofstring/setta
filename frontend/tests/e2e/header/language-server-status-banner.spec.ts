@@ -77,3 +77,65 @@ test("header python language server banner explains when the selected plugin doe
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("header python language server banner explains when an unavailable plugin is still applied until restart", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/runtime", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.status.selectedLanguageServers = [
+        {
+          languageId: "python",
+          selectedPluginId: "setta-basedpyright",
+          state: "selected_plugin_unavailable",
+          applied: true,
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toContainText("will remain available until restart");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("header python language server banner explains when the selected plugin is unavailable", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/runtime", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.status.selectedLanguageServers = [
+        {
+          languageId: "python",
+          selectedPluginId: "setta-basedpyright",
+          state: "selected_plugin_unavailable",
+          applied: false,
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toContainText("is unavailable");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

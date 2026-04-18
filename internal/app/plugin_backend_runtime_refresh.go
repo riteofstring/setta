@@ -2,8 +2,10 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -212,7 +214,14 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 }
 
 func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
-	return s.base.WriteConfig(ctx, options)
+	response, err := s.base.WriteConfig(ctx, options)
+	if err != nil || s.refresher == nil {
+		return response, err
+	}
+	if err := s.refresher.ReapplyAppliedLanguageServerPluginConfig(ctx, response.PluginID); err != nil {
+		return response, err
+	}
+	return response, nil
 }
 
 func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
@@ -304,6 +313,39 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		return plugins.DiscoverySnapshot{}, err
 	}
 	return r.commitRefreshTransitionLocked(transition)
+}
+
+func (r *pluginBackendRuntimeRefresher) RestartProject(ctx context.Context, restart func() error) error {
+	if restart == nil {
+		return errors.New("project restart callback is required")
+	}
+	if r == nil || r.service == nil {
+		return restart()
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	transition, err := r.prepareRefreshTransitionLocked(ctx)
+	if err != nil {
+		return err
+	}
+	if len(transition.nextLSPSpecs) == 0 {
+		closePluginBackendRuntime(transition.nextRuntime)
+		return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
+	}
+	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
+		return err
+	}
+	if err := restart(); err != nil {
+		r.rollbackRefreshTransitionLocked(transition)
+		return err
+	}
+	_, err = r.commitRefreshTransitionLocked(transition)
+	return err
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
@@ -529,21 +571,14 @@ func buildSelectedLanguageServerStatus(
 	}
 
 	selectedPlugin := &pluginID
+	appliedMatchesSelection := hasAppliedSpec && appliedPluginID == pluginID
 	selectedEntry, ok := primaryStatusEntryForPlugin(statusEntries, pluginID)
 	if !ok {
 		return plugins.SelectedLanguageServerStatus{
 			LanguageID:       language,
 			SelectedPluginID: selectedPlugin,
 			State:            plugins.SelectedLanguageServerStateSelectedPluginMissing,
-			Applied:          false,
-		}
-	}
-	if !statusEntryProvidesLanguage(selectedEntry, language) {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginWrongLang,
-			Applied:          false,
+			Applied:          appliedMatchesSelection,
 		}
 	}
 	if selectedEntry.State != plugins.PluginRuntimeStateActive && selectedEntry.State != plugins.PluginRuntimeStatePendingRestart {
@@ -551,7 +586,15 @@ func buildSelectedLanguageServerStatus(
 			LanguageID:       language,
 			SelectedPluginID: selectedPlugin,
 			State:            plugins.SelectedLanguageServerStateSelectedPluginUnavailable,
-			Applied:          false,
+			Applied:          appliedMatchesSelection,
+		}
+	}
+	if !statusEntryProvidesLanguage(selectedEntry, language) {
+		return plugins.SelectedLanguageServerStatus{
+			LanguageID:       language,
+			SelectedPluginID: selectedPlugin,
+			State:            plugins.SelectedLanguageServerStateSelectedPluginWrongLang,
+			Applied:          appliedMatchesSelection,
 		}
 	}
 
@@ -559,7 +602,7 @@ func buildSelectedLanguageServerStatus(
 		LanguageID:       language,
 		SelectedPluginID: selectedPlugin,
 		State:            plugins.SelectedLanguageServerStateReady,
-		Applied:          hasAppliedSpec && appliedPluginID == pluginID,
+		Applied:          appliedMatchesSelection,
 	}
 }
 
@@ -685,4 +728,88 @@ func closePluginBackendRuntime(runtime *pluginBackendMCPRuntime) {
 		return
 	}
 	_ = runtime.Close(context.Background())
+}
+
+func (r *pluginBackendRuntimeRefresher) ReapplyAppliedLanguageServerPluginConfig(ctx context.Context, pluginID string) error {
+	if r == nil || r.service == nil {
+		return nil
+	}
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	selections, err := r.selectedLanguageServerPlugins()
+	if err != nil {
+		return err
+	}
+	snapshot, err := r.service.Rescan()
+	if err != nil {
+		return err
+	}
+	nextSpecs, err := r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	updatedSpecs, changed := updatedAppliedLanguageServerSpecsForPlugin(
+		r.lspSpecs,
+		nextSpecs,
+		trimmedPluginID,
+	)
+	if !changed {
+		return nil
+	}
+	if err := r.replaceLSPSpecsLocked(ctx, r.lspSpecs, updatedSpecs); err != nil {
+		return err
+	}
+	r.lspSpecs = lsp.CloneLanguageServerSpecs(updatedSpecs)
+	return nil
+}
+
+func updatedAppliedLanguageServerSpecsForPlugin(
+	currentSpecs []lsp.LanguageServerSpec,
+	nextSpecs []lsp.LanguageServerSpec,
+	pluginID string,
+) ([]lsp.LanguageServerSpec, bool) {
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" || len(currentSpecs) == 0 || len(nextSpecs) == 0 {
+		return nil, false
+	}
+
+	nextSpecsByLanguage := map[string]lsp.LanguageServerSpec{}
+	for _, nextSpec := range nextSpecs {
+		if strings.TrimSpace(nextSpec.PluginID) != trimmedPluginID {
+			continue
+		}
+		nextSpecsByLanguage[normalizeTrackedLanguage(nextSpec.LanguageID)] = nextSpec
+	}
+	if len(nextSpecsByLanguage) == 0 {
+		return nil, false
+	}
+
+	updatedSpecs := lsp.CloneLanguageServerSpecs(currentSpecs)
+	changed := false
+	for index, currentSpec := range currentSpecs {
+		if strings.TrimSpace(currentSpec.PluginID) != trimmedPluginID {
+			continue
+		}
+
+		nextSpec, ok := nextSpecsByLanguage[normalizeTrackedLanguage(currentSpec.LanguageID)]
+		if !ok {
+			continue
+		}
+		if reflect.DeepEqual(currentSpec, nextSpec) {
+			continue
+		}
+		updatedSpecs[index] = nextSpec
+		changed = true
+	}
+	return updatedSpecs, changed
 }

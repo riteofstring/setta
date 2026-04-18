@@ -124,7 +124,7 @@ func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWr
 	if prepared.state.PluginConfigByID == nil {
 		prepared.state.PluginConfigByID = map[string]any{}
 	}
-	prepared.state.PluginConfigByID[pluginConfigKey(prepared.entry.PluginID, prepared.entry.Scope)] = prepared.requested
+	prepared.state.PluginConfigByID[pluginConfigKeyForEntry(prepared.entry)] = prepared.requested
 	if err := s.store.SavePluginsState(prepared.state); err != nil {
 		return PluginConfigWriteResponse{}, err
 	}
