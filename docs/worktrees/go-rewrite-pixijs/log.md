@@ -155,6 +155,56 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 043
+
+- Item: Move the repeated `sectionSizingPolicy` size-mode meta-control dropdown family to a lightweight canvas-owned resting path and record the dense rerun.
+- Status: `done`
+- Details:
+  - Kept this slice on the same canonical dense target section `settings-section__sectionSizingPolicy` and landed the first repeated non-text inactive-control family there instead of reopening another callable/dict/globalVariables lane.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now scopes `isCanvasOwnedSectionMetaControlDropdown(...)` to the repeated `metaControlByType__...__sizeModeHeight|sizeModeWidth` rows on that section.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` is now the actual ownership boundary for those rows on the active canvas path and passes `canvasOwnedRestingDropdown` into the dropdown renderer.
+  - `frontend/src/components/Utils/Combobox/ComboboxParts.tsx` and `IdNameCombobox.tsx` now keep a lightweight resting shell for those dropdowns:
+    - zero live `search input` / toggle `button` controls stay mounted at rest
+    - first pointer activation swaps to the real inline combobox and opens the menu
+    - the resting value/chevron still provide retained-text measurement surfaces
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained dropdown pill boxes for the hidden resting combobox chrome.
+  - Added focused verification coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Utils/Combobox/ComboboxParts.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - Oracle note:
+    - the initial far-fit canvas pixel probe on these deep meta-control rows was untrustworthy because the fitted `All Settings` state leaves them mounted but too tiny/far below the section shell for a reliable direct pixel claim
+    - the checked Playwright oracle now proves the real product contract for this lane instead:
+      - every repeated size-mode row uses the lightweight resting dropdown path
+      - those rows keep zero live `search input` / `search button` controls mounted at rest
+      - a row-centered normal-zoom reframe makes the target activator usable
+      - first interaction swaps in the live inline combobox/search input
+  - Recorded the dense follow-up at `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-meta-control-dropdown-rerun.md`.
+  - Dense rerun outcome versus the prior section-sizing-policy resting-text report:
+    - `documentNodeCount` dropped from `9181` to `9151`
+    - `inputCount` dropped from `90` to `60`
+    - `buttonCount` dropped from `507` to `477`
+    - `raf.meanMs` improved from `114.24ms` to `109.59ms`
+    - `longTasks.totalMs` improved from `18839ms` to `17680ms`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/Combobox/ComboboxParts.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/DropdownInput.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.tsx src/components/Utils/Combobox/ComboboxParts.tsx src/components/Utils/Combobox/ComboboxParts.test.tsx src/components/Utils/Combobox/IdNameCombobox.tsx src/components/Utils/Combobox/useIdNameCombobox.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-025/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.3s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-025/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.9s)` on the live worktree runtime with `documentNodeCount: 9151`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done:
+  - direct `http://127.0.0.1:3068/settings` was already authenticated in the live DevTools session
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - the target `Size Mode Height` row looked intact at rest as compact `any ▾` inline content
+  - activating that row surfaced the live inline `Search` combobox populated with `any`, with the menu opening directly beneath the row
+  - no blank placeholder area or detached visual jump was visible during activation
+- Next action:
+  - stay on canonical dense target `settings-section__sectionSizingPolicy` and attack the next repeated inactive non-text control family after the landed size-mode meta-control dropdowns
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 030
 
 - Item: Move the dict filter row's static `gg-sort-az` icon to retained canvas ownership on `settings-section__dictSectionDefault`.

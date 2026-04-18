@@ -18,6 +18,8 @@ export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
   ...CANVAS_OWNED_SECTION_SHELL_IDS,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
 ] as const;
+const SECTION_SIZING_POLICY_META_CONTROL_DROPDOWN_PARAM_INFO_ID_PATTERN =
+  /^settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__.+__sizeMode(?:Height|Width)$/;
 
 const CANVAS_OWNED_SECTION_SHELL_ID_SET = new Set<string>(
   CANVAS_OWNED_SECTION_SHELL_IDS,
@@ -77,6 +79,21 @@ export function isCanvasOwnedSectionShell(sectionId: string) {
 
 export function isCanvasOwnedSectionRestingTextSection(sectionId: string) {
   return CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET.has(sectionId);
+}
+
+export function isCanvasOwnedSectionMetaControlDropdown({
+  paramInfoId,
+  sectionId,
+}: {
+  paramInfoId: string;
+  sectionId: string;
+}) {
+  return (
+    sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID &&
+    SECTION_SIZING_POLICY_META_CONTROL_DROPDOWN_PARAM_INFO_ID_PATTERN.test(
+      paramInfoId,
+    )
+  );
 }
 
 export function isCanvasOwnedSectionRestingText({

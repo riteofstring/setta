@@ -609,6 +609,47 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__sectionSizingPolicy` was present on the live surface
   - the Browser `maxHeight` row looked intact after the resting text DOM was hidden on the canvas path
   - focusing `settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight-ParamInput` surfaced the inline editor with no obvious blank/detached jump or layout shift
+- The next dense non-text control slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now targets the repeated `metaControlByType__...__sizeModeHeight|sizeModeWidth` dropdown ids on that section through `isCanvasOwnedSectionMetaControlDropdown(...)`, so this stayed on the dense inactive-control blocker instead of reopening another shell/text lane.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` is now the real ownership boundary for those rows on the active canvas path; it passes `canvasOwnedRestingDropdown` into the dropdown renderer instead of relying on the stale meta-control wrapper assumption.
+  - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx` and `ComboboxParts.tsx` now expose a lightweight canvas-owned resting combobox shell:
+    - no live `search input` or toggle `button` stays mounted at rest
+    - pointer activation swaps to the real inline combobox and opens the menu on first interaction
+    - the resting value/chevron text stays measurable for retained-canvas text paint
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained dropdown pill boxes for those lightweight rows, so the hidden resting combobox chrome still renders through the retained scene.
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Utils/Combobox/ComboboxParts.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - oracle note for this lane:
+    - the first far-fit canvas pixel probe on these deep meta-control rows was untrustworthy because the fitted `All Settings` view leaves the target row family mounted but visually too tiny/far below the section shell for a reliable direct pixel claim
+    - the checked Playwright oracle now proves the intended product contract instead:
+      - every repeated size-mode row uses the lightweight resting dropdown path
+      - those rows keep zero live `search input` / `search button` controls mounted at rest
+      - a row-centered normal-zoom reframe makes the target activator usable
+      - first interaction swaps in the live inline combobox/search input
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-meta-control-dropdown-rerun.md`
+  - dense rerun outcome versus the prior section-sizing-policy resting-text report:
+    - `documentNodeCount` dropped from `9181` to `9151`
+    - `inputCount` dropped from `90` to `60`
+    - `buttonCount` dropped from `507` to `477`
+    - `raf.meanMs` improved from `114.24ms` to `109.59ms`
+    - `longTasks.totalMs` improved from `18839ms` to `17680ms`
+- focused verification passed for the section-sizing-policy meta-control dropdown slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/Combobox/ComboboxParts.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/DropdownInput.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.tsx src/components/Utils/Combobox/ComboboxParts.tsx src/components/Utils/Combobox/ComboboxParts.test.tsx src/components/Utils/Combobox/IdNameCombobox.tsx src/components/Utils/Combobox/useIdNameCombobox.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-025/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.3s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-025/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.9s)` on the live worktree runtime with `documentNodeCount: 9151`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy meta-control dropdown slice:
+  - direct `http://127.0.0.1:3068/settings` was already authenticated in the live DevTools session
+  - `All Settings` was active with the normal selected-tab styling
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was present and the `Size Mode Height` row looked intact at rest as compact `any ▾` inline content
+  - activating `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeHeight` swapped in the live inline `Search` combobox populated with `any`
+  - the live dropdown menu opened directly beneath the row with no blank placeholder or detached visual jump
 
 ## Preservation rule
 
@@ -640,9 +681,9 @@ That leaves one primary architectural move:
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
-6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`, and `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`.
-7. Use that three-report retained-canvas chain as the current benchmark sequence: motion improved materially from baseline, the lightweight callable/dict/globalVariables slice pushed `documentNodeCount` to `9457`, and the new dense `sectionSizingPolicy` rollout pushed it again to `9181`, but dense `All Settings` still carries more than `9.1k` DOM nodes and more than `500` buttons on the live surface.
-8. The next bounded product slice should stay on the same canonical dense target section `settings-section__sectionSizingPolicy` and attack the first non-text inactive control subtree there, likely one of the repeated closed dropdown/meta-control rows or another repeated non-text row family; do not reopen another callable/dict/GlobalVariables shell/text/filter/kwargs ownership lane unless a concrete visual regression forces it.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`, and `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-meta-control-dropdown-rerun.md`.
+7. Use that four-report retained-canvas chain as the current benchmark sequence: motion improved materially from baseline, the lightweight callable/dict/globalVariables slice pushed `documentNodeCount` to `9457`, the dense `sectionSizingPolicy` resting-text rollout pushed it to `9181`, and the new repeated dropdown slice pushed it again to `9151` while cutting `inputCount` to `60` and `buttonCount` to `477`.
+8. The next bounded product slice should stay on the same canonical dense target section `settings-section__sectionSizingPolicy` and attack the next repeated inactive non-text control family after the landed size-mode meta-control dropdowns; do not reopen another callable/dict/GlobalVariables shell/text/filter/kwargs ownership lane unless a concrete visual regression forces it.
 
 ## First product frontier
 

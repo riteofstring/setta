@@ -8,6 +8,7 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
   isCanvasOwnedSectionRestingText,
@@ -163,6 +164,37 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamFilterIcon(CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(false);
+  });
+
+  it("targets section sizing policy size-mode meta-control dropdowns for canvas ownership", () => {
+    expect(
+      isCanvasOwnedSectionMetaControlDropdown({
+        paramInfoId:
+          "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__Browser__sizeModeHeight",
+        sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionMetaControlDropdown({
+        paramInfoId:
+          "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeWidth",
+        sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionMetaControlDropdown({
+        paramInfoId:
+          "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight",
+        sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionMetaControlDropdown({
+        paramInfoId:
+          "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__Browser__sizeModeHeight",
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
     ).toBe(false);
   });
 

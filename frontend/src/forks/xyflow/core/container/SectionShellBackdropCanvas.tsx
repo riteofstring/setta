@@ -40,6 +40,8 @@ const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
 const CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE = "data-canvas-owned-nested-guide";
+const CANVAS_OWNED_RESTING_DROPDOWN_BOX_ATTRIBUTE =
+  "data-canvas-owned-resting-dropdown-box";
 const CANVAS_OWNED_UNDERLINE_ATTRIBUTE = "data-canvas-owned-underline";
 const CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE = "data-canvas-owned-resting-text";
 const CANVAS_OWNED_FILTER_ICON_ATTRIBUTE = "data-canvas-owned-filter-icon";
@@ -61,6 +63,15 @@ type CanvasOwnedSwitchTrackBox = {
 };
 
 type CanvasOwnedUnderlineBox = {
+  fill: string;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+};
+
+type CanvasOwnedRestingDropdownBox = {
+  cornerRadius: number;
   fill: string;
   height: number;
   offsetX: number;
@@ -100,6 +111,7 @@ type CanvasOwnedSectionBackdropMeasurements = {
   kwargsControlsHeight: number;
   nestedGuideBoxes: Array<CanvasOwnedNestedGuideBox>;
   pinnedParamsHeight: number;
+  restingDropdownBoxes: Array<CanvasOwnedRestingDropdownBox>;
   restingTextLines: Array<CanvasOwnedRestingTextLine>;
   searchHeight: number;
   styleColor: string | null;
@@ -144,6 +156,27 @@ function areCanvasOwnedUnderlineBoxesEqual(
   return left.every((leftBox, index) => {
     const rightBox = right[index];
     return (
+      leftBox.fill === rightBox.fill &&
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.width === rightBox.width
+    );
+  });
+}
+
+function areCanvasOwnedRestingDropdownBoxesEqual(
+  left: Array<CanvasOwnedRestingDropdownBox>,
+  right: Array<CanvasOwnedRestingDropdownBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
+      leftBox.cornerRadius === rightBox.cornerRadius &&
       leftBox.fill === rightBox.fill &&
       leftBox.height === rightBox.height &&
       leftBox.offsetX === rightBox.offsetX &&
@@ -325,6 +358,103 @@ function measureCanvasOwnedUnderlineBoxes(
       (underlineBox): underlineBox is CanvasOwnedUnderlineBox =>
         underlineBox !== null,
     );
+}
+
+function measureCanvasOwnedRestingDropdownBoxes(
+  sectionId: string,
+  viewportScale: number,
+): Array<CanvasOwnedRestingDropdownBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(
+      `[${CANVAS_OWNED_RESTING_DROPDOWN_BOX_ATTRIBUTE}="true"]`,
+    ),
+  ).flatMap((dropdownBox) => {
+    const rect = dropdownBox.getBoundingClientRect();
+    const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+      rect,
+      sectionRect,
+      viewportScale,
+    });
+    if (!graphSpaceRect) {
+      return [];
+    }
+
+    const computedStyle = window.getComputedStyle(dropdownBox);
+    const backgroundFill = computedStyle.backgroundColor.trim();
+    const borderFill = computedStyle.borderTopColor.trim();
+    const borderWidthPx = Number.parseFloat(computedStyle.borderTopWidth);
+    const borderRadiusPx = Number.parseFloat(computedStyle.borderTopLeftRadius);
+    const borderWidth =
+      Number.isFinite(borderWidthPx) && borderWidthPx > 0
+        ? toGraphSpaceLength(borderWidthPx, viewportScale)
+        : 0;
+    const cornerRadius = toGraphSpaceLength(
+      Number.isFinite(borderRadiusPx) && borderRadiusPx > 0
+        ? Math.min(borderRadiusPx, rect.width / 2, rect.height / 2)
+        : Math.min(rect.width, rect.height) / 2,
+      viewportScale,
+    );
+    const boxes: Array<CanvasOwnedRestingDropdownBox> = [];
+    const hasVisibleBorder =
+      borderFill.length > 0 &&
+      borderFill !== "rgba(0, 0, 0, 0)" &&
+      borderFill !== "transparent" &&
+      borderWidth > 0;
+    const hasVisibleBackground =
+      backgroundFill.length > 0 &&
+      backgroundFill !== "rgba(0, 0, 0, 0)" &&
+      backgroundFill !== "transparent";
+
+    if (hasVisibleBorder) {
+      boxes.push({
+        cornerRadius,
+        fill: borderFill,
+        height: graphSpaceRect.height,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY,
+        width: graphSpaceRect.width,
+      });
+    }
+
+    if (!hasVisibleBackground) {
+      return boxes;
+    }
+
+    const innerOffsetX = graphSpaceRect.offsetX + borderWidth;
+    const innerOffsetY = graphSpaceRect.offsetY + borderWidth;
+    const innerWidth = graphSpaceRect.width - borderWidth * 2;
+    const innerHeight = graphSpaceRect.height - borderWidth * 2;
+    if (innerWidth <= 0 || innerHeight <= 0) {
+      return boxes;
+    }
+
+    boxes.push({
+      cornerRadius: Math.max(0, cornerRadius - borderWidth),
+      fill: backgroundFill,
+      height: innerHeight,
+      offsetX: innerOffsetX,
+      offsetY: innerOffsetY,
+      width: innerWidth,
+    });
+
+    return boxes;
+  });
 }
 
 function measureCanvasOwnedFilterIconBoxes(
@@ -770,6 +900,89 @@ function useCanvasOwnedUnderlineBoxes(
   return underlineBoxes;
 }
 
+function useCanvasOwnedRestingDropdownBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+  viewportScale: number,
+) {
+  const [restingDropdownBoxes, setRestingDropdownBoxes] = useState<
+    Array<CanvasOwnedRestingDropdownBox>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredBoxes = () => {
+      const nextBoxes = measureCanvasOwnedRestingDropdownBoxes(
+        sectionId,
+        viewportScale,
+      );
+      setRestingDropdownBoxes((previousBoxes) =>
+        areCanvasOwnedRestingDropdownBoxesEqual(previousBoxes, nextBoxes)
+          ? previousBoxes
+          : nextBoxes,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setRestingDropdownBoxes((previousBoxes) =>
+        previousBoxes.length === 0 ? previousBoxes : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredBoxes);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      for (const dropdownBox of section.querySelectorAll<HTMLElement>(
+        `[${CANVAS_OWNED_RESTING_DROPDOWN_BOX_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(dropdownBox);
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["class", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, sectionId]);
+
+  return restingDropdownBoxes;
+}
+
 function useCanvasOwnedNestedGuideBoxes(
   sectionId: string,
   layoutRefreshKey: string,
@@ -1073,6 +1286,11 @@ function useCanvasOwnedSectionBackdropMeasurements({
     layoutRefreshKey,
     stableViewportScale,
   );
+  const restingDropdownBoxes = useCanvasOwnedRestingDropdownBoxes(
+    sectionId,
+    layoutRefreshKey,
+    stableViewportScale,
+  );
   const filterIconBoxes = useCanvasOwnedFilterIconBoxes(
     sectionId,
     layoutRefreshKey,
@@ -1096,6 +1314,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       kwargsControlsHeight,
       nestedGuideBoxes,
       pinnedParamsHeight,
+      restingDropdownBoxes,
       restingTextLines,
       searchHeight,
       styleColor,
@@ -1108,6 +1327,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       kwargsControlsHeight,
       nestedGuideBoxes,
       pinnedParamsHeight,
+      restingDropdownBoxes,
       restingTextLines,
       searchHeight,
       styleColor,
@@ -1234,6 +1454,14 @@ export default function SectionShellBackdropCanvas() {
           }
 
           const detailBoxes = [
+            ...measurements.restingDropdownBoxes.map((dropdownBox) => ({
+              cornerRadius: dropdownBox.cornerRadius,
+              fill: dropdownBox.fill,
+              height: dropdownBox.height,
+              width: dropdownBox.width,
+              x: dropdownBox.offsetX,
+              y: dropdownBox.offsetY,
+            })),
             ...measurements.filterIconBoxes.map((filterIconBox) => ({
               cornerRadius: filterIconBox.height / 2,
               fill: filterIconBox.fill,

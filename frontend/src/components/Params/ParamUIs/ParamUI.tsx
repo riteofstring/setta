@@ -1,6 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
+  isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -96,6 +97,7 @@ type ParamUIState = {
 };
 
 type ParamUIRenderContext = ParamUIProps & {
+  canvasOwnedRestingDropdown: boolean;
   canvasOwnedSectionChrome: boolean;
   canvasOwnedRestingText: boolean;
   isDisabled: boolean;
@@ -427,6 +429,7 @@ function renderColorPickerParam({
 }
 
 function renderDropdownParam({
+  canvasOwnedRestingDropdown,
   sectionId,
   paramInfoId,
   value,
@@ -435,6 +438,7 @@ function renderDropdownParam({
 }: ParamUIRenderContext) {
   return (
     <DropdownParamConfigured
+      canvasOwnedRestingDropdown={canvasOwnedRestingDropdown}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -624,6 +628,12 @@ export function ParamUI({
   }
 
   const renderContext = {
+    canvasOwnedRestingDropdown:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionMetaControlDropdown({
+        paramInfoId,
+        sectionId,
+      }),
     canvasOwnedSectionChrome:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionShell(sectionId),
@@ -925,15 +935,26 @@ function ColorPickerParamConfigured({
   );
 }
 
+type DropdownParamConfiguredProps = {
+  canvasOwnedRestingDropdown: boolean;
+  isDisabled: boolean;
+  onChange: ParamValueChange;
+  paramInfoId: string;
+  sectionId: string;
+  value: string;
+};
+
 function DropdownParamConfigured({
+  canvasOwnedRestingDropdown,
   sectionId,
   paramInfoId,
   value,
   onChange,
   isDisabled,
-}) {
+}: DropdownParamConfiguredProps) {
   return (
     <ConfiguredDropdownInput
+      canvasOwnedRestingInput={canvasOwnedRestingDropdown}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}

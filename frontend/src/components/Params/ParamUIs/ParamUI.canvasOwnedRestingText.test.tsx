@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
       | "canvas-shell-underlay"
       | "legacy-dom",
   },
+  dropdownProps: vi.fn(),
   textInputProps: vi.fn(),
 }));
 
@@ -82,7 +83,12 @@ vi.mock("./ColorPickerInput", () => ({
 
 vi.mock("./ConfiguredParamInputs", () => ({
   ConfiguredColorPickerInput: () => null,
-  ConfiguredDropdownInput: () => null,
+  ConfiguredDropdownInput: (props: {
+    canvasOwnedRestingInput?: boolean;
+  }) => {
+    mocks.dropdownProps(props);
+    return <div data-testid="dropdown-input" />;
+  },
   ConfiguredRotaryInput: () => null,
   ConfiguredSliderInput: () => null,
 }));
@@ -131,6 +137,7 @@ describe("ParamUI canvas-owned resting text", () => {
     mocks.state.canEditParams = true;
     mocks.state.waitingForResult = false;
     mocks.state.graphSurfaceImplementation = "legacy-dom";
+    mocks.dropdownProps.mockReset();
     mocks.textInputProps.mockReset();
   });
 
@@ -301,5 +308,27 @@ describe("ParamUI canvas-owned resting text", () => {
       mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
     ).toContain("opacity-0");
     expect(markup).toContain('data-canvas-owned-underline="true"');
+  });
+
+  it("uses the canvas-owned resting dropdown path for section sizing policy size-mode controls", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.DropdownParam,
+      defaultVal: "",
+    };
+
+    renderToStaticMarkup(
+      <ParamUI
+        sectionId={SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
+        paramInfoId="settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeHeight"
+        value="any"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.dropdownProps).toHaveBeenCalledTimes(1);
+    expect(mocks.dropdownProps.mock.calls[0][0].canvasOwnedRestingInput).toBe(
+      true,
+    );
   });
 });
