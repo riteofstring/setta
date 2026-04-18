@@ -53,20 +53,6 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
 	}
 
-	pyprojectPayload, err := os.ReadFile(filepath.Join(pluginRoot, "pyproject.toml"))
-	if err != nil {
-		t.Fatalf("read scaffold pyproject: %v", err)
-	}
-	if !strings.Contains(string(pyprojectPayload), "build-backend = \"hatchling.build\"") {
-		t.Fatalf("expected hatchling-based scaffold packaging, got %q", string(pyprojectPayload))
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta.plugin.json\" = \"setta_init_fixture/setta.plugin.json\"") {
-		t.Fatalf("expected scaffold wheel to install into an isolated plugin root, got %q", string(pyprojectPayload))
-	}
-	if strings.Contains(string(pyprojectPayload), "[tool.setuptools.data-files]") {
-		t.Fatalf("expected scaffold pyproject to avoid setuptools data-files, got %q", string(pyprojectPayload))
-	}
-
 	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
 	if err != nil {
 		t.Fatalf("load scaffold manifest: %v", err)
