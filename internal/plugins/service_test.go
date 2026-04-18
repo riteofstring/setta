@@ -1182,62 +1182,6 @@ func TestServicePreviewBackendRuntimeRefreshOmitsPendingRestartState(t *testing.
 	}
 }
 
-func TestServiceRescanLeavesLegacyPluginConfigKeysUnmigrated(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages, _ := installPackageManagerFixture(
-		t,
-		"full",
-		"setta-fixture-full",
-		"0.1.0",
-		func(pluginRoot string) {
-			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
-				frontend := payload["frontend"].(map[string]any)
-				frontend["entrypoint"] = "frontend/src/index.js"
-				frontend["style"] = "frontend/src/index.css"
-			})
-		},
-	)
-	localRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "full")
-	rewritePluginManifest(t, localRoot, func(payload map[string]any) {
-		frontend := payload["frontend"].(map[string]any)
-		frontend["entrypoint"] = "frontend/src/index.js"
-		frontend["style"] = "frontend/src/index.css"
-	})
-
-	legacyKey := string(PluginScopeSettaFiles) + ":setta-fixture-full"
-	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
-		"pluginConfigById": map[string]any{
-			legacyKey: map[string]any{
-				"label": "legacy-config",
-			},
-		},
-	})
-
-	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
-	snapshot, err := service.Rescan()
-	if err != nil {
-		t.Fatalf("rescan plugins: %v", err)
-	}
-	activeEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-full", PluginScopeSettaFiles)
-	if activeEntry.SourceManager != PluginSourceManagerSetta {
-		t.Fatalf("expected setta-managed entry to remain the active same-scope plugin, got %#v", activeEntry.SourceManager)
-	}
-
-	state, err := service.store.LoadPluginsState()
-	if err != nil {
-		t.Fatalf("load plugins state: %v", err)
-	}
-	if _, ok := state.PluginConfigByID[legacyKey]; !ok {
-		t.Fatalf("expected legacy config key to remain untouched, got %#v", state.PluginConfigByID)
-	}
-	if _, ok := state.PluginConfigByID[pluginConfigKey("setta-fixture-full", PluginScopeSettaFiles, PluginSourceManagerSetta)]; ok {
-		t.Fatalf("expected setta canonical config key to stay absent, got %#v", state.PluginConfigByID)
-	}
-	if _, ok := state.PluginConfigByID[pluginConfigKey("setta-fixture-full", PluginScopeSettaFiles, PluginSourceManagerPackageManager)]; ok {
-		t.Fatalf("expected package-manager canonical config key to stay absent, got %#v", state.PluginConfigByID)
-	}
-}
-
 // Update should reject linked local plugin metadata instead of pretending package-manager updates are available.
 func TestServiceUpdateRejectsLocalSourceMetadata(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

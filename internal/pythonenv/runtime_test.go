@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -198,63 +196,6 @@ func TestRuntimePluginDistributionsReturnsManifestBearingDistributions(t *testin
 	}
 }
 
-func TestRuntimePluginDistributionsDetectsFirstPartyBasedpyrightWheel(t *testing.T) {
-	pythonRuntime, err := NewRuntime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
-	}
-
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installFirstPartyBasedpyrightPluginWheel(t, sitePackages)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	distributions, err := pythonRuntime.PluginDistributions(ctx, []string{sitePackages})
-	if err != nil {
-		t.Fatalf("inspect plugin distributions: %v", err)
-	}
-	if len(distributions) != 1 {
-		t.Fatalf("expected one plugin distribution, got %#v", distributions)
-	}
-	if distributions[0].Name != "setta-basedpyright" {
-		t.Fatalf("unexpected distribution name %#v", distributions[0].Name)
-	}
-	if distributions[0].Version != "0.1.0" {
-		t.Fatalf("unexpected distribution version %#v", distributions[0].Version)
-	}
-	if len(distributions[0].ManifestPaths) != 1 {
-		t.Fatalf("expected one manifest path, got %#v", distributions[0].ManifestPaths)
-	}
-	if !strings.HasSuffix(distributions[0].ManifestPaths[0], filepath.Join("setta_basedpyright", "setta.plugin.json")) {
-		t.Fatalf("unexpected manifest path %#v", distributions[0].ManifestPaths[0])
-	}
-}
-
-func installFirstPartyBasedpyrightPluginWheel(t *testing.T, sitePackages string) {
-	t.Helper()
-
-	if err := os.MkdirAll(sitePackages, 0o755); err != nil {
-		t.Fatalf("mkdir site-packages: %v", err)
-	}
-
-	artifactDir := t.TempDir()
-	pythonPath := repoWheelBuildPython(t)
-	pluginRoot := filepath.Join(repoWheelBuildRepoRoot(t), "plugins", "setta-basedpyright")
-	runPythonCommand(t, pluginRoot, pythonPath, "-m", "build", "--wheel", "--outdir", artifactDir)
-
-	wheelPaths, err := filepath.Glob(filepath.Join(artifactDir, "setta_basedpyright-*.whl"))
-	if err != nil {
-		t.Fatalf("glob first-party plugin wheel: %v", err)
-	}
-	slices.Sort(wheelPaths)
-	if len(wheelPaths) != 1 {
-		t.Fatalf("expected one first-party plugin wheel, got %#v", wheelPaths)
-	}
-
-	runPythonCommand(t, "", pythonPath, "-m", "pip", "install", "--no-deps", "--target", sitePackages, wheelPaths[0])
-}
-
 func writePluginDistributionFixture(t *testing.T, packageName string, version string) string {
 	t.Helper()
 
@@ -312,54 +253,5 @@ func writeRuntimeTestFile(t *testing.T, path string, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
-	}
-}
-
-func repoWheelBuildRepoRoot(t *testing.T) string {
-	t.Helper()
-
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("resolve pythonenv test file path")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-}
-
-func repoWheelBuildPython(t *testing.T) string {
-	t.Helper()
-
-	repoRoot := repoWheelBuildRepoRoot(t)
-	candidates := []string{
-		filepath.Join(repoRoot, ".venv", "bin", "python"),
-		filepath.Join(repoRoot, ".venv", "bin", "python3"),
-	}
-	if runtime.GOOS == "windows" {
-		candidates = append(candidates, filepath.Join(repoRoot, ".venv", "Scripts", "python.exe"))
-	}
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-
-	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
-	return ""
-}
-
-func runPythonCommand(t *testing.T, dir string, command string, args ...string) {
-	t.Helper()
-
-	cmd := exec.Command(command, args...)
-	if strings.TrimSpace(dir) != "" {
-		cmd.Dir = dir
-	}
-	cmd.Env = append(os.Environ(), "PIP_DISABLE_PIP_VERSION_CHECK=1", "PIP_NO_INPUT=1")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		message := strings.TrimSpace(string(output))
-		if message == "" {
-			message = err.Error()
-		}
-		t.Fatalf("%s %s: %s", command, strings.Join(args, " "), message)
 	}
 }

@@ -1,10 +1,16 @@
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionParamLabelRestingText } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { getParamDisplayNameIfPresent } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 
 export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const name = useProjectState((x) =>
     getParamDisplayNameIfPresent(x, sectionId, paramInfoId),
   );
+  const canvasOwnedRestingText =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionParamLabelRestingText(sectionId);
   if (!name) {
     return null;
   }
@@ -23,7 +29,10 @@ export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
 
   return (
     <p
-      className={`${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
+      className={`${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200 ${canvasOwnedRestingText ? "opacity-0" : ""}`}
+      data-canvas-owned-resting-text={
+        canvasOwnedRestingText ? "true" : undefined
+      }
       onClick={onClick}
       onMouseDownCapture={onMouseDown} // has to be on capture for selection to work
     >
