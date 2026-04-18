@@ -22,6 +22,7 @@ import {
 } from "./sectionShellBackdrop";
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
+  DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
@@ -65,6 +66,18 @@ type CanvasOwnedRestingTextLine = {
   offsetX: number;
   offsetY: number;
   text: string;
+};
+
+type CanvasOwnedSectionBackdropMeasurements = {
+  headerHeight: number;
+  kwargsControlsHeight: number;
+  nestedGuideBoxes: Array<CanvasOwnedNestedGuideBox>;
+  pinnedParamsHeight: number;
+  restingTextLines: Array<CanvasOwnedRestingTextLine>;
+  searchHeight: number;
+  styleColor: string | null;
+  switchTrackBoxes: Array<CanvasOwnedSwitchTrackBox>;
+  underlineBoxes: Array<CanvasOwnedUnderlineBox>;
 };
 
 function normalizeStoredHeight(value: unknown) {
@@ -781,54 +794,106 @@ function useCanvasOwnedRestingTextLines(
   return restingTextLines;
 }
 
-export default function SectionShellBackdropCanvas() {
-  const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
-  const canvasOwnedSectionNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
-  const darkMode = useLocalStorage((state) => state.darkMode);
-  const canvasOwnedShellStyleColor = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplIfPresent(
-      state,
-      CANVAS_OWNED_SECTION_SHELL_ID,
-    );
+function useCanvasOwnedSectionBackdropMeasurements({
+  nodeHeight,
+  nodeWidth,
+  sectionId,
+}: {
+  nodeHeight: number | undefined;
+  nodeWidth: number | undefined;
+  sectionId: string;
+}): CanvasOwnedSectionBackdropMeasurements {
+  const styleColor = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
     return typeof impl?.styleColor === "string" ? impl.styleColor : null;
   });
   const {
-    canvasOwnedShellHeaderHeight,
-    canvasOwnedShellKwargsControlsHeight,
-    canvasOwnedShellPinnedParamsHeight,
-    canvasOwnedShellSearchHeight,
+    headerHeight,
+    kwargsControlsHeight,
+    pinnedParamsHeight,
+    searchHeight,
   } = useTemporaryMiscState(
     (state) => ({
-      canvasOwnedShellHeaderHeight: normalizeStoredHeight(
-        state[getSectionHeaderHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      headerHeight: normalizeStoredHeight(
+        state[getSectionHeaderHeightKey(sectionId)],
       ),
-      canvasOwnedShellKwargsControlsHeight: normalizeStoredHeight(
-        state[getKwargsControlsHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      kwargsControlsHeight: normalizeStoredHeight(
+        state[getKwargsControlsHeightKey(sectionId)],
       ),
-      canvasOwnedShellPinnedParamsHeight: normalizeStoredHeight(
-        state[getPinnedParamsAreaHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      pinnedParamsHeight: normalizeStoredHeight(
+        state[getPinnedParamsAreaHeightKey(sectionId)],
       ),
-      canvasOwnedShellSearchHeight: normalizeStoredHeight(
-        state[getSectionSearchHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      searchHeight: normalizeStoredHeight(
+        state[getSectionSearchHeightKey(sectionId)],
       ),
     }),
     shallow,
   );
+  const layoutRefreshKey = `${nodeWidth ?? 0}:${nodeHeight ?? 0}:${headerHeight}:${kwargsControlsHeight}:${pinnedParamsHeight}:${searchHeight}`;
   const switchTrackBoxes = useCanvasOwnedSwitchTrackBoxes(
-    CANVAS_OWNED_SECTION_SHELL_ID,
-    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}`,
+    sectionId,
+    layoutRefreshKey,
   );
   const underlineBoxes = useCanvasOwnedUnderlineBoxes(
-    CANVAS_OWNED_SECTION_SHELL_ID,
-    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
+    sectionId,
+    layoutRefreshKey,
   );
   const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
-    CANVAS_OWNED_SECTION_SHELL_ID,
-    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
+    sectionId,
+    layoutRefreshKey,
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
-    CANVAS_OWNED_SECTION_SHELL_ID,
-    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
+    sectionId,
+    layoutRefreshKey,
+  );
+
+  return useMemo(
+    () => ({
+      headerHeight,
+      kwargsControlsHeight,
+      nestedGuideBoxes,
+      pinnedParamsHeight,
+      restingTextLines,
+      searchHeight,
+      styleColor,
+      switchTrackBoxes,
+      underlineBoxes,
+    }),
+    [
+      headerHeight,
+      kwargsControlsHeight,
+      nestedGuideBoxes,
+      pinnedParamsHeight,
+      restingTextLines,
+      searchHeight,
+      styleColor,
+      switchTrackBoxes,
+      underlineBoxes,
+    ],
+  );
+}
+
+export default function SectionShellBackdropCanvas() {
+  const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
+  const darkMode = useLocalStorage((state) => state.darkMode);
+  const callableNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
+  const dictNode = nodes.get(DICT_CANVAS_OWNED_SECTION_SHELL_ID);
+  const callableMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: callableNode?.height,
+    nodeWidth: callableNode?.width,
+    sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+  });
+  const dictMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: dictNode?.height,
+    nodeWidth: dictNode?.width,
+    sectionId: DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  });
+  const backdropMeasurementsBySectionId = useMemo(
+    () => ({
+      [CANVAS_OWNED_SECTION_SHELL_ID]: callableMeasurements,
+      [DICT_CANVAS_OWNED_SECTION_SHELL_ID]: dictMeasurements,
+    }),
+    [callableMeasurements, dictMeasurements],
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
@@ -839,12 +904,20 @@ export default function SectionShellBackdropCanvas() {
             return null;
           }
 
+          const measurements =
+            backdropMeasurementsBySectionId[
+              node.id as keyof typeof backdropMeasurementsBySectionId
+            ];
+          if (!measurements) {
+            return null;
+          }
+
           const chrome = resolveCanvasOwnedSectionShellChrome({
             darkMode,
-            styleColor: canvasOwnedShellStyleColor,
+            styleColor: measurements.styleColor,
           });
           const callableToolbarOffsetY =
-            canvasOwnedShellHeaderHeight + canvasOwnedShellSearchHeight;
+            measurements.headerHeight + measurements.searchHeight;
           const detailBands: Array<{
             cornerRadius: number;
             divider: string | null;
@@ -853,23 +926,29 @@ export default function SectionShellBackdropCanvas() {
             offsetY: number;
           }> = [];
 
-          if (canvasOwnedShellKwargsControlsHeight > 0) {
+          if (
+            node.id === CANVAS_OWNED_SECTION_SHELL_ID &&
+            measurements.kwargsControlsHeight > 0
+          ) {
             detailBands.push({
               cornerRadius: CALLABLE_TOOLBAR_CORNER_RADIUS_PX,
               divider: chrome.callableToolbarDivider,
               fill: chrome.callableToolbarFill,
-              height: canvasOwnedShellKwargsControlsHeight,
+              height: measurements.kwargsControlsHeight,
               offsetY: callableToolbarOffsetY,
             });
           }
-          if (canvasOwnedShellPinnedParamsHeight > 0) {
+          if (
+            node.id === CANVAS_OWNED_SECTION_SHELL_ID &&
+            measurements.pinnedParamsHeight > 0
+          ) {
             detailBands.push({
               cornerRadius: 0,
               divider: chrome.pinnedParamsDivider,
               fill: chrome.pinnedParamsFill,
-              height: canvasOwnedShellPinnedParamsHeight,
+              height: measurements.pinnedParamsHeight,
               offsetY:
-                callableToolbarOffsetY + canvasOwnedShellKwargsControlsHeight,
+                callableToolbarOffsetY + measurements.kwargsControlsHeight,
             });
           }
 
@@ -877,7 +956,7 @@ export default function SectionShellBackdropCanvas() {
             ...chrome,
             detailBands,
             detailBoxes: [
-              ...nestedGuideBoxes.map((guideBox) => ({
+              ...measurements.nestedGuideBoxes.map((guideBox) => ({
                 cornerRadius: guideBox.cornerRadius,
                 fill: guideBox.fill,
                 height: guideBox.height,
@@ -885,7 +964,7 @@ export default function SectionShellBackdropCanvas() {
                 x: guideBox.offsetX,
                 y: guideBox.offsetY,
               })),
-              ...underlineBoxes.map((underlineBox) => ({
+              ...measurements.underlineBoxes.map((underlineBox) => ({
                 cornerRadius: 0,
                 fill: underlineBox.fill,
                 height: underlineBox.height,
@@ -893,7 +972,7 @@ export default function SectionShellBackdropCanvas() {
                 x: underlineBox.offsetX,
                 y: underlineBox.offsetY,
               })),
-              ...switchTrackBoxes.map((switchTrackBox) => ({
+              ...measurements.switchTrackBoxes.map((switchTrackBox) => ({
                 cornerRadius: switchTrackBox.height / 2,
                 fill: switchTrackBox.checked
                   ? chrome.switchTrackCheckedFill
@@ -904,7 +983,7 @@ export default function SectionShellBackdropCanvas() {
                 y: switchTrackBox.offsetY,
               })),
             ],
-            detailTexts: restingTextLines.map((restingTextLine) => ({
+            detailTexts: measurements.restingTextLines.map((restingTextLine) => ({
               fill: restingTextLine.fill,
               font: restingTextLine.font,
               maxWidth: restingTextLine.maxWidth,
@@ -912,22 +991,14 @@ export default function SectionShellBackdropCanvas() {
               x: restingTextLine.offsetX,
               y: restingTextLine.offsetY,
             })),
-            headerHeight: canvasOwnedShellHeaderHeight,
+            headerHeight: measurements.headerHeight,
           };
         },
       }),
     [
-      canvasOwnedShellHeaderHeight,
-      canvasOwnedShellKwargsControlsHeight,
-      canvasOwnedShellPinnedParamsHeight,
-      canvasOwnedShellSearchHeight,
-      canvasOwnedShellStyleColor,
+      backdropMeasurementsBySectionId,
       darkMode,
-      nestedGuideBoxes,
       nodes,
-      underlineBoxes,
-      restingTextLines,
-      switchTrackBoxes,
     ],
   );
 

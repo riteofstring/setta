@@ -330,6 +330,29 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - canonical target section: `settings-section__dictSectionDefault`
   - a matching 1x headless Playwright inventory on that section shows it reuses the same visible row families (`Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Size`, `Style Color`, `Tag Color`) and adds dict-specific search/filter chrome through `input#settings-section__dictSectionDefault-args-filter`
   - the next product slice should start there instead of reopening callable row-decoration
+- The first dict-section shared-family slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the owned shell lane as a small explicit section set instead of a single callable id, so both the callable and dict canaries ride the same retained shell/text/label ownership boundary
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now builds retained measurements per owned section instead of assuming one global canary node, while keeping the callable-only toolbar and pinned-panel bands scoped to `settings-section__callableSectionDefault`
+  - that change lets `settings-section__dictSectionDefault` inherit the already-proven retained shell/header/text/switch/underline/nested-guide path without introducing a dict-specific renderer branch yet
+  - the dict search/filter surface remains intentionally DOM-owned in this slice; it is still present via `input#settings-section__dictSectionDefault-args-filter` and is now the next real section-specific chrome frontier
+  - focused coverage now exists for the dict expansion:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - the retained nested-guide oracle needed one bounded normalization after the multi-section expansion:
+    - the old center-pixel sample on the tiny `Size` guide rail became brittle once both canary sections shared the same retained scene
+    - both Playwright probes now count guide-rect pixels distinct from the sampled body pixel instead of trusting one center sample; treat that as the new trusted guide oracle for the shared callable/dict lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the dict shared-family slice:
+  - `/settings` loaded cleanly in a fresh headless DevTools page with `All Settings` active
+  - no crash/error-boundary overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - both `settings-section__callableSectionDefault` and `settings-section__dictSectionDefault` were present and looked intact on the live canvas path
+  - the dict filter/search surface remained present on the live DOM-owned path as expected for this slice
 
 ## Preservation rule
 
@@ -358,8 +381,9 @@ That leaves one primary architectural move:
 
 1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Open the next param-heavy family lane on `settings-section__dictSectionDefault`, reusing the proven retained shell/text/switch/nested-guide ownership path where it fits and treating the dict search/filter surface as the first new section-specific chrome question.
-4. Keep the append-only log current from the first running iteration onward.
+3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass is now landed there, so the next product slice should target the dict filter/search surface itself instead of reopening shared-family expansion.
+4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
+5. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
 
@@ -384,7 +408,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: move from the now-closed callable row-decoration lane to `settings-section__dictSectionDefault`, reusing the proven retained shell/text/switch/nested-guide path where it fits and treating the dict search/filter surface as the first new section-specific chrome question
+- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass as done, and move to the first truly dict-specific chrome family at the filter/search surface
 
 ## Hard rules
 

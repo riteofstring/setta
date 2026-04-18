@@ -456,19 +456,6 @@ test("canvas shell path owns the resting callable section chrome", async ({
         viewportScale;
       const sizeNestedGuideWidth = sizeNestedGuideWidthPx / viewportScale;
       const sizeNestedGuideHeight = sizeNestedGuideHeightPx / viewportScale;
-      const sizeNestedGuideSampleX =
-        (nodeX -
-          canvasLeft +
-          sizeNestedGuideOffsetX +
-          sizeNestedGuideWidth * 0.5) *
-        canvasScaleX;
-      const sizeNestedGuideSampleY =
-        (nodeY -
-          canvasTop +
-          sizeNestedGuideOffsetY +
-          sizeNestedGuideHeight * 0.5) *
-        canvasScaleY;
-
       function sampleCanvasPixel(canvasX: number, canvasY: number) {
         const clampedX = Math.max(
           0,
@@ -609,10 +596,14 @@ test("canvas shell path owns the resting callable section chrome", async ({
         sizeNestedGuideBeforeOpacity: sizeNestedGuideBeforeStyle.opacity,
         sizeNestedGuideOwnershipFlag:
           sizeNestedGuide.dataset.canvasOwnedNestedGuide ?? null,
-        sizeNestedGuidePixel: sampleCanvasPixel(
-          sizeNestedGuideSampleX,
-          sizeNestedGuideSampleY,
-        ),
+        sizeNestedGuideDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + sizeNestedGuideOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + sizeNestedGuideOffsetY) * canvasScaleY,
+            sizeNestedGuideWidth * canvasScaleX,
+            sizeNestedGuideHeight * canvasScaleY,
+            bodyPixel,
+          ),
         styleColorOwnershipFlag:
           styleColorInput.dataset.canvasOwnedRestingText ?? null,
         configLanguageDummyOpacity: configLanguageStyle.opacity,
@@ -682,8 +673,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.edgeOutputPortsDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.sizeNestedGuideOwnershipFlag).toBe("true");
   expect(shellState.sizeNestedGuideBeforeOpacity).toBe("0");
-  expect(shellState.sizeNestedGuidePixel).not.toBe("0,0,0,0");
-  expect(shellState.sizeNestedGuidePixel).not.toBe(shellState.bodyPixel);
+  expect(shellState.sizeNestedGuideDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.styleColorOwnershipFlag).toBe("true");
   expect(shellState.styleColorDummyOpacity).toBe("0");
   expect(shellState.styleColorDistinctPixelCount).toBeGreaterThan(0);

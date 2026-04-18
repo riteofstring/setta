@@ -3,6 +3,16 @@ import { CodeObjTypeEnum } from "utils/generatedTypes";
 
 export const CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__callableSectionDefault";
+export const DICT_CANVAS_OWNED_SECTION_SHELL_ID =
+  "settings-section__dictSectionDefault";
+export const CANVAS_OWNED_SECTION_SHELL_IDS = [
+  CANVAS_OWNED_SECTION_SHELL_ID,
+  DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+] as const;
+
+const CANVAS_OWNED_SECTION_SHELL_ID_SET = new Set<string>(
+  CANVAS_OWNED_SECTION_SHELL_IDS,
+);
 
 export type SectionShellCanvasChrome = {
   callableToolbarDivider: string;
@@ -50,7 +60,7 @@ function hasNonEmptyStyleColor(
 }
 
 export function isCanvasOwnedSectionShell(sectionId: string) {
-  return sectionId === CANVAS_OWNED_SECTION_SHELL_ID;
+  return CANVAS_OWNED_SECTION_SHELL_ID_SET.has(sectionId);
 }
 
 export function isCanvasOwnedSectionRestingText({

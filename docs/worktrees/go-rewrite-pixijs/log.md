@@ -651,3 +651,31 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - land the first dict-section product slice on `settings-section__dictSectionDefault`, reusing the proven retained shell/text/switch/nested-guide path where it fits and treating the dict search/filter chrome as the first new section-specific surface
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 028
+
+- Item: Expand the retained shared-family canvas path from the callable canary to `settings-section__dictSectionDefault`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the owned shell lane is now a small explicit set containing both `settings-section__callableSectionDefault` and `settings-section__dictSectionDefault` instead of a single hard-coded callable id.
+  - Refactored `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` to build retained measurements per owned section rather than assuming one global canary node, while keeping the callable-only toolbar and pinned-panel bands scoped to `settings-section__callableSectionDefault`.
+  - That product change lets `settings-section__dictSectionDefault` inherit the already-proven retained shell/header/text/switch/underline/nested-guide path with no new dict-specific renderer branch yet; the dict filter/search surface remains intentionally DOM-owned for the next slice.
+  - Updated focused ownership coverage in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`, `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`, and `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx` so dict now rides the same shared retained-text/label boundary while a truly non-owned section remains the negative control.
+  - Added `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts` to prove the dict section picks up the shared retained shell/header/text/switch/underline/nested-guide families and still hands the `Style Color` editor off inline on first click.
+  - The multi-section expansion exposed one real oracle issue rather than a renderer regression:
+    - the old one-pixel center sample on the tiny `Size` guide rail became brittle once both canary sections shared the same retained scene
+    - updated both Playwright probes to count guide-rect pixels distinct from the sampled body pixel instead of trusting one center sample; treat that as the trusted nested-guide oracle for the shared callable/dict lane going forward
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: both the existing callable canary probe and the new dict probe passed on the live worktree runtime after the guide-oracle normalization
+  - CDP visual check is done:
+    - `/settings` loaded cleanly in a fresh headless DevTools page with `All Settings` active
+    - no crash/error-boundary overlay was visible
+    - `.react-flow__section-shell-backdrop canvas` was mounted
+    - both `settings-section__callableSectionDefault` and `settings-section__dictSectionDefault` were visible and looked intact on the live canvas path
+    - the dict filter/search surface remained present on the live DOM-owned path as expected for this slice
+- Next action:
+  - keep `settings-section__dictSectionDefault` as the active named lane, but stop expanding the shared-family path there; the next bounded product slice should target the dict filter/search chrome itself
+LOOP_TERMINAL_MARKER: none

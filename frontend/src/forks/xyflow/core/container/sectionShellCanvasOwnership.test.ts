@@ -3,6 +3,7 @@ import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
+  DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionParamLabelRestingText,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
@@ -10,14 +11,17 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the canonical settings callable section", () => {
+  it("targets the callable and dict settings canary sections", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
-      isCanvasOwnedSectionShell("settings-section__dictSectionDefault"),
-    ).toBe(false);
+      isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(isCanvasOwnedSectionShell("settings-section__globalVariables")).toBe(
+      false,
+    );
   });
 
-  it("targets text-like params inside the canary section for resting text ownership", () => {
+  it("targets text-like params inside the owned canary sections for resting text ownership", () => {
     expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
@@ -45,18 +49,29 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
-        sectionId: "settings-section__dictSectionDefault",
+        sectionId: DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: "settings-section__globalVariables",
       }),
     ).toBe(false);
   });
 
-  it("targets param-label resting text inside the canary section", () => {
+  it("targets param-label resting text inside the owned canary sections", () => {
     expect(
       isCanvasOwnedSectionParamLabelRestingText(CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
-        "settings-section__dictSectionDefault",
+        DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__globalVariables",
       ),
     ).toBe(false);
   });
