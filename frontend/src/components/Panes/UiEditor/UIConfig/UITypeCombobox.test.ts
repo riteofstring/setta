@@ -14,9 +14,13 @@ vi.mock("utils/generatedTypes", async () => {
   );
   return {
     ...actual,
-    BaseParamCodeObjImplTypeSet: new Set([actual.CodeObjTypeEnum.DateParam]),
-    ControlCodeObjTypeSet: new Set([actual.CodeObjTypeEnum.DateParam]),
-    SectionParamCodeObjTypeSet: new Set<string>(),
+    PythonCodegenPolicyUIConfig: {
+      ...actual.PythonCodegenPolicyUIConfig,
+      codeObjTypes: [actual.CodeObjTypeEnum.DateParam],
+      metaControlCodeObjTypes: [
+        { label: "Date Input", type: actual.CodeObjTypeEnum.DateParam },
+      ],
+    },
   };
 });
 

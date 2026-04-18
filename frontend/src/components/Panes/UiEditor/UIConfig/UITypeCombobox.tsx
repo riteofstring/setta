@@ -11,16 +11,26 @@ import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import type { CodeObjType } from "utils/generatedTypes";
 import {
-  BaseParamCodeObjImplTypeSet,
   CodeObjTypeEnum,
-  ControlCodeObjTypeSet,
-  SectionParamCodeObjTypeSet,
+  PythonCodegenPolicyUIConfig,
 } from "utils/generatedTypes";
 import { IdNameCombobox } from "../../../Utils/Combobox/IdNameCombobox";
 
+const CONTROL_CODE_OBJ_TYPE_SET = new Set<CodeObjType>(
+  PythonCodegenPolicyUIConfig.metaControlCodeObjTypes.map(
+    (option) => option.type,
+  ),
+);
+const SECTION_PARAM_CODE_OBJ_TYPE_SET = new Set<CodeObjType>(
+  PythonCodegenPolicyUIConfig.codeObjTypes,
+);
+const DEFAULT_PARAM_CODE_OBJ_TYPES = Array.from(
+  SECTION_PARAM_CODE_OBJ_TYPE_SET,
+) as Array<CodeObjType>;
+
 const CODE_OBJ_TYPE_FILTERS = {
-  control: ControlCodeObjTypeSet,
-  sectionParam: SectionParamCodeObjTypeSet,
+  control: CONTROL_CODE_OBJ_TYPE_SET,
+  sectionParam: SECTION_PARAM_CODE_OBJ_TYPE_SET,
 } as const;
 
 export const CALENDAR_PRESET_ID = "__setta_text_param_calendar__";
@@ -127,7 +137,7 @@ function usePresetCodeObjImpls(
       if (!c.isPreset) {
         continue;
       }
-      if (!typeSet.has(c.type)) {
+      if (!typeSet.has(c.type as CodeObjType)) {
         continue;
       }
       output.push({
@@ -153,14 +163,13 @@ function useNonPresetImplsForParam(
       return [];
     }
     const prevImpls: Record<string, string> = {};
-    for (const i of variant.nonPresetImpls) {
+    for (const i of variant.nonPresetImpls ?? []) {
       const impl = getCodeObjImpl(x, i);
       prevImpls[impl.type] = impl.id;
     }
 
     const output: ComboboxItemArrayType<string> = [];
-    const typeList =
-      allowedImplTypes ?? Array.from(BaseParamCodeObjImplTypeSet);
+    const typeList = allowedImplTypes ?? DEFAULT_PARAM_CODE_OBJ_TYPES;
     for (const c of typeList) {
       if (prevImpls[c]) {
         output.push({

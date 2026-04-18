@@ -28,12 +28,16 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
-  isBaseDictSectionImpl,
+  createDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
+
+type DictSectionImpl = ReturnType<typeof createDictSectionImpl>;
+
 type ParamNameInputProps = {
   border: string;
   bg: string;
@@ -145,18 +149,24 @@ function useParamNameState(
     if (!impl || !codeObjImpl || !codeObjCore) {
       return null;
     }
-    const pythonCodegenEnabled = x.projectConfig.codegenTargets.some(
-      (target) => target.language === ProjectCodegenLanguageEnum.python,
+    const pythonCodegenEnabled = (x.projectConfig.codegenTargets ?? []).some(
+      (target) => target?.language === ProjectCodegenLanguageEnum.python,
     );
+    const isDictSection = impl.type === SectionTypeEnum.Dict;
+    let topLevelParamId: string | null = null;
+    if (impl.type === SectionTypeEnum.Dict) {
+      topLevelParamId = (impl as DictSectionImpl).topLevelParamId;
+    }
     return {
       configLanguage: impl.configLanguage,
-      isDictSection: isBaseDictSectionImpl(impl),
-      topLevelParamId: isBaseDictSectionImpl(impl)
-        ? impl.topLevelParamId
-        : null,
+      isDictSection,
+      topLevelParamId,
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
-      isKwarg: codeObjImpl.coreNameEditable,
+      isKwarg:
+        "coreNameEditable" in codeObjImpl
+          ? codeObjImpl.coreNameEditable
+          : false,
       pythonCodegenEnabled,
       showParamDisplayNames: x.projectConfig.showParamDisplayNames,
     };
