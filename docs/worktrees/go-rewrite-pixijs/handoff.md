@@ -21,6 +21,8 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 - A focused regression test now exists at `frontend/src/openapi/http/client.test.ts` to keep the rewritten OpenAPI transport from dropping POST bodies.
 - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` now preserves minimap defaults when callers pass optional props as `undefined`, so `MinimapSvg` can render without an explicit `nodeComponent`.
 - `frontend/src/forks/xyflow/minimap/MiniMap.test.ts` now includes a regression test that renders `MinimapSvg` without a custom node component and expects the default minimap rect node output.
+- `frontend/src/components/Utils/Combobox/ComboboxParts.tsx` now treats the combobox `bg` prop as optional when resolving fallback background classes, so `/settings` no longer crashes on `bg.trim()` when a caller omits that prop.
+- `frontend/src/components/Utils/Combobox/ComboboxParts.test.tsx` now includes a regression test proving undefined `bg` values fall back to the variant default classes instead of crashing.
 - No Pixi/settings product renderer code has been changed under this restart plan yet.
 - The Phase 1 baseline itself is still not captured:
   - the browser-side `loadProjectConfig` transport failure on the live worktree runtime (`http://127.0.0.1:8068`) is fixed
@@ -32,10 +34,18 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the `_MiniMapNodes` invalid-element-type crash is now cleared:
     - a headless Playwright probe with a fresh bootstrap URL lands on the normal project surface at `http://127.0.0.1:3068/round_lime` with no React error boundary and no visible `_MiniMapNodes` / invalid-element-type message
     - CDP visual check is done for this slice and confirms the same healthy project-route state
-  - the current blocking runtime error is now on the `/settings` route:
-    - `Unexpected Application Error!`
-    - `TypeError: Cannot read properties of undefined (reading 'trim')`
-    - stack points at `src/components/Utils/Combobox/ComboboxParts.tsx`
+  - the `/settings` combobox `trim()` runtime crash is now cleared:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/Combobox/ComboboxParts.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line`
+    - result: the live Settings route now loads cleanly, `All Settings` becomes active, and the baseline probe emits metrics instead of hitting the React error boundary
+    - current captured metrics from that passing probe:
+      - `flowNodeCount: 46`
+      - `documentNodeCount: 9553`
+      - `inputCount: 92`
+      - `buttonCount: 521`
+      - `raf.meanMs: 207.16`
+      - `longTasks.totalMs: 36691`
+    - CDP visual check is done for this slice and confirms `/settings` loads without the prior `Unexpected Application Error`; `All Settings` is visible, though the left settings sidebar still occupies a large portion of the viewport and is non-blocking chrome for this crash-fix lane
   - focused static verification for the minimap fix passed:
     - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.tsx`
   - focused Vitest verification for the new minimap regression test is currently blocked by an existing jsdom dependency/runtime issue before test collection:
@@ -67,11 +77,10 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Fix the `/settings` `ComboboxParts.tsx` `trim()` runtime crash so the Settings route can mount under automation again.
-2. Re-run `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` once the live Settings route can finish rendering without the combobox error boundary.
-3. Capture the first durable `go-rewrite` baseline report under `perf/reports/frontend/`.
-4. Only after the baseline exists, take the first product slice.
-5. Keep the append-only log current from the first running iteration onward.
+1. Turn the now-passing `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` output into the first durable `go-rewrite` baseline report under `perf/reports/frontend/`.
+2. Decide whether the current baseline should be normalized further before Phase 2 work, or whether the existing `All Settings` probe is sufficient as the pre-change benchmark.
+3. Only after the baseline report exists, take the first product slice.
+4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
 
