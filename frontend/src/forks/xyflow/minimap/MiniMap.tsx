@@ -107,7 +107,7 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   y: number;
   width: number;
   height: number;
-  svgRef?: RefObject<SVGSVGElement>;
+  svgRef?: RefObject<SVGSVGElement | null>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
@@ -341,6 +341,85 @@ function resolveMiniMapProps(props: MiniMapProps) {
   return { ...defaultMiniMapProps, ...props };
 }
 
+function assignDefinedProp<T extends object, K extends keyof T>(
+  target: T,
+  key: K,
+  value: T[K] | undefined,
+): void {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+}
+
+function buildMinimapSvgProps(args: {
+  elementWidth: number;
+  elementHeight: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  svgRef: RefObject<SVGSVGElement | null>;
+  offset: number;
+  viewBB: Rect;
+  maskColor: string;
+  maskStrokeColor: string;
+  maskStrokeWidth: number;
+  onSvgClick: MinimapSvgProps["onSvgClick"];
+  onSvgNodeClick: MinimapSvgProps["onSvgNodeClick"];
+  nodeColor: MinimapSvgProps["nodeColor"];
+  nodeStrokeColor: MinimapSvgProps["nodeStrokeColor"];
+  nodeBorderRadius: MinimapSvgProps["nodeBorderRadius"];
+  nodeClassName: MinimapSvgProps["nodeClassName"];
+  nodeStrokeWidth: MinimapSvgProps["nodeStrokeWidth"];
+  nodeComponent: MinimapSvgProps["nodeComponent"];
+}): MinimapSvgProps {
+  const props: MinimapSvgProps = {
+    elementWidth: args.elementWidth,
+    elementHeight: args.elementHeight,
+    x: args.x,
+    y: args.y,
+    width: args.width,
+    height: args.height,
+    svgRef: args.svgRef,
+    offset: args.offset,
+    viewBB: args.viewBB,
+    maskColor: args.maskColor,
+    maskStrokeColor: args.maskStrokeColor,
+    maskStrokeWidth: args.maskStrokeWidth,
+    nodes: null,
+    enableSelectionSync: true,
+  };
+  assignDefinedProp(props, "onSvgClick", args.onSvgClick);
+  assignDefinedProp(props, "onSvgNodeClick", args.onSvgNodeClick);
+  assignDefinedProp(props, "nodeColor", args.nodeColor);
+  assignDefinedProp(props, "nodeStrokeColor", args.nodeStrokeColor);
+  assignDefinedProp(props, "nodeBorderRadius", args.nodeBorderRadius);
+  assignDefinedProp(props, "nodeClassName", args.nodeClassName);
+  assignDefinedProp(props, "nodeStrokeWidth", args.nodeStrokeWidth);
+  assignDefinedProp(props, "nodeComponent", args.nodeComponent);
+  return props;
+}
+
+function buildMiniMapNodesProps(args: {
+  onSvgNodeClick: MiniMapNodesType["onClick"];
+  nodeColor: MiniMapNodesType["nodeColor"];
+  nodeStrokeColor: MiniMapNodesType["nodeStrokeColor"];
+  nodeBorderRadius: MiniMapNodesType["nodeBorderRadius"];
+  nodeClassName: MiniMapNodesType["nodeClassName"];
+  nodeStrokeWidth: MiniMapNodesType["nodeStrokeWidth"];
+  nodeComponent: MiniMapNodesType["nodeComponent"];
+}): MiniMapNodesType {
+  const props: MiniMapNodesType = {};
+  assignDefinedProp(props, "onClick", args.onSvgNodeClick);
+  assignDefinedProp(props, "nodeColor", args.nodeColor);
+  assignDefinedProp(props, "nodeStrokeColor", args.nodeStrokeColor);
+  assignDefinedProp(props, "nodeBorderRadius", args.nodeBorderRadius);
+  assignDefinedProp(props, "nodeClassName", args.nodeClassName);
+  assignDefinedProp(props, "nodeStrokeWidth", args.nodeStrokeWidth);
+  assignDefinedProp(props, "nodeComponent", args.nodeComponent);
+  return props;
+}
+
 export function getXYWidthHeight({
   boundingRect,
   elementHeight,
@@ -421,6 +500,28 @@ function MiniMap(props: MiniMapProps) {
 
   const onSvgClick = createMiniMapClickHandler(onClick);
   const onSvgNodeClick = createMiniMapNodeClickHandler(onNodeClick);
+  const minimapSvgProps = buildMinimapSvgProps({
+    elementWidth,
+    elementHeight,
+    x,
+    y,
+    width,
+    height,
+    svgRef,
+    offset,
+    viewBB,
+    maskColor,
+    maskStrokeColor,
+    maskStrokeWidth,
+    onSvgClick,
+    onSvgNodeClick,
+    nodeColor,
+    nodeStrokeColor,
+    nodeBorderRadius,
+    nodeClassName,
+    nodeStrokeWidth,
+    nodeComponent,
+  });
 
   return (
     <Panel
@@ -429,30 +530,7 @@ function MiniMap(props: MiniMapProps) {
       className={cc(["react-flow__minimap", className])}
       data-testid="rf__minimap"
     >
-      <MinimapSvg
-        elementWidth={elementWidth}
-        elementHeight={elementHeight}
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        svgRef={svgRef}
-        onSvgClick={onSvgClick}
-        onSvgNodeClick={onSvgNodeClick}
-        nodeColor={nodeColor}
-        nodeStrokeColor={nodeStrokeColor}
-        nodeBorderRadius={nodeBorderRadius}
-        nodeClassName={nodeClassName}
-        nodeStrokeWidth={nodeStrokeWidth}
-        nodeComponent={nodeComponent}
-        offset={offset}
-        viewBB={viewBB}
-        maskColor={maskColor}
-        maskStrokeColor={maskStrokeColor}
-        maskStrokeWidth={maskStrokeWidth}
-        nodes={null}
-        enableSelectionSync
-      />
+      <MinimapSvg {...minimapSvgProps} />
     </Panel>
   );
 }
@@ -464,7 +542,7 @@ export default memo(MiniMap);
 function MiniMapSelectionSync({
   svgRef,
 }: {
-  svgRef?: RefObject<SVGSVGElement>;
+  svgRef?: RefObject<SVGSVGElement | null>;
 }) {
   useEffect(() => {
     const applySelection = (activeIds: string[]) => {
@@ -529,15 +607,16 @@ export function MinimapSvg({
   nodes,
   enableSelectionSync = false,
 }: MinimapSvgProps) {
-  const minimapNodesProps: MiniMapNodesType = {
-    onClick: onSvgNodeClick,
+  const minimapNodesProps = buildMiniMapNodesProps({
+    onSvgNodeClick,
     nodeColor,
     nodeStrokeColor,
     nodeBorderRadius,
     nodeClassName,
     nodeStrokeWidth,
     nodeComponent,
-  };
+  });
+  const selectionSyncProps = svgRef === undefined ? null : { svgRef };
 
   return (
     <svg
@@ -553,7 +632,9 @@ export function MinimapSvg({
       ) : (
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
-      {enableSelectionSync ? <MiniMapSelectionSync svgRef={svgRef} /> : null}
+      {enableSelectionSync && selectionSyncProps ? (
+        <MiniMapSelectionSync {...selectionSyncProps} />
+      ) : null}
       {viewBB && (
         <path
           className="react-flow__minimap-mask"
