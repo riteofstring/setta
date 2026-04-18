@@ -445,7 +445,7 @@ func TestStoreLoadBootstrapsDefaultsAndPersistsMutations(t *testing.T) {
 	}
 }
 
-func TestStoreLoadFailsClosedOnMissingDefaults(t *testing.T) {
+func TestStoreLoadMaterializesMissingDefaultsWithoutWritingBack(t *testing.T) {
 	t.Parallel()
 
 	store, err := NewStore(filepath.Join(t.TempDir(), DefaultFileName), StoreOptions{})
@@ -456,10 +456,18 @@ func TestStoreLoadFailsClosedOnMissingDefaults(t *testing.T) {
 		t.Fatalf("seed partial settings file: %v", err)
 	}
 
-	_, err = store.Load(context.Background())
-	var validationErr *ValidationError
-	if !errors.As(err, &validationErr) {
-		t.Fatalf("expected ValidationError for partial settings file, got %v", err)
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load partial settings returned error: %v", err)
+	}
+	if got := document["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected loaded renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+	if got := document["backend"].(map[string]any)["autosave"]; got != true {
+		t.Fatalf("expected missing backend defaults to be materialized, got %#v", got)
+	}
+	if _, ok := document["gui"].(map[string]any); !ok {
+		t.Fatalf("expected missing top-level defaults to be materialized, got %#v", document["gui"])
 	}
 
 	content, err := os.ReadFile(store.Path())
@@ -482,6 +490,44 @@ func TestStoreLoadFailsClosedOnMissingDefaults(t *testing.T) {
 	}
 	if _, ok := persisted["gui"].(map[string]any); ok {
 		t.Fatalf("did not expect load to write back missing top-level branches, got %#v", persisted["gui"])
+	}
+}
+
+func TestStoreLoadMaterializesMissingNestedDefaultsWithoutWritingBack(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewStore(filepath.Join(t.TempDir(), DefaultFileName), StoreOptions{})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+
+	defaults, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("DefaultDocument returned error: %v", err)
+	}
+	delete(defaults["iFrameSectionDefault"].(map[string]any), "code")
+	if err := writeSettingsObject(store.Path(), defaults); err != nil {
+		t.Fatalf("seed nested-partial settings file: %v", err)
+	}
+
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load nested-partial settings returned error: %v", err)
+	}
+	if got := document["iFrameSectionDefault"].(map[string]any)["code"]; got != "" {
+		t.Fatalf("expected missing iframe code default to be materialized, got %#v", got)
+	}
+
+	content, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatalf("read nested-partial settings file: %v", err)
+	}
+	var persisted map[string]any
+	if err := json.Unmarshal(content, &persisted); err != nil {
+		t.Fatalf("decode nested-partial settings file: %v", err)
+	}
+	if _, ok := persisted["iFrameSectionDefault"].(map[string]any)["code"]; ok {
+		t.Fatalf("did not expect load to write back missing iframe code, got %#v", persisted["iFrameSectionDefault"])
 	}
 }
 

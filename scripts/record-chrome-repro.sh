@@ -331,6 +331,9 @@ PY
 
 wait_for_bootstrap_url() {
   local timeout_seconds="${1:-120}"
+  local dev_pid_to_watch="${2:-}"
+  local dev_log_path="${3:-}"
+  local backend_log_path="${4:-}"
   local elapsed=0
   while [[ "${elapsed}" -lt "${timeout_seconds}" ]]; do
     local candidate=""
@@ -338,6 +341,18 @@ wait_for_bootstrap_url() {
     if [[ -n "${candidate}" ]] && bootstrap_url_ready "${candidate}"; then
       printf '%s\n' "${candidate}"
       return 0
+    fi
+    if [[ -n "${dev_pid_to_watch}" ]] && ! kill -0 "${dev_pid_to_watch}" 2>/dev/null; then
+      echo "Setta dev instance exited before a bootstrap URL became ready." >&2
+      if [[ -f "${backend_log_path}" ]]; then
+        echo "--- ${backend_log_path} (tail) ---" >&2
+        tail -n 40 "${backend_log_path}" >&2 || true
+      fi
+      if [[ -f "${dev_log_path}" ]]; then
+        echo "--- ${dev_log_path} (tail) ---" >&2
+        tail -n 40 "${dev_log_path}" >&2 || true
+      fi
+      return 1
     fi
     sleep 1
     elapsed=$((elapsed + 1))
@@ -590,7 +605,7 @@ if [[ "${SETTA_CHROME_REPRO_SKIP_DEV_START}" != "1" ]]; then
 fi
 
 log "Waiting for Setta bootstrap URL."
-bootstrap_url="$(wait_for_bootstrap_url 120)"
+bootstrap_url="$(wait_for_bootstrap_url 120 "${dev_pid}" "${log_dir}/dev-instance.log" "${log_dir}/backend.log")"
 
 launcher_metadata_file="${artifact_dir}/launcher.json"
 "${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" <<'PY'

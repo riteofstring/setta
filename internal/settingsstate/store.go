@@ -297,8 +297,11 @@ func loadSettingsObjectForPath(
 	for _, settingsSlice := range slices {
 		existingSlice, hasExisting := documentRoot[settingsSlice]
 		if !hasExisting {
-			return nil, newValidationError("settings.%s: Field required", settingsSlice)
+			documentRoot[settingsSlice] = cloneValue(defaults[settingsSlice])
+			continue
 		}
+		existingSlice = materializeValueAgainstDefault(existingSlice, defaults[settingsSlice])
+		documentRoot[settingsSlice] = existingSlice
 		if err := validateValueAgainstDefault(
 			existingSlice,
 			defaults[settingsSlice],
@@ -328,4 +331,39 @@ func encodeSettingsObject(payload map[string]any) ([]byte, error) {
 		return nil, fmt.Errorf("encode settings document: %w", err)
 	}
 	return append(content, '\n'), nil
+}
+
+func materializeValueAgainstDefault(current any, expected any) any {
+	switch typedExpected := expected.(type) {
+	case map[string]any:
+		currentObject, ok := asObject(current)
+		if !ok {
+			return cloneValue(current)
+		}
+		output := cloneMap(currentObject)
+		for key, defaultValue := range typedExpected {
+			currentValue, hasCurrent := currentObject[key]
+			if !hasCurrent {
+				output[key] = cloneValue(defaultValue)
+				continue
+			}
+			output[key] = materializeValueAgainstDefault(currentValue, defaultValue)
+		}
+		return output
+	case []any:
+		currentArray, ok := current.([]any)
+		if !ok {
+			return cloneValue(current)
+		}
+		if len(typedExpected) == 0 {
+			return cloneValue(currentArray)
+		}
+		output := make([]any, len(currentArray))
+		for index, entry := range currentArray {
+			output[index] = materializeValueAgainstDefault(entry, typedExpected[0])
+		}
+		return output
+	default:
+		return cloneValue(current)
+	}
 }
