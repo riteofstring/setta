@@ -17,7 +17,7 @@ Run Codex in a branch-review loop with this flow:
 Defaults:
 - Maximum iterations: 1000
 - Model: `gpt-5.4`
-- Reasoning effort: `high`
+- Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
 - Stop only when the consolidator emits `CONSOLIDATED_STATUS: NO_FINDINGS`
@@ -65,7 +65,7 @@ post_commit_settle_seconds="20"
 codex_extra_args=()
 default_codex_extra_args=(
   --config
-  'reasoning_effort="high"'
+  'reasoning_effort="xhigh"'
 )
 
 review_prompt_file=""
@@ -550,7 +550,7 @@ print_configuration() {
   echo "Loop state directory: ${state_dir}"
   echo "Iterations: ${iterations}"
   echo "Model: ${model}"
-  echo "Reasoning effort: high"
+  echo "Reasoning effort: xhigh"
   echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
   echo "Post-commit settle check: ${post_commit_settle_seconds}s"
   if [[ "${yolo_mode}" == "1" ]]; then

@@ -60,7 +60,7 @@ complete_stop_sentinel="CODEX_LOOP_STOP: DEADCODE_ALIAS_AUTHORITY_AUDITED_STOP"
 codex_extra_args=()
 default_codex_extra_args=(
   --config
-  'reasoning_effort="high"'
+  'reasoning_effort="xhigh"'
 )
 
 require_value() {
