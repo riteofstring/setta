@@ -1,0 +1,129 @@
+# Go-Rewrite Pixi Canvas-First Log
+
+Date started: 2026-04-17
+Draft worktree placeholder: `go-rewrite-pixijs`
+Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
+
+## Usage
+
+Append-only execution log for the `go-rewrite` Pixi-first restart.
+
+Every log item should record:
+
+- `Item`
+- `Status`
+- `Details`
+- `Next action`
+
+Recommended status values:
+
+- `todo`
+- `in_progress`
+- `done`
+- `blocked`
+- `deferred`
+
+Record:
+
+- architecture decisions
+- baseline benchmark results
+- Ralph/supervisor bootstrap work
+- visible UX/parity findings
+- editing-overlay decisions
+- dense-scene perf evidence
+
+## 2026-04-17 001
+
+- Item: Create the draft plan/log/checklist/handoff set for a `go-rewrite`-based Pixi-first restart.
+- Status: `done`
+- Details:
+  - Reviewed the existing Pixi rewrite plan, the pan/zoom pivot plan, the current rewrite log structure, the Ralph mode doc, the frontend-performance retrospective, the dense `All Settings` benchmark report, and the tldraw comparison discussion.
+  - Locked the new architectural direction:
+    - Pixi-first resting graph surface
+    - DOM only for active heavyweight editing surfaces and popups
+    - no second-click editing model
+    - no default assumption that visible inactive content stays fully live in DOM
+  - Chose a neutral placeholder doc path until the real `go-rewrite` worktree exists:
+    - `docs/worktrees/go-rewrite-pixijs/`
+- Next action:
+  - once the new `go-rewrite` worktree exists, port these docs there, refresh the worktree name/path references, and complete the Ralph-loop bootstrap checklist before taking the first code slice
+
+## 2026-04-17 002
+
+- Item: Port the restart docs and Ralph/supervisor support into `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- Status: `done`
+- Details:
+  - Created `docs/worktrees/go-rewrite-pixijs/{plan,log,checklist,handoff}.md` in the new worktree.
+  - Ported the missing Ralph/supervisor files and refreshed the loop scripts needed for the supervisor flow.
+  - Locked `/home/ubuntu/dev/setta` as the read-only reference worktree path for side-by-side comparisons in this restart.
+- Next action:
+  - confirm the running loop reads the new worktree doc set instead of the inherited `pixijs-graph` plan files
+
+## 2026-04-17 003
+
+- Item: Add explicit preservation guardrails so the new loop does not undo the `go-rewrite` refactor while porting ideas from older branches.
+- Status: `done`
+- Details:
+  - Added an explicit `go-rewrite` preservation rule to the plan, checklist, and handoff.
+  - Locked the architectural rule that older Pixi/frontend-performance branches are research inputs only, not structures to copy wholesale.
+  - Defined rollback of broad `go-rewrite` refactors as a replan decision rather than something the loop may do silently.
+- Next action:
+  - fix `RALPH.md` to point at the new worktree plan/handoff/log and then let the loop proceed to baseline restoration
+
+## 2026-04-17 004
+
+- Item: Retarget `RALPH.md` to the new worktree docs and make the restart requirement explicit.
+- Status: `done`
+- Details:
+  - Updated `RALPH.md` so the loop config now points at `docs/worktrees/go-rewrite-pixijs/{plan,handoff,log}.md`.
+  - Added reference-worktree notes pointing the read-only compare path at `/home/ubuntu/dev/setta`.
+  - Confirmed from the loop scripts that `RALPH.md` is parsed at startup, so a Ralph process that was already running before this edit should be restarted once.
+- Next action:
+  - restart Ralph once if it was already running, then move directly to baseline restoration on `All Settings`
+
+## 2026-04-17 005
+
+- Item: Fix the remaining Ralph bootstrap blockers in `go-rewrite-pixijs`.
+- Status: `done`
+- Details:
+  - Restored the missing `scripts/ralph-default-prompt.md` file in the new worktree so the loop can render prompts.
+  - Added `main_worktree_root: /home/ubuntu/dev/setta` to `RALPH.md`.
+  - Patched `scripts/run-codex-loop.sh` and `scripts/run-codex-supervisor.sh` to honor an explicit `main_worktree_root` from config before falling back to branch-name discovery.
+  - Bounded startup verification now reaches loop bootstrap with:
+    - the correct plan/handoff/log paths
+    - `Main worktree root: /home/ubuntu/dev/setta`
+    - main-lifecycle bootstrap starting instead of failing on missing prompt/discovery errors
+- Next action:
+  - rerun Ralph from the updated config and continue to baseline restoration on `All Settings`
+
+## 2026-04-17 006
+
+- Item: Fix the remaining `ai.sh` helper imports required for lifecycle bootstrap.
+- Status: `done`
+- Details:
+  - Restored `scripts/lib/node_tooling.sh` so `scripts/ai.sh` can initialize Node/pnpm tooling.
+  - Restored `scripts/lib/clear_devtools_profile_auth_cookies.py` to match the source worktree helper set.
+  - Bounded startup verification no longer fails on missing prompt or missing helper imports; the loop now reaches lifecycle bootstrap with the correct config and reference worktree path.
+  - Remaining startup noise now points at environment bootstrap state (`.venv` missing) rather than missing loop files.
+- Next action:
+  - rerun Ralph and let lifecycle bootstrap proceed far enough to settle the dev environment, then continue to the baseline restoration phase
+
+## 2026-04-18 007
+
+- Item: Harden the baseline probe plumbing for `settings` -> `All Settings`.
+- Status: `done`
+- Details:
+  - Updated `scripts/run-playwright-e2e.sh` so the helper no longer assumes `pnpm` is already on `PATH`:
+    - it now bootstraps Node tooling before starting Vite / Playwright
+    - it now accepts the current Go CLI bootstrap-token log shapes (`bootstrap#token=` and `and paste:`), not only the old `Token:` line
+  - Added `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` as the first focused `go-rewrite` baseline probe for the `All Settings` view.
+  - Static verification passed for the code slice:
+    - `bash -n scripts/run-playwright-e2e.sh`
+    - `pnpm -C frontend exec eslint tests/e2e/settings/settings-all-settings-baseline.spec.ts`
+  - Runtime verification is still blocked one layer later:
+    - the disposable helper now reaches browser startup and test execution instead of failing on missing `pnpm` / stale token parsing
+    - but both the disposable helper and direct browser automation still fail before a usable Settings surface because browser-side `POST http://127.0.0.1:8069/api/loadProjectConfig` requests fail with `net::ERR_ALPN_NEGOTIATION_FAILED`
+    - fresh worktree bootstrap URLs are one-shot; stale tokens quickly degrade into misleading `401` bootstrap failures, so each retry must refresh the URL first
+  - No baseline perf report was written yet because the Settings graph surface never reached a trustworthy loaded state under automation in this iteration.
+- Next action:
+  - fix or narrow the `loadProjectConfig` browser transport failure on the live worktree Settings route, then rerun the new baseline probe and record the first `go-rewrite` baseline report
