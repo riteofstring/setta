@@ -1,11 +1,11 @@
-Compare the current branch with the go-rewrite branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Any unnecessary backward compatibility shims? Is there any reason I shouldn't merge the current branch into the go-rewrite branch? Review only what this branch would add to go-rewrite (diff vs merge base). Use git diff --name-status go-rewrite...HEAD or git diff $(git merge-base go-rewrite HEAD)..HEAD. Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after your proposed fix.
+Compare the current branch with the main branch. Do the changes make sense? Is there redundant, unused, or inefficient code? Any unnecessary backward compatibility shims? Is there any reason I shouldn't merge the current branch into the main branch? Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Give succinct concrete examples for each finding, your proposed fix, and the UX/DX before and after your proposed fix.
 
-Review this branch for merge into `go-rewrite`.
+Review this branch for merge into `main`.
  
     Scope
     - Analyze only branch-introduced changes vs merge base:
-      - `git diff --name-status go-rewrite...HEAD`
-      - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
+      - `git diff --name-status main...HEAD`
+      - `git diff $(git merge-base main HEAD)..HEAD`
 
     Branch intent guardrails
     - Read `branch_intent.md` before reviewing the diff.
@@ -51,7 +51,7 @@ Review this branch for merge into `go-rewrite`.
     6. `branch_intent.md` alignment check (items respected vs any true regressions with evidence)
 
 
-Compare the current branch with the go-rewrite branch. Review only what this branch would add to go-rewrite (diff vs merge base). Use git diff --name-status go-rewrite...HEAD or git diff $(git merge-base go-rewrite HEAD)..HEAD. Then update the docs as necessary.
+Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
 
 Read docs/mcp-multi-server-plan.md. Implement the plan. Remember we never need backward compatibility or legacy support! It's also ok for the application to be broken during this refactor! DO NOT KEEP CODE AROUND JUST TO KEEP THE CODE FUNCTIONAL. THIS IS A REFACTORING. WE EXPECT THE CODE TO BE BROKEN DURING THE REFACTOR.
 
@@ -59,24 +59,24 @@ Read docs/mcp-multi-server-plan.md. Read the code base. Is the plan fully implem
 
 Implement the fixes. Add unit, integration, and Playwright tests when appropriate. Bias strongly toward clean, easy-to-read code: prefer the simplest correct design, explicit names, shallow control flow, and small focused functions/components. Remove dead or superseded code instead of layering on more logic. Avoid clever abstractions, speculative generalization, unnecessary indirection, and "just-in-case" helpers. If the current area is convoluted, refactor it as part of the fix so the final code is simpler and easier to understand. The CDP MCP server is already running and available for you to use, so do not try to start it up yourself, and you should not run `pnpm start` or `pnpm reset`.
 
-Merge the go-rewrite branch into our current branch. If there are merge conflicts, resolve them, and then afterwards explain your logic for how you resolved each conflict. All branches are up to date (no need to fetch).
+Merge the main branch into our current branch. If there are merge conflicts, resolve them, and then afterwards explain your logic for how you resolved each conflict. All branches are up to date (no need to fetch).
 
-Merge <> into go-rewrite. In the commit message, include a detailed summary of what the <> branch does.
+Merge <> into main. In the commit message, include a detailed summary of what the <> branch does.
 
 Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
 
 Read the diff of <commit hash>. Write a summary of the changes to a new doc called cumulative_review.md. We are going to be appending to this document in future commits with the same concept (writing a summary of changes of each commit), so put the summary under a heading with the commit hash in the heading.
 
-See the latest github actions tests on the go-rewrite branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
+See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
 Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
-Compare the current branch with `go-rewrite` and write a detailed branch-intent summary to `branch_intent.md`.
+Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
 
   Scope and method:
   - Analyze only what this branch introduces vs merge base:
-    - `git diff --name-status go-rewrite...HEAD`
-    - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
+    - `git diff --name-status main...HEAD`
+    - `git diff $(git merge-base main HEAD)..HEAD`
   - Capture both feature work and bug fixes.
   - Focus on intentional behavior/product changes that follow-up branch reviews must not clobber or "fix back" accidentally.
 
