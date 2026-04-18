@@ -159,7 +159,7 @@ describe("ParamUI canvas-owned resting text", () => {
         defaultVal: "",
       };
 
-      renderToStaticMarkup(
+      const markup = renderToStaticMarkup(
         <ParamUI
           sectionId={CANVAS_OWNED_SECTION_SHELL_ID}
           paramInfoId={paramInfoId}
@@ -175,6 +175,8 @@ describe("ParamUI canvas-owned resting text", () => {
       expect(
         mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
       ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).toContain("peer-focus-within/textinput:opacity-100");
     },
   );
 
@@ -201,7 +203,7 @@ describe("ParamUI canvas-owned resting text", () => {
       defaultVal: "",
     };
 
-    renderToStaticMarkup(
+    const markup = renderToStaticMarkup(
       <ParamUI
         sectionId="settings-section__dictSectionDefault"
         paramInfoId="settings-codeobj__dictSectionDefault__dictSectionDefault__styleColor"
@@ -217,5 +219,6 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(
       mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
     ).not.toContain("opacity-0");
+    expect(markup).not.toContain('data-canvas-owned-underline="true"');
   });
 });

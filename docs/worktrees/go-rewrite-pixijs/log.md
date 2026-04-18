@@ -585,3 +585,26 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the same named canary section, but move to the next repeated row-chrome family instead of reopening param-label or value-text coverage
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 025
+
+- Item: Move the canary text-row underline chrome for `settings-section__callableSectionDefault` onto the retained canvas path.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene now measures `[data-canvas-owned-underline="true"]` spans in graph space, derives underline boxes from each span's computed border-bottom color and width, and paints those underline boxes into the same retained canvas pass as the shell chrome, switch tracks, and resting text.
+  - Updated `frontend/src/components/Params/ParamUIs/ParamUI.tsx` so only the canary section's text-like value underline becomes transparent on the `canvas-shell-underlay` path, carries `data-canvas-owned-underline="true"` for measurement, and reappears through the live DOM on `peer-focus-within/textinput` so the active blue focus state still comes from the real editor.
+  - Updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx` to lock the new underline marker/handoff behavior alongside the existing transparent dummy-text assertions.
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted live canary probe now waits for the `Style Color` underline span, asserts that it is hidden in DOM at rest, and confirms that the retained canvas contributes underline pixels distinct from the shell body fill.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe passed with retained `Style Color` underline pixels present on the live canvas path while preserving the existing inline label-click activation proof
+  - CDP visual check is done:
+    - `All Settings` was active with no visible crash/error overlay
+    - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+    - `section[data-section-id="settings-section__callableSectionDefault"]` was present and visible on the live surface
+    - the `Style Color` row inside that exact canary section remained present and looked intact after the underline chrome moved to canvas ownership
+- Next action:
+  - keep the same named canary section, but move to the next repeated inactive row-decoration family instead of reopening value-text, param-label, or underline coverage
+LOOP_TERMINAL_MARKER: none

@@ -29,10 +29,19 @@ import {
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
+const CANVAS_OWNED_UNDERLINE_ATTRIBUTE = "data-canvas-owned-underline";
 const CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE = "data-canvas-owned-resting-text";
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+};
+
+type CanvasOwnedUnderlineBox = {
+  fill: string;
   height: number;
   offsetX: number;
   offsetY: number;
@@ -89,6 +98,26 @@ function areSwitchTrackBoxesEqual(
     const rightBox = right[index];
     return (
       leftBox.checked === rightBox.checked &&
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.width === rightBox.width
+    );
+  });
+}
+
+function areCanvasOwnedUnderlineBoxesEqual(
+  left: Array<CanvasOwnedUnderlineBox>,
+  right: Array<CanvasOwnedUnderlineBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
+      leftBox.fill === rightBox.fill &&
       leftBox.height === rightBox.height &&
       leftBox.offsetX === rightBox.offsetX &&
       leftBox.offsetY === rightBox.offsetY &&
@@ -163,6 +192,70 @@ function measureCanvasOwnedSwitchTrackBoxes(
     .filter(
       (switchTrackBox): switchTrackBox is CanvasOwnedSwitchTrackBox =>
         switchTrackBox !== null,
+    );
+}
+
+function measureCanvasOwnedUnderlineBoxes(
+  sectionId: string,
+): Array<CanvasOwnedUnderlineBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
+  const viewportScale = parseViewportScale(
+    viewport ? window.getComputedStyle(viewport).transform : null,
+  );
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(
+      `[${CANVAS_OWNED_UNDERLINE_ATTRIBUTE}="true"]`,
+    ),
+  )
+    .map((underlineElement) => {
+      const rect = underlineElement.getBoundingClientRect();
+      if (rect.width <= 0) {
+        return null;
+      }
+
+      const computedStyle = window.getComputedStyle(underlineElement);
+      const fill = computedStyle.borderBottomColor.trim();
+      const borderBottomWidth = Number.parseFloat(
+        computedStyle.borderBottomWidth,
+      );
+      if (
+        fill.length === 0 ||
+        !Number.isFinite(borderBottomWidth) ||
+        borderBottomWidth <= 0
+      ) {
+        return null;
+      }
+
+      const height = borderBottomWidth / viewportScale;
+      const offsetX = (rect.left - sectionRect.left) / viewportScale;
+      const offsetY = (rect.bottom - sectionRect.top) / viewportScale - height;
+      return {
+        fill,
+        height,
+        offsetX,
+        offsetY,
+        width: rect.width / viewportScale,
+      };
+    })
+    .filter(
+      (underlineBox): underlineBox is CanvasOwnedUnderlineBox =>
+        underlineBox !== null,
     );
 }
 
@@ -337,6 +430,85 @@ function useCanvasOwnedSwitchTrackBoxes(
   return switchTrackBoxes;
 }
 
+function useCanvasOwnedUnderlineBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+) {
+  const [underlineBoxes, setUnderlineBoxes] = useState<
+    Array<CanvasOwnedUnderlineBox>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredBoxes = () => {
+      const nextBoxes = measureCanvasOwnedUnderlineBoxes(sectionId);
+      setUnderlineBoxes((previousBoxes) =>
+        areCanvasOwnedUnderlineBoxesEqual(previousBoxes, nextBoxes)
+          ? previousBoxes
+          : nextBoxes,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setUnderlineBoxes((previousBoxes) =>
+        previousBoxes.length === 0 ? previousBoxes : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredBoxes);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      for (const underlineElement of section.querySelectorAll<HTMLElement>(
+        `[${CANVAS_OWNED_UNDERLINE_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(underlineElement);
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["class", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, sectionId]);
+
+  return underlineBoxes;
+}
+
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
   layoutRefreshKey: string,
@@ -458,6 +630,10 @@ export default function SectionShellBackdropCanvas() {
     CANVAS_OWNED_SECTION_SHELL_ID,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}`,
   );
+  const underlineBoxes = useCanvasOwnedUnderlineBoxes(
+    CANVAS_OWNED_SECTION_SHELL_ID,
+    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
+  );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     CANVAS_OWNED_SECTION_SHELL_ID,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
@@ -508,16 +684,26 @@ export default function SectionShellBackdropCanvas() {
           return {
             ...chrome,
             detailBands,
-            detailBoxes: switchTrackBoxes.map((switchTrackBox) => ({
-              cornerRadius: switchTrackBox.height / 2,
-              fill: switchTrackBox.checked
-                ? chrome.switchTrackCheckedFill
-                : chrome.switchTrackFill,
-              height: switchTrackBox.height,
-              width: switchTrackBox.width,
-              x: switchTrackBox.offsetX,
-              y: switchTrackBox.offsetY,
-            })),
+            detailBoxes: [
+              ...underlineBoxes.map((underlineBox) => ({
+                cornerRadius: 0,
+                fill: underlineBox.fill,
+                height: underlineBox.height,
+                width: underlineBox.width,
+                x: underlineBox.offsetX,
+                y: underlineBox.offsetY,
+              })),
+              ...switchTrackBoxes.map((switchTrackBox) => ({
+                cornerRadius: switchTrackBox.height / 2,
+                fill: switchTrackBox.checked
+                  ? chrome.switchTrackCheckedFill
+                  : chrome.switchTrackFill,
+                height: switchTrackBox.height,
+                width: switchTrackBox.width,
+                x: switchTrackBox.offsetX,
+                y: switchTrackBox.offsetY,
+              })),
+            ],
             detailTexts: restingTextLines.map((restingTextLine) => ({
               fill: restingTextLine.fill,
               font: restingTextLine.font,
@@ -538,6 +724,7 @@ export default function SectionShellBackdropCanvas() {
       canvasOwnedShellStyleColor,
       darkMode,
       nodes,
+      underlineBoxes,
       restingTextLines,
       switchTrackBoxes,
     ],

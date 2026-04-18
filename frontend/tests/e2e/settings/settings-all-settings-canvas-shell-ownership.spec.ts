@@ -136,6 +136,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
         styleColorInput?.querySelector<HTMLElement>(".cm-line") ??
         styleColorInput;
       const styleColorRow = document.getElementById(styleColorRowId);
+      const styleColorUnderline = styleColorRow?.querySelector<HTMLElement>(
+        '[data-canvas-owned-underline="true"]',
+      );
       const styleColorLabel = styleColorRow?.querySelector<HTMLElement>(
         '[data-canvas-owned-resting-text="true"]',
       );
@@ -195,6 +198,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
       }
       if (!(styleColorRow instanceof HTMLElement)) {
         throw new Error(`Missing Style Color row for ${sectionId}`);
+      }
+      if (!(styleColorUnderline instanceof HTMLElement)) {
+        throw new Error(`Missing Style Color underline for ${sectionId}`);
       }
       if (!(styleColorLabel instanceof HTMLElement)) {
         throw new Error(`Missing Style Color label for ${sectionId}`);
@@ -364,6 +370,15 @@ test("canvas shell path owns the resting callable section chrome", async ({
         (styleColorRect.top - nodeRect.top) / viewportScale;
       const styleColorWidth = styleColorRect.width / viewportScale;
       const styleColorHeight = styleColorRect.height / viewportScale;
+      const styleColorUnderlineRect = styleColorUnderline.getBoundingClientRect();
+      const styleColorUnderlineOffsetX =
+        (styleColorUnderlineRect.left - nodeRect.left) / viewportScale;
+      const styleColorUnderlineOffsetY =
+        (styleColorUnderlineRect.top - nodeRect.top) / viewportScale;
+      const styleColorUnderlineWidth =
+        styleColorUnderlineRect.width / viewportScale;
+      const styleColorUnderlineHeight =
+        styleColorUnderlineRect.height / viewportScale;
       const styleColorLabelRect = styleColorLabel.getBoundingClientRect();
       const styleColorLabelOffsetX =
         (styleColorLabelRect.left - nodeRect.left) / viewportScale;
@@ -437,6 +452,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const edgeOutputPortsStyle =
         window.getComputedStyle(edgeOutputPortsInput);
       const styleColorStyle = window.getComputedStyle(styleColorInput);
+      const styleColorUnderlineStyle =
+        window.getComputedStyle(styleColorUnderline);
       const styleColorLabelStyle = window.getComputedStyle(styleColorLabel);
       const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
 
@@ -493,6 +510,17 @@ test("canvas shell path owns the resting callable section chrome", async ({
             bodyPixel,
           ),
         styleColorDummyOpacity: styleColorStyle.opacity,
+        styleColorUnderlineDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + styleColorUnderlineOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + styleColorUnderlineOffsetY) * canvasScaleY,
+            styleColorUnderlineWidth * canvasScaleX,
+            styleColorUnderlineHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        styleColorUnderlineOpacity: styleColorUnderlineStyle.opacity,
+        styleColorUnderlineOwnershipFlag:
+          styleColorUnderline.dataset.canvasOwnedUnderline ?? null,
         styleColorLabelDummyOpacity: styleColorLabelStyle.opacity,
         styleColorLabelOwnershipFlag:
           styleColorLabel.dataset.canvasOwnedRestingText ?? null,
@@ -565,6 +593,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.styleColorOwnershipFlag).toBe("true");
   expect(shellState.styleColorDummyOpacity).toBe("0");
   expect(shellState.styleColorDistinctPixelCount).toBeGreaterThan(0);
+  expect(shellState.styleColorUnderlineOwnershipFlag).toBe("true");
+  expect(shellState.styleColorUnderlineOpacity).toBe("0");
+  expect(shellState.styleColorUnderlineDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.styleColorLabelOwnershipFlag).toBe("true");
   expect(shellState.styleColorLabelDummyOpacity).toBe("0");
   expect(shellState.styleColorLabelDistinctPixelCount).toBeGreaterThan(0);

@@ -287,9 +287,25 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__callableSectionDefault` remained present on the live surface
   - the `Style Color` label looked intact on the callable canvas path
   - clicking the `Style Color` label surfaced the inline `Style Color` editor with the `null` value rendered inline and no blank/detached jump
-- The next frontier should not reopen param-label text on this section:
-  - treat the canary param-label lane as complete at this ownership boundary
-  - move to the next visible row-chrome family on `settings-section__callableSectionDefault` instead of adding more label/text coverage; likely candidates are shared text-row underline/input-shell chrome or another repeated inactive row-decoration family
+- The next visible row-chrome slice is now landed for text-row underlines on the same canary section:
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `[data-canvas-owned-underline="true"]` spans in graph space, derives retained underline boxes from each span's computed border-bottom color/width, and paints those underline boxes into the retained scene alongside the existing shell chrome, switch tracks, and text
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now makes only the canary section's text-like value underline transparent on the `canvas-shell-underlay` path, tags it with `data-canvas-owned-underline="true"`, and restores the live DOM underline on `peer-focus-within/textinput` so the active blue focus state still hands off through the real editor
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Style Color` underline pixels on the live canvas path while preserving the existing inline label-click activation proof
+- CDP visual check is done for the text-row underline slice:
+  - `All Settings` was active with no visible crash/error overlay
+  - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present and visible on the live surface
+  - the `Style Color` row inside that exact canary section remained present and looked intact after the underline chrome moved to canvas ownership
+- The next frontier should not reopen text-row underline on this section:
+  - treat the canary text-row underline lane as complete at this ownership boundary
+  - move to the next repeated inactive row-decoration family on `settings-section__callableSectionDefault` instead of adding more value-text, label-text, or underline churn; the likely next candidate remains shared text-row input-shell chrome or another repeated visible row treatment
 
 ## Preservation rule
 
@@ -318,7 +334,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the same named canary section, but do not spend another pass on value-text or param-label drift; take the next repeated row-chrome family in one bounded product slice instead.
+3. Keep the same named canary section, but do not spend another pass on value-text, param-label, or text-row underline drift; take the next repeated row-chrome family in one bounded product slice instead.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -340,9 +356,10 @@ The first product frontier is:
 - with the same canary section now also painting the resting `Config Language` text in the retained canvas while the live CodeMirror editor still activates inline on first click
 - with the same canary section now also painting the resting `Column Width`, `Edge Input Params`, and `Edge Output Ports` text in the retained canvas while the live editors remain available
 - with the same canary section now also painting the resting `Style Color` label text in the retained canvas while label clicks still hand off directly to the inline `Style Color` editor
+- with the same canary section now also painting the shared text-row underlines in the retained canvas while the live blue focus underline still reappears from DOM on activation
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: move to the next repeated row-chrome family on that same named canary instead of reopening top-level shell/body panel work or continuing label/text churn
+- next: move to the next repeated row-chrome family on that same named canary instead of reopening top-level shell/body panel work or continuing label/text/underline churn
 
 ## Hard rules
 

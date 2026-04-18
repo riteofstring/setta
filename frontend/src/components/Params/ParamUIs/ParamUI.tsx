@@ -690,6 +690,8 @@ function TextParamConfigured({
   waitingForResult: boolean;
   isSelectingParams: boolean;
 }) {
+  const canvasOwnedUnderline = canvasOwnedRestingText;
+
   return (
     <>
       <TextInputCodeMirror
@@ -715,7 +717,10 @@ function TextParamConfigured({
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
       <span
-        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
+        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${canvasOwnedUnderline ? "opacity-0" : ""} ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} ${canvasOwnedUnderline && !isSelectingParams ? "peer-focus-within/textinput:opacity-100" : ""}`}
+        data-canvas-owned-underline={
+          canvasOwnedUnderline ? "true" : undefined
+        }
       />
     </>
   );
