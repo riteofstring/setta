@@ -69,7 +69,7 @@ func TestFirstPartyBasedpyrightLanguageServerContract(t *testing.T) {
 		},
 		configureInvalidEnv: func(t *testing.T) {
 			t.Helper()
-			t.Setenv("SETTA_LSP_COMMAND", "setta-missing-basedpyright-language-server")
+			t.Setenv("SETTA_LSP_COMMAND", filepath.Join(t.TempDir(), "missing-basedpyright-language-server"))
 		},
 		linkSourceRoot: func(t *testing.T) string {
 			t.Helper()

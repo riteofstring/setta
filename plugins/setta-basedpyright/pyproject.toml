@@ -15,6 +15,6 @@ dependencies = [
 py-modules = []
 
 [tool.setuptools.data-files]
-"." = ["setta.plugin.json", "README.md"]
-"backend" = ["backend/main.py"]
-"content/config" = ["content/config/schema.json"]
+"setta-basedpyright" = ["setta.plugin.json", "README.md"]
+"setta-basedpyright/backend" = ["backend/main.py"]
+"setta-basedpyright/content/config" = ["content/config/schema.json"]

@@ -860,6 +860,7 @@ func scaffoldContentTemplate(root string) error {
 
 func buildInitTemplatePyproject(pluginID string, manifest PluginManifest) string {
 	var builder strings.Builder
+	pluginRoot := strings.TrimSpace(pluginID)
 	builder.WriteString("[build-system]\n" +
 		"requires = [\"setuptools>=68\", \"wheel\"]\n" +
 		"build-backend = \"setuptools.build_meta\"\n\n" +
@@ -872,17 +873,17 @@ func buildInitTemplatePyproject(pluginID string, manifest PluginManifest) string
 		"[tool.setuptools]\n" +
 		"py-modules = []\n\n" +
 		"[tool.setuptools.data-files]\n" +
-		"\".\" = [\"setta.plugin.json\", \"README.md\"]\n")
+		fmt.Sprintf("%q = [\"setta.plugin.json\", \"README.md\"]\n", pluginRoot))
 	if manifest.Backend != nil {
-		builder.WriteString("\"backend\" = [\"backend/*\"]\n")
+		builder.WriteString(fmt.Sprintf("%q = [\"backend/*\"]\n", pluginRoot+"/backend"))
 	}
 	if manifest.Frontend != nil {
-		builder.WriteString("\"frontend/dist\" = [\"frontend/dist/*\"]\n")
+		builder.WriteString(fmt.Sprintf("%q = [\"frontend/dist/*\"]\n", pluginRoot+"/frontend/dist"))
 	}
 	if manifest.Content != nil {
-		builder.WriteString("\"content/blueprints\" = [\"content/blueprints/*\"]\n")
-		builder.WriteString("\"content/project_templates\" = [\"content/project_templates/*\"]\n")
-		builder.WriteString("\"content/prompts\" = [\"content/prompts/*\"]\n")
+		builder.WriteString(fmt.Sprintf("%q = [\"content/blueprints/*\"]\n", pluginRoot+"/content/blueprints"))
+		builder.WriteString(fmt.Sprintf("%q = [\"content/project_templates/*\"]\n", pluginRoot+"/content/project_templates"))
+		builder.WriteString(fmt.Sprintf("%q = [\"content/prompts/*\"]\n", pluginRoot+"/content/prompts"))
 	}
 	return builder.String()
 }

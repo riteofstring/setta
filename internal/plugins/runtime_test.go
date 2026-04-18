@@ -1123,7 +1123,7 @@ func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *te
 	roots := newFilesystemResolverTestRoots(t)
 	repoRoot := workerRPCTestRepoRoot(t)
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	pluginRoot := filepath.Join(sitePackages, "setta_basedpyright")
+	pluginRoot := filepath.Join(sitePackages, "setta-basedpyright")
 	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
 	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
 		t.Fatalf("remove copied plugin build dir: %v", err)

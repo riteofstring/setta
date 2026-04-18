@@ -527,14 +527,35 @@ func normalizeBackendLanguageServerCommand(pluginRoot string, raw string) (strin
 	if command == "" {
 		return "", fmt.Errorf("command is required")
 	}
-	if !strings.HasPrefix(command, "./") && !strings.HasPrefix(command, "../") {
-		return command, nil
+	if strings.HasPrefix(command, "./") || strings.HasPrefix(command, "../") {
+		resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
+		if err != nil {
+			return "", err
+		}
+		if err := validateBackendLanguageServerCommandExecutable(resolved); err != nil {
+			return "", err
+		}
+		return resolved, nil
 	}
-	resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
-	if err != nil {
-		return "", err
+	if backendLanguageServerCommandLooksPathLike(command) {
+		if err := validateBackendLanguageServerCommandExecutable(command); err != nil {
+			return "", err
+		}
 	}
-	return resolved, nil
+	return command, nil
+}
+
+func backendLanguageServerCommandLooksPathLike(command string) bool {
+	return filepath.IsAbs(command) ||
+		strings.Contains(command, string(filepath.Separator)) ||
+		(filepath.Separator != '/' && strings.Contains(command, "/"))
+}
+
+func validateBackendLanguageServerCommandExecutable(command string) error {
+	if _, err := exec.LookPath(command); err != nil {
+		return fmt.Errorf("command %q is not executable: %w", command, err)
+	}
+	return nil
 }
 
 func normalizeBackendLanguageServerArgs(rawArgs []string) ([]string, error) {

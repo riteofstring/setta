@@ -78,6 +78,41 @@ func TestBootstrapWorkspaceDefaultsInstallProfilePreservesExplicitNullSelection(
 	}
 }
 
+func TestBootstrapWorkspaceDefaultsInstallProfileSelectsAvailableLinkedPlugin(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	pluginService := newDefaultsProfilePluginService(t, nil)
+
+	repoRoot := appTestRepoRoot(t)
+	workspaceScope := plugins.PluginScopeWorkspace
+	linkResult, err := pluginService.Link(plugins.LinkOptions{
+		LocalPluginRoot: filepath.Join(repoRoot, "plugins", "setta-basedpyright"),
+		Scope:           &workspaceScope,
+		Enable:          true,
+	})
+	if err != nil {
+		t.Fatalf("link linked defaults profile plugin: %v", err)
+	}
+	if !linkResult.RestartRequired {
+		t.Fatalf("expected linked defaults profile plugin to require refresh, got %#v", linkResult)
+	}
+	if _, err := pluginService.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit linked defaults profile plugin refresh: %v", err)
+	}
+
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected linked plugin python defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+}
+
 func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t *testing.T) {
 	runtimeRoot := t.TempDir()
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
@@ -202,7 +237,7 @@ func installDefaultsProfilePackageManagerPlugin(t *testing.T, sitePackages strin
 	t.Helper()
 
 	repoRoot := appTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, "setta_basedpyright")
+	pluginRoot := filepath.Join(sitePackages, "setta-basedpyright")
 	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
 	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
 		t.Fatalf("remove copied plugin build dir: %v", err)

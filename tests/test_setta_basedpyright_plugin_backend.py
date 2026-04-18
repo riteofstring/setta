@@ -15,16 +15,20 @@ def _backend_script() -> Path:
     )
 
 
-def _run_probe(extra_env: dict[str, str]) -> dict[str, object]:
+def _run_probe_process(extra_env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(extra_env)
-    result = subprocess.run(
+    return subprocess.run(
         [sys.executable, str(_backend_script()), "--setta-plugin-backend-probe"],
         capture_output=True,
         text=True,
         check=False,
         env=env,
     )
+
+
+def _run_probe(extra_env: dict[str, str]) -> dict[str, object]:
+    result = _run_probe_process(extra_env)
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}".strip()
     return json.loads(result.stdout)
 
@@ -69,3 +73,15 @@ def test_basedpyright_plugin_backend_probe_defaults_to_running_interpreter() -> 
         "--stdio",
     ]
     assert server["settingsKey"] == "basedpyright"
+
+
+def test_basedpyright_plugin_backend_probe_rejects_missing_path_override(
+    tmp_path: Path,
+) -> None:
+    for command in (
+        str(tmp_path / "missing-basedpyright"),
+        "./missing-basedpyright",
+    ):
+        result = _run_probe_process({"SETTA_LSP_COMMAND": command})
+        assert result.returncode != 0
+        assert "not found" in result.stderr

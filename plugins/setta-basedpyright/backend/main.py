@@ -20,7 +20,12 @@ def fail(message: str) -> None:
 
 def resolve_command(candidate: str) -> str:
     if os.path.sep in candidate or (os.path.altsep and os.path.altsep in candidate):
-        return str(Path(candidate).expanduser().resolve())
+        resolved_path = Path(candidate).expanduser().resolve()
+        if not resolved_path.is_file():
+            fail(f'resolve command "{candidate}": not found')
+        if not os.access(resolved_path, os.X_OK):
+            fail(f'resolve command "{candidate}": not executable')
+        return str(resolved_path)
     resolved = shutil.which(candidate)
     if resolved is None:
         fail(f'resolve command "{candidate}": not found')

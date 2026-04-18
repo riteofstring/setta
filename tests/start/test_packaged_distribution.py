@@ -137,6 +137,22 @@ def _install_editable(project_root: Path, venv_python: Path) -> subprocess.Compl
     )
 
 
+def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
+    source_root = _repo_root() / "plugins" / "setta-basedpyright"
+    plugin_root = tmp_path / "setta-basedpyright"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(plugin_root / "build", ignore_errors=True)
+
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+    return wheel_paths[0]
+
+
 def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
     project_root = _write_minimal_distribution_project(
         tmp_path,
@@ -190,32 +206,50 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
     tmp_path: Path,
 ) -> None:
-    source_root = _repo_root() / "plugins" / "setta-basedpyright"
-    plugin_root = tmp_path / "setta-basedpyright"
-    shutil.copytree(source_root, plugin_root)
-    shutil.rmtree(plugin_root / "build", ignore_errors=True)
-    outdir = tmp_path / "dist"
+    wheel_path = _build_first_party_basedpyright_wheel(tmp_path)
 
-    result = subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
-        cwd=plugin_root,
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(name.endswith("setta-basedpyright/backend/main.py") for name in names)
+    assert not any(name.endswith("backend/main.go") for name in names)
+    assert any(name.endswith("setta-basedpyright/content/config/schema.json") for name in names)
+    assert any(name.endswith("setta-basedpyright/setta.plugin.json") for name in names)
+
+
+def test_first_party_basedpyright_plugin_wheel_installs_under_plugin_specific_root(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_basedpyright_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            str(wheel_path),
+        ],
         capture_output=True,
         text=True,
         check=False,
     )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
 
-    combined_output = f"{result.stdout}\n{result.stderr}"
-    assert result.returncode == 0, combined_output
+    installed_plugin_root = site_packages / "setta-basedpyright"
+    assert (installed_plugin_root / "setta.plugin.json").is_file()
+    assert (installed_plugin_root / "backend" / "main.py").is_file()
+    assert (installed_plugin_root / "content" / "config" / "schema.json").is_file()
 
-    wheel_paths = list(outdir.glob("setta_basedpyright-*.whl"))
-    assert len(wheel_paths) == 1
-
-    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
-        names = set(wheel_archive.namelist())
-
-    assert any(name.endswith("backend/main.py") for name in names)
-    assert not any(name.endswith("backend/main.go") for name in names)
-    assert any(name.endswith("content/config/schema.json") for name in names)
+    record_path = site_packages / "setta_basedpyright-0.1.0.dist-info" / "RECORD"
+    record_text = record_path.read_text(encoding="utf-8")
+    assert "setta-basedpyright/setta.plugin.json" in record_text
+    assert "setta-basedpyright/backend/main.py" in record_text
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

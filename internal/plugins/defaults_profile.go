@@ -4,7 +4,7 @@ import "strings"
 
 const (
 	DefaultsInstallProfileID      = "defaults"
-	DefaultsInstallProfileVersion = 1
+	DefaultsInstallProfileVersion = 2
 )
 
 type InstallProfile struct {
@@ -65,9 +65,6 @@ func findHighestPrecedenceProfilePlugin(entries []DiscoveredPlugin, pluginID str
 }
 
 func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
-	if entry.SourceManager != PluginSourceManagerPackageManager {
-		return false
-	}
 	if !pluginProvidesLanguageServer(entry) {
 		return false
 	}

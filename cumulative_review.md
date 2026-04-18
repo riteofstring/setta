@@ -2,16 +2,22 @@
 ## Recurring Subsystem Invariant Matrix
 
 ### Packaged Plugin Backend Launch
-- Invariant: Plugin backend launch must follow the manifest entrypoint type; first-party Python LSP packaging must run without requiring end-user Go builds, while Go backends still build explicitly.
-- Last finding commit: aa25246aabf24ddfa2da138200f38912c4e8e627
-- Proof tests: `internal/app.TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen`; `internal/app.TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightWithoutGoToolchain`; `internal/plugins.TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin`; `tests/test_setta_basedpyright_plugin_backend.py`; `tests/start/test_packaged_distribution.py::test_first_party_basedpyright_plugin_wheel_packages_python_backend_only`
-- Still unverified: No manual install of a built wheel into a fresh external environment beyond automated package-manager and wheel-build coverage.
+- Invariant: Package-managed plugins must install beneath plugin-specific roots so discovery can keep distinct distributions while backend launch still follows the manifest entrypoint type; first-party Python LSP packaging must run without requiring end-user Go builds, while Go backends still build explicitly.
+- Last finding commit: 07e88451b3817b24d5eec88da876f57611a61d18
+- Proof tests: `internal/plugins.TestDiscoveryServiceRescanKeepsDistinctPackageManagerRootsPerDistribution`; `internal/plugins.TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin`; `internal/plugins.TestServiceInitTemplateGeneratesPublishReadyScaffold`; `internal/pythonenv.TestRuntimePluginDistributionsReturnsManifestBearingDistributions`; `tests/start/test_packaged_distribution.py::test_first_party_basedpyright_plugin_wheel_packages_python_backend_only`; `tests/start/test_packaged_distribution.py::test_first_party_basedpyright_plugin_wheel_installs_under_plugin_specific_root`
+- Still unverified: No manual install of a built wheel into a fresh external environment beyond automated package-manager and wheel install coverage.
 
 ### Defaults Profile Bootstrap Resilience
-- Invariant: Corrupt or unreadable defaults-profile bootstrap markers must fail open and be repaired atomically; bootstrap bookkeeping must not block workspace startup or prevent the one-time missing-selection write when the default plugin is available.
-- Last finding commit: ef58bfc493a93065976b75a694adeb70a3b083de
-- Proof tests: `internal/app.TestBootstrapWorkspaceDefaultsInstallProfileRepairsInvalidMarker`; `internal/app.TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen`; `internal/app.TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightWithoutGoToolchain`
-- Still unverified: No manual startup was run with a corrupted `defaults_install_profile_bootstrap.json`; recovery remains automated-only.
+- Invariant: Corrupt or unreadable defaults-profile bootstrap markers must fail open and be repaired atomically; fill-only bootstrap must write the missing Python selection once whenever the highest-precedence active `setta-basedpyright` registration is available, regardless of source manager, without overwriting explicit `null` or custom selections.
+- Last finding commit: 07e88451b3817b24d5eec88da876f57611a61d18
+- Proof tests: `internal/plugins.TestDefaultsInstallProfileAvailableLanguageServerSelectionsRequireActiveRegistration`; `internal/plugins.TestDefaultsInstallProfileAvailableLanguageServerSelectionsAcceptsLinkedWorkspacePlugin`; `internal/app.TestBootstrapWorkspaceDefaultsInstallProfileWritesMissingPythonSelection`; `internal/app.TestBootstrapWorkspaceDefaultsInstallProfilePreservesExplicitNullSelection`; `internal/app.TestBootstrapWorkspaceDefaultsInstallProfileSelectsAvailableLinkedPlugin`; `internal/app.TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion`; `internal/app.TestBootstrapWorkspaceDefaultsInstallProfileRepairsInvalidMarker`
+- Still unverified: No manual workspace startup observed the version-bumped bootstrap filling a previously missed linked-plugin selection; recovery remains automated-only.
+
+### Probe-Time Language-Server Command Validation
+- Invariant: Path-like plugin language-server commands must be rejected during probe normalization unless the resolved target exists and is executable, so invalid explicit command overrides never become active selected specs.
+- Last finding commit: 07e88451b3817b24d5eec88da876f57611a61d18
+- Proof tests: `internal/plugins.TestNormalizeBackendLanguageServerRegistrationRejectsMissingPathLikeCommands`; `internal/plugins.TestFirstPartyBasedpyrightLanguageServerContract`; `tests/test_setta_basedpyright_plugin_backend.py::test_basedpyright_plugin_backend_probe_rejects_missing_path_override`
+- Still unverified: No manual editor restart or session exercised an invalid absolute-path override outside automated probe and contract coverage.
 
 ### Plugin-Owned Python LSP Settings And Runtime Paths
 - Invariant: Python LSP remains plugin-owned and explicitly selected; effective basedpyright settings must come from plugin schema defaults plus plugin runtime config, include `settaFilesRoot` in `basedpyright.analysis.extraPaths`, and refresh the live applied spec/session when the selected plugin config changes.
@@ -112,3 +118,29 @@ Residual risks / verification gaps:
 - No Playwright coverage exercises the header/runtime transition or the live plugin-config refresh path.
 - The reset-session CDP run hit unrelated pane-level fetch failures, so manual verification was limited to header behavior and did not cover a full project/editor workflow.
 - No manual editor session observed diagnostics or completions after a live selected-plugin config save.
+
+## 2026-04-18 23:02:10 PDT
+Fixes applied:
+- Moved first-party package-managed plugin artifacts and scaffolded plugin data files under plugin-specific roots instead of shared `site-packages` directories.
+- Made defaults-profile bootstrap availability-based for active linked or package-managed `setta-basedpyright` copies and bumped the profile version so the fill-only bootstrap can rerun once for previously missed workspaces.
+- Rejected missing or non-executable path-like LSP command overrides in the first-party basedpyright probe and in the core backend probe normalizer.
+
+Tests added or upgraded:
+- Added package-manager discovery and runtime coverage for distinct plugin roots, manifest-bearing distributions, and publish-ready scaffold output.
+- Added defaults-profile selection coverage for linked workspace plugins and versioned one-shot bootstrap behavior.
+- Added probe and pytest coverage for rejecting missing path-like command overrides, plus wheel-install coverage for plugin-specific install roots.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestDefaultsInstallProfile|TestDiscoveryServiceRescan(IncludesPackageManagerEntriesAndPrecedence|KeepsDistinctPackageManagerRootsPerDistribution)|TestNormalizeBackendLanguageServerRegistration|TestFirstPartyBasedpyrightLanguageServerContract|TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin|TestServiceInitTemplateGeneratesPublishReadyScaffold' -v`
+- `./scripts/go.sh test ./internal/app -run 'TestBootstrapWorkspaceDefaultsInstallProfile(SelectsAvailableLinkedPlugin|WritesMissingPythonSelection|PreservesExplicitNullSelection|RunsOnlyOncePerProfileVersion|RepairsInvalidMarker)' -v`
+- `./scripts/go.sh test ./internal/pythonenv -run 'TestRuntimePluginDistributionsReturnsManifestBearingDistributions' -v`
+- `./scripts/go.sh test ./internal/settacmd -run 'TestRunPluginsListJSONIncludesStatusPayload' -v`
+- `source activate.sh && pytest tests/test_setta_basedpyright_plugin_backend.py tests/start/test_packaged_distribution.py -k 'basedpyright or plugin_specific_root'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- Browser verification: not run; no UI behavior changed in this iteration.
+
+Residual risks / verification gaps:
+- No manual fresh-machine wheel install was run beyond automated build and install coverage.
+- No manual workspace startup observed the version-bumped defaults bootstrap fixing a previously missed linked-plugin selection.
+- No manual editor session exercised invalid absolute-path override behavior; proof is automated-only.

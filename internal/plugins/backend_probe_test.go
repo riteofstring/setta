@@ -240,6 +240,30 @@ func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand
 	}
 }
 
+func TestNormalizeBackendLanguageServerRegistrationRejectsMissingPathLikeCommands(t *testing.T) {
+	pluginRoot := t.TempDir()
+
+	_, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:     "Fixture DSL",
+		Language: "TypeScript",
+		Command:  filepath.Join(t.TempDir(), "missing-language-server"),
+		Args:     []string{"--stdio"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "not executable") {
+		t.Fatalf("expected missing absolute path to fail as non-executable, got %v", err)
+	}
+
+	_, err = normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:     "Fixture DSL",
+		Language: "TypeScript",
+		Command:  "./backend/missing-language-server",
+		Args:     []string{"--stdio"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "not executable") {
+		t.Fatalf("expected missing plugin-relative path to fail as non-executable, got %v", err)
+	}
+}
+
 func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t *testing.T) {
 	// Plugin language-server registrations should keep trimmed custom settings keys.
 	pluginRoot := t.TempDir()
