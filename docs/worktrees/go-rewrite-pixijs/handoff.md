@@ -17,10 +17,17 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 - If Ralph was started before those config/script fixes, restart it once so the running process picks them up.
 - `scripts/run-playwright-e2e.sh` now bootstraps Node/pnpm tooling before starting Vite or Playwright, and its bootstrap-token parser now understands the current Go CLI log format (`bootstrap#token=` and `and paste:`).
 - A focused baseline probe now exists at `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` for `settings` -> `All Settings`.
+- `frontend/src/openapi/http/client.ts` no longer rewrites body-carrying backend requests by cloning one `Request` into another `Request`; it now rebuilds the request explicitly so Chromium can send JSON POSTs like `loadProjectConfig` reliably across the dev frontend/backend origin split.
+- A focused regression test now exists at `frontend/src/openapi/http/client.test.ts` to keep the rewritten OpenAPI transport from dropping POST bodies.
 - No product renderer code has been changed under this restart plan yet.
 - The Phase 1 baseline itself is still not captured:
-  - the disposable helper now gets past the old pnpm/token-parser failures, but the seeded app still fails before Settings is usable
-  - direct Playwright automation against the live worktree runtime also fails on `POST http://127.0.0.1:8069/api/loadProjectConfig` with `net::ERR_ALPN_NEGOTIATION_FAILED`
+  - the browser-side `loadProjectConfig` transport failure on the live worktree runtime (`http://127.0.0.1:8068`) is fixed
+  - focused runtime verification now succeeds for that exact request shape:
+    - `pnpm -C frontend exec vitest run src/openapi/http/client.test.ts`
+    - a headless Playwright browser import of `/src/openapi/http` now returns `200` for `loadProjectConfig({ body: { projectConfigName: "round_lime" } })` with no `requestfailed` events
+  - rerunning `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` now gets past bootstrap/auth and reaches `http://127.0.0.1:3068/round_lime`, but the app then crashes before the Settings surface is usable
+  - the new blocking runtime error is `ReferenceError: DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX is not defined` in `src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - CDP visual check is done for this slice and shows the same state: redirect succeeds to the project route, then the page falls into the React error boundary instead of a usable project view
   - fresh bootstrap URLs are one-shot; stale URLs quickly turn into misleading `401` bootstrap failures
 
 ## Preservation rule
@@ -48,8 +55,8 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Resolve the browser-side `loadProjectConfig` transport failure on the live worktree `settings` route under automation.
-2. Re-run `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` once Settings can load in-browser without `net::ERR_ALPN_NEGOTIATION_FAILED`.
+1. Fix the `DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX` runtime crash in `src/components/ChatWindowing/ProjectChatBottomDock.tsx` so the project route can settle under automation again.
+2. Re-run `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` once the live route can finish rendering without the `ProjectChatBottomDock` error boundary.
 3. Capture the first durable `go-rewrite` baseline report under `perf/reports/frontend/`.
 4. Only after the baseline exists, take the first product slice.
 5. Keep the append-only log current from the first running iteration onward.

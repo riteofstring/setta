@@ -127,3 +127,29 @@ Record:
   - No baseline perf report was written yet because the Settings graph surface never reached a trustworthy loaded state under automation in this iteration.
 - Next action:
   - fix or narrow the `loadProjectConfig` browser transport failure on the live worktree Settings route, then rerun the new baseline probe and record the first `go-rewrite` baseline report
+
+## 2026-04-18 008
+
+- Item: Fix the OpenAPI request rewrite that was breaking browser-side `loadProjectConfig` on the live worktree runtime.
+- Status: `done`
+- Details:
+  - Reproduced the live failure on the current runtime values (`frontend http://127.0.0.1:3068/`, `backend http://127.0.0.1:8068`) and narrowed it to `frontend/src/openapi/http/client.ts`:
+    - plain browser `fetch("http://127.0.0.1:8068/api/loadProjectConfig", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: ... })` succeeded
+    - the OpenAPI wrapper path that rewrote a `Request` into `new Request(resolvedURL, request)` failed in Chromium for the same JSON-body POST with `net::ERR_ALPN_NEGOTIATION_FAILED`
+  - Updated `frontend/src/openapi/http/client.ts` so rewritten OpenAPI requests now preserve method/body/headers by explicitly rebuilding the request instead of cloning a `Request` object into another `Request` with a new URL.
+  - Added `frontend/src/openapi/http/client.test.ts` as a regression test proving that the rewritten POST URL still carries the serialized JSON body and share-session headers.
+  - Verification for this slice:
+    - `pnpm -C frontend exec vitest run src/openapi/http/client.test.ts`
+    - `pnpm -C frontend exec eslint src/openapi/http/client.ts src/openapi/http/client.test.ts`
+    - headless Playwright runtime check importing `/src/openapi/http` in-browser after bootstrap:
+      - `loadProjectConfig({ body: { projectConfigName: "round_lime" } })` returned `200`
+      - no `requestfailed` events were emitted for `loadProjectConfig`
+  - Rerunning `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` no longer hits the old ALPN transport failure, but the lane is still blocked one layer later by an unrelated app crash:
+    - `ReferenceError: DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX is not defined`
+    - source: `src/components/ChatWindowing/ProjectChatBottomDock.tsx`
+  - CDP visual check confirmed the new state:
+    - bootstrap/auth handoff succeeds
+    - final URL is `http://127.0.0.1:3068/round_lime`
+    - the live page lands in the React error boundary instead of a usable project surface because of the `ProjectChatBottomDock` runtime error
+- Next action:
+  - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
