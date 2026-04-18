@@ -57,11 +57,11 @@ import {
   LSPDiagnostic,
   Policy,
   RenameRefactorBroadcastContent,
-  SettaBackendLogEvent,
   SettingsState,
   SingleConfig,
   Template,
   TranscriptionProfile,
+  type BackendLogEvent,
   type ChatDictationMode,
 } from "utils/generatedTypes";
 import {
@@ -854,7 +854,7 @@ export const useRunControl = withProjectState(
   ),
 );
 
-type BackendLogSeverity = SettaBackendLogEvent["severity"];
+type BackendLogSeverity = BackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {
   projectConfigId: string | null;
@@ -869,7 +869,7 @@ export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
 };
 
 type BackendLogEventsState = {
-  events: Array<SettaBackendLogEvent>;
+  events: Array<BackendLogEvent>;
   filter: BackendLogEventsFilter;
   unreadHighSeverityCount: number;
 };

@@ -846,6 +846,35 @@
         "title": "BackendListenerEndpointRequest",
         "type": "object"
       },
+      "BackendLogEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": ["null", "string"]
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "projectConfigId",
+          "severity",
+          "message",
+          "timestamp"
+        ],
+        "title": "BackendLogEvent",
+        "type": "object"
+      },
       "BackendRequestContext": {
         "additionalProperties": false,
         "properties": {
@@ -13766,6 +13795,11 @@
         "title": "SettingsUpdateMessage",
         "type": "object"
       },
+      "Severity": {
+        "enum": ["info", "warning", "error", "critical"],
+        "title": "Severity",
+        "type": "string"
+      },
       "SharePolicyOverrides": {
         "additionalProperties": false,
         "properties": {
@@ -17176,6 +17210,23 @@
           "sourcePath"
         ],
         "title": "WatchCodeRegistryEntry",
+        "type": "object"
+      },
+      "WebsocketMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/BackendLogEvent"
+          },
+          "id": {
+            "type": ["null", "string"]
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/WebsocketMessageType"
+          }
+        },
+        "required": ["id", "messageType", "content"],
+        "title": "WebsocketMessage",
         "type": "object"
       },
       "WebsocketMessageType": {

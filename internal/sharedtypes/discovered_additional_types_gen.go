@@ -5,6 +5,7 @@ package sharedtypes
 import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
+	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
 	deployments "setta/internal/deployments"
 	projectstate "setta/internal/projectstate"
@@ -17,6 +18,9 @@ import (
 func discoveredAdditionalTypes() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(binary.ContentRef{}),
+		reflect.TypeOf(backendlogs.Severity("")),
+		reflect.TypeOf(backendlogs.BackendLogEvent{}),
+		reflect.TypeOf(backendlogs.WebsocketMessage{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),

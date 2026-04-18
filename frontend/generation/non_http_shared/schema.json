@@ -1061,6 +1061,38 @@
       ],
       "additionalProperties": false
     },
+    "BackendLogEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "projectConfigId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "message": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        }
+      },
+      "title": "BackendLogEvent",
+      "required": [
+        "id",
+        "projectConfigId",
+        "severity",
+        "message",
+        "timestamp"
+      ],
+      "additionalProperties": false
+    },
     "BackendRequestContext": {
       "type": "object",
       "properties": {
@@ -16193,6 +16225,16 @@
       ],
       "additionalProperties": false
     },
+    "Severity": {
+      "type": "string",
+      "title": "Severity",
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ]
+    },
     "SharePolicyOverrides": {
       "type": "object",
       "properties": {
@@ -20260,6 +20302,30 @@
         "signatureHash",
         "bodyHash",
         "sourcePath"
+      ],
+      "additionalProperties": false
+    },
+    "WebsocketMessage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "messageType": {
+          "$ref": "#/$defs/WebsocketMessageType"
+        },
+        "content": {
+          "$ref": "#/$defs/BackendLogEvent"
+        }
+      },
+      "title": "WebsocketMessage",
+      "required": [
+        "id",
+        "messageType",
+        "content"
       ],
       "additionalProperties": false
     },

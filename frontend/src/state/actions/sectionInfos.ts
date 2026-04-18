@@ -2379,7 +2379,10 @@ export function unselectAllParams() {
   return true;
 }
 export function updateAllProjectMetadata(x: AllProjectMetadata) {
-  useAllProjectMetadata.setState(x);
+  useAllProjectMetadata.setState({
+    ...x,
+    projectMetadata: x.projectMetadata ?? [],
+  });
 }
 function shouldSkipViewportDispatch(
   viewport: PendingViewportState,

@@ -19,8 +19,10 @@ import {
   processProjectStateUpdateFromBackend,
   setCodeObjVariantImplValue,
   setCurrEffectiveSectionImplValue,
+  updateAllProjectMetadata,
 } from "state/actions/sectionInfos";
 import {
+  useAllProjectMetadata,
   useLocalStorage,
   useMisc,
   useNodeInternals,
@@ -90,6 +92,20 @@ describe("getSectionIsHorizontalOrientation", () => {
     } as ZustandProjectState);
 
     expect(getSectionIsHorizontalOrientation(sectionId)).toBe(true);
+  });
+});
+
+describe("updateAllProjectMetadata", () => {
+  it("normalizes null project metadata to an empty array", () => {
+    updateAllProjectMetadata({
+      defaultProjectConfigId: null,
+      projectMetadata: null,
+    });
+
+    expect(useAllProjectMetadata.getState()).toEqual({
+      defaultProjectConfigId: null,
+      projectMetadata: [],
+    });
   });
 });
 

@@ -375,6 +375,17 @@ type BackendListenerEndpointRequest = {
 };
 
 /**
+ * BackendLogEvent
+ */
+export type BackendLogEvent = {
+  id: string;
+  message: string;
+  projectConfigId: null | string;
+  severity: Severity;
+  timestamp: string;
+};
+
+/**
  * BackendRequestContext
  */
 type BackendRequestContext = {
@@ -5717,6 +5728,11 @@ type SettingsUpdateMessage = {
 };
 
 /**
+ * Severity
+ */
+type Severity = "info" | "warning" | "error" | "critical";
+
+/**
  * SharePolicyOverrides
  */
 type SharePolicyOverrides = {
@@ -7097,6 +7113,15 @@ type WatchCodeRegistryEntry = {
   sectionsCount?: number;
   signatureHash: string;
   sourcePath: string;
+};
+
+/**
+ * WebsocketMessage
+ */
+type WebsocketMessage = {
+  content: BackendLogEvent;
+  id: null | string;
+  messageType: WebsocketMessageType;
 };
 
 /**

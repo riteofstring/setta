@@ -9,6 +9,7 @@ import (
 	agentruns "setta/internal/agentruns"
 	appspec "setta/internal/appspec"
 	artifacts "setta/internal/artifacts"
+	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
 	config "setta/internal/config"
 	deployments "setta/internal/deployments"
@@ -69,6 +70,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(plugins.BackendHTTPRequest{}):                                        "BackendHTTPRequest",
 	reflect.TypeOf(plugins.BackendHTTPResponse{}):                                       "BackendHTTPResponse",
 	reflect.TypeOf(plugins.BackendListenerEndpointRequest{}):                            "BackendListenerEndpointRequest",
+	reflect.TypeOf(backendlogs.BackendLogEvent{}):                                       "BackendLogEvent",
 	reflect.TypeOf(plugins.BackendRequestContext{}):                                     "BackendRequestContext",
 	reflect.TypeOf(settingsstate.BackgroundVariant("")):                                 "BackgroundVariant",
 	reflect.TypeOf(artifacts.BaseArtifactUnion{}):                                       "BaseArtifactUnion",
@@ -516,6 +518,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(settingsstate.FrontendSettingsShortcuts{}):                           "SettingsShortcuts",
 	reflect.TypeOf(settingsstate.FrontendSettingsState{}):                               "SettingsState",
 	reflect.TypeOf(realtime.SettingsUpdateMessage{}):                                    "SettingsUpdateMessage",
+	reflect.TypeOf(backendlogs.Severity("")):                                            "Severity",
 	reflect.TypeOf(deployments.SharePolicyOverrides{}):                                  "SharePolicyOverrides",
 	reflect.TypeOf(projectview.ShownParamIDDetails{}):                                   "ShownParamIDDetails",
 	reflect.TypeOf(projectview.ShownParamIDs{}):                                         "ShownParamIDs",
@@ -635,6 +638,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.WatchCodeCallableKind("")):                              "WatchCodeCallableKind",
 	reflect.TypeOf(projectstate.WatchCodeFolder{}):                                      "WatchCodeFolder",
 	reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}):                               "WatchCodeRegistryEntry",
+	reflect.TypeOf(backendlogs.WebsocketMessage{}):                                      "WebsocketMessage",
 	reflect.TypeOf(realtime.WebsocketMessageType("")):                                   "WebsocketMessageType",
 	reflect.TypeOf(httpapi.FrontendWebsocketTransportRoutes{}):                          "WebsocketTransportRoutes",
 	reflect.TypeOf(projectstate.WindowSpaceConfig{}):                                    "WindowSpaceConfig",

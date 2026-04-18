@@ -144,6 +144,8 @@ export function createAssistantChatMessage(
   };
 }
 
+export type BackendLogEvent = gt.BackendLogEvent;
+
 export type BaseChartSettingsUnion = gt.BaseChartSettingsUnion;
 
 export type BaseChatMessageUnion = gt.BaseChatMessageUnion;
