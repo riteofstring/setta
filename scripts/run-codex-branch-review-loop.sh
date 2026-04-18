@@ -157,6 +157,20 @@ set_current_status() {
   fi
 }
 
+cleanup_review_stage_artifacts() {
+  local artifact_path=""
+
+  while IFS= read -r artifact_path; do
+    [[ -n "${artifact_path}" ]] || continue
+    rm -f "${root_dir}/${artifact_path}"
+    log_info "Removed review-stage build artifact: ${root_dir}/${artifact_path}"
+  done < <(
+    git -C "${root_dir}" ls-files --others --exclude-standard -- \
+      'plugins/*/backend/plugin-backend' \
+      'plugins/*/backend/plugin-backend.exe'
+  )
+}
+
 repo_is_clean() {
   if ! git -C "${root_dir}" diff --quiet --no-ext-diff --exit-code --; then
     return 1
@@ -523,6 +537,8 @@ Review this branch for merge into `go-rewrite`.
     - Focus on root-cause and issue-class elimination, not symptom-level comments.
     - Do not propose backward-compatibility shims. Prefer single source of truth + fail-fast invariants.
     - If no issues exist in a priority category, explicitly say so.
+    - Review stage must leave the repository clean except for top-level `review1.md`, `review2.md`, and `review3.md`.
+    - If you run verification that creates build artifacts or other files in the repo, remove those artifacts before finishing the review.
 
     For each finding, provide
     - Severity: `critical|high|medium|low`
@@ -853,6 +869,8 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       exit 1
     fi
   done
+
+  cleanup_review_stage_artifacts
 
   if ! repo_has_only_stop_review_docs; then
     printf 'failure:unexpected-review-side-effects\n' > "${run_status_file}"
