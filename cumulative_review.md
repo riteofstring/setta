@@ -1,3 +1,33 @@
+## 2026-04-18 03:13:20 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had four concrete issues: `restartLanguageServer` could admit a restart based on stale previously applied LSP specs instead of the post-refresh selection, rollback restore reused the request-scoped restart context and could strand the prior session after cancellation or timeout, the frontend restart success path never refreshed the runtime store that drives the Python language-server banner, and legacy `languageServer.basedpyright` test scaffolding still masked the canonical top-level `basedpyright` settings contract.
+- I implemented the fixes directly and kept the code paths explicit rather than layering on compatibility branches or heuristic fallbacks.
+
+Fixes applied:
+- Reworked `internal/app/plugin_backend_runtime_refresh.go` so restart validation is based on the next selected language-server state per relevant project language, with explicit `null` disable still allowed as the only zero-spec transition. Previously applied specs no longer justify a restart into an unconfigured state.
+- Changed workspace LSP restart wiring so the runtime refresher owns the restart callback context. Apply still uses the request context, but rollback restore now gets its own bounded internal context, which lets the previous project LSP session be restored after request cancellation or deadline expiry.
+- Updated `frontend/src/state/actions/lsp.ts` so successful `restartLanguageServer()` calls also refresh plugin runtime state immediately, allowing the header banner to reflect the newly applied language-server state without a manual reload or plugin-pane refresh.
+- Removed stale `languageServer.basedpyright` fixtures from `internal/lsp/router_test.go` and `internal/app/code_updates_test.go`, replacing them with the canonical top-level `basedpyright` settings shape and small focused helpers to keep that contract readable in tests.
+
+Tests added or upgraded:
+- Go unit coverage for restart rollback using an internal restore context, for rejecting stale previously applied specs when the next selection no longer configures the current project, and for allowing explicit null disable when it intentionally removes the active Python server.
+- Go integration coverage for “applied Python LSP + wrong-language next selection + restart” and “applied Python LSP + missing next selection + restart,” both asserting `language_server_not_configured` and preserved completions after the rejected restart attempt.
+- Frontend unit coverage for `restartLanguageServer()` refreshing plugin runtime state on `200` and not doing so on backend `409`.
+- Playwright coverage for the Python banner clearing after a successful restart-triggered runtime refresh.
+
+Verification run:
+- `./scripts/go.sh test ./internal/app -run 'Test(WorkspaceLSPAdmin|PluginBackendRuntimeRefresher|AppRestartLanguageServer)' -count=1`
+- `./scripts/go.sh test ./internal/lsp -run 'TestRouterConfiguredPython|TestBuildBasedpyrightSettingsRoot|TestCloneLanguageServerSpecsDeepClonesSettings' -count=1`
+- `pnpm -C frontend exec vitest run src/state/actions/lsp.test.ts`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts --grep 'header python language server banner clears after a successful restart refresh'` was attempted, but the disposable E2E environment failed before the project became ready, surfacing `Project Not Found` plus frontend `Failed to fetch` / `ERR_ALPN_NEGOTIATION_FAILED` bootstrap errors. The new assertion did not get a usable browser surface in this shell.
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- Repo formatting and the requested quality verification completed successfully after this review pass.
+
 ## 2026-04-18 02:35:18 PDT
 
 Summary:

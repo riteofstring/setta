@@ -11,6 +11,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 func TestPluginBackendRuntimeRefresherPrepareRefreshTransitionClonesPreviousSettings(t *testing.T) {
@@ -387,7 +388,7 @@ func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessi
 	err := refresher.RestartProject(
 		context.Background(),
 		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
-		func() error {
+		func(context.Context) error {
 			restartCalls++
 			if restartCalls == 1 {
 				return projectErr
@@ -418,6 +419,55 @@ func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessi
 	}
 }
 
+func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessionWithInternalContext(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs:       currentSpecs,
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	requestCtx, cancel := context.WithCancel(context.Background())
+	restartContexts := []context.Context{}
+	err := refresher.RestartProject(
+		requestCtx,
+		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func(restartCtx context.Context) error {
+			restartContexts = append(restartContexts, restartCtx)
+			if len(restartContexts) == 1 {
+				cancel()
+				return requestCtx.Err()
+			}
+			if restartCtx == requestCtx {
+				t.Fatal("expected rollback restore to use an internal context")
+			}
+			if err := restartCtx.Err(); err != nil {
+				t.Fatalf("expected rollback restore context to remain active, got %v", err)
+			}
+			return nil
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled restart error, got %v", err)
+	}
+	if len(restartContexts) != 2 {
+		t.Fatalf("expected restart callback to run twice, got %d calls", len(restartContexts))
+	}
+	if service.commitCalls != 0 {
+		t.Fatalf("expected commit to be skipped on project failure, got %d calls", service.commitCalls)
+	}
+	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
+		t.Fatalf("expected refresher specs to roll back, got %#v", refresher.lspSpecs)
+	}
+}
+
 func TestPluginBackendRuntimeRefresherRestartProjectRejectsUnconfiguredCurrentProjectLanguages(t *testing.T) {
 	t.Parallel()
 
@@ -440,7 +490,7 @@ func TestPluginBackendRuntimeRefresherRestartProjectRejectsUnconfiguredCurrentPr
 	err := refresher.RestartProject(
 		context.Background(),
 		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
-		func() error {
+		func(context.Context) error {
 			restartCalls++
 			return nil
 		},
@@ -456,6 +506,114 @@ func TestPluginBackendRuntimeRefresherRestartProjectRejectsUnconfiguredCurrentPr
 	}
 	if len(router.replacedSpecs) != 0 {
 		t.Fatalf("expected no spec replacement when restart is rejected, got %#v", router.replacedSpecs)
+	}
+}
+
+func TestPluginBackendRuntimeRefresherRestartProjectRejectsStalePreviousProjectLanguageServer(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs: []lsp.LanguageServerSpec{{
+			PluginID:   "setta-fixture-backend",
+			Name:       "fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python3",
+		}},
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	restartCalls := 0
+	err := refresher.RestartProject(
+		context.Background(),
+		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func(context.Context) error {
+			restartCalls++
+			return nil
+		},
+	)
+	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected ErrLanguageServerNotConfigured, got %v", err)
+	}
+	if restartCalls != 0 {
+		t.Fatalf("expected restart callback to be skipped, got %d calls", restartCalls)
+	}
+	if service.commitCalls != 0 {
+		t.Fatalf("expected commit to be skipped, got %d calls", service.commitCalls)
+	}
+	if len(router.replacedSpecs) != 0 {
+		t.Fatalf("expected no spec replacement when restart is rejected, got %#v", router.replacedSpecs)
+	}
+	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
+		t.Fatalf("expected applied specs to remain unchanged, got %#v", refresher.lspSpecs)
+	}
+}
+
+func TestPluginBackendRuntimeRefresherRestartProjectAllowsExplicitDisableWithoutNextSpec(t *testing.T) {
+	t.Parallel()
+
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	if _, err := settingsRuntime.MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		document["languageServer"] = map[string]any{
+			"selectedByLanguage": map[string]any{
+				"python": nil,
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed settings runtime: %v", err)
+	}
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs:       nil,
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		settings:  settingsRuntime,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	restartCalls := 0
+	err := refresher.RestartProject(
+		context.Background(),
+		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func(context.Context) error {
+			restartCalls++
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected explicit disable restart to succeed, got %v", err)
+	}
+	if restartCalls != 1 {
+		t.Fatalf("expected one restart callback, got %d calls", restartCalls)
+	}
+	if service.commitCalls != 1 {
+		t.Fatalf("expected commit after explicit disable, got %d calls", service.commitCalls)
+	}
+	if len(refresher.lspSpecs) != 0 {
+		t.Fatalf("expected applied specs to be cleared, got %#v", refresher.lspSpecs)
+	}
+	if len(router.replacedSpecs) != 1 {
+		t.Fatalf("expected one spec replacement, got %#v", router.replacedSpecs)
+	}
+	if len(router.replacedSpecs[0]) != 0 {
+		t.Fatalf("expected restart to apply zero specs, got %#v", router.replacedSpecs[0])
 	}
 }
 

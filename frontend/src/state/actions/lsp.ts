@@ -1,5 +1,6 @@
 import { restartLanguageServer as restartLanguageServerRequest } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { refreshPluginRuntime } from "plugins/runtime";
 import { useShareSession, useWaitingForLSPResult } from "state/definitions";
 import {
   getErrorCode,
@@ -55,6 +56,7 @@ export async function restartLanguageServer(): Promise<void> {
   )) as RestartLanguageServerRouteResponse;
   if (res200(response)) {
     addTemporaryNotification("Restarting Language Server");
+    await refreshPluginRuntime();
     return;
   }
 

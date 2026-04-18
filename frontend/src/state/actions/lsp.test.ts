@@ -5,11 +5,13 @@ import { NotificationTypeEnum } from "utils/generatedTypes";
 const {
   callOpenAPIMock,
   addTemporaryNotificationMock,
+  refreshPluginRuntimeMock,
   restartLanguageServerRouteMock,
   shareSessionState,
 } = vi.hoisted(() => ({
   callOpenAPIMock: vi.fn(),
   addTemporaryNotificationMock: vi.fn(),
+  refreshPluginRuntimeMock: vi.fn(),
   restartLanguageServerRouteMock: vi.fn(),
   shareSessionState: { isDeploymentMode: false },
 }));
@@ -20,6 +22,10 @@ vi.mock("openapi/http", () => ({
 
 vi.mock("openapi/http/result", () => ({
   callOpenAPI: callOpenAPIMock,
+}));
+
+vi.mock("plugins/runtime", () => ({
+  refreshPluginRuntime: refreshPluginRuntimeMock,
 }));
 
 vi.mock("state/definitions", () => ({
@@ -42,6 +48,8 @@ describe("restartLanguageServer", () => {
     shareSessionState.isDeploymentMode = false;
     callOpenAPIMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    refreshPluginRuntimeMock.mockReset();
+    refreshPluginRuntimeMock.mockResolvedValue(undefined);
     restartLanguageServerRouteMock.mockReset();
     restartLanguageServerRouteMock.mockResolvedValue({
       data: null,
@@ -63,6 +71,7 @@ describe("restartLanguageServer", () => {
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Restarting Language Server",
     );
+    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces the backend 409 guidance instead of optimistic success copy", async () => {
@@ -88,6 +97,7 @@ describe("restartLanguageServer", () => {
     expect(addTemporaryNotificationMock).not.toHaveBeenCalledWith(
       "Restarting Language Server",
     );
+    expect(refreshPluginRuntimeMock).not.toHaveBeenCalled();
   });
 
   it("does nothing in deployment mode", async () => {
@@ -98,5 +108,6 @@ describe("restartLanguageServer", () => {
     expect(restartLanguageServerRouteMock).not.toHaveBeenCalled();
     expect(callOpenAPIMock).not.toHaveBeenCalled();
     expect(addTemporaryNotificationMock).not.toHaveBeenCalled();
+    expect(refreshPluginRuntimeMock).not.toHaveBeenCalled();
   });
 });

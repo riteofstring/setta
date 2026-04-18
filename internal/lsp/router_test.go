@@ -127,6 +127,21 @@ func TestCloneLanguageServerSpecsDeepClonesSettings(t *testing.T) {
 	}
 }
 
+func basedpyrightDiagnosticOverrideSettings(extraPaths []string) map[string]any {
+	return BuildBasedpyrightSettingsRoot(map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"diagnosticSeverityOverrides": map[string]any{
+					"reportUnknownVariableType":       "none",
+					"reportUnknownMemberType":         "none",
+					"reportUnannotatedClassAttribute": "none",
+					"reportSelfClsParameterName":      "none",
+				},
+			},
+		},
+	}, extraPaths)
+}
+
 func TestNewRouterAllowsNoConfiguredLanguageServers(t *testing.T) {
 	t.Parallel()
 
@@ -438,18 +453,16 @@ func TestResolveLanguageServerSettingsClonesReturnedMap(t *testing.T) {
 	}
 }
 
-func TestRouterConfiguredPythonSettingsReadNestedBasedpyrightBranch(t *testing.T) {
+func TestRouterConfiguredPythonSettingsReadBasedpyrightBranch(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
 	settings := func() map[string]any {
 		return BuildBasedpyrightSettingsRoot(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType": "none",
-						},
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType": "none",
 					},
 				},
 			},
@@ -481,11 +494,11 @@ func TestRouterConfiguredPythonSettingsReadNestedBasedpyrightBranch(t *testing.T
 		},
 	}
 	if !settingsMapsEqual(service.session.options.Settings, expected) {
-		t.Fatalf("expected nested language-server settings %#v, got %#v", expected, service.session.options.Settings)
+		t.Fatalf("expected basedpyright settings %#v, got %#v", expected, service.session.options.Settings)
 	}
 }
 
-func TestRouterConfiguredPythonDiagnosticsUseNestedBasedpyrightSettingsForWatchCodeGeneratedImports(t *testing.T) {
+func TestRouterConfiguredPythonDiagnosticsUseBasedpyrightSettingsForWatchCodeGeneratedImports(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
@@ -506,20 +519,7 @@ func TestRouterConfiguredPythonDiagnosticsUseNestedBasedpyrightSettingsForWatchC
 	}
 
 	settings := func() map[string]any {
-		return BuildBasedpyrightSettingsRoot(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
-					},
-				},
-			},
-		}, []string{settaFilesRoot})
+		return basedpyrightDiagnosticOverrideSettings([]string{settaFilesRoot})
 	}
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
@@ -606,20 +606,7 @@ func TestRouterConfiguredPythonRefreshesGeneratedDiagnosticsWhenImportedWatchCod
 	}
 
 	settings := func() map[string]any {
-		return BuildBasedpyrightSettingsRoot(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
-					},
-				},
-			},
-		}, []string{settaFilesRoot})
+		return basedpyrightDiagnosticOverrideSettings([]string{settaFilesRoot})
 	}
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
@@ -708,20 +695,7 @@ func TestRouterConfiguredPythonSyncAndRefreshPublishesGeneratedCallDiagnosticsAf
 	}
 
 	settings := func() map[string]any {
-		return BuildBasedpyrightSettingsRoot(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
-					},
-				},
-			},
-		}, []string{settaFilesRoot})
+		return basedpyrightDiagnosticOverrideSettings([]string{settaFilesRoot})
 	}
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
@@ -831,20 +805,7 @@ func TestRouterConfiguredPythonIncrementalWatchCodeTypingStillPublishesGenerated
 	}
 
 	settings := func() map[string]any {
-		return BuildBasedpyrightSettingsRoot(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
-					},
-				},
-			},
-		}, []string{settaFilesRoot})
+		return basedpyrightDiagnosticOverrideSettings([]string{settaFilesRoot})
 	}
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
@@ -928,20 +889,7 @@ func TestRouterConfiguredPythonPublishesGeneratedCallDiagnosticsWithWorkspaceAnd
 	}
 
 	settings := func() map[string]any {
-		return BuildBasedpyrightSettingsRoot(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
-					},
-				},
-			},
-		}, []string{settaFilesRoot})
+		return basedpyrightDiagnosticOverrideSettings([]string{settaFilesRoot})
 	}
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)

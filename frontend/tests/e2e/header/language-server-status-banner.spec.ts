@@ -50,6 +50,60 @@ test("restart language server shortcut shows backend guidance for unconfigured l
   }
 });
 
+test("header python language server banner clears after a successful restart refresh", async ({
+  page,
+}) => {
+  let runtimeLoads = 0;
+
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/runtime", async (route) => {
+      runtimeLoads += 1;
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.status.selectedLanguageServers = [
+        {
+          languageId: "python",
+          selectedPluginId: "setta-basedpyright",
+          state: "ready",
+          applied: runtimeLoads > 1,
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.route("**/api/restartLanguageServer", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "null",
+      });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toContainText("restart is still required");
+
+    await page.keyboard.press("Alt+Shift+R");
+
+    await expect(
+      page.locator(".header-notification-fade", {
+        hasText: "Restarting Language Server",
+      }),
+    ).toHaveCount(1);
+    await expect.poll(() => runtimeLoads).toBeGreaterThan(1);
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("header python language server banner stays visible until the selected plugin is applied", async ({
   page,
 }) => {

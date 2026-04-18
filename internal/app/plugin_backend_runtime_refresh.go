@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
@@ -46,12 +47,15 @@ type pluginBackendLanguageServerReplacer interface {
 }
 
 type pluginBackendRefreshTransition struct {
-	previewSnapshot  plugins.DiscoverySnapshot
-	nextRuntime      *pluginBackendMCPRuntime
-	nextLSPSpecs     []lsp.LanguageServerSpec
-	previousRuntime  *pluginBackendMCPRuntime
-	previousLSPSpecs []lsp.LanguageServerSpec
+	previewSnapshot    plugins.DiscoverySnapshot
+	selectedByLanguage map[string]*string
+	nextRuntime        *pluginBackendMCPRuntime
+	nextLSPSpecs       []lsp.LanguageServerSpec
+	previousRuntime    *pluginBackendMCPRuntime
+	previousLSPSpecs   []lsp.LanguageServerSpec
 }
+
+const pluginBackendRestartRollbackTimeout = 10 * time.Second
 
 type pluginMutationRuntimeService struct {
 	base      *plugins.Service
@@ -319,16 +323,16 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 func (r *pluginBackendRuntimeRefresher) RestartProject(
 	ctx context.Context,
 	document projectstate.Document,
-	restart func() error,
+	restart func(context.Context) error,
 ) error {
 	if restart == nil {
 		return errors.New("project restart callback is required")
 	}
-	if r == nil || r.service == nil {
-		return restart()
-	}
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if r == nil || r.service == nil {
+		return restart(ctx)
 	}
 
 	r.mu.Lock()
@@ -345,7 +349,7 @@ func (r *pluginBackendRuntimeRefresher) RestartProject(
 	}
 	if !restartCanApplyToProjectLanguages(
 		restartProjectLanguages,
-		transition.previousLSPSpecs,
+		transition.selectedByLanguage,
 		transition.nextLSPSpecs,
 	) {
 		closePluginBackendRuntime(transition.nextRuntime)
@@ -357,9 +361,11 @@ func (r *pluginBackendRuntimeRefresher) RestartProject(
 	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
 		return err
 	}
-	if err := restart(); err != nil {
+	if err := restart(ctx); err != nil {
 		r.rollbackRefreshTransitionLocked(transition)
-		restoreErr := restart()
+		restoreCtx, cancel := context.WithTimeout(context.Background(), pluginBackendRestartRollbackTimeout)
+		defer cancel()
+		restoreErr := restart(restoreCtx)
 		if restoreErr != nil {
 			return errors.Join(err, fmt.Errorf("restore previous language server session: %w", restoreErr))
 		}
@@ -418,30 +424,35 @@ func restartRelevantProjects(document projectstate.Document) []projectstate.Proj
 
 func restartCanApplyToProjectLanguages(
 	projectLanguages map[string]struct{},
-	previousSpecs []lsp.LanguageServerSpec,
+	selectedByLanguage map[string]*string,
 	nextSpecs []lsp.LanguageServerSpec,
 ) bool {
 	if len(projectLanguages) == 0 {
 		return true
 	}
-	return languageServerSpecsServeProjectLanguages(previousSpecs, projectLanguages) ||
-		languageServerSpecsServeProjectLanguages(nextSpecs, projectLanguages)
+	nextLanguages := languageServerSpecLanguages(nextSpecs)
+	for languageID := range projectLanguages {
+		if selection, ok := selectedByLanguage[languageID]; ok && selection == nil {
+			continue
+		}
+		if _, ok := nextLanguages[languageID]; ok {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
-func languageServerSpecsServeProjectLanguages(
-	specs []lsp.LanguageServerSpec,
-	projectLanguages map[string]struct{},
-) bool {
+func languageServerSpecLanguages(specs []lsp.LanguageServerSpec) map[string]struct{} {
+	languages := make(map[string]struct{}, len(specs))
 	for _, spec := range specs {
 		languageID := normalizeTrackedLanguage(spec.LanguageID)
 		if languageID == "" {
 			continue
 		}
-		if _, ok := projectLanguages[languageID]; ok {
-			return true
-		}
+		languages[languageID] = struct{}{}
 	}
-	return false
+	return languages
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
@@ -450,21 +461,25 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 		return nil, err
 	}
 
+	selectedByLanguage, err := r.selectedLanguageServerPlugins()
+	if err != nil {
+		return nil, err
+	}
+	nextLSPSpecs, err := r.service.LanguageServerSpecsForSnapshot(previewSnapshot, selectedByLanguage)
+	if err != nil {
+		return nil, err
+	}
 	nextRuntime, err := r.buildRuntimeLocked(ctx, previewSnapshot)
 	if err != nil {
 		return nil, err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(previewSnapshot)
-	if err != nil {
-		closePluginBackendRuntime(nextRuntime)
-		return nil, err
-	}
 	return &pluginBackendRefreshTransition{
-		previewSnapshot:  previewSnapshot,
-		nextRuntime:      nextRuntime,
-		nextLSPSpecs:     nextLSPSpecs,
-		previousRuntime:  r.runtime,
-		previousLSPSpecs: lsp.CloneLanguageServerSpecs(r.lspSpecs),
+		previewSnapshot:    previewSnapshot,
+		selectedByLanguage: cloneSelectedLanguageServerPlugins(selectedByLanguage),
+		nextRuntime:        nextRuntime,
+		nextLSPSpecs:       nextLSPSpecs,
+		previousRuntime:    r.runtime,
+		previousLSPSpecs:   lsp.CloneLanguageServerSpecs(r.lspSpecs),
 	}, nil
 }
 
@@ -579,6 +594,22 @@ func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[str
 		return map[string]*string{}, nil
 	}
 	return settingsstate.LanguageServerSelectedByLanguage(r.settings.Snapshot().Document)
+}
+
+func cloneSelectedLanguageServerPlugins(selectedByLanguage map[string]*string) map[string]*string {
+	if len(selectedByLanguage) == 0 {
+		return map[string]*string{}
+	}
+	cloned := make(map[string]*string, len(selectedByLanguage))
+	for languageID, selection := range selectedByLanguage {
+		if selection == nil {
+			cloned[languageID] = nil
+			continue
+		}
+		pluginID := *selection
+		cloned[languageID] = &pluginID
+	}
+	return cloned
 }
 
 func buildSelectedLanguageServerStatuses(

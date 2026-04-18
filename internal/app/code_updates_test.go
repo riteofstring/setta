@@ -48,6 +48,21 @@ type syncOnlyBoundSectionSynchronizer struct {
 	inner boundSectionSynchronizer
 }
 
+func codeUpdatesTestBasedpyrightSettings(extraPaths []string) map[string]any {
+	return codeUpdatesTestPythonSettings(map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"diagnosticSeverityOverrides": map[string]any{
+					"reportUnknownVariableType":       "none",
+					"reportUnknownMemberType":         "none",
+					"reportUnannotatedClassAttribute": "none",
+					"reportSelfClsParameterName":      "none",
+				},
+			},
+		},
+	}, extraPaths)
+}
+
 func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
 	t.Helper()
 
@@ -1311,20 +1326,7 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 		Environ:         os.Environ,
 		AdditionalSpecs: []lsp.LanguageServerSpec{codeUpdatesTestPythonLanguageServerSpec(t)},
 		Settings: func() map[string]any {
-			return codeUpdatesTestPythonSettings(map[string]any{
-				"languageServer": map[string]any{
-					"basedpyright": map[string]any{
-						"analysis": map[string]any{
-							"diagnosticSeverityOverrides": map[string]any{
-								"reportUnknownVariableType":       "none",
-								"reportUnknownMemberType":         "none",
-								"reportUnannotatedClassAttribute": "none",
-								"reportSelfClsParameterName":      "none",
-							},
-						},
-					},
-				},
-			}, []string{settaFilesRoot})
+			return codeUpdatesTestBasedpyrightSettings([]string{settaFilesRoot})
 		},
 	})
 	if err != nil {
@@ -1426,20 +1428,7 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 		Environ:         os.Environ,
 		AdditionalSpecs: []lsp.LanguageServerSpec{codeUpdatesTestPythonLanguageServerSpec(t)},
 		Settings: func() map[string]any {
-			return codeUpdatesTestPythonSettings(map[string]any{
-				"languageServer": map[string]any{
-					"basedpyright": map[string]any{
-						"analysis": map[string]any{
-							"diagnosticSeverityOverrides": map[string]any{
-								"reportUnknownVariableType":       "none",
-								"reportUnknownMemberType":         "none",
-								"reportUnannotatedClassAttribute": "none",
-								"reportSelfClsParameterName":      "none",
-							},
-						},
-					},
-				},
-			}, []string{settaFilesRoot})
+			return codeUpdatesTestBasedpyrightSettings([]string{settaFilesRoot})
 		},
 	})
 	if err != nil {
