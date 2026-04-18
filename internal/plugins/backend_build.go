@@ -22,28 +22,20 @@ func ValidateGoBackendBuild(pluginRoot string, manifest PluginManifest) error {
 		return nil
 	}
 
-	entrypointPath, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest)
-	if err != nil {
-		return newServiceError(ServiceErrorCodeBackendBuildFailed, "%s", err.Error())
-	}
-	if err := validateGoBackendEntrypoint(entrypointPath); err != nil {
-		return err
-	}
-
 	buildRoot, err := os.MkdirTemp("", "setta-plugin-backend-build-*")
 	if err != nil {
 		return fmt.Errorf("create plugin backend build temp dir: %w", err)
 	}
 	defer os.RemoveAll(buildRoot)
 
-	outputPath := filepath.Join(buildRoot, backendExecutableFileName)
-	if err := buildGoBackendBinary(entrypointPath, outputPath, manifest.ID); err != nil {
+	executablePath, err := BuildGoBackendExecutable(pluginRoot, manifest, buildRoot)
+	if err != nil {
 		return err
 	}
 	if !backendProbeRequired(manifest.Capabilities) {
 		return nil
 	}
-	_, err = probeGoBackendExecutable(pluginRoot, manifest, outputPath)
+	_, err = probeGoBackendExecutable(pluginRoot, manifest, executablePath)
 	return err
 }
 
@@ -51,16 +43,19 @@ func BuildGoBackendExecutable(pluginRoot string, manifest PluginManifest, output
 	if manifest.Backend == nil {
 		return "", fmt.Errorf("plugins: backend manifest is required")
 	}
-	if strings.TrimSpace(outputRoot) == "" {
-		return "", fmt.Errorf("plugins: backend build output root is required")
-	}
 
 	entrypointPath, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest)
 	if err != nil {
 		return "", err
 	}
-	if err := validateGoBackendEntrypoint(entrypointPath); err != nil {
+	if err := validatePluginBackendEntrypoint(entrypointPath); err != nil {
 		return "", err
+	}
+	if !pluginBackendEntrypointRequiresBuild(entrypointPath) {
+		return entrypointPath, nil
+	}
+	if strings.TrimSpace(outputRoot) == "" {
+		return "", fmt.Errorf("plugins: backend build output root is required")
 	}
 
 	digest, err := computeDirectoryDigest(pluginRoot)
@@ -82,6 +77,17 @@ func BuildGoBackendExecutable(pluginRoot string, manifest PluginManifest, output
 		return "", err
 	}
 	return outputPath, nil
+}
+
+func pluginBackendEntrypointRequiresBuild(entrypointPath string) bool {
+	return filepath.Ext(entrypointPath) == ".go"
+}
+
+func validatePluginBackendEntrypoint(entrypointPath string) error {
+	if pluginBackendEntrypointRequiresBuild(entrypointPath) {
+		return validateGoBackendEntrypoint(entrypointPath)
+	}
+	return validateBackendExecutableEntrypoint(entrypointPath)
 }
 
 func validateGoBackendEntrypoint(entrypointPath string) error {
@@ -113,6 +119,28 @@ func validateGoBackendEntrypoint(entrypointPath string) error {
 		return newServiceError(
 			ServiceErrorCodeBackendBuildFailed,
 			"Plugin backend entrypoint must declare func main(): %s",
+			entrypointPath,
+		)
+	}
+	return nil
+}
+
+func validateBackendExecutableEntrypoint(entrypointPath string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	info, err := os.Stat(entrypointPath)
+	if err != nil {
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must be executable: %s",
+			entrypointPath,
+		)
+	}
+	if info.Mode()&0o111 == 0 {
+		return newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must be executable: %s",
 			entrypointPath,
 		)
 	}
