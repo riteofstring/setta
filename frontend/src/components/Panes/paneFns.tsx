@@ -2,13 +2,18 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useLocalStorage, useSettings } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   OverviewTabKey,
   OverviewTabNameEnum,
   PaneName,
   PaneNameEnum,
+  UIEditorTabNameEnum,
 } from "utils/constants";
 import { type SectionType, type UIEditorTabName } from "utils/generatedTypes";
 import { togglePaneVisibility } from "./paneLayout";
@@ -132,21 +137,24 @@ export function getOnUIEditorTabClickNoSectionSelected() {
   visToggle(PaneNameEnum.uiEditor);
 }
 
-function changeUIEditorTab(tabName) {
+function changeUIEditorTab(tabName: UIEditorTabName) {
   const activeId = getActiveSectionUIIds()[0];
   if (!activeId) {
     return;
   }
-  const uiTypeName = getSectionType(activeId);
+  const uiTypeName = getSectionType(
+    useProjectState.getState(),
+    activeId,
+  ) as SectionType;
   getOnUIEditorTabClick(uiTypeName)(tabName);
 }
 
 export function showVersionsTab() {
-  changeUIEditorTab(SECTION_VARIANTS_TAB);
+  changeUIEditorTab(UIEditorTabNameEnum.SectionVariantsConfig);
 }
 
 export function showParamUITypeTab() {
-  changeUIEditorTab(UI_CONFIG_TAB);
+  changeUIEditorTab(UIEditorTabNameEnum.UIConfig);
 }
 
 export function showProjectOverviewTab() {
