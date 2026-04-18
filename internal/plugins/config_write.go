@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -37,6 +38,16 @@ type preparedPluginConfigWrite struct {
 	requested     map[string]any
 }
 
+type committedPluginConfigWrite struct {
+	response  PluginConfigWriteResponse
+	rollback  pluginConfigWriteRollback
+	persisted bool
+}
+
+type pluginConfigWriteRollback struct {
+	state PluginsStateFile
+}
+
 func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResponse, error) {
 	if s == nil {
 		return PluginConfigWriteResponse{}, ErrWorkspaceRootRequired
@@ -48,13 +59,52 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	prepared, err := s.preparePluginConfigWriteLocked(options)
+	committed, err := s.writeConfigLocked(options)
 	if err != nil {
 		return PluginConfigWriteResponse{}, err
 	}
+	return committed.response, nil
+}
+
+func (s *Service) WriteConfigTransactional(
+	_ context.Context,
+	options ConfigWriteOptions,
+	apply func(PluginConfigWriteResponse) error,
+) (PluginConfigWriteResponse, error) {
+	if s == nil {
+		return PluginConfigWriteResponse{}, ErrWorkspaceRootRequired
+	}
+	if options.Config == nil {
+		return PluginConfigWriteResponse{}, newServiceError(ServiceErrorCodeConfigInvalid, "Plugin config must be a JSON object.")
+	}
+
+	s.mu.Lock()
+	committed, err := s.writeConfigLocked(options)
+	s.mu.Unlock()
+	if err != nil {
+		return PluginConfigWriteResponse{}, err
+	}
+	if !committed.persisted || apply == nil {
+		return committed.response, nil
+	}
+
+	if err := apply(committed.response); err != nil {
+		if rollbackErr := s.rollbackPluginConfigWrite(committed.rollback); rollbackErr != nil {
+			return PluginConfigWriteResponse{}, errors.Join(err, fmt.Errorf("restore previous plugin config: %w", rollbackErr))
+		}
+		return PluginConfigWriteResponse{}, err
+	}
+	return committed.response, nil
+}
+
+func (s *Service) writeConfigLocked(options ConfigWriteOptions) (committedPluginConfigWrite, error) {
+	prepared, err := s.preparePluginConfigWriteLocked(options)
+	if err != nil {
+		return committedPluginConfigWrite{}, err
+	}
 
 	if response, skipWrite := pluginConfigWriteNoopResponse(prepared, options.SkipWriteIfCurrentMatchesExpected); skipWrite {
-		return response, nil
+		return committedPluginConfigWrite{response: response}, nil
 	}
 
 	return s.persistPluginConfigWriteLocked(prepared)
@@ -66,11 +116,7 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 		return preparedPluginConfigWrite{}, err
 	}
 	if entry.Manifest == nil {
-		return preparedPluginConfigWrite{}, newServiceError(
-			ServiceErrorCodeConfigInvalid,
-			"Plugin manifest missing for plugin: %s",
-			options.PluginID,
-		)
+		return preparedPluginConfigWrite{}, invalidPluginConfigWriteTargetError(entry, options.PluginID)
 	}
 	if err := validatePluginConfig(entry, options.Config); err != nil {
 		return preparedPluginConfigWrite{}, err
@@ -110,18 +156,61 @@ func pluginConfigWriteNoopResponse(
 	return PluginConfigWriteResponse{}, false
 }
 
-func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (PluginConfigWriteResponse, error) {
-	if prepared.state.PluginConfigByID == nil {
-		prepared.state.PluginConfigByID = map[string]any{}
+func invalidPluginConfigWriteTargetError(entry DiscoveredPlugin, pluginID string) error {
+	for _, entryError := range entry.Errors {
+		if entryError.Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+			continue
+		}
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "%s", entryError.Message)
 	}
-	prepared.state.PluginConfigByID[pluginConfigKey(prepared.entry.PluginID, prepared.entry.Scope)] = prepared.requested
-	if err := s.store.SavePluginsState(prepared.state); err != nil {
-		return PluginConfigWriteResponse{}, err
+	return newServiceError(
+		ServiceErrorCodeConfigInvalid,
+		"Plugin manifest missing for plugin: %s",
+		pluginID,
+	)
+}
+
+func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (committedPluginConfigWrite, error) {
+	rollback := pluginConfigWriteRollback{
+		state: normalizePluginsStateFile(prepared.state),
+	}
+	nextState := normalizePluginsStateFile(prepared.state)
+	if nextState.PluginConfigByID == nil {
+		nextState.PluginConfigByID = map[string]any{}
+	}
+	nextState.PluginConfigByID[pluginConfigKeyForEntry(prepared.entry)] = cloneJSONValue(prepared.requested)
+	if err := s.store.SavePluginsState(nextState); err != nil {
+		return committedPluginConfigWrite{}, err
 	}
 	if _, err := s.rescanLocked(); err != nil {
-		return PluginConfigWriteResponse{}, err
+		if rollbackErr := s.rollbackPluginConfigWriteLocked(rollback); rollbackErr != nil {
+			return committedPluginConfigWrite{}, errors.Join(err, fmt.Errorf("restore previous plugin config: %w", rollbackErr))
+		}
+		return committedPluginConfigWrite{}, err
 	}
-	return pluginConfigWriteResponse(prepared.entry.PluginID, prepared.requested), nil
+	return committedPluginConfigWrite{
+		response:  pluginConfigWriteResponse(prepared.entry.PluginID, prepared.requested),
+		rollback:  rollback,
+		persisted: true,
+	}, nil
+}
+
+func (s *Service) rollbackPluginConfigWrite(rollback pluginConfigWriteRollback) error {
+	if s == nil {
+		return ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.rollbackPluginConfigWriteLocked(rollback)
+}
+
+func (s *Service) rollbackPluginConfigWriteLocked(rollback pluginConfigWriteRollback) error {
+	if err := s.store.SavePluginsState(rollback.state); err != nil {
+		return err
+	}
+	_, err := s.rescanLocked()
+	return err
 }
 
 func pluginConfigWriteResponse(pluginID string, config map[string]any) PluginConfigWriteResponse {

@@ -72,17 +72,14 @@ function joinClasses(...classNames: Array<string | undefined>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getResolvedComboboxBg(
-  bg: string | undefined,
-  variant: ComboboxVariant,
-) {
-  return bg && bg.trim().length > 0 ? bg : DEFAULT_BG_BY_VARIANT[variant];
+function getResolvedComboboxBg(bg: string, variant: ComboboxVariant) {
+  return bg.trim().length > 0 ? bg : DEFAULT_BG_BY_VARIANT[variant];
 }
 
 function getComboboxInputStyles(
   variant: ComboboxVariant,
   small: boolean,
-  bg: string | undefined,
+  bg: string,
   inputThemeClassName: string,
 ) {
   const sizeKey = getComboboxSizeKey(small);
@@ -129,7 +126,6 @@ export function ComboboxInput({
   inputOuterClasses = "",
   inputThemeClassName = "",
   rightButtonThemeClassName = "",
-  onBlur,
   variant = "pill",
 }) {
   const sizeKey = getComboboxSizeKey(small);
@@ -153,7 +149,6 @@ export function ComboboxInput({
       // leftElementStyles="pl-3"
       {...getInputProps({
         id: divId,
-        onBlur,
         onKeyDown,
         ref: inputRef,
         disabled: isDisabled,
@@ -174,86 +169,6 @@ export function ComboboxInput({
         />
       }
     />
-  );
-}
-
-export function CanvasOwnedRestingComboboxInput({
-  bg,
-  displayText,
-  divId,
-  inputOuterClasses = "",
-  inputThemeClassName = "",
-  isDisabled,
-  onFocus,
-  onMouseDownCapture,
-  placeholder,
-  rightButtonThemeClassName = "",
-  small,
-  variant = "pill",
-}) {
-  const sizeKey = getComboboxSizeKey(small);
-  const isPaneVariant = variant === "pane";
-  const resolvedOuterClasses = joinClasses(
-    inputOuterClasses,
-    isPaneVariant ? "mx-0" : undefined,
-  );
-  const resolvedDisplayText =
-    typeof displayText === "string" && displayText.length > 0 ? displayText : "";
-  const showPlaceholder =
-    resolvedDisplayText.length === 0 &&
-    typeof placeholder === "string" &&
-    placeholder.length > 0;
-  const displayValue = showPlaceholder ? placeholder : resolvedDisplayText;
-  const placeholderClassName = showPlaceholder
-    ? "text-setta-200 dark:text-setta-700"
-    : undefined;
-
-  return (
-    <div
-      className={joinClasses(
-        "flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200",
-        resolvedOuterClasses,
-      )}
-      data-canvas-owned-resting-dropdown-lightweight="true"
-      id={divId}
-      onFocus={onFocus}
-      onMouseDownCapture={onMouseDownCapture}
-      tabIndex={isDisabled ? -1 : 0}
-    >
-      <div
-        className={joinClasses(
-          getComboboxInputStyles(variant, small, bg, inputThemeClassName),
-          "relative flex items-center opacity-0 outline-none",
-          isDisabled ? "cursor-not-allowed" : undefined,
-        )}
-        data-canvas-owned-resting-dropdown-box="true"
-      >
-        <span
-          className={joinClasses(
-            "min-w-0 flex-grow truncate",
-            placeholderClassName,
-          )}
-          data-canvas-owned-resting-text="true"
-        >
-          {displayValue || <br />}
-        </span>
-      </div>
-      <div className="absolute inset-y-0 right-0 grid select-none place-items-center">
-        <span
-          aria-hidden="true"
-          className={joinClasses(
-            "nodrag grid select-none place-items-center justify-center rounded-full bg-transparent p-0 opacity-0",
-            TOGGLE_BUTTON_SIZE_BY_VARIANT[variant][sizeKey],
-            RIGHT_BUTTON_CLASS_BY_VARIANT[variant],
-            rightButtonThemeClassName,
-            placeholderClassName,
-          )}
-          data-canvas-owned-resting-text="true"
-        >
-          ▾
-        </span>
-      </div>
-    </div>
   );
 }
 

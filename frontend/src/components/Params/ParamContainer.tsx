@@ -1,11 +1,6 @@
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { type ParamListKey } from "forks/dnd-kit/paramDndState";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import {
-  isCanvasOwnedSectionLightweightResizeHandle,
-  isCanvasOwnedSectionShell,
-} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
@@ -68,7 +63,6 @@ type ParamArticleProps = {
 type ParamInputAccessoriesProps = {
   errorMessage: string;
   hasError: boolean;
-  lightweightResizeHandle: boolean;
   onResizeStart: React.MouseEventHandler;
   paramInfoId: string;
   sectionId: string;
@@ -81,7 +75,6 @@ type ParamLeadingContentProps = {
 };
 
 type ParamNestedChildrenProps = {
-  canvasOwnedNestedGuide: boolean;
   hasSectionStyleTheme: boolean;
   listKey: ParamListKey;
   onResizeStart: React.MouseEventHandler;
@@ -121,7 +114,6 @@ type ParamRowRenderProps = {
   isKwarg: boolean;
   isTopLevelWithPad: boolean;
   layout: ParamContainerLayout;
-  lightweightResizeHandle: boolean;
   nestedChildrenProps: ParamNestedChildrenProps;
   onResizeStart: React.MouseEventHandler;
   paramStyleProps: ParamArticleStyleProps;
@@ -307,7 +299,6 @@ function ParamLeadingContent({
 function ParamInputAccessories({
   errorMessage,
   hasError,
-  lightweightResizeHandle,
   onResizeStart,
   paramInfoId,
   sectionId,
@@ -319,11 +310,7 @@ function ParamInputAccessories({
         paramInfoId={paramInfoId}
         maybeErrorMessage={errorMessage}
       />
-      <ResizeHandle
-        showResizeHandle={true}
-        onMouseDown={onResizeStart}
-        lightweight={lightweightResizeHandle}
-      />
+      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
       {hasError && (
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
@@ -332,7 +319,6 @@ function ParamInputAccessories({
 }
 
 function ParamNestedChildren({
-  canvasOwnedNestedGuide,
   hasSectionStyleTheme,
   listKey,
   onResizeStart,
@@ -344,12 +330,7 @@ function ParamNestedChildren({
     return null;
   }
   return (
-    <div
-      className={`${NESTED_CHILD_ROWS_CLASS_NAME} ${canvasOwnedNestedGuide ? "before:opacity-0" : ""}`}
-      data-canvas-owned-nested-guide={
-        canvasOwnedNestedGuide ? "true" : undefined
-      }
-    >
+    <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
       <GetParamSwitch
         sectionId={sectionId}
         paramIds={renderChildren}
@@ -369,7 +350,6 @@ function ParamLeafRow({
   errorMessage,
   hasError,
   isKwarg,
-  lightweightResizeHandle,
   onResizeStart,
   paramInfoId,
   sectionId,
@@ -384,7 +364,6 @@ function ParamLeafRow({
       <ParamInputAccessories
         errorMessage={errorMessage}
         hasError={hasError}
-        lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
         sectionId={sectionId}
@@ -400,7 +379,6 @@ function ParamNestedRootRow({
   errorMessage,
   hasError,
   isKwarg,
-  lightweightResizeHandle,
   nestedChildrenProps,
   onResizeStart,
   paramInfoId,
@@ -416,7 +394,6 @@ function ParamNestedRootRow({
       <ParamInputAccessories
         errorMessage={errorMessage}
         hasError={hasError}
-        lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
         sectionId={sectionId}
@@ -448,7 +425,6 @@ function renderParamContainerRow({
   isKwarg,
   isTopLevelWithPad,
   layout,
-  lightweightResizeHandle,
   nestedChildrenProps,
   onResizeStart,
   paramStyleProps,
@@ -467,7 +443,6 @@ function renderParamContainerRow({
         errorMessage={errorMessage}
         hasError={hasError}
         isKwarg={isKwarg}
-        lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
         sectionId={sectionId}
@@ -486,7 +461,6 @@ function renderParamContainerRow({
         errorMessage={errorMessage}
         hasError={hasError}
         isKwarg={isKwarg}
-        lightweightResizeHandle={lightweightResizeHandle}
         nestedChildrenProps={nestedChildrenProps}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
@@ -535,7 +509,6 @@ function _ParamContainer({
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
   );
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
   const showParamDisplayNames = useProjectState(
     (x) => x.projectConfig.showParamDisplayNames,
@@ -577,14 +550,7 @@ function _ParamContainer({
     paramInfoId,
     sectionId,
   };
-  const canvasOwnedNestedGuide =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionShell(sectionId);
-  const lightweightResizeHandle =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionLightweightResizeHandle(sectionId);
   const nestedChildrenProps = {
-    canvasOwnedNestedGuide,
     hasSectionStyleTheme,
     listKey,
     onResizeStart,
@@ -614,7 +580,6 @@ function _ParamContainer({
     isKwarg,
     isTopLevelWithPad,
     layout,
-    lightweightResizeHandle,
     nestedChildrenProps,
     onResizeStart,
     paramStyleProps,
