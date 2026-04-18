@@ -7,8 +7,18 @@ from tests.start.dev_script_wiring_helpers import repo_root
 
 CONSOLIDATE_PROMPT = (
     "Read all the top-level review*.md docs. Each review document is a review of the "
-    "current code base, written by a different person. Present me the consolidated "
-    "findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.\n"
+    "current code base, written by a different person.\n\n"
+    "Output requirements:\n"
+    "- The first non-empty line must be exactly one of:\n"
+    "  - `CONSOLIDATED_STATUS: NO_FINDINGS`\n"
+    "  - `CONSOLIDATED_STATUS: FINDINGS_PRESENT`\n"
+    "- Use `CONSOLIDATED_STATUS: NO_FINDINGS` only when the consolidated outcome is "
+    "that there are no findings to fix.\n"
+    "- Use `CONSOLIDATED_STATUS: FINDINGS_PRESENT` if there are findings to fix, or if "
+    "the review docs conflict, are ambiguous, or are malformed such that you cannot "
+    "confidently conclude there are no findings.\n\n"
+    "After the sentinel line, present the consolidated findings, including the proposed "
+    "fixes, and the UX/DX before/after the proposed fixes.\n"
 )
 FIX_PROMPT = (
     "Implement the fixes. Add unit, integration, and Playwright tests when appropriate. "
@@ -23,9 +33,9 @@ FIX_PROMPT = (
 )
 FINALIZE_PROMPT = (
     "Add a new detailed entry to cumulative_review.md (use date time as the heading). "
-    "Then run pnpm -C frontend gcf. Run check_quality.sh, then commit all of that "
-    "(including cumulative_review.md but excluding the review*.md docs). Remove all "
-    "top-level review*.md files\n"
+    "Then run pnpm -C frontend gcf. Run check_quality.sh, fix any quality issues, then "
+    "commit all your changes (including cumulative_review.md but excluding the "
+    "review*.md docs). Remove all top-level review*.md files\n"
 )
 
 
@@ -153,7 +163,11 @@ if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
 fi
 
 printf '{{"type":"thread.started","thread_id":"thread-stop"}}\\n'
-printf 'All three reviews found no issues.\\n' > "${{response_file}}"
+cat > "${{response_file}}" <<'EOR'
+CONSOLIDATED_STATUS: NO_FINDINGS
+
+All three reviews found no issues.
+EOR
 """,
     )
 
@@ -275,7 +289,11 @@ fi
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "1" ]]; then
   printf '{{"type":"thread.started","thread_id":"thread-fix"}}\\n'
-  printf 'Consolidated finding: README should be updated.\\n' > "${{response_file}}"
+  cat > "${{response_file}}" <<'EOR'
+CONSOLIDATED_STATUS: FINDINGS_PRESENT
+
+Consolidated finding: README should be updated.
+EOR
   exit 0
 fi
 
@@ -352,3 +370,95 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 6
     assert calls.count("call:exec resume") == 2
+
+
+def test_branch_review_loop_fails_closed_when_consolidator_omits_sentinel(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "output"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "calls.txt"
+    output_dir.mkdir()
+    bin_dir.mkdir()
+
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+resume_mode="0"
+json_mode="0"
+prompt="$(cat)"
+
+printf 'call:%s\\n' "$*" >> "{calls_file}"
+printf 'prompt:%s\\n===\\n' "${{prompt}}" >> "{calls_file}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      response_file="$2"
+      shift 2
+      ;;
+    --json)
+      json_mode="1"
+      shift
+      ;;
+    resume)
+      resume_mode="1"
+      shift
+      ;;
+    --color|--cd|--model|--config)
+      shift 2
+      ;;
+    --dangerously-bypass-approvals-and-sandbox|--ephemeral|never|-)
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
+  printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+  exit 0
+fi
+
+printf '{{"type":"thread.started","thread_id":"thread-invalid"}}\\n'
+printf 'Consolidated finding without required sentinel.\\n' > "${{response_file}}"
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--post-commit-settle-seconds",
+            "0",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 1, result.stdout
+    assert "valid status sentinel" in result.stderr
+    assert (
+        output_dir / "run-001" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "failure:invalid-consolidated-status"
+    assert (
+        output_dir / "state" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "failure:invalid-consolidated-status"
+    calls = calls_file.read_text(encoding="utf-8")
+    assert calls.count("call:exec ") == 4
+    assert "call:exec resume" not in calls
