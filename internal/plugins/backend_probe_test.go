@@ -6,8 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"setta/internal/pythonenv"
 )
 
 func TestNormalizeBackendProbeResponseRejectsInvalidRoutePaths(t *testing.T) {
@@ -133,7 +131,7 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 			{TargetID: " go-target ", Language: "go", Name: "Go target", DefaultFileName: "go.txt"},
 		},
 		LanguageServers: []PluginRegisteredLanguageServer{
-			{Name: "TypeScript LS", Language: " typescript ", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
+			{Name: "TypeScript LS", Language: " typescript ", Command: "node", Args: []string{"--stdio"}},
 			{Name: "Go LS", Language: "go", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
 		},
 		UISettingsRaw: []map[string]any{
@@ -242,49 +240,6 @@ func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand
 	}
 }
 
-func TestAppendResolvedPythonEnvAddsResolvedInterpreter(t *testing.T) {
-	t.Parallel()
-
-	environment := []string{"PATH=/usr/bin"}
-	resolved := appendResolvedPythonEnv(
-		environment,
-		func(string) (string, bool) { return "", false },
-		func(func(string) (string, bool)) (string, error) {
-			return "/tmp/resolved-python", nil
-		},
-	)
-
-	if len(resolved) != 2 {
-		t.Fatalf("expected resolved env append, got %#v", resolved)
-	}
-	if resolved[1] != pythonenv.InterpreterEnv+"=/tmp/resolved-python" {
-		t.Fatalf("unexpected resolved interpreter env %#v", resolved)
-	}
-}
-
-func TestAppendResolvedPythonEnvPreservesExistingInterpreterOverride(t *testing.T) {
-	t.Parallel()
-
-	environment := []string{pythonenv.InterpreterEnv + "=/tmp/configured-python"}
-	resolved := appendResolvedPythonEnv(
-		environment,
-		func(key string) (string, bool) {
-			if key == pythonenv.InterpreterEnv {
-				return "/tmp/configured-python", true
-			}
-			return "", false
-		},
-		func(func(string) (string, bool)) (string, error) {
-			t.Fatal("expected resolver not to run when interpreter is already configured")
-			return "", nil
-		},
-	)
-
-	if !slices.Equal(resolved, environment) {
-		t.Fatalf("expected existing env to stay unchanged, got %#v", resolved)
-	}
-}
-
 func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t *testing.T) {
 	// Plugin language-server registrations should keep trimmed custom settings keys.
 	pluginRoot := t.TempDir()
@@ -309,13 +264,22 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 }
 
 func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testing.T) {
-	// Language-server registrations must fail closed on missing commands.
+	// Language-server registrations must fail closed on missing commands and python targets.
 	pluginRoot := t.TempDir()
 	testCases := []struct {
 		name         string
 		registration PluginRegisteredLanguageServer
 		wantErr      string
 	}{
+		{
+			name: "python-target",
+			registration: PluginRegisteredLanguageServer{
+				Name:     "Fixture DSL",
+				Language: "python",
+				Command:  "python3",
+			},
+			wantErr: "cannot target python",
+		},
 		{
 			name: "missing-command",
 			registration: PluginRegisteredLanguageServer{
@@ -337,48 +301,6 @@ func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testi
 				t.Fatalf("expected error containing %q, got %v", testCase.wantErr, err)
 			}
 		})
-	}
-}
-
-func TestNormalizeBackendLanguageServerRegistrationAllowsPythonTargets(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-		Name:     "Fixture Python",
-		Language: "python",
-		Command:  "python3",
-		Args:     []string{"--stdio"},
-	})
-	if err != nil {
-		t.Fatalf("normalize backend language server registration: %v", err)
-	}
-	if normalized.Language != "python" {
-		t.Fatalf("expected normalized python language id, got %q", normalized.Language)
-	}
-}
-
-func TestNormalizeBackendLanguageServersRejectsMultipleImplementationsPerPlugin(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	_, err := normalizeBackendLanguageServers(pluginRoot, "setta-fixture-backend", []PluginRegisteredLanguageServer{
-		{
-			Name:     "Fixture One",
-			Language: "python",
-			Command:  "python3",
-			Args:     []string{"--stdio"},
-		},
-		{
-			Name:     "Fixture Two",
-			Language: "bash",
-			Command:  "node",
-			Args:     []string{"server.js"},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected multiple plugin language server implementations to fail")
-	}
-	if !strings.Contains(err.Error(), "one implementation per plugin") {
-		t.Fatalf("expected single-implementation error, got %v", err)
 	}
 }
 

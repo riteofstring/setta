@@ -48,7 +48,6 @@ if [ "${SETTA_INIT_ENV_NO_INSTALL_PROJECT:-}" = "1" ]; then
     --frozen \
     --extra source \
     --extra dev \
-    --extra defaults \
     --python "${SETTA_PYTHON_VERSION}" \
     --no-install-project
 else
@@ -56,7 +55,6 @@ else
     --frozen \
     --extra source \
     --extra dev \
-    --extra defaults \
     --python "${SETTA_PYTHON_VERSION}"
 fi
 

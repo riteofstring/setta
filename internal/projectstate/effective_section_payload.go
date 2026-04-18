@@ -34,9 +34,7 @@ func effectiveSectionPayload(project Project, sectionID string, variantID string
 		return nil, err
 	}
 
-	merged := mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier)
-	normalizeSectionImplPayloadCollections(merged)
-	return merged, nil
+	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), nil
 }
 
 func SectionImplPayload(impl SectionImpl) (RawJSON, error) {
@@ -102,14 +100,20 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 
 	defaults := createdBaseSectionDefaults(sectionType)
 	switch sectionType {
-	case "IFrame":
-		defaults = createdIFrameSectionDefaults()
-	}
-	switch sectionType {
 	case "Callable", "Dict", "GlobalVariables":
-		defaults = applySectionWithParamsDefaults(defaults, true)
-	case "MetaControl":
-		defaults = applySectionWithParamsDefaults(defaults, false)
+		defaults["codeObjVariantMap"] = map[string]any{}
+		defaults["hideUnpinnedParams"] = false
+		defaults["paramFilter"] = ""
+		defaults["columnWidth"] = nil
+		defaults["configLanguage"] = "python"
+		defaults["pinnedParams"] = []any{}
+		defaults["selectedParams"] = []any{}
+		defaults["ignoreTypeErrors"] = map[string]any{
+			"callable": false,
+			"params":   map[string]any{},
+		}
+		defaults["edgeInputParams"] = []any{}
+		defaults["edgeOutputPorts"] = []any{}
 	}
 
 	switch sectionType {
@@ -148,34 +152,6 @@ func normalizeSectionImplPayloadCollections(payload map[string]any) {
 		children, ok := payload["children"].([]any)
 		if !ok || children == nil {
 			payload["children"] = []any{}
-		}
-	case "Draw":
-		normalizeDrawSectionPayloadCollections(payload)
-	}
-}
-
-func normalizeDrawSectionPayloadCollections(payload map[string]any) {
-	rawLayers, ok := payload["layers"]
-	if !ok || rawLayers == nil {
-		payload["layers"] = []any{}
-		return
-	}
-	layers, ok := rawLayers.([]any)
-	if !ok {
-		return
-	}
-	for _, rawLayer := range layers {
-		layer, ok := rawLayer.(map[string]any)
-		if !ok {
-			continue
-		}
-		rawElements, ok := layer["elements"]
-		if !ok || rawElements == nil {
-			layer["elements"] = []any{}
-			continue
-		}
-		if elements, ok := rawElements.([]any); ok && elements == nil {
-			layer["elements"] = []any{}
 		}
 	}
 }
