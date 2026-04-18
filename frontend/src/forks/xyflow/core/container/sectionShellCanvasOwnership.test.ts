@@ -8,6 +8,7 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
@@ -195,6 +196,19 @@ describe("sectionShellCanvasOwnership", () => {
           "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__Browser__sizeModeHeight",
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
+    ).toBe(false);
+  });
+
+  it("targets the section sizing policy dense lane for lightweight resize handles", () => {
+    expect(
+      isCanvasOwnedSectionLightweightResizeHandle(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightResizeHandle(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
     ).toBe(false);
   });
 

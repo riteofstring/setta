@@ -96,6 +96,10 @@ export function isCanvasOwnedSectionMetaControlDropdown({
   );
 }
 
+export function isCanvasOwnedSectionLightweightResizeHandle(sectionId: string) {
+  return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+}
+
 export function isCanvasOwnedSectionRestingText({
   codeObjType,
   sectionId,

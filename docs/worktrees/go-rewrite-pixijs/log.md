@@ -155,6 +155,45 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 045
+
+- Item: Collapse the repeated `settings-section__sectionSizingPolicy` row resize handles to a lightweight single-node path on the retained-canvas lane.
+- Status: `done`
+- Details:
+  - Kept this slice on the same canonical dense target instead of reopening another closed callable/dict/globalVariables ownership lane.
+  - `frontend/src/components/Params/ResizeHandle.tsx` now supports a single-node lightweight handle, and `frontend/src/components/Params/ParamContainer.tsx` only enables it for `settings-section__sectionSizingPolicy` on the `canvas-shell-underlay` path through `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts`.
+  - The checked section probe now proves the intended structural cut on the live worktree runtime:
+    - `lightweightResizeHandleCount: 168`
+    - `lightweightResizeHandleChildCount: 0`
+    - `legacyResizeHandleCount: 0`
+  - Dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-resize-handle-rerun.md`
+  - Dense rerun outcome versus the prior `sectionSizingPolicy` dropdown report:
+    - `documentNodeCount: 9151 -> 8815`
+    - `inputCount: 60 -> 60`
+    - `buttonCount: 477 -> 477`
+    - `raf.meanMs: 109.59 -> 110.98`
+    - `longTasks.totalMs: 17680 -> 17907`
+  - Interpretation: this is a meaningful dense DOM reduction on the active sectionSizingPolicy lane, but not a fresh motion win; the next frontier is the next repeated structural row/container subtree still mounted above the lightweight activators.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ResizeHandle.test.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - note: adding `src/components/Params/ParamContainer.test.tsx` still hits the pre-existing `html-encoding-sniffer` / `@exodus/bytes` jsdom issue already documented in the handoff
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ResizeHandle.tsx src/components/Params/ResizeHandle.test.tsx src/components/Params/ParamContainer.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-027/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.4s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-027/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.4s)` on the live worktree runtime with `documentNodeCount: 8815`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check: done
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - no crash/error overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was visible
+  - the `Size Mode Height` row still looked intact at rest
+  - activating the row focused the inline `Search` combobox/input with value `any` in the same row geometry, with no blank or detached jump observed
+  - caveat: the row is visually thin in the fitted headless viewport, so the continuity call is easiest to confirm from the DOM/rect state plus the visual pass together
+- Next action:
+  - stay on `settings-section__sectionSizingPolicy` and target the next repeated structural row/container DOM still mounted above the lightweight text/dropdown/resize activators before moving to a new dense section
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 043
 
 - Item: Move the repeated `sectionSizingPolicy` size-mode meta-control dropdown family to a lightweight canvas-owned resting path and record the dense rerun.
