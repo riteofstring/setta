@@ -16,7 +16,6 @@ import {
   TaskBoardViewMode,
 } from "utils/generatedTypes";
 import { normalizeTaskBoardState } from "utils/taskBoard";
-const VIEW_MODE_OPTIONS = TaskBoardUIConfig.viewModeOptions;
 export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
   const { canEditLayout } = useShareCapabilities();
   const { viewMode, columns, tasks, isFrozen } = useProjectState((state) => {
@@ -77,7 +76,7 @@ export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
           disabled={isDisabled}
           className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
         >
-          {VIEW_MODE_OPTIONS.map((option) => (
+          {TaskBoardUIConfig.viewModeOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

@@ -95,9 +95,6 @@ import {
   parseRecurrenceYears,
   sortRecurringMonths,
   sortRecurringWeekdays,
-  TASK_BOARD_MONTH_OPTIONS,
-  TASK_BOARD_RECURRENCE_OPTIONS,
-  TASK_BOARD_WEEKDAY_OPTIONS,
 } from "./taskBoardRecurrence";
 const TASK_DND_PREFIX = "task-board-task:";
 const COLUMN_DND_PREFIX = "task-board-column:";
@@ -105,7 +102,6 @@ const TASK_BOARD_LIST_DROP_ID = "task-board-list-drop";
 const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
 const TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH = 240;
 const TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH = 180;
-const TASK_BOARD_VIEW_MODE_OPTIONS = TaskBoardUIConfig.viewModeOptions;
 type TaskDueMode = "date" | "date_time";
 type TaskLane = {
   column: TaskBoardColumn;
@@ -1281,7 +1277,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       className={`section-main section-main-full-w flex h-full min-w-[320px] flex-col gap-2 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
     >
       <div className="mx-1 mt-2 flex shrink-0 flex-wrap items-center gap-2">
-        {TASK_BOARD_VIEW_MODE_OPTIONS.map((option) => (
+        {TaskBoardUIConfig.viewModeOptions.map((option) => (
           <button
             key={option.value}
             type="button"
@@ -2243,7 +2239,7 @@ function TaskRecurrenceInput({
         disabled={isDisabled}
         className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
       >
-        {TASK_BOARD_RECURRENCE_OPTIONS.map((option) => (
+        {TaskBoardUIConfig.recurrenceOptions.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
@@ -2253,7 +2249,7 @@ function TaskRecurrenceInput({
       {recurrenceMode === TaskBoardTaskRecurrenceEnum.specified_days ? (
         <TaskRecurrenceChipSelector
           testId={`task-board-task-recurrence-days-${task.id}`}
-          options={TASK_BOARD_WEEKDAY_OPTIONS}
+          options={TaskBoardUIConfig.weekdayOptions}
           values={recurrenceDays}
           disabled={isDisabled}
           onChange={(nextDays) =>
@@ -2270,7 +2266,7 @@ function TaskRecurrenceInput({
       {recurrenceMode === TaskBoardTaskRecurrenceEnum.specified_months ? (
         <TaskRecurrenceChipSelector
           testId={`task-board-task-recurrence-months-${task.id}`}
-          options={TASK_BOARD_MONTH_OPTIONS}
+          options={TaskBoardUIConfig.monthOptions}
           values={recurrenceMonths}
           disabled={isDisabled}
           onChange={(nextMonths) =>

@@ -9,33 +9,36 @@ import {
   TaskBoardUIConfig,
 } from "utils/generatedTypes";
 
-export const TASK_BOARD_RECURRENCE_OPTIONS =
-  TaskBoardUIConfig.recurrenceOptions;
-
-export const TASK_BOARD_WEEKDAY_OPTIONS = TaskBoardUIConfig.weekdayOptions;
-
-export const TASK_BOARD_MONTH_OPTIONS = TaskBoardUIConfig.monthOptions;
-
 const TASK_BOARD_RECURRENCE_LABEL_BY_VALUE = new Map<
   TaskBoardTaskRecurrence,
   string
->(TASK_BOARD_RECURRENCE_OPTIONS.map((option) => [option.value, option.label]));
+>(
+  TaskBoardUIConfig.recurrenceOptions.map((option) => [
+    option.value,
+    option.label,
+  ]),
+);
 
 const TASK_BOARD_WEEKDAY_LABEL_BY_VALUE = new Map<
   TaskBoardRecurringWeekday,
   string
->(TASK_BOARD_WEEKDAY_OPTIONS.map((option) => [option.value, option.label]));
+>(
+  TaskBoardUIConfig.weekdayOptions.map((option) => [
+    option.value,
+    option.label,
+  ]),
+);
 
 const TASK_BOARD_MONTH_LABEL_BY_VALUE = new Map<
   TaskBoardRecurringMonth,
   string
->(TASK_BOARD_MONTH_OPTIONS.map((option) => [option.value, option.label]));
+>(TaskBoardUIConfig.monthOptions.map((option) => [option.value, option.label]));
 
-const TASK_BOARD_WEEKDAY_ORDER = TASK_BOARD_WEEKDAY_OPTIONS.map(
+const TASK_BOARD_WEEKDAY_ORDER = TaskBoardUIConfig.weekdayOptions.map(
   (option) => option.value,
 );
 
-const TASK_BOARD_MONTH_ORDER = TASK_BOARD_MONTH_OPTIONS.map(
+const TASK_BOARD_MONTH_ORDER = TaskBoardUIConfig.monthOptions.map(
   (option) => option.value,
 );
 
