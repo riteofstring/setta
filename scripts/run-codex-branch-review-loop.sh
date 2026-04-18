@@ -572,7 +572,7 @@ After the sentinel line, present the consolidated findings, including the propos
 EOF
 
   cat > "${fix_prompt_file}" <<'EOF'
-Implement the fixes. Add unit, integration, and Playwright tests when appropriate. Bias strongly toward clean, easy-to-read code: prefer the simplest correct design, explicit names, shallow control flow, and small focused functions/components. Remove dead or superseded code instead of layering on more logic. Avoid clever abstractions, speculative generalization, unnecessary indirection, and "just-in-case" helpers. If the current area is convoluted, refactor it as part of the fix so the final code is simpler and easier to understand. The CDP MCP server is already running and available for you to use, so do not try to start it up yourself, and you should not run `pnpm start` or `pnpm reset`.
+Implement the fixes. Add unit, integration, and Playwright tests when appropriate. Bias strongly toward clean, easy-to-read code: prefer the simplest correct design, explicit names, shallow control flow, and small focused functions/components. Remove dead or superseded code instead of layering on more logic. Avoid clever abstractions, speculative generalization, unnecessary indirection, and "just-in-case" helpers. If the current area is convoluted, refactor it as part of the fix so the final code is simpler and easier to understand. Use CDP/browser verification only if the CDP MCP server is already available; otherwise skip CDP/browser verification and say so explicitly. Do not run `pnpm start` or `pnpm reset`.
 EOF
 
   cat > "${finalize_prompt_file}" <<'EOF'
