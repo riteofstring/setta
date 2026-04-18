@@ -154,7 +154,7 @@ class ChatSectionImpl(BaseModel):
     permissionMode: ChatPermissionMode
     searchEnabled: bool
     dictationMode: ChatDictationMode
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    messages: list[dict[str, Any]] | None = None
     inputText: str = ""
     waitingForResponse: bool = False
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
@@ -439,7 +439,7 @@ class DropdownParamCodeObjImpl(BaseModel):
     typeAnnotation: str
     defaultVal: str
     value: str
-    choices: list[str] = Field(default_factory=list)
+    choices: list[str] | None = None
 
 
 class DropzoneMode(StrEnum):
@@ -591,27 +591,6 @@ class HTTPRequestMethod(StrEnum):
     DELETE = "DELETE"
     HEAD = "HEAD"
     OPTIONS = "OPTIONS"
-
-
-class IFrameSectionImpl(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    type: str
-    id: str
-    name: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    tagColor: str | None = None
-    styleColor: str | None = None
-    size: dict[str, Any]
-    aspectRatio: Any
-    aspectRatioExtraHeight: float
-    aspectRatioExtraWidth: float
-    isMinimized: bool
-    positionAndSizeLocked: bool
-    isPreset: bool
-    code: str
 
 
 class ImageArtifact(BaseModel):
@@ -797,37 +776,6 @@ class MessageThinkingDelta(BaseModel):
     thinking: str
     summary: str | None = None
     signature: str | None = None
-
-
-class MetaControlSectionImpl(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    type: str
-    id: str
-    name: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    tagColor: str | None = None
-    styleColor: str | None = None
-    size: dict[str, Any]
-    aspectRatio: Any
-    aspectRatioExtraHeight: float
-    aspectRatioExtraWidth: float
-    isMinimized: bool
-    positionAndSizeLocked: bool
-    isPreset: bool
-    codeObjVariantMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None = None
-    metaControlParamId: str | None = None
-    showSectionTitle: bool
-    pinnedParams: list[str] | None = None
-    selectedParams: list[str] | None = None
-    ignoreTypeErrors: dict[str, Any]
-    edgeInputParams: list[str] | None = None
-    edgeOutputPorts: list[dict[str, Any]] | None = None
 
 
 type ModeScopedLauncherRoutes = Annotated[
@@ -1953,7 +1901,7 @@ class BrushStroke(BaseModel):
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
-    points: list[Any] = Field(default_factory=list)
+    points: list[Any] | None = None
     globalCompositeOperation: str
 
 
@@ -1973,7 +1921,7 @@ class BrushStrokeWithTransform(BaseModel):
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
-    points: list[Any] = Field(default_factory=list)
+    points: list[Any] | None = None
     globalCompositeOperation: str
     transform: DrawAreaTransform
 
@@ -2119,7 +2067,7 @@ class DrawAreaLayerItemTransform(BaseModel):
         extra="forbid",
     )
     transform: DrawAreaTransform
-    eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
+    eraserStrokes: list[BrushStrokeWithTransform] | None = None
 
 
 class DrawAreaLayerItemTransformArtifact(BaseModel):
@@ -2548,13 +2496,11 @@ type BaseSectionImplUnion = (
     | ChartSectionImpl
     | TextBlockSectionImpl
     | PromptSectionImpl
-    | MetaControlSectionImpl
     | GlobalVariablesSectionImpl
     | CodeSectionImpl
     | GenPythonCodeSectionImpl
     | GenPythonMetadataSectionImpl
     | TerminalSectionImpl
-    | IFrameSectionImpl
     | ChatSectionImpl
     | BrowserSectionImpl
     | TaskBoardSectionImpl
@@ -2571,7 +2517,7 @@ class Chat(BaseModel):
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     llmConfig: LLMConfig
     projectConfigId: ID | None = None
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    messages: list[BaseChatMessageUnion] | None = None
     systemPrompt: str | None = None
 
 
@@ -2579,7 +2525,7 @@ class ChatSectionBranch(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    messages: list[BaseChatMessageUnion] | None = None
     createdAt: int = 0
     parentBranchId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -2589,7 +2535,7 @@ class ChatSectionState(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
+    messages: list[BaseChatMessageUnion] | None = None
     inputText: str = ""
     waitingForResponse: bool = False
     toolCallArguments: dict[str, str] = Field(default_factory=dict)

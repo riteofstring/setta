@@ -347,15 +347,25 @@ func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[strin
 	if err != nil {
 		return false, map[string]any{}, nil
 	}
-	schemaJSON, err := readManifestJSONObjectFile(schemaPath)
+	payload, err := os.ReadFile(schemaPath)
 	if err != nil {
+		return true, map[string]any{}, nil
+	}
+	var schemaJSON map[string]any
+	if err := json.Unmarshal(payload, &schemaJSON); err != nil {
+		return true, map[string]any{}, nil
+	}
+	if schemaJSON == nil {
 		return true, map[string]any{}, nil
 	}
 	return true, schemaJSON, runtimeDigestJSONValue(schemaJSON)
 }
 
 func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
-	rawValue, ok := persistedPluginConfigRaw(entry, pluginsState)
+	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
+		return map[string]any{}
+	}
+	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
 	if !ok || rawValue == nil {
 		return map[string]any{}
 	}
