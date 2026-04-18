@@ -778,6 +778,37 @@ class MessageThinkingDelta(BaseModel):
     signature: str | None = None
 
 
+class MetaControlSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
+    codeObjVariantMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
+    columnWidth: float | None = None
+    metaControlParamId: str | None = None
+    showSectionTitle: bool
+    pinnedParams: list[str] | None = None
+    selectedParams: list[str] | None = None
+    ignoreTypeErrors: dict[str, Any]
+    edgeInputParams: list[str] | None = None
+    edgeOutputPorts: list[dict[str, Any]] | None = None
+
+
 type ModeScopedLauncherRoutes = Annotated[
     list[str], Field(..., title="ModeScopedLauncherRoutes")
 ]
@@ -2496,6 +2527,7 @@ type BaseSectionImplUnion = (
     | ChartSectionImpl
     | TextBlockSectionImpl
     | PromptSectionImpl
+    | MetaControlSectionImpl
     | GlobalVariablesSectionImpl
     | CodeSectionImpl
     | GenPythonCodeSectionImpl

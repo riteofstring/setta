@@ -249,6 +249,10 @@ var frontendSectionImplDefaultBuilders = map[string]frontendSectionImplDefaultBu
 		FrontendSectionTypeListRoot,
 		createdListRootSectionDefaults,
 	),
+	"MetaControl": frontendSectionImplDefaultBuilderFor[FrontendMetaControlSectionImpl](
+		FrontendSectionTypeMetaControl,
+		func() map[string]any { return createdMetaControlSectionDefaults("", "") },
+	),
 	"Prompt": frontendSectionImplDefaultBuilderFor[FrontendPromptSectionImpl](
 		FrontendSectionTypePrompt,
 		createdPromptSectionDefaults,

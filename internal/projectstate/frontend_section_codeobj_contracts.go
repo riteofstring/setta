@@ -370,6 +370,14 @@ type FrontendDictSectionImpl struct {
 	JSONSourceMissing bool     `json:"jsonSourceMissing"`
 }
 
+type FrontendMetaControlSectionImpl struct {
+	FrontendBaseSectionImpl
+	FrontendSectionWithParamsLeadingFields
+	MetaControlParamID *string `json:"metaControlParamId"`
+	ShowSectionTitle   bool    `json:"showSectionTitle"`
+	FrontendSectionWithParamsTrailingFields
+}
+
 type FrontendTaskBoardTask = TaskBoardTask
 
 type FrontendTaskBoardSectionImpl struct {

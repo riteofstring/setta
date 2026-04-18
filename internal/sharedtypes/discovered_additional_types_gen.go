@@ -102,6 +102,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.FrontendTerminalSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
+		reflect.TypeOf(projectstate.FrontendMetaControlSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendTaskBoardTask{}),
 		reflect.TypeOf(projectstate.FrontendTaskBoardSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendChartSectionImpl{}),

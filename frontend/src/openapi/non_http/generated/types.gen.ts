@@ -558,6 +558,7 @@ export type BaseSectionImplUnion =
   | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
+  | MetaControlSectionImpl
   | GlobalVariablesSectionImpl
   | CodeSectionImpl
   | GenPythonCodeSectionImpl
@@ -1225,6 +1226,7 @@ type ClipboardProjectStateCore = {
       | ChartSectionImpl
       | TextBlockSectionImpl
       | PromptSectionImpl
+      | MetaControlSectionImpl
       | GlobalVariablesSectionImpl
       | CodeSectionImpl
       | GenPythonCodeSectionImpl
@@ -3304,6 +3306,55 @@ type MessageType =
   | "UISettingRevealResult"
   | "RealtimeUIChange"
   | "RealtimeDependencyEvent";
+
+/**
+ * MetaControlSectionImpl
+ */
+export type MetaControlSectionImpl = {
+  aspectRatioExtraHeight: number;
+  aspectRatioExtraWidth: number;
+  codeObjVariantMap: {
+    [key: string]: string;
+  };
+  columnWidth: null | number;
+  edgeInputParams: null | Array<string>;
+  edgeOutputPorts: null | Array<{
+    accessor: string;
+    id: string;
+  }>;
+  hideUnpinnedParams: boolean;
+  id: string;
+  ignoreTypeErrors: {
+    callable: boolean;
+    params: {
+      [key: string]: boolean;
+    };
+  };
+  isFrozen: boolean;
+  isInOtherProjectConfigs: boolean;
+  isMinimized: boolean;
+  isPreset: boolean;
+  metaControlParamId: null | string;
+  name: string;
+  paramFilter: string;
+  pinnedParams: null | Array<string>;
+  positionAndSizeLocked: boolean;
+  selectedParams: null | Array<string>;
+  showSectionTitle: boolean;
+  size: {
+    height: {
+      Auto: boolean;
+      Value: number;
+    };
+    width: {
+      Auto: boolean;
+      Value: number;
+    };
+  };
+  styleColor: null | string;
+  tagColor: null | string;
+  type: string;
+};
 
 /**
  * MetaControlSizeMode
@@ -5834,6 +5885,7 @@ export type SingleConfig = {
       | ChartSectionImpl
       | TextBlockSectionImpl
       | PromptSectionImpl
+      | MetaControlSectionImpl
       | GlobalVariablesSectionImpl
       | CodeSectionImpl
       | GenPythonCodeSectionImpl

@@ -101,19 +101,9 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 	defaults := createdBaseSectionDefaults(sectionType)
 	switch sectionType {
 	case "Callable", "Dict", "GlobalVariables":
-		defaults["codeObjVariantMap"] = map[string]any{}
-		defaults["hideUnpinnedParams"] = false
-		defaults["paramFilter"] = ""
-		defaults["columnWidth"] = nil
-		defaults["configLanguage"] = "python"
-		defaults["pinnedParams"] = []any{}
-		defaults["selectedParams"] = []any{}
-		defaults["ignoreTypeErrors"] = map[string]any{
-			"callable": false,
-			"params":   map[string]any{},
-		}
-		defaults["edgeInputParams"] = []any{}
-		defaults["edgeOutputPorts"] = []any{}
+		defaults = applySectionWithParamsDefaults(defaults, true)
+	case "MetaControl":
+		defaults = applySectionWithParamsDefaults(defaults, false)
 	}
 
 	switch sectionType {

@@ -327,6 +327,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(scriptablechat.MessageThinkingContent{}):                             "MessageThinkingContent",
 	reflect.TypeOf(realtime.MessageThinkingDelta{}):                                     "MessageThinkingDelta",
 	reflect.TypeOf(wsapi.FrontendMessageType("")):                                       "MessageType",
+	reflect.TypeOf(projectstate.FrontendMetaControlSectionImpl{}):                       "MetaControlSectionImpl",
 	reflect.TypeOf(projectstate.MetaControlSizeMode("")):                                "MetaControlSizeMode",
 	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}):                "MetaControlSizingPolicyByType",
 	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyTypeEntry{}):             "MetaControlSizingPolicyTypeEntry",

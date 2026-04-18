@@ -1475,6 +1475,9 @@
           "$ref": "#/$defs/PromptSectionImpl"
         },
         {
+          "$ref": "#/$defs/MetaControlSectionImpl"
+        },
+        {
           "$ref": "#/$defs/GlobalVariablesSectionImpl"
         },
         {
@@ -3444,6 +3447,9 @@
               },
               {
                 "$ref": "#/$defs/PromptSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/MetaControlSectionImpl"
               },
               {
                 "$ref": "#/$defs/GlobalVariablesSectionImpl"
@@ -9233,6 +9239,220 @@
         "RealtimeUIChange",
         "RealtimeDependencyEvent"
       ]
+    },
+    "MetaControlSectionImpl": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "isFrozen": {
+          "type": "boolean"
+        },
+        "isInOtherProjectConfigs": {
+          "type": "boolean"
+        },
+        "tagColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "styleColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "size": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "aspectRatio": true,
+        "aspectRatioExtraHeight": {
+          "type": "number"
+        },
+        "aspectRatioExtraWidth": {
+          "type": "number"
+        },
+        "isMinimized": {
+          "type": "boolean"
+        },
+        "positionAndSizeLocked": {
+          "type": "boolean"
+        },
+        "isPreset": {
+          "type": "boolean"
+        },
+        "codeObjVariantMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "hideUnpinnedParams": {
+          "type": "boolean"
+        },
+        "paramFilter": {
+          "type": "string"
+        },
+        "columnWidth": {
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "metaControlParamId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "showSectionTitle": {
+          "type": "boolean"
+        },
+        "pinnedParams": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "selectedParams": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "ignoreTypeErrors": {
+          "type": "object",
+          "properties": {
+            "callable": {
+              "type": "boolean"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "boolean"
+              }
+            }
+          },
+          "required": [
+            "callable",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        "edgeInputParams": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "edgeOutputPorts": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "accessor": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "accessor"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "title": "MetaControlSectionImpl",
+      "required": [
+        "type",
+        "id",
+        "name",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "tagColor",
+        "styleColor",
+        "size",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "isMinimized",
+        "positionAndSizeLocked",
+        "isPreset",
+        "codeObjVariantMap",
+        "hideUnpinnedParams",
+        "paramFilter",
+        "columnWidth",
+        "metaControlParamId",
+        "showSectionTitle",
+        "pinnedParams",
+        "selectedParams",
+        "ignoreTypeErrors",
+        "edgeInputParams",
+        "edgeOutputPorts"
+      ],
+      "additionalProperties": false
     },
     "MetaControlSizeMode": {
       "type": "string",
@@ -16442,6 +16662,9 @@
               },
               {
                 "$ref": "#/$defs/PromptSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/MetaControlSectionImpl"
               },
               {
                 "$ref": "#/$defs/GlobalVariablesSectionImpl"

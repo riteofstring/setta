@@ -1037,6 +1037,8 @@ export function createMessageThinkingContent(
   };
 }
 
+type MetaControlSectionImpl = gt.MetaControlSectionImpl;
+
 type MetaControlSizingPolicyByType = gt.MetaControlSizingPolicyByType;
 
 function createMetaControlSizingPolicyByType(
@@ -4231,12 +4233,17 @@ export function isBaseParentSectionImpl(
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   "Callable",
   "Dict",
+  "MetaControl",
   "GlobalVariables",
 ]);
 
 export function isBaseSectionWithParamsImpl(
   x: BaseSectionImplUnion,
-): x is CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl {
+): x is
+  | CallableSectionImpl
+  | DictSectionImpl
+  | MetaControlSectionImpl
+  | GlobalVariablesSectionImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 

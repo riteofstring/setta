@@ -2266,6 +2266,11 @@
       ]
     },
     {
+      "name": "MetaControlSectionImpl",
+      "kind": "model",
+      "schemaRef": "#/$defs/MetaControlSectionImpl"
+    },
+    {
       "name": "MetaControlSizeMode",
       "kind": "enum",
       "schemaRef": "#/$defs/MetaControlSizeMode",
@@ -12506,6 +12511,10 @@
           "discriminatorValue": "Prompt"
         },
         {
+          "name": "MetaControlSectionImpl",
+          "discriminatorValue": "MetaControl"
+        },
+        {
           "name": "GlobalVariablesSectionImpl",
           "discriminatorValue": "GlobalVariables"
         },
@@ -12562,7 +12571,8 @@
           "memberTypes": [
             "CallableSectionImpl",
             "DictSectionImpl",
-            "GlobalVariablesSectionImpl"
+            "GlobalVariablesSectionImpl",
+            "MetaControlSectionImpl"
           ]
         }
       ],
@@ -12795,6 +12805,39 @@
           "tagColor": null,
           "type": "ListRoot",
           "viewMode": "default"
+        },
+        "MetaControl": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "codeObjVariantMap": {},
+          "columnWidth": null,
+          "edgeInputParams": [],
+          "edgeOutputPorts": [],
+          "hideUnpinnedParams": false,
+          "id": "",
+          "ignoreTypeErrors": {
+            "callable": false,
+            "params": {}
+          },
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "metaControlParamId": "",
+          "name": "",
+          "paramFilter": "",
+          "pinnedParams": [],
+          "positionAndSizeLocked": false,
+          "selectedParams": [],
+          "showSectionTitle": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "MetaControl"
         },
         "Prompt": {
           "aspectRatio": false,
