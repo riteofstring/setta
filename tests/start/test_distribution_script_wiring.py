@@ -20,12 +20,10 @@ def _build_distribution_sandbox(tmp_path: Path) -> tuple[Path, Path, Path]:
     scripts_dir = sandbox_root / "scripts"
     frontend_dir = sandbox_root / "frontend"
     backend_setta_dir = sandbox_root / "backend" / "setta"
-    plugin_dir = sandbox_root / "plugins" / "setta-basedpyright"
     bin_dir.mkdir(parents=True, exist_ok=True)
     scripts_dir.mkdir(parents=True, exist_ok=True)
     frontend_dir.mkdir(parents=True, exist_ok=True)
     backend_setta_dir.mkdir(parents=True, exist_ok=True)
-    plugin_dir.mkdir(parents=True, exist_ok=True)
 
     _copy_repo_file(sandbox_root=sandbox_root, relative_path="build.sh")
     _copy_repo_file(
@@ -304,149 +302,6 @@ def test_distribution_helper_skip_cleanup_preserves_prepared_inputs(tmp_path: Pa
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "go-binaries",
         "python -m build --wheel",
-        f"python -m build --wheel --outdir {sandbox_root / 'dist'}",
-    ]
-
-
-def test_distribution_helper_short_sdist_flag_preserves_outdir_without_plugin_wheel(
-    tmp_path: Path,
-) -> None:
-    sandbox_root, command_log, cleanup_count = _build_distribution_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts" / "build_python_distribution_with_go_binaries.sh"),
-            "--skip-cleanup",
-            "-s",
-            "-o",
-            "alt-dist",
-        ],
-        cwd=sandbox_root,
-        env=_sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert not cleanup_count.exists()
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "go-binaries",
-        "python -m build -s -o alt-dist",
-    ]
-
-
-def test_distribution_helper_does_not_treat_short_outdir_value_as_wheel_flag(
-    tmp_path: Path,
-) -> None:
-    sandbox_root, command_log, cleanup_count = _build_distribution_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts" / "build_python_distribution_with_go_binaries.sh"),
-            "--skip-cleanup",
-            "-s",
-            "-owheelhouse",
-        ],
-        cwd=sandbox_root,
-        env=_sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert not cleanup_count.exists()
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "go-binaries",
-        "python -m build -s -owheelhouse",
-    ]
-
-
-def test_distribution_helper_short_wheel_flag_uses_short_outdir_for_plugin_wheel(
-    tmp_path: Path,
-) -> None:
-    sandbox_root, command_log, cleanup_count = _build_distribution_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts" / "build_python_distribution_with_go_binaries.sh"),
-            "--skip-cleanup",
-            "-w",
-            "-o",
-            "alt-dist",
-        ],
-        cwd=sandbox_root,
-        env=_sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert not cleanup_count.exists()
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "go-binaries",
-        "python -m build -w -o alt-dist",
-        f"python -m build --wheel --outdir {sandbox_root / 'alt-dist'}",
-    ]
-
-
-def test_distribution_helper_separator_sdist_skips_plugin_wheel(tmp_path: Path) -> None:
-    sandbox_root, command_log, cleanup_count = _build_distribution_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts" / "build_python_distribution_with_go_binaries.sh"),
-            "--skip-cleanup",
-            "--",
-            "--sdist",
-        ],
-        cwd=sandbox_root,
-        env=_sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert not cleanup_count.exists()
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "go-binaries",
-        "python -m build --sdist",
-    ]
-
-
-def test_distribution_helper_separator_wheel_uses_separator_outdir(tmp_path: Path) -> None:
-    sandbox_root, command_log, cleanup_count = _build_distribution_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts" / "build_python_distribution_with_go_binaries.sh"),
-            "--skip-cleanup",
-            "--",
-            "--wheel",
-            "-o",
-            "alt-dist",
-        ],
-        cwd=sandbox_root,
-        env=_sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert not cleanup_count.exists()
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "go-binaries",
-        "python -m build --wheel -o alt-dist",
-        f"python -m build --wheel --outdir {sandbox_root / 'alt-dist'}",
     ]
 
 
@@ -475,7 +330,6 @@ def test_build_script_uses_shared_distribution_helper_without_second_cleanup(
         "pnpm build",
         "go-binaries",
         "python -m build",
-        f"python -m build --wheel --outdir {sandbox_root / 'dist'}",
     ]
 
 

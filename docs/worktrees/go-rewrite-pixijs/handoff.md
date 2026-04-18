@@ -1,0 +1,679 @@
+# Go-Rewrite Pixi Canvas-First Handoff
+
+Last updated: 2026-04-18
+Worktree: `go-rewrite-pixijs`
+Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
+Related history: `docs/worktrees/go-rewrite-pixijs/log.md`
+Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
+
+## Current status
+
+- The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The tracking model is now explicit:
+  - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
+  - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
+  - `docs/worktrees/go-rewrite-pixijs/checklist.md` is limited to stable guardrails and acceptance gates instead of checkbox progress tracking
+- Ralph/supervisor bootstrap files have been ported into the worktree.
+- `RALPH.md` now points at this worktree plan set.
+- `RALPH.md` now also pins `main_worktree_root` to `/home/ubuntu/dev/setta`, and the loop scripts honor that explicit reference path instead of requiring branch-name discovery.
+- The missing `scripts/ralph-default-prompt.md` file has been restored in this worktree.
+- The missing `scripts/lib/node_tooling.sh` and `scripts/lib/clear_devtools_profile_auth_cookies.py` helpers have also been restored in this worktree.
+- If Ralph was started before those config/script fixes, restart it once so the running process picks them up.
+- `scripts/run-playwright-e2e.sh` now bootstraps Node/pnpm tooling before starting Vite or Playwright, and its bootstrap-token parser now understands the current Go CLI log format (`bootstrap#token=` and `and paste:`).
+- A focused baseline probe now exists at `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` for `settings` -> `All Settings`.
+- `frontend/src/openapi/http/client.ts` no longer rewrites body-carrying backend requests by cloning one `Request` into another `Request`; it now rebuilds the request explicitly so Chromium can send JSON POSTs like `loadProjectConfig` reliably across the dev frontend/backend origin split.
+- A focused regression test now exists at `frontend/src/openapi/http/client.test.ts` to keep the rewritten OpenAPI transport from dropping POST bodies.
+- `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` now preserves minimap defaults when callers pass optional props as `undefined`, so `MinimapSvg` can render without an explicit `nodeComponent`.
+- `frontend/src/forks/xyflow/minimap/MiniMap.test.ts` now includes a regression test that renders `MinimapSvg` without a custom node component and expects the default minimap rect node output.
+- `frontend/src/components/Utils/Combobox/ComboboxParts.tsx` now treats the combobox `bg` prop as optional when resolving fallback background classes, so `/settings` no longer crashes on `bg.trim()` when a caller omits that prop.
+- `frontend/src/components/Utils/Combobox/ComboboxParts.test.tsx` now includes a regression test proving undefined `bg` values fall back to the variant default classes instead of crashing.
+- The first durable Phase 1 `go-rewrite` baseline report now exists at `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`.
+- A fresh baseline probe run on 2026-04-18 passed on the live worktree runtime and recorded:
+  - `flowNodeCount: 46`
+  - `visibleFlowNodeCount: 46`
+  - `documentNodeCount: 9553`
+  - `inputCount: 92`
+  - `textareaCount: 1`
+  - `buttonCount: 521`
+  - `raf.meanMs: 204.93`
+  - `raf.p95Ms: 216.7`
+  - `longTasks.totalMs: 36337`
+- CDP visual check is done for the baseline-report slice:
+  - `/settings` loads normally
+  - `All Settings` is visible and active
+  - no React error boundary or crash overlay is visible
+  - non-target chrome still visible during the check included the left settings list, right tool rail, bottom tab bar, and a `Chat Window 1` overlay/suggestion panel, but none blocked the graph surface
+- The first settings product renderer slice is now landed:
+  - `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` is now the graph-surface composition boundary instead of inlining the edge/node renderers inside `ReactFlow.tsx`
+  - the active implementation is a new `canvas-shell-underlay` surface that mounts one retained canvas behind the existing DOM section nodes
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now derive top-level node bounds from `useNodeInternals` and paint shell backdrops into a single canvas underlay
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now covers the scene bounds math and retained-canvas sizing path
+- The named canary shell-authority slice is now landed for `settings-section__callableSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/graphSurfaceImplementation.tsx` now exposes the active graph-surface implementation through context so section chrome can react at the real composition boundary instead of via prop threading
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now declares the canonical canvas-owned section shell id and resolves the retained-canvas fill/stroke for that shell, including style-color-aware chrome when a section style is present
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now let the retained scene paint per-frame chrome overrides, so the canary callable section uses canvas-owned resting fill/border instead of the old generic underlay colors
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx` and `frontend/src/components/Utils/Resizable/CustomResizable.tsx` now make only the canary section's resting DOM shell transparent on the `canvas-shell-underlay` path while leaving the legacy DOM implementation unchanged
+  - `SectionShellBackdropCanvas.tsx` now uses `getCurrEffectiveSectionImplIfPresent(...)` for the canary lookup so non-settings project routes like `/round_lime` no longer crash when that section is absent
+  - focused coverage now exists for this slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+- The next callable shell-chrome slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves canvas-owned header fill/divider colors alongside the retained shell fill/stroke, reusing section style theme colors when a style color is present
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads the measured header height from `useTemporaryMiscState` via `getSectionHeaderHeightKey(...)` and feeds that height into the canary frame visual
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now carries per-frame header-band metadata and paints a clipped header band plus divider before the shell border stroke
+  - focused coverage now exists for this slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` using graph-space canvas pixel sampling derived from the `.react-flow__node` transform so the live canary can verify header-vs-body pixels even when `All Settings` is fitted far out
+- A fresh post-slice live baseline probe on 2026-04-18 passed on the worktree runtime and confirmed the new underlay is present on `settings` -> `All Settings`:
+  - `canvasCount: 1`
+  - `flowNodeCount: 46`
+  - `documentNodeCount: 9555`
+  - `raf.meanMs: 34.91`
+  - `longTasks.totalMs: 119`
+- Treat that post-slice probe as a runtime smoke check for the new surface seam, not as a new durable benchmark claim yet.
+- Canonical target section for the active settings graph-surface lane: `settings-section__globalVariablesSectionDefault`.
+- Fresh live canary inventory on 2026-04-18 closes the stale top-level callable body-panel assumptions for that section:
+  - the retained canvas shell is still mounted and the section is healthy on `/settings` -> `All Settings`
+  - the visible canary shows the section header, the callable `ARGS` toolbar row, and visible settings rows such as `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Hide Params`, and `Hide Unpinned Params`
+  - the mounted canary does not currently show a separate section search field or a visible pinned-params panel in the checked viewport, so do not spend another slice on search/pinned/unpinned panel chrome for this target
+- The Phase 1 baseline lane is now complete:
+  - the browser-side `loadProjectConfig` transport failure on the live worktree runtime (`http://127.0.0.1:8068`) is fixed
+  - focused runtime verification now succeeds for that exact request shape:
+    - `pnpm -C frontend exec vitest run src/openapi/http/client.test.ts`
+    - a headless Playwright browser import of `/src/openapi/http` now returns `200` for `loadProjectConfig({ body: { projectConfigName: "round_lime" } })` with no `requestfailed` events
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` now defines `DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX` locally again, so the prior dock-constant runtime crash is cleared
+  - the `_MiniMapNodes` invalid-element-type crash is now cleared:
+    - a headless Playwright probe with a fresh bootstrap URL lands on the normal project surface at `http://127.0.0.1:3068/round_lime` with no React error boundary and no visible `_MiniMapNodes` / invalid-element-type message
+    - CDP visual check is done for that slice and confirms the same healthy project-route state
+  - the `/settings` combobox `trim()` runtime crash is now cleared:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/Combobox/ComboboxParts.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line`
+    - result: the live Settings route now loads cleanly, `All Settings` becomes active, and the baseline probe emits metrics instead of hitting the React error boundary
+- focused static verification for the minimap fix passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.tsx`
+- focused Vitest verification for the new minimap regression test is currently blocked by an existing jsdom dependency/runtime issue before test collection:
+  - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - fresh bootstrap URLs are one-shot; stale URLs quickly turn into misleading `401` bootstrap failures
+- focused Vitest verification for the new retained-canvas shell test is blocked by the same existing jsdom dependency/runtime issue before test collection:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+  - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- focused lint verification for the new graph-surface files passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts`
+- CDP visual check is done for the retained-canvas slice:
+  - `/settings` loads normally
+  - `All Settings` is visible and active
+  - the graph surface is mounted and usable
+  - a `canvas` is present inside `.react-flow__section-shell-backdrop`
+  - no crash overlay or obviously detached/blank section bodies are visible
+- focused verification for the canary shell-authority slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/graphSurfaceImplementation.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line`
+- CDP visual check is done for the canary shell-authority slice:
+  - `/settings` loads normally
+  - `All Settings` is active
+  - `settings-section__callableSectionDefault` is visible with no crash/error boundary
+  - one retained shell `canvas` is mounted
+  - the section shell still looks intact after the DOM shell was made transparent on the canvas path
+  - residual risk: this headless CDP pass confirmed mounted canvas presence and healthy shell appearance, but the transformed canvas content itself was not fully centered in the viewport for pixel-level inspection
+- focused verification for the callable header-band slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the callable header-band slice:
+  - `/settings` loaded normally in the headless worktree session
+  - `All Settings` was active
+  - the retained shell `canvas` was mounted and the canary section remained visible with no crash/error-boundary state
+  - the section shell still looked intact on the live surface
+  - caveat: the new header-band/header-divider treatment was too tiny in the fitted `All Settings` view for a confident human-only visual call, so treat the updated Playwright graph-space pixel probe as the deterministic proof for that exact detail
+- The next callable shell-chrome slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `callableToolbarFill` and `callableToolbarDivider` alongside the existing shell/header chrome so the retained scene can paint the callable args toolbar card with the same section-style-aware palette rules
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads both `getSectionSearchHeightKey(...)` and `getKwargsControlsHeightKey(...)` for `settings-section__callableSectionDefault`, then places one retained detail band for the callable toolbar beneath the existing header band
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now carries normalized per-frame `detailBands` metadata and paints rounded retained panel fills plus bottom dividers before the outer shell stroke
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now makes only the canary callable toolbar container transparent on the `canvas-shell-underlay` path while keeping the live controls/filter DOM intact
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - the first live probe for this slice exposed a real oracle issue, not a product regression:
+    - the previous graph-space helper treated the `.react-flow__node` transform as if it carried zoom scale, but in the current runtime the zoom lives on the parent `.react-flow__viewport` transform while the node transform stays at scale `1`
+    - the final probe now derives graph-space rects from DOM element bounds divided by the viewport transform scale, then compares the new toolbar-band pixel against the shell body pixel; that fixed the canary probe without changing product code
+- focused verification for the callable toolbar-band slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/KwargsControls.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the callable toolbar-band slice:
+  - `/settings` loaded cleanly with no crash/error boundary visible
+  - the retained shell `canvas` was mounted and the workspace surface remained intact
+  - `settings-section__callableSectionDefault` was present and its control cluster still showed the header, filter input, and the `Remove arg` / `Add arg` / `Pin selected args` / `Convert to edge connectors` / `Delete selected args` toolbar row after the DOM toolbar container was made transparent on the canvas path
+  - caveat: the fitted headless view still makes the toolbar row too small for a confident human-only pixel read, so treat the updated Playwright viewport-scale probe as the deterministic oracle for the toolbar-band detail
+- The next callable body-panel slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `pinnedParamsFill` and `pinnedParamsDivider` alongside the existing shell/header/toolbar chrome so the retained scene can paint the pinned-params card with the same section-style-aware palette rules
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads `getPinnedParamsAreaHeightKey(...)` for `settings-section__callableSectionDefault` and emits a second retained detail band below the callable toolbar using the measured pinned-panel height
+  - `frontend/src/components/Params/GroupContainer.tsx` now makes only the canary pinned-params container transparent on the `canvas-shell-underlay` path while keeping the live pinned param rows and controls mounted
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/GroupContainer.test.tsx`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted shell/header/toolbar canary smoke still passes unchanged after the pinned-panel product slice
+  - attempted to extend `tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` into a dedicated pinned-panel oracle in the same iteration, but reverted that oracle work after it hit untrusted settings-route automation shapes (`POST /api/setActiveIds -> 404` when headless row-selection replay missed param-select mode, plus empty `/settings` `useProjectState` reads in that setup); keep the checked-in Playwright file on the previously trusted shell/toolbar lane for now
+- CDP visual check is done for the pinned-params slice:
+  - `/settings` loaded normally in the headless worktree session
+  - `All Settings` was active with no crash/error overlay
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was present on the live surface
+  - the pinned-params panel was visible by default on that section and the live surface still looked healthy after the pinned container chrome was made transparent on the canvas path
+  - residual risk: this slice now has focused unit coverage plus live CDP confirmation, but it does not yet have its own dedicated Playwright graph-space pixel probe because the attempted oracle extension was reverted as untrustworthy
+- The first visible param/control family slice is now landed for the same canary section using `Aspect Ratio` as the deterministic probe row:
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now supports retained-scene `detailBoxes`, so the canvas path can paint control-local chrome inside a section frame instead of only full-width shell bands
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures canvas-owned switch roots inside `settings-section__callableSectionDefault`, converts them into graph-space boxes, and paints retained switch-track pills for the visible switch rows on the canvas path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves default and section-style-aware switch-track colors alongside the existing shell/header/toolbar/pinned-panel chrome
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now make only the canary section's switch tracks transparent on the `canvas-shell-underlay` path while leaving the live switch buttons/thumbs interactive
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary shell-ownership probe now also samples the `Aspect Ratio` switch track pixel and passes on the live worktree runtime
+- CDP visual check is done for the switch-track slice:
+  - `Page 1` in the headless worktree session was bootstrapped, then verified on `http://127.0.0.1:3068/settings`
+  - `All Settings` was active with no crash or error-boundary overlay visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was visible on the live surface
+  - the `Aspect Ratio` row remained visible and its switch still looked intact after the DOM switch track was made transparent on the canvas path
+- The first canary resting-text slice is now landed for the same canary section using `Config Language` as the deterministic probe row:
+  - the old `Config Language` dropdown/combobox assumption is now closed as stale for this canary; the live row is a text-like `DummyCodeMirror`/CodeMirror-backed value that shows `python` at rest
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now declares the exact canary `Config Language` param info id so the resting-text handoff stays tied to one explicit product target instead of label heuristics
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now makes only that canary row's inactive `DummyCodeMirror` transparent on the `canvas-shell-underlay` path while leaving the real CodeMirror editor path intact for first-click activation
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now supports retained-scene `detailTexts`, so the canvas path can paint measured text lines in graph space instead of only shell bands and control boxes
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures the canary `Config Language` dummy text line in graph space and paints the resting `python` text into the retained canvas; that measurement drops out automatically when the live editor mounts
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Config Language` text pixel on the canvas path and that activating the dummy text node surfaces the live editor inline with no blank/detached jump
+      - note: an intermediate row-wrapper click replay hit non-target DnD/selection noise (`POST /api/setActiveIds -> 404`); the final checked-in probe dispatches activation directly to the dummy text node and passes without that side effect
+- CDP visual check is done for the `Config Language` resting-text slice:
+  - `/settings` loaded cleanly with no crash or error overlay visible
+  - `All Settings` was active on the live worktree surface
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was visible and the `Config Language` row showed resting `python` text on the canvas path
+  - activating the `Config Language` row surfaced the inline editor with no blank or detached visual jump
+- The next canary resting-text slice is now landed for the same canary section using `Column Width` as the deterministic probe row:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the canary resting-text lane as a small explicit set instead of a single param id, so the same named lane now owns both `Config Language` and `Column Width`
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures multiple canary `DummyCodeMirror` roots in graph space and paints both resting text rows into the retained canvas instead of special-casing one input id
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - the checked Playwright oracle is now slightly tighter for text rows: it counts pixels inside each measured text rect that differ from the sampled body pixel instead of treating any opaque pixel in that rect as proof
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms both the retained `Config Language` and retained `Column Width` text pixels on the canvas path while preserving the existing inline `Config Language` activation check
+- CDP visual check is done for the `Column Width` resting-text slice:
+  - `http://127.0.0.1:3068/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `settings-section__callableSectionDefault` was visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - the `Column Width` row was visible and looked intact on the canvas path
+  - no obvious blank or detached section content was visible
+  - caveat: the bootstrap URL used for the visual check had already been rejected, but the existing authenticated `/settings` session was still healthy and sufficient for the required CDP confirmation
+- The next canary resting-text slice is now landed for the same canary section using `Edge Input Params` and `Edge Output Ports` as grouped probe rows:
+  - a fresh live DOM inventory closed the remaining stale assumption here: both visible rows mount as text-like `DummyCodeMirror` / CodeMirror-backed `[]` values on this canary, so they fit the same retained-text lane instead of needing a new control-family path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the canary resting-text lane as a four-row explicit set: `Config Language`, `Column Width`, `Edge Input Params`, and `Edge Output Ports`
+  - the existing retained-scene text measurement in `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now picks up both edge rows automatically through that shared ownership set with no extra special-case path
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`, `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`, and `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms retained text pixels for `Edge Input Params` and `Edge Output Ports` in addition to the existing `Config Language` and `Column Width` checks, while preserving the inline `Config Language` activation proof
+- CDP visual check is done for the `Edge Input Params` / `Edge Output Ports` resting-text slice:
+  - `http://127.0.0.1:3068/settings` was healthy with no visible crash/error overlay
+  - `All Settings` was active
+  - `settings-section__callableSectionDefault` was visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - both `Edge Input Params` and `Edge Output Ports` were visible and looked intact on the canvas path
+  - caveat: the supplied bootstrap token had already been rejected during the CDP pass, but the existing authenticated `/settings` session remained healthy and sufficient for the required visual confirmation
+- The canary resting-text lane is now closed as a per-row allowlist lane and moved to the real ownership boundary:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats canvas-owned resting text as a canary-section rule for text-like params (`CodeParam`, `TextParam`, `TextAreaParam`) instead of enumerating individual param ids
+  - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx` and `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now mark canvas-owned dummy roots with `data-canvas-owned-resting-text="true"`, and `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those marked roots directly instead of rebuilding a manual `ParamInput` id list
+  - that change means newly covered canary text rows such as `Style Color`, `Tag Color`, and the visible `Size` subfields ride the same retained-text path automatically without another ownership-list edit
+  - focused coverage now proves the generalized rule and one newly covered row:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` with a deterministic `Style Color` probe
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - note: the first Playwright attempt in this iteration hit the expected one-shot bootstrap failure (`401` on a spent token); rerunning with a freshly minted token passed unchanged
+- CDP visual check is done for the generalized resting-text slice:
+  - `/settings` loaded with `All Settings` active and no crash/error overlay visible
+  - `settings-section__callableSectionDefault` remained visible
+  - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+  - the newly covered `Style Color` row was present and looked intact on the live canvas path
+  - caveat: the fitted headless viewport still leaves that row small, so treat this as a technical visual pass backed by the deterministic Playwright pixel probe rather than a strong human-only readability judgment
+- The next visible inactive DOM family slice is now landed for param-label text on the same canary section:
+  - the first attempt in this iteration targeted `ParamNameInput`, but a timed-out live wait plus source re-check showed the visible canary labels on this lane render through `ParamTextLabel` except for kwargs; no product code from that dead-end was kept
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamLabelRestingText(...)` so the label lane is explicit at the same canary ownership boundary as the existing resting-text/value lane
+  - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` now makes only the canary section's resting labels transparent on the `canvas-shell-underlay` path and tags them with `data-canvas-owned-resting-text="true"` so the retained scene can measure and paint them without changing the existing click-to-focus handoff
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now samples the retained `Style Color` label text separately from the retained `Style Color` value text and clicks the label to surface the inline `Style Color` editor on first click with no blank/detached jump
+- CDP visual check is done for the param-label slice:
+  - no crash/error overlay was visible on `/settings` with `All Settings` active
+  - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` remained present on the live surface
+  - the `Style Color` label looked intact on the callable canvas path
+  - clicking the `Style Color` label surfaced the inline `Style Color` editor with the `null` value rendered inline and no blank/detached jump
+- The next visible row-chrome slice is now landed for text-row underlines on the same canary section:
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `[data-canvas-owned-underline="true"]` spans in graph space, derives retained underline boxes from each span's computed border-bottom color/width, and paints those underline boxes into the retained scene alongside the existing shell chrome, switch tracks, and text
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now makes only the canary section's text-like value underline transparent on the `canvas-shell-underlay` path, tags it with `data-canvas-owned-underline="true"`, and restores the live DOM underline on `peer-focus-within/textinput` so the active blue focus state still hands off through the real editor
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Style Color` underline pixels on the live canvas path while preserving the existing inline label-click activation proof
+- CDP visual check is done for the text-row underline slice:
+  - `All Settings` was active with no visible crash/error overlay
+  - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present and visible on the live surface
+  - the `Style Color` row inside that exact canary section remained present and looked intact after the underline chrome moved to canvas ownership
+- The next visible nested-row chrome slice is now landed for the same canary section using the `Size` group guide rail:
+  - `frontend/src/components/Params/ParamContainer.tsx` now marks the canary section's nested child-row container with `data-canvas-owned-nested-guide="true"` and hides only the matching DOM `::before` guide on the `canvas-shell-underlay` path
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those marked nested child-row guides from the live DOM `::before` metrics and paints the guide rails into the retained scene alongside the existing shell chrome, switch tracks, labels, values, and underlines
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/components/Params/ParamContainer.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Size` nested guide pixel on the live canvas path while preserving the existing shell/toolbar/text/underline ownership checks
+  - focused Vitest verification for the touched ParamContainer test file is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx`
+    - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done for the `Size` nested-guide slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` remained present on the live surface
+  - the nested `Size` subtree was present and its left guide rail looked intact on the retained canvas path
+  - note: the DOM pseudo-element for that guide is now intentionally `opacity: 0` on the canvas path; the visible rail should come from the retained canvas instead of the live DOM
+- The callable row-decoration lane is now closed at its useful ownership boundary:
+  - a focused 1x headless Playwright DOM inventory on `settings-section__callableSectionDefault` found no additional default-visible inactive row chrome beyond the already-moved shell/header/text/underline/nested-guide layers
+  - the remaining visible DOM on that callable canary is limited to intentional live interactive cores: toolbar/menu buttons and icons plus switch thumbs/buttons
+  - another callable-only retained-canvas micro-slice would be churn unless a new defect appears on that same named section
+- The next param-heavy family lane is now named and ready:
+  - canonical target section: `settings-section__dictSectionDefault`
+  - a matching 1x headless Playwright inventory on that section shows it reuses the same visible row families (`Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Size`, `Style Color`, `Tag Color`) and adds dict-specific search/filter chrome through `input#settings-section__dictSectionDefault-args-filter`
+  - the next product slice should start there instead of reopening callable row-decoration
+- The first dict-section shared-family slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the owned shell lane as a small explicit section set instead of a single callable id, so both the callable and dict canaries ride the same retained shell/text/label ownership boundary
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now builds retained measurements per owned section instead of assuming one global canary node, while keeping the callable-only toolbar and pinned-panel bands scoped to `settings-section__callableSectionDefault`
+  - that change lets `settings-section__dictSectionDefault` inherit the already-proven retained shell/header/text/switch/underline/nested-guide path without introducing a dict-specific renderer branch yet
+  - the dict search/filter surface remains intentionally DOM-owned in this slice; it is still present via `input#settings-section__dictSectionDefault-args-filter` and is now the next real section-specific chrome frontier
+  - focused coverage now exists for the dict expansion:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - the retained nested-guide oracle needed one bounded normalization after the multi-section expansion:
+    - the old center-pixel sample on the tiny `Size` guide rail became brittle once both canary sections shared the same retained scene
+    - both Playwright probes now count guide-rect pixels distinct from the sampled body pixel instead of trusting one center sample; treat that as the new trusted guide oracle for the shared callable/dict lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the dict shared-family slice:
+  - `/settings` loaded cleanly in a fresh headless DevTools page with `All Settings` active
+  - no crash/error-boundary overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - both `settings-section__callableSectionDefault` and `settings-section__dictSectionDefault` were present and looked intact on the live canvas path
+  - the dict filter/search surface remained present on the live DOM-owned path as expected for this slice
+- The next dict-specific filter/search slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamFilterUnderline(...)` and scopes that ownership rule to the dict canary only instead of treating the filter input as part of the shared-family lane
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now gives the dict filter input a dedicated retained-underline handoff on the `canvas-shell-underlay` path by:
+    - keeping the live input text/editor DOM-owned
+    - making the input's resting DOM border transparent only on the dict canvas path
+    - adding a sibling underline span tagged with `data-canvas-owned-underline="true"` so the existing retained-scene underline measurement paints the idle filter underline on canvas while the blue focus underline still hands off through the live DOM peer-focus state
+  - no new retained-scene primitive was needed for this slice; it intentionally reuses the existing underline measurement/rendering path instead of opening another renderer branch
+  - focused coverage now exists for this dict-specific ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the filter underline ownership flag, the transparent resting DOM border, and distinct retained-canvas underline pixels while preserving the existing dict shared-family shell/text/switch/underline/nested-guide checks
+  - verification caveats closed in this iteration:
+    - the first Playwright rerun failed on a stale bootstrap token (`401`); refresh runtime info before rerunning that probe instead of treating that as renderer drift
+    - an attempted direct click/fill interaction add-on for the dict filter triggered `POST /api/setActiveIds -> 404` in the current headless harness; that interaction add-on was removed from the checked oracle because this slice changed only the visual underline ownership, not filter-editing behavior
+- CDP visual check is done for the dict filter-underline slice:
+  - `/settings` loaded cleanly in the worktree UI slice with `All Settings` active
+  - no crash/error overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was present on the live surface
+  - the dict filter/search row looked intact and its underline remained visible after the resting underline moved to retained canvas ownership
+- The next dict-specific filter/search slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamFilterIcon(...)` and scopes that ownership rule to the dict canary only, so the static filter icon is tracked as part of the same dict-specific lane instead of reopening shared-family ownership work
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now tags the dict filter row's static `gg-sort-az` icon with `data-canvas-owned-filter-icon="true"` and hides only the resting DOM icon with `opacity-0` on the `canvas-shell-underlay` path while keeping the live filter input text/editor behavior unchanged
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those tagged dict filter icons with the fixed `gg-sort-az` bar geometry and paints their three retained bars into the existing detail-box pass, so no new retained-scene primitive was needed for this slice
+  - focused coverage now exists for this dict-specific icon ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the hidden DOM filter icon flag, the retained-canvas icon pixels, and the existing dict shell/text/switch/underline/nested-guide checks on the live worktree runtime
+- CDP visual check is done for the dict filter-icon slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__dictSectionDefault"]` was present and visible
+  - the dict filter/search row looked intact after the static filter icon moved to retained canvas ownership
+- The dict filter/search micro-lane is now closed at its useful ownership boundary:
+  - re-read `frontend/src/components/Section/SectionParts/KwargsControls.tsx` and ran a fresh live inventory on `settings-section__dictSectionDefault` instead of opening a third filter-row ownership hop after the underline/icon slices
+  - on the `canvas-shell-underlay` path, the row now contains only the live `search` wrapper plus the live `input#settings-section__dictSectionDefault-args-filter` editor core as visible DOM; the static `gg-sort-az` icon and underline span remain mounted only as hidden handoff surfaces with `opacity: 0`
+  - the adjacent `Param Filter` label row is also already hidden on the DOM side because it rides the shared retained-text lane, so there is no remaining default-visible non-editor filter/search chrome still DOM-owned on this section
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe still passes on the live worktree runtime while the lane-closure inventory confirms the remaining visible filter-row DOM is only the live editor core
+- CDP visual check is done for the dict filter/search lane-closure slice:
+  - `/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted and healthy
+  - `section[data-section-id="settings-section__dictSectionDefault"]` was present on the live surface
+  - the visible filter/search row was limited to the live `input#settings-section__dictSectionDefault-args-filter` editor core; the static icon, underline, and `Param Filter` label remained in DOM only as hidden handoff surfaces on the canvas path
+- The next dict-specific kwargs-controls slice is now landed for `settings-section__dictSectionDefault`:
+  - a fresh normal-zoom live inventory on the dict canary closed the previous closure assumption: once the section is framed large enough, the kwargs-controls `Args` label is visible default-inactive chrome outside the filter row, so the broader dict lane was not actually done yet
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionArgsLabelRestingText(...)` and scopes that ownership rule to the dict canary only, so this stays a dict-lane product slice instead of reopening callable/shared-family work by inertia
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now tags only that dict `Args` label with `data-canvas-owned-resting-text="true"` and hides the resting DOM label with `opacity-0` on the `canvas-shell-underlay` path while leaving the live toolbar buttons and filter editor DOM-owned
+  - no new retained-scene primitive was needed for this slice; it intentionally reuses the existing retained resting-text measurement/rendering path instead of opening another renderer branch
+  - focused coverage now exists for this dict-specific ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+      - the trusted dict probe now performs one bounded zoom-to-section + forced subtree remeasure so it can assert the `Args` label is visible at normal section zoom, hidden on the DOM side, and repainted by the retained canvas before the existing inline-editor checks continue
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the hidden DOM `Args` label flag plus distinct retained-canvas text pixels at normal section zoom while preserving the existing dict shell/text/switch/underline/nested-guide and inline `Style Color` activation checks
+- CDP visual check is done for the dict `Args` label slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was visible on the live surface
+  - after panning/zooming the graph to frame the dict section, the kwargs-controls row still looked intact once the DOM `Args` label was made transparent on the canvas path
+  - caveat: the provided bootstrap token had already been rejected during the CDP pass, so the visual check reused the still-healthy authenticated frontend session at `http://127.0.0.1:3068/settings`
+- The broader dict lane is now closed at its useful ownership boundary:
+  - the filter/search micro-lane is already closed
+  - the only remaining default-visible kwargs-controls DOM at normal dict zoom is now the live interactive core: toolbar buttons/icons inside buttons plus the live filter editor input
+  - do not spend another iteration on `settings-section__dictSectionDefault` shell/text/filter/kwargs-label ownership unless a new defect appears there
+- The first GlobalVariables shared-family slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes the GlobalVariables canary in the explicit retained-shell section set, so the section rides the same shared-family shell/text/label ownership boundary as the callable and dict canaries.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that third owned section directly, so the live GlobalVariables surface can paint retained shell/header chrome plus the existing shared switch/text/underline/nested-guide primitives without opening a new section-specific renderer branch.
+  - shared-family ownership is now live on that section for the currently checked inactive chrome:
+    - shell/header
+    - `Aspect Ratio` switch track
+    - resting `Config Language` and `Style Color` text
+    - the `Style Color` label and underline
+    - the `Size` nested guide rail
+  - the GlobalVariables kwargs/filter surface remains intentionally DOM-owned in this slice:
+    - the visible `Args` label still renders through DOM
+    - `input#settings-section__globalVariablesSectionDefault-args-filter` stays the live editor core
+    - no dict-only filter-icon / filter-underline handoff markers are attached there yet
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the new GlobalVariables probe passed on the live worktree runtime and confirmed retained shell/text/switch/guide pixels plus inline `Style Color` activation
+- CDP visual check is done for the GlobalVariables shared-family slice:
+  - `/settings` loaded on the live worktree runtime with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__globalVariablesSectionDefault"]` was visible on the live surface
+  - the section looked intact after moving its shared shell/text/switch/guide chrome to retained canvas ownership
+- The next GlobalVariables kwargs-controls slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now extends `isCanvasOwnedSectionArgsLabelRestingText(...)` to the GlobalVariables canary, so this stayed a real GlobalVariables product slice instead of reopening dict-only ownership work
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` did not need a new renderer branch for this lane because the existing `data-canvas-owned-resting-text="true"` handoff already covered the `Args` label once the ownership rule included the GlobalVariables section
+  - `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` now performs one bounded normal-zoom label probe on that section:
+    - it reframes the GlobalVariables node to normal section zoom
+    - forces one retained-scene remeasure
+    - confirms the visible `Args` label is hidden on the DOM side and repainted by the retained canvas before continuing the existing inline `Style Color` activation proof
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted GlobalVariables probe now confirms the hidden DOM `Args` label plus retained-canvas text pixels at normal section zoom while preserving the existing shared-family shell/text/switch/guide and inline editor checks
+- CDP visual check is done for the GlobalVariables `Args` label slice:
+  - `http://127.0.0.1:3068/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - after reframing the section at normal zoom, the kwargs-controls row still looked intact with the DOM `Args` label transparent on the canvas path
+  - caveat: the fresh bootstrap token was rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend session instead
+- The next GlobalVariables filter/search slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - a fresh normal-zoom live inventory closed the stale next-step assumption from the prior handoff: the filter input's resting underline is not visible at normal section zoom on this lane, but the static `gg-sort-az` filter icon is visible default-inactive chrome
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now extends `isCanvasOwnedSectionParamFilterIcon(...)` to the GlobalVariables canary, so this stayed a real GlobalVariables product slice instead of copying the earlier dict underline step by inertia
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` did not need a new renderer branch for this lane because the existing `data-canvas-owned-filter-icon="true"` + `opacity-0` handoff already covered the static icon once the ownership helper included the GlobalVariables section
+  - `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` now proves the actual visible boundary on that section:
+    - the static filter icon is hidden on the DOM side
+    - distinct retained-canvas icon pixels are present using the icon's pseudo-element union rect
+    - the filter underline still has no GlobalVariables ownership marker on this path
+    - the live filter input/editor core remains visible
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted GlobalVariables probe passed on the live worktree runtime with the new retained filter-icon assertions
+- CDP visual check is done for the GlobalVariables filter-icon slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - the filter/search row still looked intact after the static filter icon moved to retained canvas ownership
+  - the live filter input/editor core remained visible on the DOM path
+- The broader GlobalVariables lane is now closed at its useful ownership boundary:
+  - a fresh 2026-04-18 focused Playwright rerun of `tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` still passed unchanged on the live worktree runtime after the latest filter-icon slice
+  - a same-day headless CDP inventory on `settings-section__globalVariablesSectionDefault` at normal section zoom confirmed the retained canvas is mounted and the row remains visually intact
+  - the only remaining visible kwargs/filter DOM on that row is the interactive core:
+    - the standard action-strip buttons/icons inside buttons
+    - the live filter `<input>` / editor core
+  - the `Param Filter` label is still present in DOM but not visibly rendered (`opacity-0`), and no additional default-visible filter/search chrome remains to move
+  - keep the GlobalVariables filter input/editor core and action-strip controls DOM-owned unless a concrete product requirement appears there
+- The first non-forwarding Pixi-owned camera/viewport seam is now landed on the `settings` canary path using `settings-section__callableSectionDefault` as the visual target:
+  - `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` is now the real composition boundary for viewport ownership on the active `canvas-shell-underlay` path instead of inheriting an outer `ViewportWrapper` from `ReactFlow.tsx`
+  - new `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx` now applies the shared React Flow transform to the retained canvas layer from store state, so the retained section-shell canvas no longer depends on DOM viewport nesting for its camera transform
+  - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` now renders `GraphSurface` directly inside `FlowRenderer`, leaving `GraphSurface` to decide whether a surface implementation uses the DOM viewport wrapper, a sibling camera layer, or both
+  - `frontend/src/forks/xyflow/core/styles/init.css` now defines `.react-flow__graph-surface-camera` as a non-interactive transform layer that sits below the DOM viewport
+  - focused coverage now exists at `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` for the new sibling camera-layer boundary, but executing that Vitest file is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - focused verification passed for the live seam:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/GraphSurface.test.tsx src/forks/xyflow/core/container/ReactFlow.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (29.6s)` on the live worktree runtime
+- CDP visual check is done for the sibling camera-layer seam:
+  - `/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - one retained section-shell canvas was mounted
+  - `.react-flow__graph-surface-camera` was present as a sibling immediately before `.react-flow__viewport`
+  - `settings-section__callableSectionDefault` remained visible and populated with no blank or detached section body
+  - caveat: the supplied bootstrap token was already rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend route instead of the bootstrap URL
+- The next camera-lane transform-authority slice is now landed:
+  - canonical lane target remains `settings-section__callableSectionDefault`
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` no longer parses `.react-flow__viewport` computed CSS back from DOM to recover zoom scale for retained switch/underline/filter-icon/nested-guide/resting-text measurements
+  - the retained measurement path now reads shared React Flow zoom state through `useReactFlow((state) => state.transform[2])` and threads that scale into all retained graph-space measurement helpers
+  - new `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts` centralizes graph-space rect normalization, so measurement math now stays coupled to the same store-owned transform authority as the sibling camera layer instead of a second DOM readback source
+  - the retained measurement layout-refresh key now includes normalized viewport scale, so zoom changes force a fresh retained measurement pass without waiting for an unrelated DOM mutation
+  - focused coverage now exists at `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts` proving the new helper returns stable graph-space offsets/sizes across equivalent `1x` and `2x` viewport measurements
+- focused verification passed for the transform-authority slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-021/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.0s)` on the live worktree runtime
+- CDP visual check is done for the transform-authority slice:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` and `.react-flow__graph-surface-camera` were both present on the live surface
+  - `settings-section__dictSectionDefault` was checked at usable zoom because the shared dict probe exercises the retained shell/text/icon/underline primitives touched by this slice
+  - no crash/error overlay, blank/detached content, or obvious shell/text/icon/underline breakage was visible on that section
+  - the CDP pass reused the existing authenticated frontend session; the bootstrap URL was not needed
+- The fresh dense `settings` -> `All Settings` measurement rerun is now landed as the next durable perf report:
+  - new report: `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`
+  - `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` now clicks the real React Flow `fit view` control and waits for a meaningfully dense mounted surface before sampling metrics, because the current landing state can otherwise open into a non-dense close-in view
+  - the normalized rerun landed back on the same baseline viewport start state (`x=759.9`, `y=-51.75`, `zoom=0.1`) and restored the same end state after the scripted transform loop
+  - durable dense-scene metrics on the retained-canvas path now read:
+    - `flowNodeCount: 46`
+    - `visibleFlowNodeCount: 46`
+    - `documentNodeCount: 9517`
+    - `buttonCount: 507`
+    - `canvasCount: 1`
+    - `raf.meanMs: 111.45`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 18159`
+  - compared against the durable pre-change baseline at `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`, that rerun shows a real dense-scene motion win:
+    - `raf.meanMs` improved from `204.93` to `111.45`
+    - `longTasks.totalMs` improved from `36337` to `18159`
+    - `documentNodeCount` only dropped from `9553` to `9517`, so the dominant remaining blocker is still the live inactive row/widget DOM rather than more closed canary shell/text micro-lanes
+- focused verification passed for the dense measurement/report slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-baseline.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-022/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.9s)` on the live worktree runtime with `visibleFlowNodeCount: 46`
+- CDP visual check is done for the dense measurement/report slice:
+  - `/settings` opened successfully in headless Chrome DevTools on the current worktree runtime
+  - `All Settings` was activated and the real `fit view` control was clicked
+  - the React Flow viewport was normalized (`matrix(0.133509, 0, 0, 0.133509, 2653.05, 62.1818)`)
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - no visible crash/error overlay was present
+- The next dense inactive-text DOM reduction slice is now landed on the shared callable/dict/GlobalVariables retained path:
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now short-circuits `canvasOwnedRestingText` to a lightweight focusable activator root instead of keeping hidden syntax-highlight span trees mounted under `opacity-0`
+  - single-line canvas-owned rows now collapse to one lightweight root node, while multiline rows keep only plain `.cm-line` wrappers for measurement instead of highlighted token spans
+  - first-click activation is preserved because the lightweight root still owns the same `onMouseDownCapture` / focus handoff used to mount the real inline CodeMirror editor
+  - focused coverage now exists at `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` now proves the live callable canary uses the lightweight path by requiring `data-canvas-owned-resting-text-lightweight="true"` and zero highlighted `.cm-line span` descendants on owned `Config Language`, `Column Width`, and `Style Color` rows
+  - a fresh dense rerun is recorded at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`
+  - that rerun moved the intended blocker metric:
+    - `documentNodeCount` dropped from `9517` to `9457` versus the prior retained-canvas dense rerun
+    - `documentNodeCount` is now down `96` from the durable `go-rewrite` baseline (`9553` -> `9457`)
+    - motion stayed roughly flat (`raf.meanMs 111.45 -> 113.5`, `longTasks.totalMs 18159 -> 18520`), so treat this slice as a DOM-cost reduction prerequisite rather than a new motion win
+- CDP visual check is done for the lightweight resting-text slice:
+  - `All Settings` mounted cleanly on the live worktree runtime
+  - `settings-section__callableSectionDefault` remained visible on the retained canvas path
+  - the canary text rows still looked intact after the dummy text DOM became lightweight
+  - activating the `Style Color` row surfaced the inline editor (`#ff0000`) with no blank or detached canvas jump
+- The next dense resting-text rollout slice is now landed on `settings-section__sectionSizingPolicy`:
+  - canonical target section for the active dense list/object lane is now `settings-section__sectionSizingPolicy`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now separates shell-owned sections from resting-text-owned sections, so `settings-section__sectionSizingPolicy` can ride the retained text/underline path without reopening another shell-transparency lane
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained detail text/underline visuals for that dense section while leaving its shell/header/toolbar DOM-owned
+  - focused coverage now exists for the ownership split:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`
+  - dense rerun outcome versus the prior lightweight-text report:
+    - `documentNodeCount` dropped from `9457` to `9181`
+    - `documentNodeCount` is now down `372` from the durable `go-rewrite` baseline (`9553` -> `9181`)
+    - motion stayed effectively flat (`raf.meanMs 113.5 -> 114.24`, `longTasks.totalMs 18520 -> 18839`), so treat this as a dense DOM-cost reduction slice rather than a new camera/rendering win
+- focused verification passed for the section-sizing-policy resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.4s)` on the live worktree runtime with `documentNodeCount: 9181`
+- CDP visual check is done for the section-sizing-policy resting-text slice:
+  - `/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was present on the live surface
+  - the Browser `maxHeight` row looked intact after the resting text DOM was hidden on the canvas path
+  - focusing `settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight-ParamInput` surfaced the inline editor with no obvious blank/detached jump or layout shift
+
+## Preservation rule
+
+- `origin/go-rewrite` is the product-architecture source of truth for this restart.
+- `/home/ubuntu/dev/setta` is the read-only reference worktree when a side-by-side compare is needed.
+- Prior Pixi/frontend-performance branches are research inputs only.
+- Port ideas, helpers, instrumentation, and narrow code slices from older branches only where they fit the `go-rewrite` structure.
+- Do not undo broad `go-rewrite` refactors just to recreate an older branch shape.
+- If Ralph hits a frontend compile blocker during bootstrap, the allowed response is a narrow `go-rewrite`-native source repair only.
+- Do not restore deleted generated exports or reintroduce old branch scaffolding just to satisfy stale imports.
+- If unblocking the build would require broad rollback of the `go-rewrite` refactor, stop and record that as a blocker/replan instead of doing it.
+
+## Why this restart exists
+
+The prior work established three things:
+
+1. The main `All Settings` bottleneck is the visible live row/widget subtree.
+2. Simple DOM cleanup was not enough.
+3. A renderer change alone does not help if visible heavyweight DOM still stays fully live.
+
+That leaves one primary architectural move:
+
+- make the default visible graph surface cheap by design
+
+## Immediate next actions
+
+1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
+2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
+3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
+4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
+5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`, and `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`.
+7. Use that three-report retained-canvas chain as the current benchmark sequence: motion improved materially from baseline, the lightweight callable/dict/globalVariables slice pushed `documentNodeCount` to `9457`, and the new dense `sectionSizingPolicy` rollout pushed it again to `9181`, but dense `All Settings` still carries more than `9.1k` DOM nodes and more than `500` buttons on the live surface.
+8. The next bounded product slice should stay on the same canonical dense target section `settings-section__sectionSizingPolicy` and attack the first non-text inactive control subtree there, likely one of the repeated closed dropdown/meta-control rows or another repeated non-text row family; do not reopen another callable/dict/GlobalVariables shell/text/filter/kwargs ownership lane unless a concrete visual regression forces it.
+
+## First product frontier
+
+The first product frontier is not:
+
+- another broad DOM cleanup pass
+- another shell-only Pixi experiment
+- parity polishing before the perf floor moves
+
+The first product frontier is:
+
+- a real graph-surface composition boundary on the `settings` canary path
+- with one retained scene canvas now mounted under the DOM section nodes as the first renderer-owned static layer
+- with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
+- with the same canary section now also painting a canvas-owned header band/divider from the measured header height
+- with the same canary section now also painting a canvas-owned callable toolbar band while the live controls remain interactive
+- with the same canary section now also painting canvas-owned switch tracks for visible switch rows while the live switch thumbs/buttons remain interactive
+- with the same canary section now also painting the resting `Config Language` text in the retained canvas while the live CodeMirror editor still activates inline on first click
+- with the same canary section now also painting the resting `Column Width`, `Edge Input Params`, and `Edge Output Ports` text in the retained canvas while the live editors remain available
+- with the same canary section now also painting the resting `Style Color` label text in the retained canvas while label clicks still hand off directly to the inline `Style Color` editor
+- with the same canary section now also painting the shared text-row underlines in the retained canvas while the live blue focus underline still reappears from DOM on activation
+- with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
+- with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
+- with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
+- with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
+- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and use the new dense rerun evidence to land the next graph-surface product slice that materially reduces inactive row/widget DOM cost; only reopen a section-specific ownership lane if a fresh visual defect appears
+
+## Hard rules
+
+- No second click to edit.
+- No visible layout jump when a field becomes editable.
+- No progress claims from narrow canaries while dense `All Settings` still performs badly.
+- Keep the append-only log and handoff current from the first worktree bootstrap step onward.
+- Do not let the loop backslide into undoing `go-rewrite` architecture to mimic older branches.
