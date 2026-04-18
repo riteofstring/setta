@@ -386,6 +386,45 @@ func TestRegisterLSPRoutesRestartsLanguageServer(t *testing.T) {
 	}
 }
 
+func TestRegisterLSPRoutesReturnsExplicitErrorWhenLanguageServerIsUnconfigured(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := completionRouteTestRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	admin := &stubLSPAdminService{restartErr: lsp.ErrLanguageServerNotConfigured}
+	handler := newLSPRouteTestHandlerWithAdmin(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		nil,
+		admin,
+	)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRestartLanguageServer, strings.NewReader("null"))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode restart error response: %v", err)
+	}
+	if payload.Error.Code != "language_server_not_configured" {
+		t.Fatalf("expected language_server_not_configured code, got %#v", payload.Error)
+	}
+	if payload.Error.Message != "Language server is not configured. Select a plugin and restart after it is available." {
+		t.Fatalf("unexpected restart error message %#v", payload.Error)
+	}
+}
+
 // Manual type-check should target the requested project through the Go-owned
 // admin surface instead of the Python manager helper.
 func TestRegisterLSPRoutesTypeChecksProject(t *testing.T) {

@@ -38,6 +38,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
+	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/transcriptionprofiles"
 )
 
@@ -8976,7 +8977,7 @@ func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSecti
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppRealBasedpyright(t)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8987,6 +8988,7 @@ func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSecti
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
 
 	seedAppRootWatchCodeBoundSectionProject(t, app)
 	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
@@ -9061,7 +9063,7 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	prepareAppRealBasedpyright(t)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9072,6 +9074,7 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
 	if err := project.SetCode("section-main", "def cool_fn(a,b,c):\n    print(\"dog\")\n"); err != nil {
@@ -10041,6 +10044,128 @@ func TestAppLinkedPluginCodegenTargetsBecomeAvailableAfterLink(t *testing.T) {
 	}
 }
 
+func TestAppStartsWithoutPythonLanguageServerPluginOrSelection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(
+		app.SettingsState().Snapshot().Document,
+		"python",
+	)
+	if err != nil {
+		t.Fatalf("python language-server selection: %v", err)
+	}
+	if ok || selection != nil {
+		t.Fatalf("expected missing Python selection by default, got ok=%v selection=%#v", ok, selection)
+	}
+
+	seedAppLSPCodeSectionProjectWithSource(t, app, "math.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		Status struct {
+			Plugins []plugins.PluginStatusEntry `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 0 {
+		t.Fatalf("expected no installed plugins at startup, got %#v", runtimePayload.Status.Plugins)
+	}
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"math.",
+		len("math."),
+	)
+	if len(completions) != 0 {
+		t.Fatalf("expected no Python completions without a selected plugin, got %#v", completions)
+	}
+
+	diagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if diagnostics.ProjectID != "project-alpha" {
+		t.Fatalf("expected diagnostics payload for project-alpha, got %#v", diagnostics.ProjectID)
+	}
+	if len(diagnostics.CodeSections) != 0 {
+		t.Fatalf("expected empty code-section diagnostics without a selected plugin, got %#v", diagnostics.CodeSections)
+	}
+	if len(diagnostics.UnmappedGenCode) != 0 {
+		t.Fatalf("expected no unmapped generated diagnostics without a selected plugin, got %#v", diagnostics.UnmappedGenCode)
+	}
+	if len(diagnostics.GenCode.Errors) != 0 {
+		t.Fatalf("expected no generated-code diagnostics without a selected plugin, got %#v", diagnostics.GenCode.Errors)
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart conflict when no plugin is selected, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	var restartPayload struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+		t.Fatalf("decode restart response: %v", err)
+	}
+	if restartPayload.Error.Code != "language_server_not_configured" {
+		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+	}
+	if restartPayload.Error.Message != "Language server is not configured. Select a plugin and restart after it is available." {
+		t.Fatalf("unexpected restart error message %#v", restartPayload.Error)
+	}
+}
+
 func TestAppStartsWithPluginLanguageServerCompletion(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -10061,6 +10186,7 @@ func TestAppStartsWithPluginLanguageServerCompletion(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
 
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
 
@@ -10096,6 +10222,7 @@ func TestAppLinkedPluginLanguageServerBecomesAvailableAfterLink(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
 
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
 
@@ -10142,6 +10269,404 @@ func TestAppLinkedPluginLanguageServerBecomesAvailableAfterLink(t *testing.T) {
 	completions = requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8)
 	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
 		t.Fatalf("unexpected linked plugin completions %#v", completions)
+	}
+}
+
+func TestAppLinkedSelectedBasedpyrightPublishesDiagnosticsAfterLink(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "python", "setta-basedpyright")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "print(missing_name)\n")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	initialDiagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if len(initialDiagnostics.CodeSections) != 0 {
+		t.Fatalf("expected no diagnostics before linking selected plugin, got %#v", initialDiagnostics.CodeSections)
+	}
+
+	localPluginRoot := filepath.Join(t.TempDir(), "setta-basedpyright")
+	copyAppTestDir(t, filepath.Join(appTestRepoRoot(t), "plugins", "setta-basedpyright"), localPluginRoot)
+	requestBody := mustAppJSON(t, map[string]any{
+		"localPluginRoot": localPluginRoot,
+		"scope":           "workspace",
+		"enable":          true,
+		"force":           true,
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsLink, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins link request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins link: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins link 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+	var linkPayload struct {
+		RestartRequired bool `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&linkPayload); err != nil {
+		t.Fatalf("decode plugins link payload: %v", err)
+	}
+	if linkPayload.RestartRequired {
+		t.Fatalf("expected selected language-server link to reconcile without restart, got %#v", linkPayload)
+	}
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) > 0
+	})
+
+	diagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if len(diagnostics.CodeSections["runner"]) == 0 {
+		t.Fatalf("expected linked basedpyright diagnostics, got %#v", diagnostics)
+	}
+}
+
+func TestAppDisablingSelectedBasedpyrightClearsDiagnosticsWithoutRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "print(missing_name)\n")
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) > 0
+	})
+
+	requestBody := mustAppJSON(t, map[string]any{"pluginId": "setta-basedpyright"})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsDisable, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins disable request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins disable: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins disable 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+	var disablePayload struct {
+		RestartRequired bool `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&disablePayload); err != nil {
+		t.Fatalf("decode plugins disable payload: %v", err)
+	}
+	if disablePayload.RestartRequired {
+		t.Fatalf("expected selected language-server disable to reconcile without restart, got %#v", disablePayload)
+	}
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		payload := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+		return len(payload.CodeSections) == 0 && len(payload.GenCode.Errors) == 0 && len(payload.UnmappedGenCode) == 0
+	})
+
+	diagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if len(diagnostics.CodeSections) != 0 || len(diagnostics.GenCode.Errors) != 0 || len(diagnostics.UnmappedGenCode) != 0 {
+		t.Fatalf("expected diagnostics to clear after disabling selected plugin, got %#v", diagnostics)
+	}
+}
+
+func TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "python", "setta-basedpyright")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	initialStatus := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	initialEntry := mustFindAppPluginStatusEntry(t, initialStatus, "setta-basedpyright")
+	if len(initialEntry.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected unapplied selection before restart, got %#v", initialEntry.AppliedLanguageServerLanguages)
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	status := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entry := mustFindAppPluginStatusEntry(t, status, "setta-basedpyright")
+	if len(entry.AppliedLanguageServerLanguages) != 1 || entry.AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected applied python selection after restart, got %#v", entry.AppliedLanguageServerLanguages)
+	}
+}
+
+func TestAppRestartLanguageServerIgnoresBrokenUnrelatedMCPPlugin(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+	installAppPluginFixture(t, cfg, "backend-mcp-tools", "setta-fixture-backend-mcp-tools")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	if len(requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4)) == 0 {
+		t.Fatal("expected basedpyright completions before breaking unrelated MCP plugin")
+	}
+
+	brokenBackendPath := filepath.Join(
+		cfg.Paths.WorkspaceRoot,
+		".setta_plugins",
+		"setta-fixture-backend-mcp-tools",
+		"backend",
+		"main.go",
+	)
+	if err := os.WriteFile(brokenBackendPath, []byte("package main\n\nfunc main() {\n\tbroken\n}\n"), 0o644); err != nil {
+		t.Fatalf("break backend mcp plugin: %v", err)
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200 with unrelated broken MCP plugin, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	if len(requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4)) == 0 {
+		t.Fatal("expected basedpyright completions after restart with unrelated broken MCP plugin")
+	}
+}
+
+func TestAppStartsWithFirstPartyBasedpyrightPluginCompletion(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected basedpyright completions from first-party plugin")
+	}
+}
+
+func TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+
+	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
+	if existingPythonPath == "" {
+		t.Setenv("PYTHONPATH", sitePackages)
+	} else {
+		t.Setenv("PYTHONPATH", sitePackages+string(os.PathListSeparator)+existingPythonPath)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(app.SettingsState().Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected bootstrapped defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+	if app.pluginRuntime == nil || !app.pluginRuntime.HasConfiguredLanguageServers() {
+		t.Fatal("expected defaults profile plugin runtime to configure Python language servers")
+	}
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected basedpyright completions from defaults profile package-manager plugin")
+	}
+}
+
+func TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightWithoutGoToolchain(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
+	t.Setenv("SETTA_GO_BIN", filepath.Join(t.TempDir(), "missing-go"))
+	t.Setenv("GO", filepath.Join(t.TempDir(), "missing-go"))
+	t.Setenv("PATH", t.TempDir())
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+
+	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
+	if existingPythonPath == "" {
+		t.Setenv("PYTHONPATH", sitePackages)
+	} else {
+		t.Setenv("PYTHONPATH", sitePackages+string(os.PathListSeparator)+existingPythonPath)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(app.SettingsState().Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected bootstrapped defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+	if app.pluginRuntime == nil || !app.pluginRuntime.HasConfiguredLanguageServers() {
+		t.Fatal("expected defaults profile plugin runtime to configure Python language servers without go")
+	}
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected basedpyright completions from defaults profile package-manager plugin without go")
 	}
 }
 
@@ -10815,6 +11340,56 @@ func fetchAppLatestLSPDiagnostics(
 	return payload
 }
 
+func fetchAppPluginRuntimeStatus(
+	t *testing.T,
+	serverURL string,
+	cookie *http.Cookie,
+) []plugins.PluginStatusEntry {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodGet, serverURL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	request.AddCookie(cookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Status struct {
+			Plugins []plugins.PluginStatusEntry `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	return payload.Status.Plugins
+}
+
+func mustFindAppPluginStatusEntry(
+	t *testing.T,
+	entries []plugins.PluginStatusEntry,
+	pluginID string,
+) plugins.PluginStatusEntry {
+	t.Helper()
+
+	for _, entry := range entries {
+		if entry.PluginID == pluginID && entry.ShadowedBySourcePath == nil {
+			return entry
+		}
+	}
+	t.Fatalf("expected plugin status entry %q in %#v", pluginID, entries)
+	return plugins.PluginStatusEntry{}
+}
+
 func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projectstate.Document) error {
 	t.Helper()
 
@@ -11289,12 +11864,11 @@ func prepareAppLSPFixture(t *testing.T) {
 	)
 }
 
-func prepareAppRealBasedpyright(t *testing.T) {
+func prepareAppFirstPartyBasedpyrightPlugin(t *testing.T, cfg config.Config) {
 	t.Helper()
 
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_LSP_COMMAND", filepath.Join(repoRoot, ".venv", "bin", "basedpyright-langserver"))
-	t.Setenv("SETTA_LSP_ARGS", "--stdio")
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
+	installAppRepoPlugin(t, cfg, "setta-basedpyright")
 }
 
 func prepareAppPluginLanguageServerFixture(t *testing.T) {
@@ -11517,6 +12091,38 @@ func installAppPluginFixture(t *testing.T, cfg config.Config, fixtureName string
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
 	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
+func installAppRepoPlugin(t *testing.T, cfg config.Config, pluginID string) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", pluginID)
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
+	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
+func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID string) {
+	t.Helper()
+
+	setAppLanguageServerSelectionWithoutRefresh(t, app, language, pluginID)
+	if _, err := app.pluginRuntime.Refresh(context.Background()); err != nil {
+		t.Fatalf("refresh plugin runtime after selection change: %v", err)
+	}
+}
+
+func setAppLanguageServerSelectionWithoutRefresh(t *testing.T, app *App, language string, pluginID string) {
+	t.Helper()
+
+	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		languageServerSettings := document["languageServer"].(map[string]any)
+		languageServerSettings["selectedByLanguage"] = map[string]any{
+			language: pluginID,
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("save language server selection: %v", err)
+	}
 }
 
 func rewriteAppPluginManifest(t *testing.T, pluginRoot string, mutate func(map[string]any)) {

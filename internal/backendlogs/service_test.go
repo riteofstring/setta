@@ -59,7 +59,7 @@ func TestServiceLogAndBroadcastScopesToMatchingShareSession(t *testing.T) {
 		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
 	}
 
-	var event Event
+	var event BackendLogEvent
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestServiceLogAndBroadcastDefaultsUILogThresholdToEffectiveLoggerLevel(t *t
 		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
 	}
 
-	var event Event
+	var event BackendLogEvent
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}

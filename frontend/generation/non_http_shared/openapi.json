@@ -502,14 +502,10 @@
         "additionalProperties": false,
         "properties": {
           "actions": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "appSpecPath": {
             "type": "string"
@@ -531,14 +527,10 @@
             "type": "string"
           },
           "dataBindings": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "routes": {
             "items": {
@@ -675,7 +667,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "projectConfigId": {
             "type": ["null", "string"]
@@ -844,6 +836,35 @@
         },
         "required": ["context", "endpointName", "payload"],
         "title": "BackendListenerEndpointRequest",
+        "type": "object"
+      },
+      "BackendLogEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": ["null", "string"]
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "projectConfigId",
+          "severity",
+          "message",
+          "timestamp"
+        ],
+        "title": "BackendLogEvent",
         "type": "object"
       },
       "BackendRequestContext": {
@@ -1243,6 +1264,9 @@
             "$ref": "#/components/schemas/PromptSectionImpl"
           },
           {
+            "$ref": "#/components/schemas/MetaControlSectionImpl"
+          },
+          {
             "$ref": "#/components/schemas/GlobalVariablesSectionImpl"
           },
           {
@@ -1256,6 +1280,9 @@
           },
           {
             "$ref": "#/components/schemas/TerminalSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/IFrameSectionImpl"
           },
           {
             "$ref": "#/components/schemas/ChatSectionImpl"
@@ -1614,8 +1641,9 @@
             "type": "number"
           },
           "points": {
+            "default": [],
             "items": true,
-            "type": ["null", "array"]
+            "type": "array"
           },
           "strokeStyle": {
             "type": "string"
@@ -1661,8 +1689,9 @@
             "type": "number"
           },
           "points": {
+            "default": [],
             "items": true,
-            "type": ["null", "array"]
+            "type": "array"
           },
           "strokeStyle": {
             "type": "string"
@@ -2006,6 +2035,36 @@
         "title": "CanvasPoint",
         "type": "array"
       },
+      "ChangeParamImplUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "allParamCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "controlCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "sectionParamCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "allParamCodeObjTypes",
+          "controlCodeObjTypes",
+          "sectionParamCodeObjTypes"
+        ],
+        "title": "ChangeParamImplUIConfigValue",
+        "type": "object"
+      },
       "ChartDataArtifact": {
         "additionalProperties": false,
         "properties": {
@@ -2196,7 +2255,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "name": {
             "type": "string"
@@ -2310,7 +2369,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "parentBranchId": {
             "type": ["null", "string"]
@@ -2570,7 +2629,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "toolCallArguments": {
             "additionalProperties": {
@@ -2920,6 +2979,9 @@
                   "$ref": "#/components/schemas/PromptSectionImpl"
                 },
                 {
+                  "$ref": "#/components/schemas/MetaControlSectionImpl"
+                },
+                {
                   "$ref": "#/components/schemas/GlobalVariablesSectionImpl"
                 },
                 {
@@ -2933,6 +2995,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TerminalSectionImpl"
+                },
+                {
+                  "$ref": "#/components/schemas/IFrameSectionImpl"
                 },
                 {
                   "$ref": "#/components/schemas/ChatSectionImpl"
@@ -3689,14 +3754,10 @@
             "type": "string"
           },
           "sharedModifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": "object"
           },
           "unsharedKeys": {
             "items": {
@@ -4423,10 +4484,11 @@
         "additionalProperties": false,
         "properties": {
           "elements": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/DrawAreaLayerItem"
             },
-            "type": ["null", "array"]
+            "type": "array"
           },
           "layerOpacity": {
             "type": "number"
@@ -4463,10 +4525,11 @@
         "additionalProperties": false,
         "properties": {
           "eraserStrokes": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/BrushStrokeWithTransform"
             },
-            "type": ["null", "array"]
+            "type": "array"
           },
           "transform": {
             "$ref": "#/components/schemas/DrawAreaTransform"
@@ -4526,10 +4589,11 @@
         "additionalProperties": false,
         "properties": {
           "choices": {
+            "default": [],
             "items": {
               "type": "string"
             },
-            "type": ["null", "array"]
+            "type": "array"
           },
           "coreNameEditable": {
             "type": "boolean"
@@ -5785,6 +5849,103 @@
         "title": "HTTPRequestMethod",
         "type": "string"
       },
+      "IFrameSectionImpl": {
+        "additionalProperties": false,
+        "properties": {
+          "aspectRatio": true,
+          "aspectRatioExtraHeight": {
+            "type": "number"
+          },
+          "aspectRatioExtraWidth": {
+            "type": "number"
+          },
+          "code": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "isFrozen": {
+            "type": "boolean"
+          },
+          "isInOtherProjectConfigs": {
+            "type": "boolean"
+          },
+          "isMinimized": {
+            "type": "boolean"
+          },
+          "isPreset": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "positionAndSizeLocked": {
+            "type": "boolean"
+          },
+          "size": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "additionalProperties": false,
+                "properties": {
+                  "Auto": {
+                    "type": "boolean"
+                  },
+                  "Value": {
+                    "type": "number"
+                  }
+                },
+                "required": ["Auto", "Value"],
+                "type": "object"
+              },
+              "width": {
+                "additionalProperties": false,
+                "properties": {
+                  "Auto": {
+                    "type": "boolean"
+                  },
+                  "Value": {
+                    "type": "number"
+                  }
+                },
+                "required": ["Auto", "Value"],
+                "type": "object"
+              }
+            },
+            "required": ["width", "height"],
+            "type": "object"
+          },
+          "styleColor": {
+            "type": ["null", "string"]
+          },
+          "tagColor": {
+            "type": ["null", "string"]
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "isFrozen",
+          "isInOtherProjectConfigs",
+          "tagColor",
+          "styleColor",
+          "size",
+          "aspectRatio",
+          "aspectRatioExtraHeight",
+          "aspectRatioExtraWidth",
+          "isMinimized",
+          "positionAndSizeLocked",
+          "isPreset",
+          "code"
+        ],
+        "title": "IFrameSectionImpl",
+        "type": "object"
+      },
       "IdentityContent": {
         "additionalProperties": false,
         "properties": {
@@ -6378,7 +6539,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseDependencyKeyUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "hasRealtimeWildcard": {
             "type": "boolean"
@@ -7500,7 +7661,7 @@
             "items": {
               "$ref": "#/components/schemas/MessageContentDelta"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "message_id": {
             "type": "string"
@@ -7666,6 +7827,181 @@
         ],
         "title": "MessageType",
         "type": "string"
+      },
+      "MetaControlSectionImpl": {
+        "additionalProperties": false,
+        "properties": {
+          "aspectRatio": true,
+          "aspectRatioExtraHeight": {
+            "type": "number"
+          },
+          "aspectRatioExtraWidth": {
+            "type": "number"
+          },
+          "codeObjVariantMap": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "columnWidth": {
+            "type": ["null", "number"]
+          },
+          "edgeInputParams": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "edgeOutputPorts": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "accessor": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "accessor"],
+              "type": "object"
+            },
+            "type": ["null", "array"]
+          },
+          "hideUnpinnedParams": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ignoreTypeErrors": {
+            "additionalProperties": false,
+            "properties": {
+              "callable": {
+                "type": "boolean"
+              },
+              "params": {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              }
+            },
+            "required": ["callable", "params"],
+            "type": "object"
+          },
+          "isFrozen": {
+            "type": "boolean"
+          },
+          "isInOtherProjectConfigs": {
+            "type": "boolean"
+          },
+          "isMinimized": {
+            "type": "boolean"
+          },
+          "isPreset": {
+            "type": "boolean"
+          },
+          "metaControlParamId": {
+            "type": ["null", "string"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "paramFilter": {
+            "type": "string"
+          },
+          "pinnedParams": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "positionAndSizeLocked": {
+            "type": "boolean"
+          },
+          "selectedParams": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "showSectionTitle": {
+            "type": "boolean"
+          },
+          "size": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "additionalProperties": false,
+                "properties": {
+                  "Auto": {
+                    "type": "boolean"
+                  },
+                  "Value": {
+                    "type": "number"
+                  }
+                },
+                "required": ["Auto", "Value"],
+                "type": "object"
+              },
+              "width": {
+                "additionalProperties": false,
+                "properties": {
+                  "Auto": {
+                    "type": "boolean"
+                  },
+                  "Value": {
+                    "type": "number"
+                  }
+                },
+                "required": ["Auto", "Value"],
+                "type": "object"
+              }
+            },
+            "required": ["width", "height"],
+            "type": "object"
+          },
+          "styleColor": {
+            "type": ["null", "string"]
+          },
+          "tagColor": {
+            "type": ["null", "string"]
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "isFrozen",
+          "isInOtherProjectConfigs",
+          "tagColor",
+          "styleColor",
+          "size",
+          "aspectRatio",
+          "aspectRatioExtraHeight",
+          "aspectRatioExtraWidth",
+          "isMinimized",
+          "positionAndSizeLocked",
+          "isPreset",
+          "codeObjVariantMap",
+          "hideUnpinnedParams",
+          "paramFilter",
+          "columnWidth",
+          "metaControlParamId",
+          "showSectionTitle",
+          "pinnedParams",
+          "selectedParams",
+          "ignoreTypeErrors",
+          "edgeInputParams",
+          "edgeOutputPorts"
+        ],
+        "title": "MetaControlSectionImpl",
+        "type": "object"
       },
       "MetaControlSizeMode": {
         "enum": ["any", "auto_only", "manual_only"],
@@ -9339,6 +9675,12 @@
       "PluginStatusEntry": {
         "additionalProperties": false,
         "properties": {
+          "appliedLanguageServerLanguages": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
           "blockedCapabilities": {
             "items": {
               "$ref": "#/components/schemas/PluginBlockedCapability"
@@ -9391,6 +9733,12 @@
           "registeredCodegenTargets": {
             "items": {
               "$ref": "#/components/schemas/PluginRegisteredCodegenTarget"
+            },
+            "type": ["null", "array"]
+          },
+          "registeredLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/PluginRegisteredLanguageServer"
             },
             "type": ["null", "array"]
           },
@@ -9464,6 +9812,8 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
+          "registeredLanguageServers",
+          "appliedLanguageServerLanguages",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
@@ -12049,7 +12399,7 @@
             "items": {
               "$ref": "#/components/schemas/ToolCall"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           }
         },
         "required": ["chatId", "sectionId", "toolCalls"],
@@ -12217,14 +12567,10 @@
             "type": "string"
           },
           "sharedModifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "unsharedKeys": {
             "items": {
@@ -12763,14 +13109,10 @@
             "type": "boolean"
           },
           "modifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "name": {
             "type": "string"
@@ -13329,6 +13671,64 @@
         "title": "SettingsBackend",
         "type": "object"
       },
+      "SettingsChatWindowing": {
+        "additionalProperties": false,
+        "properties": {
+          "autoCreateInitialChat": {
+            "type": "boolean"
+          },
+          "restorePriorStateOnUnmaximize": {
+            "type": "boolean"
+          },
+          "shortcuts": {
+            "$ref": "#/components/schemas/SettingsChatWindowingShortcuts"
+          }
+        },
+        "required": [
+          "autoCreateInitialChat",
+          "restorePriorStateOnUnmaximize",
+          "shortcuts"
+        ],
+        "title": "SettingsChatWindowing",
+        "type": "object"
+      },
+      "SettingsChatWindowingShortcuts": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasToggle": {
+            "type": "string"
+          },
+          "maximizeFocused": {
+            "type": "string"
+          },
+          "minimizeFocused": {
+            "type": "string"
+          },
+          "snapBottom": {
+            "type": "string"
+          },
+          "snapLeft": {
+            "type": "string"
+          },
+          "snapRight": {
+            "type": "string"
+          },
+          "snapTop": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "canvasToggle",
+          "maximizeFocused",
+          "minimizeFocused",
+          "snapLeft",
+          "snapRight",
+          "snapTop",
+          "snapBottom"
+        ],
+        "title": "SettingsChatWindowingShortcuts",
+        "type": "object"
+      },
       "SettingsGUI": {
         "additionalProperties": false,
         "properties": {
@@ -13432,6 +13832,20 @@
           "sectionTagColorChoices"
         ],
         "title": "SettingsGUI",
+        "type": "object"
+      },
+      "SettingsLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "selectedByLanguage": {
+            "additionalProperties": {
+              "type": ["null", "string"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["selectedByLanguage"],
+        "title": "SettingsLanguageServer",
         "type": "object"
       },
       "SettingsManagedBlock": {
@@ -13728,12 +14142,14 @@
           "backend": {
             "$ref": "#/components/schemas/SettingsBackend"
           },
+          "chatWindowing": {
+            "$ref": "#/components/schemas/SettingsChatWindowing"
+          },
           "gui": {
             "$ref": "#/components/schemas/SettingsGUI"
           },
           "languageServer": {
-            "additionalProperties": true,
-            "type": "object"
+            "$ref": "#/components/schemas/SettingsLanguageServer"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/SectionSizingPolicy"
@@ -13746,6 +14162,7 @@
           "shortcuts",
           "gui",
           "backend",
+          "chatWindowing",
           "sectionSizingPolicy",
           "languageServer"
         ],
@@ -13765,6 +14182,11 @@
         "required": ["messageType", "content"],
         "title": "SettingsUpdateMessage",
         "type": "object"
+      },
+      "Severity": {
+        "enum": ["info", "warning", "error", "critical"],
+        "title": "Severity",
+        "type": "string"
       },
       "SharePolicyOverrides": {
         "additionalProperties": false,
@@ -13994,6 +14416,9 @@
                   "$ref": "#/components/schemas/PromptSectionImpl"
                 },
                 {
+                  "$ref": "#/components/schemas/MetaControlSectionImpl"
+                },
+                {
                   "$ref": "#/components/schemas/GlobalVariablesSectionImpl"
                 },
                 {
@@ -14007,6 +14432,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TerminalSectionImpl"
+                },
+                {
+                  "$ref": "#/components/schemas/IFrameSectionImpl"
                 },
                 {
                   "$ref": "#/components/schemas/ChatSectionImpl"
@@ -16899,7 +17327,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseArtifactUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "updateType": {
             "type": "string"
@@ -16933,7 +17361,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseArtifactUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "conflictStrategy": {
             "anyOf": [
@@ -17003,14 +17431,10 @@
             "type": "boolean"
           },
           "modifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": "object"
           },
           "name": {
             "type": "string"
@@ -17176,6 +17600,23 @@
           "sourcePath"
         ],
         "title": "WatchCodeRegistryEntry",
+        "type": "object"
+      },
+      "WebsocketMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/BackendLogEvent"
+          },
+          "id": {
+            "type": ["null", "string"]
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/WebsocketMessageType"
+          }
+        },
+        "required": ["id", "messageType", "content"],
+        "title": "WebsocketMessage",
         "type": "object"
       },
       "WebsocketMessageType": {
