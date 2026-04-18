@@ -8,6 +8,7 @@ const TARGET_SECTION_ID = "settings-section__sectionSizingPolicy";
 const TARGET_PARAM_INFO_ID =
   "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeHeight";
 const TARGET_ROW_ID = `ParamContainer-${TARGET_SECTION_ID}-${TARGET_PARAM_INFO_ID}`;
+const SIZE_MODE_ROW_ID_SUFFIX_RE = /__sizeMode(?:Height|Width)$/;
 
 test("canvas shell path owns section sizing policy size-mode meta-control dropdowns at rest", async ({
   page,
@@ -288,4 +289,92 @@ test("canvas shell path owns section sizing policy size-mode meta-control dropdo
   expect(liveState.value.length).toBeGreaterThan(0);
   expect(liveState.ariaExpanded).toBe("true");
   expect(liveState.buttonExpanded).toBe("true");
+});
+
+test("section sizing policy keeps repeated inactive controls off the live DOM at rest", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  const summary = await page.evaluate(({ sectionId }) => {
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    if (!(section instanceof HTMLElement)) {
+      throw new Error(`Missing section ${sectionId}`);
+    }
+
+    const isVisibleInteractiveElement = (element: Element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      const computedStyle = window.getComputedStyle(element);
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        computedStyle.display !== "none" &&
+        computedStyle.visibility !== "hidden" &&
+        computedStyle.opacity !== "0"
+      );
+    };
+
+    const rows = Array.from(
+      section.querySelectorAll<HTMLElement>('article[id^="ParamContainer-"]'),
+    );
+    const lightweightDropdownRows = Array.from(
+      new Set(
+        Array.from(
+          section.querySelectorAll<HTMLElement>(
+            '[data-canvas-owned-resting-dropdown-lightweight="true"]',
+          ),
+        )
+          .map(
+            (dropdownRoot) =>
+              dropdownRoot.closest<HTMLElement>('article[id^="ParamContainer-"]')
+                ?.id ?? null,
+          )
+          .filter((rowId): rowId is string => rowId !== null),
+      ),
+    );
+    const liveInteractiveRows = rows
+      .filter((row) =>
+        Array.from(
+          row.querySelectorAll(
+            'input:not([type="hidden"]), textarea, search input, search button, [role="switch"]',
+          ),
+        ).some(isVisibleInteractiveElement),
+      )
+      .map((row) => row.id);
+
+    return {
+      lightweightDropdownRows,
+      liveInteractiveRows,
+      restingTextRootCount: section.querySelectorAll(
+        '[data-canvas-owned-resting-text="true"]',
+      ).length,
+      rowCount: rows.length,
+    };
+  }, {
+    sectionId: TARGET_SECTION_ID,
+  });
+
+  expect(summary.rowCount).toBeGreaterThan(200);
+  expect(summary.restingTextRootCount).toBeGreaterThan(150);
+  expect(summary.liveInteractiveRows).toEqual([]);
+  expect(summary.lightweightDropdownRows.length).toBeGreaterThan(20);
+  expect(
+    summary.lightweightDropdownRows.every((rowId) =>
+      SIZE_MODE_ROW_ID_SUFFIX_RE.test(rowId),
+    ),
+  ).toBe(true);
 });

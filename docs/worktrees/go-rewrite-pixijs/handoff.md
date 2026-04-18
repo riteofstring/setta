@@ -650,6 +650,25 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__sectionSizingPolicy` was present and the `Size Mode Height` row looked intact at rest as compact `any ▾` inline content
   - activating `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeHeight` swapped in the live inline `Search` combobox populated with `any`
   - the live dropdown menu opened directly beneath the row with no blank placeholder or detached visual jump
+- The `settings-section__sectionSizingPolicy` repeated inactive-control lane is now explicitly closed at its useful ownership boundary:
+  - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts` now includes a second at-rest inventory probe for the whole dense section instead of only a single-row activation check.
+  - a same-day live worktree inventory on that probe now proves the section is already at the expected at-rest ownership boundary:
+    - `rowCount: 211`
+    - `restingTextRootCount: 198`
+    - `lightweightDropdownRows: 30`
+    - `liveInteractiveRows: []`
+  - every lightweight dropdown row attributed by that probe still maps to `__sizeModeHeight|Width`, so there is no second repeated inactive non-text control family left to chase on this section right now.
+  - focused verification passed for the closure probe:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-026/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (39.5s)` on the live worktree runtime
+- CDP visual check is done for the section-sizing-policy lane-closure probe:
+  - a fresh headless DevTools pass bootstrapped the current worktree runtime and used `http://127.0.0.1:3068/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8068`
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop` contained exactly one mounted retained `canvas`
+  - `settings-section__sectionSizingPolicy` was visible with no crash/error overlay
+  - the `Size Mode Height` row still looked intact at rest as compact inline content with no visible live search input or blank placeholder
+  - caveat: because this is a dense retained-canvas surface, the CDP pass paired the visual read with a targeted DOM check for the absence of visible live search input on that row
 
 ## Preservation rule
 
@@ -683,7 +702,8 @@ That leaves one primary architectural move:
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
 6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`, and `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-meta-control-dropdown-rerun.md`.
 7. Use that four-report retained-canvas chain as the current benchmark sequence: motion improved materially from baseline, the lightweight callable/dict/globalVariables slice pushed `documentNodeCount` to `9457`, the dense `sectionSizingPolicy` resting-text rollout pushed it to `9181`, and the new repeated dropdown slice pushed it again to `9151` while cutting `inputCount` to `60` and `buttonCount` to `477`.
-8. The next bounded product slice should stay on the same canonical dense target section `settings-section__sectionSizingPolicy` and attack the next repeated inactive non-text control family after the landed size-mode meta-control dropdowns; do not reopen another callable/dict/GlobalVariables shell/text/filter/kwargs ownership lane unless a concrete visual regression forces it.
+8. Treat the repeated inactive-control lane on `settings-section__sectionSizingPolicy` as closed at its current ownership boundary; do not reopen another micro control-family slice there unless a fresh visible live input/dropdown/switch family reappears.
+9. The next bounded product slice should target the heavier structural DOM still left above those lightweight activators on the same dense section, or move to the next dense section with a concretely observed remaining live inactive subtree; do not reopen another callable/dict/GlobalVariables shell/text/filter/kwargs ownership lane unless a concrete visual regression forces it.
 
 ## First product frontier
 

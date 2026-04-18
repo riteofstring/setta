@@ -1130,3 +1130,32 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable, dict, and GlobalVariables shell/text lanes closed and stay on canonical dense target `settings-section__sectionSizingPolicy` for the next slice, targeting the first repeated non-text inactive control subtree there
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 044
+
+- Item: Close the `settings-section__sectionSizingPolicy` repeated inactive-control lane with a whole-section at-rest inventory probe.
+- Status: `done`
+- Details:
+  - Kept this slice bounded to the active dense target section instead of inventing another speculative micro-control ownership pass.
+  - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts` now includes a second test that inventories the whole section at rest and attributes each lightweight dropdown activator to its owning row.
+  - The checked probe now proves the current ownership boundary on the live worktree runtime:
+    - `rowCount: 211`
+    - `restingTextRootCount: 198`
+    - `lightweightDropdownRows: 30`
+    - `liveInteractiveRows: []`
+  - Every attributed lightweight dropdown row still matches `__sizeModeHeight|Width`, so there is no second repeated inactive non-text control family left to chase on this section right now.
+  - Interpretation: the `sectionSizingPolicy` inactive-control lane is closed at its useful ownership boundary, and the next real blocker is the heavier structural row/container DOM still mounted above those lightweight activators.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-026/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (39.5s)` on the live worktree runtime
+- CDP visual check is done:
+  - a fresh headless DevTools pass bootstrapped the current worktree runtime and used `http://127.0.0.1:3068/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8068`
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop` contained exactly one retained `canvas`
+  - `settings-section__sectionSizingPolicy` was visible with no crash/error overlay
+  - the `Size Mode Height` row still looked intact at rest as compact inline content with no visible live search input or blank placeholder
+  - caveat: because this is a dense retained-canvas surface, the CDP pass paired the visual read with a targeted DOM check for the absence of visible live search input on that row
+- Next action:
+  - keep the `sectionSizingPolicy` micro control-family lane closed and target the heavier structural row/container DOM still mounted above these lightweight activators instead of reopening another dropdown micro-slice by inertia
+LOOP_TERMINAL_MARKER: none
