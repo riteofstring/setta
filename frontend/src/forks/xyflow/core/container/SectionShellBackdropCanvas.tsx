@@ -29,6 +29,8 @@ import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
@@ -1124,6 +1126,9 @@ export default function SectionShellBackdropCanvas() {
   const globalVariablesNode = nodes.get(
     GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   );
+  const sectionSizingPolicyNode = nodes.get(
+    SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const callableMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: callableNode?.height,
     nodeWidth: callableNode?.width,
@@ -1144,21 +1149,38 @@ export default function SectionShellBackdropCanvas() {
       viewportScale,
     },
   );
+  const sectionSizingPolicyMeasurements =
+    useCanvasOwnedSectionBackdropMeasurements({
+      nodeHeight: sectionSizingPolicyNode?.height,
+      nodeWidth: sectionSizingPolicyNode?.width,
+      sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      viewportScale,
+    });
   const backdropMeasurementsBySectionId = useMemo(
     () => ({
       [CANVAS_OWNED_SECTION_SHELL_ID]: callableMeasurements,
       [DICT_CANVAS_OWNED_SECTION_SHELL_ID]: dictMeasurements,
       [GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID]:
         globalVariablesMeasurements,
+      [SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        sectionSizingPolicyMeasurements,
     }),
-    [callableMeasurements, dictMeasurements, globalVariablesMeasurements],
+    [
+      callableMeasurements,
+      dictMeasurements,
+      globalVariablesMeasurements,
+      sectionSizingPolicyMeasurements,
+    ],
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
     () =>
       buildSectionShellBackdropScene(nodes.values(), {
         getFrameVisual: (node) => {
-          if (!isCanvasOwnedSectionShell(node.id)) {
+          if (
+            !isCanvasOwnedSectionShell(node.id) &&
+            !isCanvasOwnedSectionRestingTextSection(node.id)
+          ) {
             return null;
           }
 
@@ -1174,6 +1196,7 @@ export default function SectionShellBackdropCanvas() {
             darkMode,
             styleColor: measurements.styleColor,
           });
+          const shellOwned = isCanvasOwnedSectionShell(node.id);
           const callableToolbarOffsetY =
             measurements.headerHeight + measurements.searchHeight;
           const detailBands: Array<{
@@ -1210,53 +1233,65 @@ export default function SectionShellBackdropCanvas() {
             });
           }
 
-          return {
-            ...chrome,
-            detailBands,
-            detailBoxes: [
-              ...measurements.filterIconBoxes.map((filterIconBox) => ({
-                cornerRadius: filterIconBox.height / 2,
-                fill: filterIconBox.fill,
-                height: filterIconBox.height,
-                width: filterIconBox.width,
-                x: filterIconBox.offsetX,
-                y: filterIconBox.offsetY,
-              })),
-              ...measurements.nestedGuideBoxes.map((guideBox) => ({
-                cornerRadius: guideBox.cornerRadius,
-                fill: guideBox.fill,
-                height: guideBox.height,
-                width: guideBox.width,
-                x: guideBox.offsetX,
-                y: guideBox.offsetY,
-              })),
-              ...measurements.underlineBoxes.map((underlineBox) => ({
-                cornerRadius: 0,
-                fill: underlineBox.fill,
-                height: underlineBox.height,
-                width: underlineBox.width,
-                x: underlineBox.offsetX,
-                y: underlineBox.offsetY,
-              })),
-              ...measurements.switchTrackBoxes.map((switchTrackBox) => ({
-                cornerRadius: switchTrackBox.height / 2,
-                fill: switchTrackBox.checked
-                  ? chrome.switchTrackCheckedFill
-                  : chrome.switchTrackFill,
-                height: switchTrackBox.height,
-                width: switchTrackBox.width,
-                x: switchTrackBox.offsetX,
-                y: switchTrackBox.offsetY,
-              })),
-            ],
-            detailTexts: measurements.restingTextLines.map((restingTextLine) => ({
+          const detailBoxes = [
+            ...measurements.filterIconBoxes.map((filterIconBox) => ({
+              cornerRadius: filterIconBox.height / 2,
+              fill: filterIconBox.fill,
+              height: filterIconBox.height,
+              width: filterIconBox.width,
+              x: filterIconBox.offsetX,
+              y: filterIconBox.offsetY,
+            })),
+            ...measurements.nestedGuideBoxes.map((guideBox) => ({
+              cornerRadius: guideBox.cornerRadius,
+              fill: guideBox.fill,
+              height: guideBox.height,
+              width: guideBox.width,
+              x: guideBox.offsetX,
+              y: guideBox.offsetY,
+            })),
+            ...measurements.underlineBoxes.map((underlineBox) => ({
+              cornerRadius: 0,
+              fill: underlineBox.fill,
+              height: underlineBox.height,
+              width: underlineBox.width,
+              x: underlineBox.offsetX,
+              y: underlineBox.offsetY,
+            })),
+            ...measurements.switchTrackBoxes.map((switchTrackBox) => ({
+              cornerRadius: switchTrackBox.height / 2,
+              fill: switchTrackBox.checked
+                ? chrome.switchTrackCheckedFill
+                : chrome.switchTrackFill,
+              height: switchTrackBox.height,
+              width: switchTrackBox.width,
+              x: switchTrackBox.offsetX,
+              y: switchTrackBox.offsetY,
+            })),
+          ];
+          const detailTexts = measurements.restingTextLines.map(
+            (restingTextLine) => ({
               fill: restingTextLine.fill,
               font: restingTextLine.font,
               maxWidth: restingTextLine.maxWidth,
               text: restingTextLine.text,
               x: restingTextLine.offsetX,
               y: restingTextLine.offsetY,
-            })),
+            }),
+          );
+
+          if (!shellOwned) {
+            return {
+              detailBoxes,
+              detailTexts,
+            };
+          }
+
+          return {
+            ...chrome,
+            detailBands,
+            detailBoxes,
+            detailTexts,
             headerHeight: measurements.headerHeight,
           };
         },

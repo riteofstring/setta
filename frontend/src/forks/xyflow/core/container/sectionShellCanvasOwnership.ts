@@ -7,14 +7,23 @@ export const DICT_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__dictSectionDefault";
 export const GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__globalVariablesSectionDefault";
+export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
+  "settings-section__sectionSizingPolicy";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
 ] as const;
+export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
+  ...CANVAS_OWNED_SECTION_SHELL_IDS,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+] as const;
 
 const CANVAS_OWNED_SECTION_SHELL_ID_SET = new Set<string>(
   CANVAS_OWNED_SECTION_SHELL_IDS,
+);
+const CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET = new Set<string>(
+  CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
 );
 
 export type SectionShellCanvasChrome = {
@@ -66,6 +75,10 @@ export function isCanvasOwnedSectionShell(sectionId: string) {
   return CANVAS_OWNED_SECTION_SHELL_ID_SET.has(sectionId);
 }
 
+export function isCanvasOwnedSectionRestingTextSection(sectionId: string) {
+  return CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET.has(sectionId);
+}
+
 export function isCanvasOwnedSectionRestingText({
   codeObjType,
   sectionId,
@@ -74,7 +87,7 @@ export function isCanvasOwnedSectionRestingText({
   sectionId: string;
 }) {
   return (
-    isCanvasOwnedSectionShell(sectionId) &&
+    isCanvasOwnedSectionRestingTextSection(sectionId) &&
     (codeObjType === CodeObjTypeEnum.CodeParam ||
       codeObjType === CodeObjTypeEnum.TextParam ||
       codeObjType === CodeObjTypeEnum.TextAreaParam)

@@ -7,9 +7,11 @@ import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
   isCanvasOwnedSectionRestingText,
+  isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
@@ -23,10 +25,17 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionShell(GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
-    expect(isCanvasOwnedSectionShell("settings-section__textBlockSectionDefault")).toBe(false);
+    expect(
+      isCanvasOwnedSectionShell(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionShell("settings-section__textBlockSectionDefault"),
+    ).toBe(false);
   });
 
-  it("targets text-like params inside the owned canary sections for resting text ownership", () => {
+  it("targets text-like params inside the resting-text-owned sections", () => {
     expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
@@ -63,6 +72,23 @@ describe("sectionShellCanvasOwnership", () => {
         sectionId: GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       }),
     ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.SwitchParam,
+        sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(false);
     expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,

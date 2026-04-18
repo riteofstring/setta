@@ -2,6 +2,7 @@ import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
@@ -262,6 +263,32 @@ describe("ParamUI canvas-owned resting text", () => {
         sectionId={GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID}
         paramInfoId="settings-codeobj__globalVariablesSectionDefault__globalVariablesSectionDefault__styleColor"
         value="null"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+      true,
+    );
+    expect(
+      mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+    ).toContain("opacity-0");
+    expect(markup).toContain('data-canvas-owned-underline="true"');
+  });
+
+  it("hides section sizing policy resting text on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.TextParam,
+      defaultVal: "",
+    };
+
+    const markup = renderToStaticMarkup(
+      <ParamUI
+        sectionId={SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
+        paramInfoId="settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight"
+        value="100000"
         onChange={() => undefined}
       />,
     );

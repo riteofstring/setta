@@ -582,6 +582,33 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__callableSectionDefault` remained visible on the retained canvas path
   - the canary text rows still looked intact after the dummy text DOM became lightweight
   - activating the `Style Color` row surfaced the inline editor (`#ff0000`) with no blank or detached canvas jump
+- The next dense resting-text rollout slice is now landed on `settings-section__sectionSizingPolicy`:
+  - canonical target section for the active dense list/object lane is now `settings-section__sectionSizingPolicy`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now separates shell-owned sections from resting-text-owned sections, so `settings-section__sectionSizingPolicy` can ride the retained text/underline path without reopening another shell-transparency lane
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained detail text/underline visuals for that dense section while leaving its shell/header/toolbar DOM-owned
+  - focused coverage now exists for the ownership split:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`
+  - dense rerun outcome versus the prior lightweight-text report:
+    - `documentNodeCount` dropped from `9457` to `9181`
+    - `documentNodeCount` is now down `372` from the durable `go-rewrite` baseline (`9553` -> `9181`)
+    - motion stayed effectively flat (`raf.meanMs 113.5 -> 114.24`, `longTasks.totalMs 18520 -> 18839`), so treat this as a dense DOM-cost reduction slice rather than a new camera/rendering win
+- focused verification passed for the section-sizing-policy resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.4s)` on the live worktree runtime with `documentNodeCount: 9181`
+- CDP visual check is done for the section-sizing-policy resting-text slice:
+  - `/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was present on the live surface
+  - the Browser `maxHeight` row looked intact after the resting text DOM was hidden on the canvas path
+  - focusing `settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight-ParamInput` surfaced the inline editor with no obvious blank/detached jump or layout shift
 
 ## Preservation rule
 
@@ -613,9 +640,9 @@ That leaves one primary architectural move:
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
-6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md` plus `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`.
-7. Use the durable baseline plus those two retained-canvas reruns as the current benchmark chain: motion improved materially from baseline, and the latest lightweight-text slice pushed `documentNodeCount` down again to `9457`, but dense `All Settings` still carries roughly `9.5k` DOM nodes and more than `500` buttons on the live surface.
-8. The next bounded product slice should remove the next heavy inactive row/widget subtree above these text leaves on the graph-surface path; do not reopen another section-specific shell/text/filter/kwargs ownership lane unless a concrete visual regression on the callable, dict, or GlobalVariables canary forces it.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`, and `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`.
+7. Use that three-report retained-canvas chain as the current benchmark sequence: motion improved materially from baseline, the lightweight callable/dict/globalVariables slice pushed `documentNodeCount` to `9457`, and the new dense `sectionSizingPolicy` rollout pushed it again to `9181`, but dense `All Settings` still carries more than `9.1k` DOM nodes and more than `500` buttons on the live surface.
+8. The next bounded product slice should stay on the same canonical dense target section `settings-section__sectionSizingPolicy` and attack the first non-text inactive control subtree there, likely one of the repeated closed dropdown/meta-control rows or another repeated non-text row family; do not reopen another callable/dict/GlobalVariables shell/text/filter/kwargs ownership lane unless a concrete visual regression forces it.
 
 ## First product frontier
 

@@ -1045,3 +1045,38 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and target the next heavy inactive row/widget subtree above these text leaves on the retained graph-surface path
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 042
+
+- Item: Extend the retained resting-text path into `settings-section__sectionSizingPolicy` without reopening another shell-owned section lane.
+- Status: `done`
+- Details:
+  - Kept this slice on the dense inactive-DOM blocker instead of reopening another callable/dict/GlobalVariables chrome lane.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now separates shell-owned sections from resting-text-owned sections, with `settings-section__sectionSizingPolicy` added only to the resting-text set.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained detail text/underline visuals for that dense section while leaving its shell/header/toolbar DOM-owned.
+  - Added focused verification coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`.
+  - Dense rerun outcome versus the prior lightweight-text report:
+    - `documentNodeCount` dropped from `9457` to `9181`
+    - `documentNodeCount` is now down `372` from the durable `go-rewrite` baseline (`9553` -> `9181`)
+    - motion stayed effectively flat (`raf.meanMs 113.5 -> 114.24`, `longTasks.totalMs 18520 -> 18839`), so this is a dense DOM-cost reduction slice rather than a new motion win
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.4s)` on the live worktree runtime with `documentNodeCount: 9181`
+- CDP visual check is done:
+  - `/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was present on the live surface
+  - the Browser `maxHeight` row looked intact after the resting text DOM was hidden on the canvas path
+  - focusing `settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight-ParamInput` surfaced the inline editor with no obvious blank/detached jump or layout shift
+- Next action:
+  - keep the callable, dict, and GlobalVariables shell/text lanes closed and stay on canonical dense target `settings-section__sectionSizingPolicy` for the next slice, targeting the first repeated non-text inactive control subtree there
+LOOP_TERMINAL_MARKER: none
