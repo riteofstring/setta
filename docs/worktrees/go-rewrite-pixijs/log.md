@@ -504,3 +504,28 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the same named canary section and re-probe the next visible text-like row after `Column Width`; prefer `Edge Input Params` or `Edge Output Ports` over reopening shell-only chrome or stale dropdown assumptions
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 023
+
+- Item: Extend the canary retained-text lane to the visible `Edge Input Params` and `Edge Output Ports` rows on `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Re-checked the live `/settings` -> `All Settings` canary before editing and confirmed both rows mount as text-like `DummyCodeMirror` / CodeMirror-backed `[]` values, so this slice stayed in the existing retained-text lane instead of inventing a new control-family path.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the named canary resting-text lane now owns four explicit param ids: `Config Language`, `Column Width`, `Edge Input Params`, and `Edge Output Ports`.
+  - Reused the existing shared retained-scene measurement path in `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx`; once the ownership set expanded, the retained canvas picked up both edge rows automatically with no extra special-case renderer branch.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` and `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx` to lock the expanded canary ownership set and the transparent dummy-text handoff for both edge rows.
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted live canary probe now waits for the `Edge Input Params` and `Edge Output Ports` dummy inputs, samples both text rects in graph space, and asserts that each row still contributes retained-canvas text pixels distinct from the body fill.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms retained text pixels for `Edge Input Params` and `Edge Output Ports` alongside the previously landed `Config Language` and `Column Width` rows, while preserving the inline `Config Language` activation proof
+  - CDP visual check is done:
+    - the supplied bootstrap token on `8068` had already been rejected during the visual pass, so verification used the still-authenticated `http://127.0.0.1:3068/settings` session directly
+    - `All Settings` was active with no crash/error overlay
+    - `settings-section__callableSectionDefault` was visible
+    - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+    - both `Edge Input Params` and `Edge Output Ports` were visible and looked intact on the canvas-shell-underlay path
+- Next action:
+  - keep the same named canary section, but avoid another single-row text drip; if this lane continues, take the next grouped visible family such as `Size` / `Style Color` / `Tag Color` in one bounded product slice
+LOOP_TERMINAL_MARKER: none

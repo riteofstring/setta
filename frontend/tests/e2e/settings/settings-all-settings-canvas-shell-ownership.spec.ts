@@ -11,6 +11,10 @@ const TARGET_CONFIG_LANGUAGE_EDITOR_ID =
   "CodeMirror-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage";
 const TARGET_COLUMN_WIDTH_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__columnWidth-ParamInput";
+const TARGET_EDGE_INPUT_PARAMS_INPUT_ID =
+  "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeInputParams-ParamInput";
+const TARGET_EDGE_OUTPUT_PORTS_INPUT_ID =
+  "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeOutputPorts-ParamInput";
 const TARGET_SWITCH_ROW_ID =
   "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio";
 
@@ -30,6 +34,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
 
   await page.waitForFunction(
     ({ columnWidthInputId, configLanguageInputId, sectionId }) => {
+      const edgeInputParams = document.getElementById(
+        "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeInputParams-ParamInput",
+      );
+      const edgeOutputPorts = document.getElementById(
+        "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeOutputPorts-ParamInput",
+      );
       const header = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"] header.section-title`,
       );
@@ -42,6 +52,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
         document.getElementById(`${sectionId}-CustomResizable`) !== null &&
         document.getElementById(columnWidthInputId) !== null &&
         document.getElementById(configLanguageInputId) !== null &&
+        edgeInputParams !== null &&
+        edgeOutputPorts !== null &&
         canvas !== null &&
         canvas.clientWidth > 0 &&
         canvas.clientHeight > 0 &&
@@ -58,7 +70,16 @@ test("canvas shell path owns the resting callable section chrome", async ({
   );
 
   const shellState = await page.evaluate(
-    ({ columnWidthInputId, configLanguageInputId, rowId, sectionId }) => {
+    (
+      {
+        columnWidthInputId,
+        configLanguageInputId,
+        edgeInputParamsInputId,
+        edgeOutputPortsInputId,
+        rowId,
+        sectionId,
+      },
+    ) => {
       const outer = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"]`,
       );
@@ -79,6 +100,18 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const columnWidthLine =
         columnWidthInput?.querySelector<HTMLElement>(".cm-line") ??
         columnWidthInput;
+      const edgeInputParamsInput = document.getElementById(
+        edgeInputParamsInputId,
+      );
+      const edgeInputParamsLine =
+        edgeInputParamsInput?.querySelector<HTMLElement>(".cm-line") ??
+        edgeInputParamsInput;
+      const edgeOutputPortsInput = document.getElementById(
+        edgeOutputPortsInputId,
+      );
+      const edgeOutputPortsLine =
+        edgeOutputPortsInput?.querySelector<HTMLElement>(".cm-line") ??
+        edgeOutputPortsInput;
       const node = outer?.closest<HTMLElement>(".react-flow__node");
       const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
       const canvas = document.querySelector(
@@ -114,6 +147,18 @@ test("canvas shell path owns the resting callable section chrome", async ({
       }
       if (!(columnWidthLine instanceof HTMLElement)) {
         throw new Error(`Missing Column Width line for ${sectionId}`);
+      }
+      if (!(edgeInputParamsInput instanceof HTMLElement)) {
+        throw new Error(`Missing Edge Input Params input for ${sectionId}`);
+      }
+      if (!(edgeInputParamsLine instanceof HTMLElement)) {
+        throw new Error(`Missing Edge Input Params line for ${sectionId}`);
+      }
+      if (!(edgeOutputPortsInput instanceof HTMLElement)) {
+        throw new Error(`Missing Edge Output Ports input for ${sectionId}`);
+      }
+      if (!(edgeOutputPortsLine instanceof HTMLElement)) {
+        throw new Error(`Missing Edge Output Ports line for ${sectionId}`);
       }
       if (!(node instanceof HTMLElement)) {
         throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
@@ -259,6 +304,20 @@ test("canvas shell path owns the resting callable section chrome", async ({
         (columnWidthRect.top - nodeRect.top) / viewportScale;
       const columnWidthWidth = columnWidthRect.width / viewportScale;
       const columnWidthHeight = columnWidthRect.height / viewportScale;
+      const edgeInputParamsRect = edgeInputParamsLine.getBoundingClientRect();
+      const edgeInputParamsOffsetX =
+        (edgeInputParamsRect.left - nodeRect.left) / viewportScale;
+      const edgeInputParamsOffsetY =
+        (edgeInputParamsRect.top - nodeRect.top) / viewportScale;
+      const edgeInputParamsWidth = edgeInputParamsRect.width / viewportScale;
+      const edgeInputParamsHeight = edgeInputParamsRect.height / viewportScale;
+      const edgeOutputPortsRect = edgeOutputPortsLine.getBoundingClientRect();
+      const edgeOutputPortsOffsetX =
+        (edgeOutputPortsRect.left - nodeRect.left) / viewportScale;
+      const edgeOutputPortsOffsetY =
+        (edgeOutputPortsRect.top - nodeRect.top) / viewportScale;
+      const edgeOutputPortsWidth = edgeOutputPortsRect.width / viewportScale;
+      const edgeOutputPortsHeight = edgeOutputPortsRect.height / viewportScale;
 
       function sampleCanvasPixel(canvasX: number, canvasY: number) {
         const clampedX = Math.max(
@@ -321,6 +380,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const aspectRatioSwitchStyle = window.getComputedStyle(aspectRatioSwitch);
       const configLanguageStyle = window.getComputedStyle(configLanguageInput);
       const columnWidthStyle = window.getComputedStyle(columnWidthInput);
+      const edgeInputParamsStyle = window.getComputedStyle(edgeInputParamsInput);
+      const edgeOutputPortsStyle =
+        window.getComputedStyle(edgeOutputPortsInput);
       const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
 
       return {
@@ -339,6 +401,24 @@ test("canvas shell path owns the resting callable section chrome", async ({
             (nodeY - canvasTop + columnWidthOffsetY) * canvasScaleY,
             columnWidthWidth * canvasScaleX,
             columnWidthHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        edgeInputParamsDummyOpacity: edgeInputParamsStyle.opacity,
+        edgeInputParamsDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + edgeInputParamsOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + edgeInputParamsOffsetY) * canvasScaleY,
+            edgeInputParamsWidth * canvasScaleX,
+            edgeInputParamsHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        edgeOutputPortsDummyOpacity: edgeOutputPortsStyle.opacity,
+        edgeOutputPortsDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + edgeOutputPortsOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + edgeOutputPortsOffsetY) * canvasScaleY,
+            edgeOutputPortsWidth * canvasScaleX,
+            edgeOutputPortsHeight * canvasScaleY,
             bodyPixel,
           ),
         configLanguageDummyOpacity: configLanguageStyle.opacity,
@@ -369,6 +449,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
     {
       columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
+      edgeInputParamsInputId: TARGET_EDGE_INPUT_PARAMS_INPUT_ID,
+      edgeOutputPortsInputId: TARGET_EDGE_OUTPUT_PORTS_INPUT_ID,
       rowId: TARGET_SWITCH_ROW_ID,
       sectionId: TARGET_SECTION_ID,
     },
@@ -397,6 +479,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.columnWidthDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.configLanguageDummyOpacity).toBe("0");
   expect(shellState.configLanguageDistinctPixelCount).toBeGreaterThan(0);
+  expect(shellState.edgeInputParamsDummyOpacity).toBe("0");
+  expect(shellState.edgeInputParamsDistinctPixelCount).toBeGreaterThan(0);
+  expect(shellState.edgeOutputPortsDummyOpacity).toBe("0");
+  expect(shellState.edgeOutputPortsDistinctPixelCount).toBeGreaterThan(0);
 
   const activatedEditor = await page.evaluate((configLanguageInputId) => {
     const configLanguageInput = document.getElementById(configLanguageInputId);

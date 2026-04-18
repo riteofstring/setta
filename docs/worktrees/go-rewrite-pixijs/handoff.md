@@ -232,6 +232,23 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the `Column Width` row was visible and looked intact on the canvas path
   - no obvious blank or detached section content was visible
   - caveat: the bootstrap URL used for the visual check had already been rejected, but the existing authenticated `/settings` session was still healthy and sufficient for the required CDP confirmation
+- The next canary resting-text slice is now landed for the same canary section using `Edge Input Params` and `Edge Output Ports` as grouped probe rows:
+  - a fresh live DOM inventory closed the remaining stale assumption here: both visible rows mount as text-like `DummyCodeMirror` / CodeMirror-backed `[]` values on this canary, so they fit the same retained-text lane instead of needing a new control-family path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the canary resting-text lane as a four-row explicit set: `Config Language`, `Column Width`, `Edge Input Params`, and `Edge Output Ports`
+  - the existing retained-scene text measurement in `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now picks up both edge rows automatically through that shared ownership set with no extra special-case path
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`, `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`, and `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms retained text pixels for `Edge Input Params` and `Edge Output Ports` in addition to the existing `Config Language` and `Column Width` checks, while preserving the inline `Config Language` activation proof
+- CDP visual check is done for the `Edge Input Params` / `Edge Output Ports` resting-text slice:
+  - `http://127.0.0.1:3068/settings` was healthy with no visible crash/error overlay
+  - `All Settings` was active
+  - `settings-section__callableSectionDefault` was visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - both `Edge Input Params` and `Edge Output Ports` were visible and looked intact on the canvas path
+  - caveat: the supplied bootstrap token had already been rejected during the CDP pass, but the existing authenticated `/settings` session remained healthy and sufficient for the required visual confirmation
 
 ## Preservation rule
 
@@ -260,7 +277,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the same named canary section and re-probe the next visible text-like row after `Column Width`; prefer a production slice on `Edge Input Params` or `Edge Output Ports` over reopening shell-only chrome or stale dropdown assumptions.
+3. Keep the same named canary section, but do not spend another pass on a single-row text drip; if the resting-text lane continues, take the next grouped visible family such as `Size` / `Style Color` / `Tag Color` in one bounded product slice.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -280,9 +297,10 @@ The first product frontier is:
 - with the same canary section now also painting a canvas-owned callable toolbar band while the live controls remain interactive
 - with the same canary section now also painting canvas-owned switch tracks for visible switch rows while the live switch thumbs/buttons remain interactive
 - with the same canary section now also painting the resting `Config Language` text in the retained canvas while the live CodeMirror editor still activates inline on first click
+- with the same canary section now also painting the resting `Column Width`, `Edge Input Params`, and `Edge Output Ports` text in the retained canvas while the live editors remain available
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: move to the next visible text-like control family on that same named canary instead of reopening top-level shell/body panel work
+- next: move to the next grouped visible text family on that same named canary instead of reopening top-level shell/body panel work or continuing one-row-at-a-time churn
 
 ## Hard rules
 

@@ -2,6 +2,8 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { describe, expect, it } from "vitest";
 import {
   CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+  CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
+  CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionRestingTextParam,
@@ -28,6 +30,20 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionRestingTextParam({
         paramInfoId:
           CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextParam({
+        paramInfoId:
+          CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextParam({
+        paramInfoId:
+          CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
     ).toBe(true);

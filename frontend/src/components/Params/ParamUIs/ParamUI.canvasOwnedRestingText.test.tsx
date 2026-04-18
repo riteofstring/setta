@@ -1,5 +1,7 @@
 import {
   CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+  CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
+  CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -139,6 +141,16 @@ describe("ParamUI canvas-owned resting text", () => {
     {
       paramInfoId: CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
       value: "220",
+    },
+    {
+      paramInfoId:
+        CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
+      value: "[]",
+    },
+    {
+      paramInfoId:
+        CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
+      value: "[]",
     },
   ])(
     "hides the canary resting text dummy for $paramInfoId on the canvas path",
