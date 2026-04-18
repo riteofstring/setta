@@ -979,6 +979,44 @@ EOF
   cat "${simplify_prompt_file}" >> "${prompt_path}"
 }
 
+write_consolidated_status_repair_prompt() {
+  local prompt_path="$1"
+
+  cat > "${prompt_path}" <<'EOF'
+Your last consolidation response did not begin with a valid status sentinel.
+
+Rewrite the consolidation response now.
+
+Requirements:
+- Keep the underlying conclusion consistent with the review docs unless they require a different outcome.
+- The first non-empty line must be exactly one of:
+  - `CONSOLIDATED_STATUS: NO_FINDINGS`
+  - `CONSOLIDATED_STATUS: FINDINGS_PRESENT`
+- Use `NO_FINDINGS` only if you can confidently conclude there are no actionable findings.
+- Use `FINDINGS_PRESENT` if there are findings to fix, or if the review docs conflict, are ambiguous, or are malformed such that you cannot confidently conclude there are no findings.
+- After the sentinel, follow the existing consolidation format.
+- Do not edit repository files.
+EOF
+}
+
+write_finalize_commit_repair_prompt() {
+  local prompt_path="$1"
+
+  cat > "${prompt_path}" <<'EOF'
+Your last finalize pass did not create a commit.
+
+Complete only the missing metadata-only finalize work now.
+
+Requirements:
+- Do not change code, tests, generated files, or rerun formatting/verification.
+- Preserve the current simplified worktree exactly.
+- Update `cumulative_review.md` only if it still needs the finalize metadata.
+- Remove the top-level `review1.md`, `review2.md`, and `review3.md`.
+- Commit the remaining changes.
+- Return a brief note describing the metadata and commit action you completed.
+EOF
+}
+
 ensure_review_docs_absent() {
   local review_path=""
 
@@ -1207,6 +1245,9 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   consolidate_response_file="${run_dir}/consolidated-findings.md"
   consolidate_transcript_file="${run_dir}/consolidated-transcript.log"
   consolidate_thread_id_file="${run_dir}/consolidated-thread-id.txt"
+  consolidated_status_repair_prompt_file="${run_dir}/consolidated-status-repair-prompt.md"
+  consolidated_status_repair_transcript_file="${run_dir}/consolidated-status-repair-transcript.log"
+  consolidated_status_repair_attempted="0"
   consolidate_thread_id=""
   consolidated_status=""
   fix_response_file="${run_dir}/fix-response.txt"
@@ -1221,6 +1262,9 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   finalize_unexpected_paths_file="${run_dir}/finalize-unexpected-paths.txt"
   finalize_response_file="${run_dir}/final-response.txt"
   finalize_transcript_file="${run_dir}/final-transcript.log"
+  finalize_commit_repair_prompt_file="${run_dir}/finalize-commit-repair-prompt.md"
+  finalize_commit_repair_transcript_file="${run_dir}/finalize-commit-repair-transcript.log"
+  finalize_commit_repair_attempted="0"
   review_timeout_value=""
 
   mkdir -p "${run_dir}"
@@ -1368,6 +1412,31 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   log_info "[$iteration/$iterations] Consolidation complete"
 
   if ! consolidated_status="$(extract_consolidated_status "${consolidate_response_file}")"; then
+    if [[ "${consolidated_status_repair_attempted}" == "0" ]] && [[ -s "${consolidate_thread_id_file}" ]]; then
+      consolidated_status_repair_attempted="1"
+      consolidate_thread_id="$(<"${consolidate_thread_id_file}")"
+      write_consolidated_status_repair_prompt "${consolidated_status_repair_prompt_file}"
+      log_info "[$iteration/$iterations] Consolidation response missing sentinel; requesting in-session rewrite"
+
+      set +e
+      run_codex_session \
+        "${consolidated_status_repair_prompt_file}" \
+        "${consolidated_status_repair_transcript_file}" \
+        "${consolidate_response_file}" \
+        "resume" \
+        "${consolidate_thread_id}"
+      consolidate_repair_exit_code="$?"
+      set -e
+      if [[ "${consolidate_repair_exit_code}" -eq 0 ]]; then
+        cp "${consolidate_response_file}" "${run_last_message_file}"
+        if consolidated_status="$(extract_consolidated_status "${consolidate_response_file}")"; then
+          log_info "[$iteration/$iterations] Consolidation rewrite produced a valid sentinel"
+        fi
+      fi
+    fi
+  fi
+
+  if [[ -z "${consolidated_status}" ]]; then
     recover_iteration_failure \
       "failure:invalid-consolidated-status" \
       "Consolidation response did not provide a valid status sentinel; resetting to HEAD and retrying."
@@ -1486,6 +1555,28 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   log_info "[$iteration/$iterations] Finalize stage complete"
 
   iteration_end_head="$(git -C "${root_dir}" rev-parse HEAD)"
+  if [[ "${iteration_end_head}" == "${iteration_start_head}" ]] && [[ "${finalize_commit_repair_attempted}" == "0" ]]; then
+    finalize_commit_repair_attempted="1"
+    write_finalize_commit_repair_prompt "${finalize_commit_repair_prompt_file}"
+    log_info "[$iteration/$iterations] Finalize stage produced no commit; requesting in-session completion"
+
+    set +e
+    run_codex_session \
+      "${finalize_commit_repair_prompt_file}" \
+      "${finalize_commit_repair_transcript_file}" \
+      "${finalize_response_file}" \
+      "resume" \
+      "${consolidate_thread_id}"
+    finalize_commit_repair_exit_code="$?"
+    set -e
+    if [[ "${finalize_commit_repair_exit_code}" -eq 0 ]]; then
+      cp "${finalize_response_file}" "${run_last_message_file}"
+      iteration_end_head="$(git -C "${root_dir}" rev-parse HEAD)"
+      if [[ "${iteration_end_head}" != "${iteration_start_head}" ]]; then
+        log_info "[$iteration/$iterations] Finalize repair created the missing commit"
+      fi
+    fi
+  fi
   if [[ "${iteration_end_head}" == "${iteration_start_head}" ]]; then
     recover_iteration_failure \
       "failure:no-commit" \
