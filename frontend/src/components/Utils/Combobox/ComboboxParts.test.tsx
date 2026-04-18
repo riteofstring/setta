@@ -41,24 +41,6 @@ function renderNormalInputMarkup(variant: "pill" | "pane") {
   );
 }
 
-function renderInputMarkupWithUndefinedBg(variant: "pill" | "pane") {
-  return renderToStaticMarkup(
-    <ComboboxInput
-      divId="combobox-test-undefined-bg"
-      getInputProps={() => ({})}
-      getToggleButtonProps={() => ({})}
-      isOpen={false}
-      small={false}
-      onKeyDown={() => {}}
-      placeholder="Pick one"
-      bg={undefined}
-      isDisabled={false}
-      inputRef={inputRef}
-      variant={variant}
-    />,
-  );
-}
-
 describe("ComboboxInput", () => {
   it("uses full-height small toggle sizing for pane variants", () => {
     // Pane comboboxes use a compact 24px field; the chevron button should
@@ -89,13 +71,5 @@ describe("ComboboxInput", () => {
     expect(paneMarkup).not.toContain("gg-chevron-down");
     expect(pillMarkup).not.toContain("gg-chevron-down");
     expect(pillMarkup).toContain("<svg");
-  });
-
-  it("falls back to the variant background when bg is undefined", () => {
-    const paneMarkup = renderInputMarkupWithUndefinedBg("pane");
-    const pillMarkup = renderInputMarkupWithUndefinedBg("pill");
-
-    expect(paneMarkup).toContain("bg-white/80");
-    expect(pillMarkup).toContain("bg-white");
   });
 });

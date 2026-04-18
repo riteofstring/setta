@@ -106,6 +106,10 @@ function buildPluginStatusEntry(
     blockedCapabilities: [],
     components: [],
     registeredCodegenTargets: [],
+    registeredLanguageServers: [],
+    registeredBackendRoutes: [],
+    registeredStaticDirs: [],
+    registeredListenerEndpoints: [],
     enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
@@ -193,6 +197,12 @@ function buildPluginStatusResponse(
   return {
     schemaVersion: 1,
     serverMode: "ide",
+    restartCapability: {
+      mode: "manual",
+      command: "setta",
+      reason: "Programmatic restart is not available in this runtime.",
+    } as PluginRestartCapability,
+    selectedLanguageServers: [],
     plugins,
     ...overrides,
   };
