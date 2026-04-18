@@ -5263,6 +5263,11 @@
       "schemaRef": "#/$defs/SettingsGUI"
     },
     {
+      "name": "SettingsLanguageServer",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsLanguageServer"
+    },
+    {
       "name": "SettingsManagedBlock",
       "kind": "model",
       "schemaRef": "#/$defs/SettingsManagedBlock"
@@ -10013,16 +10018,7 @@
           "zoomOnScroll": true
         },
         "languageServer": {
-          "basedpyright": {
-            "analysis": {
-              "diagnosticSeverityOverrides": {
-                "reportSelfClsParameterName": "none",
-                "reportUnannotatedClassAttribute": "none",
-                "reportUnknownMemberType": "none",
-                "reportUnknownVariableType": "none"
-              }
-            }
-          }
+          "selectedByLanguage": {}
         },
         "sectionSizingPolicy": {
           "byType": {
