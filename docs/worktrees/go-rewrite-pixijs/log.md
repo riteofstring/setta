@@ -172,3 +172,27 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - fix the `_MiniMapNodes` invalid-element-type runtime crash in the minimap path so the Phase 1 `settings` baseline probe can finish and write the first durable report
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 010
+
+- Item: Clear the `_MiniMapNodes` invalid-element-type minimap crash so the live project route can settle again.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` so optional minimap props with explicit `undefined` values no longer overwrite the default minimap node renderer and other minimap defaults.
+  - Added a focused regression test in `frontend/src/forks/xyflow/minimap/MiniMap.test.ts` that renders `MinimapSvg` without a custom `nodeComponent` and expects the default minimap node markup.
+  - Focused static verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.tsx`
+  - Focused Vitest execution for the new minimap regression test is still blocked by an existing jsdom dependency/runtime issue before test collection:
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - Headless live verification with a fresh bootstrap URL now lands on the normal project surface at `http://127.0.0.1:3068/round_lime`; the prior React error boundary with `_MiniMapNodes` / invalid-element-type text no longer appears.
+  - The next blocker is one layer later on the Settings route:
+    - final URL: `http://127.0.0.1:3068/settings`
+    - visible error boundary text: `Unexpected Application Error!`
+    - runtime error: `TypeError: Cannot read properties of undefined (reading 'trim')`
+    - stack points at `src/components/Utils/Combobox/ComboboxParts.tsx`
+  - CDP visual check is done and matches the live probe:
+    - project route is healthy again
+    - `/settings` now fails later in `ComboboxParts.tsx`, not in minimap rendering
+- Next action:
+  - fix the `/settings` `ComboboxParts.tsx` `trim()` runtime crash so the Phase 1 baseline probe can mount the Settings surface and capture the first durable report
+LOOP_TERMINAL_MARKER: none

@@ -2,6 +2,7 @@
 
 import { act, createElement, createRef } from "react";
 import { createRoot } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
 import { useActiveSectionUI } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
@@ -48,6 +49,36 @@ describe("getXYWidthHeight", () => {
 });
 
 describe("syncSelectedMiniMapNodes", () => {
+  it("renders the default minimap node component when callers omit it", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MinimapSvg, {
+        elementWidth: 200,
+        elementHeight: 150,
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 150,
+        offset: 0,
+        viewBB: { x: 0, y: 0, width: 200, height: 150 },
+        maskColor: "rgba(0, 0, 0, 0.1)",
+        maskStrokeColor: "transparent",
+        maskStrokeWidth: 0,
+        nodes: [
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 100,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain('data-minimap-node-id="section-a"');
+  });
+
   it("does nothing when the minimap svg is not available yet", () => {
     expect(() => {
       syncSelectedMiniMapNodes(undefined, ["alpha"]);
