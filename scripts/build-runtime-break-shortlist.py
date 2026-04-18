@@ -8,7 +8,6 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 FRONTEND_DIAGNOSTIC_RE = re.compile(
     r"^(src/[^(:]+\.(?:ts|tsx|js|jsx))\((\d+),(\d+)\): error TS(\d+): (.+)$"
 )
@@ -20,7 +19,9 @@ ENUM_MEMBER_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", re.MULTILINE)
 GENERATED_TYPES_IMPORT_RE = re.compile(
     r'import\s*{([^}]*)}\s*from\s*"utils/generatedTypes";', re.DOTALL
 )
-ENUM_USAGE_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*Enum)\.([A-Za-z_][A-Za-z0-9_]*)\b")
+ENUM_USAGE_RE = re.compile(
+    r"\b([A-Za-z_][A-Za-z0-9_]*Enum)\.([A-Za-z_][A-Za-z0-9_]*)\b"
+)
 
 RUNTIME_BREAK_TYPESCRIPT_CODES = {"2339"}
 
@@ -58,14 +59,11 @@ def is_test_path(path: str) -> bool:
 
 def is_production_path(path: str) -> bool:
     normalized = path.replace("\\", "/")
-    return (
-        not is_test_path(normalized)
-        and (
-            normalized.startswith("frontend/src/")
-            or normalized.startswith("internal/")
-            or normalized.startswith("backend/setta/")
-            or normalized.startswith("cmd/")
-        )
+    return not is_test_path(normalized) and (
+        normalized.startswith("frontend/src/")
+        or normalized.startswith("internal/")
+        or normalized.startswith("backend/setta/")
+        or normalized.startswith("cmd/")
     )
 
 
@@ -129,16 +127,23 @@ def parse_import_symbols(text: str) -> dict[str, set[str]]:
     return imports
 
 
-def parse_frontend_diagnostics(frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]) -> None:
+def parse_frontend_diagnostics(
+    frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
+) -> None:
     if not frontend_typecheck.is_file():
         return
-    for raw_line in frontend_typecheck.read_text(encoding="utf-8", errors="replace").splitlines():
+    for raw_line in frontend_typecheck.read_text(
+        encoding="utf-8", errors="replace"
+    ).splitlines():
         match = FRONTEND_DIAGNOSTIC_RE.match(raw_line)
         if not match:
             continue
         rel_path, line_text, _, code, message = match.groups()
         file_path = f"frontend/{rel_path}"
-        if not is_production_path(file_path) or code not in RUNTIME_BREAK_TYPESCRIPT_CODES:
+        if (
+            not is_production_path(file_path)
+            or code not in RUNTIME_BREAK_TYPESCRIPT_CODES
+        ):
             continue
 
         line = int(line_text)
@@ -155,7 +160,9 @@ def parse_frontend_diagnostics(frontend_typecheck: Path, buckets: dict[tuple[str
             )
 
 
-def scan_generated_type_contracts(repo_root: Path, buckets: dict[tuple[str, str], Finding]) -> None:
+def scan_generated_type_contracts(
+    repo_root: Path, buckets: dict[tuple[str, str], Finding]
+) -> None:
     generated_types_path = repo_root / "frontend/src/utils/generatedTypes.ts"
     enum_members = parse_generated_types(generated_types_path)
     frontend_src = repo_root / "frontend/src"
@@ -166,7 +173,10 @@ def scan_generated_type_contracts(repo_root: Path, buckets: dict[tuple[str, str]
         if not path.is_file():
             continue
         relative_path = relative_repo_path(repo_root, path)
-        if not is_production_path(relative_path) or relative_path == "frontend/src/utils/generatedTypes.ts":
+        if (
+            not is_production_path(relative_path)
+            or relative_path == "frontend/src/utils/generatedTypes.ts"
+        ):
             continue
 
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -257,8 +267,12 @@ def render_markdown(
 def build_shortlist(args: argparse.Namespace) -> int:
     repo_root = Path(args.repo_root).resolve()
     output_path = Path(args.output).resolve()
-    frontend_typecheck = Path(args.frontend_typecheck).resolve() if args.frontend_typecheck else None
-    python_typecheck = Path(args.python_typecheck).resolve() if args.python_typecheck else None
+    frontend_typecheck = (
+        Path(args.frontend_typecheck).resolve() if args.frontend_typecheck else None
+    )
+    python_typecheck = (
+        Path(args.python_typecheck).resolve() if args.python_typecheck else None
+    )
     go_typecheck = Path(args.go_typecheck).resolve() if args.go_typecheck else None
 
     buckets: dict[tuple[str, str], Finding] = {}
@@ -268,7 +282,12 @@ def build_shortlist(args: argparse.Namespace) -> int:
 
     findings = sorted(
         buckets.values(),
-        key=lambda finding: (-finding.priority, finding.file_path, finding.line, finding.kind),
+        key=lambda finding: (
+            -finding.priority,
+            finding.file_path,
+            finding.line,
+            finding.kind,
+        ),
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
