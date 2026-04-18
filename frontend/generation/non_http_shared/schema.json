@@ -657,24 +657,22 @@
           }
         },
         "dataBindings": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "actions": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "theme": {
           "anyOf": [
@@ -837,8 +835,8 @@
         },
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -1058,6 +1056,38 @@
         "context",
         "endpointName",
         "payload"
+      ],
+      "additionalProperties": false
+    },
+    "BackendLogEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "projectConfigId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "message": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        }
+      },
+      "title": "BackendLogEvent",
+      "required": [
+        "id",
+        "projectConfigId",
+        "severity",
+        "message",
+        "timestamp"
       ],
       "additionalProperties": false
     },
@@ -1443,6 +1473,9 @@
           "$ref": "#/$defs/PromptSectionImpl"
         },
         {
+          "$ref": "#/$defs/MetaControlSectionImpl"
+        },
+        {
           "$ref": "#/$defs/GlobalVariablesSectionImpl"
         },
         {
@@ -1456,6 +1489,9 @@
         },
         {
           "$ref": "#/$defs/TerminalSectionImpl"
+        },
+        {
+          "$ref": "#/$defs/IFrameSectionImpl"
         },
         {
           "$ref": "#/$defs/ChatSectionImpl"
@@ -1857,11 +1893,9 @@
           "$ref": "#/$defs/DrawAreaBrushShape"
         },
         "points": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": true
+          "type": "array",
+          "items": true,
+          "default": []
         },
         "globalCompositeOperation": {
           "type": "string"
@@ -1911,11 +1945,9 @@
           "$ref": "#/$defs/DrawAreaBrushShape"
         },
         "points": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": true
+          "type": "array",
+          "items": true,
+          "default": []
         },
         "globalCompositeOperation": {
           "type": "string"
@@ -2314,6 +2346,45 @@
       "minItems": 2,
       "maxItems": 2
     },
+    "ChangeParamImplUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "allParamCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        },
+        "controlCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        },
+        "sectionParamCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        }
+      },
+      "title": "ChangeParamImplUIConfigValue",
+      "required": [
+        "allParamCodeObjTypes",
+        "controlCodeObjTypes",
+        "sectionParamCodeObjTypes"
+      ],
+      "additionalProperties": false
+    },
     "ChartDataArtifact": {
       "type": "object",
       "properties": {
@@ -2544,8 +2615,8 @@
         },
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -2681,8 +2752,8 @@
       "properties": {
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -2995,8 +3066,8 @@
       "properties": {
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -3375,6 +3446,9 @@
                 "$ref": "#/$defs/PromptSectionImpl"
               },
               {
+                "$ref": "#/$defs/MetaControlSectionImpl"
+              },
+              {
                 "$ref": "#/$defs/GlobalVariablesSectionImpl"
               },
               {
@@ -3388,6 +3462,9 @@
               },
               {
                 "$ref": "#/$defs/TerminalSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/IFrameSectionImpl"
               },
               {
                 "$ref": "#/$defs/ChatSectionImpl"
@@ -4310,14 +4387,10 @@
           ]
         },
         "sharedModifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "unsharedKeys": {
           "type": [
@@ -5223,13 +5296,11 @@
           "type": "string"
         },
         "elements": {
-          "type": [
-            "null",
-            "array"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/$defs/DrawAreaLayerItem"
-          }
+          },
+          "default": []
         },
         "visible": {
           "type": "boolean"
@@ -5275,13 +5346,11 @@
           "$ref": "#/$defs/DrawAreaTransform"
         },
         "eraserStrokes": {
-          "type": [
-            "null",
-            "array"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/$defs/BrushStrokeWithTransform"
-          }
+          },
+          "default": []
         }
       },
       "title": "DrawAreaLayerItemTransform",
@@ -5385,13 +5454,11 @@
           "type": "string"
         },
         "choices": {
-          "type": [
-            "null",
-            "array"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "default": []
         }
       },
       "title": "DropdownParamCodeObjImpl",
@@ -6876,6 +6943,118 @@
         "OPTIONS"
       ]
     },
+    "IFrameSectionImpl": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "isFrozen": {
+          "type": "boolean"
+        },
+        "isInOtherProjectConfigs": {
+          "type": "boolean"
+        },
+        "tagColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "styleColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "size": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "aspectRatio": true,
+        "aspectRatioExtraHeight": {
+          "type": "number"
+        },
+        "aspectRatioExtraWidth": {
+          "type": "number"
+        },
+        "isMinimized": {
+          "type": "boolean"
+        },
+        "positionAndSizeLocked": {
+          "type": "boolean"
+        },
+        "isPreset": {
+          "type": "boolean"
+        },
+        "code": {
+          "type": "string"
+        }
+      },
+      "title": "IFrameSectionImpl",
+      "required": [
+        "type",
+        "id",
+        "name",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "tagColor",
+        "styleColor",
+        "size",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "isMinimized",
+        "positionAndSizeLocked",
+        "isPreset",
+        "code"
+      ],
+      "additionalProperties": false
+    },
     "IdentityContent": {
       "type": "object",
       "properties": {
@@ -7587,8 +7766,8 @@
         },
         "dependencies": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseDependencyKeyUnion"
@@ -8948,8 +9127,8 @@
         },
         "content": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/MessageContentDelta"
@@ -9162,6 +9341,220 @@
         "RealtimeUIChange",
         "RealtimeDependencyEvent"
       ]
+    },
+    "MetaControlSectionImpl": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "isFrozen": {
+          "type": "boolean"
+        },
+        "isInOtherProjectConfigs": {
+          "type": "boolean"
+        },
+        "tagColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "styleColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "size": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "aspectRatio": true,
+        "aspectRatioExtraHeight": {
+          "type": "number"
+        },
+        "aspectRatioExtraWidth": {
+          "type": "number"
+        },
+        "isMinimized": {
+          "type": "boolean"
+        },
+        "positionAndSizeLocked": {
+          "type": "boolean"
+        },
+        "isPreset": {
+          "type": "boolean"
+        },
+        "codeObjVariantMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "hideUnpinnedParams": {
+          "type": "boolean"
+        },
+        "paramFilter": {
+          "type": "string"
+        },
+        "columnWidth": {
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "metaControlParamId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "showSectionTitle": {
+          "type": "boolean"
+        },
+        "pinnedParams": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "selectedParams": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "ignoreTypeErrors": {
+          "type": "object",
+          "properties": {
+            "callable": {
+              "type": "boolean"
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "boolean"
+              }
+            }
+          },
+          "required": [
+            "callable",
+            "params"
+          ],
+          "additionalProperties": false
+        },
+        "edgeInputParams": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "edgeOutputPorts": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "accessor": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "accessor"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "title": "MetaControlSectionImpl",
+      "required": [
+        "type",
+        "id",
+        "name",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "tagColor",
+        "styleColor",
+        "size",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "isMinimized",
+        "positionAndSizeLocked",
+        "isPreset",
+        "codeObjVariantMap",
+        "hideUnpinnedParams",
+        "paramFilter",
+        "columnWidth",
+        "metaControlParamId",
+        "showSectionTitle",
+        "pinnedParams",
+        "selectedParams",
+        "ignoreTypeErrors",
+        "edgeInputParams",
+        "edgeOutputPorts"
+      ],
+      "additionalProperties": false
     },
     "MetaControlSizeMode": {
       "type": "string",
@@ -11215,6 +11608,15 @@
             "$ref": "#/$defs/PluginRegisteredCodegenTarget"
           }
         },
+        "registeredLanguageServers": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/PluginRegisteredLanguageServer"
+          }
+        },
         "registeredBackendRoutes": {
           "type": [
             "null",
@@ -11287,6 +11689,7 @@
         "blockedCapabilities",
         "components",
         "registeredCodegenTargets",
+        "registeredLanguageServers",
         "registeredBackendRoutes",
         "registeredStaticDirs",
         "registeredListenerEndpoints",
@@ -11309,6 +11712,15 @@
         "restartCapability": {
           "$ref": "#/$defs/PluginRestartCapability"
         },
+        "selectedLanguageServers": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/SelectedLanguageServerStatus"
+          }
+        },
         "plugins": {
           "type": [
             "null",
@@ -11324,6 +11736,7 @@
         "schemaVersion",
         "serverMode",
         "restartCapability",
+        "selectedLanguageServers",
         "plugins"
       ],
       "additionalProperties": false
@@ -14228,8 +14641,8 @@
         },
         "toolCalls": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/ToolCall"
@@ -14470,14 +14883,13 @@
           "type": "string"
         },
         "sharedModifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "unsharedKeys": {
           "type": [
@@ -15095,14 +15507,13 @@
           }
         },
         "modifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "isFrozen": {
           "type": "boolean"
@@ -15317,6 +15728,46 @@
       "required": [
         "type",
         "data"
+      ],
+      "additionalProperties": false
+    },
+    "SelectedLanguageServerState": {
+      "type": "string",
+      "title": "SelectedLanguageServerState",
+      "enum": [
+        "not_selected",
+        "disabled",
+        "ready",
+        "selected_plugin_missing",
+        "selected_plugin_wrong_language",
+        "selected_plugin_unavailable"
+      ]
+    },
+    "SelectedLanguageServerStatus": {
+      "type": "object",
+      "properties": {
+        "languageId": {
+          "type": "string"
+        },
+        "selectedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/SelectedLanguageServerState"
+        },
+        "applied": {
+          "type": "boolean"
+        }
+      },
+      "title": "SelectedLanguageServerStatus",
+      "required": [
+        "languageId",
+        "selectedPluginId",
+        "state",
+        "applied"
       ],
       "additionalProperties": false
     },
@@ -15750,6 +16201,64 @@
       ],
       "additionalProperties": false
     },
+    "SettingsChatWindowing": {
+      "type": "object",
+      "properties": {
+        "autoCreateInitialChat": {
+          "type": "boolean"
+        },
+        "restorePriorStateOnUnmaximize": {
+          "type": "boolean"
+        },
+        "shortcuts": {
+          "$ref": "#/$defs/SettingsChatWindowingShortcuts"
+        }
+      },
+      "title": "SettingsChatWindowing",
+      "required": [
+        "autoCreateInitialChat",
+        "restorePriorStateOnUnmaximize",
+        "shortcuts"
+      ],
+      "additionalProperties": false
+    },
+    "SettingsChatWindowingShortcuts": {
+      "type": "object",
+      "properties": {
+        "canvasToggle": {
+          "type": "string"
+        },
+        "maximizeFocused": {
+          "type": "string"
+        },
+        "minimizeFocused": {
+          "type": "string"
+        },
+        "snapLeft": {
+          "type": "string"
+        },
+        "snapRight": {
+          "type": "string"
+        },
+        "snapTop": {
+          "type": "string"
+        },
+        "snapBottom": {
+          "type": "string"
+        }
+      },
+      "title": "SettingsChatWindowingShortcuts",
+      "required": [
+        "canvasToggle",
+        "maximizeFocused",
+        "minimizeFocused",
+        "snapLeft",
+        "snapRight",
+        "snapTop",
+        "snapBottom"
+      ],
+      "additionalProperties": false
+    },
     "SettingsGUI": {
       "type": "object",
       "properties": {
@@ -15855,6 +16364,25 @@
         "leftSidePaneShiftsMap",
         "transitionDuration",
         "sectionTagColorChoices"
+      ],
+      "additionalProperties": false
+    },
+    "SettingsLanguageServer": {
+      "type": "object",
+      "properties": {
+        "selectedByLanguage": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "title": "SettingsLanguageServer",
+      "required": [
+        "selectedByLanguage"
       ],
       "additionalProperties": false
     },
@@ -16158,12 +16686,14 @@
         "backend": {
           "$ref": "#/$defs/SettingsBackend"
         },
+        "chatWindowing": {
+          "$ref": "#/$defs/SettingsChatWindowing"
+        },
         "sectionSizingPolicy": {
           "$ref": "#/$defs/SectionSizingPolicy"
         },
         "languageServer": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/SettingsLanguageServer"
         }
       },
       "title": "SettingsState",
@@ -16171,6 +16701,7 @@
         "shortcuts",
         "gui",
         "backend",
+        "chatWindowing",
         "sectionSizingPolicy",
         "languageServer"
       ],
@@ -16192,6 +16723,16 @@
         "content"
       ],
       "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "title": "Severity",
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ]
     },
     "SharePolicyOverrides": {
       "type": "object",
@@ -16363,6 +16904,9 @@
                 "$ref": "#/$defs/PromptSectionImpl"
               },
               {
+                "$ref": "#/$defs/MetaControlSectionImpl"
+              },
+              {
                 "$ref": "#/$defs/GlobalVariablesSectionImpl"
               },
               {
@@ -16376,6 +16920,9 @@
               },
               {
                 "$ref": "#/$defs/TerminalSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/IFrameSectionImpl"
               },
               {
                 "$ref": "#/$defs/ChatSectionImpl"
@@ -19921,8 +20468,8 @@
       "properties": {
         "artifacts": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseArtifactUnion"
@@ -19968,8 +20515,8 @@
       "properties": {
         "artifacts": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseArtifactUnion"
@@ -20071,14 +20618,10 @@
           }
         },
         "modifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "isFrozen": {
           "type": "boolean"
@@ -20260,6 +20803,30 @@
         "signatureHash",
         "bodyHash",
         "sourcePath"
+      ],
+      "additionalProperties": false
+    },
+    "WebsocketMessage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "messageType": {
+          "$ref": "#/$defs/WebsocketMessageType"
+        },
+        "content": {
+          "$ref": "#/$defs/BackendLogEvent"
+        }
+      },
+      "title": "WebsocketMessage",
+      "required": [
+        "id",
+        "messageType",
+        "content"
       ],
       "additionalProperties": false
     },

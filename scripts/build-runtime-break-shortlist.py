@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 FRONTEND_DIAGNOSTIC_RE = re.compile(
     r"^(src/[^(:]+\.(?:ts|tsx|js|jsx))\((\d+),(\d+)\): error TS(\d+): (.+)$"
+)
+NAMED_IMPORT_RE = re.compile(
+    r'import\s+(type\s+)?(?:[^;{}]+,\s*)?\{([^}]*)\}\s*from\s*["\']([^"\']+)["\'];?',
+    re.DOTALL,
 )
 ENUM_BLOCK_RE = re.compile(
     r"export const ([A-Za-z_][A-Za-z0-9_]*Enum)\s*=\s*{(.*?)}\s*as const;",
@@ -22,8 +27,28 @@ GENERATED_TYPES_IMPORT_RE = re.compile(
 ENUM_USAGE_RE = re.compile(
     r"\b([A-Za-z_][A-Za-z0-9_]*Enum)\.([A-Za-z_][A-Za-z0-9_]*)\b"
 )
+MISSING_EXPORT_RE = re.compile(
+    r"""^Module\s+['"]+([^'"]+)['"]+\s+has no exported member\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\.(?: .+)?$"""
+)
+MISSING_NAMED_EXPORT_RE = re.compile(
+    r"""^['"]+([^'"]+)['"]+\s+has no exported member named\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\.(?: .+)?$"""
+)
+LOCAL_NOT_EXPORTED_RE = re.compile(
+    r"""^Module\s+['"]+([^'"]+)['"]+\s+declares\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\s+locally, but it is not exported\.$"""
+)
+CANNOT_FIND_NAME_RE = re.compile(
+    r"""^Cannot find name ['"]([A-Za-z_][A-Za-z0-9_]*)['"]\.(?: .+)?$"""
+)
 
-RUNTIME_BREAK_TYPESCRIPT_CODES = {"2339"}
+RUNTIME_BREAK_TYPESCRIPT_CODES = {"2304", "2305", "2339", "2459", "2614", "2724"}
+LOCAL_FRONTEND_MODULE_PREFIXES = (
+    "components/",
+    "forks/",
+    "openapi/",
+    "plugins/",
+    "state/",
+    "utils/",
+)
 
 
 @dataclass
@@ -127,11 +152,168 @@ def parse_import_symbols(text: str) -> dict[str, set[str]]:
     return imports
 
 
-def parse_frontend_diagnostics(
-    frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
-) -> None:
+def parse_named_imports(text: str) -> dict[str, dict[str, bool]]:
+    imports: dict[str, dict[str, bool]] = {}
+    for whole_type, members_text, module_path in NAMED_IMPORT_RE.findall(text):
+        module_members = imports.setdefault(module_path, {})
+        all_type_only = bool(whole_type)
+        for raw_member in members_text.split(","):
+            member = raw_member.strip()
+            if not member:
+                continue
+            is_type_only = all_type_only
+            if member.startswith("type "):
+                is_type_only = True
+                member = member[len("type ") :].strip()
+            member = member.split(" as ", 1)[0].strip()
+            if not member:
+                continue
+            module_members.setdefault(member, False)
+            if not is_type_only:
+                module_members[member] = True
+    return imports
+
+
+def transpile_frontend_source(repo_root: Path, source_path: Path) -> str | None:
+    frontend_dir = repo_root / "frontend"
+    transpile_script = """
+const fs = require("fs");
+const ts = require("typescript");
+const sourcePath = process.argv[1];
+const source = fs.readFileSync(sourcePath, "utf8");
+const result = ts.transpileModule(source, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ESNext,
+    jsx: ts.JsxEmit.ReactJSX,
+    importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
+    preserveValueImports: false,
+  },
+});
+process.stdout.write(result.outputText);
+"""
+    try:
+        completed = subprocess.run(
+            ["node", "-e", transpile_script, str(source_path)],
+            cwd=frontend_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout
+
+
+def load_transpiled_frontend_source(
+    transpiled_source_cache: dict[str, str | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    source_path: Path,
+) -> str | None:
+    if file_path not in transpiled_source_cache:
+        transpiled_source_cache[file_path] = transpile_frontend_source(
+            repo_root, source_path
+        )
+    return transpiled_source_cache[file_path]
+
+
+def is_frontend_local_module(module_path: str) -> bool:
+    return module_path.startswith(".") or module_path.startswith(
+        LOCAL_FRONTEND_MODULE_PREFIXES
+    )
+
+
+def missing_name_symbol(message: str) -> str | None:
+    match = CANNOT_FIND_NAME_RE.match(message)
+    if match:
+        return match.group(1)
+    return None
+
+
+def missing_export_details(message: str) -> tuple[str, str] | None:
+    for pattern in (MISSING_EXPORT_RE, MISSING_NAMED_EXPORT_RE, LOCAL_NOT_EXPORTED_RE):
+        match = pattern.match(message)
+        if match:
+            return match.group(1), match.group(2)
+    return None
+
+
+def load_named_imports_for_source(
+    import_cache: dict[str, dict[str, dict[str, bool]]],
+    *,
+    file_path: str,
+    source_path: Path,
+) -> dict[str, dict[str, bool]] | None:
+    imports = import_cache.get(file_path)
+    if imports is not None:
+        return imports
+    if not source_path.is_file():
+        import_cache[file_path] = {}
+        return None
+    imports = parse_named_imports(
+        source_path.read_text(encoding="utf-8", errors="replace")
+    )
+    import_cache[file_path] = imports
+    return imports
+
+
+def missing_export_survives_js_emit(
+    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None],
+    transpiled_source_cache: dict[str, str | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    source_path: Path,
+    module_path: str,
+    symbol: str,
+) -> bool:
+    emitted_imports = emitted_import_cache.get(file_path)
+    if emitted_imports is None and file_path not in emitted_import_cache:
+        output_text = load_transpiled_frontend_source(
+            transpiled_source_cache,
+            repo_root=repo_root,
+            file_path=file_path,
+            source_path=source_path,
+        )
+        emitted_imports = (
+            parse_named_imports(output_text) if output_text is not None else None
+        )
+        emitted_import_cache[file_path] = emitted_imports
+    else:
+        emitted_imports = emitted_import_cache.get(file_path)
+    if emitted_imports is None:
+        return True
+    return emitted_imports.get(module_path, {}).get(symbol, False)
+
+
+def missing_name_survives_js_emit(
+    transpiled_source_cache: dict[str, str | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    source_path: Path,
+    symbol: str,
+) -> bool:
+    output_text = load_transpiled_frontend_source(
+        transpiled_source_cache,
+        repo_root=repo_root,
+        file_path=file_path,
+        source_path=source_path,
+    )
+    if output_text is None:
+        return True
+    return re.search(rf"\b{re.escape(symbol)}\b", output_text) is not None
+
+
+def iter_frontend_runtime_diagnostics(
+    repo_root: Path, frontend_typecheck: Path
+) -> list[tuple[str, int, Path, str, str]]:
     if not frontend_typecheck.is_file():
-        return
+        return []
+
+    diagnostics: list[tuple[str, int, Path, str, str]] = []
     for raw_line in frontend_typecheck.read_text(
         encoding="utf-8", errors="replace"
     ).splitlines():
@@ -145,19 +327,173 @@ def parse_frontend_diagnostics(
             or code not in RUNTIME_BREAK_TYPESCRIPT_CODES
         ):
             continue
+        diagnostics.append(
+            (file_path, int(line_text), repo_root / file_path, code, message)
+        )
+    return diagnostics
 
-        line = int(line_text)
-        if code == "2339" and "does not exist on type '{ readonly" in message:
-            add_bucket(
-                buckets,
-                kind="missing-generated-member",
-                file_path=file_path,
-                line=line,
-                priority=98,
-                title="Production code expects runtime enum/object members that are missing",
-                why="A readonly generated runtime object used by production code is missing members, which strongly suggests broken live dispatch or contract wiring.",
-                evidence=f"{file_path}:{line} TS{code}: {message}",
-            )
+
+def record_missing_runtime_name(
+    buckets: dict[tuple[str, str], Finding],
+    transpiled_source_cache: dict[str, str | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    line: int,
+    source_path: Path,
+    code: str,
+    message: str,
+) -> bool:
+    if code != "2304":
+        return False
+
+    symbol = missing_name_symbol(message)
+    if symbol is None:
+        return True
+
+    if not missing_name_survives_js_emit(
+        transpiled_source_cache,
+        repo_root=repo_root,
+        file_path=file_path,
+        source_path=source_path,
+        symbol=symbol,
+    ):
+        return True
+
+    add_bucket(
+        buckets,
+        kind="missing-runtime-name",
+        file_path=file_path,
+        line=line,
+        priority=100,
+        title="Production code references an unbound runtime identifier",
+        why="An unresolved identifier that still survives emitted JS will throw at render or module evaluation time on supported paths.",
+        evidence=f"{file_path}:{line} TS{code}: {message}",
+    )
+    return True
+
+
+def record_missing_generated_member(
+    buckets: dict[tuple[str, str], Finding],
+    *,
+    file_path: str,
+    line: int,
+    code: str,
+    message: str,
+) -> bool:
+    if code != "2339" or "does not exist on type '{ readonly" not in message:
+        return False
+
+    add_bucket(
+        buckets,
+        kind="missing-generated-member",
+        file_path=file_path,
+        line=line,
+        priority=98,
+        title="Production code expects runtime enum/object members that are missing",
+        why="A readonly generated runtime object used by production code is missing members, which strongly suggests broken live dispatch or contract wiring.",
+        evidence=f"{file_path}:{line} TS{code}: {message}",
+    )
+    return True
+
+
+def record_missing_runtime_export(
+    buckets: dict[tuple[str, str], Finding],
+    import_cache: dict[str, dict[str, dict[str, bool]]],
+    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None],
+    transpiled_source_cache: dict[str, str | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    line: int,
+    source_path: Path,
+    code: str,
+    message: str,
+) -> None:
+    missing_export = missing_export_details(message)
+    if missing_export is None:
+        return
+
+    module_path, symbol = missing_export
+    if not is_frontend_local_module(module_path):
+        return
+
+    imports = load_named_imports_for_source(
+        import_cache,
+        file_path=file_path,
+        source_path=source_path,
+    )
+    if imports is None or not imports.get(module_path, {}).get(symbol, False):
+        return
+
+    if not missing_export_survives_js_emit(
+        emitted_import_cache,
+        transpiled_source_cache,
+        repo_root=repo_root,
+        file_path=file_path,
+        source_path=source_path,
+        module_path=module_path,
+        symbol=symbol,
+    ):
+        return
+
+    priority = 100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99
+    add_bucket(
+        buckets,
+        kind="missing-runtime-export",
+        file_path=file_path,
+        line=line,
+        priority=priority,
+        title="Production code imports value symbols that the source module does not export",
+        why="A production-path value import points at a missing export, which breaks module evaluation and can crash app startup or any supported flow that loads the module.",
+        evidence=f"{file_path}:{line} TS{code}: {message}",
+    )
+
+
+def parse_frontend_diagnostics(
+    repo_root: Path, frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
+) -> None:
+    import_cache: dict[str, dict[str, dict[str, bool]]] = {}
+    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None] = {}
+    transpiled_source_cache: dict[str, str | None] = {}
+    for (
+        file_path,
+        line,
+        source_path,
+        code,
+        message,
+    ) in iter_frontend_runtime_diagnostics(repo_root, frontend_typecheck):
+        if record_missing_runtime_name(
+            buckets,
+            transpiled_source_cache,
+            repo_root=repo_root,
+            file_path=file_path,
+            line=line,
+            source_path=source_path,
+            code=code,
+            message=message,
+        ):
+            continue
+        if record_missing_generated_member(
+            buckets,
+            file_path=file_path,
+            line=line,
+            code=code,
+            message=message,
+        ):
+            continue
+        record_missing_runtime_export(
+            buckets,
+            import_cache,
+            emitted_import_cache,
+            transpiled_source_cache,
+            repo_root=repo_root,
+            file_path=file_path,
+            line=line,
+            source_path=source_path,
+            code=code,
+            message=message,
+        )
 
 
 def scan_generated_type_contracts(
@@ -213,7 +549,7 @@ def render_markdown(
         "# Runtime-Break Shortlist",
         "",
         "This shortlist intentionally keeps only high-confidence runtime-bug signals inferred from typecheck and static contract scans.",
-        "Typecheck-only import/export churn, test-only noise, and helper/nullability cleanup are omitted on purpose.",
+        "Type-only import/export churn, test-only noise, and helper/nullability cleanup are omitted on purpose.",
         "",
         "## Sources",
     ]
@@ -277,7 +613,7 @@ def build_shortlist(args: argparse.Namespace) -> int:
 
     buckets: dict[tuple[str, str], Finding] = {}
     if frontend_typecheck is not None:
-        parse_frontend_diagnostics(frontend_typecheck, buckets)
+        parse_frontend_diagnostics(repo_root, frontend_typecheck, buckets)
     scan_generated_type_contracts(repo_root, buckets)
 
     findings = sorted(
