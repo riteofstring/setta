@@ -24,10 +24,8 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  ChatAreaSettings,
-  filterExecutableLinkedChatTargets,
-} from "./ChatAreaSettings";
+import { ChatAreaSettings } from "./ChatAreaSettings";
+import { filterExecutableLinkedChatTargets } from "./chatAreaLinkedChatTargets";
 let mockCanEditLayout = true;
 const routeGetAgenticSummaryCacheStatusMock = vi.fn();
 vi.mock("openapi/http", async () => {

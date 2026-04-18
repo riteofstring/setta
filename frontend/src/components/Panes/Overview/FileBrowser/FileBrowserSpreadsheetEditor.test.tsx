@@ -14,27 +14,25 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import "testUtils/reactRefreshPreamble";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FileBrowserSpreadsheetEditor } from "./FileBrowserSpreadsheetEditor";
 import {
-  applySpreadsheetCellUpdates,
-  canSaveSpreadsheetDraft,
-  FileBrowserSpreadsheetEditor,
-  getFilteredSortedSpreadsheetRowIndexes,
   getSpreadsheetDensityMetrics,
   getSpreadsheetGlideDensityMultiplier,
   getSpreadsheetGlideTheme,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
+  SPREADSHEET_FILTER_INPUT_CLASS_NAME,
+  SpreadsheetRow,
+} from "./fileBrowserSpreadsheetGrid";
+import {
+  applySpreadsheetCellUpdates,
+  canSaveSpreadsheetDraft,
+  getFilteredSortedSpreadsheetRowIndexes,
   isSpreadsheetLoadRequestStale,
   shouldAnnounceSpreadsheetAutoReload,
   shouldClearSpreadsheetDirtyAfterSave,
   shouldIgnoreSpreadsheetSaveResult,
-  SPREADSHEET_DATA_COLUMN_WIDTH,
-  SPREADSHEET_FILTER_INPUT_CLASS_NAME,
-  SPREADSHEET_HEADER_HEIGHT,
-  SPREADSHEET_INDEX_COLUMN_WIDTH,
-  SPREADSHEET_ROW_HEIGHT,
-  SpreadsheetRow,
-} from "./FileBrowserSpreadsheetEditor";
+} from "./fileBrowserSpreadsheetState";
 
 const openAPI = vi.hoisted(() => ({
   getFileBrowserFileContent: vi.fn(),
@@ -171,21 +169,24 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
   }
 
   it("uses compact spreadsheet sizing defaults", () => {
-    expect(SPREADSHEET_HEADER_HEIGHT).toBeLessThanOrEqual(24);
-    expect(SPREADSHEET_ROW_HEIGHT).toBeLessThanOrEqual(24);
-    expect(SPREADSHEET_INDEX_COLUMN_WIDTH).toBeLessThanOrEqual(40);
-    expect(SPREADSHEET_DATA_COLUMN_WIDTH).toBeLessThanOrEqual(92);
+    const compact = getSpreadsheetDensityMetrics("compact");
+    expect(compact.headerHeight).toBeLessThanOrEqual(24);
+    expect(compact.rowHeight).toBeLessThanOrEqual(24);
+    expect(compact.indexColumnWidth).toBeLessThanOrEqual(40);
+    expect(compact.dataColumnWidth).toBeLessThanOrEqual(92);
     expect(getSpreadsheetGridWidth(2)).toBe(
-      SPREADSHEET_INDEX_COLUMN_WIDTH + SPREADSHEET_DATA_COLUMN_WIDTH * 2,
+      compact.indexColumnWidth + compact.dataColumnWidth * 2,
     );
     expect(getSpreadsheetGridTemplateColumns(3)).toContain("repeat(3");
   });
 
   it("supports row-number-less grid sizing and comfortable density", () => {
     const comfortable = getSpreadsheetDensityMetrics("comfortable");
-    expect(comfortable.rowHeight).toBeGreaterThan(SPREADSHEET_ROW_HEIGHT);
+    expect(comfortable.rowHeight).toBeGreaterThan(
+      getSpreadsheetDensityMetrics("compact").rowHeight,
+    );
     expect(getSpreadsheetGridWidth(2, false, "compact")).toBe(
-      SPREADSHEET_DATA_COLUMN_WIDTH * 2,
+      getSpreadsheetDensityMetrics("compact").dataColumnWidth * 2,
     );
     expect(getSpreadsheetGridTemplateColumns(2, false, "comfortable")).toBe(
       `repeat(2, ${comfortable.dataColumnWidth}px)`,
@@ -237,7 +238,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
           top: 0,
           left: 0,
           width: getSpreadsheetGridWidth(2),
-          height: SPREADSHEET_ROW_HEIGHT,
+          height: getSpreadsheetDensityMetrics("compact").rowHeight,
         }}
         sourceRows={[["task", "status"]]}
         displayedRowIndexes={[0]}

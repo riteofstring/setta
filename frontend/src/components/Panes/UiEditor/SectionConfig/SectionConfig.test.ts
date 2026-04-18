@@ -71,7 +71,7 @@ const {
   getDefaultSectionConfigOpenValues,
   normalizeSectionConfigOpenValues,
   sectionTypeSupportsAppearanceSettings,
-} = await import("./SectionConfig");
+} = await import("./sectionConfigModel");
 
 describe("sectionTypeSupportsAppearanceSettings", () => {
   it("keeps appearance controls enabled for previously gated section types", () => {
