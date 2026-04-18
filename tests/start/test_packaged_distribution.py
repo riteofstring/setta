@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -167,6 +168,13 @@ def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) 
 
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
+
+
+def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
+    pyproject = tomllib.loads((_repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
+
+    optional_dependencies = pyproject["project"]["optional-dependencies"]
+    assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
