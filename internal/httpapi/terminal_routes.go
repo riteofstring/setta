@@ -41,13 +41,13 @@ type InterruptTerminalProcessesResponse struct {
 
 type RunCodeRequest struct {
 	ProjectID                string                              `json:"projectConfigId"`
-	SectionID                string                              `json:"sectionId"`
-	TerminalSectionID        string                              `json:"terminalSectionId"`
-	CLIID                    string                              `json:"cliId"`
-	RunSnapshotMode          runs.RunSnapshotMode                `json:"runSnapshotMode" ts_type:"RunSnapshotMode | null"`
-	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef `json:"drawSnapshotsBySectionId"`
-	SectionVariantOverrides  map[string]string                   `json:"sectionVariantOverrides"`
-	ParamOverrides           map[string]string                   `json:"paramOverrides"`
+	SectionID                string                              `json:"sectionId,omitempty"`
+	TerminalSectionID        string                              `json:"terminalSectionId,omitempty"`
+	CLIID                    string                              `json:"cliId,omitempty"`
+	RunSnapshotMode          runs.RunSnapshotMode                `json:"runSnapshotMode,omitempty" ts_type:"RunSnapshotMode | null"`
+	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef `json:"drawSnapshotsBySectionId,omitempty"`
+	SectionVariantOverrides  map[string]string                   `json:"sectionVariantOverrides,omitempty"`
+	ParamOverrides           map[string]string                   `json:"paramOverrides,omitempty"`
 }
 
 func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) error {

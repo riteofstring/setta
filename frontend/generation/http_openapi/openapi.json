@@ -4987,16 +4987,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "projectConfigId",
-          "sectionId",
-          "terminalSectionId",
-          "cliId",
-          "runSnapshotMode",
-          "drawSnapshotsBySectionId",
-          "sectionVariantOverrides",
-          "paramOverrides"
-        ],
+        "required": ["projectConfigId"],
         "type": "object"
       },
       "HttpapiRunDetachedRequest": {

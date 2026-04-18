@@ -1605,20 +1605,20 @@ export type HttpapiRevealPathInOsFileExplorerRequest = {
 };
 
 export type HttpapiRunCodeRequest = {
-  cliId: string;
-  drawSnapshotsBySectionId: {
+  cliId?: string;
+  drawSnapshotsBySectionId?: {
     [key: string]: BinaryContentRef;
   };
-  paramOverrides: {
+  paramOverrides?: {
     [key: string]: string;
   };
   projectConfigId: string;
-  runSnapshotMode: string;
-  sectionId: string;
-  sectionVariantOverrides: {
+  runSnapshotMode?: string;
+  sectionId?: string;
+  sectionVariantOverrides?: {
     [key: string]: string;
   };
-  terminalSectionId: string;
+  terminalSectionId?: string;
 };
 
 export type HttpapiRunDetachedRequest = {

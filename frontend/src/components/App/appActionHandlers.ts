@@ -1,4 +1,8 @@
-import { getAttachmentDownloadUrl, runCode } from "openapi/http";
+import {
+  getAttachmentDownloadUrl,
+  runCode,
+  type HttpapiRunCodeRequest,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import {
@@ -68,7 +72,7 @@ type RunHandlerArgs = {
 };
 type PreparedRunExecution = {
   runParams: PreparedRunParams;
-  executionSectionId: string;
+  executionSectionId: string | null;
 };
 
 export function resolveAppRunState(args: {
@@ -230,11 +234,11 @@ async function loadConfigState(
 
 function buildRunRequestBody(
   runParams: PreparedRunParams,
-  executionSectionId: string,
-): Parameters<typeof runCode>[0]["body"] {
+  executionSectionId: string | null,
+): HttpapiRunCodeRequest {
   return {
     projectConfigId: runParams.configId,
-    sectionId: executionSectionId,
+    ...(executionSectionId !== null ? { sectionId: executionSectionId } : {}),
     ...(runParams.hasSectionVariantOverrides &&
     runParams.sectionVariantOverrides
       ? { sectionVariantOverrides: runParams.sectionVariantOverrides }
@@ -247,13 +251,13 @@ function buildRunRequestBody(
 
 async function submitRunRequest(
   runParams: PreparedRunParams,
-  executionSectionId: string,
+  executionSectionId: string | null,
 ): Promise<boolean> {
   try {
     const res = await callOpenAPI(
       runCode({
         body: buildRunRequestBody(runParams, executionSectionId),
-      } as Parameters<typeof runCode>[0]),
+      }),
     );
     return res200(res);
   } catch {
@@ -405,7 +409,7 @@ async function requestDownloadUrl(
         artifactId,
         projectConfigId,
       },
-    } as Parameters<typeof getAttachmentDownloadUrl>[0]),
+    }),
   );
   if (!res200(res) || !res.data.url) {
     return null;
