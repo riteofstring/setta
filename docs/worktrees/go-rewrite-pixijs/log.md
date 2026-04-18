@@ -1710,3 +1710,55 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - start the next iteration with a fresh post-kwargs inventory of the remaining `55` / `233` interactive-core plateau and target the next shared value/editor or switch family rather than reopening the closed kwargs/backend/gui/sectionSizingPolicy lanes
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 053
+
+- Item: Replace the shared settings kwargs/filter inputs with lightweight param-filter activators on the canvas path.
+- Status: `done`
+- Details:
+  - Started from the fresh post-menu inventory instead of reopening any closed `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, or menu-trigger lane.
+  - The live `All Settings` inventory made the next repeated value/editor family clear:
+    - `46` live `input[id$="-args-filter"]` roots across `section[data-section-id^="settings-section__"]`
+    - one repeated kwargs/filter editor root per settings section at rest
+  - That made the real next bounded slice the shared param-filter owner, not another section-local follow-up.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionLightweightParamFilter(...)` so the family is explicit at the retained-canvas ownership boundary.
+  - Added `frontend/src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.tsx`, a shared filter activator that renders a lightweight `DIV[role="searchbox"]` root with `data-canvas-owned-lightweight-filter-activator="true"` on the `canvas-shell-underlay` path while preserving the live inline `input` once activated.
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now routes the repeated `#<sectionId>-args-filter` family through that helper, so the canvas path no longer mounts live filter input roots at rest across dense `All Settings`.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-filters.spec.ts`
+  - The live structural contract now holds on the dense `All Settings` surface:
+    - `46` lightweight roots now mount with `data-canvas-owned-lightweight-filter-activator="true"`
+    - `0` live `input[id$="-args-filter"]` roots remain across `section[data-section-id^="settings-section__"]` at rest
+    - canonical target section for the lane: `settings-section__callableSectionDefault`
+    - target filter id: `settings-section__callableSectionDefault-args-filter`
+    - the callable filter now rests as a lightweight `searchbox` activator and swaps to the live inline `input` on first focus/click
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-param-filter-rerun.md`.
+  - Dense rerun outcome versus the prior shared section-menu-trigger report:
+    - `documentNodeCount`: `8182 -> 8182`
+    - `inputCount`: `55 -> 9`
+    - `buttonCount`: `40 -> 40`
+    - `raf.meanMs`: `103.91 -> 102.42`
+    - `raf.p95Ms`: `200 -> 200`
+    - `longTasks.totalMs`: `16729 -> 16512`
+  - Interpretation:
+    - this was a real shared value/editor plateau reduction, not another section-local cleanup hop
+    - the shared lightweight param-filter lane is now closed at its useful ownership boundary
+    - the fresh post-filter graph-surface inventory now leaves the next real frontier as:
+      - `6` remaining `input[type="color"]` roots across `settings-section__gui` (`4`), `settings-section__colorPickerParamCodeObjDefault` (`1`), and `settings-section__drawSectionDefault` (`1`)
+      - `1` remaining `role="combobox"` search input plus `1` remaining button in `settings-section__stateMachineGateSectionDefault`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/KwargsControls.tsx src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.tsx src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-filters.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.G3F2Nh/loop-001/run-001/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-param-filters.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.3m)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 9`, and `buttonCount: 40`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present on the live surface
+  - at rest `#settings-section__callableSectionDefault-args-filter` rendered as a lightweight `searchbox` activator with no visible live inline input
+  - after one activation, that same filter control became an inline `input` in the same wrapper with no blank/detached jump
+- Next action:
+  - start the next iteration from the fresh post-filter inventory and target a shared lightweight color-input/value activator across `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault`; if that path is not viable, pivot to the bounded `settings-section__stateMachineGateSectionDefault` combobox/search core
+LOOP_TERMINAL_MARKER: none

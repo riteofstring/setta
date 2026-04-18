@@ -13,6 +13,7 @@ import {
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
   isCanvasOwnedSectionLightweightMenuTrigger,
+  isCanvasOwnedSectionLightweightParamFilter,
   isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
@@ -65,6 +66,25 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightMenuTrigger("round_lime-section__callable"),
+    ).toBe(false);
+  });
+
+  it("targets settings sections for lightweight param filters", () => {
+    expect(
+      isCanvasOwnedSectionLightweightParamFilter(CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamFilter(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamFilter(
+        "settings-section__chatSectionDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamFilter("round_lime-section__callable"),
     ).toBe(false);
   });
 

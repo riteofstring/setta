@@ -1,19 +1,13 @@
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
   isCanvasOwnedSectionArgsLabelRestingText,
+  isCanvasOwnedSectionLightweightParamFilter,
   isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
-import {
-  addKwarg,
-  deleteKwarg,
-  deleteSelectedParams,
-  setSectionEdgeInputs,
-  setSectionParamFilter,
-  setSectionPinnedParams,
-} from "openapi/http";
+import { addKwarg, deleteKwarg, deleteSelectedParams, setSectionEdgeInputs, setSectionParamFilter, setSectionPinnedParams } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 import {
@@ -44,6 +38,7 @@ import {
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
+import { CanvasOwnedParamFilterActivator } from "./CanvasOwnedParamFilterActivator";
 import { KwargsActionIconButton } from "./KwargsActionIconButton";
 import {
   getKwargsControlsActionState,
@@ -518,6 +513,18 @@ function ParamFilter({
   const canvasOwnedFilterUnderline =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionParamFilterUnderline(sectionId);
+  const canvasOwnedLightweightFilter =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionLightweightParamFilter(sectionId);
+  const filterBaseClassName =
+    `peer/dictfilter min-w-0 w-full truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputTextColorClassName}`.trim();
+  const filterInputClassName =
+    `${filterBaseClassName} cursor-auto ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`.trim();
+  const filterActivatorClassName =
+    `${filterBaseClassName} flex items-center cursor-text ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`.trim();
+  const filterPlaceholderClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-400 dark:text-setta-600";
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -541,20 +548,32 @@ function ParamFilter({
         }
       />
       <span className="relative min-w-0 flex-1">
-        <input
-          id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-          value={paramFilterValue}
-          className={`peer/dictfilter min-w-0 w-full cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputTextColorClassName} ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`}
-          placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-          tabIndex={0}
-          onChange={onSearchChange}
-          onKeyDown={(e) => {
-            if (e.code === "Escape") {
-              e.currentTarget.blur();
-              // focusOnSection(null, sectionId, false);
-            }
-          }}
-        />
+        {canvasOwnedLightweightFilter ? (
+          <CanvasOwnedParamFilterActivator
+            activatorClassName={filterActivatorClassName}
+            id={`${sectionId}-args-filter`}
+            inputClassName={filterInputClassName}
+            onChange={onSearchChange}
+            placeholder={sectionIsActive ? searchShortcut : "Filter"}
+            placeholderClassName={filterPlaceholderClassName}
+            value={paramFilterValue}
+          />
+        ) : (
+          <input
+            id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+            value={paramFilterValue}
+            className={filterInputClassName}
+            placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+            tabIndex={0}
+            onChange={onSearchChange}
+            onKeyDown={(e) => {
+              if (e.code === "Escape") {
+                e.currentTarget.blur();
+                // focusOnSection(null, sectionId, false);
+              }
+            }}
+          />
+        )}
         {canvasOwnedFilterUnderline ? (
           <span
             className={`pointer-events-none absolute bottom-0 left-0 right-0 border-b border-setta-200/50 opacity-0 dark:border-setta-600/30 ${hasSectionStyleTheme ? "peer-focus-visible/dictfilter:border-[color:var(--setta-section-style-outline)]" : "peer-focus-visible/dictfilter:border-blue-300 dark:peer-focus-visible/dictfilter:border-blue-400/50"} peer-focus-visible/dictfilter:opacity-100`}

@@ -140,6 +140,10 @@ export function isCanvasOwnedSectionLightweightSwitch({
   );
 }
 
+export function isCanvasOwnedSectionLightweightParamFilter(sectionId: string) {
+  return isSettingsSectionId(sectionId);
+}
+
 export function isCanvasOwnedSectionLightweightMenuTrigger(sectionId: string) {
   return isSettingsSectionId(sectionId);
 }
