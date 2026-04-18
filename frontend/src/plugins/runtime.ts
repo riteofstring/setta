@@ -9,7 +9,6 @@ import {
   PluginRestartCapability,
   PluginRuntimeResponse,
   PluginStatusEntry,
-  SelectedLanguageServerStatus,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 import { type PluginPaneIconName } from "./paneIcons";
@@ -78,7 +77,6 @@ type PluginRuntimeStore = {
   sortedPluginListEntries: PluginListEntry[];
   pluginStatusById: Record<string, PluginStatusEntry>;
   statusEntries: PluginStatusEntry[];
-  selectedLanguageServers: SelectedLanguageServerStatus[];
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
   sortedSectionKinds: RegisteredPluginSectionKind[];
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
@@ -100,7 +98,6 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   sortedPluginListEntries: [],
   pluginStatusById: {},
   statusEntries: [],
-  selectedLanguageServers: [],
   sectionKindsByKey: {},
   sortedSectionKinds: [],
   panesByPluginId: {},
@@ -153,14 +150,6 @@ const pluginStatusEntryComparisonKeys = [
   "enablementSource",
   "restartRequired",
 ] as const satisfies readonly (keyof PluginStatusEntry)[];
-
-const selectedLanguageServerComparisonKeys = [
-  "languageId",
-  "selectedPluginId",
-  "state",
-  "selectedPluginApplied",
-  "liveServerAvailable",
-] as const satisfies readonly (keyof SelectedLanguageServerStatus)[];
 
 const effectiveCapabilityDigestByPluginListEntry = new WeakMap<
   PluginListEntry,
@@ -235,10 +224,6 @@ async function loadPluginRuntime(): Promise<void> {
   const statusEntries = mapStatusEntries(
     statusData.plugins,
     previousState.statusEntries,
-  );
-  const selectedLanguageServers = mapSelectedLanguageServers(
-    statusData.selectedLanguageServers ?? [],
-    previousState.selectedLanguageServers,
   );
   const pluginStatusById = mapPrimaryStatusByPluginId(
     statusEntries,
@@ -331,7 +316,6 @@ async function loadPluginRuntime(): Promise<void> {
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
     pluginStatusById,
     statusEntries,
-    selectedLanguageServers,
     sectionKindsByKey: registryAccumulator.sectionKinds,
     sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
@@ -372,7 +356,6 @@ function buildClearedRuntimeState(
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
-    selectedLanguageServers: [],
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -755,42 +738,6 @@ function mapStatusEntries(
     canReusePreviousArray = false;
   }
   return canReusePreviousArray ? previousStatusEntries : mappedEntries;
-}
-
-function mapSelectedLanguageServers(
-  statuses: SelectedLanguageServerStatus[],
-  previousStatuses: SelectedLanguageServerStatus[],
-): SelectedLanguageServerStatus[] {
-  if (statuses.length === 0) {
-    return previousStatuses.length === 0 ? previousStatuses : [];
-  }
-  const previousByLanguage = new Map<string, SelectedLanguageServerStatus>();
-  for (const status of previousStatuses) {
-    previousByLanguage.set(status.languageId, status);
-  }
-  const mappedStatuses: SelectedLanguageServerStatus[] = [];
-  let canReusePreviousArray = previousStatuses.length === statuses.length;
-  for (let index = 0; index < statuses.length; index += 1) {
-    const nextStatus = statuses[index];
-    const previousStatus = previousByLanguage.get(nextStatus.languageId);
-    if (
-      previousStatus &&
-      hasSameFieldValues(
-        nextStatus,
-        previousStatus,
-        selectedLanguageServerComparisonKeys,
-      )
-    ) {
-      mappedStatuses.push(previousStatus);
-      if (previousStatuses[index] !== previousStatus) {
-        canReusePreviousArray = false;
-      }
-      continue;
-    }
-    mappedStatuses.push(nextStatus);
-    canReusePreviousArray = false;
-  }
-  return canReusePreviousArray ? previousStatuses : mappedStatuses;
 }
 
 function buildPluginStatusEntryStableKey(entry: PluginStatusEntry): string {

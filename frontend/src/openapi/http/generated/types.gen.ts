@@ -2786,15 +2786,6 @@ export type PluginsPluginRegisteredCodegenTarget = {
   targetId: string;
 };
 
-export type PluginsPluginRegisteredLanguageServer = {
-  args: Array<string> | null;
-  command: string;
-  language: string;
-  name: string;
-  pluginId: string;
-  settingsKey?: string;
-};
-
 export type PluginsPluginRegisteredListenerEndpoint = {
   name: string;
 };
@@ -2841,7 +2832,6 @@ export type PluginsPluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: Array<PluginsPluginRegisteredBackendRoute> | null;
   registeredCodegenTargets: Array<PluginsPluginRegisteredCodegenTarget> | null;
-  registeredLanguageServers: Array<PluginsPluginRegisteredLanguageServer> | null;
   registeredListenerEndpoints: Array<PluginsPluginRegisteredListenerEndpoint> | null;
   registeredStaticDirs: Array<PluginsPluginRegisteredStaticDir> | null;
   requestedCapabilities: Array<string> | null;
@@ -2862,7 +2852,6 @@ export type PluginsPluginStatusResponse = {
   plugins: Array<PluginsPluginStatusEntry> | null;
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
-  selectedLanguageServers: Array<PluginsSelectedLanguageServerStatus> | null;
   serverMode: string;
 };
 
@@ -2878,14 +2867,6 @@ export type PluginsPluginUpdateResponse = {
   restartRequired: boolean;
   sourceDigestSha256: string | null;
   toVersion: string;
-};
-
-export type PluginsSelectedLanguageServerStatus = {
-  languageId: string;
-  liveServerAvailable: boolean;
-  selectedPluginApplied: boolean;
-  selectedPluginId: string | null;
-  state: string;
 };
 
 export type ProjectshellAllProjectMetadata = {
@@ -3745,22 +3726,6 @@ export type SettingsstateFrontendSettingsBackend = {
   showDefaultConfigOnLoad: boolean;
 };
 
-export type SettingsstateFrontendSettingsChatWindowing = {
-  autoCreateInitialChat: boolean;
-  restorePriorStateOnUnmaximize: boolean;
-  shortcuts: SettingsstateFrontendSettingsChatWindowingShortcuts;
-};
-
-export type SettingsstateFrontendSettingsChatWindowingShortcuts = {
-  canvasToggle: string;
-  maximizeFocused: string;
-  minimizeFocused: string;
-  snapBottom: string;
-  snapLeft: string;
-  snapRight: string;
-  snapTop: string;
-};
-
 export type SettingsstateFrontendSettingsGui = {
   defaultZoomLevel: number;
   gridColor: string;
@@ -3784,12 +3749,6 @@ export type SettingsstateFrontendSettingsGui = {
   zoomOnDoubleClick: boolean;
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
-};
-
-export type SettingsstateFrontendSettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: string | null;
-  };
 };
 
 export type SettingsstateFrontendSettingsShortcuts = {
@@ -3859,9 +3818,10 @@ export type SettingsstateFrontendSettingsShortcuts = {
 
 export type SettingsstateFrontendSettingsState = {
   backend: SettingsstateFrontendSettingsBackend;
-  chatWindowing: SettingsstateFrontendSettingsChatWindowing;
   gui: SettingsstateFrontendSettingsGui;
-  languageServer: SettingsstateFrontendSettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: ProjectstateFrontendSectionSizingPolicy;
   shortcuts: SettingsstateFrontendSettingsShortcuts;
 };

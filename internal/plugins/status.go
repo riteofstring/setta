@@ -25,25 +25,6 @@ type PluginRestartCapability struct {
 	Reason  *string                     `json:"reason"`
 }
 
-type SelectedLanguageServerState string
-
-const (
-	SelectedLanguageServerStateNotSelected               SelectedLanguageServerState = "not_selected"
-	SelectedLanguageServerStateDisabled                  SelectedLanguageServerState = "disabled"
-	SelectedLanguageServerStateReady                     SelectedLanguageServerState = "ready"
-	SelectedLanguageServerStateSelectedPluginMissing     SelectedLanguageServerState = "selected_plugin_missing"
-	SelectedLanguageServerStateSelectedPluginWrongLang   SelectedLanguageServerState = "selected_plugin_wrong_language"
-	SelectedLanguageServerStateSelectedPluginUnavailable SelectedLanguageServerState = "selected_plugin_unavailable"
-)
-
-type SelectedLanguageServerStatus struct {
-	LanguageID            string                      `json:"languageId"`
-	SelectedPluginID      *string                     `json:"selectedPluginId"`
-	State                 SelectedLanguageServerState `json:"state"`
-	SelectedPluginApplied bool                        `json:"selectedPluginApplied"`
-	LiveServerAvailable   bool                        `json:"liveServerAvailable"`
-}
-
 type PluginStatusEntry struct {
 	PluginID                    string                             `json:"pluginId"`
 	Name                        string                             `json:"name"`
@@ -62,7 +43,6 @@ type PluginStatusEntry struct {
 	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
 	Components                  []string                           `json:"components" ts_skip:"true"`
 	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
-	RegisteredLanguageServers   []PluginRegisteredLanguageServer   `json:"registeredLanguageServers"`
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
 	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
@@ -73,11 +53,10 @@ type PluginStatusEntry struct {
 }
 
 type PluginStatusResponse struct {
-	SchemaVersion           int                            `json:"schemaVersion"`
-	ServerMode              config.Mode                    `json:"serverMode"`
-	RestartCapability       PluginRestartCapability        `json:"restartCapability"`
-	SelectedLanguageServers []SelectedLanguageServerStatus `json:"selectedLanguageServers"`
-	Plugins                 []PluginStatusEntry            `json:"plugins"`
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ServerMode        config.Mode             `json:"serverMode"`
+	RestartCapability PluginRestartCapability `json:"restartCapability"`
+	Plugins           []PluginStatusEntry     `json:"plugins"`
 }
 
 type RestartRequiredResponse struct {
@@ -100,7 +79,6 @@ type statusEntryRuntimeDigestPayload struct {
 	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
 	Components                  []string                           `json:"components"`
 	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
-	RegisteredLanguageServers   []PluginRegisteredLanguageServer   `json:"registeredLanguageServers"`
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
 	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
@@ -215,11 +193,10 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRes
 		entries = append(entries, statusEntryFromDiscoveredPlugin(entry))
 	}
 	return PluginStatusResponse{
-		SchemaVersion:           pluginStatusSchemaVersion,
-		ServerMode:              snapshot.ServerMode,
-		RestartCapability:       capability,
-		SelectedLanguageServers: []SelectedLanguageServerStatus{},
-		Plugins:                 entries,
+		SchemaVersion:     pluginStatusSchemaVersion,
+		ServerMode:        snapshot.ServerMode,
+		RestartCapability: capability,
+		Plugins:           entries,
 	}
 }
 
@@ -243,7 +220,6 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) PluginStatusEntry {
 		BlockedCapabilities:         cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
 		Components:                  statusEntryComponents(entry),
 		RegisteredCodegenTargets:    cloneRegisteredCodegenTargetsOrEmpty(entry.RegisteredCodegenTargets),
-		RegisteredLanguageServers:   cloneRegisteredLanguageServersOrEmpty(entry.RegisteredLanguageServers),
 		RegisteredBackendRoutes:     cloneRegisteredBackendRoutesOrEmpty(entry.RegisteredBackendRoutes),
 		RegisteredStaticDirs:        cloneRegisteredStaticDirsOrEmpty(entry.RegisteredStaticDirs),
 		RegisteredListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(entry.RegisteredListenerEndpoints),
@@ -261,7 +237,6 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 		BlockedCapabilities:         cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
 		Components:                  statusEntryComponents(entry),
 		RegisteredCodegenTargets:    cloneRegisteredCodegenTargetsOrEmpty(entry.RegisteredCodegenTargets),
-		RegisteredLanguageServers:   cloneRegisteredLanguageServersOrEmpty(entry.RegisteredLanguageServers),
 		RegisteredBackendRoutes:     cloneRegisteredBackendRoutesOrEmpty(entry.RegisteredBackendRoutes),
 		RegisteredStaticDirs:        cloneRegisteredStaticDirsOrEmpty(entry.RegisteredStaticDirs),
 		RegisteredListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(entry.RegisteredListenerEndpoints),
@@ -294,24 +269,6 @@ func cloneRegisteredCodegenTargetsOrEmpty(values []PluginRegisteredCodegenTarget
 		return []PluginRegisteredCodegenTarget{}
 	}
 	return append([]PluginRegisteredCodegenTarget{}, values...)
-}
-
-func cloneRegisteredLanguageServersOrEmpty(values []PluginRegisteredLanguageServer) []PluginRegisteredLanguageServer {
-	if len(values) == 0 {
-		return []PluginRegisteredLanguageServer{}
-	}
-	cloned := make([]PluginRegisteredLanguageServer, 0, len(values))
-	for _, value := range values {
-		cloned = append(cloned, PluginRegisteredLanguageServer{
-			PluginID:    value.PluginID,
-			Name:        value.Name,
-			Language:    value.Language,
-			Command:     value.Command,
-			Args:        append([]string{}, value.Args...),
-			SettingsKey: cloneOptionalString(value.SettingsKey),
-		})
-	}
-	return cloned
 }
 
 func cloneRegisteredBackendRoutesOrEmpty(values []PluginRegisteredBackendRoute) []PluginRegisteredBackendRoute {

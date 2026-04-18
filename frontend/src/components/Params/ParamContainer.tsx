@@ -1,6 +1,13 @@
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { type ParamListKey } from "forks/dnd-kit/paramDndState";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import {
+  isCanvasOwnedSectionLightweightResizeHandle,
+  isCanvasOwnedSectionLightweightParamLabel,
+  isCanvasOwnedSectionLightweightNestedChildren,
+  isCanvasOwnedSectionNestedGuide,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
@@ -49,6 +56,7 @@ type ParamContainerProps = {
 type ParamArticleProps = {
   articleClassName: string;
   articleStyle: React.CSSProperties;
+  canvasOwnedNestedGuideLightweight?: boolean;
   children: React.ReactNode;
   dndAttributes?: Record<string, unknown>;
   dndListeners?: Record<string, unknown>;
@@ -63,6 +71,7 @@ type ParamArticleProps = {
 type ParamInputAccessoriesProps = {
   errorMessage: string;
   hasError: boolean;
+  lightweightResizeHandle: boolean;
   onResizeStart: React.MouseEventHandler;
   paramInfoId: string;
   sectionId: string;
@@ -72,10 +81,13 @@ type ParamLeadingContentProps = {
   children: React.ReactNode;
   columnWidth: string;
   isKwarg: boolean;
+  lightweightLeadingContent: boolean;
 };
 
 type ParamNestedChildrenProps = {
+  canvasOwnedNestedGuide: boolean;
   hasSectionStyleTheme: boolean;
+  lightweightNestedChildren: boolean;
   listKey: ParamListKey;
   onResizeStart: React.MouseEventHandler;
   renderChildren: string[];
@@ -89,11 +101,13 @@ type ParamLeafRowProps = ParamLeadingContentProps &
   };
 
 type ParamNestedRootRowProps = ParamLeafRowProps & {
+  canvasOwnedNestedGuideLightweight: boolean;
   nestedChildrenProps: ParamNestedChildrenProps;
 };
 
 type ParamNestedChildRowProps = ParamNestedChildrenProps & {
   articleProps: ParamArticleProps;
+  canvasOwnedNestedGuideLightweight: boolean;
   children: React.ReactNode;
 };
 
@@ -114,6 +128,9 @@ type ParamRowRenderProps = {
   isKwarg: boolean;
   isTopLevelWithPad: boolean;
   layout: ParamContainerLayout;
+  lightweightLeadingContent: boolean;
+  lightweightNestedChildren: boolean;
+  lightweightResizeHandle: boolean;
   nestedChildrenProps: ParamNestedChildrenProps;
   onResizeStart: React.MouseEventHandler;
   paramStyleProps: ParamArticleStyleProps;
@@ -219,10 +236,11 @@ function buildNestedRootArticleProps({
   columnWidth,
   dndClassName,
   dndStyle,
+  lightweightNestedChildren,
   paramHoverClassName,
-}: ParamArticleStyleProps) {
+}: ParamArticleStyleProps & { lightweightNestedChildren: boolean }) {
   return {
-    articleClassName: `section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`,
+    articleClassName: `section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${lightweightNestedChildren ? "content-start gap-y-1" : ""} ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`,
     articleStyle: {
       gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
       ...(dndStyle ?? {}),
@@ -251,6 +269,7 @@ function buildNestedChildArticleProps({
 function ParamRowArticle({
   articleClassName,
   articleStyle,
+  canvasOwnedNestedGuideLightweight = false,
   children,
   dndAttributes,
   dndListeners,
@@ -266,6 +285,12 @@ function ParamRowArticle({
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={articleClassName}
       style={articleStyle}
+      data-canvas-owned-nested-guide={
+        canvasOwnedNestedGuideLightweight ? "true" : undefined
+      }
+      data-canvas-owned-nested-guide-lightweight={
+        canvasOwnedNestedGuideLightweight ? "true" : undefined
+      }
       data-param-row="true"
       {...(floatingBoxHandlers as React.HTMLAttributes<HTMLElement>)}
       onMouseDownCapture={onMouseDown}
@@ -281,13 +306,34 @@ function ParamRowArticle({
   );
 }
 
+type CloneableLeadingContentProps = {
+  className?: string;
+  lightweightCanvasRoot?: boolean;
+  style?: React.CSSProperties;
+};
+
 function ParamLeadingContent({
   children,
   columnWidth,
   isKwarg,
+  lightweightLeadingContent,
 }: ParamLeadingContentProps) {
   if (isKwarg) {
     return <>{children}</>;
+  }
+  if (
+    lightweightLeadingContent &&
+    React.isValidElement<CloneableLeadingContentProps>(children) &&
+    typeof children.type !== "string"
+  ) {
+    return React.cloneElement(children, {
+      className: `section-key overflow-hidden ${children.props.className ?? ""}`.trim(),
+      lightweightCanvasRoot: true,
+      style: {
+        ...(children.props.style ?? {}),
+        width: columnWidth,
+      },
+    });
   }
   return (
     <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
@@ -299,6 +345,7 @@ function ParamLeadingContent({
 function ParamInputAccessories({
   errorMessage,
   hasError,
+  lightweightResizeHandle,
   onResizeStart,
   paramInfoId,
   sectionId,
@@ -310,7 +357,11 @@ function ParamInputAccessories({
         paramInfoId={paramInfoId}
         maybeErrorMessage={errorMessage}
       />
-      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+      <ResizeHandle
+        showResizeHandle={true}
+        onMouseDown={onResizeStart}
+        lightweight={lightweightResizeHandle}
+      />
       {hasError && (
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
@@ -319,7 +370,9 @@ function ParamInputAccessories({
 }
 
 function ParamNestedChildren({
+  canvasOwnedNestedGuide,
   hasSectionStyleTheme,
+  lightweightNestedChildren,
   listKey,
   onResizeStart,
   renderChildren,
@@ -329,8 +382,25 @@ function ParamNestedChildren({
   if (renderChildren.length === 0) {
     return null;
   }
+  if (lightweightNestedChildren) {
+    return (
+      <GetParamSwitch
+        sectionId={sectionId}
+        paramIds={renderChildren}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    );
+  }
   return (
-    <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
+    <div
+      className={`${NESTED_CHILD_ROWS_CLASS_NAME} ${canvasOwnedNestedGuide ? "before:opacity-0" : ""}`}
+      data-canvas-owned-nested-guide={
+        canvasOwnedNestedGuide ? "true" : undefined
+      }
+    >
       <GetParamSwitch
         sectionId={sectionId}
         paramIds={renderChildren}
@@ -350,6 +420,8 @@ function ParamLeafRow({
   errorMessage,
   hasError,
   isKwarg,
+  lightweightLeadingContent,
+  lightweightResizeHandle,
   onResizeStart,
   paramInfoId,
   sectionId,
@@ -360,10 +432,12 @@ function ParamLeafRow({
         children={children}
         columnWidth={columnWidth}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
       />
       <ParamInputAccessories
         errorMessage={errorMessage}
         hasError={hasError}
+        lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
         sectionId={sectionId}
@@ -374,26 +448,34 @@ function ParamLeafRow({
 
 function ParamNestedRootRow({
   articleProps,
+  canvasOwnedNestedGuideLightweight,
   children,
   columnWidth,
   errorMessage,
   hasError,
   isKwarg,
+  lightweightLeadingContent,
+  lightweightResizeHandle,
   nestedChildrenProps,
   onResizeStart,
   paramInfoId,
   sectionId,
 }: ParamNestedRootRowProps) {
   return (
-    <ParamRowArticle {...articleProps}>
+    <ParamRowArticle
+      {...articleProps}
+      canvasOwnedNestedGuideLightweight={canvasOwnedNestedGuideLightweight}
+    >
       <ParamLeadingContent
         children={children}
         columnWidth={columnWidth}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
       />
       <ParamInputAccessories
         errorMessage={errorMessage}
         hasError={hasError}
+        lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
         sectionId={sectionId}
@@ -405,11 +487,15 @@ function ParamNestedRootRow({
 
 function ParamNestedChildRow({
   articleProps,
+  canvasOwnedNestedGuideLightweight,
   children,
   nestedChildrenProps,
 }: ParamNestedChildRowProps) {
   return (
-    <ParamRowArticle {...articleProps}>
+    <ParamRowArticle
+      {...articleProps}
+      canvasOwnedNestedGuideLightweight={canvasOwnedNestedGuideLightweight}
+    >
       {children}
       <ParamNestedChildren {...nestedChildrenProps} />
     </ParamRowArticle>
@@ -425,6 +511,9 @@ function renderParamContainerRow({
   isKwarg,
   isTopLevelWithPad,
   layout,
+  lightweightLeadingContent,
+  lightweightNestedChildren,
+  lightweightResizeHandle,
   nestedChildrenProps,
   onResizeStart,
   paramStyleProps,
@@ -443,6 +532,8 @@ function renderParamContainerRow({
         errorMessage={errorMessage}
         hasError={hasError}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
+        lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
         sectionId={sectionId}
@@ -454,13 +545,21 @@ function renderParamContainerRow({
       <ParamNestedRootRow
         articleProps={{
           ...articleProps,
-          ...buildNestedRootArticleProps(paramStyleProps),
+          ...buildNestedRootArticleProps({
+            ...paramStyleProps,
+            lightweightNestedChildren,
+          }),
         }}
+        canvasOwnedNestedGuideLightweight={
+          nestedChildrenProps.canvasOwnedNestedGuide && lightweightNestedChildren
+        }
         children={children}
         columnWidth={columnWidth}
         errorMessage={errorMessage}
         hasError={hasError}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
+        lightweightResizeHandle={lightweightResizeHandle}
         nestedChildrenProps={nestedChildrenProps}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
@@ -477,6 +576,9 @@ function renderParamContainerRow({
           isTopLevelWithPad,
         }),
       }}
+      canvasOwnedNestedGuideLightweight={
+        nestedChildrenProps.canvasOwnedNestedGuide && lightweightNestedChildren
+      }
       children={children}
       nestedChildrenProps={nestedChildrenProps}
     />
@@ -509,6 +611,7 @@ function _ParamContainer({
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
   );
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
   const showParamDisplayNames = useProjectState(
     (x) => x.projectConfig.showParamDisplayNames,
@@ -550,8 +653,23 @@ function _ParamContainer({
     paramInfoId,
     sectionId,
   };
+  const canvasOwnedNestedGuide =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionNestedGuide(sectionId);
+  const lightweightLeadingContent =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    !isKwarg &&
+    isCanvasOwnedSectionLightweightParamLabel(sectionId);
+  const lightweightNestedChildren =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionLightweightNestedChildren(sectionId);
+  const lightweightResizeHandle =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionLightweightResizeHandle(sectionId);
   const nestedChildrenProps = {
+    canvasOwnedNestedGuide,
     hasSectionStyleTheme,
+    lightweightNestedChildren,
     listKey,
     onResizeStart,
     renderChildren,
@@ -580,6 +698,9 @@ function _ParamContainer({
     isKwarg,
     isTopLevelWithPad,
     layout,
+    lightweightLeadingContent,
+    lightweightNestedChildren,
+    lightweightResizeHandle,
     nestedChildrenProps,
     onResizeStart,
     paramStyleProps,
