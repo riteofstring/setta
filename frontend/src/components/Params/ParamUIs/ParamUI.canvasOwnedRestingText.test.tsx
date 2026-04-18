@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
       | "legacy-dom",
   },
   dropdownProps: vi.fn(),
+  colorPickerProps: vi.fn(),
   switchProps: vi.fn(),
   textInputProps: vi.fn(),
 }));
@@ -94,7 +95,12 @@ vi.mock("./ColorPickerInput", () => ({
 }));
 
 vi.mock("./ConfiguredParamInputs", () => ({
-  ConfiguredColorPickerInput: () => null,
+  ConfiguredColorPickerInput: (props: {
+    lightweightActivator?: boolean;
+  }) => {
+    mocks.colorPickerProps(props);
+    return <div data-testid="color-picker-input" />;
+  },
   ConfiguredDropdownInput: (props: {
     canvasOwnedRestingInput?: boolean;
   }) => {
@@ -156,6 +162,7 @@ describe("ParamUI canvas-owned resting text", () => {
     mocks.state.waitingForResult = false;
     mocks.state.graphSurfaceImplementation = "legacy-dom";
     mocks.dropdownProps.mockReset();
+    mocks.colorPickerProps.mockReset();
     mocks.switchProps.mockReset();
     mocks.textInputProps.mockReset();
   });
@@ -432,6 +439,41 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(mocks.switchProps.mock.calls[0][0].canvasOwnedTrack).toBe(
       expectedCanvasOwnedTrack,
     );
+    },
+  );
+
+  it.each([
+    {
+      paramInfoId: "settings-codeobj__gui__gui__sectionStyleColor",
+      sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor",
+      sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+    },
+  ])(
+    "uses the lightweight color-input activator path for color picker params on the canvas path in $sectionId",
+    ({ paramInfoId, sectionId }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: CodeObjTypeEnum.ColorPickerParam,
+        defaultVal: "#ffffff",
+      };
+
+      renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value="#000000"
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.colorPickerProps).toHaveBeenCalledTimes(1);
+      expect(mocks.colorPickerProps.mock.calls[0][0].lightweightActivator).toBe(
+        true,
+      );
     },
   );
 });

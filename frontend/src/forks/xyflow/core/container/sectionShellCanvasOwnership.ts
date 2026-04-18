@@ -148,6 +148,10 @@ export function isCanvasOwnedSectionLightweightMenuTrigger(sectionId: string) {
   return isSettingsSectionId(sectionId);
 }
 
+export function isCanvasOwnedSectionLightweightColorInput(sectionId: string) {
+  return isSettingsSectionId(sectionId);
+}
+
 export function isCanvasOwnedSectionLightweightResizeHandle(sectionId: string) {
   return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 }

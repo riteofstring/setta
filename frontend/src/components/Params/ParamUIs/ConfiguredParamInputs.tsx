@@ -140,6 +140,7 @@ export function ConfiguredRotaryInput({
 }
 
 type ConfiguredColorPickerInputProps = {
+  lightweightActivator?: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string;
@@ -151,6 +152,7 @@ type ConfiguredColorPickerInputProps = {
 };
 
 export function ConfiguredColorPickerInput({
+  lightweightActivator,
   sectionId,
   paramInfoId,
   value,
@@ -169,6 +171,7 @@ export function ConfiguredColorPickerInput({
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
+      lightweightActivator={lightweightActivator}
       value={value}
       onChange={onChange}
       onEscape={onEscape}

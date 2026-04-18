@@ -1,6 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
+  isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightSwitch,
   isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionRestingDropdown,
@@ -99,6 +100,7 @@ type ParamUIState = {
 };
 
 type ParamUIRenderContext = ParamUIProps & {
+  canvasOwnedLightweightColorInput: boolean;
   canvasOwnedLightweightSwitch: boolean;
   canvasOwnedRestingDropdown: boolean;
   canvasOwnedSectionChrome: boolean;
@@ -414,6 +416,7 @@ function renderSwitchParam({
 }
 
 function renderColorPickerParam({
+  canvasOwnedLightweightColorInput,
   sectionId,
   paramInfoId,
   value,
@@ -423,6 +426,7 @@ function renderColorPickerParam({
 }: ParamUIRenderContext) {
   return (
     <ColorPickerParamConfigured
+      lightweightActivator={canvasOwnedLightweightColorInput}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -633,6 +637,10 @@ export function ParamUI({
   }
 
   const renderContext = {
+    canvasOwnedLightweightColorInput:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      paramUiState.codeObjType === CodeObjTypeEnum.ColorPickerParam &&
+      isCanvasOwnedSectionLightweightColorInput(sectionId),
     canvasOwnedLightweightSwitch:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionLightweightSwitch({
@@ -938,15 +946,25 @@ function SwitchParamConfigured({
 }
 
 function ColorPickerParamConfigured({
+  lightweightActivator,
   sectionId,
   paramInfoId,
   value,
   onChange,
   onEscape,
   isDisabled,
+}: {
+  lightweightActivator: boolean;
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  onChange: ParamValueChange;
+  onEscape?: () => void;
+  isDisabled: boolean;
 }) {
   return (
     <ConfiguredColorPickerInput
+      lightweightActivator={lightweightActivator}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}

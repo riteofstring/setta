@@ -155,6 +155,61 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 054
+
+- Item: Replace the remaining shared settings native color inputs with lightweight activators on the canvas path.
+- Status: `done`
+- Details:
+  - Started from the fresh post-filter frontier instead of reopening any closed kwargs/menu-trigger/filter or section-local lane.
+  - The live `All Settings` inventory from the prior pass made the next repeated family explicit:
+    - `6` live `input[type="color"]` roots across settings sections at rest
+    - section distribution:
+      - `settings-section__gui`: `4`
+      - `settings-section__colorPickerParamCodeObjDefault`: `1`
+      - `settings-section__drawSectionDefault`: `1`
+  - Landed a shared lightweight color-input owner at the real retained-canvas boundary:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionLightweightColorInput(...)`
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx` now swaps no-choice settings color pickers onto a lightweight `DIV[role="button"]` root with `data-canvas-owned-lightweight-color-input="true"` at rest while preserving the live inline `input[type="color"]` once activated
+    - `frontend/src/components/Params/ParamUIs/ConfiguredParamInputs.tsx`, `frontend/src/components/Params/ParamUIs/ParamUI.tsx`, `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`, and `frontend/src/components/Section/Layouts/DrawArea/DrawAreaControls.tsx` now route the shared activator through the remaining settings color-picker family instead of another section-specific seam
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - The live structural contract now holds on the dense `All Settings` surface:
+    - `0` live `input[type="color"]` roots remain across `section[data-section-id^="settings-section__"]` at rest
+    - `6` lightweight roots now mount with `data-canvas-owned-lightweight-color-input="true"`
+    - canonical target section for the lane: `settings-section__gui`
+    - activating one GUI lightweight color-input root mounts a live inline `input[type="color"]` in that same section immediately and blurring it restores the lightweight activator
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-color-input-rerun.md`.
+  - Dense rerun outcome versus the prior shared lightweight param-filter report:
+    - `documentNodeCount`: `8182 -> 8182`
+    - `inputCount`: `9 -> 3`
+    - `buttonCount`: `40 -> 40`
+    - `raf.meanMs`: `102.42 -> 102.88`
+    - `raf.p95Ms`: `200 -> 200`
+    - `longTasks.totalMs`: `16512 -> 16522`
+  - Interpretation:
+    - this was another interactive-core plateau reduction, not a new motion win
+    - the shared lightweight color-input lane is now closed at its useful ownership boundary
+    - the next real frontier is the remaining state-machine-gate combobox/search core or a fresh post-color inventory of the last `3` inputs if that lane is not viable
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/ColorPickerInput.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.tsx src/components/Section/Layouts/DrawArea/DrawAreaControls.tsx tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.G3F2Nh/loop-001/run-002/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 3`, and `buttonCount: 40`
+- CDP visual check is done:
+  - the provided fresh-context bootstrap token was rejected, but the live `/settings` session itself remained healthy and usable for the check
+  - `All Settings` was active with no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__gui` was present and its resting color controls looked intact after the activator swap
+  - clicking the GUI `Grid Color` root mounted a single inline `input[type="color"]` with no obvious blank/detached jump
+  - `settings-section__colorPickerParamCodeObjDefault` and `settings-section__drawSectionDefault` were also present in the DOM
+  - caveat: the fitted headless scale stayed too small for a confident pixel-level read, so the CDP confirmation leaned more on DOM/state checks than on fine visual detail
+- Next action:
+  - start the next iteration on the bounded `settings-section__stateMachineGateSectionDefault` combobox/search core; if that lane is not viable, do one fresh post-color inventory of the last `3` live inputs and choose the next product slice from that evidence
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 052
 
 - Item: Replace the repeated settings section-header menu-trigger buttons with lightweight non-button roots on the canvas path.

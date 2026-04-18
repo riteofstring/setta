@@ -12,6 +12,7 @@ import {
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
+  isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightMenuTrigger,
   isCanvasOwnedSectionLightweightParamFilter,
   isCanvasOwnedSectionNestedGuide,
@@ -66,6 +67,25 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightMenuTrigger("round_lime-section__callable"),
+    ).toBe(false);
+  });
+
+  it("targets settings sections for lightweight color inputs", () => {
+    expect(
+      isCanvasOwnedSectionLightweightColorInput(CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightColorInput(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightColorInput(
+        "settings-section__drawSectionDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightColorInput("round_lime-section__callable"),
     ).toBe(false);
   });
 
