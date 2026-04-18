@@ -377,6 +377,23 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `.react-flow__section-shell-backdrop canvas` was mounted
   - `settings-section__dictSectionDefault` was present on the live surface
   - the dict filter/search row looked intact and its underline remained visible after the resting underline moved to retained canvas ownership
+- The next dict-specific filter/search slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamFilterIcon(...)` and scopes that ownership rule to the dict canary only, so the static filter icon is tracked as part of the same dict-specific lane instead of reopening shared-family ownership work
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now tags the dict filter row's static `gg-sort-az` icon with `data-canvas-owned-filter-icon="true"` and hides only the resting DOM icon with `opacity-0` on the `canvas-shell-underlay` path while keeping the live filter input text/editor behavior unchanged
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those tagged dict filter icons with the fixed `gg-sort-az` bar geometry and paints their three retained bars into the existing detail-box pass, so no new retained-scene primitive was needed for this slice
+  - focused coverage now exists for this dict-specific icon ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the hidden DOM filter icon flag, the retained-canvas icon pixels, and the existing dict shell/text/switch/underline/nested-guide checks on the live worktree runtime
+- CDP visual check is done for the dict filter-icon slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__dictSectionDefault"]` was present and visible
+  - the dict filter/search row looked intact after the static filter icon moved to retained canvas ownership
 
 ## Preservation rule
 
@@ -405,9 +422,9 @@ That leaves one primary architectural move:
 
 1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass is now landed there, so the next product slice should target the dict filter/search surface itself instead of reopening shared-family expansion.
+3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass plus the dict filter underline/icon slices are now landed there, so the next pass should avoid reopening shared-family expansion by inertia.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Treat the dict filter underline slice as complete; the next dict-specific frontier is the remaining filter/search chrome beyond the underline itself, not another shared-family ownership pass and not another attempt to prove filter focus through the current `POST /api/setActiveIds -> 404` headless noise.
+5. Treat the dict filter underline and icon slices as complete; the next pass should re-inventory the exact remaining default-visible non-editor filter/search chrome and close this micro-lane if only the live input/editor core remains, rather than manufacturing another ownership hop.
 6. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -433,7 +450,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass plus the filter-underline slice as done, and move to the remaining dict filter/search chrome beyond the underline while keeping the live input/editor behavior DOM-owned
+- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass plus the dict filter underline/icon slices as done, and re-inventory the remaining default-visible non-editor filter/search chrome before deciding whether this dict micro-lane is already complete at its useful boundary
 
 ## Hard rules
 

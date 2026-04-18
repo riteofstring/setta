@@ -44,6 +44,9 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       styleColorRowId,
     }) => {
       const filterInput = document.getElementById(filterInputId);
+      const filterIcon = filterInput
+        ?.closest("search")
+        ?.querySelector('[data-canvas-owned-filter-icon="true"]');
       const canvas = document.querySelector<HTMLCanvasElement>(
         ".react-flow__section-shell-backdrop canvas",
       );
@@ -57,6 +60,7 @@ test("canvas shell path owns shared resting dict section chrome", async ({
         document.getElementById(aspectRatioRowId) !== null &&
         document.getElementById(configLanguageInputId) !== null &&
         filterInput !== null &&
+        filterIcon !== null &&
         filterInput.closest("search") !== null &&
         document.getElementById(sizeRowId) !== null &&
         document.getElementById(styleColorInputId) !== null &&
@@ -97,6 +101,9 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       const header = outer?.querySelector<HTMLElement>("header.section-title");
       const filterInput = document.getElementById(filterInputId);
       const filterSearch = filterInput?.closest<HTMLElement>("search");
+      const filterIcon = filterSearch?.querySelector<HTMLElement>(
+        '[data-canvas-owned-filter-icon="true"]',
+      );
       const filterUnderline = filterSearch?.querySelector<HTMLElement>(
         '[data-canvas-owned-underline="true"]',
       );
@@ -145,6 +152,9 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       }
       if (!(filterSearch instanceof HTMLElement)) {
         throw new Error(`Missing dict filter container for ${sectionId}`);
+      }
+      if (!(filterIcon instanceof HTMLElement)) {
+        throw new Error(`Missing dict filter icon for ${sectionId}`);
       }
       if (!(filterUnderline instanceof HTMLElement)) {
         throw new Error(`Missing dict filter underline for ${sectionId}`);
@@ -261,6 +271,7 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       const nodeRect = node.getBoundingClientRect();
       const headerRect = header.getBoundingClientRect();
       const filterRect = filterSearch.getBoundingClientRect();
+      const filterIconRect = filterIcon.getBoundingClientRect();
       const filterUnderlineRect = filterUnderline.getBoundingClientRect();
       const aspectRatioSwitchRect = aspectRatioSwitch.getBoundingClientRect();
       const configLanguageRect = configLanguageLine.getBoundingClientRect();
@@ -273,6 +284,63 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       const headerHeight = headerRect.height / viewportScale;
       const filterOffsetY = (filterRect.top - nodeRect.top) / viewportScale;
       const filterHeight = filterRect.height / viewportScale;
+      const filterIconBeforeStyle = window.getComputedStyle(
+        filterIcon,
+        "::before",
+      );
+      const filterIconAfterStyle = window.getComputedStyle(filterIcon, "::after");
+      const filterIconBeforeWidthPx = Number.parseFloat(filterIconBeforeStyle.width);
+      const filterIconBeforeHeightPx = Number.parseFloat(
+        filterIconBeforeStyle.height,
+      );
+      const filterIconBeforeLeftPx = Number.parseFloat(filterIconBeforeStyle.left);
+      const filterIconBeforeTopPx = Number.parseFloat(filterIconBeforeStyle.top);
+      const filterIconAfterWidthPx = Number.parseFloat(filterIconAfterStyle.width);
+      const filterIconAfterHeightPx = Number.parseFloat(
+        filterIconAfterStyle.height,
+      );
+      const filterIconAfterLeftPx = Number.parseFloat(filterIconAfterStyle.left);
+      const filterIconAfterTopPx = Number.parseFloat(filterIconAfterStyle.top);
+      if (
+        !Number.isFinite(filterIconBeforeWidthPx) ||
+        !Number.isFinite(filterIconBeforeHeightPx) ||
+        !Number.isFinite(filterIconBeforeLeftPx) ||
+        !Number.isFinite(filterIconBeforeTopPx) ||
+        !Number.isFinite(filterIconAfterWidthPx) ||
+        !Number.isFinite(filterIconAfterHeightPx) ||
+        !Number.isFinite(filterIconAfterLeftPx) ||
+        !Number.isFinite(filterIconAfterTopPx)
+      ) {
+        throw new Error(`Invalid dict filter icon pseudo metrics for ${sectionId}`);
+      }
+      const filterIconUnionLeft = Math.min(
+        filterIconRect.left,
+        filterIconRect.left + filterIconBeforeLeftPx,
+        filterIconRect.left + filterIconAfterLeftPx,
+      );
+      const filterIconUnionTop = Math.min(
+        filterIconRect.top,
+        filterIconRect.top + filterIconBeforeTopPx,
+        filterIconRect.top + filterIconAfterTopPx,
+      );
+      const filterIconUnionRight = Math.max(
+        filterIconRect.right,
+        filterIconRect.left + filterIconBeforeLeftPx + filterIconBeforeWidthPx,
+        filterIconRect.left + filterIconAfterLeftPx + filterIconAfterWidthPx,
+      );
+      const filterIconUnionBottom = Math.max(
+        filterIconRect.bottom,
+        filterIconRect.top + filterIconBeforeTopPx + filterIconBeforeHeightPx,
+        filterIconRect.top + filterIconAfterTopPx + filterIconAfterHeightPx,
+      );
+      const filterIconOffsetX =
+        (filterIconUnionLeft - nodeRect.left) / viewportScale;
+      const filterIconOffsetY =
+        (filterIconUnionTop - nodeRect.top) / viewportScale;
+      const filterIconWidth =
+        (filterIconUnionRight - filterIconUnionLeft) / viewportScale;
+      const filterIconHeight =
+        (filterIconUnionBottom - filterIconUnionTop) / viewportScale;
       const filterUnderlineOffsetX =
         (filterUnderlineRect.left - nodeRect.left) / viewportScale;
       const filterUnderlineOffsetY =
@@ -444,6 +512,7 @@ test("canvas shell path owns shared resting dict section chrome", async ({
 
       const aspectRatioSwitchStyle = window.getComputedStyle(aspectRatioSwitch);
       const configLanguageStyle = window.getComputedStyle(configLanguageInput);
+      const filterIconStyle = window.getComputedStyle(filterIcon);
       const filterInputStyle = window.getComputedStyle(filterInput);
       const filterUnderlineStyle = window.getComputedStyle(filterUnderline);
       const styleColorStyle = window.getComputedStyle(styleColorInput);
@@ -461,6 +530,17 @@ test("canvas shell path owns shared resting dict section chrome", async ({
           aspectRatioSwitchSampleY,
         ),
         bodyPixel,
+        filterIconDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + filterIconOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + filterIconOffsetY) * canvasScaleY,
+            filterIconWidth * canvasScaleX,
+            filterIconHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        filterIconOpacity: filterIconStyle.opacity,
+        filterIconOwnershipFlag:
+          filterIcon.dataset.canvasOwnedFilterIcon ?? null,
         filterUnderlineDistinctPixelCount:
           countPixelsDifferentFromReferenceInCanvasRect(
             (nodeX - canvasLeft + filterUnderlineOffsetX) * canvasScaleX,
@@ -560,6 +640,9 @@ test("canvas shell path owns shared resting dict section chrome", async ({
   expect(shellState.aspectRatioSwitchBackground).toBe("rgba(0, 0, 0, 0)");
   expect(shellState.aspectRatioSwitchPixel).not.toBe("0,0,0,0");
   expect(shellState.aspectRatioSwitchPixel).not.toBe(shellState.bodyPixel);
+  expect(shellState.filterIconOwnershipFlag).toBe("true");
+  expect(shellState.filterIconOpacity).toBe("0");
+  expect(shellState.filterIconDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.filterUnderlineOwnershipFlag).toBe("true");
   expect(shellState.filterUnderlineOpacity).toBe("0");
   expect(shellState.filterInputBorderBottomColor).toBe("rgba(0, 0, 0, 0)");

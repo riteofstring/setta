@@ -155,6 +155,30 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 030
+
+- Item: Move the dict filter row's static `gg-sort-az` icon to retained canvas ownership on `settings-section__dictSectionDefault`.
+- Status: `done`
+- Details:
+  - Added `isCanvasOwnedSectionParamFilterIcon(...)` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` and scoped it to the dict canary only, so this stayed on the active dict-specific filter/search lane instead of reopening shared-family ownership work.
+  - Updated `frontend/src/components/Section/SectionParts/KwargsControls.tsx` so the dict filter row now tags its static icon with `data-canvas-owned-filter-icon="true"` and hides only the resting DOM icon with `opacity-0` on the `canvas-shell-underlay` path while leaving the live filter input text/editor behavior unchanged.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene measures those tagged dict filter icons using the fixed `gg-sort-az` three-bar geometry and paints them into the existing detail-box pass; this slice reused the current retained-scene primitive set instead of adding another renderer branch.
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts` so the trusted dict probe now asserts the hidden DOM icon marker, samples retained-canvas pixels across the icon's full three-bar bounds, and keeps the existing shell/text/switch/underline/nested-guide checks intact.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` to cover the new dict-only filter-icon ownership rule.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe passed on the live worktree runtime with the new retained filter-icon assertions
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+    - `.react-flow__section-shell-backdrop canvas` was mounted
+    - `section[data-section-id="settings-section__dictSectionDefault"]` was present and visible
+    - the dict filter/search row looked intact after the static filter icon moved to retained canvas ownership
+- Next action:
+  - keep `settings-section__dictSectionDefault` as the active named lane, but re-inventory the remaining default-visible non-editor filter/search chrome before doing another ownership slice; if only the live input/editor core remains, close this micro-lane instead of manufacturing another hop
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 024
 
 - Item: Close the canary resting-text lane at the ownership boundary by replacing the per-row allowlist with a canary-section text-like rule, using `Style Color` as the new deterministic proof row.

@@ -1,6 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
+  isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -517,6 +518,9 @@ function ParamFilter({
     ? "focus-visible:border-[color:var(--setta-section-style-outline)]"
     : "focus-visible:border-blue-300 dark:focus-visible:border-blue-400/50";
   const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedFilterIcon =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionParamFilterIcon(sectionId);
   const canvasOwnedFilterUnderline =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionParamFilterUnderline(sectionId);
@@ -536,7 +540,12 @@ function ParamFilter({
     <search
       className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${includeCallablePadding ? "py-1" : ""}`}
     >
-      <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
+      <i
+        className={`gg-sort-az -mr-2 ${sortIconColorClassName} ${canvasOwnedFilterIcon ? "opacity-0" : ""}`}
+        data-canvas-owned-filter-icon={
+          canvasOwnedFilterIcon ? "true" : undefined
+        }
+      />
       <span className="relative min-w-0 flex-1">
         <input
           id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut

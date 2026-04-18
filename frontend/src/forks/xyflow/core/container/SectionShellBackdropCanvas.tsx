@@ -33,6 +33,15 @@ const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
 const CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE = "data-canvas-owned-nested-guide";
 const CANVAS_OWNED_UNDERLINE_ATTRIBUTE = "data-canvas-owned-underline";
 const CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE = "data-canvas-owned-resting-text";
+const CANVAS_OWNED_FILTER_ICON_ATTRIBUTE = "data-canvas-owned-filter-icon";
+const FILTER_ICON_BASE_BAR_WIDTH_PX = 8;
+const FILTER_ICON_BAR_HEIGHT_PX = 2;
+const FILTER_ICON_TOP_BAR_WIDTH_PX = 12;
+const FILTER_ICON_TOP_BAR_OFFSET_X_PX = -2;
+const FILTER_ICON_TOP_BAR_OFFSET_Y_PX = -4;
+const FILTER_ICON_BOTTOM_BAR_WIDTH_PX = 4;
+const FILTER_ICON_BOTTOM_BAR_OFFSET_X_PX = 2;
+const FILTER_ICON_BOTTOM_BAR_OFFSET_Y_PX = 4;
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
@@ -43,6 +52,14 @@ type CanvasOwnedSwitchTrackBox = {
 };
 
 type CanvasOwnedUnderlineBox = {
+  fill: string;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+};
+
+type CanvasOwnedFilterIconBox = {
   fill: string;
   height: number;
   offsetX: number;
@@ -69,6 +86,7 @@ type CanvasOwnedRestingTextLine = {
 };
 
 type CanvasOwnedSectionBackdropMeasurements = {
+  filterIconBoxes: Array<CanvasOwnedFilterIconBox>;
   headerHeight: number;
   kwargsControlsHeight: number;
   nestedGuideBoxes: Array<CanvasOwnedNestedGuideBox>;
@@ -132,6 +150,26 @@ function areSwitchTrackBoxesEqual(
 function areCanvasOwnedUnderlineBoxesEqual(
   left: Array<CanvasOwnedUnderlineBox>,
   right: Array<CanvasOwnedUnderlineBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
+      leftBox.fill === rightBox.fill &&
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.width === rightBox.width
+    );
+  });
+}
+
+function areCanvasOwnedFilterIconBoxesEqual(
+  left: Array<CanvasOwnedFilterIconBox>,
+  right: Array<CanvasOwnedFilterIconBox>,
 ) {
   if (left.length !== right.length) {
     return false;
@@ -301,6 +339,93 @@ function measureCanvasOwnedUnderlineBoxes(
       (underlineBox): underlineBox is CanvasOwnedUnderlineBox =>
         underlineBox !== null,
     );
+}
+
+function measureCanvasOwnedFilterIconBoxes(
+  sectionId: string,
+): Array<CanvasOwnedFilterIconBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
+  const viewportScale = parseViewportScale(
+    viewport ? window.getComputedStyle(viewport).transform : null,
+  );
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(
+      `[${CANVAS_OWNED_FILTER_ICON_ATTRIBUTE}="true"]`,
+    ),
+  ).flatMap((iconElement) => {
+    const rect = iconElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return [];
+    }
+
+    const computedStyle = window.getComputedStyle(iconElement);
+    const fill = computedStyle.color.trim();
+    const scale = rect.width / FILTER_ICON_BASE_BAR_WIDTH_PX;
+    if (
+      fill.length === 0 ||
+      fill === "rgba(0, 0, 0, 0)" ||
+      !Number.isFinite(scale) ||
+      scale <= 0
+    ) {
+      return [];
+    }
+
+    const barHeight = FILTER_ICON_BAR_HEIGHT_PX * scale;
+    const barBoxes = [
+      {
+        height: barHeight,
+        left: rect.left + FILTER_ICON_TOP_BAR_OFFSET_X_PX * scale,
+        top: rect.top + FILTER_ICON_TOP_BAR_OFFSET_Y_PX * scale,
+        width: FILTER_ICON_TOP_BAR_WIDTH_PX * scale,
+      },
+      {
+        height: rect.height,
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+      },
+      {
+        height: barHeight,
+        left: rect.left + FILTER_ICON_BOTTOM_BAR_OFFSET_X_PX * scale,
+        top: rect.top + FILTER_ICON_BOTTOM_BAR_OFFSET_Y_PX * scale,
+        width: FILTER_ICON_BOTTOM_BAR_WIDTH_PX * scale,
+      },
+    ];
+
+    return barBoxes
+      .map((barBox) => {
+        if (barBox.width <= 0 || barBox.height <= 0) {
+          return null;
+        }
+
+        return {
+          fill,
+          height: barBox.height / viewportScale,
+          offsetX: (barBox.left - sectionRect.left) / viewportScale,
+          offsetY: (barBox.top - sectionRect.top) / viewportScale,
+          width: barBox.width / viewportScale,
+        };
+      })
+      .filter(
+        (barBox): barBox is CanvasOwnedFilterIconBox => barBox !== null,
+      );
+  });
 }
 
 function measureCanvasOwnedNestedGuideBoxes(
@@ -710,6 +835,85 @@ function useCanvasOwnedNestedGuideBoxes(
   return nestedGuideBoxes;
 }
 
+function useCanvasOwnedFilterIconBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+) {
+  const [filterIconBoxes, setFilterIconBoxes] = useState<
+    Array<CanvasOwnedFilterIconBox>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredBoxes = () => {
+      const nextBoxes = measureCanvasOwnedFilterIconBoxes(sectionId);
+      setFilterIconBoxes((previousBoxes) =>
+        areCanvasOwnedFilterIconBoxesEqual(previousBoxes, nextBoxes)
+          ? previousBoxes
+          : nextBoxes,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setFilterIconBoxes((previousBoxes) =>
+        previousBoxes.length === 0 ? previousBoxes : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredBoxes);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      for (const iconElement of section.querySelectorAll<HTMLElement>(
+        `[${CANVAS_OWNED_FILTER_ICON_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(iconElement);
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["class", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, sectionId]);
+
+  return filterIconBoxes;
+}
+
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
   layoutRefreshKey: string,
@@ -838,6 +1042,10 @@ function useCanvasOwnedSectionBackdropMeasurements({
     sectionId,
     layoutRefreshKey,
   );
+  const filterIconBoxes = useCanvasOwnedFilterIconBoxes(
+    sectionId,
+    layoutRefreshKey,
+  );
   const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
     sectionId,
     layoutRefreshKey,
@@ -849,6 +1057,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
 
   return useMemo(
     () => ({
+      filterIconBoxes,
       headerHeight,
       kwargsControlsHeight,
       nestedGuideBoxes,
@@ -860,6 +1069,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       underlineBoxes,
     }),
     [
+      filterIconBoxes,
       headerHeight,
       kwargsControlsHeight,
       nestedGuideBoxes,
@@ -956,6 +1166,14 @@ export default function SectionShellBackdropCanvas() {
             ...chrome,
             detailBands,
             detailBoxes: [
+              ...measurements.filterIconBoxes.map((filterIconBox) => ({
+                cornerRadius: filterIconBox.height / 2,
+                fill: filterIconBox.fill,
+                height: filterIconBox.height,
+                width: filterIconBox.width,
+                x: filterIconBox.offsetX,
+                y: filterIconBox.offsetY,
+              })),
               ...measurements.nestedGuideBoxes.map((guideBox) => ({
                 cornerRadius: guideBox.cornerRadius,
                 fill: guideBox.fill,

@@ -2,6 +2,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  isCanvasOwnedSectionParamFilterIcon,
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionParamFilterUnderline,
@@ -90,6 +91,18 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionParamFilterUnderline(
         "settings-section__globalVariables",
       ),
+    ).toBe(false);
+  });
+
+  it("targets only the dict canary filter icon for canvas ownership", () => {
+    expect(
+      isCanvasOwnedSectionParamFilterIcon(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamFilterIcon(CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionParamFilterIcon("settings-section__globalVariables"),
     ).toBe(false);
   });
 
