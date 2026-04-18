@@ -10,8 +10,6 @@ import {
   type UIEditorTabName,
 } from "./generatedTypes";
 
-export type { OverviewTabName, UIEditorTabName } from "./generatedTypes";
-
 export const UIEditorTabNameEnum = UIEditorTabUIConfig.names as Readonly<
   Record<keyof typeof UIEditorTabUIConfig.names, UIEditorTabName>
 >;

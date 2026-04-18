@@ -28,6 +28,7 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
+  type DictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
@@ -146,9 +147,7 @@ function useParamNameState(
       return null;
     }
     const dictImpl =
-      impl.type === SectionTypeEnum.Dict
-        ? (impl as { topLevelParamId: string | null })
-        : null;
+      impl.type === SectionTypeEnum.Dict ? (impl as DictSectionImpl) : null;
     const pythonCodegenEnabled = x.projectConfig.codegenTargets.some(
       (target) => target.language === ProjectCodegenLanguageEnum.python,
     );

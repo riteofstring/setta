@@ -9,9 +9,8 @@ import {
   OverviewTabNameEnum,
   PaneName,
   PaneNameEnum,
-  UIEditorTabName,
 } from "utils/constants";
-import { SectionType } from "utils/generatedTypes";
+import { type SectionType, type UIEditorTabName } from "utils/generatedTypes";
 import { togglePaneVisibility } from "./paneLayout";
 
 type TabButtonComponentType<T> = {

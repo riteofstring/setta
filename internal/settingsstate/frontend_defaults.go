@@ -157,6 +157,17 @@ func FrontendDefaultSettingsBackend() FrontendSettingsBackend {
 	return frontendDefaultSettingsSection[FrontendSettingsBackend]("backend")
 }
 
+func FrontendDefaultSettingsChatWindowingShortcuts() FrontendSettingsChatWindowingShortcuts {
+	return frontendDefaultSettingsValue[FrontendSettingsChatWindowingShortcuts](
+		"frontend settings defaults chatWindowing.shortcuts",
+		frontendDefaultSettingsSection[map[string]any]("chatWindowing")["shortcuts"],
+	)
+}
+
+func FrontendDefaultSettingsChatWindowing() FrontendSettingsChatWindowing {
+	return frontendDefaultSettingsSection[FrontendSettingsChatWindowing]("chatWindowing")
+}
+
 func FrontendDefaultSettingsState() FrontendSettingsState {
 	defaults, err := DefaultDocument()
 	if err != nil {

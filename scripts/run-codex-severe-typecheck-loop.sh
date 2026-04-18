@@ -276,7 +276,8 @@ Rules:
 - Update ${severe_type_audit_file} before editing code.
 - Fix one shortlist item or one tightly related cluster per iteration.
 - Prefer owner-side fixes and regeneration.
-- Do not add local shadow types, ReturnType aliases for existing named types, handwritten compatibility helpers, hard-coded generator inventories, or duplicated logic when an authoritative owner surface already exists.
+- Missing export/import diagnostics only count when the symbol survives emitted JS. Type-only import churn is not a runtime bug.
+- Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, type-only re-export shims, handwritten compatibility helpers, hard-coded generator inventories, or duplicated logic when an authoritative owner surface already exists.
 - Run focused verification plus ./gcf.sh and ./scripts/check_quality_for_git_changes.sh before every commit.
 - Every non-stop iteration ends with a clean worktree and a commit whose message starts with codex-typefix:.
 EOF
@@ -287,22 +288,20 @@ Goal: use type checking as a bug finder. Fix only type errors that point to a re
 
 Read in order:
 - ${ROOT_DIR}/AGENTS.md
-- ${ROOT_DIR}/docs/guides/dev-scripts.md
-- ${ROOT_DIR}/docs/reference/go-backed-python.md
 - ${ROOT_DIR}/docs/reference/generation-contracts.md
-- git log --oneline --decorate -n 15
 - ${checklist_file}
 - ${runtime_break_shortlist_file}
 - ${severe_type_audit_file}
-- the most recent prior session response under ${output_dir}/run-*/last-message.txt, if any exist
+- git log --oneline --decorate -n 10
 
 Rules:
-- The shortlist is the lead queue. Start from the highest tier item.
-- Before editing code, update the audit with the current target, the concrete runtime failure, the exact file evidence, and the owner surface you plan to change.
-- If you cannot explain the real runtime failure clearly, skip that item and record why in the audit.
+- Start from the highest shortlist tier.
+- Before editing, update the audit with the target, concrete runtime failure, exact evidence, and owner surface.
+- If you cannot explain the runtime failure clearly, skip that item and record why.
 - Fix one shortlist item or one tightly related cluster per iteration.
+- Missing export/import diagnostics count only when the symbol survives emitted JS. Type-only import churn is not a runtime bug.
 - Prefer owner-side fixes and regeneration over local compatibility patches.
-- Reuse authoritative named types and helpers. Do not add local shadow types, ReturnType aliases for existing named types, handwritten compatibility helpers, hard-coded generator inventories, or duplicated logic when an owner surface already exists.
+- Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, structural shadow types, type-only re-export shims, handwritten compatibility helpers, or hard-coded generator inventories when an owner surface already exists.
 - Do not hand-edit generated files.
 - Run focused verification for the bug you changed. Before any commit, run the relevant type checks for touched code, then run ./gcf.sh, then run ./scripts/check_quality_for_git_changes.sh.
 - If you make repo changes, end with a clean worktree and a commit message starting with codex-typefix:.

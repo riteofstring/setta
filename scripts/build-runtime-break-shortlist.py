@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -170,6 +171,47 @@ def parse_named_imports(text: str) -> dict[str, dict[str, bool]]:
     return imports
 
 
+def transpile_frontend_source(repo_root: Path, source_path: Path) -> str | None:
+    frontend_dir = repo_root / "frontend"
+    transpile_script = """
+const fs = require("fs");
+const ts = require("typescript");
+const sourcePath = process.argv[1];
+const source = fs.readFileSync(sourcePath, "utf8");
+const result = ts.transpileModule(source, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ESNext,
+    jsx: ts.JsxEmit.ReactJSX,
+    importsNotUsedAsValues: ts.ImportsNotUsedAsValues.Remove,
+    preserveValueImports: false,
+  },
+});
+process.stdout.write(result.outputText);
+"""
+    try:
+        completed = subprocess.run(
+            ["node", "-e", transpile_script, str(source_path)],
+            cwd=frontend_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout
+
+
+def parse_emitted_value_imports(
+    repo_root: Path,
+    source_path: Path,
+) -> dict[str, dict[str, bool]] | None:
+    output_text = transpile_frontend_source(repo_root, source_path)
+    if output_text is None:
+        return None
+    return parse_named_imports(output_text)
+
+
 def is_frontend_local_module(module_path: str) -> bool:
     return module_path.startswith(".") or module_path.startswith(
         LOCAL_FRONTEND_MODULE_PREFIXES
@@ -184,12 +226,50 @@ def missing_export_details(message: str) -> tuple[str, str] | None:
     return None
 
 
+def load_named_imports_for_source(
+    import_cache: dict[str, dict[str, dict[str, bool]]],
+    *,
+    file_path: str,
+    source_path: Path,
+) -> dict[str, dict[str, bool]] | None:
+    imports = import_cache.get(file_path)
+    if imports is not None:
+        return imports
+    if not source_path.is_file():
+        import_cache[file_path] = {}
+        return None
+    imports = parse_named_imports(source_path.read_text(encoding="utf-8", errors="replace"))
+    import_cache[file_path] = imports
+    return imports
+
+
+def missing_export_survives_js_emit(
+    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    source_path: Path,
+    module_path: str,
+    symbol: str,
+) -> bool:
+    emitted_imports = emitted_import_cache.get(file_path)
+    if emitted_imports is None and file_path not in emitted_import_cache:
+        emitted_imports = parse_emitted_value_imports(repo_root, source_path)
+        emitted_import_cache[file_path] = emitted_imports
+    else:
+        emitted_imports = emitted_import_cache.get(file_path)
+    if emitted_imports is None:
+        return True
+    return emitted_imports.get(module_path, {}).get(symbol, False)
+
+
 def parse_frontend_diagnostics(
     repo_root: Path, frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
 ) -> None:
     if not frontend_typecheck.is_file():
         return
     import_cache: dict[str, dict[str, dict[str, bool]]] = {}
+    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None] = {}
     for raw_line in frontend_typecheck.read_text(
         encoding="utf-8", errors="replace"
     ).splitlines():
@@ -226,18 +306,23 @@ def parse_frontend_diagnostics(
         if not is_frontend_local_module(module_path):
             continue
 
-        imports = import_cache.get(file_path)
-        if imports is None:
-            source_path = repo_root / file_path
-            if not source_path.is_file():
-                import_cache[file_path] = {}
-                continue
-            imports = parse_named_imports(
-                source_path.read_text(encoding="utf-8", errors="replace")
-            )
-            import_cache[file_path] = imports
+        source_path = repo_root / file_path
+        imports = load_named_imports_for_source(
+            import_cache,
+            file_path=file_path,
+            source_path=source_path,
+        )
+        if imports is None or not imports.get(module_path, {}).get(symbol, False):
+            continue
 
-        if not imports.get(module_path, {}).get(symbol, False):
+        if not missing_export_survives_js_emit(
+            emitted_import_cache,
+            repo_root=repo_root,
+            file_path=file_path,
+            source_path=source_path,
+            module_path=module_path,
+            symbol=symbol,
+        ):
             continue
 
         priority = 100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99

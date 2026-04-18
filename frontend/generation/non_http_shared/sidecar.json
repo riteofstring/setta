@@ -9754,6 +9754,36 @@
     },
     {
       "profile": "frontend",
+      "type": "SettingsChatWindowing",
+      "value": {
+        "autoCreateInitialChat": true,
+        "restorePriorStateOnUnmaximize": true,
+        "shortcuts": {
+          "canvasToggle": "Shift + Esc",
+          "maximizeFocused": "Mod + Shift + Enter",
+          "minimizeFocused": "Mod + Shift + M",
+          "snapBottom": "Mod + Alt + ArrowDown",
+          "snapLeft": "Mod + Alt + ArrowLeft",
+          "snapRight": "Mod + Alt + ArrowRight",
+          "snapTop": "Mod + Alt + ArrowUp"
+        }
+      }
+    },
+    {
+      "profile": "frontend",
+      "type": "SettingsChatWindowingShortcuts",
+      "value": {
+        "canvasToggle": "Shift + Esc",
+        "maximizeFocused": "Mod + Shift + Enter",
+        "minimizeFocused": "Mod + Shift + M",
+        "snapBottom": "Mod + Alt + ArrowDown",
+        "snapLeft": "Mod + Alt + ArrowLeft",
+        "snapRight": "Mod + Alt + ArrowRight",
+        "snapTop": "Mod + Alt + ArrowUp"
+      }
+    },
+    {
+      "profile": "frontend",
       "type": "SettingsGUI",
       "value": {
         "defaultZoomLevel": 1,
