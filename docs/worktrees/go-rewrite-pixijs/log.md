@@ -901,3 +901,33 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and pivot the next bounded product slice to the first non-forwarding Pixi-owned camera/viewport seam on the `settings` canary path
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 037
+
+- Item: Land the first non-forwarding Pixi-owned camera/viewport seam by moving the retained section-shell canvas onto its own sibling camera layer on the `settings` canary path.
+- Status: `done`
+- Details:
+  - Canonical visual target for this camera seam slice: `settings-section__callableSectionDefault`.
+  - Moved viewport ownership to the real graph-surface composition boundary in `frontend/src/forks/xyflow/core/container/GraphSurface.tsx`:
+    - the active `canvas-shell-underlay` implementation now renders the retained `SectionShellBackdropCanvas` inside a new sibling camera layer
+    - the live DOM edge/node path stays inside `ViewportWrapper`, so editing and interaction ownership did not change in this slice
+  - Added `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx`, which applies the shared React Flow transform from store state to the retained canvas layer instead of inheriting camera motion from DOM viewport nesting.
+  - Updated `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` so `GraphSurface` now decides how viewport ownership is composed for each implementation rather than receiving an unconditional outer `ViewportWrapper`.
+  - Added `.react-flow__graph-surface-camera` in `frontend/src/forks/xyflow/core/styles/init.css` so the retained camera layer stays non-interactive and stacked below the DOM viewport.
+  - Added focused boundary coverage in `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` to prove the retained canvas camera layer renders as a sibling immediately before `.react-flow__viewport` and shares the same transform string.
+  - Focused Vitest execution for the new boundary test is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/GraphSurface.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/GraphSurface.test.tsx src/forks/xyflow/core/container/ReactFlow.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (29.6s)` on the live worktree runtime
+- CDP visual check is done:
+  - `/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - one retained section-shell canvas was mounted on the live surface
+  - `.react-flow__graph-surface-camera` was present as a sibling immediately before `.react-flow__viewport`
+  - `settings-section__callableSectionDefault` remained visible and populated with no blank or detached content
+  - caveat: the supplied bootstrap token was already rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend route instead of the bootstrap URL
+- Next action:
+  - keep the section-specific callable/dict/GlobalVariables chrome lanes closed and continue the camera/viewport lane by replacing retained-canvas DOM transform readback with shared React Flow transform state in the measurement path
+LOOP_TERMINAL_MARKER: none

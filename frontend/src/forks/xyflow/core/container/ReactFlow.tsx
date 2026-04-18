@@ -13,7 +13,6 @@ import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
 import FlowRenderer from "./FlowRenderer";
 import GraphSurface from "./GraphSurface";
-import ViewportWrapper from "./Viewport";
 
 const wrapperStyle: CSSProperties = {
   width: "100%",
@@ -95,9 +94,7 @@ const ReactFlow = () => {
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
-          <ViewportWrapper>
-            <GraphSurface readyToRender={readyToRender} />
-          </ViewportWrapper>
+          <GraphSurface readyToRender={readyToRender} />
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
       </div>

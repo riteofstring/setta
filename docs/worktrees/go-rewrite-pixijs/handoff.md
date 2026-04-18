@@ -504,6 +504,23 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
     - the live filter `<input>` / editor core
   - the `Param Filter` label is still present in DOM but not visibly rendered (`opacity-0`), and no additional default-visible filter/search chrome remains to move
   - keep the GlobalVariables filter input/editor core and action-strip controls DOM-owned unless a concrete product requirement appears there
+- The first non-forwarding Pixi-owned camera/viewport seam is now landed on the `settings` canary path using `settings-section__callableSectionDefault` as the visual target:
+  - `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` is now the real composition boundary for viewport ownership on the active `canvas-shell-underlay` path instead of inheriting an outer `ViewportWrapper` from `ReactFlow.tsx`
+  - new `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx` now applies the shared React Flow transform to the retained canvas layer from store state, so the retained section-shell canvas no longer depends on DOM viewport nesting for its camera transform
+  - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` now renders `GraphSurface` directly inside `FlowRenderer`, leaving `GraphSurface` to decide whether a surface implementation uses the DOM viewport wrapper, a sibling camera layer, or both
+  - `frontend/src/forks/xyflow/core/styles/init.css` now defines `.react-flow__graph-surface-camera` as a non-interactive transform layer that sits below the DOM viewport
+  - focused coverage now exists at `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` for the new sibling camera-layer boundary, but executing that Vitest file is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - focused verification passed for the live seam:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/GraphSurface.test.tsx src/forks/xyflow/core/container/ReactFlow.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (29.6s)` on the live worktree runtime
+- CDP visual check is done for the sibling camera-layer seam:
+  - `/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - one retained section-shell canvas was mounted
+  - `.react-flow__graph-surface-camera` was present as a sibling immediately before `.react-flow__viewport`
+  - `settings-section__callableSectionDefault` remained visible and populated with no blank or detached section body
+  - caveat: the supplied bootstrap token was already rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend route instead of the bootstrap URL
 
 ## Preservation rule
 
@@ -535,7 +552,7 @@ That leaves one primary architectural move:
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
-6. With the callable, dict, and GlobalVariables section-specific chrome lanes now closed, pivot the next bounded product slice to the first non-forwarding Pixi-owned camera/viewport seam on the `settings` canary path, and keep the append-only log current.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; with the first sibling camera-layer seam now landed, the next bounded product slice should make the retained canvas measurement/viewport math consume shared React Flow transform state directly instead of reading `.react-flow__viewport` computed CSS back from DOM.
 
 ## First product frontier
 
@@ -561,7 +578,7 @@ The first product frontier is:
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
 - with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
-- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and start the first non-forwarding Pixi-owned camera/viewport seam on the `settings` canary path
+- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and continue the camera/viewport lane by replacing retained-canvas DOM transform readback with shared React Flow transform state
 
 ## Hard rules
 

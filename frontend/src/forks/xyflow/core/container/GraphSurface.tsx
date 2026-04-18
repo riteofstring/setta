@@ -1,6 +1,7 @@
 import { memo } from "react";
 import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
 import EdgeRenderer from "./EdgeRenderer";
+import GraphSurfaceCameraLayer from "./GraphSurfaceCameraLayer";
 import {
   GraphSurfaceImplementationProvider,
   type GraphSurfaceImplementation,
@@ -8,6 +9,7 @@ import {
 import NodeRenderer from "./NodeRenderer";
 import SectionShellBackdropCanvas from "./SectionShellBackdropCanvas";
 import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
+import ViewportWrapper from "./Viewport";
 
 type GraphSurfaceProps = {
   readyToRender: boolean;
@@ -17,7 +19,7 @@ function getDefaultGraphSurfaceImplementation(): GraphSurfaceImplementation {
   return "canvas-shell-underlay";
 }
 
-function LegacyDomGraphSurface() {
+function LegacyDomGraphSurfaceContent() {
   return (
     <>
       <EdgeRenderer />
@@ -28,10 +30,20 @@ function LegacyDomGraphSurface() {
   );
 }
 
+function LegacyDomGraphSurface() {
+  return (
+    <ViewportWrapper>
+      <LegacyDomGraphSurfaceContent />
+    </ViewportWrapper>
+  );
+}
+
 function CanvasShellUnderlayGraphSurface() {
   return (
     <>
-      <SectionShellBackdropCanvas />
+      <GraphSurfaceCameraLayer>
+        <SectionShellBackdropCanvas />
+      </GraphSurfaceCameraLayer>
       <LegacyDomGraphSurface />
     </>
   );
