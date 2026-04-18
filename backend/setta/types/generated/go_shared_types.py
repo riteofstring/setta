@@ -1932,7 +1932,7 @@ class BrushStroke(BaseModel):
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
-    points: list[Any] | None = None
+    points: list[Any] = Field(default_factory=list)
     globalCompositeOperation: str
 
 
@@ -1952,7 +1952,7 @@ class BrushStrokeWithTransform(BaseModel):
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
-    points: list[Any] | None = None
+    points: list[Any] = Field(default_factory=list)
     globalCompositeOperation: str
     transform: DrawAreaTransform
 
@@ -2098,7 +2098,7 @@ class DrawAreaLayerItemTransform(BaseModel):
         extra="forbid",
     )
     transform: DrawAreaTransform
-    eraserStrokes: list[BrushStrokeWithTransform] | None = None
+    eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
 
 
 class DrawAreaLayerItemTransformArtifact(BaseModel):

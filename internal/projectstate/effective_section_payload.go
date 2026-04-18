@@ -34,7 +34,9 @@ func effectiveSectionPayload(project Project, sectionID string, variantID string
 		return nil, err
 	}
 
-	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), nil
+	merged := mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier)
+	normalizeSectionImplPayloadCollections(merged)
+	return merged, nil
 }
 
 func SectionImplPayload(impl SectionImpl) (RawJSON, error) {
@@ -142,6 +144,34 @@ func normalizeSectionImplPayloadCollections(payload map[string]any) {
 		children, ok := payload["children"].([]any)
 		if !ok || children == nil {
 			payload["children"] = []any{}
+		}
+	case "Draw":
+		normalizeDrawSectionPayloadCollections(payload)
+	}
+}
+
+func normalizeDrawSectionPayloadCollections(payload map[string]any) {
+	rawLayers, ok := payload["layers"]
+	if !ok || rawLayers == nil {
+		payload["layers"] = []any{}
+		return
+	}
+	layers, ok := rawLayers.([]any)
+	if !ok {
+		return
+	}
+	for _, rawLayer := range layers {
+		layer, ok := rawLayer.(map[string]any)
+		if !ok {
+			continue
+		}
+		rawElements, ok := layer["elements"]
+		if !ok || rawElements == nil {
+			layer["elements"] = []any{}
+			continue
+		}
+		if elements, ok := rawElements.([]any); ok && elements == nil {
+			layer["elements"] = []any{}
 		}
 	}
 }

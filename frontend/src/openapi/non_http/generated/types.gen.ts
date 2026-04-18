@@ -693,7 +693,7 @@ export type BrushStroke = {
   globalCompositeOperation: string;
   lineCap: DrawAreaBrushShape;
   lineWidth: number;
-  points: null | Array<unknown>;
+  points: Array<unknown>;
   strokeStyle: string;
 };
 
@@ -713,7 +713,7 @@ export type BrushStrokeWithTransform = {
   globalCompositeOperation: string;
   lineCap: DrawAreaBrushShape;
   lineWidth: number;
-  points: null | Array<unknown>;
+  points: Array<unknown>;
   strokeStyle: string;
   transform: DrawAreaTransform;
 };
@@ -1863,7 +1863,7 @@ export type DrawAreaBrushShape = "butt" | "round" | "square";
  * DrawAreaLayer
  */
 export type DrawAreaLayer = {
-  elements: null | Array<DrawAreaLayerItem>;
+  elements: Array<DrawAreaLayerItem>;
   layerOpacity: number;
   name: string;
   visible: boolean;
@@ -1882,7 +1882,7 @@ export type DrawAreaLayerItem = {
  * DrawAreaLayerItemTransform
  */
 export type DrawAreaLayerItemTransform = {
-  eraserStrokes: null | Array<BrushStrokeWithTransform>;
+  eraserStrokes: Array<BrushStrokeWithTransform>;
   transform: DrawAreaTransform;
 };
 

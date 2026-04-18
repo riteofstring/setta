@@ -1646,8 +1646,9 @@
             "type": "number"
           },
           "points": {
+            "default": [],
             "items": true,
-            "type": ["null", "array"]
+            "type": "array"
           },
           "strokeStyle": {
             "type": "string"
@@ -1693,8 +1694,9 @@
             "type": "number"
           },
           "points": {
+            "default": [],
             "items": true,
-            "type": ["null", "array"]
+            "type": "array"
           },
           "strokeStyle": {
             "type": "string"
@@ -4488,10 +4490,11 @@
         "additionalProperties": false,
         "properties": {
           "elements": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/DrawAreaLayerItem"
             },
-            "type": ["null", "array"]
+            "type": "array"
           },
           "layerOpacity": {
             "type": "number"
@@ -4528,10 +4531,11 @@
         "additionalProperties": false,
         "properties": {
           "eraserStrokes": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/BrushStrokeWithTransform"
             },
-            "type": ["null", "array"]
+            "type": "array"
           },
           "transform": {
             "$ref": "#/components/schemas/DrawAreaTransform"

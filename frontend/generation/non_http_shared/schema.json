@@ -1892,11 +1892,9 @@
           "$ref": "#/$defs/DrawAreaBrushShape"
         },
         "points": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": true
+          "type": "array",
+          "items": true,
+          "default": []
         },
         "globalCompositeOperation": {
           "type": "string"
@@ -1946,11 +1944,9 @@
           "$ref": "#/$defs/DrawAreaBrushShape"
         },
         "points": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": true
+          "type": "array",
+          "items": true,
+          "default": []
         },
         "globalCompositeOperation": {
           "type": "string"
@@ -5300,13 +5296,11 @@
           "type": "string"
         },
         "elements": {
-          "type": [
-            "null",
-            "array"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/$defs/DrawAreaLayerItem"
-          }
+          },
+          "default": []
         },
         "visible": {
           "type": "boolean"
@@ -5352,13 +5346,11 @@
           "$ref": "#/$defs/DrawAreaTransform"
         },
         "eraserStrokes": {
-          "type": [
-            "null",
-            "array"
-          ],
+          "type": "array",
           "items": {
             "$ref": "#/$defs/BrushStrokeWithTransform"
-          }
+          },
+          "default": []
         }
       },
       "title": "DrawAreaLayerItemTransform",

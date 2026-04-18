@@ -140,6 +140,39 @@ func TestBuildSchemaDocumentMarksDropdownChoicesAsNonNullArray(t *testing.T) {
 	}
 }
 
+func TestBuildSchemaDocumentMarksDrawCollectionsAsNonNullArrays(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	testCases := []struct {
+		definition string
+		property   string
+	}{
+		{definition: "BrushStroke", property: "points"},
+		{definition: "BrushStrokeWithTransform", property: "points"},
+		{definition: "DrawAreaLayer", property: "elements"},
+		{definition: "DrawAreaLayerItemTransform", property: "eraserStrokes"},
+	}
+
+	for _, tc := range testCases {
+		schema := document.Defs[tc.definition]
+		if schema == nil {
+			t.Fatalf("expected %s schema in $defs", tc.definition)
+		}
+		propertySchema := schema.Properties[tc.property]
+		if propertySchema == nil {
+			t.Fatalf("expected %s.%s property", tc.definition, tc.property)
+		}
+		if schemaAllowsNull(propertySchema) {
+			t.Fatalf("expected %s.%s to be non-null, got %#v", tc.definition, tc.property, propertySchema)
+		}
+	}
+}
+
 func TestBuildSchemaDocumentIncludesAuthoritativeRouteEnum(t *testing.T) {
 	t.Parallel()
 
