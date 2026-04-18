@@ -4,14 +4,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+source "${ROOT_DIR}/scripts/progress.sh"
+
 cd "${ROOT_DIR}"
-./scripts/go.sh run ./cmd/setta-gen-go-type-registries
-./scripts/go.sh run ./cmd/setta-gen-go-route-registries
-bash ./frontend/generation/generate_go_shared_schema.sh
-bash ./frontend/generation/generate_non_http_openapi_bindings.sh
-./scripts/go.sh run ./cmd/setta-gen-frontend-bindings \
+progress_run "Go type registry generation" ./scripts/go.sh run ./cmd/setta-gen-go-type-registries
+progress_run "Go route registry generation" ./scripts/go.sh run ./cmd/setta-gen-go-route-registries
+progress_run --no-heartbeat "Non-HTTP shared schema generation" bash ./frontend/generation/generate_go_shared_schema.sh
+progress_run --no-heartbeat "Non-HTTP OpenAPI bindings generation" bash ./frontend/generation/generate_non_http_openapi_bindings.sh
+progress_run "Generated frontend types emission" ./scripts/go.sh run ./cmd/setta-gen-frontend-bindings \
   -types-out frontend/src/utils/generatedTypes.ts
-bash ./frontend/generation/generate_http_openapi_bindings.sh
+progress_run --no-heartbeat "HTTP OpenAPI bindings generation" bash ./frontend/generation/generate_http_openapi_bindings.sh
 
 cd "${ROOT_DIR}/frontend"
-pnpm exec prettier src/utils/generatedTypes.ts --write
+progress_run "generatedTypes.ts formatting" pnpm exec prettier src/utils/generatedTypes.ts --write

@@ -42,6 +42,7 @@ Use these first for day-to-day work.
 - `./gcf.sh`
   - Runs `pnpm gcf` (generate + cleanup + Go/Python/frontend formatting) with env activation.
   - Logs to `gcf.log` at the repo root.
+  - Prints phase start/finish lines plus a 10-second heartbeat during long quiet steps. Override the heartbeat with `GCF_PROGRESS_INTERVAL_SECONDS=<seconds>`.
 - `./gcft.sh`
   - Runs `pnpm gcft` (gcf + tests), with env activation.
   - Flags: `--all` (enables opt-in live-provider integration tests).
@@ -199,6 +200,7 @@ These are the underlying tasks used by the wrappers above.
   - Regenerates the Go-owned Python SDK/shared types, then runs the generated-type prune pass.
 - `pnpm gcf`
   - Generate + cleanup + Go/Python/frontend formatting (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
+  - Emits lightweight progress output during long-running generation and cleanup steps.
 - `pnpm gcft`
   - `pnpm gcf` + `./t.sh`.
   - To enable opt-in live-provider integration tests, prefer `./gcft.sh --all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` when running this directly).
