@@ -948,7 +948,9 @@ func createdSocialSectionDefaults() map[string]any {
 }
 
 func createdIFrameSectionDefaults() map[string]any {
-	return createdBaseSectionDefaults("IFrame")
+	defaults := createdBaseSectionDefaults("IFrame")
+	defaults["code"] = ""
+	return defaults
 }
 
 func createdBrowserSectionDefaults() map[string]any {

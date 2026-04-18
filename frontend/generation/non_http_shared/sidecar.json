@@ -1690,6 +1690,11 @@
       ]
     },
     {
+      "name": "IFrameSectionImpl",
+      "kind": "model",
+      "schemaRef": "#/$defs/IFrameSectionImpl"
+    },
+    {
       "name": "IdentityContent",
       "kind": "model",
       "schemaRef": "#/$defs/IdentityContent"
@@ -12588,6 +12593,10 @@
           "discriminatorValue": "Terminal"
         },
         {
+          "name": "IFrameSectionImpl",
+          "discriminatorValue": "IFrame"
+        },
+        {
           "name": "ChatSectionImpl",
           "discriminatorValue": "Chat"
         },
@@ -12836,6 +12845,26 @@
           "styleColor": null,
           "tagColor": null,
           "type": "Group"
+        },
+        "IFrame": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "code": "",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "IFrame"
         },
         "ListRoot": {
           "aspectRatio": false,

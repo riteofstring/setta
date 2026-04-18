@@ -50,6 +50,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  IFrameSectionImpl,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
@@ -670,6 +671,23 @@ export function getCurrEffectiveSectionImplWithTypeGuardIfPresent<T>(
     return null;
   }
   return effective;
+}
+function isIFrameSectionImpl(
+  impl: BaseSectionImplUnion,
+): impl is IFrameSectionImpl {
+  return impl.type === SectionTypeEnum.IFrame && "code" in impl;
+}
+export function getCurrIFrameSectionImpl(
+  p: ZustandProjectState,
+  sectionId: string,
+  preview = false,
+): IFrameSectionImpl {
+  return getCurrEffectiveSectionImplWithTypeGuard(
+    p,
+    sectionId,
+    isIFrameSectionImpl,
+    preview,
+  );
 }
 export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   p: ZustandProjectState,

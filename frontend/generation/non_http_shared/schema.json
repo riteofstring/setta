@@ -1491,6 +1491,9 @@
           "$ref": "#/$defs/TerminalSectionImpl"
         },
         {
+          "$ref": "#/$defs/IFrameSectionImpl"
+        },
+        {
           "$ref": "#/$defs/ChatSectionImpl"
         },
         {
@@ -3459,6 +3462,9 @@
               },
               {
                 "$ref": "#/$defs/TerminalSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/IFrameSectionImpl"
               },
               {
                 "$ref": "#/$defs/ChatSectionImpl"
@@ -6936,6 +6942,118 @@
         "HEAD",
         "OPTIONS"
       ]
+    },
+    "IFrameSectionImpl": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "isFrozen": {
+          "type": "boolean"
+        },
+        "isInOtherProjectConfigs": {
+          "type": "boolean"
+        },
+        "tagColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "styleColor": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "size": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "object",
+              "properties": {
+                "Auto": {
+                  "type": "boolean"
+                },
+                "Value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "Auto",
+                "Value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "aspectRatio": true,
+        "aspectRatioExtraHeight": {
+          "type": "number"
+        },
+        "aspectRatioExtraWidth": {
+          "type": "number"
+        },
+        "isMinimized": {
+          "type": "boolean"
+        },
+        "positionAndSizeLocked": {
+          "type": "boolean"
+        },
+        "isPreset": {
+          "type": "boolean"
+        },
+        "code": {
+          "type": "string"
+        }
+      },
+      "title": "IFrameSectionImpl",
+      "required": [
+        "type",
+        "id",
+        "name",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "tagColor",
+        "styleColor",
+        "size",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "isMinimized",
+        "positionAndSizeLocked",
+        "isPreset",
+        "code"
+      ],
+      "additionalProperties": false
     },
     "IdentityContent": {
       "type": "object",
@@ -16724,6 +16842,9 @@
               },
               {
                 "$ref": "#/$defs/TerminalSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/IFrameSectionImpl"
               },
               {
                 "$ref": "#/$defs/ChatSectionImpl"

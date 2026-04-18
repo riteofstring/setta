@@ -102,6 +102,10 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 
 	defaults := createdBaseSectionDefaults(sectionType)
 	switch sectionType {
+	case "IFrame":
+		defaults = createdIFrameSectionDefaults()
+	}
+	switch sectionType {
 	case "Callable", "Dict", "GlobalVariables":
 		defaults = applySectionWithParamsDefaults(defaults, true)
 	case "MetaControl":

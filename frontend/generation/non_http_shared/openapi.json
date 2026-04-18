@@ -1282,6 +1282,9 @@
             "$ref": "#/components/schemas/TerminalSectionImpl"
           },
           {
+            "$ref": "#/components/schemas/IFrameSectionImpl"
+          },
+          {
             "$ref": "#/components/schemas/ChatSectionImpl"
           },
           {
@@ -2992,6 +2995,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TerminalSectionImpl"
+                },
+                {
+                  "$ref": "#/components/schemas/IFrameSectionImpl"
                 },
                 {
                   "$ref": "#/components/schemas/ChatSectionImpl"
@@ -5842,6 +5848,103 @@
         "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
         "title": "HTTPRequestMethod",
         "type": "string"
+      },
+      "IFrameSectionImpl": {
+        "additionalProperties": false,
+        "properties": {
+          "aspectRatio": true,
+          "aspectRatioExtraHeight": {
+            "type": "number"
+          },
+          "aspectRatioExtraWidth": {
+            "type": "number"
+          },
+          "code": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "isFrozen": {
+            "type": "boolean"
+          },
+          "isInOtherProjectConfigs": {
+            "type": "boolean"
+          },
+          "isMinimized": {
+            "type": "boolean"
+          },
+          "isPreset": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "positionAndSizeLocked": {
+            "type": "boolean"
+          },
+          "size": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "additionalProperties": false,
+                "properties": {
+                  "Auto": {
+                    "type": "boolean"
+                  },
+                  "Value": {
+                    "type": "number"
+                  }
+                },
+                "required": ["Auto", "Value"],
+                "type": "object"
+              },
+              "width": {
+                "additionalProperties": false,
+                "properties": {
+                  "Auto": {
+                    "type": "boolean"
+                  },
+                  "Value": {
+                    "type": "number"
+                  }
+                },
+                "required": ["Auto", "Value"],
+                "type": "object"
+              }
+            },
+            "required": ["width", "height"],
+            "type": "object"
+          },
+          "styleColor": {
+            "type": ["null", "string"]
+          },
+          "tagColor": {
+            "type": ["null", "string"]
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "isFrozen",
+          "isInOtherProjectConfigs",
+          "tagColor",
+          "styleColor",
+          "size",
+          "aspectRatio",
+          "aspectRatioExtraHeight",
+          "aspectRatioExtraWidth",
+          "isMinimized",
+          "positionAndSizeLocked",
+          "isPreset",
+          "code"
+        ],
+        "title": "IFrameSectionImpl",
+        "type": "object"
       },
       "IdentityContent": {
         "additionalProperties": false,
@@ -14302,6 +14405,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TerminalSectionImpl"
+                },
+                {
+                  "$ref": "#/components/schemas/IFrameSectionImpl"
                 },
                 {
                   "$ref": "#/components/schemas/ChatSectionImpl"

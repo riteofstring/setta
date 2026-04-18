@@ -593,6 +593,27 @@ class HTTPRequestMethod(StrEnum):
     OPTIONS = "OPTIONS"
 
 
+class IFrameSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
+    code: str
+
+
 class ImageArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2533,6 +2554,7 @@ type BaseSectionImplUnion = (
     | GenPythonCodeSectionImpl
     | GenPythonMetadataSectionImpl
     | TerminalSectionImpl
+    | IFrameSectionImpl
     | ChatSectionImpl
     | BrowserSectionImpl
     | TaskBoardSectionImpl

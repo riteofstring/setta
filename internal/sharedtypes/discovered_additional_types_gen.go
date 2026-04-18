@@ -91,6 +91,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.FrontendChatSectionState{}),
 		reflect.TypeOf(projectstate.FrontendChatSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendBrowserSectionImpl{}),
+		reflect.TypeOf(projectstate.FrontendIFrameSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendListRootSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendGroupSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendStateMachineStartSectionImpl{}),

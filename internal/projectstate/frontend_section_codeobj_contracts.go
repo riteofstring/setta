@@ -279,6 +279,11 @@ type FrontendBrowserSectionImpl struct {
 	SavedSearches    []BrowserSavedSearch `json:"savedSearches"`
 }
 
+type FrontendIFrameSectionImpl struct {
+	FrontendBaseSectionImpl
+	Code string `json:"code"`
+}
+
 type FrontendListRootSectionImpl struct {
 	FrontendBaseSectionImpl
 	FrontendChildSectionFields

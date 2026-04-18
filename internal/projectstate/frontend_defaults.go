@@ -245,6 +245,10 @@ var frontendSectionImplDefaultBuilders = map[string]frontendSectionImplDefaultBu
 		FrontendSectionTypeGroup,
 		createdGroupSectionDefaults,
 	),
+	"IFrame": frontendSectionImplDefaultBuilderFor[FrontendIFrameSectionImpl](
+		FrontendSectionTypeIFrame,
+		createdIFrameSectionDefaults,
+	),
 	"ListRoot": frontendSectionImplDefaultBuilderFor[FrontendListRootSectionImpl](
 		FrontendSectionTypeListRoot,
 		createdListRootSectionDefaults,

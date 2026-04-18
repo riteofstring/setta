@@ -324,6 +324,7 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 			"dict-section":      "dict-variant",
 			"generated-section": "generated-variant",
 			"group-section":     "group-variant",
+			"iframe-section":    "iframe-variant",
 		},
 		Sections: map[string]Section{
 			"callable-section": {
@@ -350,6 +351,12 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 				VariantIDs:       []string{"group-variant"},
 				DefaultVariantID: "group-variant",
 			},
+			"iframe-section": {
+				ID:               "iframe-section",
+				Name:             "IFrame",
+				VariantIDs:       []string{"iframe-variant"},
+				DefaultVariantID: "iframe-variant",
+			},
 		},
 		SectionVariants: map[string]SectionVariant{
 			"callable-variant": {
@@ -367,6 +374,10 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 			"group-variant": {
 				ID:     "group-variant",
 				ImplID: "group-impl",
+			},
+			"iframe-variant": {
+				ID:     "iframe-variant",
+				ImplID: "iframe-impl",
 			},
 		},
 		SectionImpls: map[string]SectionImpl{
@@ -389,6 +400,11 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 				ID:      "group-impl",
 				Kind:    SectionKind("frontend"),
 				Payload: mustMarshalProjectObject(map[string]any{"id": "group-impl", "type": "Group"}),
+			},
+			"iframe-impl": {
+				ID:      "iframe-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "iframe-impl", "type": "IFrame"}),
 			},
 		},
 	}.Normalized()
@@ -493,6 +509,14 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	}
 	if children, ok := groupPayload["children"].([]any); !ok || len(children) != 0 {
 		t.Fatalf("expected group children empty array, got %#v", groupPayload["children"])
+	}
+
+	iframePayload, err := effectiveSectionPayload(project, "iframe-section", "iframe-variant")
+	if err != nil {
+		t.Fatalf("effective iframe payload: %v", err)
+	}
+	if got := payloadStringField(iframePayload, "code"); got != "" {
+		t.Fatalf("expected iframe code empty string, got %q", got)
 	}
 }
 
