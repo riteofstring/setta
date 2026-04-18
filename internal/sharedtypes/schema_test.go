@@ -116,6 +116,30 @@ func TestBuildSchemaDocumentUsesProjectCodegenTargetUnionForProjectConfig(t *tes
 	}
 }
 
+func TestBuildSchemaDocumentMarksDropdownChoicesAsNonNullArray(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	schema := document.Defs["DropdownParamCodeObjImpl"]
+	if schema == nil {
+		t.Fatalf("expected DropdownParamCodeObjImpl schema in $defs")
+	}
+	choicesSchema := schema.Properties["choices"]
+	if choicesSchema == nil {
+		t.Fatalf("expected DropdownParamCodeObjImpl.choices property")
+	}
+	if schemaAllowsNull(choicesSchema) {
+		t.Fatalf("expected DropdownParamCodeObjImpl.choices to be non-null, got %#v", choicesSchema)
+	}
+	if got := strings.TrimSpace(string(choicesSchema.Default)); got != "[]" {
+		t.Fatalf("DropdownParamCodeObjImpl.choices default = %q, want %q", got, "[]")
+	}
+}
+
 func TestBuildSchemaDocumentIncludesAuthoritativeRouteEnum(t *testing.T) {
 	t.Parallel()
 

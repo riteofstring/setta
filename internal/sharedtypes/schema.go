@@ -213,6 +213,9 @@ func normalizeStructFieldSchema(
 	if err := applySchemaDefaultForField(ownerType, field, normalizedSchema); err != nil {
 		return fmt.Errorf("%s.%s: %w", ownerType, field.Name, err)
 	}
+	if err := applySchemaNullabilityForField(ownerType, field, normalizedSchema); err != nil {
+		return fmt.Errorf("%s.%s: %w", ownerType, field.Name, err)
+	}
 	return nil
 }
 
@@ -291,6 +294,93 @@ func schemaDefaultValueForField(
 	}
 
 	return nil, false, nil
+}
+
+func applySchemaNullabilityForField(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	propertySchema *jsonschema.Schema,
+) error {
+	if propertySchema == nil {
+		return nil
+	}
+	nonNull, ok, err := sharedSchemaNonNullForField(field)
+	if err != nil {
+		return err
+	}
+	if !ok || !nonNull {
+		return nil
+	}
+	makeSchemaNonNull(propertySchema)
+	return nil
+}
+
+func sharedSchemaNonNullForField(field reflect.StructField) (bool, bool, error) {
+	rawValue := strings.TrimSpace(field.Tag.Get("shared_schema_non_null"))
+	if rawValue == "" {
+		return false, false, nil
+	}
+	parsed, err := strconv.ParseBool(rawValue)
+	if err != nil {
+		return false, false, fmt.Errorf("parse shared_schema_non_null: %w", err)
+	}
+	return parsed, true, nil
+}
+
+func makeSchemaNonNull(schema *jsonschema.Schema) {
+	if schema == nil {
+		return
+	}
+	if len(schema.Types) > 0 {
+		filteredTypes := make([]string, 0, len(schema.Types))
+		for _, schemaType := range schema.Types {
+			if schemaType == "null" {
+				continue
+			}
+			filteredTypes = append(filteredTypes, schemaType)
+		}
+		switch len(filteredTypes) {
+		case 0:
+			schema.Type = ""
+			schema.Types = nil
+		case 1:
+			schema.Type = filteredTypes[0]
+			schema.Types = nil
+		default:
+			schema.Type = ""
+			schema.Types = filteredTypes
+		}
+	}
+	if schema.Type == "null" {
+		schema.Type = ""
+	}
+	if len(schema.AnyOf) > 0 {
+		schema.AnyOf = filterNonNullSchemaMembers(schema.AnyOf)
+	}
+	if len(schema.OneOf) > 0 {
+		schema.OneOf = filterNonNullSchemaMembers(schema.OneOf)
+	}
+}
+
+func filterNonNullSchemaMembers(members []*jsonschema.Schema) []*jsonschema.Schema {
+	filtered := make([]*jsonschema.Schema, 0, len(members))
+	for _, member := range members {
+		if schemaIsNullOnly(member) {
+			continue
+		}
+		filtered = append(filtered, member)
+	}
+	return filtered
+}
+
+func schemaIsNullOnly(schema *jsonschema.Schema) bool {
+	if schema == nil {
+		return false
+	}
+	if schema.Type == "null" {
+		return true
+	}
+	return len(schema.Types) == 1 && schema.Types[0] == "null"
 }
 
 func schemaTaggedDefaultValue(

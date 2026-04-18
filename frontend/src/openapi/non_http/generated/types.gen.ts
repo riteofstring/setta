@@ -1928,7 +1928,7 @@ type DrawSectionImpl = {
  * DropdownParamCodeObjImpl
  */
 export type DropdownParamCodeObjImpl = {
-  choices: null | Array<string>;
+  choices: Array<string>;
   coreNameEditable: boolean;
   coreNameType: string;
   defaultVal: string;

@@ -508,7 +508,7 @@ type FrontendColorPickerParamCodeObjImpl struct {
 
 type FrontendDropdownParamCodeObjImpl struct {
 	FrontendBaseValueParamCodeObjImpl
-	Choices []string `json:"choices"`
+	Choices []string `json:"choices" py_default:"factory:list" shared_schema_non_null:"true"`
 }
 
 type FrontendPasswordParamCodeObjImpl struct {

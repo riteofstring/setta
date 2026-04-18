@@ -439,7 +439,7 @@ class DropdownParamCodeObjImpl(BaseModel):
     typeAnnotation: str
     defaultVal: str
     value: str
-    choices: list[str] | None = None
+    choices: list[str] = Field(default_factory=list)
 
 
 class DropzoneMode(StrEnum):

@@ -4591,10 +4591,11 @@
         "additionalProperties": false,
         "properties": {
           "choices": {
+            "default": [],
             "items": {
               "type": "string"
             },
-            "type": ["null", "array"]
+            "type": "array"
           },
           "coreNameEditable": {
             "type": "boolean"

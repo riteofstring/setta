@@ -5462,13 +5462,11 @@
           "type": "string"
         },
         "choices": {
-          "type": [
-            "null",
-            "array"
-          ],
+          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "default": []
         }
       },
       "title": "DropdownParamCodeObjImpl",
