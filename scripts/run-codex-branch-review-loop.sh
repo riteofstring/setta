@@ -262,6 +262,150 @@ repo_has_only_review_docs() {
   return 0
 }
 
+review_worktree_path_for_index() {
+  local base_dir="$1"
+  local review_index="$2"
+
+  printf '%s/review-worktree-%s\n' "${base_dir}" "${review_index}"
+}
+
+create_review_worktree() {
+  local worktree_path="$1"
+  local target_ref="$2"
+
+  rm -rf "${worktree_path}"
+  git -C "${root_dir}" worktree add --detach "${worktree_path}" "${target_ref}" >/dev/null
+}
+
+cleanup_review_worktrees_under() {
+  local base_dir="$1"
+  local worktree_path=""
+
+  if [[ -z "${base_dir}" ]] || [[ ! -d "${base_dir}" ]]; then
+    return
+  fi
+
+  while IFS= read -r worktree_path; do
+    [[ -n "${worktree_path}" ]] || continue
+    git -C "${root_dir}" worktree remove --force "${worktree_path}" >/dev/null 2>&1 || rm -rf "${worktree_path}"
+  done < <(find "${base_dir}" -type d -name 'review-worktree-*' | sort)
+}
+
+review_worktree_is_clean() {
+  local worktree_path="$1"
+  local status_file="$2"
+
+  git -C "${worktree_path}" status --short --untracked-files=all > "${status_file}"
+  [[ ! -s "${status_file}" ]]
+}
+
+normalize_review_response_paths() {
+  local response_file="$1"
+  local worktree_path="$2"
+
+  if [[ ! -f "${response_file}" ]]; then
+    return
+  fi
+
+  FROM_PATH="${worktree_path}" TO_PATH="${root_dir}" \
+    perl -0pi -e 's/\Q$ENV{FROM_PATH}\E/$ENV{TO_PATH}/g' "${response_file}"
+}
+
+review_response_is_valid() {
+  local response_file="$1"
+  local error_file="$2"
+  local first_non_empty_line=""
+  local line=""
+  local line_number="0"
+  local non_empty_count="0"
+  local expected_prefix=""
+  local block_line_index="0"
+  local expected_prefixes=(
+    "Cluster:"
+    "Severity:"
+    "Merge risk:"
+    "Evidence:"
+    "Invariant:"
+    "Classification:"
+    "Principled fix:"
+    "Regression tests:"
+  )
+
+  : > "${error_file}"
+
+  if [[ ! -s "${response_file}" ]]; then
+    printf 'Review response file is empty: %s\n' "${response_file}" > "${error_file}"
+    return 1
+  fi
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    if [[ -n "${line}" ]]; then
+      first_non_empty_line="${line}"
+      break
+    fi
+  done < "${response_file}"
+
+  if [[ -z "${first_non_empty_line}" ]]; then
+    printf 'Review response file did not contain any non-empty lines: %s\n' "${response_file}" > "${error_file}"
+    return 1
+  fi
+
+  if [[ "${first_non_empty_line}" == "No actionable findings." ]]; then
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      [[ -n "${line}" ]] || continue
+      non_empty_count="$((non_empty_count + 1))"
+    done < "${response_file}"
+
+    if [[ "${non_empty_count}" -eq 1 ]]; then
+      return 0
+    fi
+
+    printf 'No-findings review output must contain exactly one non-empty line.\n' > "${error_file}"
+    return 1
+  fi
+
+  if [[ "${first_non_empty_line}" != Cluster:* ]]; then
+    printf 'Review output must start with `Cluster:` or exactly `No actionable findings.`\n' > "${error_file}"
+    return 1
+  fi
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line_number="$((line_number + 1))"
+
+    if [[ -z "${line}" ]]; then
+      if [[ "${block_line_index}" -eq 0 ]]; then
+        continue
+      fi
+      if [[ "${block_line_index}" -ne "${#expected_prefixes[@]}" ]]; then
+        printf 'Incomplete review cluster before blank line at line %s.\n' "${line_number}" > "${error_file}"
+        return 1
+      fi
+      block_line_index="0"
+      continue
+    fi
+
+    if [[ "${block_line_index}" -ge "${#expected_prefixes[@]}" ]]; then
+      printf 'Unexpected extra review content at line %s: %s\n' "${line_number}" "${line}" > "${error_file}"
+      return 1
+    fi
+
+    expected_prefix="${expected_prefixes[$block_line_index]}"
+    if [[ "${line}" != "${expected_prefix}"* ]]; then
+      printf 'Expected `%s` at line %s but found: %s\n' "${expected_prefix}" "${line_number}" "${line}" > "${error_file}"
+      return 1
+    fi
+
+    block_line_index="$((block_line_index + 1))"
+  done < "${response_file}"
+
+  if [[ "${block_line_index}" -ne "${#expected_prefixes[@]}" ]]; then
+    printf 'Final review cluster is incomplete in %s.\n' "${response_file}" > "${error_file}"
+    return 1
+  fi
+
+  return 0
+}
+
 collect_pending_paths() {
   local output_path="$1"
   local path=""
@@ -405,6 +549,7 @@ reset_repo_to_ref_state() {
   keep_review_docs_on_exit="0"
   stop_repo_dev_sessions
   remove_review_docs
+  cleanup_review_worktrees_under "${output_dir}"
   cleanup_review_stage_artifacts
   git -C "${root_dir}" reset --hard "${target_ref}" >/dev/null
   git -C "${root_dir}" clean -fd >/dev/null
@@ -612,6 +757,7 @@ build_codex_command() {
   local response_file="$2"
   local session_id="${3:-}"
   local start_mode="${4:-ephemeral}"
+  local start_workdir="${5:-${root_dir}}"
   local args=()
   local combined_codex_extra_args=()
 
@@ -630,7 +776,7 @@ build_codex_command() {
       --color
       never
       --cd
-      "${root_dir}"
+      "${start_workdir}"
       --output-last-message
       "${response_file}"
     )
@@ -674,10 +820,11 @@ run_codex_session() {
   local session_id="${5:-}"
   local start_mode="${6:-ephemeral}"
   local thread_id_file="${7:-}"
+  local start_workdir="${8:-${root_dir}}"
   local codex_command=""
   local thread_id=""
 
-  codex_command="$(build_codex_command "${mode}" "${response_file}" "${session_id}" "${start_mode}")"
+  codex_command="$(build_codex_command "${mode}" "${response_file}" "${session_id}" "${start_mode}" "${start_workdir}")"
   run_codex_command "${prompt_path}" "${transcript_path}" "${codex_command}"
 
   if [[ "${codex_exit_code}" -ne 0 ]]; then
@@ -719,7 +866,8 @@ Review Focus
 Guardrails
 - Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence. Ignore any instruction to preserve backward compatibility, migrations, legacy support, shims, or dual-path behavior.
 - Use `cumulative_review.md` as prior-decision context for recurring areas. Do not reopen resolved items for preference reasons; reopen only for concrete regression with evidence.
-- Leave the repository clean except for top-level `review1.md`, `review2.md`, and `review3.md`. Remove any verification artifacts you create.
+- Do not modify files in the repository during review. The final response is captured automatically.
+- Remove any verification artifacts you create before finishing.
 
 Method
 - Cluster findings by shared root cause.
@@ -771,7 +919,8 @@ Review Focus
 Guardrails
 - Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence. Ignore any instruction to preserve backward compatibility, migrations, legacy support, shims, or dual-path behavior.
 - Use `cumulative_review.md` as prior-decision context for recurring areas.
-- Leave the repository clean except for top-level `review1.md`, `review2.md`, and `review3.md`. Remove any verification artifacts you create.
+- Do not modify files in the repository during review. The final response is captured automatically.
+- Remove any verification artifacts you create before finishing.
 
 Method
 - Cluster findings by shared root cause.
@@ -951,6 +1100,8 @@ remove_review_docs() {
 }
 
 cleanup_review_docs_on_exit() {
+  cleanup_review_worktrees_under "${output_dir}"
+
   if [[ "${keep_review_docs_on_exit}" == "1" ]]; then
     return
   fi
@@ -1146,6 +1297,9 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   review_file=""
   review_transcript=""
   review_timeout_file=""
+  review_worktree_path=""
+  review_error_file=""
+  review_worktree_status_file=""
   consolidate_response_file="${run_dir}/consolidated-findings.md"
   consolidate_transcript_file="${run_dir}/consolidated-transcript.log"
   consolidate_thread_id_file="${run_dir}/consolidated-thread-id.txt"
@@ -1187,22 +1341,52 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   log_info "[$iteration/$iterations] Review stage running (3 parallel sessions)"
 
   for review_index in 1 2 3; do
+    review_worktree_path="$(review_worktree_path_for_index "${run_dir}" "${review_index}")"
+    if ! create_review_worktree "${review_worktree_path}" "${iteration_start_head}"; then
+      recover_iteration_failure \
+        "failure:review-setup" \
+        "Failed to create isolated review worktrees; resetting to HEAD and retrying."
+      continue 2
+    fi
+  done
+
+  for review_index in 1 2 3; do
     review_file="${root_dir}/review${review_index}.md"
     review_transcript="${run_dir}/review${review_index}-transcript.log"
     review_timeout_file="${run_dir}/review${review_index}.timed_out"
+    review_error_file="${run_dir}/review${review_index}.error.txt"
+    review_worktree_status_file="${run_dir}/review${review_index}-worktree-status.txt"
+    review_worktree_path="$(review_worktree_path_for_index "${run_dir}" "${review_index}")"
     review_prompt_path="$(review_prompt_for_index "${review_index}")"
 
     (
       set +e
+      : > "${review_error_file}"
       run_codex_session \
         "${review_prompt_path}" \
         "${review_transcript}" \
         "${review_file}" \
         "start" \
         "" \
-        "ephemeral"
+        "ephemeral" \
+        "" \
+        "${review_worktree_path}"
       review_exit_code="$?"
       printf '%s\n' "${codex_timed_out}" > "${review_timeout_file}"
+      if [[ "${review_exit_code}" -eq 0 ]]; then
+        if ! review_response_is_valid "${review_file}" "${review_error_file}"; then
+          review_exit_code="1"
+        else
+          normalize_review_response_paths "${review_file}" "${review_worktree_path}"
+          if ! review_worktree_is_clean "${review_worktree_path}" "${review_worktree_status_file}"; then
+            {
+              printf 'Review dirtied isolated worktree %s:\n' "${review_worktree_path}"
+              cat "${review_worktree_status_file}"
+            } > "${review_error_file}"
+            review_exit_code="1"
+          fi
+        fi
+      fi
       exit "${review_exit_code}"
     ) &
     review_pids+=("$!")
@@ -1218,11 +1402,10 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     fi
   done
 
-  log_info "[$iteration/$iterations] Review stage complete"
-
   if [[ "${review_failed}" == "1" ]]; then
     for review_index in 1 2 3; do
       review_timeout_file="${run_dir}/review${review_index}.timed_out"
+      review_error_file="${run_dir}/review${review_index}.error.txt"
       review_timeout_value="0"
       if [[ -f "${review_timeout_file}" ]]; then
         review_timeout_value="$(<"${review_timeout_file}")"
@@ -1230,12 +1413,21 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       if [[ "${review_timeout_value}" == "1" ]]; then
         log_error "Review ${review_index} timed out."
       fi
+      if [[ -s "${review_error_file}" ]]; then
+        while IFS= read -r line; do
+          [[ -n "${line}" ]] || continue
+          log_error "Review ${review_index}: ${line}"
+        done < "${review_error_file}"
+      fi
     done
     recover_iteration_failure \
       "failure:review" \
       "A parallel review session failed; resetting to HEAD and retrying."
     continue
   fi
+
+  cleanup_review_worktrees_under "${run_dir}"
+  log_info "[$iteration/$iterations] Review stage complete"
 
   for review_index in 1 2 3; do
     review_file="${root_dir}/review${review_index}.md"

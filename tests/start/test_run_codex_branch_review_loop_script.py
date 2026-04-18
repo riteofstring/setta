@@ -25,9 +25,9 @@ CORRECTNESS_REVIEW_PROMPT = (
     "- Use `cumulative_review.md` as prior-decision context for recurring areas. "
     "Do not reopen resolved items for preference reasons; reopen only for "
     "concrete regression with evidence.\n"
-    "- Leave the repository clean except for top-level `review1.md`, "
-    "`review2.md`, and `review3.md`. Remove any verification artifacts you "
-    "create.\n\n"
+    "- Do not modify files in the repository during review. The final response "
+    "is captured automatically.\n"
+    "- Remove any verification artifacts you create before finishing.\n\n"
     "Method\n"
     "- Cluster findings by shared root cause.\n"
     "- For each cluster, name the violated invariant.\n"
@@ -93,9 +93,9 @@ CLEANUP_REVIEW_PROMPT = (
     "dual-path behavior.\n"
     "- Use `cumulative_review.md` as prior-decision context for recurring "
     "areas.\n"
-    "- Leave the repository clean except for top-level `review1.md`, "
-    "`review2.md`, and `review3.md`. Remove any verification artifacts you "
-    "create.\n\n"
+    "- Do not modify files in the repository during review. The final response "
+    "is captured automatically.\n"
+    "- Remove any verification artifacts you create before finishing.\n\n"
     "Method\n"
     "- Cluster findings by shared root cause.\n"
     "- Focus on issue-class elimination and diff reduction, not on layering new "
@@ -390,7 +390,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
-  printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+  printf 'No actionable findings.\\n' > "${{response_file}}"
   exit 0
 fi
 
@@ -430,9 +430,9 @@ exit 2
     )
 
     assert result.returncode == 0, result.stderr
-    assert (repo_dir / "review1.md").read_text(encoding="utf-8").strip() == "review output for review1.md"
-    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "review output for review2.md"
-    assert (repo_dir / "review3.md").read_text(encoding="utf-8").strip() == "review output for review3.md"
+    assert (repo_dir / "review1.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    assert (repo_dir / "review3.md").read_text(encoding="utf-8").strip() == "No actionable findings."
     assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == "stopped:no-findings"
     assert (
         output_dir / "state" / "status.txt"
@@ -466,6 +466,136 @@ exit 2
         "Do not include headings, preambles, conclusions, or any note about writing/saving the file."
     ) == 3
     assert calls.count("call:exec ") == 4
+    assert "call:exec resume" not in calls
+    assert "review-worktree-1" in calls
+    assert "review-worktree-2" in calls
+    assert "review-worktree-3" in calls
+
+
+def test_branch_review_loop_retries_after_malformed_review_output(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "output"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "calls.txt"
+    bad_review_file = tmp_path / "bad-review.txt"
+    output_dir.mkdir()
+    bin_dir.mkdir()
+
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+resume_mode="0"
+json_mode="0"
+workdir=""
+prompt="$(cat)"
+
+printf 'call:%s\\n' "$*" >> "{calls_file}"
+printf 'prompt:%s\\n===\\n' "${{prompt}}" >> "{calls_file}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      response_file="$2"
+      shift 2
+      ;;
+    --json)
+      json_mode="1"
+      shift
+      ;;
+    resume)
+      resume_mode="1"
+      shift
+      ;;
+    --cd)
+      workdir="$2"
+      shift 2
+      ;;
+    --color|--model|--config)
+      shift 2
+      ;;
+    --dangerously-bypass-approvals-and-sandbox|--ephemeral|never|-)
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
+  if [[ "$(basename "${{response_file}}")" == review*.md ]]; then
+    if [[ "$(basename "${{response_file}}")" == "review2.md" && ! -f "{bad_review_file}" ]]; then
+      printf 'done\\n' > "{bad_review_file}"
+      printf 'Wrote the findings to review1.md.\\n' > "${{response_file}}"
+      exit 0
+    fi
+
+    printf 'No actionable findings.\\n' > "${{response_file}}"
+    exit 0
+  fi
+
+  echo "unexpected non-review exec" >&2
+  exit 2
+fi
+
+if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "1" ]]; then
+  printf '{{"type":"thread.started","thread_id":"thread-stop"}}\\n'
+  cat > "${{response_file}}" <<'EOR'
+CONSOLIDATED_STATUS: NO_FINDINGS
+
+All three reviews found no actionable merge-blocking issues.
+EOR
+  exit 0
+fi
+
+echo "unexpected resume for malformed-review flow" >&2
+exit 2
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--iterations",
+            "2",
+            "--output-dir",
+            str(output_dir),
+            "--post-commit-settle-seconds",
+            "0",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (
+        output_dir / "run-001" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "failure:review"
+    assert (
+        output_dir / "run-002" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
+    assert (
+        output_dir / "state" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
+    assert (repo_dir / "review1.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    assert (repo_dir / "review3.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    loop_log = (output_dir / "loop.log").read_text(encoding="utf-8")
+    assert "Review 2: Review output must start with `Cluster:` or exactly `No actionable findings.`" in loop_log
+    calls = calls_file.read_text(encoding="utf-8")
+    assert "review-worktree-2" in calls
+    assert calls.count("call:exec ") == 7
     assert "call:exec resume" not in calls
 
 
@@ -522,23 +652,7 @@ done
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
   if [[ "$(basename "${{response_file}}")" == review*.md ]]; then
-    cat > "${{response_file}}" <<'EOR'
-1. Merge recommendation + top risks
-
-2. Findings by root-cause cluster
-- Severity: high
-- Merge risk: major
-- Concrete evidence: README.md:1
-- Violated invariant: branch docs should describe current behavior clearly
-- Principled fix that removes the whole issue class (no BC shim): update README.md
-- UX/DX before vs after fix
-- Regression tests to add/update (unit/integration/e2e) with exact assertions
-
-3. Dead code inventory
-4. Backward-compatibility shim inventory (must remove)
-5. Regression test plan
-6. `branch_intent.md` alignment check
-EOR
+    printf 'No actionable findings.\\n' > "${{response_file}}"
     exit 0
   fi
 
@@ -640,7 +754,7 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 7
     assert calls.count("call:exec resume") == 2
-    assert calls.count(f"--cd {repo_dir}") == 5
+    assert calls.count(f"--cd {repo_dir}") == 2
 
 
 def test_branch_review_loop_recovers_after_fix_session_failure(
@@ -707,7 +821,7 @@ EOR
   exit 0
 fi
 
-printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+printf 'No actionable findings.\\n' > "${{response_file}}"
 """,
     )
 
@@ -750,7 +864,7 @@ printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{respon
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 5
     assert calls.count("call:exec resume") == 1
-    assert calls.count(f"--cd {repo_dir}") == 4
+    assert calls.count(f"--cd {repo_dir}") == 1
 
 
 def test_branch_review_loop_stops_repo_dev_sessions_between_iterations(
@@ -826,7 +940,7 @@ done
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
   if [[ "$(basename "${{response_file}}")" == review*.md ]]; then
-    printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+    printf 'No actionable findings.\\n' > "${{response_file}}"
     exit 0
   fi
 
@@ -977,7 +1091,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
-  printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+  printf 'No actionable findings.\\n' > "${{response_file}}"
   exit 0
 fi
 
@@ -1096,7 +1210,7 @@ done
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
   if [[ "$(basename "${{response_file}}")" == review*.md ]]; then
-    printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+    printf 'No actionable findings.\\n' > "${{response_file}}"
     exit 0
   fi
 
@@ -1250,7 +1364,7 @@ done
 
 if [[ "${{resume_mode}}" == "0" && "${{json_mode}}" == "0" ]]; then
   if [[ "$(basename "${{response_file}}")" == review*.md ]]; then
-    printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+    printf 'No actionable findings.\\n' > "${{response_file}}"
     exit 0
   fi
 
