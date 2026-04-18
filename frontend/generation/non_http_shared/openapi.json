@@ -9730,12 +9730,6 @@
             },
             "type": ["null", "array"]
           },
-          "registeredLanguageServers": {
-            "items": {
-              "$ref": "#/components/schemas/PluginRegisteredLanguageServer"
-            },
-            "type": ["null", "array"]
-          },
           "registeredListenerEndpoints": {
             "items": {
               "$ref": "#/components/schemas/PluginRegisteredListenerEndpoint"
@@ -9806,7 +9800,6 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
-          "registeredLanguageServers",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
@@ -13827,20 +13820,6 @@
         "title": "SettingsGUI",
         "type": "object"
       },
-      "SettingsLanguageServer": {
-        "additionalProperties": false,
-        "properties": {
-          "selectedByLanguage": {
-            "additionalProperties": {
-              "type": ["null", "string"]
-            },
-            "type": "object"
-          }
-        },
-        "required": ["selectedByLanguage"],
-        "title": "SettingsLanguageServer",
-        "type": "object"
-      },
       "SettingsManagedBlock": {
         "additionalProperties": false,
         "properties": {
@@ -14142,7 +14121,8 @@
             "$ref": "#/components/schemas/SettingsGUI"
           },
           "languageServer": {
-            "$ref": "#/components/schemas/SettingsLanguageServer"
+            "additionalProperties": true,
+            "type": "object"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/SectionSizingPolicy"

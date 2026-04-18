@@ -518,7 +518,6 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(settingsstate.FrontendSettingsChatWindowing{}):                       "SettingsChatWindowing",
 	reflect.TypeOf(settingsstate.FrontendSettingsChatWindowingShortcuts{}):              "SettingsChatWindowingShortcuts",
 	reflect.TypeOf(settingsstate.FrontendSettingsGUI{}):                                 "SettingsGUI",
-	reflect.TypeOf(settingsstate.FrontendSettingsLanguageServer{}):                      "SettingsLanguageServer",
 	reflect.TypeOf(externalagentconfigs.SettingsManagedBlock{}):                         "SettingsManagedBlock",
 	reflect.TypeOf(externalagentconfigs.SettingsMode("")):                               "SettingsMode",
 	reflect.TypeOf(settingsstate.FrontendSettingsShortcuts{}):                           "SettingsShortcuts",

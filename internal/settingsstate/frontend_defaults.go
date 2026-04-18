@@ -136,17 +136,13 @@ type FrontendSettingsChatWindowing struct {
 	Shortcuts                     FrontendSettingsChatWindowingShortcuts `json:"shortcuts"`
 }
 
-type FrontendSettingsLanguageServer struct {
-	SelectedByLanguage map[string]*string `json:"selectedByLanguage"`
-}
-
 type FrontendSettingsState struct {
 	Shortcuts           FrontendSettingsShortcuts                `json:"shortcuts"`
 	GUI                 FrontendSettingsGUI                      `json:"gui"`
 	Backend             FrontendSettingsBackend                  `json:"backend"`
 	ChatWindowing       FrontendSettingsChatWindowing            `json:"chatWindowing"`
 	SectionSizingPolicy projectstate.FrontendSectionSizingPolicy `json:"sectionSizingPolicy"`
-	LanguageServer      FrontendSettingsLanguageServer           `json:"languageServer"`
+	LanguageServer      map[string]any                           `json:"languageServer"`
 }
 
 func FrontendDefaultSettingsShortcuts() FrontendSettingsShortcuts {
