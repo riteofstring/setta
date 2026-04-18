@@ -9,7 +9,7 @@ Run Codex in a branch-review loop with this flow:
 1. start three separate Codex review sessions in parallel and write their
    outputs to top-level `review1.md`, `review2.md`, and `review3.md`
 2. start a fresh Codex session to consolidate those three reviews
-3. if all three reviews found no issues, stop and leave
+3. if the consolidator reports no issues, stop and leave
    the three review docs in place
 4. otherwise continue that same Codex session to implement the fixes, update
    `cumulative_review.md`, remove the top-level review docs, and commit
@@ -20,7 +20,7 @@ Defaults:
 - Reasoning effort: `high`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Stop only when all three review docs report no findings
+- Stop only when the consolidator emits `CONSOLIDATED_STATUS: NO_FINDINGS`
 - Every non-stop iteration must advance HEAD and leave the repo clean
 - A clean stop may leave only top-level `review1.md`, `review2.md`, and
   `review3.md` as untracked files for inspection
@@ -172,36 +172,35 @@ repo_has_only_stop_review_docs() {
   return 0
 }
 
-review_doc_finding_count() {
-  local review_file="$1"
-  local finding_count=""
+extract_consolidated_status() {
+  local response_file="$1"
+  local line=""
 
-  if [[ ! -f "${review_file}" ]]; then
-    echo "Review file not found: ${review_file}" >&2
+  if [[ ! -f "${response_file}" ]]; then
+    echo "Consolidated response file not found: ${response_file}" >&2
     return 1
   fi
 
-  finding_count="$(
-    grep -Eic 'Severity:[[:space:]]*(critical|high|medium|low)\b' "${review_file}" || true
-  )"
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] || continue
+    case "${line}" in
+      "CONSOLIDATED_STATUS: NO_FINDINGS")
+        printf 'NO_FINDINGS\n'
+        return 0
+        ;;
+      "CONSOLIDATED_STATUS: FINDINGS_PRESENT")
+        printf 'FINDINGS_PRESENT\n'
+        return 0
+        ;;
+      *)
+        echo "First non-empty line in ${response_file} must be a recognized consolidated status sentinel." >&2
+        return 1
+        ;;
+    esac
+  done < "${response_file}"
 
-  printf '%s\n' "${finding_count}"
-}
-
-all_reviews_report_no_findings() {
-  local review_index=""
-  local review_file=""
-  local finding_count=""
-
-  for review_index in 1 2 3; do
-    review_file="${root_dir}/review${review_index}.md"
-    finding_count="$(review_doc_finding_count "${review_file}")"
-    if [[ "${finding_count}" -gt 0 ]]; then
-      return 1
-    fi
-  done
-
-  return 0
+  echo "Consolidated response file did not include a status sentinel: ${response_file}" >&2
+  return 1
 }
 
 extract_thread_id() {
@@ -504,7 +503,16 @@ Review this branch for merge into `go-rewrite`.
 EOF
 
   cat > "${consolidate_prompt_file}" <<'EOF'
-Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
+Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person.
+
+Output requirements:
+- The first non-empty line must be exactly one of:
+  - `CONSOLIDATED_STATUS: NO_FINDINGS`
+  - `CONSOLIDATED_STATUS: FINDINGS_PRESENT`
+- Use `CONSOLIDATED_STATUS: NO_FINDINGS` only when the consolidated outcome is that there are no findings to fix.
+- Use `CONSOLIDATED_STATUS: FINDINGS_PRESENT` if there are findings to fix, or if the review docs conflict, are ambiguous, or are malformed such that you cannot confidently conclude there are no findings.
+
+After the sentinel line, present the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
 EOF
 
   cat > "${fix_prompt_file}" <<'EOF'
@@ -710,6 +718,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   consolidate_transcript_file="${run_dir}/consolidated-transcript.log"
   consolidate_thread_id_file="${run_dir}/consolidated-thread-id.txt"
   consolidate_thread_id=""
+  consolidated_status=""
   fix_response_file="${run_dir}/fix-response.txt"
   fix_transcript_file="${run_dir}/fix-transcript.log"
   finalize_response_file="${run_dir}/final-response.txt"
@@ -816,7 +825,14 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
 
   cp "${consolidate_response_file}" "${run_last_message_file}"
 
-  if all_reviews_report_no_findings; then
+  if ! consolidated_status="$(extract_consolidated_status "${consolidate_response_file}")"; then
+    printf 'failure:invalid-consolidated-status\n' > "${run_status_file}"
+    printf 'failure:invalid-consolidated-status\n' > "${state_status_file}"
+    echo "Consolidation response did not provide a valid status sentinel." >&2
+    exit 1
+  fi
+
+  if [[ "${consolidated_status}" == "NO_FINDINGS" ]]; then
     if ! repo_has_only_stop_review_docs; then
       printf 'failure:stop-state-invalid\n' > "${run_status_file}"
       printf 'failure:stop-state-invalid\n' > "${state_status_file}"
@@ -825,7 +841,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     fi
     printf 'stopped:no-findings\n' > "${run_status_file}"
     printf 'stopped:no-findings\n' > "${state_status_file}"
-    echo "[$iteration/$iterations] All three reviews reported no findings; leaving review docs in place."
+    echo "[$iteration/$iterations] Consolidator reported no findings; leaving review docs in place."
     exit 0
   fi
 
