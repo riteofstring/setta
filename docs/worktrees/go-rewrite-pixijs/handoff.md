@@ -212,6 +212,26 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
   - `settings-section__callableSectionDefault` was visible and the `Config Language` row showed resting `python` text on the canvas path
   - activating the `Config Language` row surfaced the inline editor with no blank or detached visual jump
+- The next canary resting-text slice is now landed for the same canary section using `Column Width` as the deterministic probe row:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the canary resting-text lane as a small explicit set instead of a single param id, so the same named lane now owns both `Config Language` and `Column Width`
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures multiple canary `DummyCodeMirror` roots in graph space and paints both resting text rows into the retained canvas instead of special-casing one input id
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - the checked Playwright oracle is now slightly tighter for text rows: it counts pixels inside each measured text rect that differ from the sampled body pixel instead of treating any opaque pixel in that rect as proof
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms both the retained `Config Language` and retained `Column Width` text pixels on the canvas path while preserving the existing inline `Config Language` activation check
+- CDP visual check is done for the `Column Width` resting-text slice:
+  - `http://127.0.0.1:3068/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `settings-section__callableSectionDefault` was visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - the `Column Width` row was visible and looked intact on the canvas path
+  - no obvious blank or detached section content was visible
+  - caveat: the bootstrap URL used for the visual check had already been rejected, but the existing authenticated `/settings` session was still healthy and sufficient for the required CDP confirmation
 
 ## Preservation rule
 
@@ -240,7 +260,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Start the next bounded production slice at the next visible text-like control family on that same canary, beginning with `Column Width` now that the stale `Config Language` dropdown assumption is closed.
+3. Keep the same named canary section and re-probe the next visible text-like row after `Column Width`; prefer a production slice on `Edge Input Params` or `Edge Output Ports` over reopening shell-only chrome or stale dropdown assumptions.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier

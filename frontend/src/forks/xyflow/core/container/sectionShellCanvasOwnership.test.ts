@@ -1,6 +1,7 @@
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { describe, expect, it } from "vitest";
 import {
+  CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionRestingTextParam,
@@ -16,7 +17,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the config language resting text row inside the canary section", () => {
+  it("targets the canary resting text rows inside the canary section", () => {
     expect(
       isCanvasOwnedSectionRestingTextParam({
         paramInfoId: CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
@@ -26,7 +27,14 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionRestingTextParam({
         paramInfoId:
-          "settings-codeobj__callableSectionDefault__callableSectionDefault__columnWidth",
+          CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextParam({
+        paramInfoId:
+          "settings-codeobj__callableSectionDefault__callableSectionDefault__hideParams",
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
     ).toBe(false);

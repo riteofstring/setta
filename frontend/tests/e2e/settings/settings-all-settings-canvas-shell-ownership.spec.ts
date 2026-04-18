@@ -9,6 +9,8 @@ const TARGET_CONFIG_LANGUAGE_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage-ParamInput";
 const TARGET_CONFIG_LANGUAGE_EDITOR_ID =
   "CodeMirror-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage";
+const TARGET_COLUMN_WIDTH_INPUT_ID =
+  "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__columnWidth-ParamInput";
 const TARGET_SWITCH_ROW_ID =
   "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio";
 
@@ -27,7 +29,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
   await allSettingsTab.click();
 
   await page.waitForFunction(
-    ({ configLanguageInputId, sectionId }) => {
+    ({ columnWidthInputId, configLanguageInputId, sectionId }) => {
       const header = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"] header.section-title`,
       );
@@ -38,6 +40,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
         document.querySelector(`section[data-section-id="${sectionId}"]`) !==
           null &&
         document.getElementById(`${sectionId}-CustomResizable`) !== null &&
+        document.getElementById(columnWidthInputId) !== null &&
         document.getElementById(configLanguageInputId) !== null &&
         canvas !== null &&
         canvas.clientWidth > 0 &&
@@ -48,13 +51,14 @@ test("canvas shell path owns the resting callable section chrome", async ({
       );
     },
     {
+      columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
       sectionId: TARGET_SECTION_ID,
     },
   );
 
   const shellState = await page.evaluate(
-    ({ configLanguageInputId, rowId, sectionId }) => {
+    ({ columnWidthInputId, configLanguageInputId, rowId, sectionId }) => {
       const outer = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"]`,
       );
@@ -71,6 +75,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const configLanguageLine =
         configLanguageInput?.querySelector<HTMLElement>(".cm-line") ??
         configLanguageInput;
+      const columnWidthInput = document.getElementById(columnWidthInputId);
+      const columnWidthLine =
+        columnWidthInput?.querySelector<HTMLElement>(".cm-line") ??
+        columnWidthInput;
       const node = outer?.closest<HTMLElement>(".react-flow__node");
       const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
       const canvas = document.querySelector(
@@ -100,6 +108,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
       }
       if (!(configLanguageLine instanceof HTMLElement)) {
         throw new Error(`Missing Config Language line for ${sectionId}`);
+      }
+      if (!(columnWidthInput instanceof HTMLElement)) {
+        throw new Error(`Missing Column Width input for ${sectionId}`);
+      }
+      if (!(columnWidthLine instanceof HTMLElement)) {
+        throw new Error(`Missing Column Width line for ${sectionId}`);
       }
       if (!(node instanceof HTMLElement)) {
         throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
@@ -238,6 +252,13 @@ test("canvas shell path owns the resting callable section chrome", async ({
         (configLanguageRect.top - nodeRect.top) / viewportScale;
       const configLanguageWidth = configLanguageRect.width / viewportScale;
       const configLanguageHeight = configLanguageRect.height / viewportScale;
+      const columnWidthRect = columnWidthLine.getBoundingClientRect();
+      const columnWidthOffsetX =
+        (columnWidthRect.left - nodeRect.left) / viewportScale;
+      const columnWidthOffsetY =
+        (columnWidthRect.top - nodeRect.top) / viewportScale;
+      const columnWidthWidth = columnWidthRect.width / viewportScale;
+      const columnWidthHeight = columnWidthRect.height / viewportScale;
 
       function sampleCanvasPixel(canvasX: number, canvasY: number) {
         const clampedX = Math.max(
@@ -257,11 +278,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
         return `${r},${g},${b},${a}`;
       }
 
-      function countOpaquePixelsInCanvasRect(
+      function countPixelsDifferentFromReferenceInCanvasRect(
         canvasX: number,
         canvasY: number,
         width: number,
         height: number,
+        referencePixel: string,
       ) {
         const clampedLeft = Math.max(
           0,
@@ -285,18 +307,21 @@ test("canvas shell path owns the resting callable section chrome", async ({
           clampedWidth,
           clampedHeight,
         ).data;
-        let opaquePixelCount = 0;
-        for (let index = 3; index < data.length; index += 4) {
-          if (data[index] > 0) {
-            opaquePixelCount += 1;
+        let distinctPixelCount = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          const pixel = `${data[index]},${data[index + 1]},${data[index + 2]},${data[index + 3]}`;
+          if (pixel !== referencePixel) {
+            distinctPixelCount += 1;
           }
         }
-        return opaquePixelCount;
+        return distinctPixelCount;
       }
 
       const kwargsStyle = window.getComputedStyle(kwargsControls);
       const aspectRatioSwitchStyle = window.getComputedStyle(aspectRatioSwitch);
       const configLanguageStyle = window.getComputedStyle(configLanguageInput);
+      const columnWidthStyle = window.getComputedStyle(columnWidthInput);
+      const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
 
       return {
         aspectRatioSwitchBackground: aspectRatioSwitchStyle.backgroundColor,
@@ -306,14 +331,25 @@ test("canvas shell path owns the resting callable section chrome", async ({
           aspectRatioSwitchSampleX,
           aspectRatioSwitchSampleY,
         ),
+        bodyPixel,
+        columnWidthDummyOpacity: columnWidthStyle.opacity,
+        columnWidthDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + columnWidthOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + columnWidthOffsetY) * canvasScaleY,
+            columnWidthWidth * canvasScaleX,
+            columnWidthHeight * canvasScaleY,
+            bodyPixel,
+          ),
         configLanguageDummyOpacity: configLanguageStyle.opacity,
-        configLanguagePixelCount: countOpaquePixelsInCanvasRect(
-          (nodeX - canvasLeft + configLanguageOffsetX) * canvasScaleX,
-          (nodeY - canvasTop + configLanguageOffsetY) * canvasScaleY,
-          configLanguageWidth * canvasScaleX,
-          configLanguageHeight * canvasScaleY,
-        ),
-        bodyPixel: sampleCanvasPixel(bodySampleX, bodySampleY),
+        configLanguageDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + configLanguageOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + configLanguageOffsetY) * canvasScaleY,
+            configLanguageWidth * canvasScaleX,
+            configLanguageHeight * canvasScaleY,
+            bodyPixel,
+          ),
         headerHeight,
         headerPixel: sampleCanvasPixel(headerSampleX, headerSampleY),
         kwargsBottomBorderColor: kwargsStyle.borderBottomColor,
@@ -331,6 +367,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       };
     },
     {
+      columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
       rowId: TARGET_SWITCH_ROW_ID,
       sectionId: TARGET_SECTION_ID,
@@ -356,8 +393,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.aspectRatioSwitchBackground).toBe("rgba(0, 0, 0, 0)");
   expect(shellState.aspectRatioSwitchPixel).not.toBe("0,0,0,0");
   expect(shellState.aspectRatioSwitchPixel).not.toBe(shellState.bodyPixel);
+  expect(shellState.columnWidthDummyOpacity).toBe("0");
+  expect(shellState.columnWidthDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.configLanguageDummyOpacity).toBe("0");
-  expect(shellState.configLanguagePixelCount).toBeGreaterThan(0);
+  expect(shellState.configLanguageDistinctPixelCount).toBeGreaterThan(0);
 
   const activatedEditor = await page.evaluate((configLanguageInputId) => {
     const configLanguageInput = document.getElementById(configLanguageInputId);

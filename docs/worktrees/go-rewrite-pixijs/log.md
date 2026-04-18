@@ -478,3 +478,29 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to the next visible text-like control family on `settings-section__callableSectionDefault`, beginning with `Column Width`, instead of reopening the stale `Config Language` dropdown assumption
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 022
+
+- Item: Extend the canary retained-text lane to the visible `Column Width` row on `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the named canary resting-text lane is now a small explicit param-id set instead of a single row; the lane now owns both `Config Language` and `Column Width`.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene measures multiple canary `DummyCodeMirror` roots in graph space and paints all matching resting text lines into the same retained canvas pass instead of special-casing one input id.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` and `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx` to lock the expanded canary ownership set and the transparent dummy-text handoff for both rows.
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted live canary probe now waits for the `Column Width` dummy input, samples both text rows, and counts pixels inside each measured text rect that differ from the sampled body pixel instead of treating any opaque pixel in that rect as proof.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms both the retained `Config Language` and retained `Column Width` text pixels on the live canvas path while preserving the existing inline `Config Language` activation proof
+  - CDP visual check is done:
+    - `/settings` loaded with no visible crash/error overlay
+    - `All Settings` was active
+    - `settings-section__callableSectionDefault` was visible
+    - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+    - the `Column Width` row was visible and looked intact on the canvas path
+    - no obvious blank or detached section content was visible
+    - caveat: the supplied bootstrap URL had already been rejected during the CDP pass, but the existing authenticated `/settings` session remained healthy and sufficient for the required visual confirmation
+- Next action:
+  - keep the same named canary section and re-probe the next visible text-like row after `Column Width`; prefer `Edge Input Params` or `Edge Output Ports` over reopening shell-only chrome or stale dropdown assumptions
+LOOP_TERMINAL_MARKER: none

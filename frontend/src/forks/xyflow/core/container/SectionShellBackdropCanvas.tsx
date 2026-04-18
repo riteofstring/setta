@@ -21,7 +21,7 @@ import {
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
 import {
-  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
+  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_IDS,
   CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -30,7 +30,11 @@ import {
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
-const CANVAS_OWNED_RESTING_TEXT_INPUT_ID = `${CANVAS_OWNED_SECTION_SHELL_ID}-${CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID}-ParamInput`;
+const CANVAS_OWNED_RESTING_TEXT_INPUT_IDS =
+  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_IDS.map(
+    (paramInfoId) =>
+      `${CANVAS_OWNED_SECTION_SHELL_ID}-${paramInfoId}-ParamInput`,
+  );
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
@@ -167,26 +171,16 @@ function measureCanvasOwnedSwitchTrackBoxes(
     );
 }
 
-function measureCanvasOwnedRestingTextLines(
-  sectionId: string,
+function measureCanvasOwnedRestingTextLinesForRoot(
+  section: HTMLElement,
   inputId: string,
+  viewportScale: number,
 ): Array<CanvasOwnedRestingTextLine> {
-  if (typeof document === "undefined" || typeof window === "undefined") {
-    return [];
-  }
-
-  const section = document.querySelector<HTMLElement>(
-    `section[data-section-id="${sectionId}"]`,
-  );
   const textRoot = document.getElementById(inputId);
-  if (!(section instanceof HTMLElement) || !(textRoot instanceof HTMLElement)) {
+  if (!(textRoot instanceof HTMLElement)) {
     return [];
   }
 
-  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
-  const viewportScale = parseViewportScale(
-    viewport ? window.getComputedStyle(viewport).transform : null,
-  );
   const sectionRect = section.getBoundingClientRect();
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return [];
@@ -240,6 +234,35 @@ function measureCanvasOwnedRestingTextLines(
       text,
     },
   ];
+}
+
+function measureCanvasOwnedRestingTextLines(
+  sectionId: string,
+  inputIds: readonly string[],
+): Array<CanvasOwnedRestingTextLine> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
+  const viewportScale = parseViewportScale(
+    viewport ? window.getComputedStyle(viewport).transform : null,
+  );
+
+  return inputIds.flatMap((inputId) =>
+    measureCanvasOwnedRestingTextLinesForRoot(
+      section,
+      inputId,
+      viewportScale,
+    ),
+  );
 }
 
 function useCanvasOwnedSwitchTrackBoxes(
@@ -323,7 +346,7 @@ function useCanvasOwnedSwitchTrackBoxes(
 
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
-  inputId: string,
+  inputIds: readonly string[],
   layoutRefreshKey: string,
 ) {
   const [restingTextLines, setRestingTextLines] = useState<
@@ -342,7 +365,7 @@ function useCanvasOwnedRestingTextLines(
     );
 
     const updateMeasuredLines = () => {
-      const nextLines = measureCanvasOwnedRestingTextLines(sectionId, inputId);
+      const nextLines = measureCanvasOwnedRestingTextLines(sectionId, inputIds);
       setRestingTextLines((previousLines) =>
         areCanvasOwnedRestingTextLinesEqual(previousLines, nextLines)
           ? previousLines
@@ -368,13 +391,15 @@ function useCanvasOwnedRestingTextLines(
       resizeObserver?.disconnect();
       resizeObserver = new ResizeObserver(scheduleMeasure);
       resizeObserver.observe(section);
-      const textRoot = document.getElementById(inputId);
-      if (textRoot instanceof HTMLElement) {
-        resizeObserver.observe(textRoot);
-        for (const lineElement of textRoot.querySelectorAll<HTMLElement>(
-          ".cm-line",
-        )) {
-          resizeObserver.observe(lineElement);
+      for (const inputId of inputIds) {
+        const textRoot = document.getElementById(inputId);
+        if (textRoot instanceof HTMLElement) {
+          resizeObserver.observe(textRoot);
+          for (const lineElement of textRoot.querySelectorAll<HTMLElement>(
+            ".cm-line",
+          )) {
+            resizeObserver.observe(lineElement);
+          }
         }
       }
     };
@@ -400,7 +425,7 @@ function useCanvasOwnedRestingTextLines(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [inputId, layoutRefreshKey, sectionId]);
+  }, [inputIds, layoutRefreshKey, sectionId]);
 
   return restingTextLines;
 }
@@ -444,7 +469,7 @@ export default function SectionShellBackdropCanvas() {
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     CANVAS_OWNED_SECTION_SHELL_ID,
-    CANVAS_OWNED_RESTING_TEXT_INPUT_ID,
+    CANVAS_OWNED_RESTING_TEXT_INPUT_IDS,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);

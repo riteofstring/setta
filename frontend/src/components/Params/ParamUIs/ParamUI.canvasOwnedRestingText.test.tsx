@@ -1,4 +1,5 @@
 import {
+  CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -130,21 +131,33 @@ describe("ParamUI canvas-owned resting text", () => {
     mocks.textInputProps.mockReset();
   });
 
-  it("hides the canary config language dummy text on the canvas path", () => {
-    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+  it.each([
+    {
+      paramInfoId: CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
+      value: "python",
+    },
+    {
+      paramInfoId: CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+      value: "220",
+    },
+  ])(
+    "hides the canary resting text dummy for $paramInfoId on the canvas path",
+    ({ paramInfoId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
 
-    renderToStaticMarkup(
-      <ParamUI
-        sectionId={CANVAS_OWNED_SECTION_SHELL_ID}
-        paramInfoId={CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID}
-        value="python"
-        onChange={() => undefined}
-      />,
-    );
+      renderToStaticMarkup(
+        <ParamUI
+          sectionId={CANVAS_OWNED_SECTION_SHELL_ID}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
 
-    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
-    expect(mocks.textInputProps.mock.calls[0][0].dummyCodeClassName).toContain(
-      "opacity-0",
-    );
-  });
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+    },
+  );
 });

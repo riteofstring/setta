@@ -2,8 +2,20 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
 export const CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__callableSectionDefault";
-export const CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID =
+export const CANVAS_OWNED_SECTION_CONFIG_LANGUAGE_RESTING_TEXT_PARAM_INFO_ID =
   "settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage";
+export const CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID =
+  CANVAS_OWNED_SECTION_CONFIG_LANGUAGE_RESTING_TEXT_PARAM_INFO_ID;
+export const CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID =
+  "settings-codeobj__callableSectionDefault__callableSectionDefault__columnWidth";
+export const CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_IDS = [
+  CANVAS_OWNED_SECTION_CONFIG_LANGUAGE_RESTING_TEXT_PARAM_INFO_ID,
+  CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+] as const;
+
+const CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID_SET = new Set<string>(
+  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_IDS,
+);
 
 export type SectionShellCanvasChrome = {
   callableToolbarDivider: string;
@@ -63,7 +75,7 @@ export function isCanvasOwnedSectionRestingTextParam({
 }) {
   return (
     isCanvasOwnedSectionShell(sectionId) &&
-    paramInfoId === CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID
+    CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID_SET.has(paramInfoId)
   );
 }
 
