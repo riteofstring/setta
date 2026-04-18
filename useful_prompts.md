@@ -69,7 +69,7 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the go-rewrite branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Run check_quality.sh, then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
 Compare the current branch with `go-rewrite` and write a detailed branch-intent summary to `branch_intent.md`.
 
