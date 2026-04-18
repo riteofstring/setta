@@ -1,3 +1,10 @@
+/* @vitest-environment jsdom */
+
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { useAgenticScopeHighlights } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
@@ -5,41 +12,107 @@ import {
   createCodeSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { describe, expect, it } from "vitest";
-import {
-  buildAgenticScopeHighlightMaps,
-  resolveActiveChatSectionIds,
-} from "./agenticScopeHighlights";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { useUpdateAgenticScopeHighlights } from "./agenticScopeHighlights";
 
-describe("buildAgenticScopeHighlightMaps", () => {
-  it("keeps peer-chat targets out of the read highlight map", () => {
-    // Linked chats should stay discoverable elsewhere, but not as readable sections.
-    const maps = buildAgenticScopeHighlightMaps(
-      [
+type HighlightHarnessProps = Parameters<
+  typeof useUpdateAgenticScopeHighlights
+>[0];
+
+function HighlightHarness(props: HighlightHarnessProps) {
+  useUpdateAgenticScopeHighlights(props);
+  return null;
+}
+
+async function renderHighlightHarness(
+  props: HighlightHarnessProps,
+): Promise<{ host: HTMLDivElement; root: Root }> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(createElement(HighlightHarness, props));
+  });
+
+  return { host, root };
+}
+
+describe("useUpdateAgenticScopeHighlights", () => {
+  beforeEach(() => {
+    resetProjectStores();
+  });
+
+  afterEach(async () => {
+    document.body.innerHTML = "";
+    resetProjectStores();
+  });
+
+  it("keeps peer-chat targets out of the stored read highlight map", async () => {
+    const activeChatVariantId = "variant-chat-active";
+    const activeChatImplId = "impl-chat-active";
+    const { host, root } = await renderHighlightHarness({
+      projectConfigId: "project-1",
+      agenticEdges: [
         createAgenticEdge({
           id: "edge-read",
-          sourceSectionId: "chat-1",
+          sourceSectionId: "section-chat-active",
           targetSectionId: "section-a",
           kind: AgenticEdgeKindEnum.chat_section,
         }),
         createAgenticEdge({
           id: "edge-peer",
-          sourceSectionId: "chat-1",
-          targetSectionId: "chat-2",
+          sourceSectionId: "section-chat-active",
+          targetSectionId: "section-chat-peer",
           kind: AgenticEdgeKindEnum.chat_chat,
         }),
       ],
-      ["chat-1"],
-    );
+      activeIds: ["section-chat-active"],
+      topLevelSectionIds: ["section-chat-active"],
+      sectionVariantMap: {
+        "section-chat-active": activeChatVariantId,
+      },
+      sectionVariants: {
+        [activeChatVariantId]: createVariant({
+          id: activeChatVariantId,
+          impl: activeChatImplId,
+          name: "Active Chat",
+          nonPresetImpls: [],
+        }),
+      },
+      sectionImpls: {
+        [activeChatImplId]: createChatSectionImpl({
+          id: activeChatImplId,
+          chatId: "chat-active",
+        }),
+      },
+    });
 
-    expect(maps.readMap).toEqual({ "section-a": true });
-    expect(maps.writeMap).toEqual({ "section-a": true });
-    expect(maps.readMap["chat-2"]).toBeUndefined();
+    try {
+      expect(
+        useAgenticScopeHighlights.getState().readSectionIdsByProjectConfigId[
+          "project-1"
+        ],
+      ).toEqual({ "section-a": true });
+      expect(
+        useAgenticScopeHighlights.getState().writeSectionIdsByProjectConfigId[
+          "project-1"
+        ],
+      ).toEqual({ "section-a": true });
+      expect(
+        useAgenticScopeHighlights.getState().readSectionIdsByProjectConfigId[
+          "project-1"
+        ]?.["section-chat-peer"],
+      ).toBeUndefined();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
-});
 
-describe("resolveActiveChatSectionIds", () => {
-  it("keeps active chats and waiting top-level chats while skipping invalid or duplicate entries", () => {
+  it("stores highlights for active chats and waiting top-level chats only", async () => {
     const activeChatImplId = "impl-chat-active";
     const waitingChatImplId = "impl-chat-waiting";
     const idleChatImplId = "impl-chat-idle";
@@ -49,8 +122,28 @@ describe("resolveActiveChatSectionIds", () => {
     const waitingChatVariantId = "variant-chat-waiting";
     const idleChatVariantId = "variant-chat-idle";
     const codeVariantId = "variant-code";
-
-    const activeChatSectionIds = resolveActiveChatSectionIds({
+    const { host, root } = await renderHighlightHarness({
+      projectConfigId: "project-1",
+      agenticEdges: [
+        createAgenticEdge({
+          id: "edge-active",
+          sourceSectionId: "section-chat-active",
+          targetSectionId: "section-a",
+          kind: AgenticEdgeKindEnum.chat_section,
+        }),
+        createAgenticEdge({
+          id: "edge-waiting",
+          sourceSectionId: "section-chat-waiting",
+          targetSectionId: "section-b",
+          kind: AgenticEdgeKindEnum.chat_section,
+        }),
+        createAgenticEdge({
+          id: "edge-idle",
+          sourceSectionId: "section-chat-idle",
+          targetSectionId: "section-c",
+          kind: AgenticEdgeKindEnum.chat_section,
+        }),
+      ],
       activeIds: [
         "section-chat-active",
         "section-code",
@@ -122,9 +215,27 @@ describe("resolveActiveChatSectionIds", () => {
       },
     });
 
-    expect(activeChatSectionIds).toEqual([
-      "section-chat-active",
-      "section-chat-waiting",
-    ]);
+    try {
+      expect(
+        useAgenticScopeHighlights.getState().readSectionIdsByProjectConfigId[
+          "project-1"
+        ],
+      ).toEqual({ "section-a": true, "section-b": true });
+      expect(
+        useAgenticScopeHighlights.getState().writeSectionIdsByProjectConfigId[
+          "project-1"
+        ],
+      ).toEqual({ "section-a": true, "section-b": true });
+      expect(
+        useAgenticScopeHighlights.getState().readSectionIdsByProjectConfigId[
+          "project-1"
+        ]?.["section-c"],
+      ).toBeUndefined();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });

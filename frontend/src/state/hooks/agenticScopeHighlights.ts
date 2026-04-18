@@ -64,7 +64,7 @@ function collectMatchingSectionIds(
   return matchingSectionIds;
 }
 
-export function resolveActiveChatSectionIds(
+function resolveActiveChatSectionIds(
   inputs: Pick<
     AgenticScopeHighlightInputs,
     | "activeIds"
@@ -144,7 +144,7 @@ export function useUpdateAgenticScopeHighlights(
   }, [highlightMaps, projectConfigId]);
 }
 
-export function buildAgenticScopeHighlightMaps(
+function buildAgenticScopeHighlightMaps(
   agenticEdges: Array<AgenticEdge>,
   activeChatSectionIds: Array<string>,
 ): {
