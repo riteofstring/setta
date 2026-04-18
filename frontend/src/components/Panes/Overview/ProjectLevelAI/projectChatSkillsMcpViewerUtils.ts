@@ -906,54 +906,6 @@ export function resolveVisibleAgentNativeSlashCommandsByEngineId({
   return EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID;
 }
 
-function areAgentNativeSlashEntriesEqual(
-  currentEntry: AgentNativeSlashCommandsEntry | undefined,
-  nextEntry: AgentNativeSlashCommandsEntry,
-): boolean {
-  if (!currentEntry) {
-    return false;
-  }
-  if (
-    currentEntry.status !== nextEntry.status ||
-    currentEntry.statusDetail !== nextEntry.statusDetail
-  ) {
-    return false;
-  }
-  if (currentEntry.commands.length !== nextEntry.commands.length) {
-    return false;
-  }
-  for (let index = 0; index < currentEntry.commands.length; index += 1) {
-    if (currentEntry.commands[index] !== nextEntry.commands[index]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-export function areAgentNativeSlashCommandMapsEqual(
-  current: Record<string, AgentNativeSlashCommandsEntry>,
-  next: Record<string, AgentNativeSlashCommandsEntry>,
-): boolean {
-  const currentKeys = Object.keys(current);
-  const nextKeys = Object.keys(next);
-  if (currentKeys.length !== nextKeys.length) {
-    return false;
-  }
-  for (const key of currentKeys) {
-    if (!(key in next)) {
-      return false;
-    }
-    const nextEntry = next[key];
-    if (!nextEntry) {
-      return false;
-    }
-    if (!areAgentNativeSlashEntriesEqual(current[key], nextEntry)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 export function collectAgentNativeSlashCommandTokensFromEntries(
   entries: Record<string, AgentNativeSlashCommandsEntry>,
 ): string[] {

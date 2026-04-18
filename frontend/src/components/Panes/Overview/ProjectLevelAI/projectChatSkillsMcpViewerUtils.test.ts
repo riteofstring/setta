@@ -8,7 +8,6 @@ import {
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
-  areAgentNativeSlashCommandMapsEqual,
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
@@ -995,27 +994,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         statusDetail: "tool discovery failed",
       },
     });
-  });
-
-  it("detects when authoritative runtime metadata is unchanged", () => {
-    expect(
-      areAgentNativeSlashCommandMapsEqual(
-        {
-          "engine-live": {
-            commands: ["/deploy"],
-            status: "available",
-            statusDetail: null,
-          },
-        },
-        {
-          "engine-live": {
-            commands: ["/deploy"],
-            status: "available",
-            statusDetail: null,
-          },
-        },
-      ),
-    ).toBe(true);
   });
 
   it("reconciles colliding custom commands against managed and native reserved tokens", () => {

@@ -15,10 +15,7 @@ import {
   shouldLoadSlashCommandAgentRuns,
   upsertAppGenSkillEntry,
 } from "./ProjectChatSkillsMcpViewer";
-import {
-  areAgentNativeSlashCommandMapsEqual,
-  resolveAgentNativeSlashCommandsByEngineId,
-} from "./projectChatSkillsMcpViewerUtils";
+import { resolveAgentNativeSlashCommandsByEngineId } from "./projectChatSkillsMcpViewerUtils";
 
 describe("resolveAgentNativeSlashCommandsByEngineId", () => {
   it("keeps only authoritative entries for the active project and engine set", () => {
@@ -315,34 +312,6 @@ describe("resolveSkillMarkdownRawDraftBySkillIdReplace", () => {
         loadedContent: "# alpha-custom\n\nAlpha saved update",
       },
     });
-  });
-});
-
-describe("areAgentNativeSlashCommandMapsEqual", () => {
-  it("detects when authoritative native-command maps have been pruned", () => {
-    expect(
-      areAgentNativeSlashCommandMapsEqual(
-        {
-          "engine-deleted": {
-            commands: ["/ship"],
-            status: "available",
-            statusDetail: null,
-          },
-          "engine-live": {
-            commands: ["/help"],
-            status: "available",
-            statusDetail: null,
-          },
-        },
-        {
-          "engine-live": {
-            commands: ["/help"],
-            status: "available",
-            statusDetail: null,
-          },
-        },
-      ),
-    ).toBe(false);
   });
 });
 
