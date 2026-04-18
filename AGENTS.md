@@ -51,7 +51,7 @@
 - Prefer backend-initiated websocket updates over polling when the backend already knows when state changes.
 - Treat frontend performance verification as first-class. Prefer automated guardrails, and use chrome-devtools profiling when deeper analysis is needed.
 - UI changes require chrome-devtools visual verification when relevant.
-- Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself. The developer starts CDP sessions.
+- Never start `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
 
 ## Code Shape & Safety
