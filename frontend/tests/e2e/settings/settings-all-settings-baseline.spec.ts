@@ -61,6 +61,26 @@ test("settings All Settings baseline probe reports current motion and DOM metric
   await page.waitForFunction(
     () => document.querySelectorAll(".react-flow__node").length > 13,
   );
+  await clickFitViewIfVisible(page);
+  await page.waitForFunction(() => {
+    const nodes = Array.from(
+      document.querySelectorAll<HTMLElement>(".react-flow__node"),
+    );
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const visibleNodeCount = nodes.filter((node) => {
+      const rect = node.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right >= 0 &&
+        rect.bottom >= 0 &&
+        rect.left <= windowWidth &&
+        rect.top <= windowHeight
+      );
+    }).length;
+    return visibleNodeCount > 20;
+  });
   await page.waitForTimeout(500);
 
   const metrics = await measureAllSettingsBaseline(page);
@@ -73,9 +93,18 @@ test("settings All Settings baseline probe reports current motion and DOM metric
   );
 
   expect(metrics.flowNodeCount).toBeGreaterThan(13);
-  expect(metrics.visibleFlowNodeCount).toBeGreaterThan(0);
+  expect(metrics.visibleFlowNodeCount).toBeGreaterThan(20);
   expect(metrics.raf.frameCount).toBeGreaterThan(100);
 });
+
+async function clickFitViewIfVisible(page: Page): Promise<void> {
+  const fitView = page
+    .getByTestId("rf__controls")
+    .getByRole("button", { name: "fit view" });
+  if (await fitView.isVisible()) {
+    await fitView.click();
+  }
+}
 
 async function measureAllSettingsBaseline(page: Page): Promise<BaselineMetrics> {
   return page.evaluate(async (): Promise<BaselineMetrics> => {

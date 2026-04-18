@@ -539,6 +539,33 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__dictSectionDefault` was checked at usable zoom because the shared dict probe exercises the retained shell/text/icon/underline primitives touched by this slice
   - no crash/error overlay, blank/detached content, or obvious shell/text/icon/underline breakage was visible on that section
   - the CDP pass reused the existing authenticated frontend session; the bootstrap URL was not needed
+- The fresh dense `settings` -> `All Settings` measurement rerun is now landed as the next durable perf report:
+  - new report: `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`
+  - `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` now clicks the real React Flow `fit view` control and waits for a meaningfully dense mounted surface before sampling metrics, because the current landing state can otherwise open into a non-dense close-in view
+  - the normalized rerun landed back on the same baseline viewport start state (`x=759.9`, `y=-51.75`, `zoom=0.1`) and restored the same end state after the scripted transform loop
+  - durable dense-scene metrics on the retained-canvas path now read:
+    - `flowNodeCount: 46`
+    - `visibleFlowNodeCount: 46`
+    - `documentNodeCount: 9517`
+    - `buttonCount: 507`
+    - `canvasCount: 1`
+    - `raf.meanMs: 111.45`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 18159`
+  - compared against the durable pre-change baseline at `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`, that rerun shows a real dense-scene motion win:
+    - `raf.meanMs` improved from `204.93` to `111.45`
+    - `longTasks.totalMs` improved from `36337` to `18159`
+    - `documentNodeCount` only dropped from `9553` to `9517`, so the dominant remaining blocker is still the live inactive row/widget DOM rather than more closed canary shell/text micro-lanes
+- focused verification passed for the dense measurement/report slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-baseline.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-022/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.9s)` on the live worktree runtime with `visibleFlowNodeCount: 46`
+- CDP visual check is done for the dense measurement/report slice:
+  - `/settings` opened successfully in headless Chrome DevTools on the current worktree runtime
+  - `All Settings` was activated and the real `fit view` control was clicked
+  - the React Flow viewport was normalized (`matrix(0.133509, 0, 0, 0.133509, 2653.05, 62.1818)`)
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - no visible crash/error overlay was present
 
 ## Preservation rule
 
@@ -570,9 +597,9 @@ That leaves one primary architectural move:
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
-6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the transform-authority slice is now landed, so the next bounded product slice is the fresh dense `settings` -> `All Settings` measurement run against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`.
-7. Record that dense-scene rerun as a new durable perf report under `perf/reports/frontend/`, using the current retained-canvas camera/measurement path instead of the older DOM-transform readback.
-8. Do not open another section-specific shell/text/filter/kwargs ownership lane before that fresh dense-scene measurement lands unless a concrete visual regression on the callable, dict, or GlobalVariables canary forces it.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the fresh dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`.
+7. Use the new dense rerun plus the pre-change baseline together as the current benchmark pair: motion improved materially, but dense `All Settings` still carries roughly `9.5k` DOM nodes and more than `500` buttons on the live surface.
+8. The next bounded product slice should reduce that remaining inactive row/widget DOM cost on the graph surface path; do not reopen another section-specific shell/text/filter/kwargs ownership lane unless a concrete visual regression on the callable, dict, or GlobalVariables canary forces it.
 
 ## First product frontier
 
@@ -598,7 +625,7 @@ The first product frontier is:
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
 - with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
-- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries, rerun the dense `All Settings` measurement path against the baseline with the new store-owned transform authority in place, then reopen a section-specific ownership lane only if that durable measurement still points back to inactive DOM cost or a fresh visual defect appears
+- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and use the new dense rerun evidence to land the next graph-surface product slice that materially reduces inactive row/widget DOM cost; only reopen a section-specific ownership lane if a fresh visual defect appears
 
 ## Hard rules
 

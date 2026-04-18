@@ -973,3 +973,39 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and rerun the dense `settings` -> `All Settings` measurement/probe flow against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`, recording the result as the next durable perf report
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 040
+
+- Item: Record the first durable dense `settings` -> `All Settings` retained-canvas rerun against the 2026-04-18 `go-rewrite` baseline.
+- Status: `done`
+- Details:
+  - Added `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md` as the next durable dense-scene report after the retained-canvas surface seam and transform-authority slice.
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` so the probe now clicks the real React Flow `fit view` control before sampling and waits until the mounted graph shows more than `20` visible nodes.
+  - The first normalization attempt hit a strict Playwright locator collision on `getByRole("button", { name: "fit view" })`; narrowed that helper to `getByTestId("rf__controls").getByRole("button", { name: "fit view" })` and reran the same probe.
+  - The normalized rerun landed back on the same dense baseline start state (`x=759.9`, `y=-51.75`, `zoom=0.1`) and restored the same end state after the scripted transform loop.
+  - Durable retained-canvas metrics recorded in the new report:
+    - `flowNodeCount: 46`
+    - `visibleFlowNodeCount: 46`
+    - `documentNodeCount: 9517`
+    - `buttonCount: 507`
+    - `canvasCount: 1`
+    - `raf.meanMs: 111.45`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 18159`
+  - Comparison against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`:
+    - `raf.meanMs` improved from `204.93` to `111.45`
+    - `longTasks.totalMs` improved from `36337` to `18159`
+    - `documentNodeCount` only moved from `9553` to `9517`, which keeps the remaining blocker pointed at the live inactive row/widget DOM rather than more closed callable/dict/GlobalVariables shell-text micro-lanes
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-baseline.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-022/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.9s)` on the live worktree runtime
+- CDP visual check is done:
+  - `/settings` opened successfully in headless Chrome DevTools on the current worktree runtime
+  - `All Settings` was activated and the real `fit view` control was clicked
+  - the React Flow viewport was normalized (`matrix(0.133509, 0, 0, 0.133509, 2653.05, 62.1818)`)
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - no visible crash/error overlay was present
+- Next action:
+  - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and land the next graph-surface product slice that reduces dense inactive row/widget DOM cost, using the new dense report as the current evidence baseline
+LOOP_TERMINAL_MARKER: none
