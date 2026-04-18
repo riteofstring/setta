@@ -29,6 +29,7 @@ import {
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
+const CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE = "data-canvas-owned-nested-guide";
 const CANVAS_OWNED_UNDERLINE_ATTRIBUTE = "data-canvas-owned-underline";
 const CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE = "data-canvas-owned-resting-text";
 
@@ -41,6 +42,15 @@ type CanvasOwnedSwitchTrackBox = {
 };
 
 type CanvasOwnedUnderlineBox = {
+  fill: string;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+};
+
+type CanvasOwnedNestedGuideBox = {
+  cornerRadius: number;
   fill: string;
   height: number;
   offsetX: number;
@@ -117,6 +127,27 @@ function areCanvasOwnedUnderlineBoxesEqual(
   return left.every((leftBox, index) => {
     const rightBox = right[index];
     return (
+      leftBox.fill === rightBox.fill &&
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.width === rightBox.width
+    );
+  });
+}
+
+function areCanvasOwnedNestedGuideBoxesEqual(
+  left: Array<CanvasOwnedNestedGuideBox>,
+  right: Array<CanvasOwnedNestedGuideBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
+      leftBox.cornerRadius === rightBox.cornerRadius &&
       leftBox.fill === rightBox.fill &&
       leftBox.height === rightBox.height &&
       leftBox.offsetX === rightBox.offsetX &&
@@ -256,6 +287,84 @@ function measureCanvasOwnedUnderlineBoxes(
     .filter(
       (underlineBox): underlineBox is CanvasOwnedUnderlineBox =>
         underlineBox !== null,
+    );
+}
+
+function measureCanvasOwnedNestedGuideBoxes(
+  sectionId: string,
+): Array<CanvasOwnedNestedGuideBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
+  const viewportScale = parseViewportScale(
+    viewport ? window.getComputedStyle(viewport).transform : null,
+  );
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(
+      `[${CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE}="true"]`,
+    ),
+  )
+    .map((guideElement) => {
+      const guideRect = guideElement.getBoundingClientRect();
+      if (guideRect.width <= 0 || guideRect.height <= 0) {
+        return null;
+      }
+
+      const beforeStyle = window.getComputedStyle(guideElement, "::before");
+      const fill = beforeStyle.backgroundColor.trim();
+      const heightPx = Number.parseFloat(beforeStyle.height);
+      const widthPx = Number.parseFloat(beforeStyle.width);
+      if (
+        fill.length === 0 ||
+        fill === "rgba(0, 0, 0, 0)" ||
+        !Number.isFinite(heightPx) ||
+        !Number.isFinite(widthPx) ||
+        heightPx <= 0 ||
+        widthPx <= 0
+      ) {
+        return null;
+      }
+
+      const leftPx = Number.parseFloat(beforeStyle.left);
+      const bottomPx = Number.parseFloat(beforeStyle.bottom);
+      const borderRadiusPx = Number.parseFloat(beforeStyle.borderRadius);
+      const resolvedLeftPx = Number.isFinite(leftPx) ? leftPx : 0;
+      const resolvedBottomPx = Number.isFinite(bottomPx) ? bottomPx : 0;
+      const topPx = Math.max(0, guideRect.height - resolvedBottomPx - heightPx);
+      const resolvedBorderRadiusPx =
+        Number.isFinite(borderRadiusPx) && borderRadiusPx > 0
+          ? borderRadiusPx
+          : Math.min(widthPx, heightPx) / 2;
+
+      return {
+        cornerRadius:
+          Math.min(resolvedBorderRadiusPx, widthPx / 2, heightPx / 2) /
+          viewportScale,
+        fill,
+        height: heightPx / viewportScale,
+        offsetX: (guideRect.left - sectionRect.left + resolvedLeftPx) /
+          viewportScale,
+        offsetY:
+          (guideRect.top - sectionRect.top + topPx) / viewportScale,
+        width: widthPx / viewportScale,
+      };
+    })
+    .filter(
+      (guideBox): guideBox is CanvasOwnedNestedGuideBox => guideBox !== null,
     );
 }
 
@@ -509,6 +618,85 @@ function useCanvasOwnedUnderlineBoxes(
   return underlineBoxes;
 }
 
+function useCanvasOwnedNestedGuideBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+) {
+  const [nestedGuideBoxes, setNestedGuideBoxes] = useState<
+    Array<CanvasOwnedNestedGuideBox>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredBoxes = () => {
+      const nextBoxes = measureCanvasOwnedNestedGuideBoxes(sectionId);
+      setNestedGuideBoxes((previousBoxes) =>
+        areCanvasOwnedNestedGuideBoxesEqual(previousBoxes, nextBoxes)
+          ? previousBoxes
+          : nextBoxes,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setNestedGuideBoxes((previousBoxes) =>
+        previousBoxes.length === 0 ? previousBoxes : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredBoxes);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      for (const guideElement of section.querySelectorAll<HTMLElement>(
+        `[${CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(guideElement);
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["class", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, sectionId]);
+
+  return nestedGuideBoxes;
+}
+
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
   layoutRefreshKey: string,
@@ -634,6 +822,10 @@ export default function SectionShellBackdropCanvas() {
     CANVAS_OWNED_SECTION_SHELL_ID,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
   );
+  const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
+    CANVAS_OWNED_SECTION_SHELL_ID,
+    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
+  );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     CANVAS_OWNED_SECTION_SHELL_ID,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
@@ -685,6 +877,14 @@ export default function SectionShellBackdropCanvas() {
             ...chrome,
             detailBands,
             detailBoxes: [
+              ...nestedGuideBoxes.map((guideBox) => ({
+                cornerRadius: guideBox.cornerRadius,
+                fill: guideBox.fill,
+                height: guideBox.height,
+                width: guideBox.width,
+                x: guideBox.offsetX,
+                y: guideBox.offsetY,
+              })),
               ...underlineBoxes.map((underlineBox) => ({
                 cornerRadius: 0,
                 fill: underlineBox.fill,
@@ -723,6 +923,7 @@ export default function SectionShellBackdropCanvas() {
       canvasOwnedShellSearchHeight,
       canvasOwnedShellStyleColor,
       darkMode,
+      nestedGuideBoxes,
       nodes,
       underlineBoxes,
       restingTextLines,

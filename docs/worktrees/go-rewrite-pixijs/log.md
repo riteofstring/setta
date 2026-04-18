@@ -608,3 +608,30 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the same named canary section, but move to the next repeated inactive row-decoration family instead of reopening value-text, param-label, or underline coverage
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 026
+
+- Item: Move the `Size` nested child-row guide rail for `settings-section__callableSectionDefault` onto the retained canvas path.
+- Status: `done`
+- Details:
+  - The live canary probe on `/settings` -> `All Settings` confirmed the next real row-decoration family was the visible left guide rail inside `article#ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__size`, with nested child rows for `size__height` and `size__width`; this slice stayed on that exact target instead of reopening value-text or underline work.
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so the canary section's nested child-row container now carries `data-canvas-owned-nested-guide="true"` on the `canvas-shell-underlay` path and hides only the matching DOM `::before` guide rail via `before:opacity-0`.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene measures those marked nested guide rails from the live DOM `::before` metrics, tracks them through a dedicated measurement hook, and paints them into the existing retained detail-box pass.
+  - Updated `frontend/src/components/Params/ParamContainer.test.tsx` to lock the new canary nested-guide DOM marker/hide behavior.
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted live canary probe now waits for the `Size` row, targets its nested guide container explicitly, asserts the DOM pseudo-element is hidden on the canvas path, and samples the retained guide pixel separately from the shell body fill.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe passed with the retained `Size` nested guide pixel present while the DOM pseudo-element stayed hidden on the canvas path
+  - Focused Vitest verification is still blocked by the pre-existing jsdom dependency/runtime issue before collection:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx`
+    - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - CDP visual check is done:
+    - `settings-section__callableSectionDefault` was mounted on `/settings` -> `All Settings`
+    - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+    - no crash/error overlay was visible
+    - the nested `Size` subtree remained present and its left guide rail looked intact on the live retained-canvas path
+    - the DOM pseudo-element being `opacity: 0` was confirmed as the expected handoff state for this slice rather than a regression
+- Next action:
+  - re-inventory the same named canary section for any remaining default-visible inactive row chrome; if the only leftovers are hover/selection-only states, close the callable row-decoration lane and pivot to the next param-heavy section family
+LOOP_TERMINAL_MARKER: none

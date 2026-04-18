@@ -19,6 +19,12 @@ const TARGET_STYLE_COLOR_EDITOR_ID =
   "CodeMirror-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor";
 const TARGET_STYLE_COLOR_ROW_ID =
   "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor";
+const TARGET_SIZE_ROW_ID =
+  "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__size";
+const TARGET_SIZE_HEIGHT_ROW_ID =
+  "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__size__height";
+const TARGET_SIZE_WIDTH_ROW_ID =
+  "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__size__width";
 const TARGET_SWITCH_ROW_ID =
   "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio";
 
@@ -42,6 +48,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
       columnWidthInputId,
       configLanguageInputId,
       sectionId,
+      sizeHeightRowId,
+      sizeRowId,
+      sizeWidthRowId,
       styleColorInputId,
       styleColorRowId,
     }) => {
@@ -64,6 +73,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
         document.getElementById(aspectRatioRowId) !== null &&
         document.getElementById(columnWidthInputId) !== null &&
         document.getElementById(configLanguageInputId) !== null &&
+        document.getElementById(sizeRowId) !== null &&
+        document.getElementById(sizeHeightRowId) !== null &&
+        document.getElementById(sizeWidthRowId) !== null &&
         document.getElementById(styleColorInputId) !== null &&
         document.getElementById(styleColorRowId) !== null &&
         edgeInputParams !== null &&
@@ -81,6 +93,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
       columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
       sectionId: TARGET_SECTION_ID,
+      sizeHeightRowId: TARGET_SIZE_HEIGHT_ROW_ID,
+      sizeRowId: TARGET_SIZE_ROW_ID,
+      sizeWidthRowId: TARGET_SIZE_WIDTH_ROW_ID,
       styleColorInputId: TARGET_STYLE_COLOR_INPUT_ID,
       styleColorRowId: TARGET_STYLE_COLOR_ROW_ID,
     },
@@ -95,6 +110,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
         edgeInputParamsInputId,
         edgeOutputPortsInputId,
         sectionId,
+        sizeRowId,
         styleColorInputId,
         styleColorRowId,
       },
@@ -135,6 +151,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const styleColorLine =
         styleColorInput?.querySelector<HTMLElement>(".cm-line") ??
         styleColorInput;
+      const sizeRow = document.getElementById(sizeRowId);
+      const sizeNestedGuide = sizeRow?.querySelector<HTMLElement>(
+        '[data-canvas-owned-nested-guide="true"]',
+      );
       const styleColorRow = document.getElementById(styleColorRowId);
       const styleColorUnderline = styleColorRow?.querySelector<HTMLElement>(
         '[data-canvas-owned-underline="true"]',
@@ -195,6 +215,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
       }
       if (!(styleColorLine instanceof HTMLElement)) {
         throw new Error(`Missing Style Color line for ${sectionId}`);
+      }
+      if (!(sizeRow instanceof HTMLElement)) {
+        throw new Error(`Missing Size row for ${sectionId}`);
+      }
+      if (!(sizeNestedGuide instanceof HTMLElement)) {
+        throw new Error(`Missing Size nested guide for ${sectionId}`);
       }
       if (!(styleColorRow instanceof HTMLElement)) {
         throw new Error(`Missing Style Color row for ${sectionId}`);
@@ -386,6 +412,62 @@ test("canvas shell path owns the resting callable section chrome", async ({
         (styleColorLabelRect.top - nodeRect.top) / viewportScale;
       const styleColorLabelWidth = styleColorLabelRect.width / viewportScale;
       const styleColorLabelHeight = styleColorLabelRect.height / viewportScale;
+      const sizeNestedGuideRect = sizeNestedGuide.getBoundingClientRect();
+      const sizeNestedGuideBeforeStyle = window.getComputedStyle(
+        sizeNestedGuide,
+        "::before",
+      );
+      const sizeNestedGuideWidthPx = Number.parseFloat(
+        sizeNestedGuideBeforeStyle.width,
+      );
+      const sizeNestedGuideHeightPx = Number.parseFloat(
+        sizeNestedGuideBeforeStyle.height,
+      );
+      const sizeNestedGuideLeftPx = Number.parseFloat(
+        sizeNestedGuideBeforeStyle.left,
+      );
+      const sizeNestedGuideBottomPx = Number.parseFloat(
+        sizeNestedGuideBeforeStyle.bottom,
+      );
+      if (
+        !Number.isFinite(sizeNestedGuideWidthPx) ||
+        !Number.isFinite(sizeNestedGuideHeightPx) ||
+        sizeNestedGuideWidthPx <= 0 ||
+        sizeNestedGuideHeightPx <= 0
+      ) {
+        throw new Error(`Invalid Size nested guide pseudo metrics for ${sectionId}`);
+      }
+      const sizeNestedGuideOffsetX =
+        (sizeNestedGuideRect.left -
+          nodeRect.left +
+          (Number.isFinite(sizeNestedGuideLeftPx) ? sizeNestedGuideLeftPx : 0)) /
+        viewportScale;
+      const sizeNestedGuideOffsetY =
+        (sizeNestedGuideRect.top -
+          nodeRect.top +
+          Math.max(
+            0,
+            sizeNestedGuideRect.height -
+              (Number.isFinite(sizeNestedGuideBottomPx)
+                ? sizeNestedGuideBottomPx
+                : 0) -
+              sizeNestedGuideHeightPx,
+          )) /
+        viewportScale;
+      const sizeNestedGuideWidth = sizeNestedGuideWidthPx / viewportScale;
+      const sizeNestedGuideHeight = sizeNestedGuideHeightPx / viewportScale;
+      const sizeNestedGuideSampleX =
+        (nodeX -
+          canvasLeft +
+          sizeNestedGuideOffsetX +
+          sizeNestedGuideWidth * 0.5) *
+        canvasScaleX;
+      const sizeNestedGuideSampleY =
+        (nodeY -
+          canvasTop +
+          sizeNestedGuideOffsetY +
+          sizeNestedGuideHeight * 0.5) *
+        canvasScaleY;
 
       function sampleCanvasPixel(canvasX: number, canvasY: number) {
         const clampedX = Math.max(
@@ -524,6 +606,13 @@ test("canvas shell path owns the resting callable section chrome", async ({
         styleColorLabelDummyOpacity: styleColorLabelStyle.opacity,
         styleColorLabelOwnershipFlag:
           styleColorLabel.dataset.canvasOwnedRestingText ?? null,
+        sizeNestedGuideBeforeOpacity: sizeNestedGuideBeforeStyle.opacity,
+        sizeNestedGuideOwnershipFlag:
+          sizeNestedGuide.dataset.canvasOwnedNestedGuide ?? null,
+        sizeNestedGuidePixel: sampleCanvasPixel(
+          sizeNestedGuideSampleX,
+          sizeNestedGuideSampleY,
+        ),
         styleColorOwnershipFlag:
           styleColorInput.dataset.canvasOwnedRestingText ?? null,
         configLanguageDummyOpacity: configLanguageStyle.opacity,
@@ -558,6 +647,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       edgeInputParamsInputId: TARGET_EDGE_INPUT_PARAMS_INPUT_ID,
       edgeOutputPortsInputId: TARGET_EDGE_OUTPUT_PORTS_INPUT_ID,
       sectionId: TARGET_SECTION_ID,
+      sizeRowId: TARGET_SIZE_ROW_ID,
       styleColorInputId: TARGET_STYLE_COLOR_INPUT_ID,
       styleColorRowId: TARGET_STYLE_COLOR_ROW_ID,
     },
@@ -590,6 +680,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.edgeInputParamsDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.edgeOutputPortsDummyOpacity).toBe("0");
   expect(shellState.edgeOutputPortsDistinctPixelCount).toBeGreaterThan(0);
+  expect(shellState.sizeNestedGuideOwnershipFlag).toBe("true");
+  expect(shellState.sizeNestedGuideBeforeOpacity).toBe("0");
+  expect(shellState.sizeNestedGuidePixel).not.toBe("0,0,0,0");
+  expect(shellState.sizeNestedGuidePixel).not.toBe(shellState.bodyPixel);
   expect(shellState.styleColorOwnershipFlag).toBe("true");
   expect(shellState.styleColorDummyOpacity).toBe("0");
   expect(shellState.styleColorDistinctPixelCount).toBeGreaterThan(0);

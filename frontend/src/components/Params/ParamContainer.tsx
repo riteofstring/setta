@@ -1,6 +1,8 @@
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { type ParamListKey } from "forks/dnd-kit/paramDndState";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
@@ -75,6 +77,7 @@ type ParamLeadingContentProps = {
 };
 
 type ParamNestedChildrenProps = {
+  canvasOwnedNestedGuide: boolean;
   hasSectionStyleTheme: boolean;
   listKey: ParamListKey;
   onResizeStart: React.MouseEventHandler;
@@ -319,6 +322,7 @@ function ParamInputAccessories({
 }
 
 function ParamNestedChildren({
+  canvasOwnedNestedGuide,
   hasSectionStyleTheme,
   listKey,
   onResizeStart,
@@ -330,7 +334,12 @@ function ParamNestedChildren({
     return null;
   }
   return (
-    <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
+    <div
+      className={`${NESTED_CHILD_ROWS_CLASS_NAME} ${canvasOwnedNestedGuide ? "before:opacity-0" : ""}`}
+      data-canvas-owned-nested-guide={
+        canvasOwnedNestedGuide ? "true" : undefined
+      }
+    >
       <GetParamSwitch
         sectionId={sectionId}
         paramIds={renderChildren}
@@ -509,6 +518,7 @@ function _ParamContainer({
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
   );
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
   const showParamDisplayNames = useProjectState(
     (x) => x.projectConfig.showParamDisplayNames,
@@ -550,7 +560,11 @@ function _ParamContainer({
     paramInfoId,
     sectionId,
   };
+  const canvasOwnedNestedGuide =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionShell(sectionId);
   const nestedChildrenProps = {
+    canvasOwnedNestedGuide,
     hasSectionStyleTheme,
     listKey,
     onResizeStart,

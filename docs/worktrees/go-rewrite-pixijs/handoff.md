@@ -303,9 +303,28 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
   - `section[data-section-id="settings-section__callableSectionDefault"]` was present and visible on the live surface
   - the `Style Color` row inside that exact canary section remained present and looked intact after the underline chrome moved to canvas ownership
-- The next frontier should not reopen text-row underline on this section:
-  - treat the canary text-row underline lane as complete at this ownership boundary
-  - move to the next repeated inactive row-decoration family on `settings-section__callableSectionDefault` instead of adding more value-text, label-text, or underline churn; the likely next candidate remains shared text-row input-shell chrome or another repeated visible row treatment
+- The next visible nested-row chrome slice is now landed for the same canary section using the `Size` group guide rail:
+  - `frontend/src/components/Params/ParamContainer.tsx` now marks the canary section's nested child-row container with `data-canvas-owned-nested-guide="true"` and hides only the matching DOM `::before` guide on the `canvas-shell-underlay` path
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those marked nested child-row guides from the live DOM `::before` metrics and paints the guide rails into the retained scene alongside the existing shell chrome, switch tracks, labels, values, and underlines
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/components/Params/ParamContainer.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Size` nested guide pixel on the live canvas path while preserving the existing shell/toolbar/text/underline ownership checks
+  - focused Vitest verification for the touched ParamContainer test file is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx`
+    - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done for the `Size` nested-guide slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` remained present on the live surface
+  - the nested `Size` subtree was present and its left guide rail looked intact on the retained canvas path
+  - note: the DOM pseudo-element for that guide is now intentionally `opacity: 0` on the canvas path; the visible rail should come from the retained canvas instead of the live DOM
+- The next frontier should not reopen text/value/underline/nested-guide drift on this section:
+  - treat the canary nested-guide lane as complete at this ownership boundary
+  - re-inventory the remaining default-visible inactive row chrome on `settings-section__callableSectionDefault`; if the only leftovers are hover/selection-only states, close the callable row-decoration lane and pivot to the next param-heavy section family instead of manufacturing another micro-slice
 
 ## Preservation rule
 
@@ -334,7 +353,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the same named canary section, but do not spend another pass on value-text, param-label, or text-row underline drift; take the next repeated row-chrome family in one bounded product slice instead.
+3. Keep the same named canary section, but do not spend another pass on value-text, param-label, text-row underline, or nested-guide drift; re-check whether any default-visible inactive row chrome still remains before opening another callable-section micro-lane.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -357,9 +376,10 @@ The first product frontier is:
 - with the same canary section now also painting the resting `Column Width`, `Edge Input Params`, and `Edge Output Ports` text in the retained canvas while the live editors remain available
 - with the same canary section now also painting the resting `Style Color` label text in the retained canvas while label clicks still hand off directly to the inline `Style Color` editor
 - with the same canary section now also painting the shared text-row underlines in the retained canvas while the live blue focus underline still reappears from DOM on activation
+- with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: move to the next repeated row-chrome family on that same named canary instead of reopening top-level shell/body panel work or continuing label/text/underline churn
+- next: re-check whether that callable canary still has any default-visible inactive row chrome left; if not, close the callable row-decoration lane and move to the next param-heavy section family instead of continuing callable-only churn
 
 ## Hard rules
 
