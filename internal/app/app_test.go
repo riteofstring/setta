@@ -7081,6 +7081,7 @@ func TestAppWriteConfigReappliesAppliedBasedpyrightSpec(t *testing.T) {
 		}
 	})
 	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
 
 	readUnknownVariableSeverity := func() string {
 		t.Helper()
@@ -7121,6 +7122,18 @@ func TestAppWriteConfigReappliesAppliedBasedpyrightSpec(t *testing.T) {
 	defer server.Close()
 
 	authCookie := newAppTestAuthCookie(t, app)
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions before config write")
+	}
 	configRequest, err := http.NewRequest(
 		http.MethodPost,
 		server.URL+"/api"+httpapi.RoutePluginsConfig,
@@ -7144,6 +7157,19 @@ func TestAppWriteConfigReappliesAppliedBasedpyrightSpec(t *testing.T) {
 
 	if got := readUnknownVariableSeverity(); got != "error" {
 		t.Fatalf("expected applied basedpyright spec to update after config write, got %q", got)
+	}
+
+	completions = requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions after config write without a manual restart")
 	}
 }
 
@@ -7784,7 +7810,7 @@ func TestAppPluginRuntimeReportsProgrammaticRestartCapabilityInIDE(t *testing.T)
 	}
 }
 
-func TestAppPluginRuntimeReportsSelectedLanguageServerApplyState(t *testing.T) {
+func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -7914,12 +7940,37 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyState(t *testing.T) {
 		t.Fatalf("refresh plugin runtime: %v", err)
 	}
 
+	refreshedStatus, _ := readPythonStatus()
+	if refreshedStatus.State != "ready" {
+		t.Fatalf("expected ready state after refresh, got %#v", refreshedStatus)
+	}
+	if refreshedStatus.Applied {
+		t.Fatalf("expected selected plugin to remain unapplied after refresh")
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
 	appliedStatus, _ := readPythonStatus()
 	if appliedStatus.State != "ready" {
-		t.Fatalf("expected ready applied state, got %#v", appliedStatus)
+		t.Fatalf("expected ready applied state after restart, got %#v", appliedStatus)
 	}
 	if !appliedStatus.Applied {
-		t.Fatalf("expected selected plugin to become applied after refresh")
+		t.Fatalf("expected selected plugin to become applied after restart")
 	}
 }
 
@@ -10919,6 +10970,119 @@ func TestAppRestartLanguageServerAllowsMixedLanguageProjectWithPythonSelection(t
 	}
 }
 
+func TestAppRestartLanguageServerRejectsMissingSelectionForNonDefaultPythonProject(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+	seedAppLSPProjects(t, app, "project-alpha", []appLSPProjectFixture{
+		{
+			ProjectID: "project-alpha",
+			Name:      "Alpha",
+			Sections: []appLSPCodeSectionFixture{{
+				SectionID: "shell",
+				Language:  projectstate.CodeLanguageBash,
+				Source:    "echo runner\n",
+			}},
+		},
+		{
+			ProjectID: "project-beta",
+			Name:      "Beta",
+			Sections: []appLSPCodeSectionFixture{{
+				SectionID: "runner",
+				Language:  projectstate.CodeLanguagePython,
+				Source:    "str.",
+			}},
+		},
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-beta",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions for the non-default project before restart")
+	}
+
+	setAppLanguageServerSelectionOnly(t, app, "python", "setta-missing-python-lsp")
+
+	completions = requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-beta",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions to remain available before the rejected restart")
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 409 for missing non-default selection, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	var restartPayload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+		t.Fatalf("decode restart response: %v", err)
+	}
+	if restartPayload.Error.Code != "language_server_not_configured" {
+		t.Fatalf("expected language_server_not_configured error, got %#v", restartPayload.Error)
+	}
+
+	completions = requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-beta",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions to remain available after the rejected restart")
+	}
+}
+
 func TestAppRestartLanguageServerRejectsWrongLanguageSelectionForCurrentProject(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -12067,6 +12231,12 @@ type appLSPCodeSectionFixture struct {
 	Source    string
 }
 
+type appLSPProjectFixture struct {
+	ProjectID string
+	Name      string
+	Sections  []appLSPCodeSectionFixture
+}
+
 func seedAppLSPCodeSectionProjectWithLanguage(t *testing.T, app *App, language projectstate.CodeLanguage, source string) {
 	t.Helper()
 
@@ -12078,6 +12248,47 @@ func seedAppLSPCodeSectionProjectWithLanguage(t *testing.T, app *App, language p
 }
 
 func seedAppLSPCodeSectionProjectWithSections(t *testing.T, app *App, sections []appLSPCodeSectionFixture) {
+	t.Helper()
+
+	seedAppLSPProjects(t, app, "project-alpha", []appLSPProjectFixture{{
+		ProjectID: "project-alpha",
+		Name:      "Alpha",
+		Sections:  sections,
+	}})
+}
+
+func seedAppLSPProjects(
+	t *testing.T,
+	app *App,
+	defaultProjectID string,
+	projects []appLSPProjectFixture,
+) {
+	t.Helper()
+
+	if len(projects) == 0 {
+		t.Fatal("at least one project fixture is required")
+	}
+
+	projectMap := make(map[string]projectstate.Project, len(projects))
+	for _, project := range projects {
+		projectMap[project.ProjectID] = buildAppLSPProject(t, project.ProjectID, project.Name, project.Sections)
+	}
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects = projectMap
+		document.DefaultProjectID = defaultProjectID
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate lsp project fixtures: %v", err)
+	}
+}
+
+func buildAppLSPProject(
+	t *testing.T,
+	projectID string,
+	name string,
+	sections []appLSPCodeSectionFixture,
+) projectstate.Project {
 	t.Helper()
 
 	if len(sections) == 0 {
@@ -12118,19 +12329,17 @@ func seedAppLSPCodeSectionProjectWithSections(t *testing.T, app *App, sections [
 		}
 	}
 
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:                "project-alpha",
-			Name:              "Alpha",
-			SectionVariantMap: sectionVariantMap,
-			Sections:          projectSections,
-			SectionVariants:   sectionVariants,
-			SectionImpls:      sectionImpls,
-		}
-		document.DefaultProjectID = "project-alpha"
-		return document, nil
-	}); err != nil {
-		t.Fatalf("mutate lsp code section project: %v", err)
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		trimmedName = projectID
+	}
+	return projectstate.Project{
+		ID:                projectID,
+		Name:              trimmedName,
+		SectionVariantMap: sectionVariantMap,
+		Sections:          projectSections,
+		SectionVariants:   sectionVariants,
+		SectionImpls:      sectionImpls,
 	}
 }
 
@@ -12595,8 +12804,23 @@ func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID s
 	t.Helper()
 
 	setAppLanguageServerSelectionOnly(t, app, language, pluginID)
-	if _, err := app.pluginRuntime.Refresh(context.Background()); err != nil {
-		t.Fatalf("refresh plugin runtime after selection change: %v", err)
+	restartAppLanguageServer(t, app)
+}
+
+func restartAppLanguageServer(t *testing.T, app *App) {
+	t.Helper()
+
+	document := app.ProjectStates().Main().Snapshot().Document
+	if app.pluginRuntime != nil {
+		if err := app.pluginRuntime.RestartProject(context.Background(), document, func(restartCtx context.Context) error {
+			return app.lspSync.Restart(restartCtx, document)
+		}); err != nil {
+			t.Fatalf("restart language server after selection change: %v", err)
+		}
+		return
+	}
+	if err := app.lspSync.Restart(context.Background(), document); err != nil {
+		t.Fatalf("restart language server after selection change: %v", err)
 	}
 }
 

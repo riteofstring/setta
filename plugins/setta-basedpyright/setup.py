@@ -33,13 +33,13 @@ def resolve_go_binary() -> str:
         if candidate and Path(candidate).is_file():
             return candidate
 
-    repo_go_script = PLUGIN_ROOT.parent.parent / "scripts" / "go.sh"
-    if repo_go_script.is_file():
-        return str(repo_go_script)
-
     resolved = shutil.which("go")
     if resolved:
         return resolved
+
+    repo_go_script = PLUGIN_ROOT.parent.parent / "scripts" / "go.sh"
+    if os.name != "nt" and repo_go_script.is_file():
+        return str(repo_go_script)
 
     raise RuntimeError(
         "Go toolchain is required to build the packaged setta-basedpyright backend"

@@ -1,3 +1,38 @@
+## 2026-04-18 04:15:47 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had four concrete issues: plugin backend refresh could advance selected-language-server state across the explicit restart boundary, `restartLanguageServer` still validated only the default project while rematerializing the full document, config writes for already-applied language-server plugins could replace the live router service without restoring tracked documents, and Windows source builds for the first-party `setta-basedpyright` package still tried to execute the repo’s Bash `go.sh` wrapper.
+- I implemented the fixes directly and simplified the ownership boundaries instead of layering more preview/live-state heuristics onto the existing paths.
+
+Fixes applied:
+- Split backend plugin runtime refresh from live LSP application in `internal/app/plugin_backend_runtime_refresh.go`. `Refresh()` now only rebuilds backend plugin runtime/tooling and commits pending backend restart state; only `RestartProject()` swaps live LSP specs, so selected-language-server `Applied` remains tied to the actual restarted project session.
+- Tightened restart admission to validate every project in the normalized document, matching the full-document rematerialization done by `ProjectSynchronizer.Restart()`. Non-default projects can no longer lose LSP coverage after a false-success restart.
+- Reworked applied-config reapplication so replacing an already-applied plugin LSP spec now immediately rematerializes the current document and rolls back both specs and document sync if that rematerialization fails.
+- Updated app wiring so the runtime refresher owns the project snapshot/materialization dependencies it needs for the config-reapply path.
+- Reworked `plugins/setta-basedpyright/setup.py` so package builds prefer `SETTA_GO_BIN`, `GO`, or `PATH` and only fall back to `scripts/go.sh` on non-Windows hosts, restoring Windows source-build behavior without a shell-wrapper dependency.
+
+Tests added or upgraded:
+- Go unit coverage proving backend runtime refresh no longer mutates applied LSP specs and proving restart admission rejects unconfigured non-default project languages.
+- Go integration coverage for: applied Python LSP state staying unapplied after `Refresh()` until `POST /api/restartLanguageServer`; config writes preserving live Python completions without a manual restart; and rejected restart preserving completions for a non-default Python project.
+- Python packaging coverage for the Windows/native Go resolver path and `SETTA_GO_BIN` override handling.
+- Playwright coverage for the Python banner path where plugin rescan makes a selected plugin ready but the banner must stay visible until explicit restart applies it.
+
+Verification run:
+- `./scripts/go.sh test ./internal/app -run 'TestPluginBackendRuntimeRefresher|TestAppWriteConfigReappliesAppliedBasedpyrightSpec|TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart|TestAppRestartLanguageServerRejectsMissingSelectionForNonDefaultPythonProject'`
+- `./scripts/go.sh test ./internal/lsp -run 'TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages|TestCloneLanguageServerSpecsDeepClonesSettings|TestNewRouterAllowsNoConfiguredLanguageServers'`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -k 'basedpyright_plugin and (native_go_binary_on_windows or honors_setta_go_bin_override)'`
+- `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `./scripts/go.sh test ./internal/app -run 'TestPluginBackendRuntimeRefresher|TestAppWriteConfigReappliesAppliedBasedpyrightSpec|TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart|TestAppRestartLanguageServerRejectsMissingSelectionForNonDefaultPythonProject'` (rerun after the final `check_quality.sh` refactor to confirm the simplified config-reapply path still passes)
+- Attempted: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts --grep 'header python language server banner stays visible after rescan until restart applies the plugin'`
+  The new spec was added, but the local harness failed before test execution during isolated-project bootstrap with frontend/backend fetch failures (`ERR_ALPN_NEGOTIATION_FAILED`, `TypeError: Failed to fetch`, resulting `Project Not Found` page), so browser E2E verification did not complete in this environment.
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- Requested frontend generation and repo-wide quality verification completed successfully.
+- The remaining open item is environmental Playwright bootstrap instability in this shell session rather than an additional code defect reproduced by the new test.
+
 ## 2026-04-18 03:42:50 PDT
 
 Summary:

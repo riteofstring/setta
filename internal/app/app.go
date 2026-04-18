@@ -2455,11 +2455,13 @@ func configureAppPluginRuntime(
 		return
 	}
 	services.pluginRuntime = &pluginBackendRuntimeRefresher{
-		service:     projectServices.pluginMutationService,
-		logger:      logger,
-		runtimeRoot: cfg.Paths.RuntimeRoot,
-		settings:    projectServices.settingsStateRuntime,
-		lspRouter:   projectServices.lspRouter,
+		service:        projectServices.pluginMutationService,
+		logger:         logger,
+		runtimeRoot:    cfg.Paths.RuntimeRoot,
+		settings:       projectServices.settingsStateRuntime,
+		projectState:   projectServices.projectRuntime,
+		projectLSPSync: projectServices.projectLSPSyncer,
+		lspRouter:      projectServices.lspRouter,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {

@@ -14,7 +14,7 @@ import (
 	"setta/internal/settingsstate"
 )
 
-func TestPluginBackendRuntimeRefresherPrepareRefreshTransitionClonesPreviousSettings(t *testing.T) {
+func TestPluginBackendRuntimeRefresherPrepareRestartTransitionClonesPreviousSettings(t *testing.T) {
 	t.Parallel()
 
 	originalSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
@@ -27,9 +27,9 @@ func TestPluginBackendRuntimeRefresherPrepareRefreshTransitionClonesPreviousSett
 		lspSpecs: lsp.CloneLanguageServerSpecs(originalSpecs),
 	}
 
-	transition, err := refresher.prepareRefreshTransitionLocked(context.Background())
+	transition, err := refresher.prepareRestartTransitionLocked(context.Background())
 	if err != nil {
-		t.Fatalf("prepare refresh transition: %v", err)
+		t.Fatalf("prepare restart transition: %v", err)
 	}
 
 	severityOverrides := originalSpecs[0].Settings["basedpyright"].(map[string]any)["analysis"].(map[string]any)["severityOverrides"].(map[string]any)
@@ -50,7 +50,7 @@ func TestPluginBackendRuntimeRefresherRollbackRestoresSettings(t *testing.T) {
 		lspRouter: router,
 	}
 
-	refresher.rollbackRefreshTransitionLocked(&pluginBackendRefreshTransition{
+	refresher.rollbackRestartTransitionLocked(&pluginBackendRestartTransition{
 		nextLSPSpecs: []lsp.LanguageServerSpec{{
 			PluginID:   "other-plugin",
 			Name:       "other",
@@ -65,6 +65,42 @@ func TestPluginBackendRuntimeRefresherRollbackRestoresSettings(t *testing.T) {
 	}
 	if !reflect.DeepEqual(router.replacedSpecs[0], previousSpecs) {
 		t.Fatalf("expected rollback to restore previous specs, got %#v", router.replacedSpecs[0])
+	}
+}
+
+func TestPluginBackendRuntimeRefresherRefreshDoesNotApplyPreviewLanguageServerSpecs(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	previewSpecs := []lsp.LanguageServerSpec{{
+		PluginID:   "setta-basedpyright",
+		Name:       "basedpyright",
+		LanguageID: "python",
+		Command:    "python3",
+	}}
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs:       previewSpecs,
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	if _, err := refresher.Refresh(context.Background()); err != nil {
+		t.Fatalf("refresh plugin runtime: %v", err)
+	}
+
+	if service.commitCalls != 1 {
+		t.Fatalf("expected one commit call, got %d", service.commitCalls)
+	}
+	if len(router.replacedSpecs) != 0 {
+		t.Fatalf("expected refresh to leave live language server specs untouched, got %#v", router.replacedSpecs)
+	}
+	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
+		t.Fatalf("expected applied language server specs to stay unchanged, got %#v", refresher.lspSpecs)
 	}
 }
 
@@ -655,6 +691,62 @@ func TestPluginBackendRuntimeRefresherRestartProjectRejectsStalePreviousProjectL
 	err := refresher.RestartProject(
 		context.Background(),
 		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func(context.Context) error {
+			restartCalls++
+			return nil
+		},
+	)
+	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected ErrLanguageServerNotConfigured, got %v", err)
+	}
+	if restartCalls != 0 {
+		t.Fatalf("expected restart callback to be skipped, got %d calls", restartCalls)
+	}
+	if service.commitCalls != 0 {
+		t.Fatalf("expected commit to be skipped, got %d calls", service.commitCalls)
+	}
+	if len(router.replacedSpecs) != 0 {
+		t.Fatalf("expected no spec replacement when restart is rejected, got %#v", router.replacedSpecs)
+	}
+	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
+		t.Fatalf("expected applied specs to remain unchanged, got %#v", refresher.lspSpecs)
+	}
+}
+
+func TestPluginBackendRuntimeRefresherRestartProjectRejectsUnconfiguredNonDefaultProjectLanguages(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs: []lsp.LanguageServerSpec{{
+			PluginID:   "setta-fixture-backend",
+			Name:       "fixture-backend",
+			LanguageID: "bash",
+			Command:    "bash-language-server",
+		}},
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	bashDocument := fixtureRestartProjectDocument(t, projectstate.CodeLanguageBash)
+	pythonDocument := fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython)
+	projectBeta := pythonDocument.Projects["project-alpha"]
+	projectBeta.ID = "project-beta"
+	bashDocument.Projects["project-beta"] = projectBeta
+	normalizedDocument, err := bashDocument.Normalized()
+	if err != nil {
+		t.Fatalf("normalize multi-project document: %v", err)
+	}
+
+	restartCalls := 0
+	err = refresher.RestartProject(
+		context.Background(),
+		normalizedDocument,
 		func(context.Context) error {
 			restartCalls++
 			return nil

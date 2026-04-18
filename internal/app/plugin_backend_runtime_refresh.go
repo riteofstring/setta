@@ -19,14 +19,16 @@ import (
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service     pluginBackendRefreshService
-	logger      *slog.Logger
-	runtimeRoot string
-	mcpServer   pluginBackendToolReplacer
-	settings    *settingsstate.Runtime
-	runtime     *pluginBackendMCPRuntime
-	lspRouter   pluginBackendLanguageServerReplacer
-	lspSpecs    []lsp.LanguageServerSpec
+	service        pluginBackendRefreshService
+	logger         *slog.Logger
+	runtimeRoot    string
+	mcpServer      pluginBackendToolReplacer
+	settings       *settingsstate.Runtime
+	projectState   pluginBackendProjectSnapshotter
+	projectLSPSync pluginBackendProjectDocumentMaterializer
+	runtime        *pluginBackendMCPRuntime
+	lspRouter      pluginBackendLanguageServerReplacer
+	lspSpecs       []lsp.LanguageServerSpec
 
 	mu sync.Mutex
 }
@@ -46,7 +48,20 @@ type pluginBackendLanguageServerReplacer interface {
 	ReplaceAdditionalSpecs(ctx context.Context, specs []lsp.LanguageServerSpec) error
 }
 
-type pluginBackendRefreshTransition struct {
+type pluginBackendProjectSnapshotter interface {
+	Snapshot() projectstate.Snapshot
+}
+
+type pluginBackendProjectDocumentMaterializer interface {
+	MaterializeDocument(context.Context, projectstate.Document) error
+}
+
+type pluginBackendRuntimeTransition struct {
+	nextRuntime     *pluginBackendMCPRuntime
+	previousRuntime *pluginBackendMCPRuntime
+}
+
+type pluginBackendRestartTransition struct {
 	selectedByLanguage map[string]*string
 	nextRuntime        *pluginBackendMCPRuntime
 	nextLSPSpecs       []lsp.LanguageServerSpec
@@ -309,14 +324,14 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	transition, err := r.prepareRefreshTransitionLocked(ctx)
+	transition, err := r.prepareRuntimeRefreshTransitionLocked(ctx)
 	if err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
-	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
+	if err := r.applyRuntimeRefreshTransitionLocked(transition); err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
-	return r.commitRefreshTransitionLocked(transition)
+	return r.commitRuntimeRefreshTransitionLocked(transition)
 }
 
 func (r *pluginBackendRuntimeRefresher) RestartProject(
@@ -337,7 +352,7 @@ func (r *pluginBackendRuntimeRefresher) RestartProject(
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	transition, err := r.prepareRefreshTransitionLocked(ctx)
+	transition, err := r.prepareRestartTransitionLocked(ctx)
 	if err != nil {
 		return err
 	}
@@ -358,14 +373,14 @@ func (r *pluginBackendRuntimeRefresher) RestartProject(
 			lsp.ErrLanguageServerNotConfigured,
 		)
 	}
-	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
+	if err := r.applyRestartTransitionLocked(ctx, transition); err != nil {
 		return err
 	}
 	if err := restart(ctx); err != nil {
-		r.rollbackRefreshTransitionLocked(transition)
+		r.rollbackRestartTransitionLocked(transition)
 		return restorePreviousProjectSession(restart, err)
 	}
-	if _, err := r.commitRefreshTransitionLocked(transition); err != nil {
+	if _, err := r.commitRestartTransitionLocked(transition); err != nil {
 		return restorePreviousProjectSession(restart, err)
 	}
 	return nil
@@ -377,9 +392,15 @@ func collectRestartProjectLanguages(document projectstate.Document) (map[string]
 		return nil, err
 	}
 
-	relevantProjects := restartRelevantProjects(normalized)
 	languages := map[string]struct{}{}
-	for _, project := range relevantProjects {
+	projectIDs := make([]string, 0, len(normalized.Projects))
+	for projectID := range normalized.Projects {
+		projectIDs = append(projectIDs, projectID)
+	}
+	sort.Strings(projectIDs)
+
+	for _, projectID := range projectIDs {
+		project := normalized.Projects[projectID]
 		activeCodeSectionFiles, err := project.ActiveCodeSectionFiles()
 		if err != nil {
 			return nil, err
@@ -396,26 +417,6 @@ func collectRestartProjectLanguages(document projectstate.Document) (map[string]
 		}
 	}
 	return languages, nil
-}
-
-func restartRelevantProjects(document projectstate.Document) []projectstate.Project {
-	if projectID := strings.TrimSpace(document.DefaultProjectID); projectID != "" {
-		if project, ok := document.Projects[projectID]; ok {
-			return []projectstate.Project{project}
-		}
-	}
-
-	projectIDs := make([]string, 0, len(document.Projects))
-	for projectID := range document.Projects {
-		projectIDs = append(projectIDs, projectID)
-	}
-	sort.Strings(projectIDs)
-
-	projects := make([]projectstate.Project, 0, len(projectIDs))
-	for _, projectID := range projectIDs {
-		projects = append(projects, document.Projects[projectID])
-	}
-	return projects
 }
 
 func restartCanApplyToProjectLanguages(
@@ -508,7 +509,27 @@ func selectedLanguageKeys(selectedByLanguage map[string]*string) map[string]stru
 	return languages
 }
 
-func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
+func (r *pluginBackendRuntimeRefresher) prepareRuntimeRefreshTransitionLocked(
+	ctx context.Context,
+) (*pluginBackendRuntimeTransition, error) {
+	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
+	if err != nil {
+		return nil, err
+	}
+
+	nextRuntime, err := r.buildRuntimeLocked(ctx, previewSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	return &pluginBackendRuntimeTransition{
+		nextRuntime:     nextRuntime,
+		previousRuntime: r.runtime,
+	}, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) prepareRestartTransitionLocked(
+	ctx context.Context,
+) (*pluginBackendRestartTransition, error) {
 	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
 	if err != nil {
 		return nil, err
@@ -526,7 +547,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 	if err != nil {
 		return nil, err
 	}
-	return &pluginBackendRefreshTransition{
+	return &pluginBackendRestartTransition{
 		selectedByLanguage: cloneSelectedLanguageServerPlugins(selectedByLanguage),
 		nextRuntime:        nextRuntime,
 		nextLSPSpecs:       nextLSPSpecs,
@@ -535,9 +556,20 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 	}, nil
 }
 
-func (r *pluginBackendRuntimeRefresher) applyRefreshTransitionLocked(
+func (r *pluginBackendRuntimeRefresher) applyRuntimeRefreshTransitionLocked(
+	transition *pluginBackendRuntimeTransition,
+) error {
+	if err := r.replaceRuntimeToolsLocked(transition.previousRuntime, transition.nextRuntime); err != nil {
+		closePluginBackendRuntime(transition.nextRuntime)
+		return err
+	}
+	r.runtime = transition.nextRuntime
+	return nil
+}
+
+func (r *pluginBackendRuntimeRefresher) applyRestartTransitionLocked(
 	ctx context.Context,
-	transition *pluginBackendRefreshTransition,
+	transition *pluginBackendRestartTransition,
 ) error {
 	if err := r.replaceRuntimeToolsLocked(transition.previousRuntime, transition.nextRuntime); err != nil {
 		closePluginBackendRuntime(transition.nextRuntime)
@@ -555,12 +587,24 @@ func (r *pluginBackendRuntimeRefresher) applyRefreshTransitionLocked(
 	return nil
 }
 
-func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
-	transition *pluginBackendRefreshTransition,
+func (r *pluginBackendRuntimeRefresher) commitRuntimeRefreshTransitionLocked(
+	transition *pluginBackendRuntimeTransition,
 ) (plugins.DiscoverySnapshot, error) {
 	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
 	if commitErr != nil {
-		r.rollbackRefreshTransitionLocked(transition)
+		r.rollbackRuntimeRefreshTransitionLocked(transition)
+		return committedSnapshot, commitErr
+	}
+	closePluginBackendRuntime(transition.previousRuntime)
+	return committedSnapshot, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) commitRestartTransitionLocked(
+	transition *pluginBackendRestartTransition,
+) (plugins.DiscoverySnapshot, error) {
+	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
+	if commitErr != nil {
+		r.rollbackRestartTransitionLocked(transition)
 		return committedSnapshot, commitErr
 	}
 
@@ -569,8 +613,19 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 	return committedSnapshot, nil
 }
 
-func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
-	transition *pluginBackendRefreshTransition,
+func (r *pluginBackendRuntimeRefresher) rollbackRuntimeRefreshTransitionLocked(
+	transition *pluginBackendRuntimeTransition,
+) {
+	r.logPluginBackendRuntimeError(
+		"rollback plugin backend MCP tools failed",
+		r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime),
+	)
+	r.runtime = transition.previousRuntime
+	closePluginBackendRuntime(transition.nextRuntime)
+}
+
+func (r *pluginBackendRuntimeRefresher) rollbackRestartTransitionLocked(
+	transition *pluginBackendRestartTransition,
 ) {
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend MCP tools failed",
@@ -996,35 +1051,86 @@ func (r *pluginBackendRuntimeRefresher) ReapplyAppliedLanguageServerPluginConfig
 		ctx = context.Background()
 	}
 
-	selections, err := r.selectedLanguageServerPlugins()
-	if err != nil {
-		return err
-	}
-	snapshot, err := r.service.Rescan()
-	if err != nil {
-		return err
-	}
-	nextSpecs, err := r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
-	if err != nil {
+	previousSpecs, updatedSpecs, changed, err := r.prepareAppliedLanguageServerConfigUpdate(trimmedPluginID)
+	if err != nil || !changed {
 		return err
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	updatedSpecs, changed := updatedAppliedLanguageServerSpecsForPlugin(
-		r.lspSpecs,
-		nextSpecs,
-		trimmedPluginID,
-	)
-	if !changed {
-		return nil
+	return r.applyAppliedLanguageServerConfigUpdateLocked(ctx, previousSpecs, updatedSpecs)
+}
+
+func (r *pluginBackendRuntimeRefresher) prepareAppliedLanguageServerConfigUpdate(
+	pluginID string,
+) ([]lsp.LanguageServerSpec, []lsp.LanguageServerSpec, bool, error) {
+	selections, err := r.selectedLanguageServerPlugins()
+	if err != nil {
+		return nil, nil, false, err
 	}
-	if err := r.replaceLSPSpecsLocked(ctx, r.lspSpecs, updatedSpecs); err != nil {
+	snapshot, err := r.service.Rescan()
+	if err != nil {
+		return nil, nil, false, err
+	}
+	nextSpecs, err := r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	previousSpecs := lsp.CloneLanguageServerSpecs(r.lspSpecs)
+	updatedSpecs, changed := updatedAppliedLanguageServerSpecsForPlugin(
+		previousSpecs,
+		nextSpecs,
+		pluginID,
+	)
+	return previousSpecs, updatedSpecs, changed, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerConfigUpdateLocked(
+	ctx context.Context,
+	previousSpecs []lsp.LanguageServerSpec,
+	updatedSpecs []lsp.LanguageServerSpec,
+) error {
+	if err := r.replaceLSPSpecsLocked(ctx, previousSpecs, updatedSpecs); err != nil {
 		return err
 	}
 	r.lspSpecs = lsp.CloneLanguageServerSpecs(updatedSpecs)
+	if err := r.rematerializeCurrentProjectLocked(ctx); err != nil {
+		return r.rollbackAppliedLanguageServerConfigUpdateLocked(err, previousSpecs, updatedSpecs)
+	}
 	return nil
+}
+
+func (r *pluginBackendRuntimeRefresher) rollbackAppliedLanguageServerConfigUpdateLocked(
+	cause error,
+	previousSpecs []lsp.LanguageServerSpec,
+	updatedSpecs []lsp.LanguageServerSpec,
+) error {
+	restoreCtx, cancel := context.WithTimeout(context.Background(), pluginBackendRestartRollbackTimeout)
+	defer cancel()
+
+	if rollbackErr := r.replaceLSPSpecsLocked(restoreCtx, updatedSpecs, previousSpecs); rollbackErr != nil {
+		return errors.Join(cause, fmt.Errorf("restore previous language server specs: %w", rollbackErr))
+	}
+	r.lspSpecs = previousSpecs
+	if restoreErr := r.rematerializeCurrentProjectLocked(restoreCtx); restoreErr != nil {
+		return errors.Join(cause, fmt.Errorf("restore previous language server session: %w", restoreErr))
+	}
+	return cause
+}
+
+func (r *pluginBackendRuntimeRefresher) rematerializeCurrentProjectLocked(ctx context.Context) error {
+	if r == nil || r.projectState == nil || r.projectLSPSync == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return r.projectLSPSync.MaterializeDocument(ctx, r.projectState.Snapshot().Document)
 }
 
 func updatedAppliedLanguageServerSpecsForPlugin(

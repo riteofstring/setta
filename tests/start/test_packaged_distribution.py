@@ -1,15 +1,54 @@
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
 import tomllib
+import types
 import zipfile
 from pathlib import Path
 
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _load_basedpyright_setup_module(monkeypatch) -> dict[str, object]:
+    fake_setuptools = types.ModuleType("setuptools")
+    fake_setuptools.setup = lambda *args, **kwargs: None
+
+    fake_setuptools_command = types.ModuleType("setuptools.command")
+    fake_build_py_module = types.ModuleType("setuptools.command.build_py")
+
+    class _FakeBuildPy:
+        def run(self) -> None:
+            return None
+
+        def get_outputs(self, include_bytecode: bool = True) -> list[str]:
+            return []
+
+    fake_build_py_module.build_py = _FakeBuildPy
+
+    fake_wheel = types.ModuleType("wheel")
+    fake_bdist_wheel_module = types.ModuleType("wheel.bdist_wheel")
+
+    class _FakeBdistWheel:
+        root_is_pure = True
+
+        def finalize_options(self) -> None:
+            return None
+
+    fake_bdist_wheel_module.bdist_wheel = _FakeBdistWheel
+
+    monkeypatch.setitem(sys.modules, "setuptools", fake_setuptools)
+    monkeypatch.setitem(sys.modules, "setuptools.command", fake_setuptools_command)
+    monkeypatch.setitem(sys.modules, "setuptools.command.build_py", fake_build_py_module)
+    monkeypatch.setitem(sys.modules, "wheel", fake_wheel)
+    monkeypatch.setitem(sys.modules, "wheel.bdist_wheel", fake_bdist_wheel_module)
+    return runpy.run_path(
+        str(_repo_root() / "plugins" / "setta-basedpyright" / "setup.py")
+    )
 
 
 def _write_minimal_distribution_project(
@@ -239,6 +278,40 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     )
 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
+
+
+def test_first_party_basedpyright_plugin_prefers_native_go_binary_on_windows(
+    monkeypatch,
+) -> None:
+    module_globals = _load_basedpyright_setup_module(monkeypatch)
+    monkeypatch.delenv("SETTA_GO_BIN", raising=False)
+    monkeypatch.delenv("GO", raising=False)
+    monkeypatch.setattr(module_globals["os"], "name", "nt", raising=False)
+    monkeypatch.setattr(module_globals["sys"], "platform", "win32", raising=False)
+    monkeypatch.setattr(
+        module_globals["shutil"],
+        "which",
+        lambda name: r"C:\Go\bin\go.exe" if name == "go" else None,
+    )
+
+    assert module_globals["resolve_go_binary"]() == r"C:\Go\bin\go.exe"
+
+
+def test_first_party_basedpyright_plugin_honors_setta_go_bin_override(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_globals = _load_basedpyright_setup_module(monkeypatch)
+    go_binary = tmp_path / "go"
+    go_binary.write_text("binary\n", encoding="utf-8")
+    if os.name != "nt":
+        go_binary.chmod(0o755)
+
+    monkeypatch.setenv("SETTA_GO_BIN", str(go_binary))
+    monkeypatch.delenv("GO", raising=False)
+    monkeypatch.setattr(module_globals["shutil"], "which", lambda name: None)
+
+    assert module_globals["resolve_go_binary"]() == str(go_binary)
 
 
 def test_first_party_basedpyright_plugin_wheel_is_platform_specific_and_ships_backend(

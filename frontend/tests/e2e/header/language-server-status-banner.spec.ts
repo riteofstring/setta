@@ -3,6 +3,7 @@ import {
   allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
+  postBackend,
   setOverviewTab,
 } from "../helpers";
 
@@ -137,6 +138,77 @@ test("header python language server banner stays visible until the selected plug
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("header python language server banner stays visible after rescan until restart applies the plugin", async ({
+  page,
+}) => {
+  let pluginAvailable = false;
+  let applied = false;
+
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/runtime", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.status.selectedLanguageServers = [
+        {
+          languageId: "python",
+          selectedPluginId: "setta-basedpyright",
+          state: pluginAvailable ? "ready" : "selected_plugin_missing",
+          applied,
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.route("**/api/plugins/rescan", async (route) => {
+      pluginAvailable = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          schemaVersion: 1,
+          serverMode: "ide",
+          installedPlugins: 1,
+          activePlugins: 1,
+        }),
+      });
+    });
+
+    await page.route("**/api/restartLanguageServer", async (route) => {
+      applied = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "null",
+      });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toContainText("is not installed or active");
+
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toContainText("restart is still required");
+
+    await page.keyboard.press("Alt+Shift+R");
 
     await expect(
       page.getByTestId("python-language-server-status-banner"),
