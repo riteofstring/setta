@@ -2786,6 +2786,15 @@ export type PluginsPluginRegisteredCodegenTarget = {
   targetId: string;
 };
 
+export type PluginsPluginRegisteredLanguageServer = {
+  args: Array<string> | null;
+  command: string;
+  language: string;
+  name: string;
+  pluginId: string;
+  settingsKey?: string;
+};
+
 export type PluginsPluginRegisteredListenerEndpoint = {
   name: string;
 };
@@ -2832,6 +2841,7 @@ export type PluginsPluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: Array<PluginsPluginRegisteredBackendRoute> | null;
   registeredCodegenTargets: Array<PluginsPluginRegisteredCodegenTarget> | null;
+  registeredLanguageServers: Array<PluginsPluginRegisteredLanguageServer> | null;
   registeredListenerEndpoints: Array<PluginsPluginRegisteredListenerEndpoint> | null;
   registeredStaticDirs: Array<PluginsPluginRegisteredStaticDir> | null;
   requestedCapabilities: Array<string> | null;

@@ -4121,6 +4121,7 @@ export type PluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: null | Array<PluginRegisteredBackendRoute>;
   registeredCodegenTargets: null | Array<PluginRegisteredCodegenTarget>;
+  registeredLanguageServers: null | Array<PluginRegisteredLanguageServer>;
   registeredListenerEndpoints: null | Array<PluginRegisteredListenerEndpoint>;
   registeredStaticDirs: null | Array<PluginRegisteredStaticDir>;
   requestedCapabilities: null | Array<string>;

@@ -9730,6 +9730,12 @@
             },
             "type": ["null", "array"]
           },
+          "registeredLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/PluginRegisteredLanguageServer"
+            },
+            "type": ["null", "array"]
+          },
           "registeredListenerEndpoints": {
             "items": {
               "$ref": "#/components/schemas/PluginRegisteredListenerEndpoint"
@@ -9800,6 +9806,7 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
+          "registeredLanguageServers",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
