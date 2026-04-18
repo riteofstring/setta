@@ -1,4 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import * as endpoints from "openapi/http";
 import {
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
@@ -19,8 +20,11 @@ import {
   processProjectStateUpdateFromBackend,
   setCodeObjVariantImplValue,
   setCurrEffectiveSectionImplValue,
+  unselectAllParams,
+  updateAllProjectMetadata,
 } from "state/actions/sectionInfos";
 import {
+  useAllProjectMetadata,
   useLocalStorage,
   useMisc,
   useNodeInternals,
@@ -90,6 +94,20 @@ describe("getSectionIsHorizontalOrientation", () => {
     } as ZustandProjectState);
 
     expect(getSectionIsHorizontalOrientation(sectionId)).toBe(true);
+  });
+});
+
+describe("updateAllProjectMetadata", () => {
+  it("normalizes null project metadata to an empty array", () => {
+    updateAllProjectMetadata({
+      defaultProjectConfigId: null,
+      projectMetadata: null,
+    });
+
+    expect(useAllProjectMetadata.getState()).toEqual({
+      defaultProjectConfigId: null,
+      projectMetadata: [],
+    });
   });
 });
 
@@ -180,6 +198,89 @@ describe("getCurrShownParamIds", () => {
     const unpinned = getCurrShownParamIds(state, sectionId, false, true);
 
     expect(unpinned.topLevelParamIds).toEqual(["param-b"]);
+  });
+});
+
+describe("unselectAllParams", () => {
+  it("clears selected params for MetaControl sections", () => {
+    const projectId = "project-1";
+    const sectionId = "meta-section";
+    const sectionVariantId = "meta-variant";
+    const sectionImplId = "meta-impl";
+    const paramId = "meta-param";
+
+    const routeMock = vi
+      .spyOn(endpoints, "unselectAllParams")
+      .mockResolvedValue({
+        data: null,
+        request: new Request("http://localhost/unselectAllParams"),
+        response: new Response(null, { status: 200 }),
+      } as Awaited<ReturnType<typeof endpoints.unselectAllParams>>);
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: projectId,
+        sectionVariantMap: { [sectionId]: sectionVariantId },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [sectionImplId]: {
+          aspectRatioExtraHeight: 0,
+          aspectRatioExtraWidth: 0,
+          codeObjVariantMap: { [paramId]: "meta-param-variant" },
+          columnWidth: null,
+          edgeInputParams: [],
+          edgeOutputPorts: [],
+          hideUnpinnedParams: false,
+          id: sectionImplId,
+          ignoreTypeErrors: { callable: false, params: {} },
+          isFrozen: false,
+          isInOtherProjectConfigs: false,
+          isMinimized: false,
+          isPreset: false,
+          metaControlParamId: paramId,
+          name: "Meta control",
+          paramFilter: "",
+          pinnedParams: [],
+          positionAndSizeLocked: false,
+          selectedParams: [paramId],
+          showSectionTitle: false,
+          size: { width: 250, height: 150 },
+          styleColor: null,
+          tagColor: null,
+          type: SectionTypeEnum.MetaControl,
+        },
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          name: "Variant",
+          impl: sectionImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as unknown as ZustandProjectState);
+    usePendingOperations.setState({ pending: [] });
+
+    expect(unselectAllParams()).toBe(true);
+    expect(routeMock).toHaveBeenCalledOnce();
+    expect(
+      getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId),
+    ).toMatchObject({
+      type: SectionTypeEnum.MetaControl,
+      selectedParams: [],
+    });
   });
 });
 

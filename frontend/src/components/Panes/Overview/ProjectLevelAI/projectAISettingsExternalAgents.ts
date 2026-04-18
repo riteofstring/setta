@@ -7,6 +7,10 @@ import {
   ToolTypeEnum,
   WorkingDirStrategyEnum,
 } from "utils/generatedTypes";
+import {
+  normalizeOptionalText,
+  parseListInput,
+} from "./projectAISettingsShared";
 
 export type ExternalAgentToolTypeValue =
   (typeof ToolTypeEnum)[keyof typeof ToolTypeEnum];
@@ -292,19 +296,4 @@ function joinLines(
   fallback: ReadonlyArray<string> = [],
 ): string {
   return (values ?? fallback).join("\n");
-}
-
-function parseListInput(value: string): Array<string> {
-  return value
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-}
-
-function normalizeOptionalText(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
 }
