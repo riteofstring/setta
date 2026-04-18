@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   useLocalStorage,
@@ -28,6 +28,15 @@ import {
 
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
+const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
+
+type CanvasOwnedSwitchTrackBox = {
+  checked: boolean;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+};
 
 function normalizeStoredHeight(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
@@ -35,8 +44,181 @@ function normalizeStoredHeight(value: unknown) {
     : 0;
 }
 
+function parseViewportScale(transformValue: string | null | undefined): number {
+  const transform = transformValue?.trim() ?? "";
+  if (transform.length === 0 || transform === "none") {
+    return 1;
+  }
+
+  const matrixMatch = /^matrix\(([^)]+)\)$/.exec(transform);
+  if (matrixMatch) {
+    const firstValue = Number.parseFloat(matrixMatch[1].split(",")[0]?.trim());
+    return Number.isFinite(firstValue) && firstValue > 0 ? firstValue : 1;
+  }
+
+  const matrix3dMatch = /^matrix3d\(([^)]+)\)$/.exec(transform);
+  if (matrix3dMatch) {
+    const firstValue = Number.parseFloat(
+      matrix3dMatch[1].split(",")[0]?.trim(),
+    );
+    return Number.isFinite(firstValue) && firstValue > 0 ? firstValue : 1;
+  }
+
+  return 1;
+}
+
+function areSwitchTrackBoxesEqual(
+  left: Array<CanvasOwnedSwitchTrackBox>,
+  right: Array<CanvasOwnedSwitchTrackBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
+      leftBox.checked === rightBox.checked &&
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.width === rightBox.width
+    );
+  });
+}
+
+function measureCanvasOwnedSwitchTrackBoxes(
+  sectionId: string,
+): Array<CanvasOwnedSwitchTrackBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
+  const viewportScale = parseViewportScale(
+    viewport ? window.getComputedStyle(viewport).transform : null,
+  );
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(`[${SWITCH_TRACK_ATTRIBUTE}="true"]`),
+  )
+    .map((switchRoot) => {
+      const rect = switchRoot.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+
+      return {
+        checked:
+          switchRoot.dataset.state === "checked" ||
+          switchRoot.getAttribute("aria-checked") === "true",
+        height: rect.height / viewportScale,
+        offsetX: (rect.left - sectionRect.left) / viewportScale,
+        offsetY: (rect.top - sectionRect.top) / viewportScale,
+        width: rect.width / viewportScale,
+      };
+    })
+    .filter(
+      (
+        switchTrackBox,
+      ): switchTrackBox is CanvasOwnedSwitchTrackBox =>
+        switchTrackBox !== null,
+    );
+}
+
+function useCanvasOwnedSwitchTrackBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+) {
+  const [switchTrackBoxes, setSwitchTrackBoxes] = useState<
+    Array<CanvasOwnedSwitchTrackBox>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredBoxes = () => {
+      const nextBoxes = measureCanvasOwnedSwitchTrackBoxes(sectionId);
+      setSwitchTrackBoxes((previousBoxes) =>
+        areSwitchTrackBoxesEqual(previousBoxes, nextBoxes)
+          ? previousBoxes
+          : nextBoxes,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setSwitchTrackBoxes((previousBoxes) =>
+        previousBoxes.length === 0 ? previousBoxes : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredBoxes);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      for (const switchRoot of section.querySelectorAll<HTMLElement>(
+        `[${SWITCH_TRACK_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(switchRoot);
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["aria-checked", "class", "data-state", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, sectionId]);
+
+  return switchTrackBoxes;
+}
+
 export default function SectionShellBackdropCanvas() {
   const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
+  const canvasOwnedSectionNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const canvasOwnedShellStyleColor = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplIfPresent(
@@ -66,6 +248,10 @@ export default function SectionShellBackdropCanvas() {
       ),
     }),
     shallow,
+  );
+  const switchTrackBoxes = useCanvasOwnedSwitchTrackBoxes(
+    CANVAS_OWNED_SECTION_SHELL_ID,
+    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}`,
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
@@ -113,6 +299,16 @@ export default function SectionShellBackdropCanvas() {
           return {
             ...chrome,
             detailBands,
+            detailBoxes: switchTrackBoxes.map((switchTrackBox) => ({
+              cornerRadius: switchTrackBox.height / 2,
+              fill: switchTrackBox.checked
+                ? chrome.switchTrackCheckedFill
+                : chrome.switchTrackFill,
+              height: switchTrackBox.height,
+              width: switchTrackBox.width,
+              x: switchTrackBox.offsetX,
+              y: switchTrackBox.offsetY,
+            })),
             headerHeight: canvasOwnedShellHeaderHeight,
           };
         },
@@ -125,6 +321,7 @@ export default function SectionShellBackdropCanvas() {
       canvasOwnedShellStyleColor,
       darkMode,
       nodes,
+      switchTrackBoxes,
     ],
   );
 

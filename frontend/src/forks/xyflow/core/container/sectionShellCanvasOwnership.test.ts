@@ -29,6 +29,8 @@ describe("sectionShellCanvasOwnership", () => {
       pinnedParamsDivider: "#ffffff",
       pinnedParamsFill: "#ffffff",
       stroke: "#ffffff",
+      switchTrackCheckedFill: "#3b82f6",
+      switchTrackFill: "hsl(220, 26%, 57%)",
     });
 
     expect(
@@ -45,6 +47,8 @@ describe("sectionShellCanvasOwnership", () => {
       pinnedParamsDivider: "hsl(219, 26%, 23%)",
       pinnedParamsFill: "hsl(220, 24%, 12%)",
       stroke: "hsl(219, 26%, 23%)",
+      switchTrackCheckedFill: "#1d4ed8",
+      switchTrackFill: "hsl(219, 25%, 34%)",
     });
   });
 
@@ -68,6 +72,8 @@ describe("sectionShellCanvasOwnership", () => {
       pinnedParamsDivider: theme.border,
       pinnedParamsFill: theme.panelBg,
       stroke: theme.border,
+      switchTrackCheckedFill: theme.outline,
+      switchTrackFill: theme.border,
     });
   });
 });

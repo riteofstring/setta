@@ -79,6 +79,16 @@ describe("sectionShellBackdrop", () => {
               offsetY: 48,
             },
           ],
+          detailBoxes: [
+            {
+              cornerRadius: 999,
+              fill: "#94a3b8",
+              height: 10,
+              width: 28,
+              x: 88,
+              y: 52,
+            },
+          ],
           fill: "#f5f7fb",
           headerDivider: "#d4dae5",
           headerFill: "#fcfdff",
@@ -104,6 +114,16 @@ describe("sectionShellBackdrop", () => {
             fill: "#ffffff",
             height: 24,
             offsetY: 48,
+          },
+        ],
+        detailBoxes: [
+          {
+            cornerRadius: 5,
+            fill: "#94a3b8",
+            height: 10,
+            width: 28,
+            x: 88,
+            y: 52,
           },
         ],
         fill: "#f5f7fb",
@@ -143,12 +163,22 @@ describe("sectionShellBackdrop", () => {
                 fill: "#ffffff",
                 height: 40,
                 offsetY: 72,
-              },
-            ],
-            fill: "#f5f7fb",
-            headerDivider: "#d4dae5",
-            headerFill: "#fcfdff",
-            headerHeight: 24,
+            },
+          ],
+          detailBoxes: [
+            {
+              cornerRadius: 5,
+              fill: "#94a3b8",
+              height: 10,
+              width: 28,
+              x: 116,
+              y: 70,
+            },
+          ],
+          fill: "#f5f7fb",
+          headerDivider: "#d4dae5",
+          headerFill: "#fcfdff",
+          headerHeight: 24,
             height: 160,
             id: "settings-section__callableSectionDefault",
             stroke: "#ffffff",
@@ -167,12 +197,13 @@ describe("sectionShellBackdrop", () => {
     );
 
     expect(context.fillRect).toHaveBeenCalledWith(24, 24, 160, 24);
-    expect(context.roundRect).toHaveBeenNthCalledWith(3, 24, 64, 160, 32, 12);
-    expect(context.roundRect).toHaveBeenNthCalledWith(4, 24, 96, 160, 40, 0);
-    expect(context.moveTo).toHaveBeenNthCalledWith(2, 36, 96);
-    expect(context.lineTo).toHaveBeenNthCalledWith(2, 172, 96);
-    expect(context.moveTo).toHaveBeenNthCalledWith(3, 32, 136);
-    expect(context.lineTo).toHaveBeenNthCalledWith(3, 176, 136);
+    expect(context.roundRect).toHaveBeenCalledWith(24, 64, 160, 32, 12);
+    expect(context.roundRect).toHaveBeenCalledWith(24, 96, 160, 40, 0);
+    expect(context.roundRect).toHaveBeenCalledWith(140, 94, 28, 10, 5);
+    expect(context.moveTo).toHaveBeenCalledWith(36, 96);
+    expect(context.lineTo).toHaveBeenCalledWith(172, 96);
+    expect(context.moveTo).toHaveBeenCalledWith(32, 136);
+    expect(context.lineTo).toHaveBeenCalledWith(176, 136);
   });
 
   it("paints a clipped header band and divider before the outer stroke", () => {
@@ -190,6 +221,7 @@ describe("sectionShellBackdrop", () => {
         frames: [
           {
             detailBands: [],
+            detailBoxes: [],
             fill: "#f5f7fb",
             headerDivider: "#d4dae5",
             headerFill: "#fcfdff",

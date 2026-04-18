@@ -5,6 +5,8 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 const TARGET_SECTION_ID = "settings-section__callableSectionDefault";
+const TARGET_SWITCH_ROW_ID =
+  "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio";
 
 test("canvas shell path owns the resting callable section chrome", async ({
   page,
@@ -40,13 +42,17 @@ test("canvas shell path owns the resting callable section chrome", async ({
     );
   }, TARGET_SECTION_ID);
 
-  const shellState = await page.evaluate((sectionId) => {
+  const shellState = await page.evaluate(({ rowId, sectionId }) => {
     const outer = document.querySelector<HTMLElement>(
       `section[data-section-id="${sectionId}"]`,
     );
     const inner = document.getElementById(`${sectionId}-CustomResizable`);
     const header = outer?.querySelector<HTMLElement>("header.section-title");
     const kwargsControls = outer?.querySelector<HTMLElement>(".section-args");
+    const aspectRatioRow = document.getElementById(rowId);
+    const aspectRatioSwitch = aspectRatioRow?.querySelector<HTMLElement>(
+      '[data-canvas-owned-switch-track="true"]',
+    );
     const node = outer?.closest<HTMLElement>(".react-flow__node");
     const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
     const canvas = document.querySelector(
@@ -64,6 +70,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
     }
     if (!(kwargsControls instanceof HTMLElement)) {
       throw new Error(`Missing callable toolbar for ${sectionId}`);
+    }
+    if (!(aspectRatioRow instanceof HTMLElement)) {
+      throw new Error(`Missing Aspect Ratio row for ${sectionId}`);
+    }
+    if (!(aspectRatioSwitch instanceof HTMLElement)) {
+      throw new Error(`Missing Aspect Ratio switch for ${sectionId}`);
     }
     if (!(node instanceof HTMLElement)) {
       throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
@@ -138,6 +150,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
     const nodeRect = node.getBoundingClientRect();
     const headerRect = header.getBoundingClientRect();
     const kwargsRect = kwargsControls.getBoundingClientRect();
+    const aspectRatioSwitchRect = aspectRatioSwitch.getBoundingClientRect();
     const headerOffsetX = (headerRect.left - nodeRect.left) / viewportScale;
     const headerOffsetY = (headerRect.top - nodeRect.top) / viewportScale;
     const headerWidth = headerRect.width / viewportScale;
@@ -162,6 +175,25 @@ test("canvas shell path owns the resting callable section chrome", async ({
       (nodeX - canvasLeft + kwargsOffsetX + kwargsWidth * 0.72) * canvasScaleX;
     const kwargsSampleY =
       (nodeY - canvasTop + kwargsOffsetY + kwargsHeight * 0.5) * canvasScaleY;
+    const aspectRatioSwitchOffsetX =
+      (aspectRatioSwitchRect.left - nodeRect.left) / viewportScale;
+    const aspectRatioSwitchOffsetY =
+      (aspectRatioSwitchRect.top - nodeRect.top) / viewportScale;
+    const aspectRatioSwitchWidth = aspectRatioSwitchRect.width / viewportScale;
+    const aspectRatioSwitchHeight =
+      aspectRatioSwitchRect.height / viewportScale;
+    const aspectRatioSwitchSampleX =
+      (nodeX -
+        canvasLeft +
+        aspectRatioSwitchOffsetX +
+        aspectRatioSwitchWidth * 0.5) *
+      canvasScaleX;
+    const aspectRatioSwitchSampleY =
+      (nodeY -
+        canvasTop +
+        aspectRatioSwitchOffsetY +
+        aspectRatioSwitchHeight * 0.5) *
+      canvasScaleY;
 
     function sampleCanvasPixel(canvasX: number, canvasY: number) {
       const clampedX = Math.max(
@@ -182,8 +214,16 @@ test("canvas shell path owns the resting callable section chrome", async ({
     }
 
     const kwargsStyle = window.getComputedStyle(kwargsControls);
+    const aspectRatioSwitchStyle = window.getComputedStyle(aspectRatioSwitch);
 
     return {
+      aspectRatioSwitchBackground: aspectRatioSwitchStyle.backgroundColor,
+      aspectRatioSwitchOwnershipFlag:
+        aspectRatioSwitch.dataset.canvasOwnedSwitchTrack ?? null,
+      aspectRatioSwitchPixel: sampleCanvasPixel(
+        aspectRatioSwitchSampleX,
+        aspectRatioSwitchSampleY,
+      ),
       bodyPixel: sampleCanvasPixel(bodySampleX, bodySampleY),
       headerHeight,
       headerPixel: sampleCanvasPixel(headerSampleX, headerSampleY),
@@ -200,7 +240,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       innerBackground: innerStyle.backgroundColor,
       innerBeforeBorderWidth: innerBeforeStyle.borderTopWidth,
     };
-  }, TARGET_SECTION_ID);
+  }, { rowId: TARGET_SWITCH_ROW_ID, sectionId: TARGET_SECTION_ID });
 
   expect(shellState.outerOwnershipFlag).toBe("true");
   expect(shellState.innerOwnershipFlag).toBe("true");
@@ -217,4 +257,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.kwargsShadow).toBe("none");
   expect(shellState.kwargsPixel).not.toBe("0,0,0,0");
   expect(shellState.kwargsPixel).not.toBe(shellState.bodyPixel);
+  expect(shellState.aspectRatioSwitchOwnershipFlag).toBe("true");
+  expect(shellState.aspectRatioSwitchBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(shellState.aspectRatioSwitchPixel).not.toBe("0,0,0,0");
+  expect(shellState.aspectRatioSwitchPixel).not.toBe(shellState.bodyPixel);
 });

@@ -1,4 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -91,6 +93,7 @@ type ParamUIState = {
 };
 
 type ParamUIRenderContext = ParamUIProps & {
+  canvasOwnedSectionChrome: boolean;
   isDisabled: boolean;
   isSelectingParams: boolean;
   onEscape: () => void;
@@ -378,6 +381,7 @@ function renderRotaryParam({
 }
 
 function renderSwitchParam({
+  canvasOwnedSectionChrome,
   value,
   onChange,
   onEscape,
@@ -386,6 +390,7 @@ function renderSwitchParam({
 }: ParamUIRenderContext) {
   return (
     <SwitchParamConfigured
+      canvasOwnedTrack={canvasOwnedSectionChrome}
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
@@ -583,6 +588,7 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const paramUiState = useParamUIState(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -612,6 +618,9 @@ export function ParamUI({
   }
 
   const renderContext = {
+    canvasOwnedSectionChrome:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionShell(sectionId),
     sectionId,
     paramInfoId,
     value,
@@ -842,20 +851,34 @@ function DropzoneParamConfigured({
 }
 
 function SwitchParamConfigured({
+  canvasOwnedTrack,
   value,
   defaultVal,
   onChange,
   onEscape,
   isDisabled,
+}: {
+  canvasOwnedTrack: boolean;
+  value: boolean | string;
+  defaultVal?: boolean | string;
+  onChange: ParamValueChange;
+  onEscape?: () => void;
+  isDisabled: boolean;
 }) {
+  const rootThemeClassName = canvasOwnedTrack
+    ? "bg-transparent data-[state='checked']:bg-transparent dark:bg-transparent dark:data-[state='checked']:bg-transparent"
+    : undefined;
+
   return (
     <SwitchInput
+      canvasOwnedTrack={canvasOwnedTrack}
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
       outerDivClassName="section-value flex justify-self-start self-center"
+      rootThemeClassName={rootThemeClassName}
     />
   );
 }

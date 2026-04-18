@@ -8,8 +8,18 @@ export type SectionShellBackdropFrameDetailBand = {
   offsetY: number;
 };
 
+export type SectionShellBackdropFrameDetailBox = {
+  cornerRadius: number;
+  fill: string | null;
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
 export type SectionShellBackdropFrame = {
   detailBands: Array<SectionShellBackdropFrameDetailBand>;
+  detailBoxes: Array<SectionShellBackdropFrameDetailBox>;
   headerDivider: string | null;
   headerFill: string | null;
   headerHeight: number;
@@ -36,8 +46,18 @@ type SectionShellBackdropFrameDetailBandVisual = {
   offsetY: number;
 };
 
+type SectionShellBackdropFrameDetailBoxVisual = {
+  cornerRadius?: number | null;
+  fill?: string | null;
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
 type SectionShellBackdropFrameVisual = {
   detailBands?: Array<SectionShellBackdropFrameDetailBandVisual> | null;
+  detailBoxes?: Array<SectionShellBackdropFrameDetailBoxVisual> | null;
   fill?: string | null;
   headerDivider?: string | null;
   headerFill?: string | null;
@@ -126,6 +146,73 @@ function normalizeDetailBands({
     .sort((a, b) => a.offsetY - b.offsetY);
 }
 
+function normalizeDetailBoxes({
+  detailBoxes,
+  frameHeight,
+  frameWidth,
+}: {
+  detailBoxes: Array<SectionShellBackdropFrameDetailBoxVisual> | null;
+  frameHeight: number;
+  frameWidth: number;
+}): Array<SectionShellBackdropFrameDetailBox> {
+  if (!Array.isArray(detailBoxes) || detailBoxes.length === 0) {
+    return [];
+  }
+
+  return detailBoxes
+    .map((detailBox) => {
+      const rawX = detailBox.x;
+      const rawY = detailBox.y;
+      const rawWidth = detailBox.width;
+      const rawHeight = detailBox.height;
+      if (
+        !Number.isFinite(rawX) ||
+        !Number.isFinite(rawY) ||
+        !Number.isFinite(rawWidth) ||
+        !Number.isFinite(rawHeight) ||
+        rawWidth <= 0 ||
+        rawHeight <= 0
+      ) {
+        return null;
+      }
+
+      const x = Math.max(0, Math.min(rawX, frameWidth));
+      const y = Math.max(0, Math.min(rawY, frameHeight));
+      const maxWidth = frameWidth - x;
+      const maxHeight = frameHeight - y;
+      if (maxWidth <= 0 || maxHeight <= 0) {
+        return null;
+      }
+
+      const width = Math.max(0, Math.min(rawWidth, maxWidth));
+      const height = Math.max(0, Math.min(rawHeight, maxHeight));
+      if (width <= 0 || height <= 0) {
+        return null;
+      }
+
+      const rawCornerRadius = detailBox.cornerRadius;
+      const cornerRadius =
+        typeof rawCornerRadius === "number" && Number.isFinite(rawCornerRadius)
+          ? Math.max(0, Math.min(rawCornerRadius, height / 2, width / 2))
+          : 0;
+
+      return {
+        cornerRadius,
+        fill: detailBox.fill ?? null,
+        height,
+        width,
+        x,
+        y,
+      };
+    })
+    .filter(
+      (
+        detailBox,
+      ): detailBox is SectionShellBackdropFrameDetailBox => detailBox !== null,
+    )
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
 export function buildSectionShellBackdropScene(
   nodes: Iterable<Node>,
   { getFrameVisual }: BuildSectionShellBackdropSceneOptions = {},
@@ -162,9 +249,15 @@ export function buildSectionShellBackdropScene(
       frameHeight: height,
       frameWidth: width,
     });
+    const detailBoxes = normalizeDetailBoxes({
+      detailBoxes: frameVisual?.detailBoxes ?? null,
+      frameHeight: height,
+      frameWidth: width,
+    });
 
     frames.push({
       detailBands,
+      detailBoxes,
       headerDivider:
         headerHeight > 0 ? (frameVisual?.headerDivider ?? null) : null,
       headerFill: headerHeight > 0 ? (frameVisual?.headerFill ?? null) : null,
@@ -358,6 +451,33 @@ function paintFrameDetailBandDivider(
   ctx.stroke();
 }
 
+function paintFrameDetailBoxFill(
+  ctx: CanvasRenderingContext2D,
+  detailBox: SectionShellBackdropFrameDetailBox,
+  {
+    frameX,
+    frameY,
+  }: {
+    frameX: number;
+    frameY: number;
+  },
+) {
+  if (!detailBox.fill || detailBox.width <= 0 || detailBox.height <= 0) {
+    return;
+  }
+
+  ctx.fillStyle = detailBox.fill;
+  beginRoundedRect(
+    ctx,
+    frameX + detailBox.x,
+    frameY + detailBox.y,
+    detailBox.width,
+    detailBox.height,
+    detailBox.cornerRadius,
+  );
+  ctx.fill();
+}
+
 export function paintSectionShellBackdrop(
   ctx: CanvasRenderingContext2D,
   scene: SectionShellBackdropScene,
@@ -411,13 +531,19 @@ export function paintSectionShellBackdrop(
       frameY,
     });
 
-    for (const detailBand of frame.detailBands) {
+    for (const detailBand of frame.detailBands ?? []) {
       paintFrameDetailBandFill(ctx, frame, detailBand, {
         frameX,
         frameY,
       });
       paintFrameDetailBandDivider(ctx, frame, detailBand, {
         cornerRadius,
+        frameX,
+        frameY,
+      });
+    }
+    for (const detailBox of frame.detailBoxes ?? []) {
+      paintFrameDetailBoxFill(ctx, detailBox, {
         frameX,
         frameY,
       });

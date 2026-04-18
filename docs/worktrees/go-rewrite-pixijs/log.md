@@ -421,3 +421,29 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - start the first visible param-row or row-group canvas-chrome slice for `settings-section__callableSectionDefault` instead of another top-level panel-chrome pass
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 020
+
+- Item: Add retained-canvas switch-track chrome for the first visible control family on `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` so retained frames now support normalized `detailBoxes`, letting the canvas path paint control-local chrome inside a section frame rather than only full-width shell bands.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene measures canary switch roots in `settings-section__callableSectionDefault`, converts them into graph-space boxes, and paints switch-track pills into the retained canvas.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the canary chrome palette now resolves default and section-style-aware switch-track colors alongside the existing shell/header/toolbar/pinned-panel colors.
+  - Updated `frontend/src/components/Params/ParamUIs/ParamUI.tsx` and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` so only the canary section's switch tracks become transparent on the `canvas-shell-underlay` path while the live switch buttons/thumbs stay mounted and interactive.
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted live canary probe now samples the `Aspect Ratio` switch track in graph space in addition to the existing shell/header/toolbar checks.
+  - Added focused node coverage in `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`, updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`, and updated `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx` to lock the new switch-track chrome contract.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+  - The first Playwright attempt in this iteration failed in global setup because the previously issued bootstrap token had already expired/been consumed (`401` on `/__setta__/bootstrap`); refreshed runtime info via `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-002/worktree-ai.log` provided a fresh bootstrap URL/token and the rerun passed unchanged.
+  - CDP visual check is done:
+    - `Page 1` in the headless worktree session was bootstrapped, then verified on `http://127.0.0.1:3068/settings`
+    - `All Settings` was active with no crash or error-boundary overlay visible
+    - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+    - `settings-section__callableSectionDefault` was visible on the live surface
+    - the `Aspect Ratio` row remained visible and its switch still looked intact after the DOM switch track was made transparent on the canvas path
+- Next action:
+  - move to the first non-switch visible control family on `settings-section__callableSectionDefault`, starting with the `Config Language` dropdown shell/chrome while keeping the live combobox interaction intact
+LOOP_TERMINAL_MARKER: none

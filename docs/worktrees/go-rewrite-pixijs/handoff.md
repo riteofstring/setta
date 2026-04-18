@@ -169,6 +169,26 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__callableSectionDefault` was present on the live surface
   - the pinned-params panel was visible by default on that section and the live surface still looked healthy after the pinned container chrome was made transparent on the canvas path
   - residual risk: this slice now has focused unit coverage plus live CDP confirmation, but it does not yet have its own dedicated Playwright graph-space pixel probe because the attempted oracle extension was reverted as untrustworthy
+- The first visible param/control family slice is now landed for the same canary section using `Aspect Ratio` as the deterministic probe row:
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now supports retained-scene `detailBoxes`, so the canvas path can paint control-local chrome inside a section frame instead of only full-width shell bands
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures canvas-owned switch roots inside `settings-section__callableSectionDefault`, converts them into graph-space boxes, and paints retained switch-track pills for the visible switch rows on the canvas path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves default and section-style-aware switch-track colors alongside the existing shell/header/toolbar/pinned-panel chrome
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now make only the canary section's switch tracks transparent on the `canvas-shell-underlay` path while leaving the live switch buttons/thumbs interactive
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary shell-ownership probe now also samples the `Aspect Ratio` switch track pixel and passes on the live worktree runtime
+- CDP visual check is done for the switch-track slice:
+  - `Page 1` in the headless worktree session was bootstrapped, then verified on `http://127.0.0.1:3068/settings`
+  - `All Settings` was active with no crash or error-boundary overlay visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was visible on the live surface
+  - the `Aspect Ratio` row remained visible and its switch still looked intact after the DOM switch track was made transparent on the canvas path
 
 ## Preservation rule
 
@@ -197,7 +217,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Start the next bounded production slice at the earliest visible remaining chrome on that same canary: the first retained-canvas param-row shell or row-group chrome for the visible settings rows while keeping the live editors and interactions intact.
+3. Start the next bounded production slice at the first non-switch visible control family on that same canary, beginning with the `Config Language` dropdown shell/chrome while keeping the live combobox interaction intact.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -215,8 +235,9 @@ The first product frontier is:
 - with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
 - with the same canary section now also painting a canvas-owned header band/divider from the measured header height
 - with the same canary section now also painting a canvas-owned callable toolbar band while the live controls remain interactive
+- with the same canary section now also painting canvas-owned switch tracks for visible switch rows while the live switch thumbs/buttons remain interactive
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
-- next: move to the first visible param-row or row-group chrome on that same named canary instead of reopening top-level shell/body panel work
+- next: move to the first non-switch visible control family on that same named canary instead of reopening top-level shell/body panel work
 
 ## Hard rules
 
