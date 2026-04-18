@@ -262,6 +262,11 @@ Overwrite stale notes instead of appending an iteration diary.
   - broken owner/generated contract drift across Go, Python, and TypeScript
   - missing or renamed exports, imports, symbols, properties, discriminants, or required fields that production code depends on
   - handler-map, enum, JSX, or component typing that points to a real live-code crash, dropped message, or broken dispatch path
+- Duplication policy:
+  - Do not introduce duplicate code or logic merely to satisfy the type checker.
+  - Before adding a local type, helper, wrapper, adapter, or normalizer, first reuse an existing authoritative type or helper if one already exists.
+  - If the only problem is that an owner-side helper type is private, prefer exporting and reusing it from the owner module instead of re-declaring the same shape locally.
+  - If a normalization boundary is genuinely unavoidable because two owner surfaces are materially different, keep it minimal, make it the only such boundary for that concept, and record the reason briefly in this audit.
 - Usually not severe by default:
   - exactOptionalPropertyTypes or nullability churn that does not indicate runtime breakage
   - test-only fixture typing or helper typing backlog
@@ -271,6 +276,9 @@ Overwrite stale notes instead of appending an iteration diary.
 ## Current severe actionable findings
 
 ## Current target
+
+## High-risk contract surfaces checked
+- Before completion, explicitly audit high-risk shared-contract and runtime-dispatch surfaces that can evade raw typecheck output.
 
 ## Deferred non-severe or test-only backlog
 
@@ -301,13 +309,15 @@ Rules:
 - [ ] Update ${severe_type_audit_file} on every iteration with only the current severe actionable findings, current target, and brief deferred non-severe backlog needed for triage.
 - [ ] Use the saved typecheck outputs as candidate generators, not a blanket todo list. Fix only actionable severe errors under the severity rubric.
 - [ ] Choose one highest-leverage severe error or tightly related severe error cluster and fix it fully before moving on.
+- [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
+- [ ] Manually audit high-risk shared-contract and dispatch surfaces that can evade raw typecheck output, especially generated enums or unions used by runtime handler maps.
 - [ ] When generated artifacts are implicated, fix the owner inputs and regenerate instead of manually editing generated files.
 - [ ] Run focused verification and the relevant language type checks for the code you changed.
 - [ ] Before every non-stop commit, run \`./gcf.sh\` and \`./scripts/check_quality_for_git_changes.sh\`.
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-typefix:\`.
 
 ## Completion
-- [ ] Mark completion only after a fresh severe-type audit plus fresh saved typecheck outputs show no remaining actionable severe type errors under the severity rubric. Non-severe backlog may remain.
+- [ ] Mark completion only after a fresh severe-type audit plus fresh saved typecheck outputs show no remaining actionable severe type errors under the severity rubric, and the high-risk shared-contract/dispatch audit is also clean. Non-severe backlog may remain.
 EOF
 fi
 
@@ -334,12 +344,18 @@ Severity rubric:
   - generated contract drift that breaks protocol dispatch, handler maps, or other live runtime wiring
   - JSX/component type failures that imply a component may be undefined or called with impossible live props
   - owner/generated mismatches across Go, Python, and TypeScript that indicate a broken shared contract
+- Duplication policy for this loop:
+  - Do not introduce duplicate code or logic merely to silence type errors.
+  - Before adding a local type, helper, wrapper, adapter, or normalizer, first search for an existing authoritative type or helper and reuse it.
+  - If the only issue is that an owner-side helper type is private, export and reuse it from the owner module instead of re-declaring the same structure locally.
+  - If two owner surfaces are genuinely different and a normalization boundary is unavoidable, keep it minimal, keep exactly one such boundary for that concept, and record the reason in ${severe_type_audit_file}.
 - Usually not severe by default:
   - exactOptionalPropertyTypes, nullability, or narrowing churn that does not indicate runtime breakage
   - test-only fixture typing, helper typing, or broad legacy test backlog
   - generated-file noise unless it points back to an owner-side severe contract regression
   - broad repo type backlog that is not required to land the current severe fix
 - If an error is ambiguous, use production-path runtime impact as the decision rule and record the rationale briefly in ${severe_type_audit_file}.
+- Typecheck outputs are candidate generators only. Some severe protocol and shared-contract regressions can evade raw typecheck output or be masked by generated types/tests.
 
 Execution rules for every iteration:
 - Treat the checklist at ${checklist_file} and the audit at ${severe_type_audit_file} as the source of truth.
@@ -351,6 +367,13 @@ Execution rules for every iteration:
 - Use the saved typecheck outputs as candidate generators, not as a blanket requirement to fix every reported issue.
 - Pick one actionable severe error or tightly related severe cluster that you can complete confidently in this session.
 - Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
+- Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
+- Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
+- In addition to reading typecheck outputs, manually audit high-risk shared-contract surfaces that often evade raw typecheck logs:
+  - generated enums and unions used by runtime dispatch maps
+  - owner/generated contract pairs where live runtime string constants can diverge from generated unions
+  - frontend handler maps whose computed keys depend on generated enum members
+  - Any drift that can leave production-path runtime dispatch unable to handle real owner-side messages or payloads must block completion.
 - Do not hand-edit generated files. If a generated file is wrong, fix the owner and regenerate.
 - Run focused verification for the behavior you changed.
 - Do not use Chrome DevTools, browser MCP, or other browser-driven verification in this loop. This is a type-error cleanup loop; prefer static checks, generation, and focused tests.
@@ -367,9 +390,10 @@ Severe-only discipline:
 - If you must touch a little non-severe typing to land a severe fix cleanly, keep that spillover minimal and targeted.
 - Production code and shared contract surfaces matter more than test-only typing.
 - If a severe issue originates in shared contracts, generated frontend types, or Go-owned Python surfaces, fix the authoritative owner and regenerate downstream artifacts before cleanup.
+- A type-only duplication that papers over an existing authoritative helper or shape is not an acceptable fix for this loop.
 
 Completion rule:
-- If a fresh audit plus fresh saved typecheck outputs show no remaining actionable severe type errors under the severity rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
+- If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable severe type errors under the severity rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
   ${complete_stop_sentinel}
 
 Completion discipline:
