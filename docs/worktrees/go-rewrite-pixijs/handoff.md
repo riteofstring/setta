@@ -25,9 +25,10 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - focused runtime verification now succeeds for that exact request shape:
     - `pnpm -C frontend exec vitest run src/openapi/http/client.test.ts`
     - a headless Playwright browser import of `/src/openapi/http` now returns `200` for `loadProjectConfig({ body: { projectConfigName: "round_lime" } })` with no `requestfailed` events
-  - rerunning `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` now gets past bootstrap/auth and reaches `http://127.0.0.1:3068/round_lime`, but the app then crashes before the Settings surface is usable
-  - the new blocking runtime error is `ReferenceError: DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX is not defined` in `src/components/ChatWindowing/ProjectChatBottomDock.tsx`
-  - CDP visual check is done for this slice and shows the same state: redirect succeeds to the project route, then the page falls into the React error boundary instead of a usable project view
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` now defines `DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX` locally again, so the prior dock-constant runtime crash is cleared
+  - rerunning `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` now gets past bootstrap/auth, reaches `http://127.0.0.1:3068/round_lime`, and fails one layer later before the Settings surface is usable
+  - the current blocking runtime error is `Element type is invalid: expected a string ... but got: undefined. Check the render method of _MiniMapNodes.`
+  - CDP visual check is done for this slice and shows the same state: redirect succeeds to the project route, then the page falls into the React error boundary with `Unexpected Application Error!` and the `_MiniMapNodes` invalid-element-type message; no visible `DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX` reference remains
   - fresh bootstrap URLs are one-shot; stale URLs quickly turn into misleading `401` bootstrap failures
 
 ## Preservation rule
@@ -55,8 +56,8 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Fix the `DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX` runtime crash in `src/components/ChatWindowing/ProjectChatBottomDock.tsx` so the project route can settle under automation again.
-2. Re-run `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` once the live route can finish rendering without the `ProjectChatBottomDock` error boundary.
+1. Fix the `_MiniMapNodes` invalid-element-type runtime crash in the minimap path (`frontend/src/forks/xyflow/minimap/*`) so the project route can settle under automation again.
+2. Re-run `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` once the live route can finish rendering without the minimap error boundary.
 3. Capture the first durable `go-rewrite` baseline report under `perf/reports/frontend/`.
 4. Only after the baseline exists, take the first product slice.
 5. Keep the append-only log current from the first running iteration onward.
