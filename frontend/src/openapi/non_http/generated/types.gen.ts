@@ -222,7 +222,9 @@ type AppCapabilities = {
  * AppDefinition
  */
 export type AppDefinition = {
-  actions?: RawMessage | null;
+  actions?: {
+    [key: string]: RawMessage;
+  } | null;
   appSpecPath?: string;
   appSpecVersion?: string;
   assets?: RawMessage | null;

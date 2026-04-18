@@ -618,6 +618,39 @@ func TestBuildSchemaDocumentMarksAppDefinitionDataBindingsAsObjectMap(t *testing
 	}
 }
 
+func TestBuildSchemaDocumentMarksAppDefinitionActionsAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	appDefinitionSchema := document.Defs["AppDefinition"]
+	if appDefinitionSchema == nil {
+		t.Fatalf("expected AppDefinition schema in $defs")
+	}
+	actionsSchema := appDefinitionSchema.Properties["actions"]
+	if actionsSchema == nil {
+		t.Fatalf("expected AppDefinition.actions schema")
+	}
+	if got := len(actionsSchema.Types); got != 2 {
+		t.Fatalf("AppDefinition.actions types count = %d, want 2", got)
+	}
+	if got := actionsSchema.Types[0]; got != "object" {
+		t.Fatalf("AppDefinition.actions first type = %q, want %q", got, "object")
+	}
+	if got := actionsSchema.Types[1]; got != "null" {
+		t.Fatalf("AppDefinition.actions second type = %q, want %q", got, "null")
+	}
+	if actionsSchema.AdditionalProperties == nil {
+		t.Fatalf("expected AppDefinition.actions additionalProperties schema")
+	}
+	if got := actionsSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("AppDefinition.actions additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
 func TestBuildSchemaDocumentUsesDateTimeFormatForTimeFields(t *testing.T) {
 	t.Parallel()
 

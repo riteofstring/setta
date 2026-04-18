@@ -502,14 +502,10 @@
         "additionalProperties": false,
         "properties": {
           "actions": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "appSpecPath": {
             "type": "string"

@@ -207,6 +207,21 @@ func TestDocumentNormalizedRejectsNonObjectAppDefinitionDataBindings(t *testing.
 	}
 }
 
+func TestDocumentNormalizedRejectsNonObjectAppDefinitionActions(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	document.AppDefinition.Actions = mustRawJSON(t, `["not","an","object"]`)
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object appDefinition.actions to fail normalization")
+	}
+	if !strings.Contains(err.Error(), "appDefinition.actions") {
+		t.Fatalf("expected appDefinition.actions error, got %v", err)
+	}
+}
+
 func TestViewModeJSONIncludesZeroSortIndex(t *testing.T) {
 	t.Parallel()
 

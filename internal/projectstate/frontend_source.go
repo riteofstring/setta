@@ -136,7 +136,7 @@ type AppDefinition struct {
 	AppSpecPath    string     `json:"appSpecPath,omitempty"`
 	Routes         []AppRoute `json:"routes,omitempty"`
 	DataBindings   RawJSON    `json:"dataBindings,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
-	Actions        RawJSON    `json:"actions,omitempty"`
+	Actions        RawJSON    `json:"actions,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
 	Theme          RawJSON    `json:"theme,omitempty"`
 	Assets         RawJSON    `json:"assets,omitempty"`
 }
@@ -237,6 +237,12 @@ func (d AppDefinition) Normalized() (AppDefinition, error) {
 	}
 	normalized.Actions, err = normalizeRawJSON(normalized.Actions, "appDefinition.actions")
 	if err != nil {
+		return AppDefinition{}, err
+	}
+	if _, err := decodeAppDefinitionJSONObject(
+		normalized.Actions,
+		"appDefinition.actions",
+	); err != nil {
 		return AppDefinition{}, err
 	}
 	normalized.Theme, err = normalizeRawJSON(normalized.Theme, "appDefinition.theme")

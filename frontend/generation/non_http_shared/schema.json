@@ -666,14 +666,13 @@
           }
         },
         "actions": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "theme": {
           "anyOf": [
