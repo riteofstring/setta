@@ -30,6 +30,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
 		reflect.TypeOf(projectstate.BrowserSavedSearch{}),
 		reflect.TypeOf(projectstate.SignatureHelpStatus("")),
+		reflect.TypeOf(projectstate.ChangeParamImplUIConfigValue{}),
 		reflect.TypeOf(projectstate.LineChartSettings{}),
 		reflect.TypeOf(projectstate.ScatterChartSettings{}),
 		reflect.TypeOf(projectstate.ChartType("")),

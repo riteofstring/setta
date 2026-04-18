@@ -452,6 +452,11 @@
       "schemaRef": "#/$defs/CanvasPoint"
     },
     {
+      "name": "ChangeParamImplUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ChangeParamImplUIConfigValue"
+    },
+    {
       "name": "ChartDataArtifact",
       "kind": "model",
       "schemaRef": "#/$defs/ChartDataArtifact"
@@ -10729,6 +10734,58 @@
         "SETTA_TERMINAL_READY": "SETTA_TERMINAL_READY",
         "SETTINGS_PROJECT_NAME": "settings",
         "WS_TERMINAL_RESIZE": "terminalResize"
+      }
+    },
+    {
+      "name": "ChangeParamImplUIConfig",
+      "type": "ChangeParamImplUIConfigValue",
+      "value": {
+        "allParamCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ],
+        "controlCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam"
+        ],
+        "sectionParamCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ]
       }
     },
     {

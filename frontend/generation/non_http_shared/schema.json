@@ -2346,6 +2346,45 @@
       "minItems": 2,
       "maxItems": 2
     },
+    "ChangeParamImplUIConfigValue": {
+      "type": "object",
+      "properties": {
+        "allParamCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        },
+        "controlCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        },
+        "sectionParamCodeObjTypes": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/CodeObjType"
+          }
+        }
+      },
+      "title": "ChangeParamImplUIConfigValue",
+      "required": [
+        "allParamCodeObjTypes",
+        "controlCodeObjTypes",
+        "sectionParamCodeObjTypes"
+      ],
+      "additionalProperties": false
+    },
     "ChartDataArtifact": {
       "type": "object",
       "properties": {

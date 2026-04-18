@@ -2035,6 +2035,36 @@
         "title": "CanvasPoint",
         "type": "array"
       },
+      "ChangeParamImplUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "allParamCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "controlCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "sectionParamCodeObjTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "allParamCodeObjTypes",
+          "controlCodeObjTypes",
+          "sectionParamCodeObjTypes"
+        ],
+        "title": "ChangeParamImplUIConfigValue",
+        "type": "object"
+      },
       "ChartDataArtifact": {
         "additionalProperties": false,
         "properties": {

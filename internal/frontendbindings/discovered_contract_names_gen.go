@@ -100,6 +100,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectview.ButtonParamUIConfigValue{}):                              "ButtonParamUIConfigValue",
 	reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}):                          "CallableSectionImpl",
 	reflect.TypeOf(artifacts.CanvasPoint{}):                                             "CanvasPoint",
+	reflect.TypeOf(projectstate.ChangeParamImplUIConfigValue{}):                         "ChangeParamImplUIConfigValue",
 	reflect.TypeOf(artifacts.ChartDataArtifact{}):                                       "ChartDataArtifact",
 	reflect.TypeOf(artifacts.ChartDataValue(nil)):                                       "ChartDataValue",
 	reflect.TypeOf(projectstate.FrontendChartSectionImpl{}):                             "ChartSectionImpl",

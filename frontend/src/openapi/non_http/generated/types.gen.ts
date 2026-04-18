@@ -829,6 +829,15 @@ export type CallableSectionImpl = {
 export type CanvasPoint = [number, number];
 
 /**
+ * ChangeParamImplUIConfigValue
+ */
+export type ChangeParamImplUIConfigValue = {
+  allParamCodeObjTypes: null | Array<CodeObjType>;
+  controlCodeObjTypes: null | Array<CodeObjType>;
+  sectionParamCodeObjTypes: null | Array<CodeObjType>;
+};
+
+/**
  * ChartDataArtifact
  */
 export type ChartDataArtifact = {
