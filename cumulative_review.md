@@ -1,8 +1,44 @@
+# Cumulative Review
+
+Format for new entries:
+- Heading: `## YYYY-MM-DD HH:MM[:SS] TZ`
+- Sections in order: `Summary:`, `Fixes applied:`, `Tests added or upgraded:`, `Verification run:`, `Residual risks / verification gaps:`, `Outcome:`
+- Keep entries factual. Omit boilerplate such as `Consolidated review findings were valid.`, `I implemented the fixes directly...`, `The reviewed regressions are fixed in this branch snapshot.`, or equivalent filler.
+- Update the recurring subsystem invariant matrix below when a pass touches one of those areas. If a consolidated cluster is labeled `new subsystem: <name>`, add a new matrix entry for it before appending the dated entry.
+- The loop stops as soon as the consolidator reports `NO_FINDINGS`, so this matrix tracks recurring findings and proof obligations only. It does not need clean-pass closure bookkeeping.
+- Historical entries may omit newer sections. Do not rewrite old entries just for format.
+
+## Recurring Subsystem Invariant Matrix
+
+Matrix entry format:
+- Heading: `### <Subsystem Name>`
+- Include: `- Invariant: ...`
+- Include: `- Last finding commit: <sha>|none|pre-matrix history`
+- Include: `- Proof tests: ...`
+- Include: `- Still unverified: ...`
+
+### Plugin Runtime / Restart / Selected-Server State
+- Invariant: refresh, config writes, selected-plugin state, live-server state, restart admission, and rollback must stay truthful and all-or-nothing for every affected project.
+- Last finding commit: `pre-matrix history`
+- Proof tests: `internal/app` restart/refresher tests, `internal/plugins/status` coverage, frontend banner/runtime tests.
+- Still unverified: end-to-end browser flows have repeatedly been environment-blocked, and adjacent regressions kept appearing across multiple passes.
+
+### Plugin Config Persistence / Precedence / Rollback
+- Invariant: plugin config must use canonical source-aware keys, correct precedence, transactional writes, and serialized live reapply.
+- Last finding commit: `pre-matrix history`
+- Proof tests: `internal/plugins` config-write/service tests, `internal/app` config-reapply tests.
+- Still unverified: repeated regressions in canonical keys, rollback conflicts, shadowed plugin selection, and reapply races show this area is not closed yet.
+
+### Basedpyright Packaging / Defaults Bootstrap / Tool Resolution
+- Invariant: packaged and source flows must produce a usable first-party Python LSP without host-specific shell/tool assumptions, and defaults/bootstrap must select the correct provider.
+- Last finding commit: `pre-matrix history`
+- Proof tests: `tests/start/test_packaged_distribution.py`, defaults/bootstrap Go coverage, setup/build-helper resolver tests.
+- Still unverified: packaged, source, defaults, and cross-platform combinations have regressed in separate passes, so this area should stay open until stability is sustained.
+
 ## 2026-04-18 04:43:44 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had three concrete issues: applied language-server plugin config writes could persist a rejected config before live reapply succeeded, packaged `setta-basedpyright` builds still ignored explicit `GO=...` command-name overrides on `PATH`, and several `internal/plugins` tests still seeded removed legacy `scope:pluginId` config keys instead of the canonical `scope:sourceManager:pluginId` format.
-- I implemented the fixes directly and simplified the ownership boundaries instead of adding more post-write special cases or keeping stale legacy test scaffolding alive.
+- This branch still had three concrete issues: applied language-server plugin config writes could persist a rejected config before live reapply succeeded, packaged `setta-basedpyright` builds still ignored explicit `GO=...` command-name overrides on `PATH`, and several `internal/plugins` tests still seeded removed legacy `scope:pluginId` config keys instead of the canonical `scope:sourceManager:pluginId` format.
 
 Fixes applied:
 - Reworked `internal/plugins/config_write.go` so config writes now snapshot the previous `PluginsStateFile`, restore it if the post-save rescan fails, and expose a transactional `WriteConfigTransactional(...)` helper for callers that must apply live side effects after persistence.
@@ -26,14 +62,12 @@ Verification run:
 - `./check_quality.sh`
 
 Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
 - Canonical plugin-config coverage is aligned with production again, packaged plugin builds now honor explicit `GO` command-name overrides, and failed live LSP config reapply no longer leaves rejected config persisted.
 
 ## 2026-04-18 04:15:47 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had four concrete issues: plugin backend refresh could advance selected-language-server state across the explicit restart boundary, `restartLanguageServer` still validated only the default project while rematerializing the full document, config writes for already-applied language-server plugins could replace the live router service without restoring tracked documents, and Windows source builds for the first-party `setta-basedpyright` package still tried to execute the repo’s Bash `go.sh` wrapper.
-- I implemented the fixes directly and simplified the ownership boundaries instead of layering more preview/live-state heuristics onto the existing paths.
+- This branch still had four concrete issues: plugin backend refresh could advance selected-language-server state across the explicit restart boundary, `restartLanguageServer` still validated only the default project while rematerializing the full document, config writes for already-applied language-server plugins could replace the live router service without restoring tracked documents, and Windows source builds for the first-party `setta-basedpyright` package still tried to execute the repo’s Bash `go.sh` wrapper.
 
 Fixes applied:
 - Split backend plugin runtime refresh from live LSP application in `internal/app/plugin_backend_runtime_refresh.go`. `Refresh()` now only rebuilds backend plugin runtime/tooling and commits pending backend restart state; only `RestartProject()` swaps live LSP specs, so selected-language-server `Applied` remains tied to the actual restarted project session.
@@ -60,15 +94,13 @@ Verification run:
   The new spec was added, but the local harness failed before test execution during isolated-project bootstrap with frontend/backend fetch failures (`ERR_ALPN_NEGOTIATION_FAILED`, `TypeError: Failed to fetch`, resulting `Project Not Found` page), so browser E2E verification did not complete in this environment.
 
 Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
 - Requested frontend generation and repo-wide quality verification completed successfully.
 - The remaining open item is environmental Playwright bootstrap instability in this shell session rather than an additional code defect reproduced by the new test.
 
 ## 2026-04-18 03:42:50 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had three concrete regressions: mixed-language workspaces could get a false `language_server_not_configured` on `restartLanguageServer`, post-restart commit failure could split the live project LSP session from router/persisted plugin state, and the standard repo Python install path no longer installed the `defaults` lane that owns the first-party Python LSP plugin.
-- I implemented the fixes directly and simplified the surrounding code instead of preserving extra dead paths for test convenience.
+- This branch still had three concrete regressions: mixed-language workspaces could get a false `language_server_not_configured` on `restartLanguageServer`, post-restart commit failure could split the live project LSP session from router/persisted plugin state, and the standard repo Python install path no longer installed the `defaults` lane that owns the first-party Python LSP plugin.
 
 Fixes applied:
 - Reworked `internal/app/plugin_backend_runtime_refresh.go` so restart validation only considers project languages the restart is actually responsible for: `python`, languages already applied, languages present in the next spec set, or languages with an explicit selection entry. That preserves the explicit `null` disable flow while allowing Python+Bash/JS projects to restart a valid Python server without a false `409`.
@@ -92,14 +124,12 @@ Verification run:
 - `./check_quality.sh`
 
 Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
 - Requested repo generation and quality verification completed successfully after this review pass.
 
 ## 2026-04-18 03:13:20 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had four concrete issues: `restartLanguageServer` could admit a restart based on stale previously applied LSP specs instead of the post-refresh selection, rollback restore reused the request-scoped restart context and could strand the prior session after cancellation or timeout, the frontend restart success path never refreshed the runtime store that drives the Python language-server banner, and legacy `languageServer.basedpyright` test scaffolding still masked the canonical top-level `basedpyright` settings contract.
-- I implemented the fixes directly and kept the code paths explicit rather than layering on compatibility branches or heuristic fallbacks.
+- This branch still had four concrete issues: `restartLanguageServer` could admit a restart based on stale previously applied LSP specs instead of the post-refresh selection, rollback restore reused the request-scoped restart context and could strand the prior session after cancellation or timeout, the frontend restart success path never refreshed the runtime store that drives the Python language-server banner, and legacy `languageServer.basedpyright` test scaffolding still masked the canonical top-level `basedpyright` settings contract.
 
 Fixes applied:
 - Reworked `internal/app/plugin_backend_runtime_refresh.go` so restart validation is based on the next selected language-server state per relevant project language, with explicit `null` disable still allowed as the only zero-spec transition. Previously applied specs no longer justify a restart into an unconfigured state.
@@ -122,14 +152,12 @@ Verification run:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts --grep 'header python language server banner clears after a successful restart refresh'` was attempted, but the disposable E2E environment failed before the project became ready, surfacing `Project Not Found` plus frontend `Failed to fetch` / `ERR_ALPN_NEGOTIATION_FAILED` bootstrap errors. The new assertion did not get a usable browser surface in this shell.
 
 Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
 - Repo formatting and the requested quality verification completed successfully after this review pass.
 
 ## 2026-04-18 02:35:18 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had six concrete issues: `restartLanguageServer` validation was not scoped to the current project and could reject valid disable transitions or report success for the wrong language, restart failure could leave the active project without its prior LSP session, selected-language-server status still derived future state from stale live plugin rows, legacy plugin-config persistence still accepted ambiguous same-scope `scope:pluginId` keys, the frontend restart action discarded the new backend `409 language_server_not_configured` contract, and generated frontend settings helpers could emit an invalid empty `languageServer` object on partial overrides.
-- I implemented the fixes directly and removed superseded compatibility/dead-code paths rather than layering on more fallback behavior.
+- This branch still had six concrete issues: `restartLanguageServer` validation was not scoped to the current project and could reject valid disable transitions or report success for the wrong language, restart failure could leave the active project without its prior LSP session, selected-language-server status still derived future state from stale live plugin rows, legacy plugin-config persistence still accepted ambiguous same-scope `scope:pluginId` keys, the frontend restart action discarded the new backend `409 language_server_not_configured` contract, and generated frontend settings helpers could emit an invalid empty `languageServer` object on partial overrides.
 
 Fixes applied:
 - Reworked plugin-runtime restart in `internal/app/plugin_backend_runtime_refresh.go` so restart validation is based on the current project’s effective languages, explicit per-language disable is allowed when it removes an already-applied server, rollback restores the prior live session if the restart callback fails, and selected-language-server status classification uses preview runtime state plus live applied specs instead of inferring future truth from stale rows.
@@ -152,16 +180,10 @@ Verification run:
 - `pnpm -C frontend exec vitest run src/state/actions/lsp.test.ts src/utils/generatedTypes.settings.test.ts`
 - `pnpm -C frontend gcf`
 - `./check_quality.sh`
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
-
 ## 2026-04-18 06:13:56 PDT
 
 Summary:
-- Consolidated review findings were valid. This pass fixed three concrete issues from the temporary top-level reviews: first-open defaults could persist `python -> setta-basedpyright` from a package-manager row that would never become the live active Python provider, selected-language-server status collapsed selected-plugin state and live-session state so the header could claim Python LSP was gone even while the old session was still serving completions until restart, and the branch-review loop script still carried trailing whitespace in the branch diff.
-- I implemented the fixes directly and simplified the status contract instead of layering more inference into the frontend banner.
+- This pass fixed three concrete issues from the temporary top-level reviews: first-open defaults could persist `python -> setta-basedpyright` from a package-manager row that would never become the live active Python provider, selected-language-server status collapsed selected-plugin state and live-session state so the header could claim Python LSP was gone even while the old session was still serving completions until restart, and the branch-review loop script still carried trailing whitespace in the branch diff.
 
 Fixes applied:
 - Tightened defaults bootstrap in `internal/plugins/defaults_profile.go` so a package-manager default is only accepted when the effective primary plugin instance for that plugin ID is active and actually registers the requested language server. Shadowed or `pending_restart` package-manager rows no longer cause a sticky unusable default to be written on first open.
@@ -183,16 +205,10 @@ Verification run:
 - `./scripts/run-playwright-e2e.sh -g 'wrong-language selection leaves the current Python server live until restart' frontend/tests/e2e/header/language-server-status-banner.spec.ts` was attempted, but the disposable environment failed before the test body ran because isolated-project bootstrap never became ready (`ERR_ALPN_NEGOTIATION_FAILED`, then `Project Not Found`).
 - `pnpm -C frontend gcf`
 - `./check_quality.sh`
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
-
 ## 2026-04-18 01:54 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had six concrete issues: config writes for applied selected language-server plugins did not flow back into the live LSP spec path, `restartLanguageServer` committed plugin-runtime refresh too early and could clear pending state on restart failure, selected-language-server status could lie about `applied` state and misclassify invalid plugins as “wrong language,” persisted plugin config keys still collapsed same-scope Setta and package-manager sources, the Python distribution build wrapper still misread `python -m build` flags passed after `--`, and the header banner copy still treated every unavailable state as already unapplied.
-- I implemented the fixes directly and kept the design explicit: transactional restart stays in the existing refresh transition path, config-write reapplication updates only already-applied specs, and config persistence now uses source-aware keys instead of another compatibility layer.
+- This branch still had six concrete issues: config writes for applied selected language-server plugins did not flow back into the live LSP spec path, `restartLanguageServer` committed plugin-runtime refresh too early and could clear pending state on restart failure, selected-language-server status could lie about `applied` state and misclassify invalid plugins as “wrong language,” persisted plugin config keys still collapsed same-scope Setta and package-manager sources, the Python distribution build wrapper still misread `python -m build` flags passed after `--`, and the header banner copy still treated every unavailable state as already unapplied.
 
 Fixes applied:
 - Added live config reapplication for currently applied selected language-server plugins in `internal/app/plugin_backend_runtime_refresh.go`. Successful config writes now rebuild authoritative specs from current discovery/settings and replace only the specs that are already applied, so config saves do not silently leave the live server stale or accidentally apply unrelated selection changes early.
@@ -219,16 +235,10 @@ Verification run:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts` was attempted, but the disposable environment failed before banner assertions with frontend/backend fetch failures (`ERR_ALPN_NEGOTIATION_FAILED`) while the isolated project was bootstrapping.
 - `pnpm -C frontend gcf`
 - `./check_quality.sh`
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
-
 ## 2026-04-17 23:39:41 PDT
 
 Summary:
-- Consolidated review findings were valid. The branch had three real issues: broken first-party plugin packaging for package-manager discovery and `setta[defaults]`, a basedpyright interpreter-resolution regression introduced by pluginization, and lossy LSP-spec cloning during plugin-runtime refresh rollback.
-- I implemented the fixes rather than carrying the review notes forward as open findings.
+- The branch had three real issues: broken first-party plugin packaging for package-manager discovery and `setta[defaults]`, a basedpyright interpreter-resolution regression introduced by pluginization, and lossy LSP-spec cloning during plugin-runtime refresh rollback.
 
 Fixes applied:
 - Reworked `plugins/setta-basedpyright` packaging so the wheel installs a package-scoped plugin root under `setta_basedpyright/` instead of dropping plugin assets into site-packages root. This makes `importlib.metadata.distributions(...).files` expose the manifest path and gives discovery a unique plugin root.
@@ -251,16 +261,10 @@ Verification run:
 - Focused Go tests for `internal/app`, `internal/plugins`, `internal/lsp`, `internal/pythonenv`, and `plugins/setta-basedpyright/backend`.
 - `source activate.sh && pytest tests/start/test_distribution_script_wiring.py tests/start/test_packaged_distribution.py`
 - `./check_quality.sh`
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
-
 ## 2026-04-18 05:17:54 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had four concrete issue clusters: duplicate plugin IDs were resolved through different precedence paths in selected spec generation versus defaults bootstrap, failed plugin-config reapply could replay stale snapshots over newer state, runtime source-build flows still ignored `GO` / `SETTA_GO_BIN` command names on `PATH`, and the branch-review loop could strand top-level `review*.md` files after failures while also writing unused bookkeeping artifacts.
-- I implemented the fixes directly and removed superseded logic instead of preserving the reviewed behavior behind fallback paths.
+- This branch still had four concrete issue clusters: duplicate plugin IDs were resolved through different precedence paths in selected spec generation versus defaults bootstrap, failed plugin-config reapply could replay stale snapshots over newer state, runtime source-build flows still ignored `GO` / `SETTA_GO_BIN` command names on `PATH`, and the branch-review loop could strand top-level `review*.md` files after failures while also writing unused bookkeeping artifacts.
 
 Fixes applied:
 - Added a small shared precedence helper in `internal/plugins` and switched selected language-server spec generation to build from the primary discovered plugin copy for each plugin ID, so selected specs now follow the same precedence path as status classification and other plugin-owner flows.
@@ -285,16 +289,10 @@ Verification run:
 - `source activate.sh && pytest tests/start/test_run_codex_branch_review_loop_script.py -q`
 - `pnpm -C frontend gcf`
 - `./check_quality.sh`
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
-
 ## 2026-04-18 01:18:06 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had eight concrete issues: packaged `setta-basedpyright` wheels still depended on host Go toolchains at runtime, live LSP selection could cross the explicit `pending_restart` boundary, selected-language-server banner state could be derived from shadowed same-ID plugins instead of the primary instance, legacy `languageServer.basedpyright` settings still affected runtime behavior, schema-invalid plugin configs lost their specific error classification on config write, the branch-review loop dropped repo cwd on `codex exec resume`, the Python distribution build helper misread attached short outdir flags like `-owheelhouse`, and an unused `LanguageServerSpecsFromSnapshot` helper remained in the plugin language-server path.
-- I implemented the fixes directly and removed superseded code rather than carrying the review notes forward as open findings.
+- This branch still had eight concrete issues: packaged `setta-basedpyright` wheels still depended on host Go toolchains at runtime, live LSP selection could cross the explicit `pending_restart` boundary, selected-language-server banner state could be derived from shadowed same-ID plugins instead of the primary instance, legacy `languageServer.basedpyright` settings still affected runtime behavior, schema-invalid plugin configs lost their specific error classification on config write, the branch-review loop dropped repo cwd on `codex exec resume`, the Python distribution build helper misread attached short outdir flags like `-owheelhouse`, and an unused `LanguageServerSpecsFromSnapshot` helper remained in the plugin language-server path.
 
 Fixes applied:
 - Reworked `plugins/setta-basedpyright` wheel packaging so the plugin wheel now builds and ships a platform backend executable during wheel creation, rewrites the packaged manifest to point at that executable, and produces a platform-specific wheel instead of a runtime source-build dependency.
@@ -330,16 +328,10 @@ Verification run:
 - `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
 - `./check_quality.sh`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts` was attempted, but the disposable E2E environment failed before the banner assertions with `Project Not Found` / `ERR_ALPN_NEGOTIATION_FAILED`.
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
-
 ## 2026-04-18 00:34 PDT
 
 Summary:
-- Consolidated review findings were valid. This branch still had six concrete problems: stale Python-current-process test scaffolding that no longer matched pluginized LSP ownership, missing host-provided `setta_files` import roots in selected basedpyright settings, incorrect short-flag handling in the Python distribution build wrapper, header banner UX that inferred language-server readiness from plugin discovery instead of applied runtime state, lost `~` and `$HOME` expansion for explicit basedpyright launcher overrides, and soft acceptance of malformed plugin schema JSON.
-- I implemented the fixes directly and removed superseded test-only and compatibility code instead of preserving the reviewed issues as open findings.
+- This branch still had six concrete problems: stale Python-current-process test scaffolding that no longer matched pluginized LSP ownership, missing host-provided `setta_files` import roots in selected basedpyright settings, incorrect short-flag handling in the Python distribution build wrapper, header banner UX that inferred language-server readiness from plugin discovery instead of applied runtime state, lost `~` and `$HOME` expansion for explicit basedpyright launcher overrides, and soft acceptance of malformed plugin schema JSON.
 
 Fixes applied:
 - Removed stale current-process test coverage that asserted deleted implicit-Python-LSP behavior, then rewrote router and app diagnostics tests to use explicit basedpyright specs and pluginized expectations.
@@ -366,7 +358,3 @@ Verification run:
 - `pnpm -C frontend gcf`
 - `./check_quality.sh`
 - The targeted new Playwright spec was added but the earlier direct run remained blocked by an unrelated isolated-project bootstrap failure before the banner assertions executed.
-
-Outcome:
-- The reviewed regressions are fixed in this branch snapshot.
-- No unresolved findings from this review pass remain recorded here.
