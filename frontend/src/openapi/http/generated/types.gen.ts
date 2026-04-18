@@ -2786,15 +2786,6 @@ export type PluginsPluginRegisteredCodegenTarget = {
   targetId: string;
 };
 
-export type PluginsPluginRegisteredLanguageServer = {
-  args: Array<string> | null;
-  command: string;
-  language: string;
-  name: string;
-  pluginId: string;
-  settingsKey?: string;
-};
-
 export type PluginsPluginRegisteredListenerEndpoint = {
   name: string;
 };
@@ -2841,7 +2832,6 @@ export type PluginsPluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: Array<PluginsPluginRegisteredBackendRoute> | null;
   registeredCodegenTargets: Array<PluginsPluginRegisteredCodegenTarget> | null;
-  registeredLanguageServers: Array<PluginsPluginRegisteredLanguageServer> | null;
   registeredListenerEndpoints: Array<PluginsPluginRegisteredListenerEndpoint> | null;
   registeredStaticDirs: Array<PluginsPluginRegisteredStaticDir> | null;
   requestedCapabilities: Array<string> | null;
@@ -3777,12 +3767,6 @@ export type SettingsstateFrontendSettingsGui = {
   zoomOnScroll: boolean;
 };
 
-export type SettingsstateFrontendSettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: string | null;
-  };
-};
-
 export type SettingsstateFrontendSettingsShortcuts = {
   advancedSearchShortcut: string;
   commandPaletteShortcut: string;
@@ -3852,7 +3836,9 @@ export type SettingsstateFrontendSettingsState = {
   backend: SettingsstateFrontendSettingsBackend;
   chatWindowing: SettingsstateFrontendSettingsChatWindowing;
   gui: SettingsstateFrontendSettingsGui;
-  languageServer: SettingsstateFrontendSettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: ProjectstateFrontendSectionSizingPolicy;
   shortcuts: SettingsstateFrontendSettingsShortcuts;
 };
