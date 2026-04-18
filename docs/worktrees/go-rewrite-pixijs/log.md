@@ -218,3 +218,35 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - write the first durable `go-rewrite` baseline report under `perf/reports/frontend/` using the now-passing `All Settings` probe output
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 012
+
+- Item: Record the first durable `go-rewrite` `settings` -> `All Settings` baseline report.
+- Status: `done`
+- Details:
+  - Added `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the first durable Phase 1 baseline report for this restart.
+  - Reran the focused baseline probe on the live worktree runtime with a fresh bootstrap token:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> PLAYWRIGHT_HEADLESS=1 setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line`
+    - result: passed in headless Chromium and emitted the durable baseline payload used in the report
+  - Captured metrics from the fresh 2026-04-18 run:
+    - `flowNodeCount: 46`
+    - `visibleFlowNodeCount: 46`
+    - `documentNodeCount: 9553`
+    - `inputCount: 92`
+    - `textareaCount: 1`
+    - `buttonCount: 521`
+    - `raf.meanMs: 204.93`
+    - `raf.p95Ms: 216.7`
+    - `raf.maxMs: 316.7`
+    - `longTasks.count: 181`
+    - `longTasks.totalMs: 36337`
+    - `longTasks.maxMs: 301`
+  - The report explicitly records the harness caveat that this probe uses a scripted `.react-flow__viewport` transform loop and is therefore a durable pre-change branch baseline, not a direct apples-to-apples replacement for the older staged March trace benchmark.
+  - CDP visual check is done for this slice:
+    - `/settings` loads normally
+    - `All Settings` is visible and active
+    - no React error boundary or crash overlay is visible
+    - non-target chrome still visible during the check included the left settings list, right tool rail, bottom tab bar, and a `Chat Window 1` overlay/suggestion panel, but none blocked the graph surface
+- Next action:
+  - start the first real product slice by identifying the narrowest `settings` canary seam where Pixi can take camera or resting-surface ownership without another pure forwarding seam lift
+LOOP_TERMINAL_MARKER: none
