@@ -217,7 +217,7 @@ function compareAppGenSkillEntries(
   }
   return first.name.localeCompare(second.name);
 }
-export function upsertAppGenSkillEntry(
+function upsertAppGenSkillEntry(
   skills: SkillEntry[],
   nextSkill: SkillEntry,
 ): SkillEntry[] {
@@ -232,7 +232,7 @@ export function upsertAppGenSkillEntry(
       : [...skills, nextSkill];
   return nextSkills.sort(compareAppGenSkillEntries);
 }
-export function resolveSkillMarkdownRawDraftBySkillIdHydration({
+function resolveSkillMarkdownRawDraftBySkillIdHydration({
   skillMarkdownDraftStateBySkillId,
   skillId,
   skillContent,
@@ -263,7 +263,7 @@ export function resolveSkillMarkdownRawDraftBySkillIdHydration({
     },
   };
 }
-export function resolveSkillMarkdownRawDraftBySkillIdReplace({
+function resolveSkillMarkdownRawDraftBySkillIdReplace({
   skillMarkdownDraftStateBySkillId,
   skillId,
   nextRawDraft,
@@ -287,7 +287,7 @@ export function resolveSkillMarkdownRawDraftBySkillIdReplace({
     },
   };
 }
-export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
+function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
   currentSelectedSkillId,
   requestSkillId,
   selectUpdatedSkill,
@@ -310,7 +310,7 @@ export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
     selectedSkillOriginalSizeBytes: skillContent.originalSizeBytes,
   };
 }
-export function resolveSkillMarkdownRawDraftBySkillIdUpdate({
+function resolveSkillMarkdownRawDraftBySkillIdUpdate({
   skillMarkdownDraftStateBySkillId,
   skillId,
   nextRawDraft,
@@ -487,7 +487,7 @@ function shouldLoadSlashCommandAgentRuns({
   }
   return true;
 }
-export function resolveSkillPreviewContent({
+function resolveSkillPreviewContent({
   skillContentLoading,
   skillsLoading,
   selectedSkillId,
@@ -511,7 +511,7 @@ export function resolveSkillPreviewContent({
   }
   return "Select a skill to preview SKILL.md.";
 }
-export function resolveRenderedSkillPreviewContent({
+function resolveRenderedSkillPreviewContent({
   skillPreviewContent,
   skillMarkdownRawDraft,
   selectedSkillId,

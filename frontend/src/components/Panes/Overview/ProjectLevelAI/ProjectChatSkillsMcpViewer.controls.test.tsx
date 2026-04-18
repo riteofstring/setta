@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,7 @@ import {
   EngineTypeEnum,
   ToolTypeEnum,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 
 const routeMocks = vi.hoisted(() => ({
@@ -23,6 +24,10 @@ const routeMocks = vi.hoisted(() => ({
 
 const aiActionMocks = vi.hoisted(() => ({
   loadAgentRuns: vi.fn(),
+}));
+
+const mockLocalStorageState = vi.hoisted(() => ({
+  customProjectChatSlashCommandsByProjectConfigId: {},
 }));
 
 const mockAIState = vi.hoisted(() => ({
@@ -51,7 +56,22 @@ vi.mock("components/Chat/chatComposerControls", () => ({
 }));
 
 vi.mock("@uiw/react-codemirror", () => ({
-  default: () => null,
+  default: ({
+    "aria-label": ariaLabel,
+    onChange,
+    value,
+  }: {
+    "aria-label"?: string;
+    onChange?: (value: string) => void;
+    value?: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      data-testid="project-chat-skill-markdown-editor"
+      onChange={(event) => onChange?.(event.currentTarget.value)}
+      value={value ?? ""}
+    />
+  ),
 }));
 
 vi.mock("components/Utils/CodeMirror/getExtensions", () => ({
@@ -84,14 +104,19 @@ vi.mock("state/actions/notifications", () => ({
 vi.mock("state/definitions", () => ({
   useAIStore: (selector: (state: typeof mockAIState) => unknown) =>
     selector(mockAIState),
-  useLocalStorage: (
-    selector: (state: {
-      customProjectChatSlashCommandsByProjectConfigId: Record<string, unknown>;
-    }) => unknown,
-  ) =>
-    selector({
-      customProjectChatSlashCommandsByProjectConfigId: {},
-    }),
+  useLocalStorage: Object.assign(
+    (selector: (state: typeof mockLocalStorageState) => unknown) =>
+      selector(mockLocalStorageState),
+    {
+      setState: (
+        updater: (
+          state: typeof mockLocalStorageState,
+        ) => typeof mockLocalStorageState,
+      ) => {
+        Object.assign(mockLocalStorageState, updater(mockLocalStorageState));
+      },
+    },
+  ),
 }));
 
 vi.mock("openapi/http", () => ({
@@ -123,10 +148,32 @@ function buildExternalAgentHealth(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const skillViewerStorageAdapter = getSafeLocalStorageAdapter(
+  "project-chat-skills-mcp-viewer",
+);
+const skillMarkdownViewerStorageKey =
+  "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
+const skillMarkdownViewModeStorageKey =
+  "setta.projectChatSkillsMcpViewer.skillMarkdownViewMode";
+
+function okOpenAPIResult<T>(data: T) {
+  return {
+    data,
+    error: undefined,
+    response: new Response(null, { status: 200 }),
+  };
+}
+
 async function settle() {
   await act(async () => {
     await Promise.resolve();
   });
+}
+
+async function settleView() {
+  await settle();
+  await settle();
+  await settle();
 }
 
 function setTextInputValue(
@@ -148,6 +195,23 @@ function setTextInputValue(
   });
 }
 
+function clickElement(element: Element | null) {
+  act(() => {
+    element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function setSkillViewerStorage(args: {
+  isOpen: boolean;
+  mode: "rendered" | "raw";
+}) {
+  skillViewerStorageAdapter.setItem(
+    skillMarkdownViewerStorageKey,
+    args.isOpen ? "true" : "false",
+  );
+  skillViewerStorageAdapter.setItem(skillMarkdownViewModeStorageKey, args.mode);
+}
+
 describe("ProjectChatSkillsMcpViewer controls", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -162,6 +226,11 @@ describe("ProjectChatSkillsMcpViewer controls", () => {
     routeMocks.getAppGenSkills.mockReset();
     routeMocks.getMcpRuntimeStatus.mockReset();
     routeMocks.upsertAppGenCustomSkill.mockReset();
+    Object.assign(mockLocalStorageState, {
+      customProjectChatSlashCommandsByProjectConfigId: {},
+    });
+    skillViewerStorageAdapter.removeItem(skillMarkdownViewerStorageKey);
+    skillViewerStorageAdapter.removeItem(skillMarkdownViewModeStorageKey);
 
     Object.assign(mockAIState, {
       chatDetails: {},
@@ -220,6 +289,38 @@ describe("ProjectChatSkillsMcpViewer controls", () => {
     });
     host.remove();
   });
+
+  async function renderViewer(
+    overrides: Partial<ComponentProps<typeof ProjectChatSkillsMcpViewer>> = {},
+  ) {
+    await act(async () => {
+      root.render(
+        <ProjectChatSkillsMcpViewer
+          projectConfigId="project-alpha"
+          chatId="chat-alpha"
+          engineConfigId="engine-codex"
+          engineType={EngineTypeEnum.external_agent}
+          externalAgentToolType={ToolTypeEnum.codex}
+          viewMode="skills"
+          {...overrides}
+        />,
+      );
+    });
+    await settleView();
+  }
+
+  function getSkillButton(skillName: string): HTMLButtonElement | null {
+    const nameNode = Array.from(
+      host.querySelectorAll('[data-testid="skills-mcp-skill-name"]'),
+    ).find((element) => element.textContent === skillName);
+    return (nameNode?.closest("button") as HTMLButtonElement | null) ?? null;
+  }
+
+  function getMarkdownEditor(): HTMLTextAreaElement | null {
+    return host.querySelector(
+      '[data-testid="project-chat-skill-markdown-editor"]',
+    ) as HTMLTextAreaElement | null;
+  }
 
   it("keeps custom skill creation disabled when the backend does not expose a writable root", async () => {
     routeMocks.getAppGenSkills.mockResolvedValue({
@@ -307,6 +408,335 @@ describe("ProjectChatSkillsMcpViewer controls", () => {
       host.querySelector('[data-testid="project-chat-custom-skill-root-path"]')
         ?.textContent,
     ).toContain("/home/.agents/skills");
+  });
+
+  it("creates a custom skill through the owner view, re-sorts the list, and selects the new editor state", async () => {
+    const betaSkill = {
+      skillId: "user_agents_skills::beta",
+      name: "beta",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "beta",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Beta skill",
+    };
+    const createdSkill = {
+      skillId: "user_agents_skills::alpha-custom",
+      name: "alpha-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "alpha-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Alpha custom skill",
+    };
+    const createdSkillContent =
+      "# alpha-custom\n\nDescribe what this skill helps with.\n";
+
+    setSkillViewerStorage({ isOpen: true, mode: "raw" });
+    routeMocks.getAppGenSkills.mockResolvedValue(
+      okOpenAPIResult({
+        customSkillCreateRootActionable: true,
+        customSkillCreateRootPath: "/home/.agents/skills",
+        skills: [betaSkill],
+      }),
+    );
+    routeMocks.getAppGenSkillContent.mockImplementation(({ body }) =>
+      Promise.resolve(
+        okOpenAPIResult({
+          content: body.skillId === betaSkill.skillId ? "# beta\n\nStable" : "",
+          originalSizeBytes: 14,
+          skillId: body.skillId,
+          truncated: false,
+        }),
+      ),
+    );
+    routeMocks.upsertAppGenCustomSkill.mockResolvedValue(
+      okOpenAPIResult({
+        rootPath: "/home/.agents/skills",
+        skill: createdSkill,
+        skillContent: {
+          content: createdSkillContent,
+          originalSizeBytes: createdSkillContent.length,
+          skillId: createdSkill.skillId,
+          truncated: false,
+        },
+      }),
+    );
+
+    await renderViewer();
+
+    const createInput = host.querySelector(
+      '[data-testid="project-chat-custom-skill-relative-path-input"]',
+    ) as HTMLInputElement | null;
+    const createButton = host.querySelector(
+      '[data-testid="project-chat-custom-skill-create"]',
+    ) as HTMLButtonElement | null;
+
+    setTextInputValue(createInput!, "alpha-custom");
+    await settleView();
+    clickElement(createButton);
+    await settleView();
+
+    expect(
+      Array.from(host.querySelectorAll('[data-testid="skills-mcp-skill-name"]'))
+        .map((element) => element.textContent)
+        .filter(Boolean),
+    ).toEqual(["alpha-custom", "beta"]);
+    expect(getSkillButton("alpha-custom")?.dataset.selected).toBe("true");
+    expect(getMarkdownEditor()?.value).toBe(createdSkillContent);
+    expect(createInput?.value).toBe("");
+  });
+
+  it("keeps a stale save response from stealing selection while still replacing the saved draft", async () => {
+    const alphaSkill = {
+      skillId: "user_agents_skills::alpha-custom",
+      name: "alpha-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "alpha-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Alpha custom skill",
+    };
+    const betaSkill = {
+      skillId: "user_agents_skills::beta-custom",
+      name: "beta-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "beta-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Beta custom skill",
+    };
+    const contentBySkillId = {
+      [alphaSkill.skillId]: "# alpha-custom\n\nOriginal",
+      [betaSkill.skillId]: "# beta-custom\n\nStable",
+    };
+    const savedAlphaContent = "# alpha-custom\n\nSaved on server";
+    let resolveSave:
+      | ((value: ReturnType<typeof okOpenAPIResult>) => void)
+      | null = null;
+
+    setSkillViewerStorage({ isOpen: true, mode: "raw" });
+    routeMocks.getAppGenSkills.mockResolvedValue(
+      okOpenAPIResult({
+        customSkillCreateRootActionable: true,
+        customSkillCreateRootPath: "/home/.agents/skills",
+        skills: [alphaSkill, betaSkill],
+      }),
+    );
+    routeMocks.getAppGenSkillContent.mockImplementation(({ body }) =>
+      Promise.resolve(
+        okOpenAPIResult({
+          content:
+            contentBySkillId[body.skillId as keyof typeof contentBySkillId],
+          originalSizeBytes:
+            contentBySkillId[body.skillId as keyof typeof contentBySkillId]
+              .length,
+          skillId: body.skillId,
+          truncated: false,
+        }),
+      ),
+    );
+    routeMocks.upsertAppGenCustomSkill.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    await renderViewer();
+
+    setTextInputValue(getMarkdownEditor()!, "# alpha-custom\n\nLocal draft");
+    await settleView();
+    clickElement(
+      host.querySelector('[data-testid="project-chat-custom-skill-save"]'),
+    );
+    await settleView();
+
+    clickElement(getSkillButton("beta-custom"));
+    await settleView();
+
+    resolveSave?.(
+      okOpenAPIResult({
+        rootPath: "/home/.agents/skills",
+        skill: {
+          ...alphaSkill,
+          description: "Alpha saved description",
+        },
+        skillContent: {
+          content: savedAlphaContent,
+          originalSizeBytes: savedAlphaContent.length,
+          skillId: alphaSkill.skillId,
+          truncated: false,
+        },
+      }),
+    );
+    await settleView();
+
+    expect(getSkillButton("beta-custom")?.dataset.selected).toBe("true");
+    expect(getMarkdownEditor()?.value).toBe(
+      contentBySkillId[betaSkill.skillId],
+    );
+    expect(
+      host.querySelectorAll('[data-testid="skills-mcp-skill-name"]'),
+    ).toHaveLength(2);
+
+    clickElement(getSkillButton("alpha-custom"));
+    await settleView();
+
+    expect(getMarkdownEditor()?.value).toBe(savedAlphaContent);
+  });
+
+  it("refreshes clean drafts from the server but preserves dirty drafts for the active skill", async () => {
+    const alphaSkill = {
+      skillId: "user_agents_skills::alpha-custom",
+      name: "alpha-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "alpha-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Alpha custom skill",
+    };
+    let alphaContent = "# alpha-custom\n\nOriginal";
+
+    setSkillViewerStorage({ isOpen: true, mode: "raw" });
+    routeMocks.getAppGenSkills.mockResolvedValue(
+      okOpenAPIResult({
+        customSkillCreateRootActionable: true,
+        customSkillCreateRootPath: "/home/.agents/skills",
+        skills: [alphaSkill],
+      }),
+    );
+    routeMocks.getAppGenSkillContent.mockImplementation(({ body }) =>
+      Promise.resolve(
+        okOpenAPIResult({
+          content: alphaContent,
+          originalSizeBytes: alphaContent.length,
+          skillId: body.skillId,
+          truncated: false,
+        }),
+      ),
+    );
+
+    await renderViewer();
+
+    alphaContent = "# alpha-custom\n\nServer copy";
+    clickElement(
+      host.querySelector('[data-testid="project-chat-skills-refresh"]'),
+    );
+    await settleView();
+    expect(getMarkdownEditor()?.value).toBe(alphaContent);
+
+    setTextInputValue(getMarkdownEditor()!, "# alpha-custom\n\nLocal edits");
+    await settleView();
+
+    alphaContent = "# alpha-custom\n\nFresh server copy";
+    clickElement(
+      host.querySelector('[data-testid="project-chat-skills-refresh"]'),
+    );
+    await settleView();
+
+    expect(getMarkdownEditor()?.value).toBe("# alpha-custom\n\nLocal edits");
+  });
+
+  it("keeps drafts isolated per skill and renders the active skill draft in preview mode", async () => {
+    const alphaSkill = {
+      skillId: "user_agents_skills::alpha-custom",
+      name: "alpha-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "alpha-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Alpha custom skill",
+    };
+    const betaSkill = {
+      skillId: "user_agents_skills::beta-custom",
+      name: "beta-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath: "/home/.agents/skills",
+      relativePath: "beta-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Beta custom skill",
+    };
+    const contentBySkillId = {
+      [alphaSkill.skillId]: "# alpha-custom\n\nOriginal",
+      [betaSkill.skillId]: "# beta-custom\n\nStable",
+    };
+
+    setSkillViewerStorage({ isOpen: true, mode: "raw" });
+    routeMocks.getAppGenSkills.mockResolvedValue(
+      okOpenAPIResult({
+        customSkillCreateRootActionable: true,
+        customSkillCreateRootPath: "/home/.agents/skills",
+        skills: [alphaSkill, betaSkill],
+      }),
+    );
+    routeMocks.getAppGenSkillContent.mockImplementation(({ body }) =>
+      Promise.resolve(
+        okOpenAPIResult({
+          content:
+            contentBySkillId[body.skillId as keyof typeof contentBySkillId],
+          originalSizeBytes:
+            contentBySkillId[body.skillId as keyof typeof contentBySkillId]
+              .length,
+          skillId: body.skillId,
+          truncated: false,
+        }),
+      ),
+    );
+
+    await renderViewer();
+
+    setTextInputValue(getMarkdownEditor()!, "# alpha-custom\n\nUpdated draft");
+    await settleView();
+    clickElement(
+      host.querySelector(
+        '[data-testid="project-chat-skill-markdown-view-rendered"]',
+      ),
+    );
+    await settleView();
+
+    expect(host.textContent).toContain("Updated draft");
+
+    clickElement(getSkillButton("beta-custom"));
+    await settleView();
+
+    expect(host.textContent).toContain("Stable");
+
+    clickElement(
+      host.querySelector(
+        '[data-testid="project-chat-skill-markdown-view-raw"]',
+      ),
+    );
+    await settleView();
+    setTextInputValue(getMarkdownEditor()!, "# beta-custom\n\nBeta draft");
+    await settleView();
+
+    clickElement(getSkillButton("alpha-custom"));
+    await settleView();
+
+    expect(getMarkdownEditor()?.value).toBe("# alpha-custom\n\nUpdated draft");
+  });
+
+  it("shows the preview placeholder through the owner view when no skill is selected", async () => {
+    setSkillViewerStorage({ isOpen: true, mode: "rendered" });
+    routeMocks.getAppGenSkills.mockResolvedValue(
+      okOpenAPIResult({
+        customSkillCreateRootActionable: false,
+        customSkillCreateRootPath: null,
+        skills: [],
+      }),
+    );
+
+    await renderViewer();
+
+    expect(host.textContent).toContain("Select a skill to preview SKILL.md.");
   });
 
   it("does not hydrate slash-command agent runs outside the slash commands view", async () => {
