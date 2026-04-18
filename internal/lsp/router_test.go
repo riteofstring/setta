@@ -154,6 +154,65 @@ func TestRouterInitializesFromExplicitSpecsOnly(t *testing.T) {
 	}
 }
 
+func TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup(t *testing.T) {
+	t.Parallel()
+
+	settingsKey := "basedpyright"
+	spec := LanguageServerSpec{
+		Name:       "python",
+		LanguageID: "python",
+		Command:    "python",
+		Settings: map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"extraPaths": []any{"/tmp/spec"},
+				},
+			},
+		},
+		SettingsKey: &settingsKey,
+	}
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot:   t.TempDir(),
+		AdditionalSpecs: []LanguageServerSpec{spec},
+		Settings: func() map[string]any {
+			return map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{"/tmp/global"},
+					},
+				},
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new router with spec-owned settings: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	expected := map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"extraPaths": []any{"/tmp/spec"},
+			},
+		},
+	}
+	if !reflect.DeepEqual(service.session.options.Settings, expected) {
+		t.Fatalf("expected session settings %#v, got %#v", expected, service.session.options.Settings)
+	}
+}
+
 func TestRouterSyncDocumentsRoutesPluginLanguageDiagnosticsAndCompletion(t *testing.T) {
 	t.Parallel()
 

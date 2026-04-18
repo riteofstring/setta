@@ -2831,7 +2831,7 @@ export type PluginsPluginRuntimeResponse = {
 };
 
 export type PluginsPluginStatusEntry = {
-  appliedLanguageServerLanguages: Array<string> | null;
+  appliedLanguageServerLanguages?: Array<string> | null;
   blockedCapabilities: Array<PluginsPluginBlockedCapability> | null;
   canonicalSourceKey: string;
   components: Array<string> | null;

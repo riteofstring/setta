@@ -10407,6 +10407,107 @@ func TestAppDisablingSelectedBasedpyrightClearsDiagnosticsWithoutRestart(t *test
 	}
 }
 
+func TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndDiagnostics(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "print(missing_name)\n")
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) > 0
+	})
+
+	initialDiagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if len(initialDiagnostics.CodeSections["runner"]) == 0 {
+		t.Fatalf("expected basedpyright diagnostics before config write, got %#v", initialDiagnostics)
+	}
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"pluginId": "setta-basedpyright",
+		"config": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUndefinedVariable":   "none",
+						"reportUnknownArgumentType": "none",
+					},
+				},
+			},
+		},
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsConfig, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins config 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+
+	app.pluginRuntime.mu.Lock()
+	specs := cloneLanguageServerSpecs(app.pluginRuntime.lspSpecs)
+	app.pluginRuntime.mu.Unlock()
+	if len(specs) != 1 {
+		t.Fatalf("expected one applied lsp spec, got %#v", specs)
+	}
+	basedpyrightSettings, ok := specs[0].Settings["basedpyright"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected basedpyright settings root, got %#v", specs[0].Settings)
+	}
+	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected basedpyright analysis settings, got %#v", basedpyrightSettings["analysis"])
+	}
+	overrides, ok := analysis["diagnosticSeverityOverrides"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected basedpyright diagnosticSeverityOverrides map, got %#v", analysis["diagnosticSeverityOverrides"])
+	}
+	if got := overrides["reportUndefinedVariable"]; got != "none" {
+		t.Fatalf("expected reportUndefinedVariable override to be none, got %#v", got)
+	}
+	if got := overrides["reportUnknownArgumentType"]; got != "none" {
+		t.Fatalf("expected reportUnknownArgumentType override to be none, got %#v", got)
+	}
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) == 0
+	})
+	diagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if len(diagnostics.CodeSections["runner"]) != 0 {
+		t.Fatalf("expected diagnostics to clear after config write refresh, got %#v", diagnostics.CodeSections["runner"])
+	}
+
+	status := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entry := mustFindAppPluginStatusEntry(t, status, "setta-basedpyright")
+	if len(entry.AppliedLanguageServerLanguages) != 1 || entry.AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected applied python status after config refresh, got %#v", entry.AppliedLanguageServerLanguages)
+	}
+}
+
 func TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

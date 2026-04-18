@@ -9813,7 +9813,6 @@
           "components",
           "registeredCodegenTargets",
           "registeredLanguageServers",
-          "appliedLanguageServerLanguages",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",

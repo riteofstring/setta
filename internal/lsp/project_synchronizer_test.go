@@ -1429,6 +1429,9 @@ func TestProjectSynchronizerRestartClosesBeforeRematerializing(t *testing.T) {
 	if len(syncer.synced) != 3 {
 		t.Fatalf("expected rematerialized sync set, got %#v", syncer.synced)
 	}
+	if len(syncer.refreshed) != 3 {
+		t.Fatalf("expected forced refresh after restart, got %#v", syncer.refreshed)
+	}
 	if _, ok := syncer.synced[sectionPath]; !ok {
 		t.Fatalf("expected section path %q in rematerialized set", sectionPath)
 	}
@@ -1437,6 +1440,15 @@ func TestProjectSynchronizerRestartClosesBeforeRematerializing(t *testing.T) {
 	}
 	if _, ok := syncer.synced[metadataPath]; !ok {
 		t.Fatalf("expected metadata path %q in rematerialized set", metadataPath)
+	}
+	if _, ok := syncer.refreshed[sectionPath]; !ok {
+		t.Fatalf("expected refreshed section path %q after restart", sectionPath)
+	}
+	if _, ok := syncer.refreshed[generatedPath]; !ok {
+		t.Fatalf("expected refreshed generated path %q after restart", generatedPath)
+	}
+	if _, ok := syncer.refreshed[metadataPath]; !ok {
+		t.Fatalf("expected refreshed metadata path %q after restart", metadataPath)
 	}
 }
 

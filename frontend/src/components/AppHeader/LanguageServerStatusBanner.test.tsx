@@ -14,7 +14,7 @@ import { LanguageServerStatusBanner } from "./LanguageServerStatusBanner";
 let selectedPythonPlugin: string | null | undefined;
 let runtimeStatus: "idle" | "loading" | "loaded" | "error";
 let serverMode: "ide" | "share" | "app" | null;
-let pluginStatusEntries: PluginStatusEntry[];
+let pluginStatusById: Record<string, PluginStatusEntry>;
 let isDeploymentMode: boolean;
 
 const onOverviewTabClickMock = vi.fn();
@@ -28,13 +28,14 @@ vi.mock("plugins/runtime", () => ({
     selector: (state: {
       status: "idle" | "loading" | "loaded" | "error";
       serverMode: "ide" | "share" | "app" | null;
+      pluginStatusById: Record<string, PluginStatusEntry>;
     }) => unknown,
   ) =>
     selector({
       status: runtimeStatus,
       serverMode,
+      pluginStatusById,
     }),
-  usePluginStatusEntries: () => pluginStatusEntries,
 }));
 
 vi.mock("state/definitions", () => ({
@@ -119,7 +120,7 @@ describe("LanguageServerStatusBanner", () => {
     selectedPythonPlugin = undefined;
     runtimeStatus = "loaded";
     serverMode = "ide";
-    pluginStatusEntries = [];
+    pluginStatusById = {};
     isDeploymentMode = false;
     onOverviewTabClickMock.mockReset();
   });
@@ -167,8 +168,8 @@ describe("LanguageServerStatusBanner", () => {
 
   it("stays hidden when the selected plugin is active for Python", async () => {
     selectedPythonPlugin = "setta-python-lsp";
-    pluginStatusEntries = [
-      buildPluginStatusEntry({
+    pluginStatusById = {
+      "setta-python-lsp": buildPluginStatusEntry({
         pluginId: "setta-python-lsp",
         appliedLanguageServerLanguages: ["python"],
         registeredLanguageServers: [
@@ -182,7 +183,7 @@ describe("LanguageServerStatusBanner", () => {
           },
         ],
       }),
-    ];
+    };
 
     const { host, root } = await renderBanner();
 
@@ -202,8 +203,8 @@ describe("LanguageServerStatusBanner", () => {
 
   it("warns when the selected plugin is available but still pending application", async () => {
     selectedPythonPlugin = "setta-python-lsp";
-    pluginStatusEntries = [
-      buildPluginStatusEntry({
+    pluginStatusById = {
+      "setta-python-lsp": buildPluginStatusEntry({
         pluginId: "setta-python-lsp",
         registeredLanguageServers: [
           {
@@ -216,7 +217,7 @@ describe("LanguageServerStatusBanner", () => {
           },
         ],
       }),
-    ];
+    };
 
     const { host, root } = await renderBanner();
 
@@ -267,8 +268,8 @@ describe("LanguageServerStatusBanner", () => {
 
   it("warns when the selected plugin does not provide Python", async () => {
     selectedPythonPlugin = "setta-fixturedsl";
-    pluginStatusEntries = [
-      buildPluginStatusEntry({
+    pluginStatusById = {
+      "setta-fixturedsl": buildPluginStatusEntry({
         pluginId: "setta-fixturedsl",
         registeredLanguageServers: [
           {
@@ -281,7 +282,41 @@ describe("LanguageServerStatusBanner", () => {
           },
         ],
       }),
-    ];
+    };
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("does not provide Python");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("uses the primary plugin status entry from the runtime store", async () => {
+    selectedPythonPlugin = "setta-shadowed-python";
+    pluginStatusById = {
+      "setta-shadowed-python": buildPluginStatusEntry({
+        pluginId: "setta-shadowed-python",
+        registeredLanguageServers: [
+          {
+            pluginId: "setta-shadowed-python",
+            name: "Fixture DSL LSP",
+            language: "fixturedsl",
+            command: "/bin/fixture-lsp",
+            args: ["--stdio"],
+            settingsKey: "fixtureLanguageServer",
+          },
+        ],
+      }),
+    };
 
     const { host, root } = await renderBanner();
 

@@ -78,18 +78,7 @@ func (s *ProjectSynchronizer) MaterializeDocument(ctx context.Context, document 
 	if s == nil {
 		return nil
 	}
-
-	documents, err := s.buildDocuments(document)
-	if err != nil {
-		return err
-	}
-	if err := s.service.SyncDocuments(ctx, documents); err != nil {
-		return err
-	}
-	if err := s.clearUnavailableDiagnostics(document); err != nil {
-		return err
-	}
-	return s.reconcileGeneratedDiagnosticsState(document)
+	return s.materializeDocument(ctx, document, false)
 }
 
 func (s *ProjectSynchronizer) Restart(ctx context.Context, document projectstate.Document) error {
@@ -99,7 +88,32 @@ func (s *ProjectSynchronizer) Restart(ctx context.Context, document projectstate
 	if err := s.service.Close(ctx); err != nil {
 		return err
 	}
-	return s.MaterializeDocument(ctx, document)
+	// Force one versioned refresh after reopening unchanged documents so stale
+	// diagnostics are replaced when language-server sessions are rebuilt.
+	return s.materializeDocument(ctx, document, true)
+}
+
+func (s *ProjectSynchronizer) materializeDocument(
+	ctx context.Context,
+	document projectstate.Document,
+	forceRefresh bool,
+) error {
+	documents, err := s.buildDocuments(document)
+	if err != nil {
+		return err
+	}
+	if err := s.service.SyncDocuments(ctx, documents); err != nil {
+		return err
+	}
+	if forceRefresh && len(documents) != 0 {
+		if err := s.service.RefreshDocuments(ctx, documents); err != nil {
+			return err
+		}
+	}
+	if err := s.clearUnavailableDiagnostics(document); err != nil {
+		return err
+	}
+	return s.reconcileGeneratedDiagnosticsState(document)
 }
 
 func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document projectstate.Document, projectID string) error {

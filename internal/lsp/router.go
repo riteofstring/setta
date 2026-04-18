@@ -403,7 +403,7 @@ func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
 		Args:          append([]string(nil), spec.Args...),
 		Environment:   append([]string(nil), r.environment...),
 		WorkingDir:    r.workingDir,
-		Settings:      resolveLanguageServerSettings(loadLanguageServerSettingsRoot(spec, r.settings), spec.SettingsKey),
+		Settings:      sessionLanguageServerSettings(spec, r.settings),
 	})
 	if err != nil {
 		return nil, false, err
@@ -420,11 +420,11 @@ func loadRouterSettings(settings func() map[string]any) map[string]any {
 	return cloneLanguageServerSettingsMap(settings())
 }
 
-func loadLanguageServerSettingsRoot(spec LanguageServerSpec, settings func() map[string]any) map[string]any {
+func sessionLanguageServerSettings(spec LanguageServerSpec, settings func() map[string]any) map[string]any {
 	if spec.Settings != nil {
 		return cloneLanguageServerSettingsMap(spec.Settings)
 	}
-	return loadRouterSettings(settings)
+	return resolveLanguageServerSettings(loadRouterSettings(settings), spec.SettingsKey)
 }
 
 func resolveLanguageServerSettings(settings map[string]any, settingsKey *string) map[string]any {

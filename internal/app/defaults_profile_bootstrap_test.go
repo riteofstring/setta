@@ -104,6 +104,45 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t
 	}
 }
 
+func TestBootstrapWorkspaceDefaultsInstallProfileRepairsInvalidMarker(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.WriteFile(defaultsProfileBootstrapStatePath(runtimeRoot), []byte("{"), 0o644); err != nil {
+		t.Fatalf("write invalid defaults profile marker: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	pluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
+
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected repaired python defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+
+	payload, err := os.ReadFile(defaultsProfileBootstrapStatePath(runtimeRoot))
+	if err != nil {
+		t.Fatalf("read repaired defaults profile marker: %v", err)
+	}
+	var state defaultsProfileBootstrapState
+	if err := json.Unmarshal(payload, &state); err != nil {
+		t.Fatalf("decode repaired defaults profile marker: %v", err)
+	}
+	if state.ProfileID != plugins.DefaultsInstallProfileID || state.ProfileVersion != plugins.DefaultsInstallProfileVersion {
+		t.Fatalf("unexpected repaired defaults profile marker %#v", state)
+	}
+}
+
 func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 	t.Helper()
 

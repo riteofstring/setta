@@ -202,7 +202,14 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 }
 
 func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
-	return s.base.WriteConfig(ctx, options)
+	result, err := s.base.WriteConfig(ctx, options)
+	if err != nil || s.refresher == nil {
+		return result, err
+	}
+	if err := s.refresher.RefreshLanguageServers(ctx); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
@@ -321,6 +328,17 @@ func (r *pluginBackendRuntimeRefresher) RefreshLanguageServers(ctx context.Conte
 	}
 	previousLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
 	if err := r.replaceLSPSpecsLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
+		return err
+	}
+	if err := r.reconcileProjectDocumentLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
+		r.logPluginBackendRuntimeError(
+			"rollback plugin backend language servers after config refresh failure",
+			r.replaceLSPSpecsLocked(context.Background(), nextLSPSpecs, previousLSPSpecs),
+		)
+		r.logPluginBackendRuntimeError(
+			"rollback plugin backend project reconciliation after config refresh failure",
+			r.reconcileProjectDocumentLocked(context.Background(), nextLSPSpecs, previousLSPSpecs),
+		)
 		return err
 	}
 	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
@@ -547,7 +565,7 @@ func (r *pluginBackendRuntimeRefresher) reconcileProjectDocumentLocked(
 		return nil
 	}
 	snapshot := r.projectState.Snapshot()
-	return r.projectSync.MaterializeDocument(ctx, snapshot.Document)
+	return r.projectSync.Restart(ctx, snapshot.Document)
 }
 
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {

@@ -44,7 +44,7 @@ type PluginStatusEntry struct {
 	Components                     []string                           `json:"components" ts_skip:"true"`
 	RegisteredCodegenTargets       []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
 	RegisteredLanguageServers      []PluginRegisteredLanguageServer   `json:"registeredLanguageServers"`
-	AppliedLanguageServerLanguages []string                           `json:"appliedLanguageServerLanguages"`
+	AppliedLanguageServerLanguages []string                           `json:"appliedLanguageServerLanguages,omitempty"`
 	RegisteredBackendRoutes        []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
 	RegisteredStaticDirs           []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
 	RegisteredListenerEndpoints    []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
@@ -206,32 +206,31 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRes
 func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) PluginStatusEntry {
 	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry)
 	return PluginStatusEntry{
-		PluginID:                       entry.PluginID,
-		Name:                           entry.Name,
-		Version:                        entry.Version,
-		State:                          entry.State,
-		SourceScope:                    entry.Scope,
-		SourceScopeLabel:               string(entry.Scope),
-		SourceManager:                  entry.SourceManager,
-		SourceManagerHint:              optionalStringPointer(entry.SourceManagerHint),
-		SourcePath:                     entry.SourcePath,
-		CanonicalSourceKey:             entry.CanonicalSourceKey,
-		SourceDigestSHA256:             cloneOptionalString(entry.SourceDigestSHA256),
-		ShadowedBySourcePath:           optionalStringPointer(entry.ShadowedBySourcePath),
-		RequestedCapabilities:          cloneStringSliceOrEmpty(entry.RequestedCapabilities),
-		EffectiveCapabilities:          cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
-		BlockedCapabilities:            cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
-		Components:                     statusEntryComponents(entry),
-		RegisteredCodegenTargets:       cloneRegisteredCodegenTargetsOrEmpty(entry.RegisteredCodegenTargets),
-		RegisteredLanguageServers:      cloneRegisteredLanguageServersOrEmpty(entry.RegisteredLanguageServers),
-		AppliedLanguageServerLanguages: []string{},
-		RegisteredBackendRoutes:        cloneRegisteredBackendRoutesOrEmpty(entry.RegisteredBackendRoutes),
-		RegisteredStaticDirs:           cloneRegisteredStaticDirsOrEmpty(entry.RegisteredStaticDirs),
-		RegisteredListenerEndpoints:    cloneRegisteredListenerEndpointsOrEmpty(entry.RegisteredListenerEndpoints),
-		EnablementSource:               cloneOptionalEnablementSource(entry.EnablementSource),
-		RestartRequired:                entry.RestartRequired,
-		RuntimePayloadDigestSHA256:     runtimeDigest,
-		Errors:                         clonePluginErrorsOrEmpty(entry.Errors),
+		PluginID:                    entry.PluginID,
+		Name:                        entry.Name,
+		Version:                     entry.Version,
+		State:                       entry.State,
+		SourceScope:                 entry.Scope,
+		SourceScopeLabel:            string(entry.Scope),
+		SourceManager:               entry.SourceManager,
+		SourceManagerHint:           optionalStringPointer(entry.SourceManagerHint),
+		SourcePath:                  entry.SourcePath,
+		CanonicalSourceKey:          entry.CanonicalSourceKey,
+		SourceDigestSHA256:          cloneOptionalString(entry.SourceDigestSHA256),
+		ShadowedBySourcePath:        optionalStringPointer(entry.ShadowedBySourcePath),
+		RequestedCapabilities:       cloneStringSliceOrEmpty(entry.RequestedCapabilities),
+		EffectiveCapabilities:       cloneStringSliceOrEmpty(entry.EffectiveCapabilities),
+		BlockedCapabilities:         cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
+		Components:                  statusEntryComponents(entry),
+		RegisteredCodegenTargets:    cloneRegisteredCodegenTargetsOrEmpty(entry.RegisteredCodegenTargets),
+		RegisteredLanguageServers:   cloneRegisteredLanguageServersOrEmpty(entry.RegisteredLanguageServers),
+		RegisteredBackendRoutes:     cloneRegisteredBackendRoutesOrEmpty(entry.RegisteredBackendRoutes),
+		RegisteredStaticDirs:        cloneRegisteredStaticDirsOrEmpty(entry.RegisteredStaticDirs),
+		RegisteredListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(entry.RegisteredListenerEndpoints),
+		EnablementSource:            cloneOptionalEnablementSource(entry.EnablementSource),
+		RestartRequired:             entry.RestartRequired,
+		RuntimePayloadDigestSHA256:  runtimeDigest,
+		Errors:                      clonePluginErrorsOrEmpty(entry.Errors),
 	}
 }
 

@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 
 	"setta/internal/plugins"
 	"setta/internal/settingsstate"
+	"setta/internal/statefs"
 )
 
 const (
@@ -33,11 +33,7 @@ func bootstrapWorkspaceDefaultsInstallProfile(
 	}
 
 	profile := plugins.DefaultsInstallProfile()
-	alreadyBootstrapped, err := defaultsProfileBootstrapApplied(runtimeRoot, profile)
-	if err != nil {
-		return err
-	}
-	if alreadyBootstrapped {
+	if defaultsProfileBootstrapApplied(runtimeRoot, profile) {
 		return nil
 	}
 
@@ -58,24 +54,21 @@ func bootstrapWorkspaceDefaultsInstallProfile(
 	return saveDefaultsProfileBootstrapState(runtimeRoot, profile)
 }
 
-func defaultsProfileBootstrapApplied(runtimeRoot string, profile plugins.InstallProfile) (bool, error) {
+func defaultsProfileBootstrapApplied(runtimeRoot string, profile plugins.InstallProfile) bool {
 	statePath := defaultsProfileBootstrapStatePath(runtimeRoot)
 	payload, err := os.ReadFile(statePath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		}
-		return false, err
+		return false
 	}
 
 	var state defaultsProfileBootstrapState
 	if err := json.Unmarshal(payload, &state); err != nil {
-		return false, err
+		return false
 	}
 	if state.SchemaVersion != defaultsProfileBootstrapStateSchemaVersion {
-		return false, nil
+		return false
 	}
-	return state.ProfileID == profile.ID && state.ProfileVersion == profile.Version, nil
+	return state.ProfileID == profile.ID && state.ProfileVersion == profile.Version
 }
 
 func saveDefaultsProfileBootstrapState(runtimeRoot string, profile plugins.InstallProfile) error {
@@ -93,7 +86,7 @@ func saveDefaultsProfileBootstrapState(runtimeRoot string, profile plugins.Insta
 		return err
 	}
 	payload = append(payload, '\n')
-	return os.WriteFile(statePath, payload, 0o644)
+	return statefs.AtomicWriteFile(statePath, payload, 0o644)
 }
 
 func defaultsProfileBootstrapStatePath(runtimeRoot string) string {
