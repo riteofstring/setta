@@ -45,6 +45,7 @@ type Service struct {
 	restartCommand    string
 	restartCallback   RestartCallback
 	settaVersion      string
+	settaFilesRoot    string
 
 	mu                          sync.Mutex
 	installTargetReservations   map[string]struct{}
@@ -119,6 +120,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
 		restartCallback:             options.RestartCallback,
 		settaVersion:                resolvedSettaVersion(options.SettaVersion),
+		settaFilesRoot:              strings.TrimSpace(options.SettaFilesRoot),
 		installTargetReservations:   map[string]struct{}{},
 		pendingRestartRemovedPlugin: map[string]PendingRestartRemovedBackendPlugin{},
 	}, nil

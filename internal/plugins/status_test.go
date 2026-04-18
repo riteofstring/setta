@@ -94,6 +94,43 @@ func TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability(t *testin
 	}
 }
 
+func TestServiceStatusIncludesRegisteredLanguageServers(t *testing.T) {
+	pythonPath, scriptPath := preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status: %v", err)
+	}
+
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend", PluginRuntimeStateActive)
+	if len(entry.RegisteredLanguageServers) != 1 {
+		t.Fatalf("expected one registered language server, got %#v", entry.RegisteredLanguageServers)
+	}
+	registration := entry.RegisteredLanguageServers[0]
+	if registration.PluginID != "setta-fixture-backend" {
+		t.Fatalf("unexpected language server plugin id %#v", registration)
+	}
+	if registration.Language != "fixturedsl" {
+		t.Fatalf("unexpected language server language %#v", registration)
+	}
+	if registration.Command != pythonPath {
+		t.Fatalf("unexpected language server command %#v", registration)
+	}
+	if len(registration.Args) != 1 || registration.Args[0] != scriptPath {
+		t.Fatalf("unexpected language server args %#v", registration)
+	}
+	if registration.SettingsKey == nil || *registration.SettingsKey != "fixtureDslLanguageServer" {
+		t.Fatalf("unexpected language server settings key %#v", registration)
+	}
+}
+
 func TestServiceStatusWaitsForServiceLock(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
