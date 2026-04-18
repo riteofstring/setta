@@ -2881,8 +2881,9 @@ export type PluginsPluginUpdateResponse = {
 };
 
 export type PluginsSelectedLanguageServerStatus = {
-  applied: boolean;
   languageId: string;
+  liveServerAvailable: boolean;
+  selectedPluginApplied: boolean;
   selectedPluginId: string | null;
   state: string;
 };

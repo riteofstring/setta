@@ -37,10 +37,11 @@ const (
 )
 
 type SelectedLanguageServerStatus struct {
-	LanguageID       string                      `json:"languageId"`
-	SelectedPluginID *string                     `json:"selectedPluginId"`
-	State            SelectedLanguageServerState `json:"state"`
-	Applied          bool                        `json:"applied"`
+	LanguageID            string                      `json:"languageId"`
+	SelectedPluginID      *string                     `json:"selectedPluginId"`
+	State                 SelectedLanguageServerState `json:"state"`
+	SelectedPluginApplied bool                        `json:"selectedPluginApplied"`
+	LiveServerAvailable   bool                        `json:"liveServerAvailable"`
 }
 
 type PluginStatusEntry struct {

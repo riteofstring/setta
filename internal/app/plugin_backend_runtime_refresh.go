@@ -781,65 +781,69 @@ func buildSelectedLanguageServerStatus(
 	previewStatusEntries []plugins.PluginStatusEntry,
 	appliedSpecs []lsp.LanguageServerSpec,
 ) plugins.SelectedLanguageServerStatus {
-	appliedPluginID, hasAppliedSpec := appliedLanguageServerPluginID(language, appliedSpecs)
+	livePluginID, liveServerAvailable := liveLanguageServerPluginID(language, appliedSpecs)
 	selectedPluginID, hasSelection := selections[language]
 	if !hasSelection {
 		return plugins.SelectedLanguageServerStatus{
-			LanguageID: language,
-			State:      plugins.SelectedLanguageServerStateNotSelected,
-			Applied:    !hasAppliedSpec,
+			LanguageID:          language,
+			State:               plugins.SelectedLanguageServerStateNotSelected,
+			LiveServerAvailable: liveServerAvailable,
 		}
 	}
 	if selectedPluginID == nil {
 		return plugins.SelectedLanguageServerStatus{
-			LanguageID: language,
-			State:      plugins.SelectedLanguageServerStateDisabled,
-			Applied:    !hasAppliedSpec,
+			LanguageID:          language,
+			State:               plugins.SelectedLanguageServerStateDisabled,
+			LiveServerAvailable: liveServerAvailable,
 		}
 	}
 
 	pluginID := strings.TrimSpace(*selectedPluginID)
 	if pluginID == "" {
 		return plugins.SelectedLanguageServerStatus{
-			LanguageID: language,
-			State:      plugins.SelectedLanguageServerStateNotSelected,
-			Applied:    !hasAppliedSpec,
+			LanguageID:          language,
+			State:               plugins.SelectedLanguageServerStateNotSelected,
+			LiveServerAvailable: liveServerAvailable,
 		}
 	}
 
 	selectedPlugin := &pluginID
-	appliedMatchesSelection := hasAppliedSpec && appliedPluginID == pluginID
+	selectedPluginApplied := liveServerAvailable && livePluginID == pluginID
 	selectedEntry, ok := primaryStatusEntryForPlugin(previewStatusEntries, pluginID)
 	if !ok {
 		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginMissing,
-			Applied:          appliedMatchesSelection,
+			LanguageID:            language,
+			SelectedPluginID:      selectedPlugin,
+			State:                 plugins.SelectedLanguageServerStateSelectedPluginMissing,
+			SelectedPluginApplied: selectedPluginApplied,
+			LiveServerAvailable:   liveServerAvailable,
 		}
 	}
 	if selectedEntry.State != plugins.PluginRuntimeStateActive && selectedEntry.State != plugins.PluginRuntimeStatePendingRestart {
 		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginUnavailable,
-			Applied:          appliedMatchesSelection,
+			LanguageID:            language,
+			SelectedPluginID:      selectedPlugin,
+			State:                 plugins.SelectedLanguageServerStateSelectedPluginUnavailable,
+			SelectedPluginApplied: selectedPluginApplied,
+			LiveServerAvailable:   liveServerAvailable,
 		}
 	}
 	if !statusEntryProvidesLanguage(selectedEntry, language) {
 		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginWrongLang,
-			Applied:          appliedMatchesSelection,
+			LanguageID:            language,
+			SelectedPluginID:      selectedPlugin,
+			State:                 plugins.SelectedLanguageServerStateSelectedPluginWrongLang,
+			SelectedPluginApplied: selectedPluginApplied,
+			LiveServerAvailable:   liveServerAvailable,
 		}
 	}
 
 	return plugins.SelectedLanguageServerStatus{
-		LanguageID:       language,
-		SelectedPluginID: selectedPlugin,
-		State:            plugins.SelectedLanguageServerStateReady,
-		Applied:          appliedMatchesSelection,
+		LanguageID:            language,
+		SelectedPluginID:      selectedPlugin,
+		State:                 plugins.SelectedLanguageServerStateReady,
+		SelectedPluginApplied: selectedPluginApplied,
+		LiveServerAvailable:   liveServerAvailable,
 	}
 }
 
@@ -862,7 +866,7 @@ func normalizeTrackedLanguage(language string) string {
 	return strings.ToLower(strings.TrimSpace(language))
 }
 
-func appliedLanguageServerPluginID(language string, appliedSpecs []lsp.LanguageServerSpec) (string, bool) {
+func liveLanguageServerPluginID(language string, appliedSpecs []lsp.LanguageServerSpec) (string, bool) {
 	normalizedLanguage := normalizeTrackedLanguage(language)
 	for _, spec := range appliedSpecs {
 		if normalizeTrackedLanguage(spec.LanguageID) != normalizedLanguage {

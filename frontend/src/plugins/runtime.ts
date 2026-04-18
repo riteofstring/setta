@@ -158,7 +158,8 @@ const selectedLanguageServerComparisonKeys = [
   "languageId",
   "selectedPluginId",
   "state",
-  "applied",
+  "selectedPluginApplied",
+  "liveServerAvailable",
 ] as const satisfies readonly (keyof SelectedLanguageServerStatus)[];
 
 const effectiveCapabilityDigestByPluginListEntry = new WeakMap<

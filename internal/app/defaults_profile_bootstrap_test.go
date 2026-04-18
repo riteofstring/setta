@@ -131,6 +131,40 @@ func TestBootstrapWorkspaceDefaultsInstallProfileUsesPackagedBasedpyrightWhenLin
 	}
 }
 
+func TestBootstrapWorkspaceDefaultsInstallProfileSkipsShadowedPackagedPluginWhenPrimaryProviderIsDisabled(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	firstpartyplugin.InstallBasedpyrightPluginWheel(t, sitePackages)
+	pluginService, workspaceRoot := newDefaultsProfilePluginServiceWithWorkspace(t, []string{sitePackages})
+
+	repoRoot := appTestRepoRoot(t)
+	copyAppTestDir(
+		t,
+		filepath.Join(repoRoot, "plugins", "setta-basedpyright"),
+		filepath.Join(workspaceRoot, ".setta_plugins", "setta-basedpyright"),
+	)
+	if err := os.WriteFile(
+		filepath.Join(workspaceRoot, "setta_files", "plugins_state.json"),
+		[]byte(`{"disabledPluginIds":["setta-basedpyright"]}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write disabled plugin state: %v", err)
+	}
+
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if ok || selection != nil {
+		t.Fatalf("expected python defaults selection to stay missing, got ok=%v selection=%#v", ok, selection)
+	}
+}
+
 func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 	t.Helper()
 

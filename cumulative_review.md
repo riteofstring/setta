@@ -157,6 +157,37 @@ Outcome:
 - The reviewed regressions are fixed in this branch snapshot.
 - No unresolved findings from this review pass remain recorded here.
 
+## 2026-04-18 06:13:56 PDT
+
+Summary:
+- Consolidated review findings were valid. This pass fixed three concrete issues from the temporary top-level reviews: first-open defaults could persist `python -> setta-basedpyright` from a package-manager row that would never become the live active Python provider, selected-language-server status collapsed selected-plugin state and live-session state so the header could claim Python LSP was gone even while the old session was still serving completions until restart, and the branch-review loop script still carried trailing whitespace in the branch diff.
+- I implemented the fixes directly and simplified the status contract instead of layering more inference into the frontend banner.
+
+Fixes applied:
+- Tightened defaults bootstrap in `internal/plugins/defaults_profile.go` so a package-manager default is only accepted when the effective primary plugin instance for that plugin ID is active and actually registers the requested language server. Shadowed or `pending_restart` package-manager rows no longer cause a sticky unusable default to be written on first open.
+- Simplified selected-language-server runtime state in `internal/plugins/status.go` and `internal/app/plugin_backend_runtime_refresh.go` by replacing the overloaded `Applied` flag with explicit `SelectedPluginApplied` and `LiveServerAvailable` fields. That keeps the backend contract truthful at the restart boundary without extra frontend heuristics.
+- Updated `frontend/src/components/AppHeader/LanguageServerStatusBanner.tsx` and related runtime helpers/tests so banner copy is driven by the explicit backend fields and correctly distinguishes “the new selection is invalid or not yet applied” from “the previously live Python server remains available until restart.”
+- Removed the reviewed trailing whitespace from `scripts/run-codex-branch-review-loop.sh`.
+
+Tests added or upgraded:
+- Go defaults-profile unit coverage for shadowed packaged defaults whose effective primary plugin is unusable and for `pending_restart` package-manager copies.
+- Go app/bootstrap coverage for first-open defaults bootstrap refusing to persist an unusable shadowed packaged Python default.
+- Go runtime and app integration coverage for the restart-boundary states where a selected plugin is invalid or not yet applied while the current Python server is still live, including missing-selection, wrong-language, and ready-but-not-live cases.
+- Frontend unit coverage for the same banner states.
+- Playwright coverage for the wrong-language banner case where the current Python server remains live until restart, although local execution remained blocked by the existing isolated-project bootstrap failure.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestDefaultsInstallProfile' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Test(BuildSelectedLanguageServerStatuses|BootstrapWorkspaceDefaultsInstallProfile|AppSelectedPythonLanguageServerStaysUnappliedAfterPluginRestartUntilPythonStarts|AppRestartLanguageServerRejectsWrongLanguageSelectionAfterPythonServerWasApplied|AppRestartLanguageServerRejectsMissingSelectionAfterPythonServerWasApplied)' -count=1`
+- `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
+- `./scripts/run-playwright-e2e.sh -g 'wrong-language selection leaves the current Python server live until restart' frontend/tests/e2e/header/language-server-status-banner.spec.ts` was attempted, but the disposable environment failed before the test body ran because isolated-project bootstrap never became ready (`ERR_ALPN_NEGOTIATION_FAILED`, then `Project Not Found`).
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- No unresolved findings from this review pass remain recorded here.
+
 ## 2026-04-18 01:54 PDT
 
 Summary:

@@ -123,8 +123,11 @@ func TestBuildSelectedLanguageServerStatusesIncludesPythonWhenUnselected(t *test
 	if statuses[0].State != plugins.SelectedLanguageServerStateNotSelected {
 		t.Fatalf("expected not-selected state, got %#v", statuses[0])
 	}
-	if !statuses[0].Applied {
-		t.Fatalf("expected unselected python state to be applied when no spec is live")
+	if statuses[0].SelectedPluginApplied {
+		t.Fatalf("expected unselected python state to have no selected plugin applied, got %#v", statuses[0])
+	}
+	if statuses[0].LiveServerAvailable {
+		t.Fatalf("expected unselected python state to have no live server, got %#v", statuses[0])
 	}
 }
 
@@ -156,8 +159,11 @@ func TestBuildSelectedLanguageServerStatusesKeepsPendingInstallReadyUntilApplied
 	if statuses[0].State != plugins.SelectedLanguageServerStateReady {
 		t.Fatalf("expected ready state, got %#v", statuses[0])
 	}
-	if statuses[0].Applied {
+	if statuses[0].SelectedPluginApplied {
 		t.Fatalf("expected ready selection to remain unapplied without a live spec")
+	}
+	if statuses[0].LiveServerAvailable {
+		t.Fatalf("expected pending install to have no live server yet, got %#v", statuses[0])
 	}
 	if statuses[0].SelectedPluginID == nil || *statuses[0].SelectedPluginID != selectedPluginID {
 		t.Fatalf("expected selected plugin id %q, got %#v", selectedPluginID, statuses[0].SelectedPluginID)
@@ -223,6 +229,9 @@ func TestBuildSelectedLanguageServerStatusesUsesPrimaryPluginEntryForClassificat
 		if status.State != plugins.SelectedLanguageServerStateSelectedPluginWrongLang {
 			t.Fatalf("expected wrong-language state from primary entry, got %#v", status)
 		}
+		if status.SelectedPluginApplied || status.LiveServerAvailable {
+			t.Fatalf("expected wrong-language classification without a live python server, got %#v", status)
+		}
 		return
 	}
 	t.Fatalf("expected python selected language server status, got %#v", statuses)
@@ -244,8 +253,11 @@ func TestBuildSelectedLanguageServerStatusesKeepsMissingSelectionAppliedUntilRef
 	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginMissing {
 		t.Fatalf("expected missing selection state, got %#v", statuses[0])
 	}
-	if !statuses[0].Applied {
-		t.Fatalf("expected missing selection to remain applied until refresh, got %#v", statuses[0])
+	if !statuses[0].SelectedPluginApplied {
+		t.Fatalf("expected selected missing plugin to remain applied until refresh, got %#v", statuses[0])
+	}
+	if !statuses[0].LiveServerAvailable {
+		t.Fatalf("expected missing selection to keep the live python server available until refresh, got %#v", statuses[0])
 	}
 }
 
@@ -272,6 +284,9 @@ func TestBuildSelectedLanguageServerStatusesTreatsInvalidSelectionAsUnavailable(
 	}
 	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginUnavailable {
 		t.Fatalf("expected unavailable state for invalid selection, got %#v", statuses[0])
+	}
+	if statuses[0].SelectedPluginApplied || statuses[0].LiveServerAvailable {
+		t.Fatalf("expected invalid unavailable selection to have no live python server, got %#v", statuses[0])
 	}
 }
 
@@ -304,8 +319,11 @@ func TestBuildSelectedLanguageServerStatusesClassifiesPendingDisableUsingPreview
 	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginUnavailable {
 		t.Fatalf("expected unavailable state for pending disable, got %#v", statuses[0])
 	}
-	if !statuses[0].Applied {
-		t.Fatalf("expected pending disable to remain applied until restart, got %#v", statuses[0])
+	if !statuses[0].SelectedPluginApplied {
+		t.Fatalf("expected pending disable to keep the selected plugin applied until restart, got %#v", statuses[0])
+	}
+	if !statuses[0].LiveServerAvailable {
+		t.Fatalf("expected pending disable to keep the live python server available until restart, got %#v", statuses[0])
 	}
 }
 
@@ -335,9 +353,102 @@ func TestBuildSelectedLanguageServerStatusesClassifiesPendingUninstallUsingPrevi
 	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginMissing {
 		t.Fatalf("expected missing state for pending uninstall, got %#v", statuses[0])
 	}
-	if !statuses[0].Applied {
-		t.Fatalf("expected pending uninstall to remain applied until restart, got %#v", statuses[0])
+	if !statuses[0].SelectedPluginApplied {
+		t.Fatalf("expected pending uninstall to keep the selected plugin applied until restart, got %#v", statuses[0])
 	}
+	if !statuses[0].LiveServerAvailable {
+		t.Fatalf("expected pending uninstall to keep the live python server available until restart, got %#v", statuses[0])
+	}
+}
+
+func TestBuildSelectedLanguageServerStatusesReadySelectionKeepsExistingLiveServerAvailableUntilRestart(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-fixture-python"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-fixture-python",
+			State:    plugins.PluginRuntimeStateActive,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-fixture-python",
+				Name:     "fixture-python",
+				Language: "python",
+				Command:  "/tmp/fixture-python",
+			}},
+		}},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-fixture-python",
+			State:    plugins.PluginRuntimeStateActive,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-fixture-python",
+				Name:     "fixture-python",
+				Language: "python",
+				Command:  "/tmp/fixture-python",
+			}},
+		}},
+		[]lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
+	)
+
+	if len(statuses) != 1 {
+		t.Fatalf("expected one language status, got %#v", statuses)
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateReady {
+		t.Fatalf("expected ready state, got %#v", statuses[0])
+	}
+	if statuses[0].SelectedPluginApplied {
+		t.Fatalf("expected newly selected plugin to stay unapplied until restart, got %#v", statuses[0])
+	}
+	if !statuses[0].LiveServerAvailable {
+		t.Fatalf("expected current live python server to remain available until restart, got %#v", statuses[0])
+	}
+}
+
+func TestBuildSelectedLanguageServerStatusesWrongLanguageSelectionKeepsExistingLiveServerAvailableUntilRestart(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-fixture-backend"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-fixture-backend",
+			State:    plugins.PluginRuntimeStateActive,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-fixture-backend",
+				Name:     "fixture-backend",
+				Language: "javascript",
+				Command:  "/tmp/fixture-backend",
+			}},
+		}},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-fixture-backend",
+			State:    plugins.PluginRuntimeStateActive,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-fixture-backend",
+				Name:     "fixture-backend",
+				Language: "javascript",
+				Command:  "/tmp/fixture-backend",
+			}},
+		}},
+		[]lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
+	)
+
+	for _, status := range statuses {
+		if status.LanguageID != "python" {
+			continue
+		}
+		if status.State != plugins.SelectedLanguageServerStateSelectedPluginWrongLang {
+			t.Fatalf("expected wrong-language state, got %#v", status)
+		}
+		if status.SelectedPluginApplied {
+			t.Fatalf("expected wrong-language selection to not be the applied plugin, got %#v", status)
+		}
+		if !status.LiveServerAvailable {
+			t.Fatalf("expected current live python server to remain available until restart, got %#v", status)
+		}
+		return
+	}
+	t.Fatalf("expected python selected language server status, got %#v", statuses)
 }
 
 func TestUpdatedAppliedLanguageServerSpecsForPluginReplacesOnlyMatchingAppliedSpecs(t *testing.T) {

@@ -68,7 +68,8 @@ test("header python language server banner clears after a successful restart ref
           languageId: "python",
           selectedPluginId: "setta-basedpyright",
           state: "ready",
-          applied: runtimeLoads > 1,
+          selectedPluginApplied: runtimeLoads > 1,
+          liveServerAvailable: runtimeLoads > 1,
         },
       ];
       await route.fulfill({ response, json: payload });
@@ -121,7 +122,8 @@ test("header python language server banner stays visible until the selected plug
           languageId: "python",
           selectedPluginId: "setta-basedpyright",
           state: "ready",
-          applied,
+          selectedPluginApplied: applied,
+          liveServerAvailable: applied,
         },
       ];
       await route.fulfill({ response, json: payload });
@@ -164,7 +166,8 @@ test("header python language server banner stays visible after rescan until rest
           languageId: "python",
           selectedPluginId: "setta-basedpyright",
           state: pluginAvailable ? "ready" : "selected_plugin_missing",
-          applied,
+          selectedPluginApplied: applied,
+          liveServerAvailable: applied,
         },
       ];
       await route.fulfill({ response, json: payload });
@@ -232,7 +235,8 @@ test("header python language server banner explains when the selected plugin doe
           languageId: "python",
           selectedPluginId: "setta-fixturedsl",
           state: "selected_plugin_wrong_language",
-          applied: false,
+          selectedPluginApplied: false,
+          liveServerAvailable: false,
         },
       ];
       await route.fulfill({ response, json: payload });
@@ -244,6 +248,38 @@ test("header python language server banner explains when the selected plugin doe
     await expect(
       page.getByTestId("python-language-server-status-banner"),
     ).toContainText("does not provide Python");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("header python language server banner explains when a wrong-language selection leaves the current Python server live until restart", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/runtime", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.status.selectedLanguageServers = [
+        {
+          languageId: "python",
+          selectedPluginId: "setta-fixturedsl",
+          state: "selected_plugin_wrong_language",
+          selectedPluginApplied: false,
+          liveServerAvailable: true,
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByTestId("python-language-server-status-banner"),
+    ).toContainText("will remain available until restart");
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -263,7 +299,8 @@ test("header python language server banner explains when an unavailable plugin i
           languageId: "python",
           selectedPluginId: "setta-basedpyright",
           state: "selected_plugin_unavailable",
-          applied: true,
+          selectedPluginApplied: true,
+          liveServerAvailable: true,
         },
       ];
       await route.fulfill({ response, json: payload });
@@ -294,7 +331,8 @@ test("header python language server banner explains when the selected plugin is 
           languageId: "python",
           selectedPluginId: "setta-basedpyright",
           state: "selected_plugin_unavailable",
-          applied: false,
+          selectedPluginApplied: false,
+          liveServerAvailable: false,
         },
       ];
       await route.fulfill({ response, json: payload });

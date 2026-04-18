@@ -8707,11 +8707,14 @@
       "PluginsSelectedLanguageServerStatus": {
         "additionalProperties": false,
         "properties": {
-          "applied": {
-            "type": "boolean"
-          },
           "languageId": {
             "type": "string"
+          },
+          "liveServerAvailable": {
+            "type": "boolean"
+          },
+          "selectedPluginApplied": {
+            "type": "boolean"
           },
           "selectedPluginId": {
             "type": ["string", "null"]
@@ -8720,7 +8723,13 @@
             "type": "string"
           }
         },
-        "required": ["languageId", "selectedPluginId", "state", "applied"],
+        "required": [
+          "languageId",
+          "selectedPluginId",
+          "state",
+          "selectedPluginApplied",
+          "liveServerAvailable"
+        ],
         "type": "object"
       },
       "ProjectshellAllProjectMetadata": {

@@ -5511,8 +5511,9 @@ type SelectedLanguageServerState =
  * SelectedLanguageServerStatus
  */
 export type SelectedLanguageServerStatus = {
-  applied: boolean;
   languageId: string;
+  liveServerAvailable: boolean;
+  selectedPluginApplied: boolean;
   selectedPluginId: null | string;
   state: SelectedLanguageServerState;
 };

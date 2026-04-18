@@ -15758,7 +15758,10 @@
         "state": {
           "$ref": "#/$defs/SelectedLanguageServerState"
         },
-        "applied": {
+        "selectedPluginApplied": {
+          "type": "boolean"
+        },
+        "liveServerAvailable": {
           "type": "boolean"
         }
       },
@@ -15767,7 +15770,8 @@
         "languageId",
         "selectedPluginId",
         "state",
-        "applied"
+        "selectedPluginApplied",
+        "liveServerAvailable"
       ],
       "additionalProperties": false
     },

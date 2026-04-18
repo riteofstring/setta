@@ -35,12 +35,7 @@ func (p InstallProfile) AvailableLanguageServerSelections(snapshot DiscoverySnap
 		if language == "" || pluginID == "" {
 			continue
 		}
-		entry, ok := findPrimaryDiscoveredPluginForSourceManager(
-			snapshot.Plugins,
-			pluginID,
-			PluginSourceManagerPackageManager,
-		)
-		if !ok || !profileEntryProvidesLanguageServer(entry, language) {
+		if !defaultsProfileSelectionAvailable(snapshot.Plugins, language, pluginID) {
 			continue
 		}
 		selected[language] = pluginID
@@ -55,7 +50,24 @@ func normalizeProfileLanguage(language string) string {
 	return strings.ToLower(strings.TrimSpace(language))
 }
 
-func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
+func defaultsProfileSelectionAvailable(entries []DiscoveredPlugin, language string, pluginID string) bool {
+	packageManagerEntry, ok := findPrimaryDiscoveredPluginForSourceManager(
+		entries,
+		pluginID,
+		PluginSourceManagerPackageManager,
+	)
+	if !ok || !packageManagerDefaultsCandidate(packageManagerEntry, language) {
+		return false
+	}
+
+	effectiveEntry, ok := findPrimaryDiscoveredPlugin(entries, pluginID)
+	if !ok {
+		return false
+	}
+	return activeEntryProvidesLanguageServer(effectiveEntry, language)
+}
+
+func packageManagerDefaultsCandidate(entry DiscoveredPlugin, language string) bool {
 	if entry.SourceManager != PluginSourceManagerPackageManager {
 		return false
 	}
@@ -63,18 +75,18 @@ func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string)
 		return false
 	}
 	switch entry.State {
-	case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart, PluginRuntimeStateShadowed:
+	case PluginRuntimeStateShadowed:
+		return true
+	case PluginRuntimeStateActive:
+		return activeEntryProvidesLanguageServer(entry, language)
 	default:
 		return false
 	}
-	if !containsString(entry.EffectiveCapabilities, "registerLanguageServer") {
-		if entry.State == PluginRuntimeStateShadowed {
-			return true
-		}
+}
+
+func activeEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
+	if !pluginProvidesLanguageServer(entry) {
 		return false
-	}
-	if len(entry.RegisteredLanguageServers) == 0 {
-		return entry.State == PluginRuntimeStateShadowed
 	}
 	for _, registration := range entry.RegisteredLanguageServers {
 		if normalizeProfileLanguage(registration.Language) == language {

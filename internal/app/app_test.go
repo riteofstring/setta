@@ -7987,12 +7987,14 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart
 	defer server.Close()
 
 	authCookie := newAppTestAuthCookie(t, app)
+	type pythonRuntimeStatus struct {
+		SelectedPluginID      *string `json:"selectedPluginId"`
+		State                 string  `json:"state"`
+		SelectedPluginApplied bool    `json:"selectedPluginApplied"`
+		LiveServerAvailable   bool    `json:"liveServerAvailable"`
+	}
 	readPythonStatus := func() (
-		struct {
-			SelectedPluginID *string `json:"selectedPluginId"`
-			State            string  `json:"state"`
-			Applied          bool    `json:"applied"`
-		},
+		pythonRuntimeStatus,
 		[]struct {
 			PluginID                  string `json:"pluginId"`
 			RegisteredLanguageServers []struct {
@@ -8021,10 +8023,11 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart
 		var payload struct {
 			Status struct {
 				SelectedLanguageServers []struct {
-					LanguageID       string  `json:"languageId"`
-					SelectedPluginID *string `json:"selectedPluginId"`
-					State            string  `json:"state"`
-					Applied          bool    `json:"applied"`
+					LanguageID            string  `json:"languageId"`
+					SelectedPluginID      *string `json:"selectedPluginId"`
+					State                 string  `json:"state"`
+					SelectedPluginApplied bool    `json:"selectedPluginApplied"`
+					LiveServerAvailable   bool    `json:"liveServerAvailable"`
 				} `json:"selectedLanguageServers"`
 				Plugins []struct {
 					PluginID                  string `json:"pluginId"`
@@ -8039,23 +8042,16 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart
 		}
 		for _, status := range payload.Status.SelectedLanguageServers {
 			if status.LanguageID == "python" {
-				return struct {
-					SelectedPluginID *string `json:"selectedPluginId"`
-					State            string  `json:"state"`
-					Applied          bool    `json:"applied"`
-				}{
-					SelectedPluginID: status.SelectedPluginID,
-					State:            status.State,
-					Applied:          status.Applied,
+				return pythonRuntimeStatus{
+					SelectedPluginID:      status.SelectedPluginID,
+					State:                 status.State,
+					SelectedPluginApplied: status.SelectedPluginApplied,
+					LiveServerAvailable:   status.LiveServerAvailable,
 				}, payload.Status.Plugins
 			}
 		}
 		t.Fatal("expected python selected language server status")
-		return struct {
-			SelectedPluginID *string `json:"selectedPluginId"`
-			State            string  `json:"state"`
-			Applied          bool    `json:"applied"`
-		}{}, nil
+		return pythonRuntimeStatus{}, nil
 	}
 
 	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
@@ -8089,8 +8085,11 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart
 	if pendingStatus.State != "ready" {
 		t.Fatalf("expected ready pending state, got %#v", pendingStatus)
 	}
-	if pendingStatus.Applied {
+	if pendingStatus.SelectedPluginApplied {
 		t.Fatalf("expected pending selected plugin to remain unapplied before refresh")
+	}
+	if pendingStatus.LiveServerAvailable {
+		t.Fatalf("expected no live python server before refresh, got %#v", pendingStatus)
 	}
 
 	if _, err := app.pluginRuntime.Refresh(context.Background()); err != nil {
@@ -8101,8 +8100,11 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart
 	if refreshedStatus.State != "ready" {
 		t.Fatalf("expected ready state after refresh, got %#v", refreshedStatus)
 	}
-	if refreshedStatus.Applied {
+	if refreshedStatus.SelectedPluginApplied {
 		t.Fatalf("expected selected plugin to remain unapplied after refresh")
+	}
+	if refreshedStatus.LiveServerAvailable {
+		t.Fatalf("expected no live python server after refresh, got %#v", refreshedStatus)
 	}
 
 	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
@@ -8126,12 +8128,15 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyStateOnlyAfterRestart
 	if appliedStatus.State != "ready" {
 		t.Fatalf("expected ready applied state after restart, got %#v", appliedStatus)
 	}
-	if !appliedStatus.Applied {
+	if !appliedStatus.SelectedPluginApplied {
 		t.Fatalf("expected selected plugin to become applied after restart")
+	}
+	if !appliedStatus.LiveServerAvailable {
+		t.Fatalf("expected live python server after restart, got %#v", appliedStatus)
 	}
 }
 
-func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T) {
+func TestAppSelectedPythonLanguageServerStaysUnappliedAfterPluginRestartUntilPythonStarts(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -8170,6 +8175,12 @@ func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T)
 	defer server.Close()
 
 	authCookie := newAppTestAuthCookie(t, app)
+	type pythonRuntimeStatus struct {
+		SelectedPluginID      *string `json:"selectedPluginId"`
+		State                 string  `json:"state"`
+		SelectedPluginApplied bool    `json:"selectedPluginApplied"`
+		LiveServerAvailable   bool    `json:"liveServerAvailable"`
+	}
 	doRequest := func(method string, path string) *http.Response {
 		t.Helper()
 
@@ -8186,11 +8197,7 @@ func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T)
 		return response
 	}
 	readPythonRuntime := func() (
-		struct {
-			SelectedPluginID *string `json:"selectedPluginId"`
-			State            string  `json:"state"`
-			Applied          bool    `json:"applied"`
-		},
+		pythonRuntimeStatus,
 		string,
 	) {
 		t.Helper()
@@ -8205,10 +8212,11 @@ func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T)
 		var payload struct {
 			Status struct {
 				SelectedLanguageServers []struct {
-					LanguageID       string  `json:"languageId"`
-					SelectedPluginID *string `json:"selectedPluginId"`
-					State            string  `json:"state"`
-					Applied          bool    `json:"applied"`
+					LanguageID            string  `json:"languageId"`
+					SelectedPluginID      *string `json:"selectedPluginId"`
+					State                 string  `json:"state"`
+					SelectedPluginApplied bool    `json:"selectedPluginApplied"`
+					LiveServerAvailable   bool    `json:"liveServerAvailable"`
 				} `json:"selectedLanguageServers"`
 				Plugins []struct {
 					PluginID string `json:"pluginId"`
@@ -8220,24 +8228,17 @@ func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T)
 			t.Fatalf("decode plugin runtime payload: %v", err)
 		}
 
-		var pythonStatus struct {
-			SelectedPluginID *string `json:"selectedPluginId"`
-			State            string  `json:"state"`
-			Applied          bool    `json:"applied"`
-		}
+		var pythonStatus pythonRuntimeStatus
 		foundPythonStatus := false
 		for _, status := range payload.Status.SelectedLanguageServers {
 			if status.LanguageID != "python" {
 				continue
 			}
-			pythonStatus = struct {
-				SelectedPluginID *string `json:"selectedPluginId"`
-				State            string  `json:"state"`
-				Applied          bool    `json:"applied"`
-			}{
-				SelectedPluginID: status.SelectedPluginID,
-				State:            status.State,
-				Applied:          status.Applied,
+			pythonStatus = pythonRuntimeStatus{
+				SelectedPluginID:      status.SelectedPluginID,
+				State:                 status.State,
+				SelectedPluginApplied: status.SelectedPluginApplied,
+				LiveServerAvailable:   status.LiveServerAvailable,
 			}
 			foundPythonStatus = true
 			break
@@ -8262,8 +8263,11 @@ func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T)
 	if pendingStatus.State != "ready" {
 		t.Fatalf("expected pending selected status to stay ready, got %#v", pendingStatus)
 	}
-	if pendingStatus.Applied {
+	if pendingStatus.SelectedPluginApplied {
 		t.Fatalf("expected pending selected status to remain unapplied before restart")
+	}
+	if pendingStatus.LiveServerAvailable {
+		t.Fatalf("expected pending selected status to have no live python server before restart, got %#v", pendingStatus)
 	}
 
 	completions := requestAppCodeAreaCompletion(
@@ -8297,25 +8301,18 @@ func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T)
 		t.Fatalf("expected accepted programmatic restart payload, got %#v", restartPayload)
 	}
 
-	appliedStatus, appliedPluginState := readPythonRuntime()
-	if appliedPluginState != "active" {
-		t.Fatalf("expected setta-basedpyright to become active after restart, got %q", appliedPluginState)
+	restartedStatus, restartedPluginState := readPythonRuntime()
+	if restartedPluginState != "active" {
+		t.Fatalf("expected setta-basedpyright to become active after plugin restart, got %q", restartedPluginState)
 	}
-	if appliedStatus.State != "ready" || !appliedStatus.Applied {
-		t.Fatalf("expected selected status to become applied after restart, got %#v", appliedStatus)
+	if restartedStatus.State != "ready" {
+		t.Fatalf("expected selected status to stay ready after plugin restart, got %#v", restartedStatus)
 	}
-
-	completions = requestAppCodeAreaCompletion(
-		t,
-		server.URL,
-		authCookie,
-		"project-alpha",
-		"runner",
-		"str.",
-		4,
-	)
-	if len(completions) == 0 {
-		t.Fatal("expected Python completions after restart")
+	if restartedStatus.SelectedPluginApplied {
+		t.Fatalf("expected selected plugin to stay unapplied until Python starts again, got %#v", restartedStatus)
+	}
+	if restartedStatus.LiveServerAvailable {
+		t.Fatalf("expected no live python server immediately after plugin restart, got %#v", restartedStatus)
 	}
 }
 
@@ -11297,6 +11294,62 @@ func TestAppRestartLanguageServerRejectsWrongLanguageSelectionForCurrentProject(
 	}
 }
 
+type appTestPythonLanguageServerStatus struct {
+	SelectedPluginID      *string `json:"selectedPluginId"`
+	State                 string  `json:"state"`
+	SelectedPluginApplied bool    `json:"selectedPluginApplied"`
+	LiveServerAvailable   bool    `json:"liveServerAvailable"`
+}
+
+func readAppTestPythonLanguageServerStatus(t *testing.T, serverURL string, authCookie *http.Cookie) appTestPythonLanguageServerStatus {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodGet, serverURL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Status struct {
+			SelectedLanguageServers []struct {
+				LanguageID            string  `json:"languageId"`
+				SelectedPluginID      *string `json:"selectedPluginId"`
+				State                 string  `json:"state"`
+				SelectedPluginApplied bool    `json:"selectedPluginApplied"`
+				LiveServerAvailable   bool    `json:"liveServerAvailable"`
+			} `json:"selectedLanguageServers"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	for _, status := range payload.Status.SelectedLanguageServers {
+		if status.LanguageID != "python" {
+			continue
+		}
+		return appTestPythonLanguageServerStatus{
+			SelectedPluginID:      status.SelectedPluginID,
+			State:                 status.State,
+			SelectedPluginApplied: status.SelectedPluginApplied,
+			LiveServerAvailable:   status.LiveServerAvailable,
+		}
+	}
+
+	t.Fatal("expected python selected language server status")
+	return appTestPythonLanguageServerStatus{}
+}
+
 func TestAppRestartLanguageServerRejectsWrongLanguageSelectionAfterPythonServerWasApplied(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -11340,6 +11393,20 @@ func TestAppRestartLanguageServerRejectsWrongLanguageSelectionAfterPythonServerW
 	}
 
 	setAppLanguageServerSelectionOnly(t, app, "python", "setta-fixture-backend")
+
+	runtimeStatus := readAppTestPythonLanguageServerStatus(t, server.URL, authCookie)
+	if runtimeStatus.SelectedPluginID == nil || *runtimeStatus.SelectedPluginID != "setta-fixture-backend" {
+		t.Fatalf("expected selected wrong-language plugin id, got %#v", runtimeStatus)
+	}
+	if runtimeStatus.State != "selected_plugin_wrong_language" {
+		t.Fatalf("expected wrong-language runtime state, got %#v", runtimeStatus)
+	}
+	if runtimeStatus.SelectedPluginApplied {
+		t.Fatalf("expected wrong-language selected plugin to stay unapplied before restart, got %#v", runtimeStatus)
+	}
+	if !runtimeStatus.LiveServerAvailable {
+		t.Fatalf("expected live python server to remain available before restart, got %#v", runtimeStatus)
+	}
 
 	completions = requestAppCodeAreaCompletion(
 		t,
@@ -11434,6 +11501,20 @@ func TestAppRestartLanguageServerRejectsMissingSelectionAfterPythonServerWasAppl
 	}
 
 	setAppLanguageServerSelectionOnly(t, app, "python", "setta-missing-python-lsp")
+
+	runtimeStatus := readAppTestPythonLanguageServerStatus(t, server.URL, authCookie)
+	if runtimeStatus.SelectedPluginID == nil || *runtimeStatus.SelectedPluginID != "setta-missing-python-lsp" {
+		t.Fatalf("expected selected missing plugin id, got %#v", runtimeStatus)
+	}
+	if runtimeStatus.State != "selected_plugin_missing" {
+		t.Fatalf("expected missing runtime state, got %#v", runtimeStatus)
+	}
+	if runtimeStatus.SelectedPluginApplied {
+		t.Fatalf("expected missing selected plugin to stay unapplied before restart, got %#v", runtimeStatus)
+	}
+	if !runtimeStatus.LiveServerAvailable {
+		t.Fatalf("expected live python server to remain available before restart, got %#v", runtimeStatus)
+	}
 
 	completions = requestAppCodeAreaCompletion(
 		t,

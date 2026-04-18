@@ -492,7 +492,7 @@ write_prompt_files() {
 
   cat > "${review_prompt_file}" <<'EOF'
 Review this branch for merge into `go-rewrite`.
- 
+
     Scope
     - Analyze only branch-introduced changes vs merge base:
       - `git diff --name-status go-rewrite...HEAD`
@@ -504,26 +504,26 @@ Review this branch for merge into `go-rewrite`.
     - Disregard any `branch_intent.md` instruction that says to preserve, add, or keep backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior. Those are not desired even if documented as intentional branch scope.
     - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
     - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
- 
+
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
     - Do not reopen resolved items based on reviewer preference changes alone (e.g., X vs Y when both are valid)
     - Reopen only for regression with concrete evidence in this branch.
     - If reopened, cite prior decision + what changed + evidence.
-    
+
     Priorities (in order)
     1. Correctness bugs and invariant violations.
     2. Dead/unused code introduced or left behind (files, functions, branches, imports, types, flags, endpoints).
     3. Backward-compatibility shims or dual-path logic (not allowed).
     4. Design quality: reject band-aids; prefer principled root-cause fixes.
- 
+
     Method
     - Cluster findings by shared root cause.
     - For each cluster, name the violated invariant.
     - Focus on root-cause and issue-class elimination, not symptom-level comments.
     - Do not propose backward-compatibility shims. Prefer single source of truth + fail-fast invariants.
     - If no issues exist in a priority category, explicitly say so.
- 
+
     For each finding, provide
     - Severity: `critical|high|medium|low`
     - Merge risk: `blocker|major|minor`
@@ -532,7 +532,7 @@ Review this branch for merge into `go-rewrite`.
     - Principled fix that removes the whole issue class (no BC shim)
     - UX/DX before vs after fix
     - Regression tests to add/update (unit/integration/e2e) with exact assertions
- 
+
     Output format
     1. Merge recommendation + top risks
     2. Findings by root-cause cluster (highest severity first)

@@ -135,3 +135,87 @@ func TestDefaultsInstallProfileAvailableLanguageServerSelectionsUsePackageManage
 		t.Fatalf("unexpected defaults profile selections %#v", got)
 	}
 }
+
+func TestDefaultsInstallProfileAvailableLanguageServerSelectionsRequireEffectiveActiveProvider(t *testing.T) {
+	t.Parallel()
+
+	profile := DefaultsInstallProfile()
+	snapshot := DiscoverySnapshot{
+		Plugins: []DiscoveredPlugin{
+			{
+				PluginID:      "setta-basedpyright",
+				State:         PluginRuntimeStateDisabled,
+				SourceManager: PluginSourceManagerSetta,
+				Manifest: &PluginManifest{
+					ID:                "setta-basedpyright",
+					Name:              "Linked Basedpyright",
+					Version:           "0.1.0",
+					SchemaVersion:     1,
+					SettaVersionRange: ">=0.0.0",
+					EnabledByDefault:  true,
+					Capabilities:      []string{"registerLanguageServer"},
+				},
+				EffectiveCapabilities: []string{"registerLanguageServer"},
+				RegisteredLanguageServers: []PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Language: "python",
+					},
+				},
+			},
+			{
+				PluginID:      "setta-basedpyright",
+				State:         PluginRuntimeStateShadowed,
+				SourceManager: PluginSourceManagerPackageManager,
+				Manifest: &PluginManifest{
+					ID:                "setta-basedpyright",
+					Name:              "Packaged Basedpyright",
+					Version:           "0.1.0",
+					SchemaVersion:     1,
+					SettaVersionRange: ">=0.0.0",
+					EnabledByDefault:  true,
+					Capabilities:      []string{"registerLanguageServer"},
+				},
+			},
+		},
+	}
+
+	if got := profile.AvailableLanguageServerSelections(snapshot); len(got) != 0 {
+		t.Fatalf("expected unusable primary provider to stay unselected, got %#v", got)
+	}
+}
+
+func TestDefaultsInstallProfileAvailableLanguageServerSelectionsRejectPendingRestartPackageManagerCopy(t *testing.T) {
+	t.Parallel()
+
+	profile := DefaultsInstallProfile()
+	snapshot := DiscoverySnapshot{
+		Plugins: []DiscoveredPlugin{
+			{
+				PluginID:      "setta-basedpyright",
+				State:         PluginRuntimeStatePendingRestart,
+				SourceManager: PluginSourceManagerPackageManager,
+				Manifest: &PluginManifest{
+					ID:                "setta-basedpyright",
+					Name:              "Packaged Basedpyright",
+					Version:           "0.1.0",
+					SchemaVersion:     1,
+					SettaVersionRange: ">=0.0.0",
+					EnabledByDefault:  true,
+					Capabilities:      []string{"registerLanguageServer"},
+				},
+				EffectiveCapabilities: []string{"registerLanguageServer"},
+				RegisteredLanguageServers: []PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Language: "python",
+					},
+				},
+			},
+		},
+	}
+
+	if got := profile.AvailableLanguageServerSelections(snapshot); len(got) != 0 {
+		t.Fatalf("expected pending-restart package-manager provider to stay unselected, got %#v", got)
+	}
+}

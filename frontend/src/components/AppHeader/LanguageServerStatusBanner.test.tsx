@@ -70,7 +70,8 @@ function buildPythonStatus(
     languageId: "python",
     selectedPluginId: null,
     state: SelectedLanguageServerStateEnum.not_selected,
-    applied: true,
+    selectedPluginApplied: false,
+    liveServerAvailable: false,
     ...overrides,
   };
 }
@@ -134,7 +135,8 @@ describe("LanguageServerStatusBanner", () => {
       buildPythonStatus({
         selectedPluginId: "setta-python-lsp",
         state: SelectedLanguageServerStateEnum.ready,
-        applied: true,
+        selectedPluginApplied: true,
+        liveServerAvailable: true,
       }),
     ];
 
@@ -159,7 +161,8 @@ describe("LanguageServerStatusBanner", () => {
       buildPythonStatus({
         selectedPluginId: "setta-python-lsp",
         state: SelectedLanguageServerStateEnum.ready,
-        applied: false,
+        selectedPluginApplied: false,
+        liveServerAvailable: false,
       }),
     ];
 
@@ -179,11 +182,38 @@ describe("LanguageServerStatusBanner", () => {
     }
   });
 
+  it("warns when the selected plugin is ready but a different Python server is still live", async () => {
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-python-lsp",
+        state: SelectedLanguageServerStateEnum.ready,
+        selectedPluginApplied: false,
+        liveServerAvailable: true,
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("switch from the currently applied Python server");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("warns when the selected plugin is missing and opens Plugins on click", async () => {
     selectedLanguageServers = [
       buildPythonStatus({
         selectedPluginId: "setta-missing-python-lsp",
         state: SelectedLanguageServerStateEnum.selected_plugin_missing,
+        liveServerAvailable: false,
       }),
     ];
 
@@ -220,7 +250,8 @@ describe("LanguageServerStatusBanner", () => {
       buildPythonStatus({
         selectedPluginId: "setta-missing-python-lsp",
         state: SelectedLanguageServerStateEnum.selected_plugin_missing,
-        applied: true,
+        selectedPluginApplied: false,
+        liveServerAvailable: true,
       }),
     ];
 
@@ -245,6 +276,7 @@ describe("LanguageServerStatusBanner", () => {
       buildPythonStatus({
         selectedPluginId: "setta-fixturedsl",
         state: SelectedLanguageServerStateEnum.selected_plugin_wrong_language,
+        liveServerAvailable: false,
       }),
     ];
 
@@ -264,12 +296,39 @@ describe("LanguageServerStatusBanner", () => {
     }
   });
 
+  it("warns when the selected plugin does not provide Python but a live Python server remains", async () => {
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-fixturedsl",
+        state: SelectedLanguageServerStateEnum.selected_plugin_wrong_language,
+        selectedPluginApplied: false,
+        liveServerAvailable: true,
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("will remain available until restart");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("warns when the selected unavailable plugin is no longer applied", async () => {
     selectedLanguageServers = [
       buildPythonStatus({
         selectedPluginId: "setta-basedpyright",
         state: SelectedLanguageServerStateEnum.selected_plugin_unavailable,
-        applied: false,
+        selectedPluginApplied: false,
+        liveServerAvailable: false,
       }),
     ];
 

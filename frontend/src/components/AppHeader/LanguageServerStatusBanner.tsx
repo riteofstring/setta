@@ -74,18 +74,11 @@ function buildPythonLanguageServerMessage(
 ): string | null {
   switch (pythonStatus.state) {
     case SelectedLanguageServerStateEnum.not_selected:
-      return pythonStatus.applied
-        ? "Python language server is not selected. Choose a plugin in workspace settings, then restart after it is available."
-        : "Python language server is no longer selected. Restart the language server to apply this change, or choose a plugin in workspace settings.";
+      return buildNotSelectedMessage(pythonStatus);
     case SelectedLanguageServerStateEnum.disabled:
-      return pythonStatus.applied
-        ? "Python language server is turned off for this workspace. Select a plugin in workspace settings if you want completions and signature help."
-        : "Python language server is turned off for this workspace, but restart is still required to apply this change.";
+      return buildDisabledMessage(pythonStatus);
     case SelectedLanguageServerStateEnum.ready:
-      if (pythonStatus.applied) {
-        return null;
-      }
-      return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is ready, but restart is still required before Python completions and signature help become available.`;
+      return buildReadyMessage(pythonStatus);
     case SelectedLanguageServerStateEnum.selected_plugin_missing:
       return buildSelectedPluginMissingMessage(pythonStatus);
     case SelectedLanguageServerStateEnum.selected_plugin_wrong_language:
@@ -97,10 +90,40 @@ function buildPythonLanguageServerMessage(
   }
 }
 
+function buildNotSelectedMessage(
+  pythonStatus: SelectedLanguageServerStatus,
+): string {
+  if (pythonStatus.liveServerAvailable) {
+    return "Python language server is no longer selected, but the currently applied Python server will remain available until restart. Restart the language server to apply this change, or choose a plugin in workspace settings.";
+  }
+  return "Python language server is not selected. Choose a plugin in workspace settings, then restart after it is available.";
+}
+
+function buildDisabledMessage(
+  pythonStatus: SelectedLanguageServerStatus,
+): string {
+  if (pythonStatus.liveServerAvailable) {
+    return "Python language server is turned off for this workspace, but the currently applied Python server will remain available until restart.";
+  }
+  return "Python language server is turned off for this workspace. Select a plugin in workspace settings if you want completions and signature help.";
+}
+
+function buildReadyMessage(
+  pythonStatus: SelectedLanguageServerStatus,
+): string | null {
+  if (pythonStatus.selectedPluginApplied) {
+    return null;
+  }
+  if (pythonStatus.liveServerAvailable) {
+    return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is ready, but restart is still required to switch from the currently applied Python server.`;
+  }
+  return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is ready, but restart is still required before Python completions and signature help become available.`;
+}
+
 function buildSelectedPluginMissingMessage(
   pythonStatus: SelectedLanguageServerStatus,
 ): string {
-  if (pythonStatus.applied) {
+  if (pythonStatus.liveServerAvailable) {
     return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is no longer installed or active, but the currently applied Python server will remain available until restart. Reinstall or enable it before restarting, or choose a different plugin in workspace settings.`;
   }
   return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is not installed or active. Install or enable it, then restart the language server.`;
@@ -109,7 +132,7 @@ function buildSelectedPluginMissingMessage(
 function buildSelectedPluginWrongLanguageMessage(
   pythonStatus: SelectedLanguageServerStatus,
 ): string {
-  if (pythonStatus.applied) {
+  if (pythonStatus.liveServerAvailable) {
     return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" does not provide Python, but the currently applied Python server will remain available until restart. Choose a Python language server plugin in workspace settings before restarting.`;
   }
   return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`;
@@ -118,7 +141,7 @@ function buildSelectedPluginWrongLanguageMessage(
 function buildSelectedPluginUnavailableMessage(
   pythonStatus: SelectedLanguageServerStatus,
 ): string {
-  if (pythonStatus.applied) {
+  if (pythonStatus.liveServerAvailable) {
     return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is unavailable, but the currently applied Python server will remain available until restart. Enable or reinstall it before restarting, or choose a different plugin.`;
   }
   return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is unavailable. Enable or reinstall it, then restart the language server.`;
