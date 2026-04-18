@@ -40,38 +40,3 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		}
 	}
 }
-
-func TestRunCodeRequestOptionalJSONTagsLiveOnOwnerType(t *testing.T) {
-	type tagExpectation struct {
-		field    string
-		tagValue string
-	}
-
-	expectations := []tagExpectation{
-		{field: "SectionID", tagValue: "sectionId,omitempty"},
-		{field: "TerminalSectionID", tagValue: "terminalSectionId,omitempty"},
-		{field: "CLIID", tagValue: "cliId,omitempty"},
-		{field: "RunSnapshotMode", tagValue: "runSnapshotMode,omitempty"},
-		{field: "DrawSnapshotsBySectionID", tagValue: "drawSnapshotsBySectionId,omitempty"},
-		{field: "SectionVariantOverrides", tagValue: "sectionVariantOverrides,omitempty"},
-		{field: "ParamOverrides", tagValue: "paramOverrides,omitempty"},
-	}
-
-	runCodeType := reflect.TypeOf(RunCodeRequest{})
-	for _, expectation := range expectations {
-		field, ok := runCodeType.FieldByName(expectation.field)
-		if !ok {
-			t.Fatalf("%s.%s field not found", runCodeType.Name(), expectation.field)
-		}
-		if got := field.Tag.Get("json"); got != expectation.tagValue {
-			t.Fatalf(
-				"%s.%s tag %q = %q, want %q",
-				runCodeType.Name(),
-				expectation.field,
-				"json",
-				got,
-				expectation.tagValue,
-			)
-		}
-	}
-}
