@@ -153,3 +153,4 @@ Record:
     - the live page lands in the React error boundary instead of a usable project surface because of the `ProjectChatBottomDock` runtime error
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
+LOOP_TERMINAL_MARKER: none
