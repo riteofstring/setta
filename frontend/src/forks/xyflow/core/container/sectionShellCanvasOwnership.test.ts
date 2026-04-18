@@ -8,6 +8,8 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  isCanvasOwnedSectionLightweightNestedChildren,
+  isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
   isCanvasOwnedSectionMetaControlDropdown,
@@ -227,6 +229,45 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightParamLabel(
         CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it("targets the section sizing policy dense lane for lightweight nested children", () => {
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps nested guide ownership on the shell canaries and the active section sizing policy dense lane", () => {
+    expect(isCanvasOwnedSectionNestedGuide(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(
+      true,
+    );
+    expect(
+      isCanvasOwnedSectionNestedGuide(
+        DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionNestedGuide(
+        GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionNestedGuide(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionNestedGuide(
+        "settings-section__textBlockSectionDefault",
       ),
     ).toBe(false);
   });

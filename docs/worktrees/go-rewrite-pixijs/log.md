@@ -1242,3 +1242,47 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the `sectionSizingPolicy` micro control-family lane closed and target the heavier structural row/container DOM still mounted above these lightweight activators instead of reopening another dropdown micro-slice by inertia
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 045
+
+- Item: Remove the extra nested child-row wrapper from the dense `settings-section__sectionSizingPolicy` lane.
+- Status: `done`
+- Details:
+  - Kept this slice on the active dense structural blocker instead of reopening another closed control-family lane.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now marks `settings-section__sectionSizingPolicy` as the lightweight nested-children lane while leaving the closed callable/dict/globalVariables lanes unchanged.
+  - `frontend/src/components/Params/ParamContainer.tsx` now lets nested child rows mount directly under their owning row on the `canvas-shell-underlay` path and marks the owning nested row as the lightweight retained-guide root instead of keeping the extra `.section-args-nested.section-key-value...` wrapper div.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those lightweight nested-guide roots by unioning their direct child rows, so the retained guide still paints after the wrapper node disappears.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+    - new `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - The live `sectionSizingPolicy` subtree now proves the new structural contract:
+    - `legacyNestedChildWrapperCount: 0`
+    - `lightweightNestedGuideRootCount: 43`
+    - `rowCount: 211`
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-nested-children-rerun.md`.
+  - Dense rerun outcome versus the prior lightweight param-label report:
+    - `documentNodeCount` dropped from `8647` to `8604`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` improved from `112.38ms` to `110.24ms`
+    - `raf.p95Ms` improved from `216.7ms` to `216.6ms`
+    - `longTasks.totalMs` improved from `18184ms` to `17832ms`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-029/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (37.7s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-029/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.3s)` on the live worktree runtime with `documentNodeCount: 8604`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active
+  - no crash/error overlay was visible
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` remained visible on the live surface
+  - the sampled `Size` branch still showed the expected `Height` and `Width` rows with no blank slot or obviously detached row/guide chrome after the nested wrapper removal
+  - caveat: the headless fitted viewport made the deeper guide details hard to inspect pixel-for-pixel, so this was a best-effort visual pass on the visible subtree rather than a microscopic guide-fidelity call
+- Next action:
+  - stay on `settings-section__sectionSizingPolicy` and target the next repeated structural row/container DOM still mounted above the lightweight text/dropdown/resize/label/nested-child activators before opening a new dense section lane
+LOOP_TERMINAL_MARKER: none

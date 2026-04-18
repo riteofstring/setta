@@ -40,6 +40,8 @@ const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
 const CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE = "data-canvas-owned-nested-guide";
+const CANVAS_OWNED_NESTED_GUIDE_LIGHTWEIGHT_ATTRIBUTE =
+  "data-canvas-owned-nested-guide-lightweight";
 const CANVAS_OWNED_RESTING_DROPDOWN_BOX_ATTRIBUTE =
   "data-canvas-owned-resting-dropdown-box";
 const CANVAS_OWNED_UNDERLINE_ATTRIBUTE = "data-canvas-owned-underline";
@@ -53,6 +55,10 @@ const FILTER_ICON_TOP_BAR_OFFSET_Y_PX = -4;
 const FILTER_ICON_BOTTOM_BAR_WIDTH_PX = 4;
 const FILTER_ICON_BOTTOM_BAR_OFFSET_X_PX = 2;
 const FILTER_ICON_BOTTOM_BAR_OFFSET_Y_PX = 4;
+const LIGHTWEIGHT_NESTED_GUIDE_WIDTH_REM = 0.4;
+const LIGHTWEIGHT_NESTED_GUIDE_BOTTOM_OFFSET_REM = 0.1;
+const LIGHTWEIGHT_NESTED_GUIDE_LIGHT_FILL = "hsla(219, 25%, 77%, 0.2)";
+const LIGHTWEIGHT_NESTED_GUIDE_DARK_FILL = "hsla(220, 26%, 57%, 0.2)";
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
@@ -577,6 +583,72 @@ function measureCanvasOwnedNestedGuideBoxes(
     ),
   )
     .map((guideElement) => {
+      if (
+        guideElement.getAttribute(
+          CANVAS_OWNED_NESTED_GUIDE_LIGHTWEIGHT_ATTRIBUTE,
+        ) === "true"
+      ) {
+        const directChildRows = Array.from(guideElement.children).filter(
+          (child): child is HTMLElement =>
+            child instanceof HTMLElement &&
+            child.tagName === "ARTICLE" &&
+            child.dataset.paramRow === "true",
+        );
+        if (directChildRows.length === 0) {
+          return null;
+        }
+
+        const topPx = Math.min(
+          ...directChildRows.map((childRow) => childRow.getBoundingClientRect().top),
+        );
+        const bottomPx = Math.max(
+          ...directChildRows.map(
+            (childRow) => childRow.getBoundingClientRect().bottom,
+          ),
+        );
+        const rootFontSizePx = Number.parseFloat(
+          window.getComputedStyle(document.documentElement).fontSize,
+        );
+        const remSizePx =
+          Number.isFinite(rootFontSizePx) && rootFontSizePx > 0
+            ? rootFontSizePx
+            : 16;
+        const widthPx = remSizePx * LIGHTWEIGHT_NESTED_GUIDE_WIDTH_REM;
+        const bottomOffsetPx =
+          remSizePx * LIGHTWEIGHT_NESTED_GUIDE_BOTTOM_OFFSET_REM;
+        const heightPx = bottomPx - topPx - bottomOffsetPx;
+        if (!Number.isFinite(heightPx) || heightPx <= 0) {
+          return null;
+        }
+
+        const guideRootRect = guideElement.getBoundingClientRect();
+        const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+          rect: {
+            height: heightPx,
+            left: guideRootRect.left,
+            top: topPx,
+            width: widthPx,
+          },
+          sectionRect,
+          viewportScale,
+        });
+        if (!graphSpaceRect) {
+          return null;
+        }
+
+        const fill = document.documentElement.classList.contains("dark")
+          ? LIGHTWEIGHT_NESTED_GUIDE_DARK_FILL
+          : LIGHTWEIGHT_NESTED_GUIDE_LIGHT_FILL;
+        return {
+          cornerRadius: toGraphSpaceLength(widthPx / 2, viewportScale),
+          fill,
+          height: graphSpaceRect.height,
+          offsetX: graphSpaceRect.offsetX,
+          offsetY: graphSpaceRect.offsetY,
+          width: graphSpaceRect.width,
+        };
+      }
+
       const guideRect = guideElement.getBoundingClientRect();
       if (guideRect.width <= 0 || guideRect.height <= 0) {
         return null;

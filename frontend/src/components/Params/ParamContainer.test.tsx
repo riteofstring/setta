@@ -47,8 +47,11 @@ vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
 }));
 
 vi.mock("forks/xyflow/core/container/sectionShellCanvasOwnership", () => ({
-  isCanvasOwnedSectionShell: (candidateSectionId: string) =>
+  isCanvasOwnedSectionLightweightParamLabel: () => false,
+  isCanvasOwnedSectionLightweightNestedChildren: () => false,
+  isCanvasOwnedSectionNestedGuide: (candidateSectionId: string) =>
     candidateSectionId === mocks.canvasOwnedSectionId,
+  isCanvasOwnedSectionLightweightResizeHandle: () => false,
 }));
 
 type RenderedParamContainer = {

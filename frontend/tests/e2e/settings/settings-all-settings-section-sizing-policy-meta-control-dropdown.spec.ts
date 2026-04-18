@@ -357,8 +357,14 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
       .map((row) => row.id);
 
     return {
+      legacyNestedChildWrapperCount: section.querySelectorAll(
+        ".section-args-nested.section-key-value.relative.grid",
+      ).length,
       legacyLeadingContentWrapperCount: section.querySelectorAll(
         '.section-key:not([data-canvas-owned-param-label-lightweight="true"])',
+      ).length,
+      lightweightNestedGuideRootCount: section.querySelectorAll(
+        '[data-canvas-owned-nested-guide-lightweight="true"]',
       ).length,
       lightweightParamLabelCount: section.querySelectorAll(
         '[data-canvas-owned-param-label-lightweight="true"]',
@@ -389,7 +395,9 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
   expect(summary.rowCount).toBeGreaterThan(200);
   expect(summary.restingTextRootCount).toBeGreaterThan(150);
   expect(summary.liveInteractiveRows).toEqual([]);
+  expect(summary.legacyNestedChildWrapperCount).toBe(0);
   expect(summary.legacyLeadingContentWrapperCount).toBe(0);
+  expect(summary.lightweightNestedGuideRootCount).toBeGreaterThan(30);
   expect(summary.lightweightParamLabelCount).toBeGreaterThan(150);
   expect(summary.leadingContentCount).toBe(summary.lightweightParamLabelCount);
   expect(summary.lightweightResizeHandleCount).toBeGreaterThan(150);

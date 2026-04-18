@@ -32,8 +32,9 @@ vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
 vi.mock("forks/xyflow/core/container/sectionShellCanvasOwnership", () => ({
   isCanvasOwnedSectionLightweightParamLabel: (candidateSectionId: string) =>
     candidateSectionId === mocks.lightweightParamLabelSectionId,
+  isCanvasOwnedSectionLightweightNestedChildren: () => false,
+  isCanvasOwnedSectionNestedGuide: () => false,
   isCanvasOwnedSectionLightweightResizeHandle: () => false,
-  isCanvasOwnedSectionShell: () => false,
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({

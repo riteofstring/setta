@@ -104,6 +104,19 @@ export function isCanvasOwnedSectionLightweightParamLabel(sectionId: string) {
   return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 }
 
+export function isCanvasOwnedSectionLightweightNestedChildren(
+  sectionId: string,
+) {
+  return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+}
+
+export function isCanvasOwnedSectionNestedGuide(sectionId: string) {
+  return (
+    isCanvasOwnedSectionShell(sectionId) ||
+    isCanvasOwnedSectionLightweightNestedChildren(sectionId)
+  );
+}
+
 export function isCanvasOwnedSectionRestingText({
   codeObjType,
   sectionId,
