@@ -154,7 +154,7 @@ class ChatSectionImpl(BaseModel):
     permissionMode: ChatPermissionMode
     searchEnabled: bool
     dictationMode: ChatDictationMode
-    messages: list[dict[str, Any]] | None = None
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
@@ -2517,7 +2517,7 @@ class Chat(BaseModel):
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     llmConfig: LLMConfig
     projectConfigId: ID | None = None
-    messages: list[BaseChatMessageUnion] | None = None
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     systemPrompt: str | None = None
 
 
@@ -2525,7 +2525,7 @@ class ChatSectionBranch(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    messages: list[BaseChatMessageUnion] | None = None
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     createdAt: int = 0
     parentBranchId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -2535,7 +2535,7 @@ class ChatSectionState(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    messages: list[BaseChatMessageUnion] | None = None
+    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
