@@ -165,6 +165,9 @@ func installDefaultsProfilePackageManagerPlugin(t *testing.T, sitePackages strin
 	repoRoot := appTestRepoRoot(t)
 	pluginRoot := filepath.Join(sitePackages, "setta_basedpyright")
 	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
+	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
+		t.Fatalf("remove copied plugin build dir: %v", err)
+	}
 
 	distInfoRoot := filepath.Join(sitePackages, "setta_basedpyright-0.1.0.dist-info")
 	writeDefaultsProfilePackageManagerFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{

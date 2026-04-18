@@ -91,25 +91,26 @@ func backendProbeRequired(capabilities []string) bool {
 }
 
 func probeGoBackendRegistrations(pluginRoot string, manifest PluginManifest, buildRoot string) (backendProbeResponse, error) {
-	executablePath, err := BuildGoBackendExecutable(pluginRoot, manifest, buildRoot)
+	launch, err := ResolvePluginBackendLaunch(pluginRoot, manifest, buildRoot)
 	if err != nil {
 		return backendProbeResponse{}, err
 	}
-	return probeGoBackendExecutable(pluginRoot, manifest, executablePath)
+	return probePluginBackendRegistrations(pluginRoot, manifest, launch)
 }
 
-func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, executablePath string) (backendProbeResponse, error) {
+func probePluginBackendRegistrations(pluginRoot string, manifest PluginManifest, launch PluginBackendLaunch) (backendProbeResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), backendProbeTimeout)
 	defer cancel()
 
-	command := exec.CommandContext(ctx, executablePath, backendProbeArg)
+	args := append(append([]string(nil), launch.Args...), backendProbeArg)
+	command := exec.CommandContext(ctx, launch.Command, args...)
 	command.Dir = pluginRoot
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return backendProbeResponse{}, newServiceError(
 				ServiceErrorCodeBackendRuntimeInvalid,
-				"Go backend runtime probe timed out for plugin %s",
+				"Plugin backend runtime probe timed out for plugin %s",
 				manifest.ID,
 			)
 		}
@@ -119,7 +120,7 @@ func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, execut
 		}
 		return backendProbeResponse{}, newServiceError(
 			ServiceErrorCodeBackendRuntimeInvalid,
-			"Go backend runtime probe failed for plugin %s: %s",
+			"Plugin backend runtime probe failed for plugin %s: %s",
 			manifest.ID,
 			message,
 		)

@@ -8,6 +8,7 @@ import {
   useNotifications,
   useProjectState,
 } from "state/definitions";
+import { createAppNotification } from "state/types/notifications";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { OverviewNotificationsPaneTabEnum } from "utils/constants";
@@ -18,7 +19,6 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
 import { NotificationsArea } from "./NotificationsArea";
-import { createAppNotification } from "state/types/notifications";
 
 const openAPI = vi.hoisted(() => ({
   getNotifications: vi.fn(),

@@ -2,8 +2,6 @@ package plugins
 
 import (
 	"encoding/json"
-	"os"
-	"strings"
 )
 
 func languageServerSettingsRoot(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
@@ -22,65 +20,15 @@ func languageServerSettingsRoot(entry DiscoveredPlugin, pluginsState *PluginsSta
 }
 
 func pluginLanguageServerDefaults(entry DiscoveredPlugin) map[string]any {
-	if entry.Manifest == nil {
+	schemaPath, ok, err := resolvePluginConfigSchemaPath(entry)
+	if err != nil || !ok {
 		return nil
 	}
-	trimmedSchemaPath := strings.TrimSpace(entry.Manifest.ConfigSchemaPath)
-	if trimmedSchemaPath == "" {
-		return nil
-	}
-	schemaPath, err := resolveManifestRegularFile(entry.SourcePath, trimmedSchemaPath, "plugin config schema")
+	schemaJSON, err := loadPluginConfigSchemaJSON(schemaPath)
 	if err != nil {
 		return nil
 	}
-	payload, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return nil
-	}
-	var schema map[string]any
-	if err := json.Unmarshal(payload, &schema); err != nil {
-		return nil
-	}
-	defaultValue, ok := schemaDefaultValue(schema)
-	if !ok {
-		return nil
-	}
-	defaultMap, ok := defaultValue.(map[string]any)
-	if !ok {
-		return nil
-	}
-	return defaultMap
-}
-
-func schemaDefaultValue(schema map[string]any) (any, bool) {
-	if len(schema) == 0 {
-		return nil, false
-	}
-	if defaultValue, ok := schema["default"]; ok {
-		return cloneJSONValue(defaultValue), true
-	}
-
-	properties, ok := schema["properties"].(map[string]any)
-	if !ok || len(properties) == 0 {
-		return nil, false
-	}
-
-	defaults := map[string]any{}
-	for key, rawProperty := range properties {
-		property, ok := rawProperty.(map[string]any)
-		if !ok {
-			continue
-		}
-		defaultValue, ok := schemaDefaultValue(property)
-		if !ok {
-			continue
-		}
-		defaults[key] = defaultValue
-	}
-	if len(defaults) == 0 {
-		return nil, false
-	}
-	return defaults, true
+	return pluginConfigSchemaDefaults(schemaJSON)
 }
 
 func mergeStringAnyMaps(base map[string]any, overlay map[string]any) map[string]any {

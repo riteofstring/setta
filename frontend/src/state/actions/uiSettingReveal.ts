@@ -14,9 +14,9 @@ import {
 } from "utils/constants";
 import type {
   SectionType,
+  UIEditorTabName,
   UISettingRevealContent,
   UISettingRevealTarget,
-  UIEditorTabName,
 } from "utils/generatedTypes";
 import {
   restoreBackendAuthoritativeActiveSectionIds,

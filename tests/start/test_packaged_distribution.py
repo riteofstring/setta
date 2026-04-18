@@ -187,6 +187,36 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
 
 
+def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
+    tmp_path: Path,
+) -> None:
+    source_root = _repo_root() / "plugins" / "setta-basedpyright"
+    plugin_root = tmp_path / "setta-basedpyright"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(plugin_root / "build", ignore_errors=True)
+    outdir = tmp_path / "dist"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
+        cwd=plugin_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+
+    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(name.endswith("backend/main.py") for name in names)
+    assert not any(name.endswith("backend/main.go") for name in names)
+
+
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
     # Wheel builds must fail fast instead of silently shipping a broken router.
     project_root = _write_minimal_distribution_project(

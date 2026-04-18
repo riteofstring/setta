@@ -16,5 +16,5 @@ py-modules = []
 
 [tool.setuptools.data-files]
 "." = ["setta.plugin.json", "README.md"]
-"backend" = ["backend/go.mod", "backend/main.go"]
+"backend" = ["backend/main.py"]
 "content/config" = ["content/config/schema.json"]

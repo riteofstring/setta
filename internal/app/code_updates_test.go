@@ -1308,7 +1308,6 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
-		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
 		Settings: func() map[string]any {
 			return codeUpdatesTestPythonSettings(map[string]any{
@@ -1423,7 +1422,6 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
-		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
 		Settings: func() map[string]any {
 			return codeUpdatesTestPythonSettings(map[string]any{

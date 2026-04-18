@@ -9,10 +9,10 @@ server.
 setta plugins validate .
 ```
 
-## Build backend
+## Validate backend probe
 
 ```bash
-(cd backend && go build ./...)
+python backend/main.py --setta-plugin-backend-probe
 ```
 
 ## Build package

@@ -1,5 +1,5 @@
-import { createSettingsState } from "./generatedTypes";
 import { describe, expect, it } from "vitest";
+import { createSettingsState } from "./generatedTypes";
 
 describe("createSettingsState", () => {
   it("merges chat windowing defaults for partial overrides", () => {

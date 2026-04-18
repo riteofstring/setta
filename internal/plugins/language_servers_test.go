@@ -143,6 +143,15 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	if spec.Command != pythonPath {
 		t.Fatalf("expected plugin to resolve current interpreter %q, got %q", pythonPath, spec.Command)
 	}
+	expectedArgs := []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"}
+	if len(spec.Args) != len(expectedArgs) {
+		t.Fatalf("expected basedpyright args %#v, got %#v", expectedArgs, spec.Args)
+	}
+	for index, expected := range expectedArgs {
+		if spec.Args[index] != expected {
+			t.Fatalf("expected basedpyright args %#v, got %#v", expectedArgs, spec.Args)
+		}
+	}
 	if spec.SettingsKey == nil || *spec.SettingsKey != "basedpyright" {
 		t.Fatalf("unexpected basedpyright settings key %#v", spec.SettingsKey)
 	}
@@ -168,6 +177,68 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	for _, rule := range expectedRules {
 		if overrides[rule] != "none" {
 			t.Fatalf("expected %s to default to none, got %#v", rule, overrides[rule])
+		}
+	}
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok || len(extraPaths) != 1 || extraPaths[0] != roots.settaFilesRoot {
+		t.Fatalf("expected setta_files extra path %#v, got %#v", roots.settaFilesRoot, analysis["extraPaths"])
+	}
+}
+
+func TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSettaFilesRoot(t *testing.T) {
+	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	if err := service.store.SavePluginsState(PluginsStateFile{
+		PluginConfigByID: map[string]any{
+			pluginConfigKey("setta-basedpyright", PluginScopeWorkspace): map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{" /tmp/custom ", roots.settaFilesRoot},
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save plugin config state: %v", err)
+	}
+
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-basedpyright"),
+	})
+	if err != nil {
+		t.Fatalf("load first-party basedpyright language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one basedpyright spec, got %#v", specs)
+	}
+
+	basedpyrightSettings, ok := specs[0].Settings["basedpyright"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected plugin-owned basedpyright settings root, got %#v", specs[0].Settings)
+	}
+	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis settings, got %#v", basedpyrightSettings["analysis"])
+	}
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok {
+		t.Fatalf("expected extraPaths array, got %#v", analysis["extraPaths"])
+	}
+	expected := []any{"/tmp/custom", roots.settaFilesRoot}
+	if len(extraPaths) != len(expected) {
+		t.Fatalf("expected extraPaths %#v, got %#v", expected, extraPaths)
+	}
+	for index, path := range expected {
+		if extraPaths[index] != path {
+			t.Fatalf("expected extraPaths %#v, got %#v", expected, extraPaths)
 		}
 	}
 }

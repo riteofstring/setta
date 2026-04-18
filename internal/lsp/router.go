@@ -28,7 +28,6 @@ type LanguageServerSpec struct {
 
 type RouterOptions struct {
 	WorkspaceRoot   string
-	LookupEnv       func(string) (string, bool)
 	Environ         func() []string
 	WorkingDir      string
 	Settings        func() map[string]any
@@ -41,11 +40,9 @@ type Router struct {
 	workingDir    string
 	settings      func() map[string]any
 
-	mu              sync.Mutex
-	baseSpecs       map[string]LanguageServerSpec
-	additionalSpecs map[string]LanguageServerSpec
-	specs           map[string]LanguageServerSpec
-	services        map[string]*Service
+	mu       sync.Mutex
+	specs    map[string]LanguageServerSpec
+	services map[string]*Service
 }
 
 func NewRouter(options RouterOptions) (*Router, error) {
@@ -54,21 +51,18 @@ func NewRouter(options RouterOptions) (*Router, error) {
 		environ = os.Environ
 	}
 
-	baseSpecs := map[string]LanguageServerSpec{}
-	additionalSpecs, err := normalizeAdditionalLanguageServerSpecs(baseSpecs, options.AdditionalSpecs)
+	specs, err := normalizeAdditionalLanguageServerSpecs(options.AdditionalSpecs)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Router{
-		workspaceRoot:   strings.TrimSpace(options.WorkspaceRoot),
-		environment:     append([]string(nil), environ()...),
-		workingDir:      strings.TrimSpace(options.WorkingDir),
-		settings:        options.Settings,
-		baseSpecs:       cloneLanguageServerSpecMap(baseSpecs),
-		additionalSpecs: cloneLanguageServerSpecMap(additionalSpecs),
-		specs:           mergeLanguageServerSpecMaps(baseSpecs, additionalSpecs),
-		services:        map[string]*Service{},
+		workspaceRoot: strings.TrimSpace(options.WorkspaceRoot),
+		environment:   append([]string(nil), environ()...),
+		workingDir:    strings.TrimSpace(options.WorkingDir),
+		settings:      options.Settings,
+		specs:         cloneLanguageServerSpecMap(specs),
+		services:      map[string]*Service{},
 	}, nil
 }
 
@@ -81,11 +75,10 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 	}
 
 	r.mu.Lock()
-	baseSpecs := cloneLanguageServerSpecMap(r.baseSpecs)
-	currentAdditionalSpecs := cloneLanguageServerSpecMap(r.additionalSpecs)
+	currentSpecs := cloneLanguageServerSpecMap(r.specs)
 	r.mu.Unlock()
 
-	nextAdditionalSpecs, err := normalizeAdditionalLanguageServerSpecs(baseSpecs, specs)
+	nextSpecs, err := normalizeAdditionalLanguageServerSpecs(specs)
 	if err != nil {
 		return err
 	}
@@ -93,19 +86,18 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 	r.mu.Lock()
 	servicesToClose := make([]*Service, 0)
 	for languageID, service := range r.services {
-		currentSpec, currentIsAdditional := currentAdditionalSpecs[languageID]
-		if !currentIsAdditional {
+		currentSpec, currentExists := currentSpecs[languageID]
+		if !currentExists {
 			continue
 		}
-		nextSpec, nextExists := nextAdditionalSpecs[languageID]
+		nextSpec, nextExists := nextSpecs[languageID]
 		if nextExists && languageServerSpecsEqual(currentSpec, nextSpec) {
 			continue
 		}
 		servicesToClose = append(servicesToClose, service)
 		delete(r.services, languageID)
 	}
-	r.additionalSpecs = cloneLanguageServerSpecMap(nextAdditionalSpecs)
-	r.specs = mergeLanguageServerSpecMaps(baseSpecs, nextAdditionalSpecs)
+	r.specs = cloneLanguageServerSpecMap(nextSpecs)
 	r.mu.Unlock()
 
 	var joined error
@@ -137,15 +129,12 @@ func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, e
 	return normalized, nil
 }
 
-func normalizeAdditionalLanguageServerSpecs(baseSpecs map[string]LanguageServerSpec, specs []LanguageServerSpec) (map[string]LanguageServerSpec, error) {
+func normalizeAdditionalLanguageServerSpecs(specs []LanguageServerSpec) (map[string]LanguageServerSpec, error) {
 	normalizedSpecs := map[string]LanguageServerSpec{}
 	for _, spec := range specs {
 		normalized, err := normalizeLanguageServerSpec(spec)
 		if err != nil {
 			return nil, err
-		}
-		if _, exists := baseSpecs[normalized.LanguageID]; exists {
-			return nil, fmt.Errorf("%w: %s", ErrDuplicateLanguageServer, normalized.LanguageID)
 		}
 		if _, exists := normalizedSpecs[normalized.LanguageID]; exists {
 			return nil, fmt.Errorf("%w: %s", ErrDuplicateLanguageServer, normalized.LanguageID)
@@ -157,14 +146,6 @@ func normalizeAdditionalLanguageServerSpecs(baseSpecs map[string]LanguageServerS
 
 func normalizeLanguageID(languageID string) string {
 	return strings.ToLower(strings.TrimSpace(languageID))
-}
-
-func mergeLanguageServerSpecMaps(base map[string]LanguageServerSpec, additional map[string]LanguageServerSpec) map[string]LanguageServerSpec {
-	merged := cloneLanguageServerSpecMap(base)
-	for languageID, spec := range additional {
-		merged[languageID] = cloneLanguageServerSpec(spec)
-	}
-	return merged
 }
 
 func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string]LanguageServerSpec {
