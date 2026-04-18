@@ -357,6 +357,13 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
       .map((row) => row.id);
 
     return {
+      legacyLeadingContentWrapperCount: section.querySelectorAll(
+        '.section-key:not([data-canvas-owned-param-label-lightweight="true"])',
+      ).length,
+      lightweightParamLabelCount: section.querySelectorAll(
+        '[data-canvas-owned-param-label-lightweight="true"]',
+      ).length,
+      leadingContentCount: section.querySelectorAll(".section-key").length,
       lightweightResizeHandleCount: section.querySelectorAll(
         '[data-param-resize-handle-lightweight="true"]',
       ).length,
@@ -382,6 +389,9 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
   expect(summary.rowCount).toBeGreaterThan(200);
   expect(summary.restingTextRootCount).toBeGreaterThan(150);
   expect(summary.liveInteractiveRows).toEqual([]);
+  expect(summary.legacyLeadingContentWrapperCount).toBe(0);
+  expect(summary.lightweightParamLabelCount).toBeGreaterThan(150);
+  expect(summary.leadingContentCount).toBe(summary.lightweightParamLabelCount);
   expect(summary.lightweightResizeHandleCount).toBeGreaterThan(150);
   expect(summary.lightweightResizeHandleChildCount).toBe(0);
   expect(summary.legacyResizeHandleCount).toBe(0);

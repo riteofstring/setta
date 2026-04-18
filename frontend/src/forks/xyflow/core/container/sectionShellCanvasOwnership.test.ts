@@ -9,6 +9,7 @@ import {
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionLightweightResizeHandle,
+  isCanvasOwnedSectionLightweightParamLabel,
   isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
@@ -115,6 +116,11 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
         "settings-section__textBlockSectionDefault",
       ),
     ).toBe(false);
@@ -207,6 +213,19 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightResizeHandle(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it("targets the section sizing policy dense lane for lightweight param labels", () => {
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel(
         CANVAS_OWNED_SECTION_SHELL_ID,
       ),
     ).toBe(false);

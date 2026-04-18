@@ -157,6 +157,50 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-18 045
 
+- Item: Collapse the extra `sectionSizingPolicy` key-column wrapper so the owned param label itself occupies the slot on the retained canvas lane.
+- Status: `done`
+- Details:
+  - Kept this slice on the canonical dense target `settings-section__sectionSizingPolicy` instead of reopening a closed callable/dict/globalVariables lane.
+  - `frontend/src/components/Params/ParamContainer.tsx` now forwards the key-column class/style directly onto the non-kwarg label component only on the active `canvas-shell-underlay` `sectionSizingPolicy` lane, removing the extra `.section-key` wrapper there.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now marks that dense lane as the lightweight param-label owner, and `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` now exposes `data-canvas-owned-param-label-lightweight="true"` so the retained-text path and probes can attribute the new root cleanly.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - The checked whole-section probe now proves the intended structural cut on the live worktree runtime:
+    - `legacyLeadingContentWrapperCount: 0`
+    - `lightweightParamLabelCount: 168`
+    - `leadingContentCount: 168`
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-param-label-rerun.md`.
+  - Dense rerun outcome versus the prior lightweight-resize-handle report:
+    - `documentNodeCount` dropped from `8815` to `8647`
+    - `documentNodeCount` is now down `906` from the durable `go-rewrite` baseline (`9553` -> `8647`)
+    - `raf.meanMs` moved from `110.98ms` to `112.38ms`
+    - `raf.p95Ms` improved from `233.3ms` to `216.7ms`
+    - `longTasks.totalMs` moved from `17907ms` to `18184ms`
+  - Interpretation: this slice moved dense inactive row DOM again without claiming a fresh motion win; it stays in the structural-row cost lane rather than a pure ownership hop.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-028/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-028/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.4s)` on the live worktree runtime with `documentNodeCount: 8647`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was visible on the live surface
+  - the `Size Mode Height` row still looked intact at rest with no blank label slot or detached row chrome after the wrapper removal
+  - activating the row kept the inline editor in-place with no visible detached jump
+  - caveat: the focused editor surfaced as a `cm-content` textbox showing `32` in this headless CDP pass, so the exact affordance was slightly ambiguous even though the row geometry remained stable
+- Next action:
+  - stay on `settings-section__sectionSizingPolicy` and target the next repeated structural row/container DOM still mounted above the lightweight text/dropdown/resize/label activators before moving to a new dense section lane
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 045
+
 - Item: Collapse the repeated `settings-section__sectionSizingPolicy` row resize handles to a lightweight single-node path on the retained-canvas lane.
 - Status: `done`
 - Details:

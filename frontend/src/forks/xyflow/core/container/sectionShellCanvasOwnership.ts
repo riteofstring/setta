@@ -100,6 +100,10 @@ export function isCanvasOwnedSectionLightweightResizeHandle(sectionId: string) {
   return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 }
 
+export function isCanvasOwnedSectionLightweightParamLabel(sectionId: string) {
+  return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+}
+
 export function isCanvasOwnedSectionRestingText({
   codeObjType,
   sectionId,
@@ -116,7 +120,10 @@ export function isCanvasOwnedSectionRestingText({
 }
 
 export function isCanvasOwnedSectionParamLabelRestingText(sectionId: string) {
-  return isCanvasOwnedSectionShell(sectionId);
+  return (
+    isCanvasOwnedSectionShell(sectionId) ||
+    isCanvasOwnedSectionLightweightParamLabel(sectionId)
+  );
 }
 
 export function isCanvasOwnedSectionArgsLabelRestingText(sectionId: string) {

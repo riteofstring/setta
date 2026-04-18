@@ -4,6 +4,7 @@ import { type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
   isCanvasOwnedSectionLightweightResizeHandle,
+  isCanvasOwnedSectionLightweightParamLabel,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
@@ -78,6 +79,7 @@ type ParamLeadingContentProps = {
   children: React.ReactNode;
   columnWidth: string;
   isKwarg: boolean;
+  lightweightLeadingContent: boolean;
 };
 
 type ParamNestedChildrenProps = {
@@ -121,6 +123,7 @@ type ParamRowRenderProps = {
   isKwarg: boolean;
   isTopLevelWithPad: boolean;
   layout: ParamContainerLayout;
+  lightweightLeadingContent: boolean;
   lightweightResizeHandle: boolean;
   nestedChildrenProps: ParamNestedChildrenProps;
   onResizeStart: React.MouseEventHandler;
@@ -289,13 +292,34 @@ function ParamRowArticle({
   );
 }
 
+type CloneableLeadingContentProps = {
+  className?: string;
+  lightweightCanvasRoot?: boolean;
+  style?: React.CSSProperties;
+};
+
 function ParamLeadingContent({
   children,
   columnWidth,
   isKwarg,
+  lightweightLeadingContent,
 }: ParamLeadingContentProps) {
   if (isKwarg) {
     return <>{children}</>;
+  }
+  if (
+    lightweightLeadingContent &&
+    React.isValidElement<CloneableLeadingContentProps>(children) &&
+    typeof children.type !== "string"
+  ) {
+    return React.cloneElement(children, {
+      className: `section-key overflow-hidden ${children.props.className ?? ""}`.trim(),
+      lightweightCanvasRoot: true,
+      style: {
+        ...(children.props.style ?? {}),
+        width: columnWidth,
+      },
+    });
   }
   return (
     <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
@@ -369,6 +393,7 @@ function ParamLeafRow({
   errorMessage,
   hasError,
   isKwarg,
+  lightweightLeadingContent,
   lightweightResizeHandle,
   onResizeStart,
   paramInfoId,
@@ -380,6 +405,7 @@ function ParamLeafRow({
         children={children}
         columnWidth={columnWidth}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
       />
       <ParamInputAccessories
         errorMessage={errorMessage}
@@ -400,6 +426,7 @@ function ParamNestedRootRow({
   errorMessage,
   hasError,
   isKwarg,
+  lightweightLeadingContent,
   lightweightResizeHandle,
   nestedChildrenProps,
   onResizeStart,
@@ -412,6 +439,7 @@ function ParamNestedRootRow({
         children={children}
         columnWidth={columnWidth}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
       />
       <ParamInputAccessories
         errorMessage={errorMessage}
@@ -448,6 +476,7 @@ function renderParamContainerRow({
   isKwarg,
   isTopLevelWithPad,
   layout,
+  lightweightLeadingContent,
   lightweightResizeHandle,
   nestedChildrenProps,
   onResizeStart,
@@ -467,6 +496,7 @@ function renderParamContainerRow({
         errorMessage={errorMessage}
         hasError={hasError}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
         lightweightResizeHandle={lightweightResizeHandle}
         onResizeStart={onResizeStart}
         paramInfoId={paramInfoId}
@@ -486,6 +516,7 @@ function renderParamContainerRow({
         errorMessage={errorMessage}
         hasError={hasError}
         isKwarg={isKwarg}
+        lightweightLeadingContent={lightweightLeadingContent}
         lightweightResizeHandle={lightweightResizeHandle}
         nestedChildrenProps={nestedChildrenProps}
         onResizeStart={onResizeStart}
@@ -580,6 +611,10 @@ function _ParamContainer({
   const canvasOwnedNestedGuide =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionShell(sectionId);
+  const lightweightLeadingContent =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    !isKwarg &&
+    isCanvasOwnedSectionLightweightParamLabel(sectionId);
   const lightweightResizeHandle =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionLightweightResizeHandle(sectionId);
@@ -614,6 +649,7 @@ function _ParamContainer({
     isKwarg,
     isTopLevelWithPad,
     layout,
+    lightweightLeadingContent,
     lightweightResizeHandle,
     nestedChildrenProps,
     onResizeStart,
