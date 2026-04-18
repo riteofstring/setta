@@ -428,7 +428,13 @@ func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *tes
 
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
+		AdditionalSpecs: []LanguageServerSpec{
+			fixturePythonLanguageServerSpecWithPaths(
+				resolveRouterTestPythonBinary(t),
+				filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
+			),
+		},
+		Settings: settings,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)

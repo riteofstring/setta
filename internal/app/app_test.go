@@ -10183,6 +10183,7 @@ func TestAppStartsWithPluginLanguageServerCompletion(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
 
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
 
@@ -10218,6 +10219,7 @@ func TestAppLinkedPluginLanguageServerBecomesAvailableAfterLink(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
 
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
 
@@ -10264,6 +10266,45 @@ func TestAppLinkedPluginLanguageServerBecomesAvailableAfterLink(t *testing.T) {
 	completions = requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8)
 	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
 		t.Fatalf("unexpected linked plugin completions %#v", completions)
+	}
+}
+
+func TestAppStartsWithFirstPartyBasedpyrightPluginCompletion(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv("SETTA_PYTHON", appTestWorkerPython(t, repoRoot))
+	installAppRepoPlugin(t, cfg, "setta-basedpyright")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected basedpyright completions from first-party plugin")
 	}
 }
 
@@ -11639,6 +11680,32 @@ func installAppPluginFixture(t *testing.T, cfg config.Config, fixtureName string
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
 	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
+func installAppRepoPlugin(t *testing.T, cfg config.Config, pluginID string) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", pluginID)
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
+	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
+func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID string) {
+	t.Helper()
+
+	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		languageServerSettings := document["languageServer"].(map[string]any)
+		languageServerSettings["selectedByLanguage"] = map[string]any{
+			language: pluginID,
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("save language server selection: %v", err)
+	}
+	if _, err := app.pluginRuntime.Refresh(context.Background()); err != nil {
+		t.Fatalf("refresh plugin runtime after selection change: %v", err)
+	}
 }
 
 func rewriteAppPluginManifest(t *testing.T, pluginRoot string, mutate func(map[string]any)) {

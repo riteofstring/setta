@@ -118,6 +118,60 @@ func TestServiceLanguageServerSpecsKeepsMissingSelectionInactive(t *testing.T) {
 	}
 }
 
+func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *testing.T) {
+	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-basedpyright"),
+	})
+	if err != nil {
+		t.Fatalf("load first-party basedpyright language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one basedpyright spec, got %#v", specs)
+	}
+
+	spec := specs[0]
+	if spec.Command != pythonPath {
+		t.Fatalf("expected plugin to resolve current interpreter %q, got %q", pythonPath, spec.Command)
+	}
+	if spec.SettingsKey == nil || *spec.SettingsKey != "basedpyright" {
+		t.Fatalf("unexpected basedpyright settings key %#v", spec.SettingsKey)
+	}
+
+	basedpyrightSettings, ok := spec.Settings["basedpyright"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected plugin-owned basedpyright settings root, got %#v", spec.Settings)
+	}
+	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis settings, got %#v", basedpyrightSettings["analysis"])
+	}
+	overrides, ok := analysis["diagnosticSeverityOverrides"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected diagnosticSeverityOverrides map, got %#v", analysis["diagnosticSeverityOverrides"])
+	}
+	expectedRules := []string{
+		"reportUnknownVariableType",
+		"reportUnknownMemberType",
+		"reportUnannotatedClassAttribute",
+		"reportSelfClsParameterName",
+	}
+	for _, rule := range expectedRules {
+		if overrides[rule] != "none" {
+			t.Fatalf("expected %s to default to none, got %#v", rule, overrides[rule])
+		}
+	}
+}
+
 func testStringPointer(value string) *string {
 	return &value
 }
