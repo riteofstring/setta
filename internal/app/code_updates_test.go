@@ -18,7 +18,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspsignature"
 	"setta/internal/projectstate"
-	"setta/internal/pythonenv"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 type stubBoundSectionSynchronizer struct {
@@ -48,17 +48,29 @@ type syncOnlyBoundSectionSynchronizer struct {
 	inner boundSectionSynchronizer
 }
 
+func codeUpdatesTestBasedpyrightSettings(extraPaths []string) map[string]any {
+	return codeUpdatesTestPythonSettings(map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"diagnosticSeverityOverrides": map[string]any{
+					"reportUnknownVariableType":       "none",
+					"reportUnknownMemberType":         "none",
+					"reportUnannotatedClassAttribute": "none",
+					"reportSelfClsParameterName":      "none",
+				},
+			},
+		},
+	}, extraPaths)
+}
+
 func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
 	t.Helper()
 
-	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
-	if err != nil {
-		t.Fatalf("resolve current-process interpreter: %v", err)
-	}
+	pythonBinary := firstpartyplugin.BasedpyrightLangserverCommand(t)
 	session, err := lsp.NewSession(lsp.SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       pythonBinary,
-		Args:          []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		Args:          []string{"--stdio"},
 		Environment:   os.Environ(),
 	})
 	if err != nil {
@@ -1310,24 +1322,11 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		LookupEnv:     os.LookupEnv,
-		Environ:       os.Environ,
+		WorkspaceRoot:   workspaceRoot,
+		Environ:         os.Environ,
+		AdditionalSpecs: []lsp.LanguageServerSpec{codeUpdatesTestPythonLanguageServerSpec(t)},
 		Settings: func() map[string]any {
-			return lsp.CurrentProcessPythonSettings(map[string]any{
-				"languageServer": map[string]any{
-					"basedpyright": map[string]any{
-						"analysis": map[string]any{
-							"diagnosticSeverityOverrides": map[string]any{
-								"reportUnknownVariableType":       "none",
-								"reportUnknownMemberType":         "none",
-								"reportUnannotatedClassAttribute": "none",
-								"reportSelfClsParameterName":      "none",
-							},
-						},
-					},
-				},
-			}, []string{settaFilesRoot})
+			return codeUpdatesTestBasedpyrightSettings([]string{settaFilesRoot})
 		},
 	})
 	if err != nil {
@@ -1425,24 +1424,11 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		LookupEnv:     os.LookupEnv,
-		Environ:       os.Environ,
+		WorkspaceRoot:   workspaceRoot,
+		Environ:         os.Environ,
+		AdditionalSpecs: []lsp.LanguageServerSpec{codeUpdatesTestPythonLanguageServerSpec(t)},
 		Settings: func() map[string]any {
-			return lsp.CurrentProcessPythonSettings(map[string]any{
-				"languageServer": map[string]any{
-					"basedpyright": map[string]any{
-						"analysis": map[string]any{
-							"diagnosticSeverityOverrides": map[string]any{
-								"reportUnknownVariableType":       "none",
-								"reportUnknownMemberType":         "none",
-								"reportUnannotatedClassAttribute": "none",
-								"reportSelfClsParameterName":      "none",
-							},
-						},
-					},
-				},
-			}, []string{settaFilesRoot})
+			return codeUpdatesTestBasedpyrightSettings([]string{settaFilesRoot})
 		},
 	})
 	if err != nil {
@@ -1974,4 +1960,22 @@ func addRepoVenvRuffToPath(t *testing.T) {
 		t.Fatalf("stat repo ruff binary: %v", err)
 	}
 	t.Setenv("PATH", venvBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func codeUpdatesTestPythonSettings(settings map[string]any, extraPaths []string) map[string]any {
+	return lsp.BuildBasedpyrightSettingsRoot(settings, extraPaths)
+}
+
+func codeUpdatesTestPythonLanguageServerSpec(t *testing.T) lsp.LanguageServerSpec {
+	t.Helper()
+
+	settingsKey := "basedpyright"
+	return lsp.LanguageServerSpec{
+		PluginID:    "setta-basedpyright",
+		Name:        "basedpyright",
+		LanguageID:  "python",
+		Command:     firstpartyplugin.BasedpyrightLangserverCommand(t),
+		Args:        []string{"--stdio"},
+		SettingsKey: &settingsKey,
+	}
 }

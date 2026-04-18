@@ -1,7 +1,6 @@
 import * as Switch from "@radix-ui/react-switch";
 
 type SwitchInputProps = {
-  canvasOwnedTrack?: boolean;
   value: boolean | string;
   defaultVal?: boolean | string;
   onChange: (value: boolean) => void;
@@ -13,7 +12,6 @@ type SwitchInputProps = {
 };
 
 export function SwitchInput({
-  canvasOwnedTrack,
   value,
   onChange,
   onEscape,
@@ -36,7 +34,6 @@ export function SwitchInput({
       <Switch.Root
         className={`${rootBaseClassName} ${rootResolvedThemeClassName}`}
         checked={value === true || value === "true"}
-        data-canvas-owned-switch-track={canvasOwnedTrack ? "true" : undefined}
         disabled={isDisabled}
         onCheckedChange={onChange}
         onKeyDown={(e) => {

@@ -58,7 +58,7 @@ echo "uv $*" >> "{command_log}"
     assert result.returncode == 0, result.stderr
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
-        "uv sync --frozen --extra source --extra dev --python 3.13",
+        "uv sync --frozen --extra source --extra dev --extra defaults --python 3.13",
         "activate",
     ]
 
@@ -114,7 +114,7 @@ echo "python3 $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 7 --lockfile ./uv.lock",
-        "uv sync --frozen --extra source --extra dev --python 3.13",
+        "uv sync --frozen --extra source --extra dev --extra defaults --python 3.13",
         "activate",
     ]
 
