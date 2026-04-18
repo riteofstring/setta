@@ -201,7 +201,10 @@ func TestValidateDirectSaveDocumentAcceptsCurrentSupportedBranches(t *testing.T)
 	}
 	document["sectionSizingPolicy"].(map[string]any)["globals"].(map[string]any)["autoMaxHeight"] = 240.0
 	document["languageServer"] = map[string]any{
-		"pylsp": map[string]any{"enabled": true},
+		"selectedByLanguage": map[string]any{
+			"python": "setta-basedpyright",
+			"bash":   nil,
+		},
 	}
 
 	if err := ValidateDirectSaveDocument(document); err != nil {
@@ -261,6 +264,57 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 			},
 			expectedPath: "languageServer",
 		},
+		{
+			name: "language server extra field",
+			mutate: func(document Document) {
+				document["languageServer"] = map[string]any{
+					"basedpyright": map[string]any{},
+				}
+			},
+			expectedPath: "languageServer.basedpyright",
+		},
+		{
+			name: "language server selectedByLanguage type",
+			mutate: func(document Document) {
+				document["languageServer"] = map[string]any{
+					"selectedByLanguage": []any{"python"},
+				}
+			},
+			expectedPath: "languageServer.selectedByLanguage",
+		},
+		{
+			name: "language server selectedByLanguage invalid key",
+			mutate: func(document Document) {
+				document["languageServer"] = map[string]any{
+					"selectedByLanguage": map[string]any{
+						"Python": "plugin-id",
+					},
+				}
+			},
+			expectedPath: "languageServer.selectedByLanguage.Python",
+		},
+		{
+			name: "language server selectedByLanguage invalid value",
+			mutate: func(document Document) {
+				document["languageServer"] = map[string]any{
+					"selectedByLanguage": map[string]any{
+						"python": 7.0,
+					},
+				}
+			},
+			expectedPath: "languageServer.selectedByLanguage.python",
+		},
+		{
+			name: "language server selectedByLanguage blank plugin id",
+			mutate: func(document Document) {
+				document["languageServer"] = map[string]any{
+					"selectedByLanguage": map[string]any{
+						"python": "   ",
+					},
+				}
+			},
+			expectedPath: "languageServer.selectedByLanguage.python",
+		},
 	} {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
@@ -280,6 +334,136 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 				t.Fatalf("expected error to contain %q, got %q", testCase.expectedPath, err.Error())
 			}
 		})
+	}
+}
+
+func TestLanguageServerSelectionForLanguageDistinguishesMissingNullAndPluginID(t *testing.T) {
+	t.Parallel()
+
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+	document["languageServer"] = map[string]any{
+		"selectedByLanguage": map[string]any{
+			"python": "setta-basedpyright",
+			"bash":   nil,
+		},
+	}
+
+	pythonSelection, ok, err := LanguageServerSelectionForLanguage(document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
+	}
+	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
+		t.Fatalf("expected python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
+	}
+
+	bashSelection, ok, err := LanguageServerSelectionForLanguage(document, "bash")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage bash returned error: %v", err)
+	}
+	if !ok || bashSelection != nil {
+		t.Fatalf("expected explicit bash null selection, got ok=%v selection=%#v", ok, bashSelection)
+	}
+
+	goSelection, ok, err := LanguageServerSelectionForLanguage(document, "go")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage go returned error: %v", err)
+	}
+	if ok || goSelection != nil {
+		t.Fatalf("expected missing go selection, got ok=%v selection=%#v", ok, goSelection)
+	}
+}
+
+func TestLanguageServerSelectedByLanguageRejectsInvalidDocumentValues(t *testing.T) {
+	t.Parallel()
+
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+	document["languageServer"] = map[string]any{
+		"selectedByLanguage": map[string]any{
+			"python": "",
+		},
+	}
+
+	if _, err := LanguageServerSelectedByLanguage(document); err == nil {
+		t.Fatal("expected invalid language-server selection error")
+	}
+}
+
+func TestBootstrapLanguageServerSelectionsWritesOnlyMissingKeys(t *testing.T) {
+	t.Parallel()
+
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("DefaultDocument returned error: %v", err)
+	}
+	document["languageServer"] = map[string]any{
+		"selectedByLanguage": map[string]any{
+			"bash": nil,
+		},
+	}
+
+	next, changed, err := BootstrapLanguageServerSelections(document, map[string]string{
+		"python": "setta-basedpyright",
+		"bash":   "setta-bashls",
+	})
+	if err != nil {
+		t.Fatalf("BootstrapLanguageServerSelections returned error: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected bootstrap helper to write missing python selection")
+	}
+
+	pythonSelection, ok, err := LanguageServerSelectionForLanguage(next, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
+	}
+	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
+		t.Fatalf("expected python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
+	}
+
+	bashSelection, ok, err := LanguageServerSelectionForLanguage(next, "bash")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage bash returned error: %v", err)
+	}
+	if !ok || bashSelection != nil {
+		t.Fatalf("expected explicit bash null selection to remain, got ok=%v selection=%#v", ok, bashSelection)
+	}
+}
+
+func TestBootstrapLanguageServerSelectionsLeavesExplicitPluginSelectionUntouched(t *testing.T) {
+	t.Parallel()
+
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("DefaultDocument returned error: %v", err)
+	}
+	document["languageServer"] = map[string]any{
+		"selectedByLanguage": map[string]any{
+			"python": "custom-python-lsp",
+		},
+	}
+
+	next, changed, err := BootstrapLanguageServerSelections(document, map[string]string{
+		"python": "setta-basedpyright",
+	})
+	if err != nil {
+		t.Fatalf("BootstrapLanguageServerSelections returned error: %v", err)
+	}
+	if changed {
+		t.Fatal("expected bootstrap helper to leave explicit plugin selection unchanged")
+	}
+
+	pythonSelection, ok, err := LanguageServerSelectionForLanguage(next, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
+	}
+	if !ok || pythonSelection == nil || *pythonSelection != "custom-python-lsp" {
+		t.Fatalf("expected explicit python selection to remain, got ok=%v selection=%#v", ok, pythonSelection)
 	}
 }
 
