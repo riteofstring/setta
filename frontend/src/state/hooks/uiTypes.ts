@@ -12,7 +12,6 @@ import {
 import {
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabLocalStorage,
-  UIEditorTabName,
   UIEditorTabNameEnum,
 } from "utils/constants";
 import {
@@ -28,6 +27,7 @@ import {
   SectionTypeEnum,
   SliderParamCodeObjImpl,
   TimeParamCodeObjImpl,
+  type UIEditorTabName,
 } from "utils/generatedTypes";
 
 function getIsSeriesElementHelper(
@@ -222,12 +222,20 @@ const UI_CONFIG_EXTRACTORS = {
 type ExtractorResult<T extends keyof typeof UI_CONFIG_EXTRACTORS> = ReturnType<
   (typeof UI_CONFIG_EXTRACTORS)[T]
 >;
+type ExtractableUIConfigType = keyof typeof UI_CONFIG_EXTRACTORS;
+type EmptyUIConfig = Record<string, never>;
+type ParamCodeObjUIConfig<T extends CodeObjType> =
+  T extends ExtractableUIConfigType ? ExtractorResult<T> : EmptyUIConfig;
+
+function hasUIConfigExtractor(type: CodeObjType): type is ExtractableUIConfigType {
+  return type in UI_CONFIG_EXTRACTORS;
+}
 
 export function useParamCodeObjUIConfig<T extends CodeObjType>(
   sectionId: string,
   paramInfoId: string,
   type: T,
-): T extends keyof typeof UI_CONFIG_EXTRACTORS ? ExtractorResult<T> : {} {
+): ParamCodeObjUIConfig<T> {
   return useProjectState((x) => {
     const codeObjImpl = getCurrEffectiveCodeObjImplOfType(
       x,
@@ -235,12 +243,10 @@ export function useParamCodeObjUIConfig<T extends CodeObjType>(
       paramInfoId,
       type,
     );
-    const extractor =
-      UI_CONFIG_EXTRACTORS[type as keyof typeof UI_CONFIG_EXTRACTORS];
-    if (!extractor) {
-      return {} as any; // No UI config for this type
+    if (!hasUIConfigExtractor(type)) {
+      return {};
     }
-
-    return extractor(codeObjImpl as any) as any;
-  }, _.isEqual);
+    const extractor = UI_CONFIG_EXTRACTORS[type];
+    return extractor(codeObjImpl as Parameters<typeof extractor>[0]);
+  }, _.isEqual) as ParamCodeObjUIConfig<T>;
 }
