@@ -227,7 +227,9 @@ export type AppDefinition = {
   appSpecVersion?: string;
   assets?: RawMessage | null;
   catalogId?: string;
-  dataBindings?: RawMessage | null;
+  dataBindings?: {
+    [key: string]: RawMessage;
+  } | null;
   routes?: null | Array<AppRoute>;
   theme?: RawMessage | null;
 };
@@ -287,7 +289,7 @@ type AppValidationIssue = {
  */
 type AppendMessagesRequest = {
   chatId: string;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   projectConfigId?: null | string;
 };
 
@@ -909,7 +911,7 @@ type Chat = {
   id: string;
   lastUpdated: string;
   llmConfig: LLMConfig;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   name: string;
   projectConfigId?: null | string;
   systemPrompt: null | string;
@@ -974,7 +976,7 @@ export type ChatRunTypeSet = {
 export type ChatSectionBranch = {
   branchFromMessageId: null | string;
   createdAt: number;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   parentBranchId: null | string;
 };
 
@@ -1057,7 +1059,7 @@ export type ChatSectionState = {
     [key: string]: ChatSectionBranch;
   };
   inputText: string;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   toolCallArguments: {
     [key: string]: string;
   };
@@ -2664,7 +2666,7 @@ type ListenerCoverageDependency = {
  * ListenerCoverageSnapshot
  */
 export type ListenerCoverageSnapshot = {
-  dependencies: null | Array<BaseDependencyKeyUnion>;
+  dependencies: Array<BaseDependencyKeyUnion> | null;
   hasRealtimeWildcard: boolean;
   projectConfigId: string;
 };
@@ -3215,7 +3217,7 @@ type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
  * MessageDeltaEvent
  */
 export type MessageDeltaEvent = {
-  content: null | Array<MessageContentDelta>;
+  content: Array<MessageContentDelta> | null;
   message_id: string;
   type: StreamingEventType;
 };
@@ -5074,7 +5076,7 @@ type RunToolsRequest = {
   frontendAffinityToken?: null | string;
   projectConfigId?: null | string;
   sectionId: string;
-  toolCalls: null | Array<ToolCall>;
+  toolCalls: Array<ToolCall> | null;
 };
 
 /**
@@ -7060,7 +7062,7 @@ type UnindentParamsInput = {
  * UpdateArtifactsContent
  */
 type UpdateArtifactsContent = {
-  artifacts: null | Array<BaseArtifactUnion>;
+  artifacts: Array<BaseArtifactUnion> | null;
   updateType: string;
 };
 
@@ -7077,7 +7079,7 @@ type UpdateArtifactsMessage = {
  * UpdateRequest
  */
 type UpdateRequest = {
-  artifacts: null | Array<BaseArtifactUnion>;
+  artifacts: Array<BaseArtifactUnion> | null;
   conflictStrategy: SaveConflictStrategy | null;
   uploadScope: UploadScope;
 };

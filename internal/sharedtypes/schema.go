@@ -796,11 +796,7 @@ func sharedSchemaOverrideForField(
 		if err != nil {
 			return nil, false, err
 		}
-		schema := &jsonschema.Schema{}
-		if existing != nil {
-			schema.Type = existing.Type
-			schema.Types = append([]string(nil), existing.Types...)
-		}
+		schema := overrideContainerSchema(existing, "array")
 		schema.Items = refSchema
 		return schema, true, nil
 	case override.MapValueRef != "":
@@ -808,16 +804,25 @@ func sharedSchemaOverrideForField(
 		if err != nil {
 			return nil, false, err
 		}
-		schema := &jsonschema.Schema{}
-		if existing != nil {
-			schema.Type = existing.Type
-			schema.Types = append([]string(nil), existing.Types...)
-		}
+		schema := overrideContainerSchema(existing, "object")
 		schema.AdditionalProperties = refSchema
 		return schema, true, nil
 	default:
 		return nil, false, nil
 	}
+}
+
+func overrideContainerSchema(
+	existing *jsonschema.Schema,
+	containerType string,
+) *jsonschema.Schema {
+	schema := &jsonschema.Schema{}
+	if schemaAllowsNull(existing) {
+		schema.Types = []string{containerType, "null"}
+		return schema
+	}
+	schema.Type = containerType
+	return schema
 }
 
 func parseSharedSchemaFieldOverride(

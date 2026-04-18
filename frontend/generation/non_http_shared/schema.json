@@ -657,14 +657,13 @@
           }
         },
         "dataBindings": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "actions": {
           "anyOf": [
@@ -837,8 +836,8 @@
         },
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -2614,8 +2613,8 @@
         },
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -2751,8 +2750,8 @@
       "properties": {
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -3065,8 +3064,8 @@
       "properties": {
         "messages": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseChatMessageUnion"
@@ -7654,8 +7653,8 @@
         },
         "dependencies": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseDependencyKeyUnion"
@@ -9015,8 +9014,8 @@
         },
         "content": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/MessageContentDelta"
@@ -14509,8 +14508,8 @@
         },
         "toolCalls": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/ToolCall"
@@ -20215,8 +20214,8 @@
       "properties": {
         "artifacts": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseArtifactUnion"
@@ -20262,8 +20261,8 @@
       "properties": {
         "artifacts": {
           "type": [
-            "null",
-            "array"
+            "array",
+            "null"
           ],
           "items": {
             "$ref": "#/$defs/BaseArtifactUnion"

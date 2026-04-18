@@ -585,6 +585,39 @@ func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions
 	}
 }
 
+func TestBuildSchemaDocumentMarksAppDefinitionDataBindingsAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	appDefinitionSchema := document.Defs["AppDefinition"]
+	if appDefinitionSchema == nil {
+		t.Fatalf("expected AppDefinition schema in $defs")
+	}
+	dataBindingsSchema := appDefinitionSchema.Properties["dataBindings"]
+	if dataBindingsSchema == nil {
+		t.Fatalf("expected AppDefinition.dataBindings schema")
+	}
+	if got := len(dataBindingsSchema.Types); got != 2 {
+		t.Fatalf("AppDefinition.dataBindings types count = %d, want 2", got)
+	}
+	if got := dataBindingsSchema.Types[0]; got != "object" {
+		t.Fatalf("AppDefinition.dataBindings first type = %q, want %q", got, "object")
+	}
+	if got := dataBindingsSchema.Types[1]; got != "null" {
+		t.Fatalf("AppDefinition.dataBindings second type = %q, want %q", got, "null")
+	}
+	if dataBindingsSchema.AdditionalProperties == nil {
+		t.Fatalf("expected AppDefinition.dataBindings additionalProperties schema")
+	}
+	if got := dataBindingsSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("AppDefinition.dataBindings additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
 func TestBuildSchemaDocumentUsesDateTimeFormatForTimeFields(t *testing.T) {
 	t.Parallel()
 

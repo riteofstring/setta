@@ -531,14 +531,10 @@
             "type": "string"
           },
           "dataBindings": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "routes": {
             "items": {
@@ -675,7 +671,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "projectConfigId": {
             "type": ["null", "string"]
@@ -2260,7 +2256,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "name": {
             "type": "string"
@@ -2374,7 +2370,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "parentBranchId": {
             "type": ["null", "string"]
@@ -2634,7 +2630,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "toolCallArguments": {
             "additionalProperties": {
@@ -6448,7 +6444,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseDependencyKeyUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "hasRealtimeWildcard": {
             "type": "boolean"
@@ -7570,7 +7566,7 @@
             "items": {
               "$ref": "#/components/schemas/MessageContentDelta"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "message_id": {
             "type": "string"
@@ -12294,7 +12290,7 @@
             "items": {
               "$ref": "#/components/schemas/ToolCall"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           }
         },
         "required": ["chatId", "sectionId", "toolCalls"],
@@ -17152,7 +17148,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseArtifactUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "updateType": {
             "type": "string"
@@ -17186,7 +17182,7 @@
             "items": {
               "$ref": "#/components/schemas/BaseArtifactUnion"
             },
-            "type": ["null", "array"]
+            "type": ["array", "null"]
           },
           "conflictStrategy": {
             "anyOf": [

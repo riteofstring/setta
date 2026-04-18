@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -188,6 +189,21 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	_, err := document.Normalized()
 	if !errors.Is(err, ErrFrontendPayloadInvalid) {
 		t.Fatalf("expected invalid frontend payload error, got %v", err)
+	}
+}
+
+func TestDocumentNormalizedRejectsNonObjectAppDefinitionDataBindings(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	document.AppDefinition.DataBindings = mustRawJSON(t, `["not","an","object"]`)
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object appDefinition.dataBindings to fail normalization")
+	}
+	if !strings.Contains(err.Error(), "appDefinition.dataBindings") {
+		t.Fatalf("expected appDefinition.dataBindings error, got %v", err)
 	}
 }
 
