@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -498,8 +499,26 @@ func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServ
 			LanguageID:  spec.LanguageID,
 			Command:     spec.Command,
 			Args:        append([]string(nil), spec.Args...),
+			Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 			SettingsKey: cloneOptionalString(spec.SettingsKey),
 		})
+	}
+	return cloned
+}
+
+func cloneLanguageServerSettingsMap(settings map[string]any) map[string]any {
+	if len(settings) == 0 {
+		return nil
+	}
+
+	payload, err := json.Marshal(settings)
+	if err != nil {
+		return nil
+	}
+
+	var cloned map[string]any
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		return nil
 	}
 	return cloned
 }

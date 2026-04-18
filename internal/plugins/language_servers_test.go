@@ -170,6 +170,21 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 			t.Fatalf("expected %s to default to none, got %#v", rule, overrides[rule])
 		}
 	}
+
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok {
+		t.Fatalf("expected analysis.extraPaths, got %#v", analysis["extraPaths"])
+	}
+	foundSettaFilesRoot := false
+	for _, entry := range extraPaths {
+		if entry == roots.settaFilesRoot {
+			foundSettaFilesRoot = true
+			break
+		}
+	}
+	if !foundSettaFilesRoot {
+		t.Fatalf("expected analysis.extraPaths to include %q, got %#v", roots.settaFilesRoot, extraPaths)
+	}
 }
 
 func testStringPointer(value string) *string {

@@ -10318,13 +10318,7 @@ func TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen(t *te
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
 	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
-
-	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
-	if existingPythonPath == "" {
-		t.Setenv("PYTHONPATH", sitePackages)
-	} else {
-		t.Setenv("PYTHONPATH", sitePackages+string(os.PathListSeparator)+existingPythonPath)
-	}
+	prependAppPythonPath(t, sitePackages)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -11496,18 +11490,11 @@ func seedAppRootWatchCodeBoundSectionProject(t *testing.T, app *App) {
 func prepareAppLSPFixture(t *testing.T) {
 	t.Helper()
 
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_LSP_COMMAND", appTestWorkerPython(t, repoRoot))
-	t.Setenv(
-		"SETTA_LSP_ARGS",
-		filepath.Join(
-			repoRoot,
-			"tests",
-			"fixtures",
-			"lsp",
-			"mini_language_server.py",
-		),
-	)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	prependAppPythonPath(t, sitePackages)
 }
 
 func prepareAppFirstPartyBasedpyrightPlugin(t *testing.T, cfg config.Config) {
@@ -11532,6 +11519,22 @@ func prepareAppPluginLanguageServerFixture(t *testing.T) {
 			"mini_language_server.py",
 		),
 	)
+}
+
+func prependAppPythonPath(t *testing.T, path string) {
+	t.Helper()
+
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		t.Fatal("prepend PYTHONPATH: path is required")
+	}
+
+	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
+	if existingPythonPath == "" {
+		t.Setenv("PYTHONPATH", trimmedPath)
+		return
+	}
+	t.Setenv("PYTHONPATH", trimmedPath+string(os.PathListSeparator)+existingPythonPath)
 }
 
 func prepareAppCurrentSession(t *testing.T, cfg config.Config) {

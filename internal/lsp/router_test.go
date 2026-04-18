@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/statefs"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestRouterCompleteSnapshotRoutesPluginLanguage(t *testing.T) {
@@ -426,19 +427,7 @@ func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *tes
 		}, nil)
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		AdditionalSpecs: []LanguageServerSpec{
-			fixturePythonLanguageServerSpecWithPaths(
-				resolveRouterTestPythonBinary(t),
-				filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
-			),
-		},
-		Settings: settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -504,13 +493,7 @@ func TestRouterCurrentProcessPythonDiagnosticsUseNestedBasedPyrightSettingsForWa
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -610,13 +593,7 @@ func TestRouterCurrentProcessPythonRefreshesGeneratedDiagnosticsWhenImportedWatc
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -718,13 +695,7 @@ func TestRouterCurrentProcessPythonSyncAndRefreshPublishesGeneratedCallDiagnosti
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -847,13 +818,7 @@ func TestRouterCurrentProcessPythonIncrementalWatchCodeTypingStillPublishesGener
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -950,13 +915,7 @@ func TestRouterCurrentProcessPythonPublishesGeneratedCallDiagnosticsWithWorkspac
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -1133,6 +1092,22 @@ func newFixturePythonRouter(
 	return router
 }
 
+func newCurrentProcessPythonRouter(t *testing.T, workspaceRoot string, settings func() map[string]any) *Router {
+	t.Helper()
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		AdditionalSpecs: []LanguageServerSpec{
+			currentProcessPythonLanguageServerSpec(t),
+		},
+		Settings: settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	return router
+}
+
 func fixturePythonLanguageServerSpecWithPaths(pythonBinary string, fixtureServerPath string) LanguageServerSpec {
 	settingsKey := "basedpyright"
 	return LanguageServerSpec{
@@ -1140,6 +1115,19 @@ func fixturePythonLanguageServerSpecWithPaths(pythonBinary string, fixtureServer
 		LanguageID:  "python",
 		Command:     pythonBinary,
 		Args:        []string{fixtureServerPath},
+		SettingsKey: &settingsKey,
+	}
+}
+
+func currentProcessPythonLanguageServerSpec(t *testing.T) LanguageServerSpec {
+	t.Helper()
+
+	settingsKey := "basedpyright"
+	return LanguageServerSpec{
+		Name:        "current-process-python",
+		LanguageID:  "python",
+		Command:     firstpartyplugin.BasedpyrightLangserverCommand(t),
+		Args:        []string{"--stdio"},
 		SettingsKey: &settingsKey,
 	}
 }
