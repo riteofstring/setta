@@ -3767,6 +3767,12 @@ export type SettingsstateFrontendSettingsGui = {
   zoomOnScroll: boolean;
 };
 
+export type SettingsstateFrontendSettingsLanguageServer = {
+  selectedByLanguage: {
+    [key: string]: string | null;
+  };
+};
+
 export type SettingsstateFrontendSettingsShortcuts = {
   advancedSearchShortcut: string;
   commandPaletteShortcut: string;
@@ -3836,9 +3842,7 @@ export type SettingsstateFrontendSettingsState = {
   backend: SettingsstateFrontendSettingsBackend;
   chatWindowing: SettingsstateFrontendSettingsChatWindowing;
   gui: SettingsstateFrontendSettingsGui;
-  languageServer: {
-    [key: string]: unknown;
-  };
+  languageServer: SettingsstateFrontendSettingsLanguageServer;
   sectionSizingPolicy: ProjectstateFrontendSectionSizingPolicy;
   shortcuts: SettingsstateFrontendSettingsShortcuts;
 };
