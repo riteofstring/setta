@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"setta/internal/lsp"
 	"setta/internal/plugins"
@@ -510,6 +511,120 @@ func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessi
 	}
 }
 
+func TestPluginBackendRuntimeRefresherReapplySerializesWithRestartProject(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	if _, err := settingsRuntime.MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		document["languageServer"] = map[string]any{
+			"selectedByLanguage": map[string]any{
+				"python": selectedPluginID,
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed settings runtime: %v", err)
+	}
+
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+	}
+	specCalls := 0
+	service.languageServerSpecsForSnapshot = func(
+		plugins.DiscoverySnapshot,
+		map[string]*string,
+	) ([]lsp.LanguageServerSpec, error) {
+		specCalls++
+		command := "python-reapply"
+		if specCalls > 1 {
+			command = "python-restart"
+		}
+		return []lsp.LanguageServerSpec{{
+			PluginID:   "setta-basedpyright",
+			Name:       "basedpyright",
+			LanguageID: "python",
+			Command:    command,
+		}}, nil
+	}
+
+	router := &blockingPluginBackendLanguageServerReplacer{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		settings:  settingsRuntime,
+		lspRouter: router,
+		lspSpecs:  []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
+	}
+
+	reapplyErrCh := make(chan error, 1)
+	go func() {
+		reapplyErrCh <- refresher.ReapplyAppliedLanguageServerPluginConfig(context.Background(), selectedPluginID)
+	}()
+
+	select {
+	case <-router.started:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for reapply to reach language server replacement")
+	}
+
+	document := fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython)
+	restartStarted := make(chan struct{})
+	restartErrCh := make(chan error, 1)
+	go func() {
+		restartErrCh <- refresher.RestartProject(
+			context.Background(),
+			document,
+			func(context.Context) error {
+				close(restartStarted)
+				return nil
+			},
+		)
+	}()
+
+	select {
+	case <-restartStarted:
+		t.Fatal("expected restart to wait for in-flight reapply")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(router.release)
+
+	if err := <-reapplyErrCh; err != nil {
+		t.Fatalf("reapply plugin config: %v", err)
+	}
+
+	select {
+	case <-restartStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for restart after reapply completed")
+	}
+
+	if err := <-restartErrCh; err != nil {
+		t.Fatalf("restart project: %v", err)
+	}
+
+	if len(router.replacedSpecs) != 2 {
+		t.Fatalf("expected reapply and restart spec replacements, got %#v", router.replacedSpecs)
+	}
+	if got := router.replacedSpecs[0][0].Command; got != "python-reapply" {
+		t.Fatalf("expected reapply to apply reapply specs first, got %#v", router.replacedSpecs[0])
+	}
+	if got := router.replacedSpecs[1][0].Command; got != "python-restart" {
+		t.Fatalf("expected restart to apply newer specs after reapply, got %#v", router.replacedSpecs[1])
+	}
+	if len(refresher.lspSpecs) != 1 || refresher.lspSpecs[0].Command != "python-restart" {
+		t.Fatalf("expected live specs to end on restart result, got %#v", refresher.lspSpecs)
+	}
+}
+
 func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessionWithInternalContext(t *testing.T) {
 	t.Parallel()
 
@@ -914,10 +1029,14 @@ func mustRestartProjectJSON(t *testing.T, value map[string]any) projectstate.Raw
 }
 
 type stubPluginBackendRefreshService struct {
-	previewSnapshot plugins.DiscoverySnapshot
-	nextSpecs       []lsp.LanguageServerSpec
-	commitCalls     int
-	commitErr       error
+	previewSnapshot                plugins.DiscoverySnapshot
+	nextSpecs                      []lsp.LanguageServerSpec
+	languageServerSpecsForSnapshot func(
+		plugins.DiscoverySnapshot,
+		map[string]*string,
+	) ([]lsp.LanguageServerSpec, error)
+	commitCalls int
+	commitErr   error
 }
 
 func (s *stubPluginBackendRefreshService) Rescan() (plugins.DiscoverySnapshot, error) {
@@ -934,9 +1053,12 @@ func (s *stubPluginBackendRefreshService) CommitBackendRuntimeRefresh() (plugins
 }
 
 func (s *stubPluginBackendRefreshService) LanguageServerSpecsForSnapshot(
-	plugins.DiscoverySnapshot,
-	map[string]*string,
+	snapshot plugins.DiscoverySnapshot,
+	selectedByLanguage map[string]*string,
 ) ([]lsp.LanguageServerSpec, error) {
+	if s.languageServerSpecsForSnapshot != nil {
+		return s.languageServerSpecsForSnapshot(snapshot, selectedByLanguage)
+	}
 	return lsp.CloneLanguageServerSpecs(s.nextSpecs), nil
 }
 
@@ -945,6 +1067,22 @@ type stubPluginBackendLanguageServerReplacer struct {
 }
 
 func (s *stubPluginBackendLanguageServerReplacer) ReplaceAdditionalSpecs(_ context.Context, specs []lsp.LanguageServerSpec) error {
+	s.replacedSpecs = append(s.replacedSpecs, lsp.CloneLanguageServerSpecs(specs))
+	return nil
+}
+
+type blockingPluginBackendLanguageServerReplacer struct {
+	replacedSpecs [][]lsp.LanguageServerSpec
+	started       chan struct{}
+	release       chan struct{}
+}
+
+func (s *blockingPluginBackendLanguageServerReplacer) ReplaceAdditionalSpecs(_ context.Context, specs []lsp.LanguageServerSpec) error {
+	if s.started != nil {
+		close(s.started)
+		s.started = nil
+		<-s.release
+	}
 	s.replacedSpecs = append(s.replacedSpecs, lsp.CloneLanguageServerSpecs(specs))
 	return nil
 }

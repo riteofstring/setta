@@ -210,6 +210,8 @@ EOR
     assert (output_dir / "state" / "consolidate-prompt.md").read_text(encoding="utf-8") == CONSOLIDATE_PROMPT
     assert (output_dir / "state" / "fix-prompt.md").read_text(encoding="utf-8") == FIX_PROMPT
     assert (output_dir / "state" / "finalize-prompt.md").read_text(encoding="utf-8") == FINALIZE_PROMPT
+    assert not (output_dir / "state" / "last-observed-head.txt").exists()
+    assert not (output_dir / "run-001" / "review1.exit").exists()
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 4
     assert "call:exec resume" not in calls
@@ -367,6 +369,8 @@ printf 'finalized and committed\\n' > "${{response_file}}"
         text=True,
     )
     assert head_subject.stdout.strip() == "codex-branch-review: apply consolidated fixes"
+    assert not (output_dir / "state" / "last-observed-head.txt").exists()
+    assert not (output_dir / "run-001" / "review1.exit").exists()
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 6
     assert calls.count("call:exec resume") == 2
@@ -460,6 +464,9 @@ printf 'Consolidated finding without required sentinel.\\n' > "${{response_file}
     assert (
         output_dir / "state" / "status.txt"
     ).read_text(encoding="utf-8").strip() == "failure:invalid-consolidated-status"
+    assert not (repo_dir / "review1.md").exists()
+    assert not (repo_dir / "review2.md").exists()
+    assert not (repo_dir / "review3.md").exists()
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 4
     assert "call:exec resume" not in calls

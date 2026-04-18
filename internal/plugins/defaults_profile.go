@@ -35,7 +35,11 @@ func (p InstallProfile) AvailableLanguageServerSelections(snapshot DiscoverySnap
 		if language == "" || pluginID == "" {
 			continue
 		}
-		entry, ok := findHighestPrecedenceProfilePlugin(snapshot.Plugins, pluginID)
+		entry, ok := findPrimaryDiscoveredPluginForSourceManager(
+			snapshot.Plugins,
+			pluginID,
+			PluginSourceManagerPackageManager,
+		)
 		if !ok || !profileEntryProvidesLanguageServer(entry, language) {
 			continue
 		}
@@ -51,21 +55,26 @@ func normalizeProfileLanguage(language string) string {
 	return strings.ToLower(strings.TrimSpace(language))
 }
 
-func findHighestPrecedenceProfilePlugin(entries []DiscoveredPlugin, pluginID string) (DiscoveredPlugin, bool) {
-	for _, entry := range entries {
-		if strings.TrimSpace(entry.PluginID) == pluginID {
-			return entry, true
-		}
-	}
-	return DiscoveredPlugin{}, false
-}
-
 func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
 	if entry.SourceManager != PluginSourceManagerPackageManager {
 		return false
 	}
-	if !pluginProvidesLanguageServer(entry) {
+	if entry.Manifest == nil {
 		return false
+	}
+	switch entry.State {
+	case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart, PluginRuntimeStateShadowed:
+	default:
+		return false
+	}
+	if !containsString(entry.EffectiveCapabilities, "registerLanguageServer") {
+		if entry.State == PluginRuntimeStateShadowed {
+			return true
+		}
+		return false
+	}
+	if len(entry.RegisteredLanguageServers) == 0 {
+		return entry.State == PluginRuntimeStateShadowed
 	}
 	for _, registration := range entry.RegisteredLanguageServers {
 		if normalizeProfileLanguage(registration.Language) == language {

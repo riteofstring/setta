@@ -349,8 +349,8 @@ func (s *Service) buildEnableDisableResponseLocked(pluginID string, restartRequi
 	if err != nil {
 		return PluginEnableDisableResponse{}, err
 	}
-	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if latestEntry.PluginID == "" {
+	latestEntry, ok := findPrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if !ok {
 		return PluginEnableDisableResponse{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return PluginEnableDisableResponse{
@@ -973,8 +973,8 @@ func (s *Service) resolveHighestPrecedenceEntryLocked(pluginID string) (Discover
 	if err != nil {
 		return DiscoveredPlugin{}, err
 	}
-	entry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if entry.PluginID == "" {
+	entry, ok := findPrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if !ok {
 		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return entry, nil
@@ -995,15 +995,6 @@ func ensureSettaManagedForWrite(entry DiscoveredPlugin, operation string) error 
 func findDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string, scope PluginScope) DiscoveredPlugin {
 	for _, entry := range entries {
 		if entry.PluginID == pluginID && entry.Scope == scope {
-			return entry
-		}
-	}
-	return DiscoveredPlugin{}
-}
-
-func findHighestPrecedenceDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) DiscoveredPlugin {
-	for _, entry := range entries {
-		if entry.PluginID == pluginID {
 			return entry
 		}
 	}

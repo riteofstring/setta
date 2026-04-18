@@ -87,6 +87,55 @@ func TestServiceLanguageServerSpecsAllowsSameLanguagePluginsUntilSelectionChoose
 	}
 }
 
+func TestLanguageServerSpecsFromSnapshotKeepsPrimaryPluginCopyForDuplicatePluginIDs(t *testing.T) {
+	t.Parallel()
+
+	snapshot := DiscoverySnapshot{
+		Plugins: []DiscoveredPlugin{
+			{
+				PluginID:              "setta-basedpyright",
+				State:                 PluginRuntimeStateActive,
+				Manifest:              &PluginManifest{ID: "setta-basedpyright"},
+				EffectiveCapabilities: []string{"registerLanguageServer"},
+				RegisteredLanguageServers: []PluginRegisteredLanguageServer{{
+					PluginID: "setta-basedpyright",
+					Name:     "basedpyright",
+					Language: "python",
+					Command:  "/workspace/basedpyright",
+				}},
+			},
+			{
+				PluginID:              "setta-basedpyright",
+				State:                 PluginRuntimeStateActive,
+				Manifest:              &PluginManifest{ID: "setta-basedpyright"},
+				EffectiveCapabilities: []string{"registerLanguageServer"},
+				RegisteredLanguageServers: []PluginRegisteredLanguageServer{{
+					PluginID: "setta-basedpyright",
+					Name:     "basedpyright",
+					Language: "python",
+					Command:  "/package-manager/basedpyright",
+				}},
+			},
+		},
+	}
+
+	specs, err := languageServerSpecsFromSnapshotWithState(
+		snapshot,
+		&PluginsStateFile{},
+		map[string]*string{"python": testStringPointer("setta-basedpyright")},
+		t.TempDir(),
+	)
+	if err != nil {
+		t.Fatalf("build selected language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one selected language server spec, got %#v", specs)
+	}
+	if specs[0].Command != "/workspace/basedpyright" {
+		t.Fatalf("expected higher-precedence plugin command, got %#v", specs[0])
+	}
+}
+
 func TestServiceLanguageServerSpecsKeepsMissingSelectionInactive(t *testing.T) {
 	preparePluginLanguageServerFixture(t)
 

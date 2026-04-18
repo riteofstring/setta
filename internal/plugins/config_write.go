@@ -32,10 +32,13 @@ type PluginConfigWriteResponse struct {
 }
 
 type preparedPluginConfigWrite struct {
-	entry         DiscoveredPlugin
-	state         PluginsStateFile
-	currentConfig map[string]any
-	requested     map[string]any
+	entry                  DiscoveredPlugin
+	state                  PluginsStateFile
+	configKey              string
+	currentConfig          map[string]any
+	currentPersistedConfig any
+	hadCurrentPersisted    bool
+	requested              map[string]any
 }
 
 type committedPluginConfigWrite struct {
@@ -45,7 +48,10 @@ type committedPluginConfigWrite struct {
 }
 
 type pluginConfigWriteRollback struct {
-	state PluginsStateFile
+	configKey         string
+	writtenConfig     any
+	previousConfig    any
+	hadPreviousConfig bool
 }
 
 func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResponse, error) {
@@ -126,6 +132,8 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 	if err != nil {
 		return preparedPluginConfigWrite{}, err
 	}
+	configKey := pluginConfigKeyForEntry(entry)
+	currentPersistedConfig, hadCurrentPersisted := state.PluginConfigByID[configKey]
 	currentConfig := runtimeCurrentConfig(entry, &state)
 	if expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig); expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
 		return preparedPluginConfigWrite{}, newServiceError(
@@ -136,10 +144,13 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 	}
 
 	return preparedPluginConfigWrite{
-		entry:         entry,
-		state:         state,
-		currentConfig: currentConfig,
-		requested:     cloneStringAnyMap(options.Config),
+		entry:                  entry,
+		state:                  state,
+		configKey:              configKey,
+		currentConfig:          currentConfig,
+		currentPersistedConfig: cloneJSONValue(currentPersistedConfig),
+		hadCurrentPersisted:    hadCurrentPersisted,
+		requested:              cloneStringAnyMap(options.Config),
 	}, nil
 }
 
@@ -172,13 +183,13 @@ func invalidPluginConfigWriteTargetError(entry DiscoveredPlugin, pluginID string
 
 func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (committedPluginConfigWrite, error) {
 	rollback := pluginConfigWriteRollback{
-		state: normalizePluginsStateFile(prepared.state),
+		configKey:         prepared.configKey,
+		writtenConfig:     cloneJSONValue(prepared.requested),
+		previousConfig:    cloneJSONValue(prepared.currentPersistedConfig),
+		hadPreviousConfig: prepared.hadCurrentPersisted,
 	}
 	nextState := normalizePluginsStateFile(prepared.state)
-	if nextState.PluginConfigByID == nil {
-		nextState.PluginConfigByID = map[string]any{}
-	}
-	nextState.PluginConfigByID[pluginConfigKeyForEntry(prepared.entry)] = cloneJSONValue(prepared.requested)
+	nextState.PluginConfigByID[prepared.configKey] = cloneJSONValue(prepared.requested)
 	if err := s.store.SavePluginsState(nextState); err != nil {
 		return committedPluginConfigWrite{}, err
 	}
@@ -206,11 +217,34 @@ func (s *Service) rollbackPluginConfigWrite(rollback pluginConfigWriteRollback) 
 }
 
 func (s *Service) rollbackPluginConfigWriteLocked(rollback pluginConfigWriteRollback) error {
-	if err := s.store.SavePluginsState(rollback.state); err != nil {
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
 		return err
 	}
-	_, err := s.rescanLocked()
+	nextState, err := applyPluginConfigWriteRollback(normalizePluginsStateFile(state), rollback)
+	if err != nil {
+		return err
+	}
+	if err := s.store.SavePluginsState(nextState); err != nil {
+		return err
+	}
+	_, err = s.rescanLocked()
 	return err
+}
+
+func applyPluginConfigWriteRollback(state PluginsStateFile, rollback pluginConfigWriteRollback) (PluginsStateFile, error) {
+	currentConfig, hasCurrentConfig := state.PluginConfigByID[rollback.configKey]
+	if !hasCurrentConfig || !reflect.DeepEqual(currentConfig, rollback.writtenConfig) {
+		return PluginsStateFile{}, fmt.Errorf("plugin config changed before rollback for %s", rollback.configKey)
+	}
+
+	if rollback.hadPreviousConfig {
+		state.PluginConfigByID[rollback.configKey] = cloneJSONValue(rollback.previousConfig)
+		return state, nil
+	}
+
+	delete(state.PluginConfigByID, rollback.configKey)
+	return state, nil
 }
 
 func pluginConfigWriteResponse(pluginID string, config map[string]any) PluginConfigWriteResponse {

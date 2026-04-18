@@ -73,12 +73,12 @@ consolidate_prompt_file=""
 fix_prompt_file=""
 finalize_prompt_file=""
 state_status_file=""
-state_head_file=""
 codex_exit_code="0"
 codex_timed_out="0"
 loop_log_file=""
 current_status_file=""
 current_run_file=""
+keep_review_docs_on_exit="0"
 
 require_value() {
   local flag="$1"
@@ -578,10 +578,21 @@ ensure_review_docs_absent() {
   done
 }
 
-record_state() {
-  local status="$1"
-  printf '%s\n' "${status}" > "${state_status_file}"
-  git -C "${root_dir}" rev-parse HEAD > "${state_head_file}"
+remove_review_docs() {
+  if [[ -z "${root_dir}" ]] || [[ ! -d "${root_dir}" ]]; then
+    return
+  fi
+  rm -f \
+    "${root_dir}/review1.md" \
+    "${root_dir}/review2.md" \
+    "${root_dir}/review3.md"
+}
+
+cleanup_review_docs_on_exit() {
+  if [[ "${keep_review_docs_on_exit}" == "1" ]]; then
+    return
+  fi
+  remove_review_docs
 }
 
 print_configuration() {
@@ -727,6 +738,7 @@ if [[ "${state_dir}" == "${root_dir}" ]] || [[ "${state_dir}" == "${root_dir}/"*
 fi
 
 mkdir -p "${output_dir}" "${state_dir}"
+trap cleanup_review_docs_on_exit EXIT
 
 loop_log_file="${output_dir}/loop.log"
 current_status_file="${output_dir}/current-status.txt"
@@ -736,8 +748,6 @@ printf 'initializing\n' > "${current_status_file}"
 : > "${current_run_file}"
 
 state_status_file="${state_dir}/status.txt"
-state_head_file="${state_dir}/last-observed-head.txt"
-git -C "${root_dir}" rev-parse HEAD > "${state_head_file}"
 printf 'pending\n' > "${state_status_file}"
 
 write_prompt_files
@@ -755,7 +765,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   review_failed="0"
   review_file=""
   review_transcript=""
-  review_exit_file=""
   review_timeout_file=""
   consolidate_response_file="${run_dir}/consolidated-findings.md"
   consolidate_transcript_file="${run_dir}/consolidated-transcript.log"
@@ -786,7 +795,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   for review_index in 1 2 3; do
     review_file="${root_dir}/review${review_index}.md"
     review_transcript="${run_dir}/review${review_index}-transcript.log"
-    review_exit_file="${run_dir}/review${review_index}.exit"
     review_timeout_file="${run_dir}/review${review_index}.timed_out"
 
     (
@@ -799,7 +807,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
         "" \
         "ephemeral"
       review_exit_code="$?"
-      printf '%s\n' "${review_exit_code}" > "${review_exit_file}"
       printf '%s\n' "${codex_timed_out}" > "${review_timeout_file}"
       exit "${review_exit_code}"
     ) &
@@ -896,6 +903,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       log_error "No-findings stop left unexpected repository changes."
       exit 1
     fi
+    keep_review_docs_on_exit="1"
     printf 'stopped:no-findings\n' > "${run_status_file}"
     printf 'stopped:no-findings\n' > "${state_status_file}"
     set_current_status "stopped: no findings at iteration ${iteration}/${iterations}" "${run_dir}"
@@ -978,7 +986,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   printf 'success\n' > "${run_status_file}"
-  record_state "advanced:${iteration_end_head}"
+  printf 'advanced:%s\n' "${iteration_end_head}" > "${state_status_file}"
   set_current_status "iteration ${iteration}/${iterations}: complete" "${run_dir}"
   log_info "[$iteration/$iterations] Commit iteration complete. HEAD advanced to ${iteration_end_head}"
 done

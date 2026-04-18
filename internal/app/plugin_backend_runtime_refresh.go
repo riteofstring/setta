@@ -1049,18 +1049,17 @@ func (r *pluginBackendRuntimeRefresher) ReapplyAppliedLanguageServerPluginConfig
 		ctx = context.Background()
 	}
 
-	previousSpecs, updatedSpecs, changed, err := r.prepareAppliedLanguageServerConfigUpdate(trimmedPluginID)
-	if err != nil || !changed {
-		return err
-	}
-
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	previousSpecs, updatedSpecs, changed, err := r.prepareAppliedLanguageServerConfigUpdateLocked(trimmedPluginID)
+	if err != nil || !changed {
+		return err
+	}
 	return r.applyAppliedLanguageServerConfigUpdateLocked(ctx, previousSpecs, updatedSpecs)
 }
 
-func (r *pluginBackendRuntimeRefresher) prepareAppliedLanguageServerConfigUpdate(
+func (r *pluginBackendRuntimeRefresher) prepareAppliedLanguageServerConfigUpdateLocked(
 	pluginID string,
 ) ([]lsp.LanguageServerSpec, []lsp.LanguageServerSpec, bool, error) {
 	selections, err := r.selectedLanguageServerPlugins()
@@ -1075,9 +1074,6 @@ func (r *pluginBackendRuntimeRefresher) prepareAppliedLanguageServerConfigUpdate
 	if err != nil {
 		return nil, nil, false, err
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	previousSpecs := lsp.CloneLanguageServerSpecs(r.lspSpecs)
 	updatedSpecs, changed := updatedAppliedLanguageServerSpecsForPlugin(

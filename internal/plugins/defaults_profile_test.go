@@ -84,3 +84,54 @@ func TestDefaultsInstallProfileAvailableLanguageServerSelectionsRequireActiveReg
 		t.Fatalf("expected disabled defaults plugin to stay unselected, got %#v", got)
 	}
 }
+
+func TestDefaultsInstallProfileAvailableLanguageServerSelectionsUsePackageManagerCopyWhenLinkedCopyShadowsIt(t *testing.T) {
+	t.Parallel()
+
+	profile := DefaultsInstallProfile()
+	snapshot := DiscoverySnapshot{
+		Plugins: []DiscoveredPlugin{
+			{
+				PluginID:      "setta-basedpyright",
+				State:         PluginRuntimeStateActive,
+				SourceManager: PluginSourceManagerSetta,
+				Manifest: &PluginManifest{
+					ID:                "setta-basedpyright",
+					Name:              "Linked Basedpyright",
+					Version:           "0.1.0",
+					SchemaVersion:     1,
+					SettaVersionRange: ">=0.0.0",
+					EnabledByDefault:  true,
+					Capabilities:      []string{"registerLanguageServer"},
+				},
+				EffectiveCapabilities: []string{"registerLanguageServer"},
+				RegisteredLanguageServers: []PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Language: "python",
+					},
+				},
+			},
+			{
+				PluginID:      "setta-basedpyright",
+				State:         PluginRuntimeStateShadowed,
+				SourceManager: PluginSourceManagerPackageManager,
+				Manifest: &PluginManifest{
+					ID:                "setta-basedpyright",
+					Name:              "Packaged Basedpyright",
+					Version:           "0.1.0",
+					SchemaVersion:     1,
+					SettaVersionRange: ">=0.0.0",
+					EnabledByDefault:  true,
+					Capabilities:      []string{"registerLanguageServer"},
+				},
+			},
+		},
+	}
+
+	if got := profile.AvailableLanguageServerSelections(snapshot); !reflect.DeepEqual(got, map[string]string{
+		"python": "setta-basedpyright",
+	}) {
+		t.Fatalf("unexpected defaults profile selections %#v", got)
+	}
+}

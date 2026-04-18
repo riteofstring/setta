@@ -197,8 +197,9 @@ func resolveGoBinary() (string, error) {
 		if candidate == "" {
 			continue
 		}
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
+		resolved, err := resolveGoBinaryCandidate(candidate)
+		if err == nil {
+			return resolved, nil
 		}
 	}
 
@@ -212,6 +213,14 @@ func resolveGoBinary() (string, error) {
 	}
 
 	return "", fmt.Errorf("Go toolchain is required to build backend plugins")
+}
+
+func resolveGoBinaryCandidate(candidate string) (string, error) {
+	resolved, err := exec.LookPath(candidate)
+	if err != nil {
+		return "", err
+	}
+	return resolved, nil
 }
 
 func backendExecutableNameForPlatform() string {

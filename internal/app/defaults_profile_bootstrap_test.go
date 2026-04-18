@@ -104,6 +104,33 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t
 	}
 }
 
+func TestBootstrapWorkspaceDefaultsInstallProfileUsesPackagedBasedpyrightWhenLinkedCopyShadowsIt(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	firstpartyplugin.InstallBasedpyrightPluginWheel(t, sitePackages)
+	pluginService, workspaceRoot := newDefaultsProfilePluginServiceWithWorkspace(t, []string{sitePackages})
+
+	repoRoot := appTestRepoRoot(t)
+	copyAppTestDir(
+		t,
+		filepath.Join(repoRoot, "plugins", "setta-basedpyright"),
+		filepath.Join(workspaceRoot, ".setta_plugins", "setta-basedpyright"),
+	)
+
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected python defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+}
+
 func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 	t.Helper()
 
@@ -119,6 +146,13 @@ func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 }
 
 func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugins.Service {
+	t.Helper()
+
+	service, _ := newDefaultsProfilePluginServiceWithWorkspace(t, searchPaths)
+	return service
+}
+
+func newDefaultsProfilePluginServiceWithWorkspace(t *testing.T, searchPaths []string) (*plugins.Service, string) {
 	t.Helper()
 
 	repoRoot := appTestRepoRoot(t)
@@ -156,5 +190,5 @@ func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugin
 	if err != nil {
 		t.Fatalf("new plugin service: %v", err)
 	}
-	return service
+	return service, workspaceRoot
 }

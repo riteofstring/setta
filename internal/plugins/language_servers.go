@@ -35,7 +35,7 @@ func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *Pl
 	collector := languageServerSpecCollector{
 		specs: make([]lsp.LanguageServerSpec, 0),
 	}
-	for _, entry := range entries {
+	for _, entry := range primaryDiscoveredPluginEntries(entries) {
 		if err := collector.addEntry(entry, pluginsState, settaFilesRoot); err != nil {
 			return nil, err
 		}

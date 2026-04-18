@@ -225,6 +225,40 @@ Outcome:
 - The reviewed regressions are fixed in this branch snapshot.
 - No unresolved findings from this review pass remain recorded here.
 
+## 2026-04-18 05:17:54 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had four concrete issue clusters: duplicate plugin IDs were resolved through different precedence paths in selected spec generation versus defaults bootstrap, failed plugin-config reapply could replay stale snapshots over newer state, runtime source-build flows still ignored `GO` / `SETTA_GO_BIN` command names on `PATH`, and the branch-review loop could strand top-level `review*.md` files after failures while also writing unused bookkeeping artifacts.
+- I implemented the fixes directly and removed superseded logic instead of preserving the reviewed behavior behind fallback paths.
+
+Fixes applied:
+- Added a small shared precedence helper in `internal/plugins` and switched selected language-server spec generation to build from the primary discovered plugin copy for each plugin ID, so selected specs now follow the same precedence path as status classification and other plugin-owner flows.
+- Updated defaults-profile selection to locate the package-manager-owned default by plugin ID even when a linked or workspace copy shadows it, including the real shadowed-entry case where discovery does not populate backend registration metadata on the lower-precedence copy.
+- Reworked transactional plugin-config rollback so it restores only the touched persisted config key and refuses to overwrite newer writes when the key changed again before rollback.
+- Serialized `ReapplyAppliedLanguageServerPluginConfig` under the refresher lock so restart and refresh transitions cannot interleave with a stale pre-apply LSP snapshot.
+- Unified Go tool resolution so runtime source builds accept both absolute paths and command names supplied through `GO` or `SETTA_GO_BIN`.
+- Simplified `scripts/run-codex-branch-review-loop.sh` so non-`NO_FINDINGS` exits always clean up top-level `review*.md` files, and removed the script’s unused `.exit` and `last-observed-head.txt` writes.
+
+Tests added or upgraded:
+- Go unit coverage for duplicate-plugin selected language-server precedence.
+- Go unit coverage for defaults-profile selection when a package-manager plugin is shadowed by a linked copy.
+- Go unit coverage for transactional config rollback preserving later unrelated writes and preserving newer same-plugin writes on rollback conflict.
+- Go unit coverage for `GO` / `SETTA_GO_BIN` command-name overrides on `PATH`.
+- Go runtime coverage proving config reapply is serialized against restart transitions.
+- Go defaults-bootstrap integration coverage for the real first-party basedpyright package-manager plus linked-copy shadowing case.
+- Python script-wiring coverage for branch-review-loop cleanup of review docs and removal of unused bookkeeping artifacts.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'Test(ServiceWriteConfigTransactional(RestoresPreviousConfigWhenApplyFails|RollbackPreservesLaterUnrelatedMutation|RollbackKeepsNewerConfigForSamePlugin)|DefaultsInstallProfileAvailableLanguageServerSelections(RequireActiveRegistration|UsePackageManagerCopyWhenLinkedCopyShadowsIt)|LanguageServerSpecsFromSnapshotKeepsPrimaryPluginCopyForDuplicatePluginIDs|BuildGoBackendExecutable(HonorsGoCommandNameOverridesOnPath|ReturnsPackagedExecutableEntrypoint|RejectsNonExecutablePackagedEntrypoint))' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Test(PluginBackendRuntimeRefresher(ReapplySerializesWithRestartProject|PrepareRestartTransitionClonesPreviousSettings|RollbackRestoresSettings)|BootstrapWorkspaceDefaultsInstallProfile(UsesPackagedBasedpyrightWhenLinkedCopyShadowsIt|WritesMissingPythonSelection|PreservesExplicitNullSelection|RunsOnlyOncePerProfileVersion))' -count=1`
+- `source activate.sh && pytest tests/start/test_run_codex_branch_review_loop_script.py -q`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- No unresolved findings from this review pass remain recorded here.
+
 ## 2026-04-18 01:18:06 PDT
 
 Summary:

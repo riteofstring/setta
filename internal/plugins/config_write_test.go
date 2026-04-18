@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"setta/internal/config"
@@ -212,6 +213,121 @@ func TestServiceWriteConfigTransactionalRestoresPreviousConfigWhenApplyFails(t *
 	}
 	if got := savedConfig["label"]; got != "before" {
 		t.Fatalf("expected rollback to restore previous label, got %#v", got)
+	}
+}
+
+func TestServiceWriteConfigTransactionalRollbackPreservesLaterUnrelatedMutation(t *testing.T) {
+	fullConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta)
+	frontendConfigKey := pluginConfigKey("setta-fixture-frontend", PluginScopeWorkspace, PluginSourceManagerSetta)
+
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	frontendRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+	rewritePluginManifest(t, frontendRoot, func(payload map[string]any) {
+		frontend := payload["frontend"].(map[string]any)
+		frontend["entrypoint"] = "frontend/src/index.js"
+		frontend["style"] = "frontend/src/index.css"
+	})
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "before",
+		},
+	}); err != nil {
+		t.Fatalf("write initial full plugin config: %v", err)
+	}
+
+	applyErr := errors.New("reapply applied language server config")
+	_, err := service.WriteConfigTransactional(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "after",
+		},
+	}, func(PluginConfigWriteResponse) error {
+		if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+			PluginID: "setta-fixture-frontend",
+			Config: map[string]any{
+				"enabled": true,
+				"label":   "frontend-config",
+			},
+		}); err != nil {
+			t.Fatalf("write later frontend plugin config: %v", err)
+		}
+		return applyErr
+	})
+	if !errors.Is(err, applyErr) {
+		t.Fatalf("expected apply error %v, got %v", applyErr, err)
+	}
+
+	state, err := service.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after rollback: %v", err)
+	}
+	if got, ok := state.PluginConfigByID[fullConfigKey].(map[string]any); !ok || got["label"] != "before" {
+		t.Fatalf("expected full plugin config rollback to preserve previous value, got %#v", state.PluginConfigByID[fullConfigKey])
+	}
+	if got, ok := state.PluginConfigByID[frontendConfigKey].(map[string]any); !ok || got["label"] != "frontend-config" {
+		t.Fatalf("expected later frontend mutation to remain, got %#v", state.PluginConfigByID[frontendConfigKey])
+	}
+}
+
+func TestServiceWriteConfigTransactionalRollbackKeepsNewerConfigForSamePlugin(t *testing.T) {
+	workspaceConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta)
+
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "before",
+		},
+	}); err != nil {
+		t.Fatalf("write initial plugin config: %v", err)
+	}
+
+	applyErr := errors.New("reapply applied language server config")
+	_, err := service.WriteConfigTransactional(context.Background(), ConfigWriteOptions{
+		PluginID: "setta-fixture-full",
+		Config: map[string]any{
+			"enabled": true,
+			"label":   "after",
+		},
+	}, func(PluginConfigWriteResponse) error {
+		if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
+			PluginID: "setta-fixture-full",
+			Config: map[string]any{
+				"enabled": true,
+				"label":   "newer",
+			},
+		}); err != nil {
+			t.Fatalf("write newer plugin config: %v", err)
+		}
+		return applyErr
+	})
+	if !errors.Is(err, applyErr) {
+		t.Fatalf("expected apply error %v, got %v", applyErr, err)
+	}
+	if !strings.Contains(err.Error(), "changed before rollback") {
+		t.Fatalf("expected rollback conflict in error, got %v", err)
+	}
+
+	state, err := service.store.LoadPluginsState()
+	if err != nil {
+		t.Fatalf("load plugins state after rollback conflict: %v", err)
+	}
+	savedConfig, ok := state.PluginConfigByID[workspaceConfigKey].(map[string]any)
+	if !ok {
+		t.Fatalf("expected workspace config after rollback conflict, got %#v", state.PluginConfigByID)
+	}
+	if got := savedConfig["label"]; got != "newer" {
+		t.Fatalf("expected newer config to survive rollback conflict, got %#v", got)
 	}
 }
 
