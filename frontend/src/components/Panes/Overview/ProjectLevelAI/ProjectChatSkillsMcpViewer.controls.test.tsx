@@ -83,7 +83,39 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorStyle", () => ({
 }));
 
 vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
-  IdNameCombobox: () => null,
+  IdNameCombobox: ({
+    allItems,
+    inputDivId,
+    onSelectedItemChange,
+    value,
+  }: {
+    allItems?: Array<{
+      items?: Array<{
+        id: string;
+        name: string;
+      }>;
+    }>;
+    inputDivId?: string;
+    onSelectedItemChange?: (value: string | null) => void;
+    value?: string | null;
+  }) => {
+    const items = (allItems ?? []).flatMap((group) => group.items ?? []);
+    return (
+      <select
+        data-testid={inputDivId}
+        onChange={(event) =>
+          onSelectedItemChange?.(event.currentTarget.value || null)
+        }
+        value={value ?? ""}
+      >
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+    );
+  },
 }));
 
 vi.mock("state/actions/ai", async () => {
@@ -187,6 +219,18 @@ function setTextInputValue(
         : HTMLInputElement.prototype;
     const valueSetter = Object.getOwnPropertyDescriptor(
       prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function setSelectValue(element: HTMLSelectElement, value: string) {
+  act(() => {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
       "value",
     )?.set;
     valueSetter?.call(element, value);
@@ -307,6 +351,46 @@ describe("ProjectChatSkillsMcpViewer controls", () => {
       );
     });
     await settleView();
+  }
+
+  function configureSettaSlashCommandsState() {
+    mockAIState.agentRunsInitialLoadComplete = false;
+    mockAIState.agentRunsAuthorityState = "loading";
+    mockAIState.engineConfigs = [
+      createEngineConfig({
+        id: "engine-setta",
+        name: "Setta",
+        engineType: "setta_llm",
+        settaLlmConfigId: "cfg-openai",
+      }),
+    ];
+    mockAIState.allLLMConfigs = createAllConfigs({
+      configs: {
+        "cfg-openai": createLLMConfig({
+          id: "cfg-openai",
+          model: "gpt-5",
+          provider: "openai",
+          api_key_env: "OPENAI_API_KEY",
+        }),
+      },
+      defaultMcpServerIds: [],
+      mcpServers: {},
+    });
+    mockAIState.apiKeys = {
+      OPENAI_API_KEY: "secret",
+    };
+  }
+
+  async function renderSettaSlashViewer(projectConfigId: string) {
+    configureSettaSlashCommandsState();
+    await renderViewer({
+      projectConfigId,
+      chatId: `${projectConfigId}-chat`,
+      engineConfigId: "engine-setta",
+      engineType: EngineTypeEnum.setta_llm,
+      externalAgentToolType: null,
+      viewMode: "slash_commands",
+    });
   }
 
   function getSkillButton(skillName: string): HTMLButtonElement | null {
@@ -817,45 +901,7 @@ describe("ProjectChatSkillsMcpViewer controls", () => {
   });
 
   it("allows custom slash creation without agent-run authority when no external-agent engine exists", async () => {
-    mockAIState.agentRunsInitialLoadComplete = false;
-    mockAIState.agentRunsAuthorityState = "loading";
-    mockAIState.engineConfigs = [
-      createEngineConfig({
-        id: "engine-setta",
-        name: "Setta",
-        engineType: "setta_llm",
-        settaLlmConfigId: "cfg-openai",
-      }),
-    ];
-    mockAIState.allLLMConfigs = createAllConfigs({
-      configs: {
-        "cfg-openai": createLLMConfig({
-          id: "cfg-openai",
-          model: "gpt-5",
-          provider: "openai",
-          api_key_env: "OPENAI_API_KEY",
-        }),
-      },
-      defaultMcpServerIds: [],
-      mcpServers: {},
-    });
-    mockAIState.apiKeys = {
-      OPENAI_API_KEY: "secret",
-    };
-
-    await act(async () => {
-      root.render(
-        <ProjectChatSkillsMcpViewer
-          projectConfigId="project-alpha"
-          chatId="chat-alpha"
-          engineConfigId="engine-setta"
-          engineType={EngineTypeEnum.setta_llm}
-          externalAgentToolType={null}
-          viewMode="slash_commands"
-        />,
-      );
-    });
-    await settle();
+    await renderSettaSlashViewer("project-alpha");
 
     const commandInput = host.querySelector(
       '[data-testid="project-chat-custom-slash-command-input"]',
@@ -876,5 +922,156 @@ describe("ProjectChatSkillsMcpViewer controls", () => {
     expect(host.textContent).toContain(
       "Command names must be unique and cannot collide with built-in or discovered agent-native commands.",
     );
+  });
+
+  it("keeps slash-command drafts isolated per project through the owner view", async () => {
+    await renderSettaSlashViewer("project-alpha");
+
+    const alphaCommandInput = host.querySelector(
+      '[data-testid="project-chat-custom-slash-command-input"]',
+    ) as HTMLInputElement | null;
+    const alphaPromptInput = host.querySelector(
+      '[data-testid="project-chat-custom-slash-prompt-input"]',
+    ) as HTMLTextAreaElement | null;
+    const alphaModeInput = host.querySelector(
+      '[data-testid="project-chat-custom-slash-mode-input"]',
+    ) as HTMLSelectElement | null;
+
+    expect(alphaModeInput).not.toBeNull();
+    const alternateMode = Array.from(alphaModeInput!.options)
+      .map((option) => option.value)
+      .find((value) => value !== alphaModeInput!.value);
+    expect(alternateMode).toBeTruthy();
+
+    setSelectValue(alphaModeInput!, alternateMode!);
+    setTextInputValue(alphaCommandInput!, "/alpha-status");
+    setTextInputValue(alphaPromptInput!, "Summarize alpha status.");
+    await settle();
+
+    await renderSettaSlashViewer("project-beta");
+
+    const betaCommandInput = host.querySelector(
+      '[data-testid="project-chat-custom-slash-command-input"]',
+    ) as HTMLInputElement | null;
+    const betaPromptInput = host.querySelector(
+      '[data-testid="project-chat-custom-slash-prompt-input"]',
+    ) as HTMLTextAreaElement | null;
+    const betaModeInput = host.querySelector(
+      '[data-testid="project-chat-custom-slash-mode-input"]',
+    ) as HTMLSelectElement | null;
+
+    expect(betaCommandInput?.value).toBe("");
+    expect(betaPromptInput?.value).toBe("");
+    expect(betaModeInput?.value).not.toBe(alternateMode);
+
+    setTextInputValue(betaCommandInput!, "/beta-status");
+    setTextInputValue(betaPromptInput!, "Summarize beta status.");
+    await settle();
+
+    await renderSettaSlashViewer("project-alpha");
+
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-command-input"]',
+        ) as HTMLInputElement | null
+      )?.value,
+    ).toBe("/alpha-status");
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-prompt-input"]',
+        ) as HTMLTextAreaElement | null
+      )?.value,
+    ).toBe("Summarize alpha status.");
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-mode-input"]',
+        ) as HTMLSelectElement | null
+      )?.value,
+    ).toBe(alternateMode);
+  });
+
+  it("clears only the active project slash draft when both fields are emptied", async () => {
+    await renderSettaSlashViewer("project-alpha");
+
+    setTextInputValue(
+      host.querySelector(
+        '[data-testid="project-chat-custom-slash-command-input"]',
+      ) as HTMLInputElement,
+      "/alpha-status",
+    );
+    setTextInputValue(
+      host.querySelector(
+        '[data-testid="project-chat-custom-slash-prompt-input"]',
+      ) as HTMLTextAreaElement,
+      "Summarize alpha status.",
+    );
+    await settle();
+
+    await renderSettaSlashViewer("project-beta");
+
+    setTextInputValue(
+      host.querySelector(
+        '[data-testid="project-chat-custom-slash-command-input"]',
+      ) as HTMLInputElement,
+      "/beta-status",
+    );
+    setTextInputValue(
+      host.querySelector(
+        '[data-testid="project-chat-custom-slash-prompt-input"]',
+      ) as HTMLTextAreaElement,
+      "Summarize beta status.",
+    );
+    await settle();
+
+    setTextInputValue(
+      host.querySelector(
+        '[data-testid="project-chat-custom-slash-command-input"]',
+      ) as HTMLInputElement,
+      "",
+    );
+    setTextInputValue(
+      host.querySelector(
+        '[data-testid="project-chat-custom-slash-prompt-input"]',
+      ) as HTMLTextAreaElement,
+      "",
+    );
+    await settle();
+
+    await renderSettaSlashViewer("project-alpha");
+
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-command-input"]',
+        ) as HTMLInputElement | null
+      )?.value,
+    ).toBe("/alpha-status");
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-prompt-input"]',
+        ) as HTMLTextAreaElement | null
+      )?.value,
+    ).toBe("Summarize alpha status.");
+
+    await renderSettaSlashViewer("project-beta");
+
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-command-input"]',
+        ) as HTMLInputElement | null
+      )?.value,
+    ).toBe("");
+    expect(
+      (
+        host.querySelector(
+          '[data-testid="project-chat-custom-slash-prompt-input"]',
+        ) as HTMLTextAreaElement | null
+      )?.value,
+    ).toBe("");
   });
 });

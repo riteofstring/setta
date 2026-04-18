@@ -330,7 +330,7 @@ function resolveSkillMarkdownRawDraftBySkillIdUpdate({
     },
   };
 }
-export function resolveCustomSlashDraftByProjectConfigIdUpdate({
+function resolveCustomSlashDraftByProjectConfigIdUpdate({
   customSlashDraftByProjectConfigId,
   projectConfigId,
   nextDraft,
