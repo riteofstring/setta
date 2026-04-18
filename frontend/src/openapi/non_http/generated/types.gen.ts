@@ -5662,6 +5662,28 @@ export type SettingsBackend = {
 };
 
 /**
+ * SettingsChatWindowing
+ */
+export type SettingsChatWindowing = {
+  autoCreateInitialChat: boolean;
+  restorePriorStateOnUnmaximize: boolean;
+  shortcuts: SettingsChatWindowingShortcuts;
+};
+
+/**
+ * SettingsChatWindowingShortcuts
+ */
+type SettingsChatWindowingShortcuts = {
+  canvasToggle: string;
+  maximizeFocused: string;
+  minimizeFocused: string;
+  snapBottom: string;
+  snapLeft: string;
+  snapRight: string;
+  snapTop: string;
+};
+
+/**
  * SettingsGUI
  */
 export type SettingsGUI = {
@@ -5781,6 +5803,7 @@ export type SettingsShortcuts = {
  */
 export type SettingsState = {
   backend: SettingsBackend;
+  chatWindowing: SettingsChatWindowing;
   gui: SettingsGUI;
   languageServer: {
     [key: string]: unknown;

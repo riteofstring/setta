@@ -514,6 +514,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(httpapi.FrontendSettaFilesLocation("")):                              "SettaFilesLocation",
 	reflect.TypeOf(httpapi.FrontendSettaFilesLocationPolicy{}):                          "SettaFilesLocationPolicy",
 	reflect.TypeOf(settingsstate.FrontendSettingsBackend{}):                             "SettingsBackend",
+	reflect.TypeOf(settingsstate.FrontendSettingsChatWindowing{}):                       "SettingsChatWindowing",
+	reflect.TypeOf(settingsstate.FrontendSettingsChatWindowingShortcuts{}):              "SettingsChatWindowingShortcuts",
 	reflect.TypeOf(settingsstate.FrontendSettingsGUI{}):                                 "SettingsGUI",
 	reflect.TypeOf(externalagentconfigs.SettingsManagedBlock{}):                         "SettingsManagedBlock",
 	reflect.TypeOf(externalagentconfigs.SettingsMode("")):                               "SettingsMode",

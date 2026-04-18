@@ -2470,6 +2470,14 @@ function createSettingsBackend(
   };
 }
 
+type SettingsChatWindowing = gt.SettingsChatWindowing;
+
+function createSettingsChatWindowing(
+  options: Partial<SettingsChatWindowing> = {},
+): SettingsChatWindowing {
+  return options as SettingsChatWindowing;
+}
+
 type SettingsGUI = gt.SettingsGUI;
 
 function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
@@ -2630,6 +2638,19 @@ export function createSettingsState(
       runSnapshotMode: "ephemeral",
       saveRenderedValues: false,
       showDefaultConfigOnLoad: true,
+    },
+    chatWindowing: {
+      autoCreateInitialChat: true,
+      restorePriorStateOnUnmaximize: true,
+      shortcuts: {
+        canvasToggle: "Shift + Esc",
+        maximizeFocused: "Mod + Shift + Enter",
+        minimizeFocused: "Mod + Shift + M",
+        snapBottom: "Mod + Alt + ArrowDown",
+        snapLeft: "Mod + Alt + ArrowLeft",
+        snapRight: "Mod + Alt + ArrowRight",
+        snapTop: "Mod + Alt + ArrowUp",
+      },
     },
     gui: {
       defaultZoomLevel: 1,
@@ -3028,6 +3049,9 @@ export function createSettingsState(
     ),
     gui: createSettingsGUI(options["gui"] ?? defaults["gui"]),
     backend: createSettingsBackend(options["backend"] ?? defaults["backend"]),
+    chatWindowing: createSettingsChatWindowing(
+      options["chatWindowing"] ?? defaults["chatWindowing"],
+    ),
     sectionSizingPolicy: createSectionSizingPolicy(
       options["sectionSizingPolicy"] ?? defaults["sectionSizingPolicy"],
     ),

@@ -407,6 +407,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(settingsstate.FrontendSettingsShortcuts{}),
 		reflect.TypeOf(settingsstate.FrontendSettingsGUI{}),
 		reflect.TypeOf(settingsstate.FrontendSettingsBackend{}),
+		reflect.TypeOf(settingsstate.FrontendSettingsChatWindowingShortcuts{}),
+		reflect.TypeOf(settingsstate.FrontendSettingsChatWindowing{}),
 		reflect.TypeOf(settingsstate.FrontendSettingsState{}),
 		reflect.TypeOf(settingsstate.BackgroundVariant("")),
 		reflect.TypeOf(settingsstate.SelectionMode("")),

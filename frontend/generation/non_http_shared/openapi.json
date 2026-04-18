@@ -13554,6 +13554,64 @@
         "title": "SettingsBackend",
         "type": "object"
       },
+      "SettingsChatWindowing": {
+        "additionalProperties": false,
+        "properties": {
+          "autoCreateInitialChat": {
+            "type": "boolean"
+          },
+          "restorePriorStateOnUnmaximize": {
+            "type": "boolean"
+          },
+          "shortcuts": {
+            "$ref": "#/components/schemas/SettingsChatWindowingShortcuts"
+          }
+        },
+        "required": [
+          "autoCreateInitialChat",
+          "restorePriorStateOnUnmaximize",
+          "shortcuts"
+        ],
+        "title": "SettingsChatWindowing",
+        "type": "object"
+      },
+      "SettingsChatWindowingShortcuts": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasToggle": {
+            "type": "string"
+          },
+          "maximizeFocused": {
+            "type": "string"
+          },
+          "minimizeFocused": {
+            "type": "string"
+          },
+          "snapBottom": {
+            "type": "string"
+          },
+          "snapLeft": {
+            "type": "string"
+          },
+          "snapRight": {
+            "type": "string"
+          },
+          "snapTop": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "canvasToggle",
+          "maximizeFocused",
+          "minimizeFocused",
+          "snapLeft",
+          "snapRight",
+          "snapTop",
+          "snapBottom"
+        ],
+        "title": "SettingsChatWindowingShortcuts",
+        "type": "object"
+      },
       "SettingsGUI": {
         "additionalProperties": false,
         "properties": {
@@ -13953,6 +14011,9 @@
           "backend": {
             "$ref": "#/components/schemas/SettingsBackend"
           },
+          "chatWindowing": {
+            "$ref": "#/components/schemas/SettingsChatWindowing"
+          },
           "gui": {
             "$ref": "#/components/schemas/SettingsGUI"
           },
@@ -13971,6 +14032,7 @@
           "shortcuts",
           "gui",
           "backend",
+          "chatWindowing",
           "sectionSizingPolicy",
           "languageServer"
         ],

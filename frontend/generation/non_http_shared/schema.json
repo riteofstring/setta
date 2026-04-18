@@ -16023,6 +16023,64 @@
       ],
       "additionalProperties": false
     },
+    "SettingsChatWindowing": {
+      "type": "object",
+      "properties": {
+        "autoCreateInitialChat": {
+          "type": "boolean"
+        },
+        "restorePriorStateOnUnmaximize": {
+          "type": "boolean"
+        },
+        "shortcuts": {
+          "$ref": "#/$defs/SettingsChatWindowingShortcuts"
+        }
+      },
+      "title": "SettingsChatWindowing",
+      "required": [
+        "autoCreateInitialChat",
+        "restorePriorStateOnUnmaximize",
+        "shortcuts"
+      ],
+      "additionalProperties": false
+    },
+    "SettingsChatWindowingShortcuts": {
+      "type": "object",
+      "properties": {
+        "canvasToggle": {
+          "type": "string"
+        },
+        "maximizeFocused": {
+          "type": "string"
+        },
+        "minimizeFocused": {
+          "type": "string"
+        },
+        "snapLeft": {
+          "type": "string"
+        },
+        "snapRight": {
+          "type": "string"
+        },
+        "snapTop": {
+          "type": "string"
+        },
+        "snapBottom": {
+          "type": "string"
+        }
+      },
+      "title": "SettingsChatWindowingShortcuts",
+      "required": [
+        "canvasToggle",
+        "maximizeFocused",
+        "minimizeFocused",
+        "snapLeft",
+        "snapRight",
+        "snapTop",
+        "snapBottom"
+      ],
+      "additionalProperties": false
+    },
     "SettingsGUI": {
       "type": "object",
       "properties": {
@@ -16431,6 +16489,9 @@
         "backend": {
           "$ref": "#/$defs/SettingsBackend"
         },
+        "chatWindowing": {
+          "$ref": "#/$defs/SettingsChatWindowing"
+        },
         "sectionSizingPolicy": {
           "$ref": "#/$defs/SectionSizingPolicy"
         },
@@ -16444,6 +16505,7 @@
         "shortcuts",
         "gui",
         "backend",
+        "chatWindowing",
         "sectionSizingPolicy",
         "languageServer"
       ],

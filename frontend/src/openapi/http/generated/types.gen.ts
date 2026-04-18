@@ -3726,6 +3726,22 @@ export type SettingsstateFrontendSettingsBackend = {
   showDefaultConfigOnLoad: boolean;
 };
 
+export type SettingsstateFrontendSettingsChatWindowing = {
+  autoCreateInitialChat: boolean;
+  restorePriorStateOnUnmaximize: boolean;
+  shortcuts: SettingsstateFrontendSettingsChatWindowingShortcuts;
+};
+
+export type SettingsstateFrontendSettingsChatWindowingShortcuts = {
+  canvasToggle: string;
+  maximizeFocused: string;
+  minimizeFocused: string;
+  snapBottom: string;
+  snapLeft: string;
+  snapRight: string;
+  snapTop: string;
+};
+
 export type SettingsstateFrontendSettingsGui = {
   defaultZoomLevel: number;
   gridColor: string;
@@ -3818,6 +3834,7 @@ export type SettingsstateFrontendSettingsShortcuts = {
 
 export type SettingsstateFrontendSettingsState = {
   backend: SettingsstateFrontendSettingsBackend;
+  chatWindowing: SettingsstateFrontendSettingsChatWindowing;
   gui: SettingsstateFrontendSettingsGui;
   languageServer: {
     [key: string]: unknown;
