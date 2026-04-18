@@ -4121,7 +4121,6 @@ export type PluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: null | Array<PluginRegisteredBackendRoute>;
   registeredCodegenTargets: null | Array<PluginRegisteredCodegenTarget>;
-  registeredLanguageServers: null | Array<PluginRegisteredLanguageServer>;
   registeredListenerEndpoints: null | Array<PluginRegisteredListenerEndpoint>;
   registeredStaticDirs: null | Array<PluginRegisteredStaticDir>;
   requestedCapabilities: null | Array<string>;
@@ -5744,15 +5743,6 @@ export type SettingsGUI = {
 };
 
 /**
- * SettingsLanguageServer
- */
-export type SettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: null | string;
-  };
-};
-
-/**
  * SettingsManagedBlock
  */
 type SettingsManagedBlock = {
@@ -5846,7 +5836,9 @@ export type SettingsState = {
   backend: SettingsBackend;
   chatWindowing: SettingsChatWindowing;
   gui: SettingsGUI;
-  languageServer: SettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: SectionSizingPolicy;
   shortcuts: SettingsShortcuts;
 };

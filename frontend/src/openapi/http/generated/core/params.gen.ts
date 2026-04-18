@@ -2,7 +2,7 @@
 
 type Slot = "body" | "headers" | "path" | "query";
 
-type Field =
+export type Field =
   | {
       in: Exclude<Slot, "body">;
       /**
@@ -35,12 +35,12 @@ type Field =
       map: Slot;
     };
 
-interface Fields {
+export interface Fields {
   allowExtra?: Partial<Record<Slot, boolean>> | undefined;
   args?: ReadonlyArray<Field> | undefined;
 }
 
-type FieldsConfig = ReadonlyArray<Field | Fields>;
+export type FieldsConfig = ReadonlyArray<Field | Fields>;
 
 const extraPrefixesMap: Record<string, Slot> = {
   $body_: "body",
@@ -102,7 +102,7 @@ const stripEmptySlots = (params: Params) => {
   }
 };
 
-const buildClientParams = (
+export const buildClientParams = (
   args: ReadonlyArray<unknown>,
   fields: FieldsConfig,
 ) => {

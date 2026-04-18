@@ -84,36 +84,3 @@ func TestFrontendSettingsStateFromDocumentPreservesChatWindowing(t *testing.T) {
 		)
 	}
 }
-
-func TestFrontendSettingsStateFromDocumentPreservesLanguageServerSelections(t *testing.T) {
-	document, err := DefaultDocument()
-	if err != nil {
-		t.Fatalf("new settings document: %v", err)
-	}
-
-	document["languageServer"] = map[string]any{
-		"selectedByLanguage": map[string]any{
-			"python": "setta-basedpyright",
-			"bash":   nil,
-		},
-	}
-
-	state, err := FrontendSettingsStateFromDocument(document)
-	if err != nil {
-		t.Fatalf("frontend settings state from document: %v", err)
-	}
-
-	pythonSelection, ok := state.LanguageServer.SelectedByLanguage["python"]
-	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
-		t.Fatalf("expected python selection to survive frontend decoding, got ok=%v selection=%#v", ok, pythonSelection)
-	}
-	bashSelection, ok := state.LanguageServer.SelectedByLanguage["bash"]
-	if !ok || bashSelection != nil {
-		t.Fatalf("expected bash selection to remain explicit null, got ok=%v selection=%#v", ok, bashSelection)
-	}
-
-	defaults := FrontendDefaultSettingsState()
-	if len(defaults.LanguageServer.SelectedByLanguage) != 0 {
-		t.Fatalf("expected empty default language-server selections, got %#v", defaults.LanguageServer.SelectedByLanguage)
-	}
-}
