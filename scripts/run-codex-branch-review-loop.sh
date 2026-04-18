@@ -918,10 +918,9 @@ Scope:
 - Touch only files already changed in this iteration unless a narrowly related cleanup is required to complete a simplification safely.
 
 Goals:
-- Reduce code and issue-class surface without weakening the fixes.
-- Prefer deleting dead or superseded code, collapsing duplicated branches, flattening control flow, tightening ownership, and smaller owner-level rewrites.
+- Focus on simpler ownership, control flow, and issue-class surface without weakening the fixes.
+- Prefer deleting dead or superseded code, collapsing duplicated branches, flattening control flow, tightening ownership, and clearer owner-level rewrites. A small increase in lines or a narrowly related new file is acceptable when it makes the fix meaningfully simpler.
 - Do not add compatibility shims, fallback paths, or "just in case" helpers.
-- The loop rejects this pass if it adds new repo paths or increases pending inserted lines.
 
 Verification:
 - Re-run the focused tests needed after the simplification.
@@ -1215,11 +1214,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   iteration_simplify_prompt_file="${run_dir}/simplify-prompt.md"
   simplify_response_file="${run_dir}/simplify-response.txt"
   simplify_transcript_file="${run_dir}/simplify-transcript.log"
-  pre_simplify_paths_file="${run_dir}/pre-simplify-paths.txt"
-  post_simplify_paths_file="${run_dir}/post-simplify-paths.txt"
-  simplify_new_paths_file="${run_dir}/simplify-new-paths.txt"
-  pre_simplify_insertions="0"
-  post_simplify_insertions="0"
   pre_finalize_paths_file="${run_dir}/pre-finalize-paths.txt"
   pre_finalize_snapshot_file="${run_dir}/pre-finalize-snapshot.tsv"
   finalize_mismatch_file="${run_dir}/finalize-mismatches.txt"
@@ -1427,9 +1421,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   set_current_status "iteration ${iteration}/${iterations}: simplify stage" "${run_dir}"
   log_info "[$iteration/$iterations] Simplifying current iteration changes"
 
-  collect_pending_paths "${pre_simplify_paths_file}"
-  pre_simplify_insertions="$(sum_pending_insertions)"
-
   write_iteration_simplify_prompt \
     "${iteration_simplify_prompt_file}" \
     "${consolidate_response_file}" \
@@ -1449,22 +1440,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     recover_iteration_failure \
       "failure:simplify" \
       "Simplify phase failed; resetting to HEAD and retrying."
-    continue
-  fi
-
-  collect_pending_paths "${post_simplify_paths_file}"
-  post_simplify_insertions="$(sum_pending_insertions)"
-  comm -13 "${pre_simplify_paths_file}" "${post_simplify_paths_file}" > "${simplify_new_paths_file}" || true
-  if [[ -s "${simplify_new_paths_file}" ]]; then
-    recover_iteration_failure \
-      "failure:simplify-expanded-path-set" \
-      "Simplify phase broadened the pending diff to new repo paths; resetting to HEAD and retrying."
-    continue
-  fi
-  if [[ "${post_simplify_insertions}" -gt "${pre_simplify_insertions}" ]]; then
-    recover_iteration_failure \
-      "failure:simplify-increased-insertions" \
-      "Simplify phase increased pending inserted lines from ${pre_simplify_insertions} to ${post_simplify_insertions}; resetting to HEAD and retrying."
     continue
   fi
 

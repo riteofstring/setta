@@ -218,13 +218,14 @@ SIMPLIFY_PROMPT = (
     "- Touch only files already changed in this iteration unless a narrowly related "
     "cleanup is required to complete a simplification safely.\n\n"
     "Goals:\n"
-    "- Reduce code and issue-class surface without weakening the fixes.\n"
+    "- Focus on simpler ownership, control flow, and issue-class surface without "
+    "weakening the fixes.\n"
     "- Prefer deleting dead or superseded code, collapsing duplicated branches, "
-    "flattening control flow, tightening ownership, and smaller owner-level "
-    "rewrites.\n"
+    "flattening control flow, tightening ownership, and clearer owner-level "
+    "rewrites. A small increase in lines or a narrowly related new file is "
+    "acceptable when it makes the fix meaningfully simpler.\n"
     '- Do not add compatibility shims, fallback paths, or "just in case" helpers.\n'
-    "- The loop rejects this pass if it adds new repo paths or increases pending "
-    "inserted lines.\n\n"
+    "\n"
     "Verification:\n"
     "- Re-run the focused tests needed after the simplification.\n"
     "- When browser/CDP visual verification is needed, use `./aireset.sh` and stop "
@@ -1152,7 +1153,7 @@ EOR
     assert "call:exec resume" not in calls
 
 
-def test_branch_review_loop_retries_after_simplify_increases_diff(
+def test_branch_review_loop_allows_simplify_to_expand_diff_when_simpler(
     tmp_path: Path,
 ) -> None:
     repo_dir = _create_git_repo(tmp_path)
@@ -1217,6 +1218,9 @@ fixed branch issues
 temporary layered logic
 even more temporary layered logic
 EOR
+  cat > "{repo_dir}/internal-note.txt" <<'EOR'
+split helper state
+EOR
   printf 'simplified poorly\\n' > "${{response_file}}"
   exit 0
 fi
@@ -1262,8 +1266,11 @@ EOR
   exit 0
 fi
 
-echo "unexpected finalize resume" >&2
-exit 2
+rm -f "{repo_dir}/review1.md" "{repo_dir}/review2.md" "{repo_dir}/review3.md"
+git -C "{repo_dir}" add README.md internal-note.txt
+git -C "{repo_dir}" commit -m "Finalize simplified fixes" >/dev/null
+printf 'finalized\\n' > "${{response_file}}"
+exit 0
 """,
     )
 
@@ -1290,20 +1297,23 @@ exit 2
     assert result.returncode == 0, result.stderr
     assert (
         output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "failure:simplify-increased-insertions"
+    ).read_text(encoding="utf-8").strip() == "success"
     assert (
         output_dir / "run-002" / "status.txt"
     ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
     assert (
         output_dir / "state" / "status.txt"
     ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (repo_dir / "README.md").read_text(encoding="utf-8") == "initial\n"
+    assert (repo_dir / "README.md").read_text(encoding="utf-8") == (
+        "initial\nfixed branch issues\ntemporary layered logic\neven more temporary layered logic\n"
+    )
+    assert (repo_dir / "internal-note.txt").read_text(encoding="utf-8") == "split helper state\n"
     assert (repo_dir / "review1.md").exists()
     assert (repo_dir / "review2.md").exists()
     assert (repo_dir / "review3.md").exists()
     calls = calls_file.read_text(encoding="utf-8")
-    assert calls.count("call:exec ") == 10
-    assert calls.count("call:exec resume") == 1
+    assert calls.count("call:exec ") == 11
+    assert calls.count("call:exec resume") == 2
 
 
 def test_branch_review_loop_retries_after_finalize_modifies_code(
