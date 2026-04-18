@@ -1,4 +1,5 @@
 import {
+  BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
@@ -346,7 +347,20 @@ describe("ParamUI canvas-owned resting text", () => {
     );
   });
 
-  it("uses the canvas-owned resting dropdown path for gui dropdown params", () => {
+  it.each([
+    {
+      paramInfoId: "settings-codeobj__gui__gui__selectionMode",
+      sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      value: "partial",
+    },
+    {
+      paramInfoId: "settings-codeobj__backend__backend__runSnapshotMode",
+      sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      value: "ephemeral",
+    },
+  ])(
+    "uses the canvas-owned resting dropdown path for shared dropdown params in $sectionId",
+    ({ paramInfoId, sectionId, value }) => {
     mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
     mocks.state.codeObjImpl = {
       type: CodeObjTypeEnum.DropdownParam,
@@ -355,9 +369,9 @@ describe("ParamUI canvas-owned resting text", () => {
 
     renderToStaticMarkup(
       <ParamUI
-        sectionId={GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
-        paramInfoId="settings-codeobj__gui__gui__selectionMode"
-        value="partial"
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        value={value}
         onChange={() => undefined}
       />,
     );
@@ -366,5 +380,6 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(mocks.dropdownProps.mock.calls[0][0].canvasOwnedRestingInput).toBe(
       true,
     );
-  });
+    },
+  );
 });

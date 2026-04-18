@@ -11,6 +11,8 @@ export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__sectionSizingPolicy";
 export const GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__gui";
+export const BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
+  "settings-section__backend";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -112,7 +114,8 @@ export function isCanvasOwnedSectionRestingDropdown({
       paramInfoId,
       sectionId,
     }) ||
-    (sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID &&
+    ((sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
+      sectionId === BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID) &&
       codeObjType === CodeObjTypeEnum.DropdownParam)
   );
 }

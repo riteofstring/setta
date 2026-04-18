@@ -1440,3 +1440,50 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - pivot off the closed `sectionSizingPolicy` wrapper-harvest lane and target a broader row/value overlay primitive or another dense section family that can move the remaining `60` / `477` interactive-core plateau
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 049
+
+- Item: Extend the lightweight resting-dropdown path onto the ordinary backend dropdown rows.
+- Status: `done`
+- Details:
+  - Started from the post-`gui` dense frontier instead of reopening the closed `sectionSizingPolicy` or `gui` cleanup lanes.
+  - Backend inventory on `settings-section__backend` showed one clean bounded family that could still move the live plateau immediately:
+    - `Rename Refactor Mode`
+    - `Run Snapshot Mode`
+    - both rows were still mounting live `search input` + `search button` combobox cores at rest
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID` and extends the shared `isCanvasOwnedSectionRestingDropdown(...)` helper to `DropdownParam` rows in that section, so this slice reuses the existing lightweight combobox activator instead of adding another renderer branch.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts`
+  - The live backend canary now proves the new structural contract:
+    - the backend family mounts `2` lightweight resting dropdown roots at rest
+    - those rows keep `0` live `search input` nodes and `0` live `search button` nodes at rest while the section keeps only its pre-existing filter input live
+    - activating `Run Snapshot Mode` rehydrates one live search input/button inline on the first pointer down and removes the lightweight resting root for that row
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-backend-lightweight-resting-dropdown-rerun.md`.
+  - Dense rerun outcome versus the prior GUI lightweight resting-dropdown report:
+    - `documentNodeCount` dropped from `8200` to `8182`
+    - `inputCount` dropped from `57` to `55`
+    - `buttonCount` dropped from `474` to `472`
+    - `raf.meanMs` improved from `107.44ms` to `102.7ms`
+    - `raf.p95Ms` stayed effectively flat (`216.7ms` -> `216.6ms`)
+    - `longTasks.totalMs` improved from `17334ms` to `16512ms`
+  - Interpretation:
+    - this was a real interactive-core reduction, not another shell-only or wrapper-only micro pass
+    - the backend dropdown lane is now closed at its useful ownership boundary
+    - the remaining repeated backend family is the `9` live switch rows, but a switch-track-only follow-up would not cut live button counts; the next real frontier needs a broader lightweight switch/button activator primitive or another shared editor primitive
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-001/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-001/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.3s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 472`
+- CDP visual check is done:
+  - `All Settings` was active on `http://127.0.0.1:3068/settings`
+  - `.react-flow__section-shell-backdrop canvas` was mounted and visible
+  - `section[data-section-id="settings-section__backend"]` was visible and the `Rename Refactor Mode` / `Run Snapshot Mode` rows looked intact with no obvious blank value slot
+  - first-click inline search core surfaced cleanly not checked in CDP; keep the focused Playwright canary as the activation authority for this slice
+- Next action:
+  - keep the backend ordinary-dropdown lane closed and target a broader lightweight switch/button activator primitive or another shared value/editor family that can move the remaining `55` / `472` interactive-core plateau
+LOOP_TERMINAL_MARKER: none

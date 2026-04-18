@@ -2,6 +2,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionArgsLabelRestingText,
   CANVAS_OWNED_SECTION_SHELL_ID,
@@ -210,7 +211,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets gui dropdown params for canvas-owned resting dropdowns", () => {
+  it("targets gui and backend dropdown params for canvas-owned resting dropdowns", () => {
     expect(
       isCanvasOwnedSectionRestingDropdown({
         codeObjType: CodeObjTypeEnum.DropdownParam,
@@ -235,8 +236,22 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionRestingDropdown({
         codeObjType: CodeObjTypeEnum.DropdownParam,
+        paramInfoId: "settings-codeobj__backend__backend__renameRefactorMode",
+        sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.DropdownParam,
         paramInfoId: "settings-codeobj__backend__backend__runSnapshotMode",
-        sectionId: "settings-section__backend",
+        sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        paramInfoId: "settings-codeobj__backend__backend__defaultTerminalShell",
+        sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       }),
     ).toBe(false);
   });
