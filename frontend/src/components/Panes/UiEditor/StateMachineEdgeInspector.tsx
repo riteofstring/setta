@@ -88,24 +88,8 @@ type WorkflowFooterProps = {
   onReset: () => void;
 };
 
-const DEFAULT_SOURCE_FILTER_TYPE: WorkflowSourceFilterType =
-  StateMachineUIConfig.defaultSourceFilterType as WorkflowSourceFilterType;
 const SIGNAL_SOURCE_FILTER_TYPE: WorkflowSourceFilterType = "signal";
 const SEND_PROMPT_ACTION_TYPE: WorkflowTargetActionType = "send_prompt";
-const RESET_THREAD_ACTION_TYPE: WorkflowTargetActionType =
-  StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType;
-const DEFAULT_THREAD_STRATEGY: WorkflowThreadStrategy =
-  StateMachineUIConfig.defaultThreadStrategy as WorkflowThreadStrategy;
-const DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR: WorkflowCountOperator =
-  StateMachineUIConfig.defaultSourceActivationCountOperator as WorkflowCountOperator;
-const DEFAULT_PROMPT_SOURCE_TYPE: WorkflowPromptSourceType =
-  StateMachineUIConfig.defaultPromptSourceType;
-const INLINE_PROMPT_SOURCE: WorkflowPromptSourceType =
-  StateMachineUIConfig.promptSourceTypes.inline;
-const PROMPT_TEMPLATE_SOURCE: WorkflowPromptSourceType =
-  StateMachineUIConfig.promptSourceTypes.promptTemplate;
-const PROMPT_SECTION_SOURCE: WorkflowPromptSourceType =
-  StateMachineUIConfig.promptSourceTypes.promptSection;
 
 function buildComboboxItems<T extends string>(
   group: string,
@@ -196,7 +180,7 @@ function getSharedTargetActionSettings(
   | "searchEnabled"
 > {
   const {
-    threadStrategy = DEFAULT_THREAD_STRATEGY,
+    threadStrategy = StateMachineUIConfig.defaultThreadStrategy as WorkflowThreadStrategy,
     stopIfRunning = false,
     engineConfigId = null,
     agentProfileId = null,
@@ -237,7 +221,7 @@ function createResetThreadAction(
   currentAction: WorkflowEdge["targetAction"],
 ): WorkflowTargetAction {
   return {
-    type: RESET_THREAD_ACTION_TYPE,
+    type: StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType,
     promptTemplateId: null,
     promptSectionId: null,
     inlinePrompt: null,
@@ -251,15 +235,15 @@ function getInitialPromptSourceType(
 ): WorkflowPromptSourceType {
   const targetAction = edge?.targetAction;
   if (targetAction?.type !== SEND_PROMPT_ACTION_TYPE) {
-    return DEFAULT_PROMPT_SOURCE_TYPE;
+    return StateMachineUIConfig.defaultPromptSourceType;
   }
   if (targetAction.promptSectionId) {
-    return PROMPT_SECTION_SOURCE;
+    return StateMachineUIConfig.promptSourceTypes.promptSection;
   }
   if (targetAction.promptTemplateId) {
-    return PROMPT_TEMPLATE_SOURCE;
+    return StateMachineUIConfig.promptSourceTypes.promptTemplate;
   }
-  return DEFAULT_PROMPT_SOURCE_TYPE;
+  return StateMachineUIConfig.defaultPromptSourceType;
 }
 
 function formatPromptInputsText(promptInputs: Record<string, string>): string {
@@ -334,7 +318,9 @@ function sanitizeSourceFilter(
   if (sourceType !== SectionTypeEnum.Chat) {
     return null;
   }
-  const filterType = sourceFilter?.type ?? DEFAULT_SOURCE_FILTER_TYPE;
+  const filterType =
+    sourceFilter?.type ??
+    (StateMachineUIConfig.defaultSourceFilterType as WorkflowSourceFilterType);
   if (filterType === SIGNAL_SOURCE_FILTER_TYPE) {
     return createSignalSourceFilter(sourceFilter);
   }
@@ -351,14 +337,14 @@ function buildPromptSourceTargetAction(
   promptSourceType: WorkflowPromptSourceType,
 ): WorkflowTargetAction {
   switch (promptSourceType) {
-    case PROMPT_TEMPLATE_SOURCE:
+    case StateMachineUIConfig.promptSourceTypes.promptTemplate:
       return {
         ...sendPromptAction,
         promptTemplateId: sendPromptAction.promptTemplateId ?? null,
         promptSectionId: null,
         inlinePrompt: null,
       };
-    case PROMPT_SECTION_SOURCE:
+    case StateMachineUIConfig.promptSourceTypes.promptSection:
       return {
         ...sendPromptAction,
         promptTemplateId: null,
@@ -384,8 +370,13 @@ function sanitizeTargetAction(
   if (targetType !== SectionTypeEnum.Chat) {
     return null;
   }
-  const actionType = targetAction?.type ?? RESET_THREAD_ACTION_TYPE;
-  if (actionType === RESET_THREAD_ACTION_TYPE) {
+  const actionType =
+    targetAction?.type ??
+    (StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType);
+  if (
+    actionType ===
+    (StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType)
+  ) {
     return createResetThreadAction(targetAction);
   }
   return buildPromptSourceTargetAction(
@@ -571,7 +562,10 @@ function WorkflowTriggerSection({
       <div className="mt-3 flex flex-col gap-3">
         <IdNameCombobox
           allItems={SOURCE_FILTER_OPTIONS}
-          value={draftEdge.sourceFilter?.type ?? DEFAULT_SOURCE_FILTER_TYPE}
+          value={
+            draftEdge.sourceFilter?.type ??
+            (StateMachineUIConfig.defaultSourceFilterType as WorkflowSourceFilterType)
+          }
           inputDivId="workflow-edge-source-filter"
           onSelectedItemChange={(value) => {
             if (!value) {
@@ -622,7 +616,8 @@ function WorkflowConditionSection({
                 ...current,
                 sourceActivationCountCondition: event.target.checked
                   ? {
-                      operator: DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR,
+                      operator:
+                        StateMachineUIConfig.defaultSourceActivationCountOperator as WorkflowCountOperator,
                       value: 0,
                     }
                   : null,
@@ -671,7 +666,7 @@ function WorkflowConditionSection({
                       buildSourceActivationCountCondition(
                         current.sourceActivationCountCondition,
                         current.sourceActivationCountCondition?.operator ??
-                          DEFAULT_SOURCE_ACTIVATION_COUNT_OPERATOR,
+                          (StateMachineUIConfig.defaultSourceActivationCountOperator as WorkflowCountOperator),
                         normalizeSourceActivationValue(event.target.value),
                       ),
                   }))
@@ -711,7 +706,7 @@ function WorkflowPromptSourceSpecificFields({
     return null;
   }
   switch (promptSourceType) {
-    case PROMPT_TEMPLATE_SOURCE:
+    case StateMachineUIConfig.promptSourceTypes.promptTemplate:
       return (
         <IdNameCombobox
           allItems={promptTemplateOptions}
@@ -733,7 +728,7 @@ function WorkflowPromptSourceSpecificFields({
           selectedItemCanBeNull
         />
       );
-    case PROMPT_SECTION_SOURCE:
+    case StateMachineUIConfig.promptSourceTypes.promptSection:
       return (
         <IdNameCombobox
           allItems={promptSectionOptions}
@@ -755,7 +750,7 @@ function WorkflowPromptSourceSpecificFields({
           selectedItemCanBeNull
         />
       );
-    case INLINE_PROMPT_SOURCE:
+    case StateMachineUIConfig.promptSourceTypes.inline:
       return (
         <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
           Inline Prompt
@@ -834,7 +829,10 @@ function WorkflowSendPromptFields({
               nextPromptSourceType,
             ),
           }));
-          if (nextPromptSourceType === INLINE_PROMPT_SOURCE) {
+          if (
+            nextPromptSourceType ===
+            StateMachineUIConfig.promptSourceTypes.inline
+          ) {
             resetPromptInputs();
           }
         }}
@@ -856,7 +854,8 @@ function WorkflowSendPromptFields({
       <IdNameCombobox
         allItems={THREAD_STRATEGY_OPTIONS}
         value={
-          draftEdge.targetAction?.threadStrategy ?? DEFAULT_THREAD_STRATEGY
+          draftEdge.targetAction?.threadStrategy ??
+          (StateMachineUIConfig.defaultThreadStrategy as WorkflowThreadStrategy)
         }
         inputDivId="workflow-edge-thread-strategy"
         onSelectedItemChange={(value) => {
@@ -978,7 +977,10 @@ function WorkflowActionSection({
       <div className="mt-3 flex flex-col gap-3">
         <IdNameCombobox
           allItems={TARGET_ACTION_OPTIONS}
-          value={draftEdge.targetAction?.type ?? RESET_THREAD_ACTION_TYPE}
+          value={
+            draftEdge.targetAction?.type ??
+            (StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType)
+          }
           inputDivId="workflow-edge-target-action"
           onSelectedItemChange={(value) => {
             if (!value) {
@@ -992,7 +994,10 @@ function WorkflowActionSection({
                   ? createSendPromptAction(current.targetAction)
                   : createResetThreadAction(current.targetAction),
             }));
-            if (nextActionType === RESET_THREAD_ACTION_TYPE) {
+            if (
+              nextActionType ===
+              (StateMachineUIConfig.defaultTargetActionType as WorkflowTargetActionType)
+            ) {
               resetPromptInputs();
             }
           }}

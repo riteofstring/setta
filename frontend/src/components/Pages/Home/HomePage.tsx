@@ -60,8 +60,6 @@ import {
   type ProjectConfigMetadata,
 } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
-const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;
-const HOME_SELECTED_PROJECT_PANE_NAME = PaneNameEnum.homeSelectedProject;
 const HOME_MIN_PANE_WIDTH = 260;
 const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
@@ -676,7 +674,7 @@ function HomeWorkspaceLayout({
       )}
       {showSidePanes && (
         <PaneContainer
-          paneName={HOME_WORKSPACE_PANE_NAME}
+          paneName={PaneNameEnum.homeWorkspace}
           right={false}
           minimumWidth={HOME_MIN_PANE_WIDTH}
           vis={homeWorkspacePaneVis}
@@ -698,7 +696,7 @@ function HomeWorkspaceLayout({
       )}
       {showSidePanes && (
         <PaneContainer
-          paneName={HOME_SELECTED_PROJECT_PANE_NAME}
+          paneName={PaneNameEnum.homeSelectedProject}
           right={true}
           minimumWidth={HOME_MIN_PANE_WIDTH}
           vis={homeSelectedProjectPaneVis}
@@ -757,10 +755,10 @@ function getHomeRailButtonColor(isActive: boolean): string {
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
 }
 function toggleHomeWorkspacePaneVisibility() {
-  togglePaneVisibility(HOME_WORKSPACE_PANE_NAME);
+  togglePaneVisibility(PaneNameEnum.homeWorkspace);
 }
 function toggleHomeSelectedProjectPaneVisibility() {
-  togglePaneVisibility(HOME_SELECTED_PROJECT_PANE_NAME);
+  togglePaneVisibility(PaneNameEnum.homeSelectedProject);
 }
 function HomeLeftIconRail({
   workspacePaneVisible,

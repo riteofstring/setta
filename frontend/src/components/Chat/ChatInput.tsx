@@ -94,11 +94,6 @@ const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
 const UNKNOWN_SLASH_COMMAND_FEEDBACK =
   "Unknown or unavailable command. Use /help.";
-const CHAT_PERMISSION_MODE_OPTIONS =
-  ProjectChatUIConfig.permissionModeOptions as Array<{
-    value: ChatPermissionModeValue;
-    label: string;
-  }>;
 const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
   activeBackgroundTerminals: 0,
   activeSubagents: 0,
@@ -2465,7 +2460,12 @@ function ChatPermissionModeControl(props: {
           sideOffset={6}
           className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
         >
-          {CHAT_PERMISSION_MODE_OPTIONS.map((mode) => (
+          {(
+            ProjectChatUIConfig.permissionModeOptions as Array<{
+              value: ChatPermissionModeValue;
+              label: string;
+            }>
+          ).map((mode) => (
             <DropdownMenu.Item
               key={mode.value}
               className={`cursor-pointer rounded px-2 py-1.5 transition-colors ${

@@ -57,22 +57,13 @@ const LABEL_CLASS_NAME =
   "flex-1 font-sans text-xs font-semibold text-setta-600 dark:text-setta-400";
 const SELECT_CLASS_NAME =
   "nodrag font-code cursor-pointer border-0 border-b border-solid border-setta-300 bg-transparent text-xs focus:border-blue-400 focus:outline-none focus-visible:border-blue-400 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-700 dark:text-setta-300";
-const TIME_FORMAT_OPTIONS = TextParamUIConfig.timeDisplayFormatOptions;
-const TIME_CONTROL_MODE_OPTIONS = TextParamUIConfig.timeControlModeOptions;
-const TIME_DISPLAY_FONT_OPTIONS = TextParamUIConfig.timeDisplayFontOptions;
 const TIME_DISPLAY_SCALE_MIN = 0.5;
 const TIME_DISPLAY_SCALE_MAX = 3.0;
 const TIME_DISPLAY_SCALE_STEP = 0.1;
-const DATE_FORMAT_OPTIONS = TextParamUIConfig.dateDisplayFormatOptions;
-const DATE_CONTROL_MODE_OPTIONS = TextParamUIConfig.dateControlModeOptions;
-const DATE_SELECTION_MODE_OPTIONS = TextParamUIConfig.dateSelectionModeOptions;
-const DATE_WEEK_START_OPTIONS = TextParamUIConfig.dateCalendarWeekStartOptions;
-const WEEKDAY_LABELS_BY_WEEK_START =
-  TextParamUIConfig.calendarWeekdayLabelsByWeekStart;
 function getWeekdayLabels(
   weekStart: DateCalendarWeekStart,
 ): ReadonlyArray<string> {
-  const labels = WEEKDAY_LABELS_BY_WEEK_START[weekStart];
+  const labels = TextParamUIConfig.calendarWeekdayLabelsByWeekStart[weekStart];
   if (!labels) {
     throw new Error(`Missing weekday labels for week start ${weekStart}`);
   }
@@ -342,7 +333,7 @@ export function TimeParamInputConfigForParam({
           }
           disabled={!canEditStructure}
         >
-          {TIME_CONTROL_MODE_OPTIONS.map((option) => (
+          {TextParamUIConfig.timeControlModeOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -361,7 +352,7 @@ export function TimeParamInputConfigForParam({
           }
           disabled={!canEditStructure}
         >
-          {TIME_FORMAT_OPTIONS.map((option) => (
+          {TextParamUIConfig.timeDisplayFormatOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -419,7 +410,7 @@ export function TimeParamInputConfigForParam({
               }
               disabled={!canEditStructure}
             >
-              {TIME_DISPLAY_FONT_OPTIONS.map((option) => (
+              {TextParamUIConfig.timeDisplayFontOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -494,7 +485,7 @@ export function DateParamInputConfigForParam({
           }
           disabled={!canEditStructure}
         >
-          {DATE_FORMAT_OPTIONS.map((option) => (
+          {TextParamUIConfig.dateDisplayFormatOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -514,7 +505,7 @@ export function DateParamInputConfigForParam({
             }
             disabled={!canEditStructure}
           >
-            {DATE_CONTROL_MODE_OPTIONS.map((option) => (
+            {TextParamUIConfig.dateControlModeOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -553,7 +544,7 @@ export function DateParamInputConfigForParam({
                 }
                 disabled={!canEditStructure}
               >
-                {DATE_SELECTION_MODE_OPTIONS.map((option) => (
+                {TextParamUIConfig.dateSelectionModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -581,7 +572,7 @@ export function DateParamInputConfigForParam({
               }
               disabled={!canEditStructure}
             >
-              {DATE_WEEK_START_OPTIONS.map((option) => (
+              {TextParamUIConfig.dateCalendarWeekStartOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
