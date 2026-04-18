@@ -3,12 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./check_quality.sh [--staged | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
+Usage: ./check_quality.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
 
 Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
 
 Modes:
-  --staged           Check staged files only (default).
+  --git-changes      Check tracked files changed from HEAD plus untracked files (default).
+  --staged           Check staged files only.
   --all              Check all tracked files covered by this tool.
   --files <path>...  Check only the provided files.
 
@@ -22,7 +23,7 @@ EOF
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
-mode="staged"
+mode="git-changes"
 python_max="10"
 frontend_max="10"
 go_max="12"
@@ -32,6 +33,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --staged)
       mode="staged"
+      shift
+      ;;
+    --git-changes)
+      mode="git-changes"
       shift
       ;;
     --all)
@@ -47,7 +52,7 @@ while [[ $# -gt 0 ]]; do
       fi
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --staged|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
+          --staged|--git-changes|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
             break
             ;;
           *)
@@ -113,6 +118,12 @@ collect_files() {
   case "${mode}" in
     staged)
       git diff --cached --name-only --diff-filter=ACMR
+      ;;
+    git-changes)
+      {
+        git diff --name-only --diff-filter=ACMR HEAD --
+        git ls-files --others --exclude-standard
+      }
       ;;
     all)
       git ls-files
