@@ -13,7 +13,6 @@ import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 export function TextInputCodeMirror({
-  canvasOwnedRestingText = false,
   sectionId,
   paramInfoId,
   value,
@@ -76,7 +75,6 @@ export function TextInputCodeMirror({
     <>
       {!realIsInitialized && (
         <DummyCodeMirror
-          canvasOwnedRestingText={canvasOwnedRestingText}
           divId={dummyDivId}
           code={value}
           onMouseDownCapture={localOnMouseDownCapture}

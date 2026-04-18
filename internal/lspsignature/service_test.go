@@ -10,9 +10,21 @@ import (
 
 	"setta/internal/lsp"
 	"setta/internal/projectstate"
-	"setta/internal/pythonenv"
 	"setta/internal/statefs"
+	"setta/internal/testutil/firstpartyplugin"
 )
+
+type stubSnapshotSignatureHelper struct {
+	result lsp.SignatureHelpResult
+	err    error
+}
+
+func (s stubSnapshotSignatureHelper) SignatureHelpSnapshot(context.Context, lsp.SnapshotSignatureHelpRequest) (lsp.SignatureHelpResult, error) {
+	if s.err != nil {
+		return lsp.SignatureHelpResult{}, s.err
+	}
+	return s.result, nil
+}
 
 // The signature service should build a generated Python snapshot, request
 // signatureHelp on that temp document, and decode ordered parameter proposals.
@@ -85,6 +97,39 @@ func TestServiceResolveCallableSignatureReturnsNoMatch(t *testing.T) {
 	}
 	if len(result.Params) != 0 {
 		t.Fatalf("expected no proposals, got %#v", result.Params)
+	}
+}
+
+func TestServiceResolveCallableSignatureTreatsUnconfiguredLanguageServerAsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: t.TempDir(),
+		LSPService: stubSnapshotSignatureHelper{
+			err: lsp.ErrLanguageServerNotConfigured,
+		},
+	})
+	if err != nil {
+		t.Fatalf("new signature service: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, ok, err := service.ResolveCallableSignature(
+		ctx,
+		signatureTestProject(t),
+		"callable-section",
+		"sorted",
+	)
+	if err != nil {
+		t.Fatalf("resolve callable signature: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected unconfigured signature help to be unavailable, got %#v", result)
+	}
+	if result.Status != "" || result.Documentation != "" || len(result.Params) != 0 {
+		t.Fatalf("expected zero result when language server is unavailable, got %#v", result)
 	}
 }
 
@@ -262,14 +307,11 @@ func newCurrentProcessSignatureService(t *testing.T, settaFilesRoot string) (*Se
 		workspaceRoot = filepath.Dir(workspaceRoot)
 	}
 
-	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
-	if err != nil {
-		t.Fatalf("resolve current-process interpreter: %v", err)
-	}
+	pythonBinary := firstpartyplugin.BasedpyrightLangserverCommand(t)
 	session, err := lsp.NewSession(lsp.SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       pythonBinary,
-		Args:          []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		Args:          []string{"--stdio"},
 		Environment:   os.Environ(),
 	})
 	if err != nil {

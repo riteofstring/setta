@@ -1,4 +1,4 @@
-import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { type BackendLogEvent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
@@ -43,7 +43,7 @@ describe("BackendLogEventsArea sizing integration", () => {
 
 describe("BackendLogEventsArea selection integration", () => {
   it("clears selected-event lookup when filtering removes the selected id", () => {
-    const events: Array<SettaBackendLogEvent> = [
+    const events: Array<BackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: "project-1",
