@@ -135,8 +135,8 @@ type AppDefinition struct {
 	CatalogID      string     `json:"catalogId,omitempty"`
 	AppSpecPath    string     `json:"appSpecPath,omitempty"`
 	Routes         []AppRoute `json:"routes,omitempty"`
-	DataBindings   RawJSON    `json:"dataBindings,omitempty"`
-	Actions        RawJSON    `json:"actions,omitempty"`
+	DataBindings   RawJSON    `json:"dataBindings,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
+	Actions        RawJSON    `json:"actions,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
 	Theme          RawJSON    `json:"theme,omitempty"`
 	Assets         RawJSON    `json:"assets,omitempty"`
 }
@@ -225,11 +225,17 @@ func (d AppDefinition) Normalized() (AppDefinition, error) {
 	normalized.AppSpecPath = strings.TrimSpace(normalized.AppSpecPath)
 
 	var err error
-	normalized.DataBindings, err = normalizeRawJSON(normalized.DataBindings, "appDefinition.dataBindings")
+	normalized.DataBindings, err = normalizeRawJSONObject(
+		normalized.DataBindings,
+		"appDefinition.dataBindings",
+	)
 	if err != nil {
 		return AppDefinition{}, err
 	}
-	normalized.Actions, err = normalizeRawJSON(normalized.Actions, "appDefinition.actions")
+	normalized.Actions, err = normalizeRawJSONObject(
+		normalized.Actions,
+		"appDefinition.actions",
+	)
 	if err != nil {
 		return AppDefinition{}, err
 	}
@@ -306,4 +312,15 @@ func normalizeRawJSON(raw RawJSON, field string) (RawJSON, error) {
 		return nil, fmt.Errorf("%w: %s", ErrFrontendPayloadInvalid, field)
 	}
 	return cloneRawJSON(trimmed), nil
+}
+
+func normalizeRawJSONObject(raw RawJSON, field string) (RawJSON, error) {
+	normalized, err := normalizeRawJSON(raw, field)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := decodeRawJSONObject(normalized, field); err != nil {
+		return nil, err
+	}
+	return normalized, nil
 }

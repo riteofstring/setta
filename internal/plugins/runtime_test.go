@@ -678,7 +678,7 @@ func TestServiceRuntimeBlocksLanguageServerCapabilityByModePolicy(t *testing.T) 
 				t.Fatalf("expected mode-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
 			}
 
-			specs, err := service.LanguageServerSpecs(context.Background())
+			specs, err := service.LanguageServerSpecs(context.Background(), nil)
 			if err != nil {
 				t.Fatalf("load language server specs: %v", err)
 			}
@@ -891,7 +891,9 @@ func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing
 	if len(runtimeResponse.Status.Plugins) != 1 {
 		t.Fatalf("expected one runtime status plugin, got %#v", runtimeResponse.Status.Plugins)
 	}
-	languageServerSpecs, err := service.LanguageServerSpecs(context.Background())
+	languageServerSpecs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": stringPointer("setta-fixture-backend"),
+	})
 	if err != nil {
 		t.Fatalf("load language server specs after link refresh: %v", err)
 	}
@@ -927,7 +929,9 @@ func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing
 	if len(runtimeResponse.List.Plugins) != 0 || len(runtimeResponse.Status.Plugins) != 0 {
 		t.Fatalf("expected backend registrations to clear after uninstall refresh, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
 	}
-	languageServerSpecs, err = service.LanguageServerSpecs(context.Background())
+	languageServerSpecs, err = service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": stringPointer("setta-fixture-backend"),
+	})
 	if err != nil {
 		t.Fatalf("load language server specs after uninstall refresh: %v", err)
 	}
@@ -1066,7 +1070,7 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenBackendProbeTimesOut(t *test
 	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
 		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
 	}
-	if !strings.Contains(statusEntry.Errors[0].Message, "Go backend runtime probe timed out") {
+	if !strings.Contains(statusEntry.Errors[0].Message, "Plugin backend runtime probe timed out") {
 		t.Fatalf("expected backend probe timeout message, got %#v", statusEntry.Errors[0].Message)
 	}
 }
@@ -1109,6 +1113,67 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenGoModuleDependencyIsMissing(
 	}
 	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
 		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
+	}
+}
+
+func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *testing.T) {
+	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	pluginRoot := filepath.Join(sitePackages, "setta_basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
+	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
+		t.Fatalf("remove copied plugin build dir: %v", err)
+	}
+	distInfoRoot := filepath.Join(sitePackages, "setta_basedpyright-0.1.0.dist-info")
+	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: setta-basedpyright",
+		"Version: 0.1.0",
+		"Summary: Setta basedpyright defaults profile plugin",
+		"",
+	}, "\n"))
+	recordLines := make([]string, 0)
+	for _, root := range []string{pluginRoot, distInfoRoot} {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if info.IsDir() || filepath.Base(path) == "RECORD" {
+				return nil
+			}
+			relativePath, err := filepath.Rel(sitePackages, path)
+			if err != nil {
+				return err
+			}
+			recordLines = append(recordLines, filepath.ToSlash(relativePath)+",,")
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk package-manager plugin fixture: %v", err)
+		}
+	}
+	recordLines = append(recordLines, filepath.ToSlash(filepath.Join("setta_basedpyright-0.1.0.dist-info", "RECORD"))+",,")
+	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one first-party package-manager plugin, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.PluginID != "setta-basedpyright" || statusEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active first-party package-manager plugin, got %#v", statusEntry)
+	}
+	if len(statusEntry.RegisteredLanguageServers) != 1 || statusEntry.RegisteredLanguageServers[0].Language != "python" {
+		t.Fatalf("expected one python language server registration, got %#v", statusEntry.RegisteredLanguageServers)
 	}
 }
 
