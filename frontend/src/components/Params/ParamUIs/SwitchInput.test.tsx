@@ -28,16 +28,4 @@ describe("SwitchInput theme overrides", () => {
     expect(markup).toContain("bg-green-500");
     expect(markup).not.toContain("bg-white");
   });
-
-  it("marks the switch root when the track is canvas-owned", () => {
-    const markup = renderToStaticMarkup(
-      <SwitchInput
-        canvasOwnedTrack={true}
-        value={false}
-        onChange={() => undefined}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-switch-track="true"');
-  });
 });

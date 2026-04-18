@@ -1,13 +1,54 @@
+import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
+import tomllib
+import types
 import zipfile
 from pathlib import Path
 
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _load_basedpyright_setup_module(monkeypatch) -> dict[str, object]:
+    fake_setuptools = types.ModuleType("setuptools")
+    fake_setuptools.setup = lambda *args, **kwargs: None
+
+    fake_setuptools_command = types.ModuleType("setuptools.command")
+    fake_build_py_module = types.ModuleType("setuptools.command.build_py")
+
+    class _FakeBuildPy:
+        def run(self) -> None:
+            return None
+
+        def get_outputs(self, include_bytecode: bool = True) -> list[str]:
+            return []
+
+    fake_build_py_module.build_py = _FakeBuildPy
+
+    fake_wheel = types.ModuleType("wheel")
+    fake_bdist_wheel_module = types.ModuleType("wheel.bdist_wheel")
+
+    class _FakeBdistWheel:
+        root_is_pure = True
+
+        def finalize_options(self) -> None:
+            return None
+
+    fake_bdist_wheel_module.bdist_wheel = _FakeBdistWheel
+
+    monkeypatch.setitem(sys.modules, "setuptools", fake_setuptools)
+    monkeypatch.setitem(sys.modules, "setuptools.command", fake_setuptools_command)
+    monkeypatch.setitem(sys.modules, "setuptools.command.build_py", fake_build_py_module)
+    monkeypatch.setitem(sys.modules, "wheel", fake_wheel)
+    monkeypatch.setitem(sys.modules, "wheel.bdist_wheel", fake_bdist_wheel_module)
+    return runpy.run_path(
+        str(_repo_root() / "plugins" / "setta-basedpyright" / "setup.py")
+    )
 
 
 def _write_minimal_distribution_project(
@@ -126,6 +167,55 @@ def _build_wheel(project_root: Path, outdir: Path) -> subprocess.CompletedProces
     )
 
 
+def _build_plugin_wheel(plugin_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
+        cwd=plugin_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _write_stub_dependency_wheel(
+    outdir: Path,
+    package_name: str,
+    version: str,
+) -> Path:
+    normalized_name = package_name.replace("-", "_")
+    wheel_path = outdir / f"{normalized_name}-{version}-py3-none-any.whl"
+    dist_info_dir = f"{normalized_name}-{version}.dist-info"
+
+    with zipfile.ZipFile(wheel_path, "w") as wheel_archive:
+        wheel_archive.writestr(
+            f"{dist_info_dir}/METADATA",
+            "\n".join(
+                [
+                    "Metadata-Version: 2.1",
+                    f"Name: {package_name}",
+                    f"Version: {version}",
+                    f"Summary: Stub wheel for {package_name}",
+                    "",
+                ]
+            ),
+        )
+        wheel_archive.writestr(
+            f"{dist_info_dir}/WHEEL",
+            "\n".join(
+                [
+                    "Wheel-Version: 1.0",
+                    "Generator: setta-tests",
+                    "Root-Is-Purelib: true",
+                    "Tag: py3-none-any",
+                    "",
+                ]
+            ),
+        )
+        wheel_archive.writestr(f"{dist_info_dir}/RECORD", "")
+
+    return wheel_path
+
+
 def _install_editable(project_root: Path, venv_python: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(venv_python), "-m", "pip", "install", "--no-deps", "-e", str(project_root)],
@@ -133,6 +223,14 @@ def _install_editable(project_root: Path, venv_python: Path) -> subprocess.Compl
         capture_output=True,
         text=True,
         check=False,
+    )
+
+
+def _venv_python(venv_root: Path) -> Path:
+    return (
+        venv_root / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else venv_root / "bin" / "python"
     )
 
 
@@ -157,16 +255,251 @@ def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) 
         capture_output=True,
         text=True,
     )
-    venv_python = (
-        venv_root / "Scripts" / "python.exe"
-        if os.name == "nt"
-        else venv_root / "bin" / "python"
-    )
+    venv_python = _venv_python(venv_root)
 
     result = _install_editable(project_root, venv_python)
 
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
+
+
+def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
+    pyproject = tomllib.loads((_repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
+
+    optional_dependencies = pyproject["project"]["optional-dependencies"]
+    assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
+
+
+def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() -> None:
+    plugin_pyproject = tomllib.loads(
+        (_repo_root() / "plugins" / "setta-basedpyright" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
+
+
+def test_first_party_basedpyright_plugin_prefers_native_go_binary_on_windows(
+    monkeypatch,
+) -> None:
+    module_globals = _load_basedpyright_setup_module(monkeypatch)
+    monkeypatch.delenv("SETTA_GO_BIN", raising=False)
+    monkeypatch.delenv("GO", raising=False)
+    monkeypatch.setattr(module_globals["os"], "name", "nt", raising=False)
+    monkeypatch.setattr(module_globals["sys"], "platform", "win32", raising=False)
+    monkeypatch.setattr(
+        module_globals["shutil"],
+        "which",
+        lambda name: r"C:\Go\bin\go.exe" if name == "go" else None,
+    )
+
+    assert module_globals["resolve_go_binary"]() == r"C:\Go\bin\go.exe"
+
+
+def test_first_party_basedpyright_plugin_honors_setta_go_bin_override(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module_globals = _load_basedpyright_setup_module(monkeypatch)
+    go_binary = tmp_path / "go"
+    go_binary.write_text("binary\n", encoding="utf-8")
+    if os.name != "nt":
+        go_binary.chmod(0o755)
+
+    monkeypatch.setenv("SETTA_GO_BIN", str(go_binary))
+    monkeypatch.delenv("GO", raising=False)
+    monkeypatch.setattr(module_globals["shutil"], "which", lambda name: None)
+
+    assert module_globals["resolve_go_binary"]() == str(go_binary)
+
+
+def test_first_party_basedpyright_plugin_honors_go_command_override(
+    monkeypatch,
+) -> None:
+    module_globals = _load_basedpyright_setup_module(monkeypatch)
+    monkeypatch.delenv("SETTA_GO_BIN", raising=False)
+    monkeypatch.setenv("GO", "go-custom")
+    monkeypatch.setattr(
+        module_globals["shutil"],
+        "which",
+        lambda name: "/tmp/go-custom" if name == "go-custom" else None,
+    )
+
+    assert module_globals["resolve_go_binary"]() == "/tmp/go-custom"
+
+
+def test_first_party_basedpyright_plugin_wheel_is_platform_specific_and_ships_backend(
+    tmp_path: Path,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+
+    plugin_result = _build_plugin_wheel(
+        _repo_root() / "plugins" / "setta-basedpyright",
+        wheelhouse,
+    )
+    plugin_output = f"{plugin_result.stdout}\n{plugin_result.stderr}"
+    assert plugin_result.returncode == 0, plugin_output
+
+    wheel_paths = list(wheelhouse.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+    wheel_path = wheel_paths[0]
+    assert not wheel_path.name.endswith("-any.whl")
+
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        archive_names = set(wheel_archive.namelist())
+        backend_names = [
+            "setta_basedpyright/backend/plugin-backend",
+            "setta_basedpyright/backend/plugin-backend.exe",
+        ]
+        assert any(
+            any(name.endswith(expected) for expected in backend_names)
+            for name in archive_names
+        )
+
+        manifest_name = next(
+            name
+            for name in archive_names
+            if name.endswith("setta_basedpyright/setta.plugin.json")
+        )
+        manifest = json.loads(
+            wheel_archive.read(manifest_name).decode("utf-8")
+        )
+
+    assert manifest["backend"]["entrypoint"] in {
+        "backend/plugin-backend",
+        "backend/plugin-backend.exe",
+    }
+
+
+def test_first_party_basedpyright_plugin_install_points_manifest_at_packaged_backend(
+    tmp_path: Path,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+    plugin_result = _build_plugin_wheel(
+        _repo_root() / "plugins" / "setta-basedpyright",
+        wheelhouse,
+    )
+    plugin_output = f"{plugin_result.stdout}\n{plugin_result.stderr}"
+    assert plugin_result.returncode == 0, plugin_output
+
+    wheel_paths = list(wheelhouse.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+
+    venv_root = tmp_path / "plugin-venv"
+    subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    venv_python = _venv_python(venv_root)
+
+    install_result = subprocess.run(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            str(wheel_paths[0]),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    package_root = (
+        venv_root / "Lib" / "site-packages" / "setta_basedpyright"
+        if os.name == "nt"
+        else venv_root / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages" / "setta_basedpyright"
+    )
+    manifest = json.loads((package_root / "setta.plugin.json").read_text(encoding="utf-8"))
+    backend_path = package_root / Path(manifest["backend"]["entrypoint"])
+
+    assert manifest["backend"]["entrypoint"] in {
+        "backend/plugin-backend",
+        "backend/plugin-backend.exe",
+    }
+    assert backend_path.exists()
+
+
+def test_defaults_extra_installs_from_local_wheelhouse(tmp_path: Path) -> None:
+    project_root = _write_minimal_distribution_project(
+        tmp_path,
+        include_go_binaries=True,
+    )
+    wheelhouse = tmp_path / "wheelhouse"
+
+    root_result = _build_wheel(project_root, wheelhouse)
+    root_output = f"{root_result.stdout}\n{root_result.stderr}"
+    assert root_result.returncode == 0, root_output
+
+    plugin_result = _build_plugin_wheel(
+        _repo_root() / "plugins" / "setta-basedpyright",
+        wheelhouse,
+    )
+    plugin_output = f"{plugin_result.stdout}\n{plugin_result.stderr}"
+    assert plugin_result.returncode == 0, plugin_output
+    for requirement in (
+        "claude-agent-sdk==0.1.52",
+        "ruff==0.12.12",
+        "basedpyright==1.25.0",
+    ):
+        package_name, version = requirement.split("==", maxsplit=1)
+        _write_stub_dependency_wheel(wheelhouse, package_name, version)
+
+    venv_root = tmp_path / "defaults-venv"
+    venv_result = subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert venv_result.returncode == 0, (
+        f"{venv_result.stdout}\n{venv_result.stderr}"
+    ).strip()
+
+    venv_python = _venv_python(venv_root)
+    install_result = subprocess.run(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--find-links",
+            str(wheelhouse),
+            "setta[defaults]==0.0.0",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    version_result = subprocess.run(
+        [
+            str(venv_python),
+            "-c",
+            (
+                "import importlib.metadata as metadata; "
+                'print(metadata.version("setta-basedpyright"))'
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert version_result.returncode == 0, (
+        f"{version_result.stdout}\n{version_result.stderr}"
+    ).strip()
+    assert version_result.stdout.strip() == "0.1.0"
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
@@ -267,7 +600,8 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     tmp_path: Path,
 ) -> None:
     # The default wheel install should only depend on the Python tools and
-    # sidecar SDK that the packaged runtime still uses directly.
+    # sidecar SDK that the packaged runtime still uses directly. Python LSP now
+    # enters through the defaults/plugin path rather than core metadata.
     project_root = _write_minimal_distribution_project(
         tmp_path,
         include_go_binaries=True,
@@ -291,6 +625,9 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     default_requires = {
         line for line in requires_lines if "extra ==" not in line
     }
+    defaults_requires = {
+        line for line in requires_lines if "extra == 'defaults'" in line
+    }
     source_requires = {
         line for line in requires_lines if "extra == 'source'" in line
     }
@@ -300,8 +637,12 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
 
     assert default_requires == {
         "Requires-Dist: claude-agent-sdk==0.1.52",
-        "Requires-Dist: basedpyright==1.25.0",
         "Requires-Dist: ruff==0.12.12",
+    }
+
+    assert "Provides-Extra: defaults" in metadata
+    assert defaults_requires == {
+        "Requires-Dist: setta-basedpyright==0.1.0; extra == 'defaults'",
     }
 
     assert "Requires-Dist: click==8.2.1" not in default_requires
@@ -322,6 +663,8 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     }
     assert dev_requires == {
         "Requires-Dist: build==1.0.3; extra == 'dev'",
+        "Requires-Dist: coverage==7.10.6; extra == 'dev'",
+        "Requires-Dist: datamodel-code-generator==0.56.0; extra == 'dev'",
         "Requires-Dist: pip-audit==2.9.0; extra == 'dev'",
         "Requires-Dist: pyyaml==6.0.2; extra == 'dev'",
         "Requires-Dist: pytest==8.3.3; extra == 'dev'",
@@ -329,6 +672,7 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
         "Requires-Dist: python-dotenv==1.1.0; extra == 'dev'",
         "Requires-Dist: twine==6.1.0; extra == 'dev'",
         "Requires-Dist: ty==0.0.26; extra == 'dev'",
+        "Requires-Dist: vulture==2.14; extra == 'dev'",
         "Requires-Dist: watchdog==6.0.0; extra == 'dev'",
     }
 

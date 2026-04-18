@@ -180,7 +180,6 @@ export function ConfiguredColorPickerInput({
 }
 
 type ConfiguredDropdownInputProps = {
-  canvasOwnedRestingInput?: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string | null;
@@ -193,7 +192,6 @@ type ConfiguredDropdownInputProps = {
 };
 
 export function ConfiguredDropdownInput({
-  canvasOwnedRestingInput,
   sectionId,
   paramInfoId,
   value,
@@ -212,7 +210,6 @@ export function ConfiguredDropdownInput({
 
   return (
     <DropdownInput
-      canvasOwnedRestingInput={canvasOwnedRestingInput}
       choices={choices}
       value={value}
       onChange={onChange}

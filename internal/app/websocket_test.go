@@ -644,7 +644,7 @@ func TestAppPromptTemplateWatcherBroadcastsFileChangesAndParseFailures(t *testin
 		realtime.ListenerMessageType(realtime.WebsocketMessageTypeBackendLogEvent),
 		6,
 	)
-	var event backendlogs.Event
+	var event backendlogs.BackendLogEvent
 	if err := json.Unmarshal(logEnvelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}
@@ -5545,7 +5545,7 @@ func TestAppRunCodeBroadcastsBackendLogEvent(t *testing.T) {
 		4,
 	)
 
-	var event backendlogs.Event
+	var event backendlogs.BackendLogEvent
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}

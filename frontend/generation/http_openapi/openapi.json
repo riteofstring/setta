@@ -8360,6 +8360,34 @@
         ],
         "type": "object"
       },
+      "PluginsPluginRegisteredLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "command": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "settingsKey": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId", "name", "language", "command", "args"],
+        "type": "object"
+      },
       "PluginsPluginRegisteredListenerEndpoint": {
         "additionalProperties": false,
         "properties": {
@@ -8510,6 +8538,12 @@
             },
             "type": ["array", "null"]
           },
+          "registeredLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginRegisteredLanguageServer"
+            },
+            "type": ["array", "null"]
+          },
           "registeredListenerEndpoints": {
             "items": {
               "$ref": "#/components/schemas/PluginsPluginRegisteredListenerEndpoint"
@@ -8580,6 +8614,7 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
+          "registeredLanguageServers",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
@@ -8606,6 +8641,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "selectedLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsSelectedLanguageServerStatus"
+            },
+            "type": ["array", "null"]
+          },
           "serverMode": {
             "type": "string"
           }
@@ -8614,6 +8655,7 @@
           "schemaVersion",
           "serverMode",
           "restartCapability",
+          "selectedLanguageServers",
           "plugins"
         ],
         "type": "object"
@@ -8659,6 +8701,34 @@
           "toVersion",
           "sourceDigestSha256",
           "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsSelectedLanguageServerStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "languageId": {
+            "type": "string"
+          },
+          "liveServerAvailable": {
+            "type": "boolean"
+          },
+          "selectedPluginApplied": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": ["string", "null"]
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "languageId",
+          "selectedPluginId",
+          "state",
+          "selectedPluginApplied",
+          "liveServerAvailable"
         ],
         "type": "object"
       },
@@ -11275,6 +11345,62 @@
         ],
         "type": "object"
       },
+      "SettingsstateFrontendSettingsChatWindowing": {
+        "additionalProperties": false,
+        "properties": {
+          "autoCreateInitialChat": {
+            "type": "boolean"
+          },
+          "restorePriorStateOnUnmaximize": {
+            "type": "boolean"
+          },
+          "shortcuts": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsChatWindowingShortcuts"
+          }
+        },
+        "required": [
+          "autoCreateInitialChat",
+          "restorePriorStateOnUnmaximize",
+          "shortcuts"
+        ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsChatWindowingShortcuts": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasToggle": {
+            "type": "string"
+          },
+          "maximizeFocused": {
+            "type": "string"
+          },
+          "minimizeFocused": {
+            "type": "string"
+          },
+          "snapBottom": {
+            "type": "string"
+          },
+          "snapLeft": {
+            "type": "string"
+          },
+          "snapRight": {
+            "type": "string"
+          },
+          "snapTop": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "canvasToggle",
+          "maximizeFocused",
+          "minimizeFocused",
+          "snapLeft",
+          "snapRight",
+          "snapTop",
+          "snapBottom"
+        ],
+        "type": "object"
+      },
       "SettingsstateFrontendSettingsGUI": {
         "additionalProperties": false,
         "properties": {
@@ -11384,6 +11510,19 @@
           "transitionDuration",
           "sectionTagColorChoices"
         ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "selectedByLanguage": {
+            "additionalProperties": {
+              "type": ["string", "null"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["selectedByLanguage"],
         "type": "object"
       },
       "SettingsstateFrontendSettingsShortcuts": {
@@ -11648,12 +11787,14 @@
           "backend": {
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsBackend"
           },
+          "chatWindowing": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsChatWindowing"
+          },
           "gui": {
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsGUI"
           },
           "languageServer": {
-            "additionalProperties": {},
-            "type": "object"
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsLanguageServer"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicy"
@@ -11666,6 +11807,7 @@
           "shortcuts",
           "gui",
           "backend",
+          "chatWindowing",
           "sectionSizingPolicy",
           "languageServer"
         ],

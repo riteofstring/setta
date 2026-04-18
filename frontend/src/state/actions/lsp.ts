@@ -1,6 +1,14 @@
 import { restartLanguageServer as restartLanguageServerRequest } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { refreshPluginRuntime } from "plugins/runtime";
 import { useShareSession, useWaitingForLSPResult } from "state/definitions";
+import {
+  getErrorCode,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
+import { NotificationTypeEnum } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 
 function setWaitingForLSP({ category, id, delay = 200 }) {
@@ -36,10 +44,31 @@ export function textFieldIdForLSPWaiting({ sectionId, paramInfoId }) {
   return `${sectionId}-${paramInfoId}`;
 }
 
-export function restartLanguageServer() {
+type RestartLanguageServerRouteResponse = ResponseDataAndStatus<unknown>;
+
+export async function restartLanguageServer(): Promise<void> {
   if (useShareSession.getState().isDeploymentMode) {
     return;
   }
-  addTemporaryNotification("Restarting Language Server");
-  void callOpenAPI(restartLanguageServerRequest());
+
+  const response = (await callOpenAPI(
+    restartLanguageServerRequest(),
+  )) as RestartLanguageServerRouteResponse;
+  if (res200(response)) {
+    addTemporaryNotification("Restarting Language Server");
+    await refreshPluginRuntime();
+    return;
+  }
+
+  const errorCode = getErrorCode(response.data);
+  const errorDetail =
+    getErrorDetail(response.data) ?? "Failed to restart language server.";
+  if (errorCode === "language_server_not_configured") {
+    addTemporaryNotification(errorDetail, NotificationTypeEnum.error);
+    return;
+  }
+  addTemporaryNotification(
+    "Failed to restart language server.",
+    NotificationTypeEnum.error,
+  );
 }
