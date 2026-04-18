@@ -100,13 +100,17 @@ func buildLanguageServerSpec(
 	if language == "" {
 		return lsp.LanguageServerSpec{}, "", fmt.Errorf("plugin language server language is required")
 	}
+	settings := languageServerSettingsWithRuntimePaths(entry, registration, pluginsState, settaFilesRoot)
+	if settings == nil {
+		settings = map[string]any{}
+	}
 	return lsp.LanguageServerSpec{
 		PluginID:    strings.TrimSpace(registration.PluginID),
 		Name:        strings.TrimSpace(registration.Name),
 		LanguageID:  language,
 		Command:     strings.TrimSpace(registration.Command),
 		Args:        append([]string(nil), registration.Args...),
-		Settings:    languageServerSettingsWithRuntimePaths(entry, registration, pluginsState, settaFilesRoot),
+		Settings:    settings,
 		SettingsKey: cloneOptionalString(registration.SettingsKey),
 	}, language, nil
 }

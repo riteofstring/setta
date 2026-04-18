@@ -20,16 +20,16 @@
 - Still unverified: No manual editor restart or session exercised an invalid absolute-path override outside automated probe and contract coverage.
 
 ### Plugin-Owned Python LSP Settings And Runtime Paths
-- Invariant: Python LSP remains plugin-owned and explicitly selected; effective basedpyright settings must come from plugin schema defaults plus plugin runtime config, include `settaFilesRoot` in `basedpyright.analysis.extraPaths`, and refresh the live applied spec/session when the selected plugin config changes.
-- Last finding commit: ef58bfc493a93065976b75a694adeb70a3b083de
-- Proof tests: `internal/plugins.TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults`; `internal/plugins.TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSettaFilesRoot`; `internal/app.TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndDiagnostics`; `internal/lsp.TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup`
-- Still unverified: No manual editor session saved selected-plugin config and observed diagnostics or completions update live; proof is automated-only.
+- Invariant: Python LSP remains plugin-owned and explicitly selected; effective basedpyright settings must come from plugin schema defaults plus plugin runtime config, include `settaFilesRoot` in `basedpyright.analysis.extraPaths`, refresh the live applied spec/session when the selected plugin config changes, and keep schema-less selected plugin specs on an explicit empty settings object instead of reopening global settings fallback.
+- Last finding commit: 7fca823b4b9b8dadac5333d27202c3399f47bd53
+- Proof tests: `internal/plugins.TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults`; `internal/plugins.TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSettaFilesRoot`; `internal/plugins.TestServiceLanguageServerSpecsSchemaLessPluginUsesEmptySettingsMap`; `internal/app.TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndDiagnostics`; `internal/lsp.TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup`; `internal/lsp.TestRouterUsesExplicitEmptySpecSettingsWithoutGlobalFallback`
+- Still unverified: No manual editor session saved selected-plugin config and observed diagnostics or completions update live, and no manual session exercised schema-less selected-plugin behavior outside unit coverage.
 
 ### Plugin Config Schema Ownership
-- Invariant: Plugin config schema validation, default extraction, and runtime descriptor emission must share one owner path; a declared unreadable or invalid schema must invalidate the plugin before it can contribute active LSP specs or defaults.
-- Last finding commit: 323111b0cc5369a0c99f87d1dc23d5f9690c360b
-- Proof tests: `internal/plugins.TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults`; `internal/plugins.TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema`; `tests/start/test_packaged_distribution.py::test_first_party_basedpyright_plugin_wheel_packages_python_backend_only`
-- Still unverified: No manual packaged-plugin install with a corrupted or missing schema; validation coverage is automated only.
+- Invariant: Plugin config schema validation, resolved-default extraction, and runtime descriptor emission must share one owner path; JSON-valid but unresolvable schemas must fail authoring/discovery before the plugin can contribute active specs or defaults, and defaults supplied through local `$ref` or `allOf` must flow into plugin-owned LSP settings.
+- Last finding commit: 7fca823b4b9b8dadac5333d27202c3399f47bd53
+- Proof tests: `internal/plugins.TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults`; `internal/plugins.TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema`; `internal/plugins.TestServiceLanguageServerSpecsRejectsUnresolvablePluginConfigSchema`; `internal/plugins.TestServiceLanguageServerSpecsLoadsDefaultsFromResolvedPluginConfigSchema`; `internal/plugins.TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions` (`unresolvable config schema ref` subtest); `tests/start/test_packaged_distribution.py::test_first_party_basedpyright_plugin_wheel_packages_python_backend_only`
+- Still unverified: No manual packaged-plugin install or config-editor flow exercised broken schema refs or referenced defaults; schema ownership proof remains automated-only.
 
 ### Plugin Backend Refresh Rollback Fidelity
 - Invariant: Plugin backend refresh snapshots must deep-clone `lsp.LanguageServerSpec.Settings` so rollback restores the exact pre-refresh spec state.
@@ -144,3 +144,24 @@ Residual risks / verification gaps:
 - No manual fresh-machine wheel install was run beyond automated build and install coverage.
 - No manual workspace startup observed the version-bumped defaults bootstrap fixing a previously missed linked-plugin selection.
 - No manual editor session exercised invalid absolute-path override behavior; proof is automated-only.
+
+## 2026-04-18 23:52:53 PDT
+Fixes applied:
+- Unified plugin config-schema loading so authoring validation, discovery invalidation, runtime reads, config writes, and plugin-owned default extraction all validate the same resolved schema path.
+- Extended plugin-owned LSP settings handling so selected plugin specs always carry explicit settings maps, preventing schema-less plugin registrations from falling back through legacy global settings branches.
+
+Tests added or upgraded:
+- Added plugin coverage for schema-less selected-plugin empty settings, unresolvable config-schema refs, and defaults supplied through local `$ref` plus `allOf`.
+- Added router coverage for explicit empty spec settings bypassing global settings fallback.
+- Added authoring validation coverage for rejecting JSON-valid but unresolvable config-schema refs.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceLanguageServerSpecs|TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions|TestServiceWriteConfigRejectsInvalidSchemaDocument|TestServiceRuntimeBuildsFrontendListAndStatusPayloads'`
+- `./scripts/go.sh test ./internal/lsp -run 'TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup|TestRouterUsesExplicitEmptySpecSettingsWithoutGlobalFallback'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- Browser verification: not run; no UI behavior changed in this iteration. No `./aireset.sh` session was active at finalization.
+
+Residual risks / verification gaps:
+- No manual packaged-plugin install or plugin-config editing flow exercised broken schema refs or referenced defaults outside automated Go coverage.
+- No manual editor session exercised a schema-less selected plugin through completion/diagnostic flows; the empty-settings fallback fix is unit-tested only.

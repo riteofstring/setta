@@ -66,6 +66,30 @@ func TestServiceLanguageServerSpecsIncludesSelectedPluginLanguageServer(t *testi
 	}
 }
 
+func TestServiceLanguageServerSpecsSchemaLessPluginUsesEmptySettingsMap(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one plugin language server spec, got %#v", specs)
+	}
+	if specs[0].Settings == nil || len(specs[0].Settings) != 0 {
+		t.Fatalf("expected schema-less plugin settings to resolve to an explicit empty object, got %#v", specs[0].Settings)
+	}
+}
+
 func TestServiceLanguageServerSpecsAllowsSameLanguagePluginsUntilSelectionChoosesOne(t *testing.T) {
 	preparePluginLanguageServerFixture(t)
 
@@ -244,6 +268,70 @@ func TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSet
 	}
 }
 
+func TestServiceLanguageServerSpecsLoadsDefaultsFromResolvedPluginConfigSchema(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+		payload["configSchemaPath"] = "content/config/schema.json"
+	})
+	writeJSONFile(t, filepath.Join(pluginRoot, "content", "config", "schema.json"), map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"fixtureDslLanguageServer": map[string]any{
+				"allOf": []any{
+					map[string]any{"$ref": "#/$defs/fixtureDslSettings"},
+				},
+			},
+		},
+		"$defs": map[string]any{
+			"fixtureDslSettings": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"analysis": map[string]any{
+						"$ref": "#/$defs/analysisSettings",
+					},
+				},
+			},
+			"analysisSettings": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"emitDiagnostics": map[string]any{
+						"type":    "boolean",
+						"default": true,
+					},
+				},
+			},
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one plugin language server spec, got %#v", specs)
+	}
+
+	settingsRoot, ok := specs[0].Settings["fixtureDslLanguageServer"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected fixture language-server settings root, got %#v", specs[0].Settings)
+	}
+	analysis, ok := settingsRoot["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis settings, got %#v", settingsRoot["analysis"])
+	}
+	if analysis["emitDiagnostics"] != true {
+		t.Fatalf("expected referenced default emitDiagnostics=true, got %#v", analysis["emitDiagnostics"])
+	}
+}
+
 func TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema(t *testing.T) {
 	pythonPath, _ := preparePluginLanguageServerFixture(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
@@ -275,6 +363,42 @@ func TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema(t *testing.T
 	}
 	if len(specs) != 0 {
 		t.Fatalf("expected invalid schema plugin to contribute no specs, got %#v", specs)
+	}
+}
+
+func TestServiceLanguageServerSpecsRejectsUnresolvablePluginConfigSchema(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+		payload["configSchemaPath"] = "content/config/schema.json"
+	})
+	writeJSONFile(t, filepath.Join(pluginRoot, "content", "config", "schema.json"), map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"$ref":    "#/$defs/missing",
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend", PluginRuntimeStateInvalid)
+	if len(entry.Errors) != 1 || entry.Errors[0].Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+		t.Fatalf("expected config schema invalid status error, got %#v", entry.Errors)
+	}
+
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Fatalf("expected unresolvable schema plugin to contribute no specs, got %#v", specs)
 	}
 }
 

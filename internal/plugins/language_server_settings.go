@@ -20,11 +20,11 @@ func languageServerSettingsRoot(entry DiscoveredPlugin, pluginsState *PluginsSta
 }
 
 func pluginLanguageServerDefaults(entry DiscoveredPlugin) map[string]any {
-	_, schemaJSON, ok, err := loadPluginConfigSchemaDocument(entry)
+	document, ok, err := loadPluginConfigSchemaDocument(entry)
 	if err != nil || !ok {
 		return nil
 	}
-	return pluginConfigSchemaDefaults(schemaJSON)
+	return pluginConfigSchemaDefaults(document)
 }
 
 func mergeStringAnyMaps(base map[string]any, overlay map[string]any) map[string]any {

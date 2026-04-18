@@ -213,6 +213,51 @@ func TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup(t *testin
 	}
 }
 
+func TestRouterUsesExplicitEmptySpecSettingsWithoutGlobalFallback(t *testing.T) {
+	t.Parallel()
+
+	settingsKey := "fixtureDslLanguageServer"
+	spec := LanguageServerSpec{
+		Name:        "fixture-dsl",
+		LanguageID:  "fixturedsl",
+		Command:     "python",
+		Settings:    map[string]any{},
+		SettingsKey: &settingsKey,
+	}
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot:   t.TempDir(),
+		AdditionalSpecs: []LanguageServerSpec{spec},
+		Settings: func() map[string]any {
+			return map[string]any{
+				"fixtureDslLanguageServer": map[string]any{
+					"analysis": map[string]any{
+						"emitDiagnostics": true,
+					},
+				},
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new router with explicit empty spec settings: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("fixturedsl")
+	if err != nil {
+		t.Fatalf("resolve fixture service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected fixture service to be configured")
+	}
+	if !reflect.DeepEqual(service.session.options.Settings, map[string]any{}) {
+		t.Fatalf("expected explicit empty settings to bypass global fallback, got %#v", service.session.options.Settings)
+	}
+}
+
 func TestRouterSyncDocumentsRoutesPluginLanguageDiagnosticsAndCompletion(t *testing.T) {
 	t.Parallel()
 

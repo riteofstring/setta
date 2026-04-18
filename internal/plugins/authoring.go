@@ -643,25 +643,11 @@ func (s *Service) validateSettaVersionRange(manifest PluginManifest) error {
 }
 
 func validatePluginConfigSchemaFile(pluginRoot string, manifest PluginManifest) error {
-	if strings.TrimSpace(manifest.ConfigSchemaPath) == "" {
-		return nil
-	}
-	schemaPath, err := resolveAuthoringPath(pluginRoot, manifest.ConfigSchemaPath, "Invalid configSchemaPath")
-	if err != nil {
+	document, ok, err := loadPluginConfigSchemaAuthoringDocument(pluginRoot, manifest)
+	if err == nil || !ok {
 		return err
 	}
-	content, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return fmt.Errorf("read plugin config schema %s: %w", schemaPath, err)
-	}
-	var payload any
-	if err := json.Unmarshal(content, &payload); err != nil {
-		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid config schema JSON at: %s", schemaPath)
-	}
-	if _, ok := payload.(map[string]any); !ok {
-		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Config schema must be a JSON object: %s", schemaPath)
-	}
-	return nil
+	return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid config schema JSON at: %s", document.Path)
 }
 
 func (s *Service) validateMetadataIdentity(pluginRoot string, manifest PluginManifest) error {

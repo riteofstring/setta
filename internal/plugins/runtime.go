@@ -336,14 +336,14 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 }
 
 func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[string]any, *string) {
-	_, schemaJSON, ok, err := loadPluginConfigSchemaDocument(entry)
+	document, ok, err := loadPluginConfigSchemaDocument(entry)
 	if err != nil {
 		return false, map[string]any{}, nil
 	}
 	if !ok {
 		return false, map[string]any{}, nil
 	}
-	return true, schemaJSON, runtimeDigestJSONValue(schemaJSON)
+	return true, document.JSON, runtimeDigestJSONValue(document.JSON)
 }
 
 func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {

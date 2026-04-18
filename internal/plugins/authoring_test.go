@@ -435,6 +435,24 @@ func TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions(t *testing.T
 		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
 	})
 
+	t.Run("unresolvable config schema ref", func(t *testing.T) {
+		pluginRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
+		manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
+		if err != nil {
+			t.Fatalf("load manifest: %v", err)
+		}
+		if strings.TrimSpace(manifest.ConfigSchemaPath) == "" {
+			t.Fatalf("expected config schema path in full scaffold")
+		}
+		writeJSONFile(t, filepath.Join(pluginRoot, filepath.FromSlash(manifest.ConfigSchemaPath)), map[string]any{
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type":    "object",
+			"$ref":    "#/$defs/missing",
+		})
+		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
+	})
+
 	t.Run("incompatible setta version", func(t *testing.T) {
 		pluginRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-incompatible-version-plugin", "frontend")
 		rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
