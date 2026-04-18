@@ -36,8 +36,11 @@ MISSING_NAMED_EXPORT_RE = re.compile(
 LOCAL_NOT_EXPORTED_RE = re.compile(
     r"""^Module\s+['"]+([^'"]+)['"]+\s+declares\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\s+locally, but it is not exported\.$"""
 )
+CANNOT_FIND_NAME_RE = re.compile(
+    r"""^Cannot find name ['"]([A-Za-z_][A-Za-z0-9_]*)['"]\.(?: .+)?$"""
+)
 
-RUNTIME_BREAK_TYPESCRIPT_CODES = {"2305", "2339", "2459", "2614", "2724"}
+RUNTIME_BREAK_TYPESCRIPT_CODES = {"2304", "2305", "2339", "2459", "2614", "2724"}
 LOCAL_FRONTEND_MODULE_PREFIXES = (
     "components/",
     "forks/",
@@ -202,20 +205,31 @@ process.stdout.write(result.outputText);
     return completed.stdout
 
 
-def parse_emitted_value_imports(
+def load_transpiled_frontend_source(
+    transpiled_source_cache: dict[str, str | None],
+    *,
     repo_root: Path,
+    file_path: str,
     source_path: Path,
-) -> dict[str, dict[str, bool]] | None:
-    output_text = transpile_frontend_source(repo_root, source_path)
-    if output_text is None:
-        return None
-    return parse_named_imports(output_text)
+) -> str | None:
+    if file_path not in transpiled_source_cache:
+        transpiled_source_cache[file_path] = transpile_frontend_source(
+            repo_root, source_path
+        )
+    return transpiled_source_cache[file_path]
 
 
 def is_frontend_local_module(module_path: str) -> bool:
     return module_path.startswith(".") or module_path.startswith(
         LOCAL_FRONTEND_MODULE_PREFIXES
     )
+
+
+def missing_name_symbol(message: str) -> str | None:
+    match = CANNOT_FIND_NAME_RE.match(message)
+    if match:
+        return match.group(1)
+    return None
 
 
 def missing_export_details(message: str) -> tuple[str, str] | None:
@@ -245,6 +259,7 @@ def load_named_imports_for_source(
 
 def missing_export_survives_js_emit(
     emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None],
+    transpiled_source_cache: dict[str, str | None],
     *,
     repo_root: Path,
     file_path: str,
@@ -254,13 +269,40 @@ def missing_export_survives_js_emit(
 ) -> bool:
     emitted_imports = emitted_import_cache.get(file_path)
     if emitted_imports is None and file_path not in emitted_import_cache:
-        emitted_imports = parse_emitted_value_imports(repo_root, source_path)
+        output_text = load_transpiled_frontend_source(
+            transpiled_source_cache,
+            repo_root=repo_root,
+            file_path=file_path,
+            source_path=source_path,
+        )
+        emitted_imports = (
+            parse_named_imports(output_text) if output_text is not None else None
+        )
         emitted_import_cache[file_path] = emitted_imports
     else:
         emitted_imports = emitted_import_cache.get(file_path)
     if emitted_imports is None:
         return True
     return emitted_imports.get(module_path, {}).get(symbol, False)
+
+
+def missing_name_survives_js_emit(
+    transpiled_source_cache: dict[str, str | None],
+    *,
+    repo_root: Path,
+    file_path: str,
+    source_path: Path,
+    symbol: str,
+) -> bool:
+    output_text = load_transpiled_frontend_source(
+        transpiled_source_cache,
+        repo_root=repo_root,
+        file_path=file_path,
+        source_path=source_path,
+    )
+    if output_text is None:
+        return True
+    return re.search(rf"\b{re.escape(symbol)}\b", output_text) is not None
 
 
 def parse_frontend_diagnostics(
@@ -270,6 +312,7 @@ def parse_frontend_diagnostics(
         return
     import_cache: dict[str, dict[str, dict[str, bool]]] = {}
     emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None] = {}
+    transpiled_source_cache: dict[str, str | None] = {}
     for raw_line in frontend_typecheck.read_text(
         encoding="utf-8", errors="replace"
     ).splitlines():
@@ -285,6 +328,32 @@ def parse_frontend_diagnostics(
             continue
 
         line = int(line_text)
+        source_path = repo_root / file_path
+
+        if code == "2304":
+            symbol = missing_name_symbol(message)
+            if symbol is None:
+                continue
+            if not missing_name_survives_js_emit(
+                transpiled_source_cache,
+                repo_root=repo_root,
+                file_path=file_path,
+                source_path=source_path,
+                symbol=symbol,
+            ):
+                continue
+            add_bucket(
+                buckets,
+                kind="missing-runtime-name",
+                file_path=file_path,
+                line=line,
+                priority=100,
+                title="Production code references an unbound runtime identifier",
+                why="An unresolved identifier that still survives emitted JS will throw at render or module evaluation time on supported paths.",
+                evidence=f"{file_path}:{line} TS{code}: {message}",
+            )
+            continue
+
         if code == "2339" and "does not exist on type '{ readonly" in message:
             add_bucket(
                 buckets,
@@ -306,7 +375,6 @@ def parse_frontend_diagnostics(
         if not is_frontend_local_module(module_path):
             continue
 
-        source_path = repo_root / file_path
         imports = load_named_imports_for_source(
             import_cache,
             file_path=file_path,
@@ -317,6 +385,7 @@ def parse_frontend_diagnostics(
 
         if not missing_export_survives_js_emit(
             emitted_import_cache,
+            transpiled_source_cache,
             repo_root=repo_root,
             file_path=file_path,
             source_path=source_path,

@@ -10,6 +10,7 @@ import {
   resolveSingleDockResizeMetrics,
 } from "components/ChatWindowing/projectChatBottomDockInteractions";
 import {
+  DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX,
   resolveDockStripReservedWidthPx,
   resolveDockWindowWidthsToFit,
   resolveMaxVisibleDockWindowCount,

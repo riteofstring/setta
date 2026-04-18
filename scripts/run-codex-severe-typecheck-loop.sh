@@ -276,7 +276,7 @@ Rules:
 - Update ${severe_type_audit_file} before editing code.
 - Fix one shortlist item or one tightly related cluster per iteration.
 - Prefer owner-side fixes and regeneration.
-- Missing export/import diagnostics only count when the symbol survives emitted JS. Type-only import churn is not a runtime bug.
+- Missing export/import diagnostics only count when the symbol survives emitted JS. Unbound names only count when the missing identifier survives emitted JS. Type-only churn is not a runtime bug.
 - Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, type-only re-export shims, handwritten compatibility helpers, hard-coded generator inventories, or duplicated logic when an authoritative owner surface already exists.
 - Run focused verification plus ./gcf.sh and ./scripts/check_quality_for_git_changes.sh before every commit.
 - Every non-stop iteration ends with a clean worktree and a commit whose message starts with codex-typefix:.
@@ -299,7 +299,7 @@ Rules:
 - Before editing, update the audit with the target, concrete runtime failure, exact evidence, and owner surface.
 - If you cannot explain the runtime failure clearly, skip that item and record why.
 - Fix one shortlist item or one tightly related cluster per iteration.
-- Missing export/import diagnostics count only when the symbol survives emitted JS. Type-only import churn is not a runtime bug.
+- Missing export/import diagnostics count only when the symbol survives emitted JS. Unbound names count only when the missing identifier survives emitted JS. Type-only churn is not a runtime bug.
 - Prefer owner-side fixes and regeneration over local compatibility patches.
 - Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, structural shadow types, type-only re-export shims, handwritten compatibility helpers, or hard-coded generator inventories when an owner surface already exists.
 - Do not hand-edit generated files.
