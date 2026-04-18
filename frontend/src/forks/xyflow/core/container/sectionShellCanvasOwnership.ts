@@ -97,7 +97,10 @@ export function isCanvasOwnedSectionParamFilterUnderline(sectionId: string) {
 }
 
 export function isCanvasOwnedSectionParamFilterIcon(sectionId: string) {
-  return sectionId === DICT_CANVAS_OWNED_SECTION_SHELL_ID;
+  return (
+    sectionId === DICT_CANVAS_OWNED_SECTION_SHELL_ID ||
+    sectionId === GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID
+  );
 }
 
 export function resolveCanvasOwnedSectionShellChrome({

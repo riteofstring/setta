@@ -476,9 +476,29 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__globalVariablesSectionDefault` was visible on the live surface
   - after reframing the section at normal zoom, the kwargs-controls row still looked intact with the DOM `Args` label transparent on the canvas path
   - caveat: the fresh bootstrap token was rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend session instead
+- The next GlobalVariables filter/search slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - a fresh normal-zoom live inventory closed the stale next-step assumption from the prior handoff: the filter input's resting underline is not visible at normal section zoom on this lane, but the static `gg-sort-az` filter icon is visible default-inactive chrome
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now extends `isCanvasOwnedSectionParamFilterIcon(...)` to the GlobalVariables canary, so this stayed a real GlobalVariables product slice instead of copying the earlier dict underline step by inertia
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` did not need a new renderer branch for this lane because the existing `data-canvas-owned-filter-icon="true"` + `opacity-0` handoff already covered the static icon once the ownership helper included the GlobalVariables section
+  - `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` now proves the actual visible boundary on that section:
+    - the static filter icon is hidden on the DOM side
+    - distinct retained-canvas icon pixels are present using the icon's pseudo-element union rect
+    - the filter underline still has no GlobalVariables ownership marker on this path
+    - the live filter input/editor core remains visible
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted GlobalVariables probe passed on the live worktree runtime with the new retained filter-icon assertions
+- CDP visual check is done for the GlobalVariables filter-icon slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - the filter/search row still looked intact after the static filter icon moved to retained canvas ownership
+  - the live filter input/editor core remained visible on the DOM path
 - The active named lane is now `settings-section__globalVariablesSectionDefault`:
   - keep the callable and dict lanes closed unless a fresh defect appears there
-  - the next bounded GlobalVariables slice should target the remaining default-visible filter/search chrome, starting with the resting filter underline if it is still visible at normal section zoom
+  - the next bounded GlobalVariables pass should re-inventory the filter/search row at normal section zoom; if the only remaining visible DOM there is the live filter input/editor core, close the broader GlobalVariables lane instead of inventing another micro-slice
   - keep the GlobalVariables filter input/editor core DOM-owned unless there is a concrete product reason to move more of that surface
 
 ## Preservation rule
@@ -510,7 +530,7 @@ That leaves one primary architectural move:
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Keep `settings-section__globalVariablesSectionDefault` as the active named lane and target its remaining default-visible filter/search chrome, starting with the resting filter underline if it is still visible at normal section zoom, instead of reopening callable/dict slices.
+5. Keep `settings-section__globalVariablesSectionDefault` as the active named lane, but use a fresh normal-zoom inventory before opening another filter/search micro-slice there; if the remaining visible DOM is only the live filter input/editor core, close the broader lane instead of reopening callable/dict slices.
 6. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -536,7 +556,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep the callable and dict lanes closed at their current ownership boundaries and continue the active `settings-section__globalVariablesSectionDefault` lane by targeting the remaining filter/search chrome there instead of reopening older sections
+- next: keep the callable and dict lanes closed at their current ownership boundaries and re-inventory the active `settings-section__globalVariablesSectionDefault` filter/search row before opening any further GlobalVariables micro-slice
 
 ## Hard rules
 

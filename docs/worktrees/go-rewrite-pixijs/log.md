@@ -848,3 +848,32 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable and dict lanes closed and continue the active `settings-section__globalVariablesSectionDefault` lane by targeting the remaining default-visible filter/search chrome there, starting with the resting filter underline if it is still visible at normal section zoom
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 035
+
+- Item: Move the GlobalVariables static filter icon to retained-canvas ownership on `settings-section__globalVariablesSectionDefault`.
+- Status: `done`
+- Details:
+  - Ran a fresh normal-zoom live inventory on `/settings` -> `All Settings` before patching this lane and closed the stale handoff assumption: the GlobalVariables filter input's resting underline is not visible at normal section zoom, but the static `gg-sort-az` filter icon is visible default-inactive chrome.
+  - Extended `isCanvasOwnedSectionParamFilterIcon(...)` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the GlobalVariables canary now rides the existing retained filter-icon handoff already proven on the dict lane.
+  - No new renderer branch was needed in `frontend/src/components/Section/SectionParts/KwargsControls.tsx`; the existing `data-canvas-owned-filter-icon="true"` plus `opacity-0` handoff now applies to the GlobalVariables icon once the ownership helper includes that section.
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` so the trusted GlobalVariables probe now:
+    - requires the hidden DOM filter icon handoff marker
+    - computes the icon pseudo-element union rect
+    - confirms distinct retained-canvas icon pixels
+    - preserves the existing proof that the filter underline still has no GlobalVariables ownership marker and that the live filter input/editor core remains visible
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` so the ownership helper now treats both dict and GlobalVariables as valid filter-icon canaries.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: the trusted GlobalVariables probe passed on the live worktree runtime with the new retained filter-icon assertions
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - the filter/search row still looked intact after the static filter icon moved to retained canvas ownership
+  - the live filter input/editor core remained visible on the DOM path
+- Next action:
+  - re-inventory `settings-section__globalVariablesSectionDefault` at normal section zoom; if the remaining visible filter/search DOM is only the live input/editor core, close the broader GlobalVariables lane instead of opening another micro-slice
+LOOP_TERMINAL_MARKER: none

@@ -126,17 +126,17 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets only the dict canary filter icon for canvas ownership", () => {
+  it("targets the dict and global variables canary filter icons for canvas ownership", () => {
     expect(
       isCanvasOwnedSectionParamFilterIcon(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
     expect(
-      isCanvasOwnedSectionParamFilterIcon(CANVAS_OWNED_SECTION_SHELL_ID),
-    ).toBe(false);
-    expect(
       isCanvasOwnedSectionParamFilterIcon(
         GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamFilterIcon(CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(false);
   });
 

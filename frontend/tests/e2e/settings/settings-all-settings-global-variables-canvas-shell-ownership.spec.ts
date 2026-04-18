@@ -145,6 +145,12 @@ test("canvas shell path owns shared resting global variables section chrome", as
       if (!(filterInput instanceof HTMLElement)) {
         throw new Error(`Missing filter input for ${sectionId}`);
       }
+      if (!(filterSearch instanceof HTMLElement)) {
+        throw new Error(`Missing filter search wrapper for ${sectionId}`);
+      }
+      if (!(filterIcon instanceof HTMLElement)) {
+        throw new Error(`Missing filter icon for ${sectionId}`);
+      }
       if (!(aspectRatioRow instanceof HTMLElement)) {
         throw new Error(`Missing Aspect Ratio row for ${sectionId}`);
       }
@@ -253,12 +259,30 @@ test("canvas shell path owns shared resting global variables section chrome", as
       const canvasScaleY = canvas.height / canvas.clientHeight;
       const nodeRect = node.getBoundingClientRect();
       const headerRect = header.getBoundingClientRect();
-      const filterRect = filterInput.getBoundingClientRect();
+      const filterRect = filterSearch.getBoundingClientRect();
+      const filterIconRect = filterIcon.getBoundingClientRect();
       const aspectRatioSwitchRect = aspectRatioSwitch.getBoundingClientRect();
       const configLanguageRect = configLanguageLine.getBoundingClientRect();
       const styleColorRect = styleColorLine.getBoundingClientRect();
       const styleColorUnderlineRect = styleColorUnderline.getBoundingClientRect();
       const styleColorLabelRect = styleColorLabel.getBoundingClientRect();
+      const filterIconBeforeStyle = window.getComputedStyle(
+        filterIcon,
+        "::before",
+      );
+      const filterIconAfterStyle = window.getComputedStyle(filterIcon, "::after");
+      const filterIconBeforeWidthPx = Number.parseFloat(filterIconBeforeStyle.width);
+      const filterIconBeforeHeightPx = Number.parseFloat(
+        filterIconBeforeStyle.height,
+      );
+      const filterIconBeforeLeftPx = Number.parseFloat(filterIconBeforeStyle.left);
+      const filterIconBeforeTopPx = Number.parseFloat(filterIconBeforeStyle.top);
+      const filterIconAfterWidthPx = Number.parseFloat(filterIconAfterStyle.width);
+      const filterIconAfterHeightPx = Number.parseFloat(
+        filterIconAfterStyle.height,
+      );
+      const filterIconAfterLeftPx = Number.parseFloat(filterIconAfterStyle.left);
+      const filterIconAfterTopPx = Number.parseFloat(filterIconAfterStyle.top);
       const sizeNestedGuideRect = sizeNestedGuide.getBoundingClientRect();
       const sizeNestedGuideBeforeStyle = window.getComputedStyle(
         sizeNestedGuide,
@@ -284,6 +308,20 @@ test("canvas shell path owns shared resting global variables section chrome", as
       ) {
         throw new Error(
           `Invalid Size nested guide pseudo metrics for ${sectionId}`,
+        );
+      }
+      if (
+        !Number.isFinite(filterIconBeforeWidthPx) ||
+        !Number.isFinite(filterIconBeforeHeightPx) ||
+        !Number.isFinite(filterIconBeforeLeftPx) ||
+        !Number.isFinite(filterIconBeforeTopPx) ||
+        !Number.isFinite(filterIconAfterWidthPx) ||
+        !Number.isFinite(filterIconAfterHeightPx) ||
+        !Number.isFinite(filterIconAfterLeftPx) ||
+        !Number.isFinite(filterIconAfterTopPx)
+      ) {
+        throw new Error(
+          `Invalid global variables filter icon pseudo metrics for ${sectionId}`,
         );
       }
 
@@ -348,6 +386,26 @@ test("canvas shell path owns shared resting global variables section chrome", as
       const headerOffsetY = (headerRect.top - nodeRect.top) / viewportScale;
       const headerWidth = headerRect.width / viewportScale;
       const headerHeight = headerRect.height / viewportScale;
+      const filterIconUnionLeft = Math.min(
+        filterIconRect.left,
+        filterIconRect.left + filterIconBeforeLeftPx,
+        filterIconRect.left + filterIconAfterLeftPx,
+      );
+      const filterIconUnionTop = Math.min(
+        filterIconRect.top,
+        filterIconRect.top + filterIconBeforeTopPx,
+        filterIconRect.top + filterIconAfterTopPx,
+      );
+      const filterIconUnionRight = Math.max(
+        filterIconRect.right,
+        filterIconRect.left + filterIconBeforeLeftPx + filterIconBeforeWidthPx,
+        filterIconRect.left + filterIconAfterLeftPx + filterIconAfterWidthPx,
+      );
+      const filterIconUnionBottom = Math.max(
+        filterIconRect.bottom,
+        filterIconRect.top + filterIconBeforeTopPx + filterIconBeforeHeightPx,
+        filterIconRect.top + filterIconAfterTopPx + filterIconAfterHeightPx,
+      );
       const bodySampleX =
         (nodeX -
           canvasLeft +
@@ -364,6 +422,14 @@ test("canvas shell path owns shared resting global variables section chrome", as
         (nodeY - canvasTop + headerOffsetY + headerHeight * 0.5) * canvasScaleY;
       const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
 
+      const filterIconOffsetX =
+        (filterIconUnionLeft - nodeRect.left) / viewportScale;
+      const filterIconOffsetY =
+        (filterIconUnionTop - nodeRect.top) / viewportScale;
+      const filterIconWidth =
+        (filterIconUnionRight - filterIconUnionLeft) / viewportScale;
+      const filterIconHeight =
+        (filterIconUnionBottom - filterIconUnionTop) / viewportScale;
       const aspectRatioSwitchOffsetX =
         (aspectRatioSwitchRect.left - nodeRect.left) / viewportScale;
       const aspectRatioSwitchOffsetY =
@@ -420,6 +486,7 @@ test("canvas shell path owns shared resting global variables section chrome", as
 
       const aspectRatioSwitchStyle = window.getComputedStyle(aspectRatioSwitch);
       const configLanguageStyle = window.getComputedStyle(configLanguageInput);
+      const filterIconStyle = window.getComputedStyle(filterIcon);
       const filterInputStyle = window.getComputedStyle(filterInput);
       const styleColorStyle = window.getComputedStyle(styleColorInput);
       const styleColorUnderlineStyle =
@@ -448,7 +515,17 @@ test("canvas shell path owns shared resting global variables section chrome", as
             bodyPixel,
           ),
         configLanguageDummyOpacity: configLanguageStyle.opacity,
-        filterIconOwnershipPresent: filterIcon instanceof HTMLElement,
+        filterIconDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + filterIconOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + filterIconOffsetY) * canvasScaleY,
+            filterIconWidth * canvasScaleX,
+            filterIconHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        filterIconOpacity: filterIconStyle.opacity,
+        filterIconOwnershipFlag:
+          filterIcon.dataset.canvasOwnedFilterIcon ?? null,
         filterInputOpacity: filterInputStyle.opacity,
         filterUnderlineOwnershipPresent: filterUnderline instanceof HTMLElement,
         headerHeight,
@@ -519,7 +596,9 @@ test("canvas shell path owns shared resting global variables section chrome", as
   expect(shellState.headerHeight).toBeGreaterThan(0);
   expect(shellState.headerPixel).not.toBe("0,0,0,0");
   expect(shellState.bodyPixel).not.toBe("0,0,0,0");
-  expect(shellState.filterIconOwnershipPresent).toBe(false);
+  expect(shellState.filterIconOwnershipFlag).toBe("true");
+  expect(shellState.filterIconOpacity).toBe("0");
+  expect(shellState.filterIconDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.filterUnderlineOwnershipPresent).toBe(false);
   expect(shellState.filterInputOpacity).toBe("1");
   expect(shellState.aspectRatioSwitchOwnershipFlag).toBe("true");
