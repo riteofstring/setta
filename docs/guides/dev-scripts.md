@@ -161,7 +161,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires a developer-started browser session.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
   - Specialized Codex loop for fixing only actionable runtime-break type errors instead of broad repo type backlog cleanup.
-  - Starts a fresh Codex session every iteration, seeds a single-phase checklist plus a runtime-break audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs as candidate generators rather than a blanket “fix everything” list.
+  - Starts a fresh Codex session every iteration, seeds a single-phase checklist plus a runtime-break audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs to build a filtered `runtime-break-shortlist.md` rather than handing Codex the full raw checker dump.
+  - The shortlist is tiered, and the loop is told to stay on `Tier 1` until it is fixed or explicitly disproven in the audit.
+  - Forces Codex to record concrete production evidence plus a one-sentence runtime/build failure before editing code, and deprioritizes helper-generic noise, request-nullability cleanup, and test-only typing unless they are proven to break a supported flow.
   - Requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable runtime-break type errors under the loop rubric.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.

@@ -243,11 +243,22 @@ go_typecheck_command="$(
 checklist_file="${state_dir}/checklist.md"
 prompt_file="${state_dir}/prompt.md"
 severe_type_audit_file="${state_dir}/severe-type-audit.md"
+runtime_break_shortlist_file="${state_dir}/runtime-break-shortlist.md"
 frontend_typecheck_file="${state_dir}/frontend-typecheck.txt"
 python_typecheck_file="${state_dir}/python-typecheck.txt"
 go_typecheck_file="${state_dir}/go-typecheck.txt"
 status_file="${state_dir}/status.txt"
 head_file="${state_dir}/last-observed-head.txt"
+runtime_break_shortlist_command="$(
+  shell_join \
+    "python3" \
+    "${ROOT_DIR}/scripts/build-runtime-break-shortlist.py" \
+    --repo-root "${ROOT_DIR}" \
+    --frontend-typecheck "${frontend_typecheck_file}" \
+    --python-typecheck "${python_typecheck_file}" \
+    --go-typecheck "${go_typecheck_file}" \
+    --output "${runtime_break_shortlist_file}"
+)"
 
 if [[ ! -f "${severe_type_audit_file}" ]]; then
   cat > "${severe_type_audit_file}" <<EOF
@@ -277,6 +288,15 @@ Overwrite stale notes instead of appending an iteration diary.
 
 ## Current target
 
+## Production evidence
+- Record exact non-test file references and the concrete type errors that show the target hits a supported production path.
+- If this section is blank, do not edit code.
+
+## Failure mode
+- State the concrete runtime or build failure in one or two sentences.
+- Example shape: "When the app receives real message X, handler key Y is missing, so dispatch breaks."
+- If you cannot state a concrete failure mode, the target is not actionable for this loop.
+
 ## High-risk contract surfaces checked
 - Before completion, explicitly audit high-risk shared-contract and runtime-dispatch surfaces that can evade raw typecheck output.
 
@@ -285,6 +305,15 @@ Overwrite stale notes instead of appending an iteration diary.
 ## Completion basis
 - Completion means no actionable runtime-break type errors remain under the rubric above.
 - Non-critical type backlog may remain and should stay listed briefly here instead of consuming loop iterations.
+EOF
+fi
+
+if [[ ! -f "${runtime_break_shortlist_file}" ]]; then
+  cat > "${runtime_break_shortlist_file}" <<EOF
+# Runtime-Break Shortlist
+
+No shortlist has been generated yet.
+Run ${runtime_break_shortlist_command} after refreshing the saved typecheck outputs.
 EOF
 fi
 
@@ -301,14 +330,22 @@ Rules:
 - Do not delete items.
 - The latest saved frontend typecheck output should live at: ${frontend_typecheck_file}
 - The latest saved Python typecheck output should live at: ${python_typecheck_file}
+- The latest saved runtime-break shortlist should live at: ${runtime_break_shortlist_file}
 - Save Go typecheck output to: ${go_typecheck_file} when Go changes or before declaring completion.
 
 ## Phase 1: Fix Runtime-Break Type Errors
 - [ ] Refresh ${frontend_typecheck_file} with ${frontend_typecheck_command} at the start of every iteration and save stdout/stderr there.
 - [ ] Refresh ${python_typecheck_file} with ${python_typecheck_command} at the start of every iteration and save stdout/stderr there.
+- [ ] Refresh ${runtime_break_shortlist_file} with ${runtime_break_shortlist_command} immediately after refreshing the saved typecheck outputs.
 - [ ] Update ${severe_type_audit_file} on every iteration with only the current actionable runtime-break findings, current target, and brief deferred non-critical backlog needed for triage.
-- [ ] Use the saved typecheck outputs as candidate generators, not a blanket todo list. Fix only actionable runtime-break errors under the rubric.
+- [ ] Before editing code, fill in `Production evidence` and `Failure mode` in ${severe_type_audit_file}. Do not start edits while either section is blank.
+- [ ] Use ${runtime_break_shortlist_file} as the primary target queue. Use the raw saved typecheck outputs only as supporting detail and fallback input.
 - [ ] Choose one highest-leverage runtime-break error or tightly related runtime-break error cluster and fix it fully before moving on.
+- [ ] If ${runtime_break_shortlist_file} contains `Tier 1`, pick from Tier 1 only. Do not work on Tier 2 or Tier 3 while Tier 1 remains unexplained.
+- [ ] Prefer non-test production-file breakages first. Do not start with test-only errors unless the same production break is already identified and being fixed in the same iteration.
+- [ ] Prioritize missing exports, missing enum members, missing discriminants, missing symbols, and broken handler-map keys in production code ahead of generic request/nullability/helper typing issues.
+- [ ] Do not skip a higher-tier shortlist item unless ${severe_type_audit_file} records why it is blocked, already disproven, or lower leverage than the chosen target.
+- [ ] If the chosen target is a request/response nullability issue or OpenAPI helper typing issue, prove the concrete runtime rejection or broken behavior first. If a focused test shows the current runtime already works, abandon that target as non-critical.
 - [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
 - [ ] Manually audit high-risk shared-contract and dispatch surfaces that can evade raw typecheck output, especially generated enums or unions used by runtime handler maps.
 - [ ] When generated artifacts are implicated, fix the owner inputs and regenerate instead of manually editing generated files.
@@ -334,6 +371,7 @@ Read first, in this order:
 - ${ROOT_DIR}/docs/reference/go-backed-python.md
 - \`git log --oneline --decorate -n 15\`
 - ${checklist_file}
+- ${runtime_break_shortlist_file} if it exists
 - ${severe_type_audit_file} if it exists
 - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
 
@@ -344,6 +382,7 @@ Severity rubric:
   - generated contract drift that breaks protocol dispatch, handler maps, or other live runtime wiring
   - JSX/component type failures that imply a component may be undefined or called with impossible live props
   - request/response type errors where the current code would send or depend on a payload shape that the live runtime path cannot actually handle
+- Production build failures in non-test code count as actionable when they block the supported app path from building or running.
 - Duplication policy for this loop:
   - Do not introduce duplicate code or logic merely to silence type errors.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first search for an existing authoritative type or helper and reuse it.
@@ -355,6 +394,10 @@ Severity rubric:
   - contract precision drift, union narrowing drift, or owner/generated type drift that does not imply a concrete runtime failure
   - request/response typing mismatches where the existing live payload still decodes and the supported app flow still works
   - broad repo type backlog that is not required to land the current runtime-break fix
+- Strongly deprioritize by default:
+  - generic `callOpenAPI` / `ResponseDataAndStatus` / promise-union assignability noise
+  - request optionality or `null` acceptance cleanups unless the live handler demonstrably rejects or misinterprets the payload
+  - tests that only prove a type-cleanup target, rather than exposing a supported-flow failure
 - If an error is ambiguous, do not fix it in this loop unless you can explain the concrete runtime failure path in ${severe_type_audit_file}.
 - Typecheck outputs are candidate generators only. Some runtime-break regressions can evade raw typecheck output or be masked by generated types/tests.
 
@@ -363,13 +406,20 @@ Execution rules for every iteration:
 - Start each iteration by refreshing the saved typecheck outputs:
   - run ${frontend_typecheck_command} and save stdout/stderr to ${frontend_typecheck_file}
   - run ${python_typecheck_command} and save stdout/stderr to ${python_typecheck_file}
+- After refreshing the saved typecheck outputs, run ${runtime_break_shortlist_command} to refresh ${runtime_break_shortlist_file}.
 - Run ${go_typecheck_command} and save stdout/stderr to ${go_typecheck_file} whenever you touch Go code or before declaring completion.
 - After refreshing outputs, update ${severe_type_audit_file} so it reflects only current actionable runtime-break findings and the brief deferred non-critical backlog relevant to triage.
-- Use the saved typecheck outputs as candidate generators, not as a blanket requirement to fix every reported issue.
+- Before editing code, fill in `Production evidence` and `Failure mode` in ${severe_type_audit_file}. If you cannot do that concretely, pick a different target.
+- Use ${runtime_break_shortlist_file} as the primary candidate queue. Treat the raw saved typecheck outputs as supporting evidence, not as a blanket requirement to fix every reported issue.
 - Pick one actionable runtime-break error or tightly related runtime-break cluster that you can complete confidently in this session.
+- Start from the highest-tier entries in ${runtime_break_shortlist_file}. If you skip a higher-tier item, record the concrete reason in ${severe_type_audit_file} before touching code.
+- If ${runtime_break_shortlist_file} contains `Tier 1`, do not work on Tier 2 or Tier 3 until the audit records why Tier 1 is blocked, disproven, or already resolved by the chosen fix.
+- Use the shortlist to focus first on non-test production files with high-signal errors such as missing exports, missing enum members, missing discriminants, missing symbols, broken handler-map keys, or JSX components that are undefined/unusable.
+- Do not start an iteration with test-only errors or lower-signal helper-generic noise while higher-signal production breakages remain unresolved in the saved outputs.
 - Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
 - Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
 - Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
+- Do not add or adjust tests first. Fix the production owner/code path first, then update or add the minimum focused test coverage needed to lock in the runtime-break fix.
 - In addition to reading typecheck outputs, manually audit high-risk shared-contract surfaces that often evade raw typecheck logs:
   - generated enums and unions used by runtime dispatch maps
   - owner/generated contract pairs where live runtime string constants can diverge from generated unions
@@ -392,6 +442,7 @@ Runtime-break-only discipline:
 - Production code and shared contract surfaces matter more than test-only typing.
 - If a runtime-break issue originates in shared contracts, generated frontend types, or Go-owned Python surfaces, fix the authoritative owner and regenerate downstream artifacts before cleanup.
 - A type-only duplication that papers over an existing authoritative helper or shape is not an acceptable fix for this loop.
+- If a focused test or local runtime check demonstrates that the current behavior already works on the supported path, treat that as evidence the target is non-critical for this loop and back out instead of doubling down on the cleanup.
 
 Completion rule:
 - If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable runtime-break type errors under the rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
@@ -420,6 +471,7 @@ pre_iteration_command="$(
     --sentinel "${complete_stop_sentinel}" \
     --progress-file "${checklist_file}" \
     --progress-file "${severe_type_audit_file}" \
+    --progress-file "${runtime_break_shortlist_file}" \
     --allow-clean-failures "3"
 )"
 
@@ -466,6 +518,7 @@ fi
 
 echo "Checklist: ${checklist_file}"
 echo "Type audit file: ${severe_type_audit_file}"
+echo "Runtime-break shortlist: ${runtime_break_shortlist_file}"
 echo "Frontend typecheck log: ${frontend_typecheck_file}"
 echo "Python typecheck log: ${python_typecheck_file}"
 echo "Go typecheck log: ${go_typecheck_file}"
