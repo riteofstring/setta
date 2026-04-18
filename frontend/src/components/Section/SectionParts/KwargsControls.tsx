@@ -1,11 +1,4 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import {
-  isCanvasOwnedSectionArgsLabelRestingText,
-  isCanvasOwnedSectionParamFilterIcon,
-  isCanvasOwnedSectionParamFilterUnderline,
-  isCanvasOwnedSectionShell,
-} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   addKwarg,
@@ -16,7 +9,7 @@ import {
   setSectionPinnedParams,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -52,21 +45,6 @@ import {
 type KwargsControlsProps = {
   sectionId: string;
 };
-
-function getCanvasOwnedCallableToolbarStyle(
-  canvasOwnedCallableToolbar: boolean,
-): CSSProperties | undefined {
-  if (!canvasOwnedCallableToolbar) {
-    return undefined;
-  }
-
-  return {
-    backgroundColor: "transparent",
-    borderColor: "transparent",
-    boxShadow: "none",
-  };
-}
-
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
   sectionId: string,
@@ -88,7 +66,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
   useKwargsControlsHeightMeasurement(controlsRef, heightKey);
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -125,12 +102,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     darkMode,
     isCallableSection,
   });
-  const canvasOwnedCallableToolbar =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionShell(sectionId);
-  const canvasOwnedArgsLabel =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionArgsLabelRestingText(sectionId);
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
@@ -381,23 +352,13 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   }
   return (
     <>
-      <section
-        className={controlsContainerClassName}
-        data-canvas-owned-callable-toolbar={
-          canvasOwnedCallableToolbar ? "true" : undefined
-        }
-        ref={controlsRef}
-        style={getCanvasOwnedCallableToolbarStyle(canvasOwnedCallableToolbar)}
-      >
+      <section className={controlsContainerClassName} ref={controlsRef}>
         <article
           className={`flex flex-wrap items-center ${isCallableSection ? "py-1" : ""}`}
         >
           <section className="ml-1 flex items-center gap-1">
             <h3
-              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName} ${canvasOwnedArgsLabel ? "opacity-0" : ""}`}
-              data-canvas-owned-resting-text={
-                canvasOwnedArgsLabel ? "true" : undefined
-              }
+              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
             >
               Args
             </h3>
@@ -518,19 +479,9 @@ function ParamFilter({
   const sortIconColorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-300 dark:text-setta-600";
-  const inputTextColorClassName = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)]"
-    : "text-setta-700 placeholder-setta-400 dark:text-setta-300";
-  const inputFocusUnderlineClassName = hasSectionStyleTheme
-    ? "focus-visible:border-[color:var(--setta-section-style-outline)]"
-    : "focus-visible:border-blue-300 dark:focus-visible:border-blue-400/50";
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const canvasOwnedFilterIcon =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionParamFilterIcon(sectionId);
-  const canvasOwnedFilterUnderline =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionParamFilterUnderline(sectionId);
+  const inputColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
+    : "text-setta-700 placeholder-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -547,34 +498,21 @@ function ParamFilter({
     <search
       className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${includeCallablePadding ? "py-1" : ""}`}
     >
-      <i
-        className={`gg-sort-az -mr-2 ${sortIconColorClassName} ${canvasOwnedFilterIcon ? "opacity-0" : ""}`}
-        data-canvas-owned-filter-icon={
-          canvasOwnedFilterIcon ? "true" : undefined
-        }
+      <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
+      <input
+        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+        value={paramFilterValue}
+        className={`min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputColorClassName}`}
+        placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+        tabIndex={0}
+        onChange={onSearchChange}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            e.currentTarget.blur();
+            // focusOnSection(null, sectionId, false);
+          }
+        }}
       />
-      <span className="relative min-w-0 flex-1">
-        <input
-          id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-          value={paramFilterValue}
-          className={`peer/dictfilter min-w-0 w-full cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputTextColorClassName} ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`}
-          placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-          tabIndex={0}
-          onChange={onSearchChange}
-          onKeyDown={(e) => {
-            if (e.code === "Escape") {
-              e.currentTarget.blur();
-              // focusOnSection(null, sectionId, false);
-            }
-          }}
-        />
-        {canvasOwnedFilterUnderline ? (
-          <span
-            className={`pointer-events-none absolute bottom-0 left-0 right-0 border-b border-setta-200/50 opacity-0 dark:border-setta-600/30 ${hasSectionStyleTheme ? "peer-focus-visible/dictfilter:border-[color:var(--setta-section-style-outline)]" : "peer-focus-visible/dictfilter:border-blue-300 dark:peer-focus-visible/dictfilter:border-blue-400/50"} peer-focus-visible/dictfilter:opacity-100`}
-            data-canvas-owned-underline="true"
-          />
-        ) : null}
-      </span>
     </search>
   );
 }
