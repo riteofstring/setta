@@ -60,8 +60,8 @@ func TestBuildLauncherInstallMetadataDefaultsWorkspaceBehaviorAndRoundTripsField
 		t.Fatal("expected launcher metadata to load")
 	}
 
-	if loaded.SchemaVersion != LauncherMetadataSchemaVersion {
-		t.Fatalf("expected schema version %d, got %d", LauncherMetadataSchemaVersion, loaded.SchemaVersion)
+	if loaded.SchemaVersion != launcherMetadataSchemaVersion {
+		t.Fatalf("expected schema version %d, got %d", launcherMetadataSchemaVersion, loaded.SchemaVersion)
 	}
 	if !reflect.DeepEqual(loaded.TargetCommand, metadata.TargetCommand) {
 		t.Fatalf("expected target command %#v, got %#v", metadata.TargetCommand, loaded.TargetCommand)

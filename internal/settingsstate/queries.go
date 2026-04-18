@@ -47,13 +47,6 @@ type AutoBackupPolicy struct {
 	KeepLastN        int
 }
 
-const (
-	RenameRefactorModeAlwaysAsk    = projectstate.RenameRefactorModeAlwaysAsk
-	RenameRefactorModeAlwaysRename = projectstate.RenameRefactorModeAlwaysRename
-	RenameRefactorModeNeverRename  = projectstate.RenameRefactorModeNeverRename
-	DefaultRenameRefactorMode      = projectstate.DefaultRenameRefactorMode
-)
-
 type sectionSizingDimensionSpec struct {
 	fieldName string
 	fallback  func(projectstate.AutoLayoutSectionMinDimensions) float64
@@ -192,7 +185,7 @@ func CompletionGuardEnabled(document Document) (bool, error) {
 
 func RenameRefactorModeForDocument(document Document) (projectstate.RenameRefactorMode, error) {
 	if document == nil {
-		return projectstate.DefaultRenameRefactorMode, nil
+		return projectstate.RenameRefactorModeAlwaysAsk, nil
 	}
 
 	backend, ok, err := objectField(document, "backend")
@@ -200,7 +193,7 @@ func RenameRefactorModeForDocument(document Document) (projectstate.RenameRefact
 		return "", err
 	}
 	if !ok {
-		return projectstate.DefaultRenameRefactorMode, nil
+		return projectstate.RenameRefactorModeAlwaysAsk, nil
 	}
 
 	value, ok, err := stringField(backend, "renameRefactorMode")
@@ -208,7 +201,7 @@ func RenameRefactorModeForDocument(document Document) (projectstate.RenameRefact
 		return "", err
 	}
 	if !ok {
-		return projectstate.DefaultRenameRefactorMode, nil
+		return projectstate.RenameRefactorModeAlwaysAsk, nil
 	}
 
 	switch strings.ToUpper(strings.TrimSpace(value)) {

@@ -55,12 +55,6 @@ var (
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
 
-const (
-	ChatPermissionModeMinimal          = projectstate.ChatPermissionModeMinimal
-	ChatPermissionModeYolo             = projectstate.ChatPermissionModeYOLO
-	ChatPermissionModeConfigTomlCustom = projectstate.ChatPermissionModeConfigTomlCustom
-)
-
 type Executor interface {
 	Start(context.Context, StartRequest) (StartResponse, error)
 }
@@ -1126,12 +1120,12 @@ func (s *SendService) getLatestRunForExternalChat(chatID string, projectConfigID
 
 func validatePermissionMode(mode ChatPermissionMode) (ChatPermissionMode, error) {
 	switch ChatPermissionMode(strings.TrimSpace(string(mode))) {
-	case ChatPermissionModeMinimal:
-		return ChatPermissionModeMinimal, nil
-	case ChatPermissionModeYolo:
-		return ChatPermissionModeYolo, nil
-	case ChatPermissionModeConfigTomlCustom:
-		return ChatPermissionModeConfigTomlCustom, nil
+	case projectstate.ChatPermissionModeMinimal:
+		return projectstate.ChatPermissionModeMinimal, nil
+	case projectstate.ChatPermissionModeYOLO:
+		return projectstate.ChatPermissionModeYOLO, nil
+	case projectstate.ChatPermissionModeConfigTomlCustom:
+		return projectstate.ChatPermissionModeConfigTomlCustom, nil
 	case "":
 		return "", ErrPermissionModeRequired
 	default:
@@ -1174,23 +1168,23 @@ func buildExecutionPolicyPrompt(permissionMode ChatPermissionMode, searchEnabled
 }
 
 func resolveExternalApprovalPolicyOverride(permissionMode ChatPermissionMode, toolType externalagentconfigs.ToolType) *string {
-	if permissionMode == ChatPermissionModeConfigTomlCustom {
+	if permissionMode == projectstate.ChatPermissionModeConfigTomlCustom {
 		return nil
 	}
 	switch toolType {
 	case externalagentconfigs.ToolTypeClaudeCode:
-		if permissionMode == ChatPermissionModeMinimal {
+		if permissionMode == projectstate.ChatPermissionModeMinimal {
 			return stringPtr("default")
 		}
-		if permissionMode == ChatPermissionModeYolo {
+		if permissionMode == projectstate.ChatPermissionModeYOLO {
 			return stringPtr("bypassPermissions")
 		}
 		return nil
 	default:
-		if permissionMode == ChatPermissionModeMinimal {
+		if permissionMode == projectstate.ChatPermissionModeMinimal {
 			return stringPtr("on-request")
 		}
-		if permissionMode == ChatPermissionModeYolo {
+		if permissionMode == projectstate.ChatPermissionModeYOLO {
 			return stringPtr("never")
 		}
 		return nil
@@ -1198,16 +1192,16 @@ func resolveExternalApprovalPolicyOverride(permissionMode ChatPermissionMode, to
 }
 
 func resolveExternalSandboxPolicyOverride(permissionMode ChatPermissionMode, toolType externalagentconfigs.ToolType) *string {
-	if permissionMode == ChatPermissionModeConfigTomlCustom {
+	if permissionMode == projectstate.ChatPermissionModeConfigTomlCustom {
 		return nil
 	}
 	if toolType != externalagentconfigs.ToolTypeCodex {
 		return nil
 	}
-	if permissionMode == ChatPermissionModeMinimal {
+	if permissionMode == projectstate.ChatPermissionModeMinimal {
 		return stringPtr("workspace-write")
 	}
-	if permissionMode == ChatPermissionModeYolo {
+	if permissionMode == projectstate.ChatPermissionModeYOLO {
 		return stringPtr("danger-full-access")
 	}
 	return nil

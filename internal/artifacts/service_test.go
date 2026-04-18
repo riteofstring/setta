@@ -559,7 +559,7 @@ func TestServiceRejectsOversizedFileArtifactsAndOutsideRootDeletes(t *testing.T)
 
 	service, paths := newArtifactTestService(t)
 
-	oversizedPayload := make([]byte, defaultMaxGenericFileBytes+1)
+	oversizedPayload := make([]byte, DefaultMaxGenericFileBytes+1)
 	oversizedRef, err := paths.binaryStore.StoreBytes(oversizedPayload, "application/octet-stream", false)
 	if err != nil {
 		t.Fatalf("store oversized payload: %v", err)

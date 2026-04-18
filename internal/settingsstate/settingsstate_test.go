@@ -51,8 +51,12 @@ func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenameRefactorModeForDocument returned error: %v", err)
 	}
-	if mode != DefaultRenameRefactorMode {
-		t.Fatalf("expected default rename mode %q, got %q", DefaultRenameRefactorMode, mode)
+	if mode != projectstate.RenameRefactorModeAlwaysAsk {
+		t.Fatalf(
+			"expected default rename mode %q, got %q",
+			projectstate.RenameRefactorModeAlwaysAsk,
+			mode,
+		)
 	}
 
 	enabled, err := AutoRefetchCallableParamsOnLSPMismatchEnabled(document)
@@ -79,7 +83,7 @@ func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenameRefactorModeForDocument explicit value: %v", err)
 	}
-	if mode != RenameRefactorModeNeverRename {
+	if mode != projectstate.RenameRefactorModeNeverRename {
 		t.Fatalf("expected explicit rename mode NEVER_RENAME, got %q", mode)
 	}
 

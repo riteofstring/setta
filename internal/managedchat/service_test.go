@@ -1026,7 +1026,7 @@ func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
 		ProjectConfigID:         "project-alpha",
 		AllowUnscoped:           true,
 		FrontendAffinityToken:   stringPtr("  frontend-managed  "),
-		PermissionMode:          ChatPermissionModeYolo,
+		PermissionMode:          projectstate.ChatPermissionModeYOLO,
 		SearchEnabled:           false,
 		AppGenerationMode:       stringPtr(string(agentruns.AppGenerationModeJSONRender)),
 		AppSpecStreamingEnabled: true,
@@ -1092,7 +1092,7 @@ func TestServiceStartChatRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
 		ProjectConfigID:       "project-alpha",
 		AllowUnscoped:         true,
 		FrontendAffinityToken: stringPtr("   "),
-		PermissionMode:        ChatPermissionModeMinimal,
+		PermissionMode:        projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:         false,
 	})
 	if !errors.Is(err, ErrFrontendAffinityTokenInvalid) {
@@ -1122,7 +1122,7 @@ func TestServiceStartChatAllowsImageModeWithCurrentImageAttachment(t *testing.T)
 		Thinking:          false,
 		ProjectConfigID:   "project-alpha",
 		AllowUnscoped:     true,
-		PermissionMode:    ChatPermissionModeMinimal,
+		PermissionMode:    projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:     false,
 		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		AdditionalInputs: map[string]any{
@@ -1151,7 +1151,7 @@ func TestServiceStartChatRejectsImageModeWithoutCurrentOrRetainedImageAttachment
 		Thinking:          false,
 		ProjectConfigID:   "project-alpha",
 		AllowUnscoped:     true,
-		PermissionMode:    ChatPermissionModeMinimal,
+		PermissionMode:    projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:     false,
 		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		AdditionalInputs: map[string]any{
@@ -1180,7 +1180,7 @@ func TestServiceStartChatOmitsAppGenerationPromptWhenModeUnset(t *testing.T) {
 		Thinking:        false,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -1228,7 +1228,7 @@ func TestServiceStartChatContinueFromChatSeedsExternalSourceHistory(t *testing.T
 		EngineConfigID:     "engine-managed",
 		ProjectConfigID:    "project-alpha",
 		AllowUnscoped:      true,
-		PermissionMode:     ChatPermissionModeMinimal,
+		PermissionMode:     projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:      true,
 	})
 	if err != nil {
@@ -1281,7 +1281,7 @@ func TestServiceStartChatContinueFromChatRejectsScriptableSourceHistory(t *testi
 		EngineConfigID:     "engine-managed",
 		ProjectConfigID:    "project-alpha",
 		AllowUnscoped:      true,
-		PermissionMode:     ChatPermissionModeMinimal,
+		PermissionMode:     projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:      true,
 	})
 	if !errors.Is(err, ErrChatEngineMismatch) {
@@ -1321,7 +1321,7 @@ func TestServiceStartChatRejectsScriptableHistoryOnReusedChatID(t *testing.T) {
 		EngineConfigID:  "engine-managed",
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if !errors.Is(err, ErrChatEngineMismatch) {
@@ -1360,7 +1360,7 @@ func TestServiceStartChatBranchEditMissingMessageReturnsNotFound(t *testing.T) {
 		AllowUnscoped:       true,
 		BranchParentChatID:  stringPtr("chat-parent"),
 		BranchFromMessageID: stringPtr("missing"),
-		PermissionMode:      ChatPermissionModeMinimal,
+		PermissionMode:      projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:       true,
 	})
 	var branchErr *BranchMessageNotFoundError
@@ -1382,7 +1382,7 @@ func TestNormalizeStartChatRequestRejectsContinueFromWithBranchEdits(t *testing.
 		ContinueFromChatID:  stringPtr("chat-seed"),
 		BranchParentChatID:  stringPtr("chat-parent"),
 		BranchFromMessageID: stringPtr("msg-1"),
-		PermissionMode:      ChatPermissionModeMinimal,
+		PermissionMode:      projectstate.ChatPermissionModeMinimal,
 	})
 	if !errors.Is(err, ErrContinueFromChatWithBranchEdits) {
 		t.Fatalf("expected ErrContinueFromChatWithBranchEdits, got %v", err)
@@ -1407,7 +1407,7 @@ func TestServiceBuildStartChatInputsAddsBranchMetadata(t *testing.T) {
 		BranchParentChatID:    stringPtr("chat-parent"),
 		BranchFromMessageID:   stringPtr("msg-1"),
 		IsBranchRequest:       true,
-		PermissionMode:        ChatPermissionModeYolo,
+		PermissionMode:        projectstate.ChatPermissionModeYOLO,
 		SearchEnabled:         true,
 	}
 	parentRun := agentruns.NewRun(nil, map[string]any{
@@ -1514,7 +1514,7 @@ func TestServiceStartChatReturnsExecutorUnavailableWhenStarterDisabled(t *testin
 		EngineConfigID:  "engine-managed",
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if !errors.Is(err, agentruns.ErrManagedExecutorUnavailable) {

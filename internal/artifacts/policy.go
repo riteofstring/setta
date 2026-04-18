@@ -6,11 +6,8 @@ import (
 )
 
 const (
-	defaultMaxChatFileBytes    = 25 * 1024 * 1024
-	defaultMaxGenericFileBytes = 25 * 1024 * 1024
-
-	DefaultMaxChatFileBytes    = defaultMaxChatFileBytes
-	DefaultMaxGenericFileBytes = defaultMaxGenericFileBytes
+	DefaultMaxChatFileBytes    = 25 * 1024 * 1024
+	DefaultMaxGenericFileBytes = 25 * 1024 * 1024
 )
 
 type ScopeUploadPolicy struct {
@@ -27,11 +24,11 @@ type UploadPolicies struct {
 func DefaultUploadPolicies() UploadPolicies {
 	return UploadPolicies{
 		Chat: ScopeUploadPolicy{
-			MaxFileBytes: defaultMaxChatFileBytes,
+			MaxFileBytes: DefaultMaxChatFileBytes,
 			MaxFileLabel: "25 MB",
 		},
 		Generic: ScopeUploadPolicy{
-			MaxFileBytes: defaultMaxGenericFileBytes,
+			MaxFileBytes: DefaultMaxGenericFileBytes,
 			MaxFileLabel: "25 MB",
 		},
 	}

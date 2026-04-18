@@ -10,15 +10,10 @@ import (
 )
 
 const (
-	defaultAuthCookieName    = "setta_auth"
-	defaultBootstrapTokenTTL = 10 * time.Minute
-	defaultAuthCookieTTL     = 12 * time.Hour
-	defaultAuthRefreshWindow = time.Hour
-
-	DefaultAuthCookieName    = defaultAuthCookieName
-	DefaultBootstrapTokenTTL = defaultBootstrapTokenTTL
-	DefaultAuthCookieTTL     = defaultAuthCookieTTL
-	DefaultAuthRefreshWindow = defaultAuthRefreshWindow
+	DefaultAuthCookieName    = "setta_auth"
+	DefaultBootstrapTokenTTL = 10 * time.Minute
+	DefaultAuthCookieTTL     = 12 * time.Hour
+	DefaultAuthRefreshWindow = time.Hour
 )
 
 var (
@@ -89,7 +84,7 @@ func (s *Service) SupportsSessionAuth() bool {
 
 func (s *Service) AuthCookieBaseName() string {
 	if s == nil {
-		return defaultAuthCookieName
+		return DefaultAuthCookieName
 	}
 	return s.settings.CookieBaseName
 }
@@ -103,7 +98,7 @@ func (s *Service) CurrentSession() (*CurrentSession, bool) {
 
 func (s *Service) AuthCookieRefreshWindow() time.Duration {
 	if s == nil {
-		return defaultAuthRefreshWindow
+		return DefaultAuthRefreshWindow
 	}
 	return s.settings.CookieRefreshWindow
 }
@@ -257,11 +252,11 @@ func ExtractBearerToken(headers http.Header) string {
 func defaultSettings(profileCookieName string, envLookup func(string) (string, bool)) Settings {
 	return Settings{
 		CookieBaseName:      ResolveCookieBaseName(profileCookieName, envLookup),
-		CookieTTL:           defaultAuthCookieTTL,
-		CookieRefreshWindow: defaultAuthRefreshWindow,
+		CookieTTL:           DefaultAuthCookieTTL,
+		CookieRefreshWindow: DefaultAuthRefreshWindow,
 		CookieSameSite:      http.SameSiteLaxMode,
 		CookieSecure:        false,
-		BootstrapTokenTTL:   defaultBootstrapTokenTTL,
+		BootstrapTokenTTL:   DefaultBootstrapTokenTTL,
 	}
 }
 
@@ -273,7 +268,7 @@ func ResolveCookieBaseName(profileCookieName string, envLookup func(string) (str
 	if envValue := lookupTrimmed(envLookup, "SETTA_AUTH_COOKIE_NAME"); envValue != "" {
 		cookieName = envValue
 	}
-	return normalizeCookieName(cookieName, defaultAuthCookieName)
+	return normalizeCookieName(cookieName, DefaultAuthCookieName)
 }
 
 func normalizeCookieName(raw string, fallback string) string {
@@ -297,7 +292,7 @@ func normalizeCookieName(raw string, fallback string) string {
 }
 
 func NormalizeCookieBaseName(raw string) string {
-	return normalizeCookieName(raw, defaultAuthCookieName)
+	return normalizeCookieName(raw, DefaultAuthCookieName)
 }
 
 func CookieName(baseName string, sessionID string) (string, error) {

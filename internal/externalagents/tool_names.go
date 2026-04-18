@@ -1,6 +1,6 @@
 package externalagents
 
 const (
-	ApprovalToolName  = codexApprovalToolName
+	ApprovalToolName  = "setta.approval"
 	TodoWriteToolName = "TodoWrite"
 )

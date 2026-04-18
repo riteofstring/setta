@@ -505,7 +505,7 @@ func TestIntentServiceConsumeIntentRejectsTamperedExpiredAndReplayedTokens(t *te
 	}
 
 	expiredToken := createIntent()
-	currentTime = currentTime.Add(defaultIntentTTLSeconds + time.Second)
+	currentTime = currentTime.Add(DefaultIntentTTL + time.Second)
 	_, _, err = service.ConsumeIntent(currentSession, expiredToken)
 	if err == nil {
 		t.Fatal("expected expired token to fail")

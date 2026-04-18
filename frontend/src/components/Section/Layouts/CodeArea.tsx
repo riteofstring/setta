@@ -74,7 +74,6 @@ type GenPythonLineStartInfo = {
   lineIndex: number;
 };
 const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
-const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
 const GEN_CODE_RADIUS = "6px";
 const GEN_CODE_RADIUS_TOP = `${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS} 0 0`;
 const GEN_CODE_RADIUS_BOTTOM = `0 0 ${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS}`;
@@ -208,17 +207,17 @@ function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (wrappedStart < 0) {
     return INVALID_GEN_PYTHON_DOC_PARTS;
   }
-  const generatedStart = wrappedStart + GEN_CODE_SEPARATOR_LENGTH;
+  const generatedStart = wrappedStart + GEN_CODE_SEPARATOR.length;
   const generatedEnd = generatedStart + generated.length;
   const prefixDoc = doc.slice(0, generatedStart);
   const suffixDoc = doc.slice(generatedEnd);
   const prefix =
-    GEN_CODE_SEPARATOR_LENGTH > 0 && prefixDoc.endsWith(GEN_CODE_SEPARATOR)
-      ? prefixDoc.slice(0, -GEN_CODE_SEPARATOR_LENGTH)
+    GEN_CODE_SEPARATOR.length > 0 && prefixDoc.endsWith(GEN_CODE_SEPARATOR)
+      ? prefixDoc.slice(0, -GEN_CODE_SEPARATOR.length)
       : prefixDoc;
   const suffixBoundaryLength =
-    GEN_CODE_SEPARATOR_LENGTH > 0 && suffixDoc.startsWith(GEN_CODE_SEPARATOR)
-      ? GEN_CODE_SEPARATOR_LENGTH
+    GEN_CODE_SEPARATOR.length > 0 && suffixDoc.startsWith(GEN_CODE_SEPARATOR)
+      ? GEN_CODE_SEPARATOR.length
       : 0;
   const suffix =
     suffixBoundaryLength > 0
@@ -416,11 +415,11 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     }
     const currentReadOnlyStart = Math.max(
       0,
-      currentParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
+      currentParts.generatedStart - GEN_CODE_SEPARATOR.length,
     );
     const currentReadOnlyEnd = Math.min(
       currentDoc.length,
-      currentParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
+      currentParts.generatedEnd + GEN_CODE_SEPARATOR.length,
     );
     let touchesReadOnly = false;
     tr.changes.iterChanges((from, to) => {
@@ -438,11 +437,11 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       }
       const readOnlyStart = Math.max(
         0,
-        docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
+        docParts.generatedStart - GEN_CODE_SEPARATOR.length,
       );
       const readOnlyEnd = Math.min(
         doc.length,
-        docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
+        docParts.generatedEnd + GEN_CODE_SEPARATOR.length,
       );
       const decorations = [
         ...getGenReadOnlyLineDecorations(doc, readOnlyStart, readOnlyEnd),

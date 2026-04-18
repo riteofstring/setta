@@ -70,12 +70,6 @@ var (
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
 
-const (
-	ChatPermissionModeMinimal          = projectstate.ChatPermissionModeMinimal
-	ChatPermissionModeYolo             = projectstate.ChatPermissionModeYOLO
-	ChatPermissionModeConfigTomlCustom = projectstate.ChatPermissionModeConfigTomlCustom
-)
-
 type LiveChatStateProvider interface {
 	GetLiveChatState(runID string) (*ChatState, error)
 }
@@ -1051,12 +1045,12 @@ func filterRunsByProjectConfigID(runs []agentruns.Run, projectConfigID string) [
 
 func validatePermissionMode(mode ChatPermissionMode) (ChatPermissionMode, error) {
 	switch ChatPermissionMode(strings.TrimSpace(string(mode))) {
-	case ChatPermissionModeMinimal:
-		return ChatPermissionModeMinimal, nil
-	case ChatPermissionModeYolo:
-		return ChatPermissionModeYolo, nil
-	case ChatPermissionModeConfigTomlCustom:
-		return ChatPermissionModeConfigTomlCustom, nil
+	case projectstate.ChatPermissionModeMinimal:
+		return projectstate.ChatPermissionModeMinimal, nil
+	case projectstate.ChatPermissionModeYOLO:
+		return projectstate.ChatPermissionModeYOLO, nil
+	case projectstate.ChatPermissionModeConfigTomlCustom:
+		return projectstate.ChatPermissionModeConfigTomlCustom, nil
 	case "":
 		return "", ErrPermissionModeRequired
 	default:

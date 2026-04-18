@@ -29,7 +29,6 @@ const (
 	maxPathCheckBytes   = 8192
 	maxPathCheckStdout  = 4096
 	maxWorktreeBytes    = 32_000
-	maxUntrackedRead    = maxDiffBytes
 )
 
 type DiffMode string
@@ -574,11 +573,11 @@ func readUntrackedDiffData(relPath string, absPath string, fileSize int64, initi
 	}
 	defer file.Close()
 
-	isTruncated := initialTruncated || fileSize > maxUntrackedRead
-	data := make([]byte, maxUntrackedRead+1)
+	isTruncated := initialTruncated || fileSize > maxDiffBytes
+	data := make([]byte, maxDiffBytes+1)
 	readCount, readErr := io.ReadFull(file, data)
 	if readErr == nil {
-		return data[:maxUntrackedRead], true, nil
+		return data[:maxDiffBytes], true, nil
 	}
 	if errors.Is(readErr, io.ErrUnexpectedEOF) || errors.Is(readErr, io.EOF) {
 		return data[:readCount], isTruncated, nil

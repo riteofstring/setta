@@ -218,10 +218,6 @@ type ActiveFloatingSnapResize = {
 
 const DOCK_BAR_HEIGHT_PX = 40;
 const DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX = 0;
-const VIEW_MODE_TABS_HEIGHT_PX = PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX;
-const SIDE_RAIL_WIDTH_PX = PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
-const FALLBACK_WORKSPACE_TOP_INSET_PX =
-  PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
 const DOCK_SURFACE_MAX_WIDTH_PX = 1160;
 const DOCK_SURFACE_HORIZONTAL_MARGIN_PX = 20;
 const DOCK_WINDOW_DEFAULT_WIDTH_PX = 460;
@@ -2518,8 +2514,8 @@ function MaximizedWindowLayer({
               height: trackedGitPaneGraphRect.height,
             }
           : {
-              left: SIDE_RAIL_WIDTH_PX,
-              right: SIDE_RAIL_WIDTH_PX,
+              left: PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
+              right: PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
               top: workspaceTopInsetPx,
               bottom: dockBottomOffsetPx,
             }),
@@ -2946,7 +2942,7 @@ export function ProjectChatBottomDock() {
   const [viewportWidthPx, setViewportWidthPx] = useState(0);
   const [viewportHeightPx, setViewportHeightPx] = useState(0);
   const [workspaceTopInsetPx, setWorkspaceTopInsetPx] = useState(
-    FALLBACK_WORKSPACE_TOP_INSET_PX,
+    PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
   );
   const [isCanvasVisibilitySuppressed, setIsCanvasVisibilitySuppressed] =
     useState(false);
@@ -2963,7 +2959,9 @@ export function ProjectChatBottomDock() {
   >({});
   const [trackedGitPaneGraphRect, setTrackedGitPaneGraphRect] =
     useState<PaneTrackedRect | null>(null);
-  const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
+  const dockBottomOffsetPx = hasViewModeTabs
+    ? PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX
+    : 0;
   const floatingBottomInsetPx = dockBottomOffsetPx;
   const pillViewportRef = useRef<HTMLDivElement | null>(null);
   const fullMeasureRowRef = useRef<HTMLDivElement | null>(null);
@@ -3357,7 +3355,7 @@ export function ProjectChatBottomDock() {
     [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx],
   );
   const dockSurfaceRightPx =
-    SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
+    PROJECT_CHAT_SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
   const showDockManagerMenu = useMemo(
     () => canCreateManagedChatWindow || orderedPills.length > 0,
     [canCreateManagedChatWindow, orderedPills.length],
@@ -3369,13 +3367,15 @@ export function ProjectChatBottomDock() {
   const dockSurfaceAvailableWidthPx = useMemo(() => {
     const fallbackViewportWidth =
       DOCK_SURFACE_MAX_WIDTH_PX +
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 +
+      (PROJECT_CHAT_SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) *
+        2 +
       dockStripReservedWidthPx;
     const resolvedViewportWidth =
       viewportWidthPx > 0 ? viewportWidthPx : fallbackViewportWidth;
     const usableViewportWidthPx =
       resolvedViewportWidth -
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 -
+      (PROJECT_CHAT_SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) *
+        2 -
       dockStripReservedWidthPx;
     return clampNumber(usableViewportWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
   }, [dockStripReservedWidthPx, viewportWidthPx]);
@@ -3671,7 +3671,7 @@ export function ProjectChatBottomDock() {
       return "0px";
     }
     const insetPx =
-      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2;
+      (PROJECT_CHAT_SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2;
     return `min(${dockSurfaceTargetWidthPx}px, ${DOCK_SURFACE_MAX_WIDTH_PX}px, calc(100vw - ${insetPx + dockStripReservedWidthPx}px))`;
   }, [dockStripReservedWidthPx, dockSurfaceTargetWidthPx]);
   const dockSurfaceHeightCss = useMemo(() => {
@@ -3882,7 +3882,7 @@ export function ProjectChatBottomDock() {
         viewportHeightPx: viewport?.height ?? viewportHeightPx,
         workspaceTopInsetPx,
         bottomInsetPx: floatingBottomInsetPx,
-        sideRailWidthPx: SIDE_RAIL_WIDTH_PX,
+        sideRailWidthPx: PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
         minWidthPx: FLOATING_WINDOW_MIN_WIDTH_PX,
         minHeightPx: FLOATING_WINDOW_MIN_HEIGHT_PX,
       }),
@@ -5077,7 +5077,8 @@ export function ProjectChatBottomDock() {
         className="pointer-events-none fixed"
         style={{
           zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
-          left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+          left:
+            PROJECT_CHAT_SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
           right: dockSurfaceRightPx,
           bottom: dockBottomOffsetPx,
         }}
@@ -5338,7 +5339,8 @@ export function ProjectChatBottomDock() {
         className="pointer-events-none fixed"
         style={{
           zIndex: CHAT_WINDOW_CHROME_LAYER_Z_INDEX,
-          left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+          left:
+            PROJECT_CHAT_SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
           right: dockSurfaceRightPx,
           bottom: dockBottomOffsetPx,
         }}

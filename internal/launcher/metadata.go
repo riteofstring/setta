@@ -15,7 +15,6 @@ import (
 const (
 	launcherMetadataFileName         = "launcher-install.json"
 	launcherMetadataSchemaVersion    = 3
-	LauncherMetadataSchemaVersion    = launcherMetadataSchemaVersion
 	LauncherWorkspaceBehaviorDefault = LauncherWorkspaceBehaviorLastUsedOrPrompt
 )
 

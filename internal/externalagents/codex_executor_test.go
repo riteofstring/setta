@@ -37,7 +37,7 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -84,7 +84,7 @@ func TestCodexExecutorPersistsConfigDerivedMCPStatusSnapshotWhenProbeReturnsEmpt
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -129,7 +129,7 @@ func TestCodexExecutorResumesExplicitThreadIDAndPersistsIt(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 		AdditionalInputs: map[string]any{
 			"threadId": "thread-explicit-resume",
@@ -373,7 +373,7 @@ func TestCodexExecutorPersistsUsageFromThreadTokenUsageUpdated(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -411,7 +411,7 @@ func TestCodexExecutorPersistsUsageDuringActiveRun(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -453,7 +453,7 @@ func TestCodexExecutorSkipsUsageWithoutThreadTokenUsageUpdated(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -484,7 +484,7 @@ func TestCodexExecutorFailsRunWhenSettaToolCallNeverStarts(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -523,7 +523,7 @@ func TestCodexExecutorFailsRunWhenSettaToolCompletesButCodexNeverReturnsResult(t
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -565,7 +565,7 @@ func TestCodexExecutorFailsRunWhenRawSettaToolCallNeverStarts(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -604,7 +604,7 @@ func TestCodexExecutorFailsRunWhenRawSettaToolCompletesButCodexNeverReturnsResul
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -642,7 +642,7 @@ func TestCodexExecutorIgnoresSlowMCPStatusProbeAndCompletesRun(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -689,7 +689,7 @@ func TestCodexExecutorRefreshesMCPStatusAtCompletionWhenRuntimeStatusAppearsLate
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -730,7 +730,7 @@ func TestCodexExecutorPersistsDelayedMCPStatusAfterRunCompletion(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -809,7 +809,7 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
 		AgentProfileID:  &profileID,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -929,7 +929,7 @@ func TestCodexExecutorOmitsCompletionReportToolWhenCompletionGuardDisabled(t *te
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
 		AgentProfileID:  &profileID,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -1163,7 +1163,7 @@ func TestCodexExecutorWritesEnabledToolsForUnsetProfileFromRegistry(t *testing.T
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -1214,7 +1214,7 @@ func TestCodexExecutorWritesEnabledToolsForAllowAllProfileFromRegistry(t *testin
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
 		AgentProfileID:  &profileID,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -1255,7 +1255,7 @@ func TestCodexExecutorPassesSessionScopedCODEXHOMEToProcessEnv(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -1708,7 +1708,7 @@ func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -2006,7 +2006,7 @@ func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -2088,7 +2088,7 @@ func TestCodexExecutorPersistsRawToolItemsAndBufferedOutput(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {

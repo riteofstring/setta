@@ -7102,31 +7102,7 @@ type WatchCodeRegistryEntry = {
 /**
  * WebsocketMessageType
  */
-export type WebsocketMessageType =
-  | "Notification"
-  | "AllProjectMetadata"
-  | "AllConnections"
-  | "FrontendIdentity"
-  | "ListenerCoverageSnapshot"
-  | "UpdateArtifacts"
-  | "LLMStreamingResponse"
-  | "AIFollowToolArgumentsUpdate"
-  | "AIFollowToolResultUpdate"
-  | "UISettingReveal"
-  | "LSPDiagnostics"
-  | "NameValidationErrors"
-  | "LLMConfigUpdated"
-  | "LLMApiKeysUpdated"
-  | "ExternalAgentConfigsUpdated"
-  | "EngineConfigsUpdated"
-  | "AgentProfilesUpdated"
-  | "AgentRunUpdated"
-  | "PromptTemplatesUpdated"
-  | "TranscriptionProfilesUpdated"
-  | "UpdateFrontendProjectState"
-  | "UpdateSettings"
-  | "ReturnRenameRefactorResults"
-  | "BackendLogEvent";
+export type WebsocketMessageType = "BackendLogEvent";
 
 /**
  * WebsocketTransportRoutes

@@ -561,7 +561,7 @@ func questionResponseID(state QuestionState, fallback string) string {
 func (r *Runtime) appendApprovalResponseEvents(run *agentruns.Run, approvalID string, approved bool) {
 	appendRunEvent(run, "tool_result", map[string]any{
 		"toolCallId": approvalID,
-		"toolName":   codexApprovalToolName,
+		"toolName":   ApprovalToolName,
 		"isError":    !approved,
 	}, r.timeNow())
 	appendRunEvent(run, "approval_response", map[string]any{

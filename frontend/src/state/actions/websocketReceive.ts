@@ -123,8 +123,6 @@ const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = buildBootstrapPageUrl();
 const FRONTEND_WEBSOCKET_ROUTE = getFrontendWebsocketRoute();
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
-const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
-  C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
@@ -132,9 +130,9 @@ let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
 let authRefreshInFlight = false;
-let authRefreshWindowSeconds = DEFAULT_AUTH_REFRESH_WINDOW_SECONDS;
+let authRefreshWindowSeconds = C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 let authRefreshIntervalMs = getAuthRefreshIntervalMs(
-  DEFAULT_AUTH_REFRESH_WINDOW_SECONDS,
+  C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
 );
 let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;

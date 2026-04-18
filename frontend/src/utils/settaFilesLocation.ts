@@ -1,9 +1,8 @@
 import { SettaFilesLocationPolicyConfig } from "utils/generatedTypes";
 
-const requestedSettaFilesLocations = SettaFilesLocationPolicyConfig.requested;
 if (
-  !requestedSettaFilesLocations ||
-  requestedSettaFilesLocations.length === 0
+  !SettaFilesLocationPolicyConfig.requested ||
+  SettaFilesLocationPolicyConfig.requested.length === 0
 ) {
   throw new Error(
     "SettaFilesLocationPolicyConfig.requested must include at least one location.",
@@ -12,14 +11,15 @@ if (
 const resolvedSettaFilesLocations =
   SettaFilesLocationPolicyConfig.resolved ?? [];
 const requestedSettaFilesLocationSet = new Set<string>(
-  requestedSettaFilesLocations,
+  SettaFilesLocationPolicyConfig.requested,
 );
 const resolvedSettaFilesLocationSet = new Set<string>(
   resolvedSettaFilesLocations,
 );
-const defaultSettaFilesLocation = requestedSettaFilesLocations[0];
+const defaultSettaFilesLocation = SettaFilesLocationPolicyConfig.requested[0];
 
-export type SettaFilesLocation = (typeof requestedSettaFilesLocations)[number];
+export type SettaFilesLocation =
+  (typeof SettaFilesLocationPolicyConfig.requested)[number];
 type ResolvedSettaFilesLocation = (typeof resolvedSettaFilesLocations)[number];
 
 export function normalizeSettaFilesLocation(

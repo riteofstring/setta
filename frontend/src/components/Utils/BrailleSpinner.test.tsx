@@ -7,9 +7,7 @@ import spinners from "unicode-animations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrailleSpinner } from "./BrailleSpinner";
 
-const BRAILLE_SPINNER = spinners.braille;
-const BRAILLE_SPINNER_FRAMES = [...BRAILLE_SPINNER.frames];
-const BRAILLE_SPINNER_INTERVAL_MS = BRAILLE_SPINNER.interval;
+const BRAILLE_SPINNER_FRAMES = [...spinners.braille.frames];
 
 describe("BrailleSpinner", () => {
   let host: HTMLDivElement;
@@ -47,12 +45,12 @@ describe("BrailleSpinner", () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
+      vi.advanceTimersByTime(spinners.braille.interval);
     });
     expect(host.textContent).toBe(BRAILLE_SPINNER_FRAMES[1]);
 
     await act(async () => {
-      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
+      vi.advanceTimersByTime(spinners.braille.interval);
     });
     expect(host.textContent).toBe(BRAILLE_SPINNER_FRAMES[2]);
   });
@@ -73,15 +71,15 @@ describe("BrailleSpinner", () => {
     expect(setIntervalSpy).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
+      vi.advanceTimersByTime(spinners.braille.interval);
     });
 
-    const spinners = Array.from(
+    const spinnerElements = Array.from(
       host.querySelectorAll('[data-unicode-spinner="braille"]'),
     );
-    expect(spinners).toHaveLength(10);
+    expect(spinnerElements).toHaveLength(10);
     expect(
-      spinners.every(
+      spinnerElements.every(
         (spinner) => spinner.textContent === BRAILLE_SPINNER_FRAMES[1],
       ),
     ).toBe(true);

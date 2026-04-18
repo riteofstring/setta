@@ -1,6 +1,10 @@
 package settingsstate
 
-import "testing"
+import (
+	"testing"
+
+	"setta/internal/projectstate"
+)
 
 func TestFrontendSettingsStateFromDocumentUsesOwnerContract(t *testing.T) {
 	document, err := DefaultDocument()
@@ -16,8 +20,12 @@ func TestFrontendSettingsStateFromDocumentUsesOwnerContract(t *testing.T) {
 		t.Fatalf("frontend settings state from document: %v", err)
 	}
 
-	if state.Backend.RenameRefactorMode != RenameRefactorModeAlwaysRename {
-		t.Fatalf("rename refactor mode = %q, want %q", state.Backend.RenameRefactorMode, RenameRefactorModeAlwaysRename)
+	if state.Backend.RenameRefactorMode != projectstate.RenameRefactorModeAlwaysRename {
+		t.Fatalf(
+			"rename refactor mode = %q, want %q",
+			state.Backend.RenameRefactorMode,
+			projectstate.RenameRefactorModeAlwaysRename,
+		)
 	}
 	if state.Backend.AutoRefetchCallableParamsOnLspMismatch {
 		t.Fatalf("expected auto refetch callable params on lsp mismatch to be false")

@@ -41,7 +41,6 @@ const (
 	codexToolResultTimeout     = 5 * time.Second
 	codexWatchdogPollInterval  = 250 * time.Millisecond
 	codexMaxStderrLines        = 200
-	codexApprovalToolName      = "setta.approval"
 	codexTurnCompletedMethod   = "turn/completed"
 	codexTurnFailedMethod      = "turn/failed"
 	codexTokenUsageMethod      = "thread/tokenUsage/updated"
@@ -2170,7 +2169,7 @@ func appendApprovalResultMessage(state *ChatState, approvalID string, approved b
 		"id":           "tool-result-" + approvalID,
 		"role":         "tool",
 		"tool_call_id": approvalID,
-		"tool_name":    codexApprovalToolName,
+		"tool_name":    ApprovalToolName,
 		"arguments":    map[string]any{},
 		"result": map[string]any{
 			"approved": approved,
@@ -2194,7 +2193,7 @@ func upsertApprovalMessage(state *ChatState, approvalID string, arguments map[st
 			map[string]any{
 				"id": approvalID,
 				"function": map[string]any{
-					"name":      codexApprovalToolName,
+					"name":      ApprovalToolName,
 					"arguments": cloneAnyMap(arguments),
 				},
 			},

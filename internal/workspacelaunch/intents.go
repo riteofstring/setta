@@ -20,7 +20,6 @@ import (
 
 const (
 	DefaultIntentTTL            = 10 * time.Minute
-	defaultIntentTTLSeconds     = DefaultIntentTTL
 	defaultMaxIntentsPerSession = 64
 	defaultMaxIntentsTotal      = 2048
 	launchIntentStoreFileName   = "workspace_launch_intents.json"
@@ -140,7 +139,7 @@ func NewIntentService(options IntentServiceOptions) (*IntentService, error) {
 		},
 		trustedOrigins: options.TrustedOrigins,
 		now:            now,
-		tokenManager:   auth.NewLaunchIntentTokenManager(defaultIntentTTLSeconds),
+		tokenManager:   auth.NewLaunchIntentTokenManager(DefaultIntentTTL),
 	}, nil
 }
 

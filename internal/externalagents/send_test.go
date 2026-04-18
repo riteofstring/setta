@@ -81,7 +81,7 @@ func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 		ProjectConfigID:       "project-alpha",
 		AllowUnscoped:         true,
 		FrontendAffinityToken: stringPtr("  frontend-external  "),
-		PermissionMode:        ChatPermissionModeMinimal,
+		PermissionMode:        projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:         false,
 		AdditionalInputs: map[string]any{
 			"stateMachineRunId": "workflow-run-1",
@@ -180,7 +180,7 @@ func TestSendServiceOmitsCompletionGatePromptWhenGuardDisabled(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -212,7 +212,7 @@ func TestSendServiceSnapshotsCompletionGuardSettingIntoRunInputs(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -267,7 +267,7 @@ func TestSendServiceBuildsClaudeAllowedToolsFromProfileWhenGuardEnabled(t *testi
 		AgentProfileID:  stringPtr(profile.ID),
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -316,7 +316,7 @@ func TestSendServiceOmitsClaudeCompletionReportToolWhenGuardDisabled(t *testing.
 		AgentProfileID:  stringPtr(profile.ID),
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -351,7 +351,7 @@ func TestSendServiceAppliesCodexThinkingReasoningDefaults(t *testing.T) {
 		Thinking:        true,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -397,7 +397,7 @@ func TestSendServiceComposesExternalPromptFromProfileAndAppGenerationMode(t *tes
 		Thinking:                false,
 		ProjectConfigID:         "project-alpha",
 		AllowUnscoped:           true,
-		PermissionMode:          ChatPermissionModeYolo,
+		PermissionMode:          projectstate.ChatPermissionModeYOLO,
 		SearchEnabled:           false,
 		AppSpecStreamingEnabled: true,
 		AppGenerationMode:       stringPtr(string(agentruns.AppGenerationModeJSONRender)),
@@ -470,7 +470,7 @@ func TestSendServiceLeavesConfiguredPoliciesRuntimeOwnedForConfigTomlCustom(t *t
 		Thinking:        false,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeConfigTomlCustom,
+		PermissionMode:  projectstate.ChatPermissionModeConfigTomlCustom,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -520,7 +520,7 @@ func TestSendServiceOmitsAppGenerationPromptWhenModeUnset(t *testing.T) {
 		Thinking:        false,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -548,13 +548,13 @@ func TestSendServiceAppliesAdapterSpecificApprovalOverrides(t *testing.T) {
 		{
 			name:           "claude minimal maps to default",
 			toolType:       externalagentconfigs.ToolTypeClaudeCode,
-			permissionMode: ChatPermissionModeMinimal,
+			permissionMode: projectstate.ChatPermissionModeMinimal,
 			wantApproval:   "default",
 		},
 		{
 			name:           "claude yolo maps to bypassPermissions",
 			toolType:       externalagentconfigs.ToolTypeClaudeCode,
-			permissionMode: ChatPermissionModeYolo,
+			permissionMode: projectstate.ChatPermissionModeYOLO,
 			wantApproval:   "bypassPermissions",
 		},
 	}
@@ -619,7 +619,7 @@ func TestSendServiceBuildsCodexAttachmentPayload(t *testing.T) {
 		Thinking:        false,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -672,7 +672,7 @@ func TestSendServiceBuildsClaudeAttachmentTextPayload(t *testing.T) {
 		Thinking:        false,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -737,7 +737,7 @@ func TestSendServiceSeedsContinuationMessagesFromPriorExternalChat(t *testing.T)
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -903,7 +903,7 @@ func TestSendServiceSeedsCodexThreadIDFromLatestExternalRun(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -990,7 +990,7 @@ func TestSendServiceIncludesCodexSettaMCPGuidanceAndLastKnownToolCount(t *testin
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeConfigTomlCustom,
+		PermissionMode:  projectstate.ChatPermissionModeConfigTomlCustom,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -1075,7 +1075,7 @@ func TestSendServiceSeedsClaudeSessionIDFromLatestExternalRun(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if err != nil {
@@ -1105,7 +1105,7 @@ func TestSendServiceRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
 		ProjectConfigID:       "project-alpha",
 		AllowUnscoped:         true,
 		FrontendAffinityToken: stringPtr("   "),
-		PermissionMode:        ChatPermissionModeYolo,
+		PermissionMode:        projectstate.ChatPermissionModeYOLO,
 		SearchEnabled:         false,
 	})
 	if !errors.Is(err, ErrFrontendAffinityTokenInvalid) {
@@ -1126,7 +1126,7 @@ func TestSendServiceRejectsImageModeWithoutCurrentOrRetainedImageAttachment(t *t
 		EngineConfigID:    fixture.engineID,
 		ProjectConfigID:   "project-alpha",
 		AllowUnscoped:     true,
-		PermissionMode:    ChatPermissionModeMinimal,
+		PermissionMode:    projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:     false,
 		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		AdditionalInputs: map[string]any{
@@ -1184,7 +1184,7 @@ func TestSendServiceAllowsImageModeWithRetainedImageModeHistory(t *testing.T) {
 		EngineConfigID:    fixture.engineID,
 		ProjectConfigID:   "project-alpha",
 		AllowUnscoped:     true,
-		PermissionMode:    ChatPermissionModeMinimal,
+		PermissionMode:    projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:     false,
 		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		AdditionalInputs: map[string]any{
@@ -1218,7 +1218,7 @@ func TestSendServiceRejectsMissingContinuationSource(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if !errors.Is(err, ErrContinueFromChatSourceNotFound) {
@@ -1288,7 +1288,7 @@ func TestSendServiceRejectsManagedContinuationSource(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if !errors.Is(err, ErrContinueFromChatSourceNotFound) {
@@ -1325,7 +1325,7 @@ func TestSendServiceRejectsChatEngineMismatch(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   true,
 	})
 	if !errors.Is(err, ErrChatEngineMismatch) {
@@ -1423,7 +1423,7 @@ func TestSendServicePreservesExplicitResumeIDsOverLatestExternalRun(t *testing.T
 				EngineConfigID:  fixture.engineID,
 				ProjectConfigID: "project-alpha",
 				AllowUnscoped:   true,
-				PermissionMode:  ChatPermissionModeMinimal,
+				PermissionMode:  projectstate.ChatPermissionModeMinimal,
 				SearchEnabled:   true,
 				AdditionalInputs: map[string]any{
 					testCase.inputKey: testCase.explicitValue,

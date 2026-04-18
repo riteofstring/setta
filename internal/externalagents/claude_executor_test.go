@@ -35,7 +35,7 @@ func TestClaudeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -100,7 +100,7 @@ func TestClaudeExecutorRunSurvivesCallerContextCancellation(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -142,7 +142,7 @@ func TestClaudeExecutorGeneratesTempMCPConfigWhenMissing(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -222,7 +222,7 @@ func TestClaudeExecutorPassesWhitelistedEnvIntoStartPayload(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -264,7 +264,7 @@ func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -322,7 +322,7 @@ func TestClaudeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -391,7 +391,7 @@ func TestClaudeExecutorRoutesMultipleQuestionResponsesThroughRuntime(t *testing.
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -487,7 +487,7 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
@@ -584,7 +584,7 @@ func TestClaudeExecutorPersistsThinkingBlocksAndContextWindowUsage(t *testing.T)
 		EngineConfigID:  fixture.engineID,
 		ProjectConfigID: "project-alpha",
 		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
 		SearchEnabled:   false,
 	})
 	if err != nil {
