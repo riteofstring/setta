@@ -403,7 +403,7 @@ function isActionablePath(path: string | null): path is string {
   const normalizedPath = path.trim().toLowerCase();
   return normalizedPath !== "";
 }
-export function canCreateCustomSkill({
+function canCreateCustomSkill({
   customSkillCreateInFlight,
   customSkillCreateRootPath,
   newCustomSkillRelativePath,
@@ -420,7 +420,7 @@ export function canCreateCustomSkill({
   }
   return newCustomSkillRelativePath.trim() !== "";
 }
-export function isCustomSlashNamespaceAuthorityReady({
+function isCustomSlashNamespaceAuthorityReady({
   agentRunsAuthorityState,
   engineConfigsInitialLoadComplete,
   slashCommandsByEngine,
@@ -442,7 +442,7 @@ export function isCustomSlashNamespaceAuthorityReady({
   }
   return isAgentRunsAuthorityReady(agentRunsAuthorityState);
 }
-export function resolveCanAddCustomSlashCommand({
+function resolveCanAddCustomSlashCommand({
   customSlashCommandTokens,
   namespaceAuthorityReady,
   newCustomSlashPrompt,
@@ -472,7 +472,7 @@ export function resolveCanAddCustomSlashCommand({
   }
   return true;
 }
-export function shouldLoadSlashCommandAgentRuns({
+function shouldLoadSlashCommandAgentRuns({
   viewMode,
   hasExternalAgentEngine,
 }: {
