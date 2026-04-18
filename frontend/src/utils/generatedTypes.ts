@@ -4156,7 +4156,7 @@ export function isBaseChildlessCodeObjImpl(
   return BaseChildlessCodeObjImplTypeSet.has(x.type);
 }
 
-export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
+const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   "CodeParam",
   "TextParam",
   "DateParam",
@@ -4237,53 +4237,6 @@ export function isBaseSectionWithParamsImpl(
 ): x is CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
-
-export type BaseDictSectionImplUnion =
-  | gt.DictSectionImpl
-  | gt.GlobalVariablesSectionImpl;
-
-const BaseDictSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-export function isBaseDictSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseDictSectionImplUnion {
-  return BaseDictSectionImplTypeSet.has(x.type);
-}
-
-export const ControlCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-]);
-
-export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-]);
 
 export const AppSpecPatchPolicyConfig = {
   allowedOps: ["set", "add", "replace", "remove"],

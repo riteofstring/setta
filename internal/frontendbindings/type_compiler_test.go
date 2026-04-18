@@ -66,7 +66,7 @@ func TestGoBackedCreateFunctionUsesMapValueCreateTags(t *testing.T) {
 	}
 }
 
-func TestDiscriminatedObjectFamiliesExposeRuntimeCompatHelperDeclarations(t *testing.T) {
+func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	t.Parallel()
 
 	extraDeclarations, err := CurrentAdditionalDeclarations()
@@ -74,42 +74,18 @@ func TestDiscriminatedObjectFamiliesExposeRuntimeCompatHelperDeclarations(t *tes
 		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
 	}
 
-	declaration := findTypeDeclaration(t, extraDeclarations, "BaseDictSectionImplUnion")
-	if declaration.Kind != "alias" {
-		t.Fatalf("BaseDictSectionImplUnion kind = %q, want %q", declaration.Kind, "alias")
-	}
-	if declaration.Alias != "gt.DictSectionImpl | gt.GlobalVariablesSectionImpl" {
-		t.Fatalf("BaseDictSectionImplUnion alias = %q", declaration.Alias)
-	}
-
-	declaration = findTypeDeclaration(t, extraDeclarations, "isBaseDictSectionImpl")
-	if declaration.Kind != "type_guard" {
-		t.Fatalf("isBaseDictSectionImpl kind = %q, want %q", declaration.Kind, "type_guard")
-	}
-	if declaration.GuardSetName != "BaseDictSectionImplTypeSet" {
-		t.Fatalf("isBaseDictSectionImpl guard set = %q, want %q", declaration.GuardSetName, "BaseDictSectionImplTypeSet")
-	}
-
-	for _, declarationName := range []string{
-		"BaseParamCodeObjImplTypeSet",
-		"ControlCodeObjTypeSet",
-		"SectionParamCodeObjTypeSet",
-	} {
-		declaration = findTypeDeclaration(t, extraDeclarations, declarationName)
-		if declaration.Kind != "set" {
-			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "set")
-		}
-		if !declaration.Exported {
-			t.Fatalf("%s should stay exported for runtime frontend helpers", declarationName)
-		}
-	}
+	assertNoTypeDeclaration(t, extraDeclarations, "BaseDictSectionImplUnion")
+	assertNoTypeDeclaration(t, extraDeclarations, "isBaseDictSectionImpl")
+	assertNoTypeDeclaration(t, extraDeclarations, "ControlCodeObjTypeSet")
+	assertNoTypeDeclaration(t, extraDeclarations, "SectionParamCodeObjTypeSet")
 
 	for _, declarationName := range []string{
 		"BaseParentSectionImplTypeSet",
 		"BaseSectionWithParamsImplTypeSet",
+		"BaseParamCodeObjImplTypeSet",
 		"BaseParentCodeObjImplTypeSet",
 	} {
-		declaration = findTypeDeclaration(t, extraDeclarations, declarationName)
+		declaration := findTypeDeclaration(t, extraDeclarations, declarationName)
 		if declaration.Kind != "set" {
 			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "set")
 		}
