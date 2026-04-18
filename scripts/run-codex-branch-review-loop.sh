@@ -76,6 +76,9 @@ state_status_file=""
 state_head_file=""
 codex_exit_code="0"
 codex_timed_out="0"
+loop_log_file=""
+current_status_file=""
+current_run_file=""
 
 require_value() {
   local flag="$1"
@@ -117,6 +120,41 @@ resolve_path_without_creating() {
 
   candidate="$(cd "${candidate}" && pwd)"
   printf '%s%s\n' "${candidate}" "${suffix}"
+}
+
+timestamp_now() {
+  date '+%Y-%m-%d %H:%M:%S'
+}
+
+log_info() {
+  local line=""
+  line="[$(timestamp_now)] $*"
+  printf '%s\n' "${line}"
+  if [[ -n "${loop_log_file}" ]]; then
+    printf '%s\n' "${line}" >> "${loop_log_file}"
+  fi
+}
+
+log_error() {
+  local line=""
+  line="[$(timestamp_now)] ERROR: $*"
+  printf '%s\n' "${line}" >&2
+  if [[ -n "${loop_log_file}" ]]; then
+    printf '%s\n' "${line}" >> "${loop_log_file}"
+  fi
+}
+
+set_current_status() {
+  local status="$1"
+  local run_path="${2:-}"
+
+  if [[ -n "${current_status_file}" ]]; then
+    printf '%s\n' "${status}" > "${current_status_file}"
+  fi
+
+  if [[ -n "${current_run_file}" ]]; then
+    printf '%s\n' "${run_path}" > "${current_run_file}"
+  fi
 }
 
 repo_is_clean() {
@@ -291,7 +329,7 @@ run_codex_command() {
   local codex_command="$3"
   local fifo_path=""
   local codex_pid=""
-  local tee_pid=""
+  local transcript_writer_pid=""
   local last_activity_epoch=""
   local current_epoch=""
   local transcript_epoch=""
@@ -301,8 +339,8 @@ run_codex_command() {
 
   if [[ "${inactivity_timeout_seconds}" -eq 0 ]]; then
     set +e
-    bash -lc "${codex_command}" < "${prompt_path}" 2>&1 | tee "${transcript_path}"
-    codex_exit_code="${PIPESTATUS[0]}"
+    bash -lc "${codex_command}" < "${prompt_path}" > "${transcript_path}" 2>&1
+    codex_exit_code="$?"
     set -e
     return
   fi
@@ -311,8 +349,8 @@ run_codex_command() {
   rm -f "${fifo_path}"
   mkfifo "${fifo_path}"
 
-  tee "${transcript_path}" < "${fifo_path}" &
-  tee_pid="$!"
+  cat < "${fifo_path}" > "${transcript_path}" &
+  transcript_writer_pid="$!"
 
   bash -lc "${codex_command}" < "${prompt_path}" > "${fifo_path}" 2>&1 &
   codex_pid="$!"
@@ -331,7 +369,7 @@ run_codex_command() {
     if [[ "$((current_epoch - last_activity_epoch))" -ge "${inactivity_timeout_seconds}" ]]; then
       codex_timed_out="1"
       codex_exit_code="124"
-      echo "Codex command timed out after ${inactivity_timeout_seconds}s without transcript updates; terminating process tree." >&2
+      log_error "Codex command timed out after ${inactivity_timeout_seconds}s without transcript updates. Transcript: ${transcript_path}"
       terminate_process_tree "${codex_pid}"
       break
     fi
@@ -351,7 +389,7 @@ run_codex_command() {
   fi
 
   set +e
-  wait "${tee_pid}" >/dev/null 2>&1
+  wait "${transcript_writer_pid}" >/dev/null 2>&1
   set -e
   rm -f "${fifo_path}"
 }
@@ -545,18 +583,14 @@ record_state() {
 }
 
 print_configuration() {
-  echo "Root directory: ${root_dir}"
-  echo "Loop output directory: ${output_dir}"
-  echo "Loop state directory: ${state_dir}"
-  echo "Iterations: ${iterations}"
-  echo "Model: ${model}"
-  echo "Reasoning effort: xhigh"
-  echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
-  echo "Post-commit settle check: ${post_commit_settle_seconds}s"
+  log_info "Root directory: ${root_dir}"
+  log_info "Loop output directory: ${output_dir}"
+  log_info "Top-level loop log: ${loop_log_file}"
+  log_info "Top-level status files: ${current_status_file} and ${current_run_file}"
   if [[ "${yolo_mode}" == "1" ]]; then
-    echo "Yolo mode: enabled"
+    log_info "Settings: iterations=${iterations}, model=${model}, reasoning=xhigh, inactivity_timeout=${inactivity_timeout_seconds}s, post_commit_settle=${post_commit_settle_seconds}s, yolo=enabled"
   else
-    echo "Yolo mode: disabled"
+    log_info "Settings: iterations=${iterations}, model=${model}, reasoning=xhigh, inactivity_timeout=${inactivity_timeout_seconds}s, post_commit_settle=${post_commit_settle_seconds}s, yolo=disabled"
   fi
 }
 
@@ -692,6 +726,13 @@ fi
 
 mkdir -p "${output_dir}" "${state_dir}"
 
+loop_log_file="${output_dir}/loop.log"
+current_status_file="${output_dir}/current-status.txt"
+current_run_file="${output_dir}/current-run.txt"
+: > "${loop_log_file}"
+printf 'initializing\n' > "${current_status_file}"
+: > "${current_run_file}"
+
 state_status_file="${state_dir}/status.txt"
 state_head_file="${state_dir}/last-observed-head.txt"
 git -C "${root_dir}" rev-parse HEAD > "${state_head_file}"
@@ -726,15 +767,19 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   review_timeout_value=""
 
   mkdir -p "${run_dir}"
+  set_current_status "iteration ${iteration}/${iterations}: starting" "${run_dir}"
+  log_info "[$iteration/$iterations] Starting iteration. Run dir: ${run_dir}"
 
   if ! repo_is_clean; then
-    echo "Repository must be clean at the start of each iteration." >&2
+    set_current_status "failed: repository not clean at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Repository must be clean at the start of each iteration."
     exit 1
   fi
 
   ensure_review_docs_absent
 
-  echo "[$iteration/$iterations] Running three parallel branch reviews"
+  set_current_status "iteration ${iteration}/${iterations}: review stage" "${run_dir}"
+  log_info "[$iteration/$iterations] Review stage running (3 parallel sessions)"
 
   for review_index in 1 2 3; do
     review_file="${root_dir}/review${review_index}.md"
@@ -769,6 +814,8 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     fi
   done
 
+  log_info "[$iteration/$iterations] Review stage complete"
+
   if [[ "${review_failed}" == "1" ]]; then
     for review_index in 1 2 3; do
       review_timeout_file="${run_dir}/review${review_index}.timed_out"
@@ -777,12 +824,13 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
         review_timeout_value="$(<"${review_timeout_file}")"
       fi
       if [[ "${review_timeout_value}" == "1" ]]; then
-        echo "Review ${review_index} timed out." >&2
+        log_error "Review ${review_index} timed out."
       fi
     done
     printf 'failure:review\n' > "${run_status_file}"
     printf 'failure:review\n' > "${state_status_file}"
-    echo "A parallel review session failed." >&2
+    set_current_status "failed: review stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "A parallel review session failed."
     exit 1
   fi
 
@@ -791,7 +839,8 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     if [[ ! -s "${review_file}" ]]; then
       printf 'failure:missing-review-doc\n' > "${run_status_file}"
       printf 'failure:missing-review-doc\n' > "${state_status_file}"
-      echo "Missing review output: ${review_file}" >&2
+      set_current_status "failed: missing review output at iteration ${iteration}/${iterations}" "${run_dir}"
+      log_error "Missing review output: ${review_file}"
       exit 1
     fi
   done
@@ -799,11 +848,13 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   if ! repo_has_only_stop_review_docs; then
     printf 'failure:unexpected-review-side-effects\n' > "${run_status_file}"
     printf 'failure:unexpected-review-side-effects\n' > "${state_status_file}"
-    echo "Review stage dirtied the repository outside the expected top-level review docs." >&2
+    set_current_status "failed: unexpected review side effects at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Review stage dirtied the repository outside the expected top-level review docs."
     exit 1
   fi
 
-  echo "[$iteration/$iterations] Consolidating findings"
+  set_current_status "iteration ${iteration}/${iterations}: consolidate stage" "${run_dir}"
+  log_info "[$iteration/$iterations] Consolidating findings"
 
   set +e
   run_codex_session \
@@ -819,16 +870,19 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   if [[ "${consolidate_exit_code}" -ne 0 ]]; then
     printf 'failure:consolidate\n' > "${run_status_file}"
     printf 'failure:consolidate\n' > "${state_status_file}"
-    echo "Consolidation session failed." >&2
+    set_current_status "failed: consolidate stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Consolidation session failed."
     exit 1
   fi
 
   cp "${consolidate_response_file}" "${run_last_message_file}"
+  log_info "[$iteration/$iterations] Consolidation complete"
 
   if ! consolidated_status="$(extract_consolidated_status "${consolidate_response_file}")"; then
     printf 'failure:invalid-consolidated-status\n' > "${run_status_file}"
     printf 'failure:invalid-consolidated-status\n' > "${state_status_file}"
-    echo "Consolidation response did not provide a valid status sentinel." >&2
+    set_current_status "failed: invalid consolidated status at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Consolidation response did not provide a valid status sentinel."
     exit 1
   fi
 
@@ -836,24 +890,28 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     if ! repo_has_only_stop_review_docs; then
       printf 'failure:stop-state-invalid\n' > "${run_status_file}"
       printf 'failure:stop-state-invalid\n' > "${state_status_file}"
-      echo "No-findings stop left unexpected repository changes." >&2
+      set_current_status "failed: invalid no-findings stop state at iteration ${iteration}/${iterations}" "${run_dir}"
+      log_error "No-findings stop left unexpected repository changes."
       exit 1
     fi
     printf 'stopped:no-findings\n' > "${run_status_file}"
     printf 'stopped:no-findings\n' > "${state_status_file}"
-    echo "[$iteration/$iterations] Consolidator reported no findings; leaving review docs in place."
+    set_current_status "stopped: no findings at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_info "[$iteration/$iterations] Consolidator reported no findings; leaving review docs in place."
     exit 0
   fi
 
   if [[ ! -s "${consolidate_thread_id_file}" ]]; then
     printf 'failure:missing-thread-id\n' > "${run_status_file}"
     printf 'failure:missing-thread-id\n' > "${state_status_file}"
-    echo "Consolidation session did not provide a resumable thread id." >&2
+    set_current_status "failed: missing resumable thread id at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Consolidation session did not provide a resumable thread id."
     exit 1
   fi
   consolidate_thread_id="$(<"${consolidate_thread_id_file}")"
 
-  echo "[$iteration/$iterations] Implementing consolidated fixes"
+  set_current_status "iteration ${iteration}/${iterations}: fix stage" "${run_dir}"
+  log_info "[$iteration/$iterations] Implementing consolidated fixes"
 
   set +e
   run_codex_session \
@@ -867,11 +925,14 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   if [[ "${fix_exit_code}" -ne 0 ]]; then
     printf 'failure:fix\n' > "${run_status_file}"
     printf 'failure:fix\n' > "${state_status_file}"
-    echo "Fix phase failed." >&2
+    set_current_status "failed: fix stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Fix phase failed."
     exit 1
   fi
+  log_info "[$iteration/$iterations] Fix stage complete"
 
-  echo "[$iteration/$iterations] Finalizing cleanup and commit"
+  set_current_status "iteration ${iteration}/${iterations}: finalize stage" "${run_dir}"
+  log_info "[$iteration/$iterations] Finalizing cleanup and commit"
 
   set +e
   run_codex_session \
@@ -885,17 +946,20 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   if [[ "${finalize_exit_code}" -ne 0 ]]; then
     printf 'failure:finalize\n' > "${run_status_file}"
     printf 'failure:finalize\n' > "${state_status_file}"
-    echo "Finalize phase failed." >&2
+    set_current_status "failed: finalize stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Finalize phase failed."
     exit 1
   fi
 
   cp "${finalize_response_file}" "${run_last_message_file}"
+  log_info "[$iteration/$iterations] Finalize stage complete"
 
   iteration_end_head="$(git -C "${root_dir}" rev-parse HEAD)"
   if [[ "${iteration_end_head}" == "${iteration_start_head}" ]]; then
     printf 'failure:no-commit\n' > "${run_status_file}"
     printf 'failure:no-commit\n' > "${state_status_file}"
-    echo "Non-stop iteration did not create a commit." >&2
+    set_current_status "failed: no commit created at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Non-stop iteration did not create a commit."
     exit 1
   fi
 
@@ -913,8 +977,10 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
 
   printf 'success\n' > "${run_status_file}"
   record_state "advanced:${iteration_end_head}"
-  echo "[$iteration/$iterations] Commit iteration complete"
+  set_current_status "iteration ${iteration}/${iterations}: complete" "${run_dir}"
+  log_info "[$iteration/$iterations] Commit iteration complete. HEAD advanced to ${iteration_end_head}"
 done
 
-echo "Reached iteration limit (${iterations}) without a clean no-findings stop." >&2
+set_current_status "stopped: reached iteration limit (${iterations})" ""
+log_info "Reached iteration limit (${iterations}) without a clean no-findings stop."
 exit 0
