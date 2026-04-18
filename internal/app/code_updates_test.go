@@ -18,7 +18,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspsignature"
 	"setta/internal/projectstate"
-	"setta/internal/testutil/firstpartyplugin"
+	"setta/internal/pythonenv"
 )
 
 type stubBoundSectionSynchronizer struct {
@@ -51,11 +51,14 @@ type syncOnlyBoundSectionSynchronizer struct {
 func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
 	t.Helper()
 
-	pythonBinary := firstpartyplugin.BasedpyrightLangserverCommand(t)
+	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
+	if err != nil {
+		t.Fatalf("resolve current-process interpreter: %v", err)
+	}
 	session, err := lsp.NewSession(lsp.SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       pythonBinary,
-		Args:          []string{"--stdio"},
+		Args:          []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
 		Environment:   os.Environ(),
 	})
 	if err != nil {
@@ -1308,11 +1311,8 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
-		AdditionalSpecs: []lsp.LanguageServerSpec{
-			codeUpdatesCurrentProcessPythonLanguageServerSpec(t),
-		},
-		LookupEnv: os.LookupEnv,
-		Environ:   os.Environ,
+		LookupEnv:     os.LookupEnv,
+		Environ:       os.Environ,
 		Settings: func() map[string]any {
 			return lsp.CurrentProcessPythonSettings(map[string]any{
 				"languageServer": map[string]any{
@@ -1426,11 +1426,8 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
-		AdditionalSpecs: []lsp.LanguageServerSpec{
-			codeUpdatesCurrentProcessPythonLanguageServerSpec(t),
-		},
-		LookupEnv: os.LookupEnv,
-		Environ:   os.Environ,
+		LookupEnv:     os.LookupEnv,
+		Environ:       os.Environ,
 		Settings: func() map[string]any {
 			return lsp.CurrentProcessPythonSettings(map[string]any{
 				"languageServer": map[string]any{
@@ -1977,17 +1974,4 @@ func addRepoVenvRuffToPath(t *testing.T) {
 		t.Fatalf("stat repo ruff binary: %v", err)
 	}
 	t.Setenv("PATH", venvBin+string(os.PathListSeparator)+os.Getenv("PATH"))
-}
-
-func codeUpdatesCurrentProcessPythonLanguageServerSpec(t *testing.T) lsp.LanguageServerSpec {
-	t.Helper()
-
-	settingsKey := "basedpyright"
-	return lsp.LanguageServerSpec{
-		Name:        "current-process-python",
-		LanguageID:  "python",
-		Command:     firstpartyplugin.BasedpyrightLangserverCommand(t),
-		Args:        []string{"--stdio"},
-		SettingsKey: &settingsKey,
-	}
 }

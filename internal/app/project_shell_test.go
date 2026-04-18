@@ -3114,10 +3114,11 @@ func TestAppProjectRuntimeCreateProjectDefaultScaffoldOnRepoWorkspace(t *testing
 	cfg.Paths.WorkspaceRoot = repoRoot
 	cfg.Paths.SettaHome = filepath.Join(t.TempDir(), ".setta-development")
 	cfg.Paths.ProfileLookupHome = cfg.Paths.SettaHome
-	cfg.Paths.SettaFilesRoot = filepath.Join(t.TempDir(), "setta_files")
+	cfg.Paths.SettaFilesRoot = filepath.Join(t.TempDir(), "setta_files_dev")
 	cfg.Paths.RuntimeRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "runtime")
 	cfg.User.GlobalSettaFilesBase = filepath.Join(cfg.Paths.SettaHome, "setta_files")
 
+	copyAppTestDir(t, filepath.Join(repoRoot, "setta_files_dev"), cfg.Paths.SettaFilesRoot)
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
 

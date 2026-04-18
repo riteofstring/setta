@@ -19,7 +19,7 @@ const basedpyrightEntrypoint = "from basedpyright.langserver import main; main()
 
 func resolveCurrentProcessCommand(lookupEnv func(string) (string, bool)) (string, []string, error) {
 	if explicitCommand, ok := lookupEnv(lspCommandEnv); ok && strings.TrimSpace(explicitCommand) != "" {
-		command, err := resolveCurrentProcessBinary(strings.TrimSpace(explicitCommand))
+		command, err := resolveBinary(strings.TrimSpace(explicitCommand))
 		if err != nil {
 			return "", nil, err
 		}
@@ -37,7 +37,7 @@ func resolveCurrentProcessCommand(lookupEnv func(string) (string, bool)) (string
 	return pythonBinary, []string{"-c", basedpyrightEntrypoint, "--stdio"}, nil
 }
 
-func resolveCurrentProcessBinary(candidate string) (string, error) {
+func resolveBinary(candidate string) (string, error) {
 	if strings.Contains(candidate, string(filepath.Separator)) {
 		return statefs.NormalizePath(candidate, "")
 	}

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -308,14 +307,6 @@ func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
 		}
 		snapshot := deps.ProjectState.Snapshot()
 		if err := deps.Admin.Restart(r.Context(), snapshot.Document); err != nil {
-			if errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
-				writeLanguageServerNotConfiguredError(
-					w,
-					r,
-					"Language server is not configured. Select a plugin and restart after it is available.",
-				)
-				return
-			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -343,14 +334,6 @@ func typeCheckHandler(deps LSPRouteDependencies) http.HandlerFunc {
 
 		snapshot := deps.ProjectState.Snapshot()
 		if err := deps.Admin.TypeCheckProject(r.Context(), snapshot.Document, projectID); err != nil {
-			if errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
-				writeLanguageServerNotConfiguredError(
-					w,
-					r,
-					"Language server is not configured. Select a plugin and retry type check after it is available.",
-				)
-				return
-			}
 			if errors.Is(err, projectstate.ErrProjectNotFound) ||
 				errors.Is(err, projectstate.ErrProjectIDRequired) {
 				writeJSON(w, http.StatusOK, nil)
@@ -361,16 +344,6 @@ func typeCheckHandler(deps LSPRouteDependencies) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, nil)
 	}
-}
-
-func writeLanguageServerNotConfiguredError(w http.ResponseWriter, r *http.Request, message string) {
-	writeError(
-		w,
-		r,
-		http.StatusConflict,
-		"language_server_not_configured",
-		message,
-	)
 }
 
 func clearTextFieldCompletionHandler(deps LSPRouteDependencies) http.HandlerFunc {

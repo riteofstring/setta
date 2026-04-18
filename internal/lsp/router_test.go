@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"setta/internal/statefs"
-	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestRouterCompleteSnapshotRoutesPluginLanguage(t *testing.T) {
@@ -95,33 +93,6 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.Items[0].Label != "fixtureCompletion" {
 		t.Fatalf("unexpected completion result after refresh %#v", result)
-	}
-}
-
-func TestNewRouterAllowsNoConfiguredLanguageServers(t *testing.T) {
-	t.Parallel()
-
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: t.TempDir(),
-	})
-	if err != nil {
-		t.Fatalf("new router without language servers: %v", err)
-	}
-	defer func() {
-		if err := router.Close(context.Background()); err != nil {
-			t.Fatalf("close router: %v", err)
-		}
-	}()
-
-	_, err = router.CompleteSnapshot(context.Background(), SnapshotCompletionRequest{
-		ReferencePath: filepath.Join(t.TempDir(), "fixture.py"),
-		LanguageID:    "python",
-		Content:       "value.",
-		Line:          0,
-		Character:     6,
-	})
-	if !errors.Is(err, ErrLanguageServerNotConfigured) {
-		t.Fatalf("expected unconfigured language server error, got %v", err)
 	}
 }
 
@@ -427,7 +398,13 @@ func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *tes
 		}, nil)
 	}
 
-	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -493,7 +470,13 @@ func TestRouterCurrentProcessPythonDiagnosticsUseNestedBasedPyrightSettingsForWa
 		}, []string{settaFilesRoot})
 	}
 
-	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -593,7 +576,13 @@ func TestRouterCurrentProcessPythonRefreshesGeneratedDiagnosticsWhenImportedWatc
 		}, []string{settaFilesRoot})
 	}
 
-	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -695,7 +684,13 @@ func TestRouterCurrentProcessPythonSyncAndRefreshPublishesGeneratedCallDiagnosti
 		}, []string{settaFilesRoot})
 	}
 
-	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -818,7 +813,13 @@ func TestRouterCurrentProcessPythonIncrementalWatchCodeTypingStillPublishesGener
 		}, []string{settaFilesRoot})
 	}
 
-	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -915,7 +916,13 @@ func TestRouterCurrentProcessPythonPublishesGeneratedCallDiagnosticsWithWorkspac
 		}, []string{settaFilesRoot})
 	}
 
-	router := newCurrentProcessPythonRouter(t, workspaceRoot, settings)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -1080,56 +1087,25 @@ func newFixturePythonRouter(
 		"mini_language_server.py",
 	)
 
-	specs := append([]LanguageServerSpec{fixturePythonLanguageServerSpecWithPaths(pythonBinary, fixtureServerPath)}, additionalSpecs...)
 	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot:   workspaceRoot,
-		AdditionalSpecs: specs,
+		WorkspaceRoot: workspaceRoot,
+		LookupEnv: func(key string) (string, bool) {
+			switch key {
+			case lspCommandEnv:
+				return pythonBinary, true
+			case lspArgsEnv:
+				return fixtureServerPath, true
+			default:
+				return "", false
+			}
+		},
+		AdditionalSpecs: additionalSpecs,
 		Settings:        settings,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}
 	return router
-}
-
-func newCurrentProcessPythonRouter(t *testing.T, workspaceRoot string, settings func() map[string]any) *Router {
-	t.Helper()
-
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		AdditionalSpecs: []LanguageServerSpec{
-			currentProcessPythonLanguageServerSpec(t),
-		},
-		Settings: settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
-	return router
-}
-
-func fixturePythonLanguageServerSpecWithPaths(pythonBinary string, fixtureServerPath string) LanguageServerSpec {
-	settingsKey := "basedpyright"
-	return LanguageServerSpec{
-		Name:        "fixture-python",
-		LanguageID:  "python",
-		Command:     pythonBinary,
-		Args:        []string{fixtureServerPath},
-		SettingsKey: &settingsKey,
-	}
-}
-
-func currentProcessPythonLanguageServerSpec(t *testing.T) LanguageServerSpec {
-	t.Helper()
-
-	settingsKey := "basedpyright"
-	return LanguageServerSpec{
-		Name:        "current-process-python",
-		LanguageID:  "python",
-		Command:     firstpartyplugin.BasedpyrightLangserverCommand(t),
-		Args:        []string{"--stdio"},
-		SettingsKey: &settingsKey,
-	}
 }
 
 func fixturePluginLanguageServerSpec(t *testing.T) LanguageServerSpec {
