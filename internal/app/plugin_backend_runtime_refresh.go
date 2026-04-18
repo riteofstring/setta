@@ -394,7 +394,7 @@ func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plu
 	if err != nil {
 		return nil, err
 	}
-	return plugins.LanguageServerSpecsFromSnapshot(snapshot, selections)
+	return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
 }
 
 func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[string]*string, error) {
