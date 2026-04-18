@@ -10,9 +10,10 @@ import { openDropzoneFilePickerModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   getSectionType,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
   useDrawAreaLayerItemTransform,
@@ -75,11 +76,9 @@ function getFirstPickedPath(paths: Array<string>): string | null {
 function setImageArtifactPath(sectionId: string, filepath: string) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const core = state.sections[sectionId];
-      if (!core) {
-        return;
-      }
-      core.sharedModifier.imagePath = filepath;
+      setCurrEffectiveSectionImplValue<"ImageSection">(state, sectionId, {
+        imagePath: filepath,
+      });
     },
     send: (frontendOpId) =>
       callOpenAPI(
@@ -100,11 +99,9 @@ function setImageArtifactPath(sectionId: string, filepath: string) {
 function setChartArtifactPath(sectionId: string, filepath: string) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const core = state.sections[sectionId];
-      if (!core) {
-        return;
-      }
-      core.sharedModifier.dataPath = filepath;
+      setCurrEffectiveSectionImplValue<"ChartSection">(state, sectionId, {
+        dataPath: filepath,
+      });
     },
     send: (frontendOpId) =>
       callOpenAPI(
@@ -123,21 +120,22 @@ function setChartArtifactPath(sectionId: string, filepath: string) {
 }
 
 function appendDrawImageArtifact(sectionId: string, filepath: string) {
-  const impl = getCurrEffectiveSectionImpl(
+  const impl = getCurrEffectiveSectionImplOfType(
     useProjectState.getState(),
     sectionId,
-  ) as Record<string, unknown>;
-  const layerIdx = impl["activeLayerIdx"];
-  const layers = impl["layers"];
-  if (typeof layerIdx !== "number" || !Array.isArray(layers)) {
+    SectionTypeEnum.Draw,
+  );
+  const layerIdx = impl.activeLayerIdx;
+  const layers = impl.layers;
+  if (!Array.isArray(layers)) {
     addTemporaryNotification(
       "The active draw layer is unavailable.",
       NotificationTypeEnum.warning,
     );
     return;
   }
-  const activeLayer = layers[layerIdx] as Record<string, unknown> | undefined;
-  if (!activeLayer || !Array.isArray(activeLayer["elements"])) {
+  const activeLayer = layers[layerIdx];
+  if (!activeLayer) {
     addTemporaryNotification(
       "The active draw layer is unavailable.",
       NotificationTypeEnum.warning,
@@ -170,23 +168,17 @@ function appendDrawImageArtifact(sectionId: string, filepath: string) {
   });
 
   useProjectState.setState((state) => {
-    const core = state.sections[sectionId];
-    if (!core) {
-      return;
-    }
-    core.sharedModifier.layers = layers.map((layer, idx) =>
-      idx !== layerIdx
-        ? layer
-        : {
-            ...(layer as Record<string, unknown>),
-            elements: [
-              ...(((layer as Record<string, unknown>)[
-                "elements"
-              ] as Array<unknown>) ?? []),
-              newLayerItem,
-            ],
-          },
-    );
+    setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+      layers: (currLayers) =>
+        currLayers.map((layer, idx) =>
+          idx !== layerIdx
+            ? layer
+            : {
+                ...layer,
+                elements: [...layer.elements, newLayerItem],
+              },
+        ),
+    });
   });
 
   queueTransformsForSave([transformArtifact.id]);

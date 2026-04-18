@@ -239,6 +239,7 @@ describe("AddArtifactByFilepath", () => {
       useProjectState.getState(),
       sectionId,
     ) as Record<string, unknown>;
+    const projectState = useProjectState.getState();
     const layers = drawImpl["layers"] as Array<Record<string, unknown>>;
     const firstLayer = layers[0];
     const elements = firstLayer?.["elements"] as Array<Record<string, unknown>>;
@@ -250,6 +251,12 @@ describe("AddArtifactByFilepath", () => {
     expect(layerItem?.type).toBe(ArtifactTypeEnum.Image);
     expect(layerItem?.dataPath).toBe("artifacts/sketch.png");
     expect(layerItem?.transformId).toBeTruthy();
+    expect(projectState.sections[sectionId]?.sharedModifier).not.toHaveProperty(
+      "layers",
+    );
+    expect(
+      (projectState.sectionImpls[implId] as Record<string, unknown>)["layers"],
+    ).toEqual(layers);
 
     expect(
       useDrawAreaLayerItemTransform.getState().x[layerItem.transformId],
