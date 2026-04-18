@@ -72,7 +72,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `raf.meanMs: 34.91`
   - `longTasks.totalMs: 119`
 - Treat that post-slice probe as a runtime smoke check for the new surface seam, not as a new durable benchmark claim yet.
-- Canonical target section for the next settings graph-surface lane: `settings-section__callableSectionDefault`.
+- Canonical target section for the next settings graph-surface lane: `settings-section__dictSectionDefault`.
 - Fresh live canary inventory on 2026-04-18 closes the stale top-level callable body-panel assumptions for that section:
   - the retained canvas shell is still mounted and the section is healthy on `/settings` -> `All Settings`
   - the visible canary shows the section header, the callable `ARGS` toolbar row, and visible settings rows such as `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Hide Params`, and `Hide Unpinned Params`
@@ -322,9 +322,14 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__callableSectionDefault` remained present on the live surface
   - the nested `Size` subtree was present and its left guide rail looked intact on the retained canvas path
   - note: the DOM pseudo-element for that guide is now intentionally `opacity: 0` on the canvas path; the visible rail should come from the retained canvas instead of the live DOM
-- The next frontier should not reopen text/value/underline/nested-guide drift on this section:
-  - treat the canary nested-guide lane as complete at this ownership boundary
-  - re-inventory the remaining default-visible inactive row chrome on `settings-section__callableSectionDefault`; if the only leftovers are hover/selection-only states, close the callable row-decoration lane and pivot to the next param-heavy section family instead of manufacturing another micro-slice
+- The callable row-decoration lane is now closed at its useful ownership boundary:
+  - a focused 1x headless Playwright DOM inventory on `settings-section__callableSectionDefault` found no additional default-visible inactive row chrome beyond the already-moved shell/header/text/underline/nested-guide layers
+  - the remaining visible DOM on that callable canary is limited to intentional live interactive cores: toolbar/menu buttons and icons plus switch thumbs/buttons
+  - another callable-only retained-canvas micro-slice would be churn unless a new defect appears on that same named section
+- The next param-heavy family lane is now named and ready:
+  - canonical target section: `settings-section__dictSectionDefault`
+  - a matching 1x headless Playwright inventory on that section shows it reuses the same visible row families (`Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Size`, `Style Color`, `Tag Color`) and adds dict-specific search/filter chrome through `input#settings-section__dictSectionDefault-args-filter`
+  - the next product slice should start there instead of reopening callable row-decoration
 
 ## Preservation rule
 
@@ -351,9 +356,9 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
+1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the same named canary section, but do not spend another pass on value-text, param-label, text-row underline, or nested-guide drift; re-check whether any default-visible inactive row chrome still remains before opening another callable-section micro-lane.
+3. Open the next param-heavy family lane on `settings-section__dictSectionDefault`, reusing the proven retained shell/text/switch/nested-guide ownership path where it fits and treating the dict search/filter surface as the first new section-specific chrome question.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -379,7 +384,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: re-check whether that callable canary still has any default-visible inactive row chrome left; if not, close the callable row-decoration lane and move to the next param-heavy section family instead of continuing callable-only churn
+- next: move from the now-closed callable row-decoration lane to `settings-section__dictSectionDefault`, reusing the proven retained shell/text/switch/nested-guide path where it fits and treating the dict search/filter surface as the first new section-specific chrome question
 
 ## Hard rules
 

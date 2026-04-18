@@ -635,3 +635,19 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - re-inventory the same named canary section for any remaining default-visible inactive row chrome; if the only leftovers are hover/selection-only states, close the callable row-decoration lane and pivot to the next param-heavy section family
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 027
+
+- Item: Close the callable row-decoration lane and name the next param-heavy canary section.
+- Status: `done`
+- Details:
+  - Ran a focused 1x headless Playwright DOM inventory on `/settings` -> `All Settings` after translating `settings-section__callableSectionDefault` into view.
+  - That callable inventory found no new default-visible inactive row chrome beyond the already-moved shell/header/text/underline/nested-guide layers.
+  - The remaining visible DOM on `settings-section__callableSectionDefault` is limited to intentional live interactive cores: switch thumbs/buttons plus callable toolbar/menu buttons and icons.
+  - Ran a matching 1x headless Playwright DOM inventory on `settings-section__dictSectionDefault` to avoid reopening the same callable micro-lane by inertia.
+  - The dict section is visible and already exposes the next reusable row families: `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Size`, `Style Color`, and `Tag Color`.
+  - The dict section also adds a real new section-specific surface through `input#settings-section__dictSectionDefault-args-filter` plus adjacent header/menu buttons, so it is the correct next named frontier instead of another callable-only decoration pass.
+  - Outcome: close the callable row-decoration lane at this ownership boundary and carry `settings-section__dictSectionDefault` as the canonical next target section.
+- Next action:
+  - land the first dict-section product slice on `settings-section__dictSectionDefault`, reusing the proven retained shell/text/switch/nested-guide path where it fits and treating the dict search/filter chrome as the first new section-specific surface
+LOOP_TERMINAL_MARKER: none
