@@ -633,6 +633,15 @@ func openWorkspaceProjectServices(
 		_ = closeInitializedProjectServices(*services)
 		return err
 	}
+	if err := bootstrapWorkspaceDefaultsInstallProfile(
+		context.Background(),
+		cfg.Paths.RuntimeRoot,
+		services.settingsStateRuntime,
+		services.pluginMutationService,
+	); err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
 	if err := settingsstate.EnsureProjectRuntimeBootstrapped(
 		context.Background(),
 		services.settingsStateRuntime,
