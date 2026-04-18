@@ -339,7 +339,7 @@ Rules:
 - [ ] Mark Phase 3 complete only after ${hotspot_review_file} and a fresh hotspot report show no remaining actionable hotspot cleanup worth landing without churn. Do not mark it complete when the real result is plateau.
 
 ## Completion
-- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./check_quality.sh\`.
+- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./scripts/check_quality_for_git_changes.sh\`.
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 EOF
 fi
@@ -382,9 +382,9 @@ Execution rules for every iteration:
 - Do not use Chrome DevTools, browser MCP, or other browser-driven verification unless the active change genuinely modifies frontend runtime behavior and non-browser verification is insufficient.
 - For duplication, polling, and hotspot cleanup, prefer code inspection, generation checks, focused tests, and scriptable verification over browser workflows.
 - If browser verification is genuinely required, use an already-running developer-started session only. Do not spend this loop iteration starting, waiting on, or debugging browser MCP processes.
-- Before every non-stop commit, run \`./gcf.sh\` and then \`./check_quality.sh\`. If either fails, fix the failure or stop without committing.
+- Before every non-stop commit, run \`./gcf.sh\` and then \`./scripts/check_quality_for_git_changes.sh\`. If either fails, fix the failure or stop without committing.
 - When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
-- Treat \`No supported files to check.\` from \`./check_quality.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
+- Treat \`No supported files to check.\` from \`./scripts/check_quality_for_git_changes.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 - Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.

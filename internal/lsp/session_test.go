@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"setta/internal/statefs"
-	"setta/internal/testutil/firstpartyplugin"
 )
 
 // The fixture server exercises the full stdio flow we need for Slice 1:
@@ -640,8 +639,10 @@ func resolveTestPythonBinary(t *testing.T) string {
 func newCurrentProcessSession(t *testing.T, workspaceRoot string) *Session {
 	t.Helper()
 
-	command := firstpartyplugin.BasedpyrightLangserverCommand(t)
-	args := []string{"--stdio"}
+	command, args, err := resolveCurrentProcessCommand(os.LookupEnv)
+	if err != nil {
+		t.Fatalf("resolve current-process command: %v", err)
+	}
 	session, err := NewSession(SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       command,

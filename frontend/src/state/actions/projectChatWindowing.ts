@@ -17,7 +17,6 @@ import { callOpenAPI } from "openapi/http/result";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
-  useMisc,
   useProjectState,
   useSettings,
   useShareSession,
