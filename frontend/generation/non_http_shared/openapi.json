@@ -3748,14 +3748,10 @@
             "type": "string"
           },
           "sharedModifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": "object"
           },
           "unsharedKeys": {
             "items": {
@@ -12454,14 +12450,10 @@
             "type": "string"
           },
           "sharedModifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "unsharedKeys": {
             "items": {
@@ -13000,14 +12992,10 @@
             "type": "boolean"
           },
           "modifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": ["object", "null"]
           },
           "name": {
             "type": "string"
@@ -17248,14 +17236,10 @@
             "type": "boolean"
           },
           "modifier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/RawMessage"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": "object"
           },
           "name": {
             "type": "string"

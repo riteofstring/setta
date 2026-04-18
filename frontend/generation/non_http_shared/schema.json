@@ -4381,14 +4381,10 @@
           ]
         },
         "sharedModifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "unsharedKeys": {
           "type": [
@@ -14749,14 +14745,13 @@
           "type": "string"
         },
         "sharedModifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "unsharedKeys": {
           "type": [
@@ -15374,14 +15369,13 @@
           }
         },
         "modifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "isFrozen": {
           "type": "boolean"
@@ -20363,14 +20357,10 @@
           }
         },
         "modifier": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/RawMessage"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RawMessage"
+          }
         },
         "isFrozen": {
           "type": "boolean"

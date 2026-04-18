@@ -225,24 +225,18 @@ func (d AppDefinition) Normalized() (AppDefinition, error) {
 	normalized.AppSpecPath = strings.TrimSpace(normalized.AppSpecPath)
 
 	var err error
-	normalized.DataBindings, err = normalizeRawJSON(normalized.DataBindings, "appDefinition.dataBindings")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	if _, err := decodeAppDefinitionJSONObject(
+	normalized.DataBindings, err = normalizeRawJSONObject(
 		normalized.DataBindings,
 		"appDefinition.dataBindings",
-	); err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Actions, err = normalizeRawJSON(normalized.Actions, "appDefinition.actions")
+	)
 	if err != nil {
 		return AppDefinition{}, err
 	}
-	if _, err := decodeAppDefinitionJSONObject(
+	normalized.Actions, err = normalizeRawJSONObject(
 		normalized.Actions,
 		"appDefinition.actions",
-	); err != nil {
+	)
+	if err != nil {
 		return AppDefinition{}, err
 	}
 	normalized.Theme, err = normalizeRawJSON(normalized.Theme, "appDefinition.theme")
@@ -318,4 +312,15 @@ func normalizeRawJSON(raw RawJSON, field string) (RawJSON, error) {
 		return nil, fmt.Errorf("%w: %s", ErrFrontendPayloadInvalid, field)
 	}
 	return cloneRawJSON(trimmed), nil
+}
+
+func normalizeRawJSONObject(raw RawJSON, field string) (RawJSON, error) {
+	normalized, err := normalizeRawJSON(raw, field)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := decodeRawJSONObject(normalized, field); err != nil {
+		return nil, err
+	}
+	return normalized, nil
 }

@@ -651,6 +651,126 @@ func TestBuildSchemaDocumentMarksAppDefinitionActionsAsObjectMap(t *testing.T) {
 	}
 }
 
+func TestBuildSchemaDocumentMarksSectionSharedModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	sectionSchema := document.Defs["Section"]
+	if sectionSchema == nil {
+		t.Fatalf("expected Section schema in $defs")
+	}
+	sharedModifierSchema := sectionSchema.Properties["sharedModifier"]
+	if sharedModifierSchema == nil {
+		t.Fatalf("expected Section.sharedModifier schema")
+	}
+	if got := len(sharedModifierSchema.Types); got != 2 {
+		t.Fatalf("Section.sharedModifier types count = %d, want 2", got)
+	}
+	if got := sharedModifierSchema.Types[0]; got != "object" {
+		t.Fatalf("Section.sharedModifier first type = %q, want %q", got, "object")
+	}
+	if got := sharedModifierSchema.Types[1]; got != "null" {
+		t.Fatalf("Section.sharedModifier second type = %q, want %q", got, "null")
+	}
+	if sharedModifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected Section.sharedModifier additionalProperties schema")
+	}
+	if got := sharedModifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("Section.sharedModifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksSectionVariantModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	sectionVariantSchema := document.Defs["SectionVariant"]
+	if sectionVariantSchema == nil {
+		t.Fatalf("expected SectionVariant schema in $defs")
+	}
+	modifierSchema := sectionVariantSchema.Properties["modifier"]
+	if modifierSchema == nil {
+		t.Fatalf("expected SectionVariant.modifier schema")
+	}
+	if got := len(modifierSchema.Types); got != 2 {
+		t.Fatalf("SectionVariant.modifier types count = %d, want 2", got)
+	}
+	if got := modifierSchema.Types[0]; got != "object" {
+		t.Fatalf("SectionVariant.modifier first type = %q, want %q", got, "object")
+	}
+	if got := modifierSchema.Types[1]; got != "null" {
+		t.Fatalf("SectionVariant.modifier second type = %q, want %q", got, "null")
+	}
+	if modifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected SectionVariant.modifier additionalProperties schema")
+	}
+	if got := modifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("SectionVariant.modifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksCoreSharedModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	coreSchema := document.Defs["Core"]
+	if coreSchema == nil {
+		t.Fatalf("expected Core schema in $defs")
+	}
+	sharedModifierSchema := coreSchema.Properties["sharedModifier"]
+	if sharedModifierSchema == nil {
+		t.Fatalf("expected Core.sharedModifier schema")
+	}
+	if got := sharedModifierSchema.Type; got != "object" {
+		t.Fatalf("Core.sharedModifier type = %q, want %q", got, "object")
+	}
+	if sharedModifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected Core.sharedModifier additionalProperties schema")
+	}
+	if got := sharedModifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("Core.sharedModifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksVariantModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	variantSchema := document.Defs["Variant"]
+	if variantSchema == nil {
+		t.Fatalf("expected Variant schema in $defs")
+	}
+	modifierSchema := variantSchema.Properties["modifier"]
+	if modifierSchema == nil {
+		t.Fatalf("expected Variant.modifier schema")
+	}
+	if got := modifierSchema.Type; got != "object" {
+		t.Fatalf("Variant.modifier type = %q, want %q", got, "object")
+	}
+	if modifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected Variant.modifier additionalProperties schema")
+	}
+	if got := modifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("Variant.modifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
 func TestBuildSchemaDocumentUsesDateTimeFormatForTimeFields(t *testing.T) {
 	t.Parallel()
 

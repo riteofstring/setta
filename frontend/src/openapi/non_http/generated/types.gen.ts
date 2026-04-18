@@ -1551,7 +1551,9 @@ export type Core = {
   displayName: string;
   id: string;
   name: string;
-  sharedModifier: RawMessage | null;
+  sharedModifier: {
+    [key: string]: RawMessage;
+  };
   unsharedKeys: null | Array<string>;
   variants: null | Array<string>;
 };
@@ -5162,7 +5164,9 @@ type Section = {
   id: string;
   name: string;
   parentSectionId?: string;
-  sharedModifier?: RawMessage | null;
+  sharedModifier?: {
+    [key: string]: RawMessage;
+  } | null;
   unsharedKeys?: null | Array<string>;
   variantIds?: null | Array<string>;
 };
@@ -5396,7 +5400,9 @@ type SectionVariant = {
   id: string;
   implId: string;
   isFrozen?: boolean;
-  modifier?: RawMessage | null;
+  modifier?: {
+    [key: string]: RawMessage;
+  } | null;
   name?: string;
   nonPresetImplIds?: null | Array<string>;
 };
@@ -7111,7 +7117,9 @@ export type Variant = {
   id: string;
   impl: string;
   isFrozen: boolean;
-  modifier: RawMessage | null;
+  modifier: {
+    [key: string]: RawMessage;
+  };
   name: string;
   nonPresetImpls: null | Array<string>;
 };
