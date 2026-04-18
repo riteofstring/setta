@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
-  isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionLightweightTextUnderline,
+  isCanvasOwnedSectionRestingDropdown,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -631,7 +631,8 @@ export function ParamUI({
   const renderContext = {
     canvasOwnedRestingDropdown:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionMetaControlDropdown({
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: paramUiState.codeObjType,
         paramInfoId,
         sectionId,
       }),

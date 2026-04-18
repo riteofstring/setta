@@ -9,6 +9,8 @@ export const GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__globalVariablesSectionDefault";
 export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__sectionSizingPolicy";
+export const GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
+  "settings-section__gui";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -93,6 +95,25 @@ export function isCanvasOwnedSectionMetaControlDropdown({
     SECTION_SIZING_POLICY_META_CONTROL_DROPDOWN_PARAM_INFO_ID_PATTERN.test(
       paramInfoId,
     )
+  );
+}
+
+export function isCanvasOwnedSectionRestingDropdown({
+  codeObjType,
+  paramInfoId,
+  sectionId,
+}: {
+  codeObjType: CodeObjTypeEnum;
+  paramInfoId: string;
+  sectionId: string;
+}) {
+  return (
+    isCanvasOwnedSectionMetaControlDropdown({
+      paramInfoId,
+      sectionId,
+    }) ||
+    (sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID &&
+      codeObjType === CodeObjTypeEnum.DropdownParam)
   );
 }
 

@@ -155,6 +155,51 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 049
+
+- Item: Extend the lightweight resting-dropdown path onto the dense `settings-section__gui` family.
+- Status: `done`
+- Details:
+  - Started from a fresh live inventory on `/settings` -> `All Settings` after closing the `sectionSizingPolicy` wrapper-harvest lane.
+  - That inventory showed `settings-section__gui` as the largest remaining at-rest dropdown cluster (`4` search inputs / `3` search buttons before this slice), so the next bounded subtask was a real new dense family instead of another stale ownership hop.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exports `GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID` and the shared `isCanvasOwnedSectionRestingDropdown(...)` helper, which keeps the old `sectionSizingPolicy` meta-control rule and adds ordinary `DropdownParam` ownership for `settings-section__gui`.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now uses that shared helper for `canvasOwnedRestingDropdown`, so the existing lightweight combobox activator applies to ordinary GUI dropdown params on the canvas path without creating another section-specific renderer seam.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts`
+  - The live GUI canary now proves the new structural contract:
+    - `Grid Pattern`, `Pan On Scroll Mode`, and `Selection Mode` mount as lightweight resting dropdown roots at rest
+    - those three owned rows keep `0` live `search input` nodes and `0` live `search button` nodes at rest while the section keeps only its pre-existing non-dropdown search input live
+    - activating the owned `Grid Pattern` row rehydrates one live search input/button inline on first pointer down and removes the lightweight resting root for that row
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-gui-lightweight-resting-dropdown-rerun.md`.
+  - Dense rerun outcome versus the prior lightweight resting-dropdown-container report:
+    - `documentNodeCount` dropped from `8226` to `8200`
+    - `inputCount` dropped from `60` to `57`
+    - `buttonCount` dropped from `477` to `474`
+    - `raf.meanMs` improved from `113.96ms` to `107.44ms`
+    - `raf.p95Ms` improved from `233.4ms` to `216.7ms`
+    - `longTasks.totalMs` improved from `18423ms` to `17334ms`
+  - Fresh post-slice inventory now shows the next dense hot spots:
+    - `settings-section__backend` is the highest remaining combined cluster at `3` inputs / `17` buttons
+    - `settings-section__gui` is next at `5` inputs (`1` text + `4` color) / `13` buttons after closing its dropdown family
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-032/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.0s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-032/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.5s)` on the live worktree runtime with `documentNodeCount: 8200`, `inputCount: 57`, and `buttonCount: 474`
+- CDP visual check is done:
+  - `/settings` loaded cleanly with no visible crash or error overlay
+  - `All Settings` was active
+  - exactly one retained `canvas` was mounted under `.react-flow__section-shell-backdrop`
+  - `settings-section__gui` was visible and the `Grid Pattern`, `Pan On Scroll Mode`, and `Selection Mode` rows showed readable at-rest values (`dots`, `free`, `partial`) with no obvious blank value slots
+  - caveat: the headless fitted view renders the GUI block very small/narrow, so the focused Playwright canary remains the authoritative activation proof and this CDP pass is the required visual confirmation layer
+- Next action:
+  - keep the `gui` dropdown lane closed and target the next real dense frontier from the post-slice inventory, with `settings-section__backend` or a broader shared value/editor primitive as the preferred next move over another tiny `gui` follow-up
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 045
 
 - Item: Collapse the extra `sectionSizingPolicy` key-column wrapper so the owned param label itself occupies the slot on the retained canvas lane.

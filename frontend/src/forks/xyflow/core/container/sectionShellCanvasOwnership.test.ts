@@ -6,6 +6,7 @@ import {
   isCanvasOwnedSectionArgsLabelRestingText,
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
@@ -16,6 +17,7 @@ import {
   isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
+  isCanvasOwnedSectionRestingDropdown,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
@@ -204,6 +206,37 @@ describe("sectionShellCanvasOwnership", () => {
         paramInfoId:
           "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__Browser__sizeModeHeight",
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(false);
+  });
+
+  it("targets gui dropdown params for canvas-owned resting dropdowns", () => {
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.DropdownParam,
+        paramInfoId: "settings-codeobj__gui__gui__gridPattern",
+        sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.DropdownParam,
+        paramInfoId: "settings-codeobj__gui__gui__panOnScrollMode",
+        sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        paramInfoId: "settings-codeobj__gui__gui__selectionMode",
+        sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.DropdownParam,
+        paramInfoId: "settings-codeobj__backend__backend__runSnapshotMode",
+        sectionId: "settings-section__backend",
       }),
     ).toBe(false);
   });

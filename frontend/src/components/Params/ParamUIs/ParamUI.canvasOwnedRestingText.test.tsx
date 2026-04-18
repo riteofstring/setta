@@ -1,6 +1,7 @@
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -335,6 +336,28 @@ describe("ParamUI canvas-owned resting text", () => {
         sectionId={SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
         paramInfoId="settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeHeight"
         value="any"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.dropdownProps).toHaveBeenCalledTimes(1);
+    expect(mocks.dropdownProps.mock.calls[0][0].canvasOwnedRestingInput).toBe(
+      true,
+    );
+  });
+
+  it("uses the canvas-owned resting dropdown path for gui dropdown params", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.DropdownParam,
+      defaultVal: "",
+    };
+
+    renderToStaticMarkup(
+      <ParamUI
+        sectionId={GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
+        paramInfoId="settings-codeobj__gui__gui__selectionMode"
+        value="partial"
         onChange={() => undefined}
       />,
     );
