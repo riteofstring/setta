@@ -10041,6 +10041,128 @@ func TestAppLinkedPluginCodegenTargetsBecomeAvailableAfterLink(t *testing.T) {
 	}
 }
 
+func TestAppStartsWithoutPythonLanguageServerPluginOrSelection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(
+		app.SettingsState().Snapshot().Document,
+		"python",
+	)
+	if err != nil {
+		t.Fatalf("python language-server selection: %v", err)
+	}
+	if ok || selection != nil {
+		t.Fatalf("expected missing Python selection by default, got ok=%v selection=%#v", ok, selection)
+	}
+
+	seedAppLSPCodeSectionProjectWithSource(t, app, "math.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		Status struct {
+			Plugins []plugins.PluginStatusEntry `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 0 {
+		t.Fatalf("expected no installed plugins at startup, got %#v", runtimePayload.Status.Plugins)
+	}
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"math.",
+		len("math."),
+	)
+	if len(completions) != 0 {
+		t.Fatalf("expected no Python completions without a selected plugin, got %#v", completions)
+	}
+
+	diagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
+	if diagnostics.ProjectID != "project-alpha" {
+		t.Fatalf("expected diagnostics payload for project-alpha, got %#v", diagnostics.ProjectID)
+	}
+	if len(diagnostics.CodeSections) != 0 {
+		t.Fatalf("expected empty code-section diagnostics without a selected plugin, got %#v", diagnostics.CodeSections)
+	}
+	if len(diagnostics.UnmappedGenCode) != 0 {
+		t.Fatalf("expected no unmapped generated diagnostics without a selected plugin, got %#v", diagnostics.UnmappedGenCode)
+	}
+	if len(diagnostics.GenCode.Errors) != 0 {
+		t.Fatalf("expected no generated-code diagnostics without a selected plugin, got %#v", diagnostics.GenCode.Errors)
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart conflict when no plugin is selected, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	var restartPayload struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+		t.Fatalf("decode restart response: %v", err)
+	}
+	if restartPayload.Error.Code != "language_server_not_configured" {
+		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+	}
+	if restartPayload.Error.Message != "Language server is not configured. Select a plugin and restart after it is available." {
+		t.Fatalf("unexpected restart error message %#v", restartPayload.Error)
+	}
+}
+
 func TestAppStartsWithPluginLanguageServerCompletion(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
