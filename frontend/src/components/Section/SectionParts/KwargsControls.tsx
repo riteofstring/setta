@@ -1,4 +1,3 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
   isCanvasOwnedSectionArgsLabelRestingText,
@@ -45,6 +44,7 @@ import {
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
+import { KwargsActionIconButton } from "./KwargsActionIconButton";
 import {
   getKwargsControlsActionState,
   getKwargsControlsThemeState,
@@ -131,8 +131,12 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const canvasOwnedArgsLabel =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionArgsLabelRestingText(sectionId);
+  const canvasOwnedLightweightActionButtons =
+    graphSurfaceImplementation === "canvas-shell-underlay";
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
+  const argsIconButtonClassName =
+    `nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`.trim();
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
   const paramsImpl = useProjectState((x) =>
@@ -401,9 +405,13 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
             >
               Args
             </h3>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={() => {
+            <KwargsActionIconButton
+              ariaLabel="Remove arg"
+              className={argsIconButtonClassName}
+              disabled={kwargButtonsDisabled}
+              iconClassName={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={() => {
                 const payload = {
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
@@ -414,18 +422,15 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
                   >[0]),
                 );
               }}
-              tabIndex={0}
+              tooltipContent="Remove arg"
+            />
+            <KwargsActionIconButton
+              ariaLabel="Add arg"
+              className={argsIconButtonClassName}
               disabled={kwargButtonsDisabled}
-              aria-label="Remove arg"
-              {...getFloatingBoxHandlers({ content: "Remove arg" })}
-            >
-              <i
-                className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={() => {
+              iconClassName={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={() => {
                 const payload = {
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
@@ -434,54 +439,36 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
                   addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
                 );
               }}
-              tabIndex={0}
-              disabled={kwargButtonsDisabled}
-              aria-label="Add arg"
-              {...getFloatingBoxHandlers({ content: "Add arg" })}
-            >
-              <i
-                className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
+              tooltipContent="Add arg"
+            />
 
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickPinParam}
-              tabIndex={0}
+            <KwargsActionIconButton
+              ariaLabel={pinButtonLabel}
+              className={argsIconButtonClassName}
               disabled={pinParamsDisabled}
-              aria-label={pinButtonLabel}
-              {...getFloatingBoxHandlers({ content: pinButtonLabel })}
-            >
-              <i
-                className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickConvertToEdgeInputs}
-              tabIndex={0}
+              iconClassName={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={onClickPinParam}
+              tooltipContent={pinButtonLabel}
+            />
+            <KwargsActionIconButton
+              ariaLabel={convertToEdgeAriaLabel}
+              className={argsIconButtonClassName}
               disabled={convertToEdgeDisabled}
-              aria-disabled={convertToEdgeDisabled}
-              aria-label={convertToEdgeAriaLabel}
-              {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
-            >
-              <i
-                className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickDeleteSelectedKwargs}
-              tabIndex={0}
+              iconClassName={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={onClickConvertToEdgeInputs}
+              tooltipContent={convertToEdgeTooltip}
+            />
+            <KwargsActionIconButton
+              ariaLabel="Delete selected args"
+              className={argsIconButtonClassName}
               disabled={deleteSelectedDisabled}
-              aria-disabled={deleteSelectedDisabled}
-              aria-label="Delete selected args"
-              {...getFloatingBoxHandlers({ content: "Delete selected args" })}
-            >
-              <i
-                className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
+              iconClassName={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={onClickDeleteSelectedKwargs}
+              tooltipContent="Delete selected args"
+            />
           </section>
         </article>
 

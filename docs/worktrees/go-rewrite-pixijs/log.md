@@ -1535,3 +1535,78 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the backend ordinary-dropdown lane closed and target a broader lightweight switch/button activator primitive or another shared value/editor family that can move the remaining `55` / `472` interactive-core plateau
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 050
+
+- Item: Tighten the worktree plan around serious `settings` -> `All Settings` pan/zoom gains instead of more local micro-lane progress.
+- Status: `done`
+- Details:
+  - Re-read the retained-canvas benchmark chain from the durable baseline through the latest backend lightweight switch-activator rerun and reconciled the plan with the current best checkpoint:
+    - baseline: `documentNodeCount 9553`, `inputs 92`, `buttons 521`, `raf.meanMs 204.93`, `raf.p95Ms 216.7`, `longTasks.totalMs 36337`
+    - current best checkpoint: `documentNodeCount 8182`, `inputs 55`, `buttons 463`, `raf.meanMs 102.98`, `raf.p95Ms 200`, `longTasks.totalMs 16654`
+  - Recorded the explicit conclusion in the plan, handoff, and guardrails:
+    - the retained-canvas direction has produced real gains
+    - those gains are still not good enough because `All Settings` pan/zoom remains poor in absolute terms
+    - the next Ralph pass must target the largest remaining shared interactive-core primitive or the single highest-payoff dense family on `All Settings`, not another closed section-local cleanup lane
+  - Added an explicit rule that relative improvement is not enough while the normalized dense probe still misses the `33.3ms` budget on most frames.
+  - Added a stronger stop condition: if a proposed next slice cannot plausibly move the global dense-scene numbers before implementation, default automation should replan instead of taking another tidy local reduction by inertia.
+  - No runtime or product verification was needed because this slice only changes the worktree planning documents.
+- Next action:
+  - restart Ralph against the updated plan/handoff and force the next iteration to choose a broad shared primitive or the highest-payoff remaining `All Settings` dense family
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 051
+
+- Item: Replace the shared kwargs toolbar `button` strip with lightweight action activators on the canvas path.
+- Status: `done`
+- Details:
+  - Started from the post-backend frontier instead of reopening the closed `gui`, `backend`, or `sectionSizingPolicy` micro-lanes.
+  - A fresh live inventory showed the next repeated `button` family clearly:
+    - `Remove arg`: `46`
+    - `Add arg`: `46`
+    - `Pin selected args`: `46`
+    - `Convert to edge connectors`: `46`
+    - `Delete selected args`: `46`
+  - That meant the real next bounded slice was the shared kwargs toolbar owner, not another section-local follow-up.
+  - Added `frontend/src/components/Section/SectionParts/KwargsActionIconButton.tsx`, a shared kwargs action primitive that renders a lightweight `DIV[role="button"]` root with `data-canvas-owned-lightweight-action-button="true"` on the `canvas-shell-underlay` path while preserving the legacy `button` path elsewhere.
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now routes the repeated kwargs toolbar actions through that helper, so the canvas path no longer mounts legacy `button` roots at rest for:
+    - `Remove arg`
+    - `Add arg`
+    - `Pin selected args`
+    - `Convert to edge connectors`
+    - `Delete selected args`
+  - Added focused coverage at:
+    - new `frontend/src/components/Section/SectionParts/KwargsActionIconButton.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-kwargs-action-buttons.spec.ts`
+  - The live structural contract now holds on the dense `All Settings` surface:
+    - each shared kwargs action label mounts `46` lightweight roots with `data-canvas-owned-lightweight-action-button="true"`
+    - each shared kwargs action label mounts `0` legacy `button` roots at rest
+    - canonical target section for the lane: `settings-section__callableSectionDefault`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-kwargs-action-button-rerun.md`.
+  - Dense rerun outcome versus the prior backend lightweight switch-activator report:
+    - `documentNodeCount`: `8182 -> 8182`
+    - `inputCount`: `55 -> 55`
+    - `buttonCount`: `463 -> 233`
+    - `raf.meanMs`: `102.98 -> 108.75`
+    - `raf.p95Ms`: `200 -> 216.6`
+    - `longTasks.totalMs`: `16654 -> 17559`
+  - Interpretation:
+    - this was a major interactive-core plateau reduction, not a new motion win
+    - the repeated kwargs toolbar lane is now closed at its useful ownership boundary
+    - the next pass should start with a fresh post-slice inventory of the remaining `55` / `233` plateau instead of reopening kwargs/backend/gui/sectionSizingPolicy cleanup by inertia
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/components/Section/SectionParts/KwargsActionIconButton.tsx src/components/Section/SectionParts/KwargsActionIconButton.test.tsx tests/e2e/settings/settings-all-settings-lightweight-kwargs-action-buttons.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-003/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-kwargs-action-buttons.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-003/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.5s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 233`
+  - focused Vitest verification for `frontend/src/components/Section/SectionParts/KwargsActionIconButton.test.tsx` is blocked by the existing jsdom dependency/runtime issue before test collection:
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done:
+  - `All Settings` was active with no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__callableSectionDefault` was present and its kwargs/action strip looked intact with no obvious blank/missing control slot after the button-to-role-button change
+  - caveat: the headless fitted view left the strip very small on screen, so the CDP pass relied more on DOM-backed confirmation than icon-by-icon visual reading
+- Next action:
+  - start the next iteration with a fresh post-kwargs inventory of the remaining `55` / `233` interactive-core plateau and target the next shared value/editor or switch family rather than reopening the closed kwargs/backend/gui/sectionSizingPolicy lanes
+LOOP_TERMINAL_MARKER: none
