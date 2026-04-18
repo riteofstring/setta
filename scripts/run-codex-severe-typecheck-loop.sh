@@ -6,7 +6,7 @@ usage() {
 Usage: ./scripts/run-codex-severe-typecheck-loop.sh [options] [-- <extra codex exec args>]
 
 Run Codex in a fresh-session loop with one strict phase:
-1. fix only actionable runtime-break type errors without churning on non-critical type backlog
+1. fix only actionable runtime bugs surfaced by type errors without churning on non-bug type backlog
 
 Defaults:
 - Maximum iterations: 1000
@@ -15,7 +15,7 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Stop only when Codex explicitly reports that no actionable runtime-break type errors remain
+- Stop only when Codex explicitly reports that no actionable runtime bugs surfaced by type errors remain
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the saved checklist/audit state
 
 Options:
@@ -262,22 +262,24 @@ runtime_break_shortlist_command="$(
 
 if [[ ! -f "${severe_type_audit_file}" ]]; then
   cat > "${severe_type_audit_file}" <<EOF
-# Severe Type Audit
+# Runtime Bug Audit
 
 Keep this file compact and current-state only.
 Overwrite stale notes instead of appending an iteration diary.
 
 ## Severity rubric
 - Critical for this loop:
-  - the type error indicates a concrete supported-flow runtime break, crash, dropped message, broken dispatch path, or invalid live request/response shape
-  - missing or renamed exports, imports, symbols, properties, enum members, or discriminants that production code actively uses at runtime
-  - handler-map, enum, JSX, or component typing that proves live runtime wiring is broken
+  - the type error indicates a concrete supported-flow runtime break, crash, dropped message, broken dispatch path, invalid live request/response shape, or app-start failure
+  - missing runtime properties, enum members, discriminants, or handler-map keys that production code actively uses on the live path
+  - generated-contract drift that proves live runtime wiring is broken
 - Duplication policy:
   - Do not introduce duplicate code or logic merely to satisfy the type checker.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first reuse an existing authoritative type or helper if one already exists.
   - If the only problem is that an owner-side helper type is private, prefer exporting and reusing it from the owner module instead of re-declaring the same shape locally.
   - If a normalization boundary is genuinely unavoidable because two owner surfaces are materially different, keep it minimal, make it the only such boundary for that concept, and record the reason briefly in this audit.
 - Usually not critical for this loop:
+  - frontend \`tsc\`-only failures that do not imply a bundled runtime break on a supported flow
+  - missing or renamed imports, exports, or symbols unless you can show value-level runtime use and a concrete live failure
   - exactOptionalPropertyTypes or nullability churn that does not indicate runtime breakage
   - test-only fixture typing or helper typing backlog
   - contract precision or owner/generated narrowing drift that does not imply a concrete runtime failure on supported flows
@@ -293,9 +295,10 @@ Overwrite stale notes instead of appending an iteration diary.
 - If this section is blank, do not edit code.
 
 ## Failure mode
-- State the concrete runtime or build failure in one or two sentences.
+- State the concrete supported-flow runtime failure in one or two sentences.
 - Example shape: "When the app receives real message X, handler key Y is missing, so dispatch breaks."
-- If you cannot state a concrete failure mode, the target is not actionable for this loop.
+- Frontend \`tsc\`-only failures or theoretical build issues do not count by themselves.
+- If you cannot state a concrete runtime failure mode, the target is not actionable for this loop.
 
 ## High-risk contract surfaces checked
 - Before completion, explicitly audit high-risk shared-contract and runtime-dispatch surfaces that can evade raw typecheck output.
@@ -303,7 +306,7 @@ Overwrite stale notes instead of appending an iteration diary.
 ## Deferred non-critical or test-only backlog
 
 ## Completion basis
-- Completion means no actionable runtime-break type errors remain under the rubric above.
+- Completion means no actionable runtime bugs surfaced by type errors remain under the rubric above.
 - Non-critical type backlog may remain and should stay listed briefly here instead of consuming loop iterations.
 EOF
 fi
@@ -319,12 +322,12 @@ fi
 
 if [[ ! -f "${checklist_file}" ]]; then
   cat > "${checklist_file}" <<EOF
-# Runtime-Break Type Error Checklist
+# Runtime Bug Checklist
 
 Keep this file accurate while the loop runs.
 
 Rules:
-- This loop has one phase only: fix actionable runtime-break type errors.
+- This loop has one phase only: fix actionable runtime bugs surfaced by type errors.
 - Treat ${severe_type_audit_file} as the current severity source of truth.
 - Mark an item \`[x]\` only after a fresh audit or verification proves it.
 - Do not delete items.
@@ -333,17 +336,18 @@ Rules:
 - The latest saved runtime-break shortlist should live at: ${runtime_break_shortlist_file}
 - Save Go typecheck output to: ${go_typecheck_file} when Go changes or before declaring completion.
 
-## Phase 1: Fix Runtime-Break Type Errors
+## Phase 1: Fix Runtime Bugs Surfaced By Type Errors
 - [ ] Refresh ${frontend_typecheck_file} with ${frontend_typecheck_command} at the start of every iteration and save stdout/stderr there.
 - [ ] Refresh ${python_typecheck_file} with ${python_typecheck_command} at the start of every iteration and save stdout/stderr there.
 - [ ] Refresh ${runtime_break_shortlist_file} with ${runtime_break_shortlist_command} immediately after refreshing the saved typecheck outputs.
 - [ ] Update ${severe_type_audit_file} on every iteration with only the current actionable runtime-break findings, current target, and brief deferred non-critical backlog needed for triage.
 - [ ] Before editing code, fill in `Production evidence` and `Failure mode` in ${severe_type_audit_file}. Do not start edits while either section is blank.
-- [ ] Use ${runtime_break_shortlist_file} as the primary target queue. Use the raw saved typecheck outputs only as supporting detail and fallback input.
+- [ ] Use ${runtime_break_shortlist_file} as the primary lead queue. Use the raw saved typecheck outputs only as supporting detail and fallback input.
 - [ ] Choose one highest-leverage runtime-break error or tightly related runtime-break error cluster and fix it fully before moving on.
 - [ ] If ${runtime_break_shortlist_file} contains `Tier 1`, pick from Tier 1 only. Do not work on Tier 2 or Tier 3 while Tier 1 remains unexplained.
 - [ ] Prefer non-test production-file breakages first. Do not start with test-only errors unless the same production break is already identified and being fixed in the same iteration.
-- [ ] Prioritize missing exports, missing enum members, missing discriminants, missing symbols, and broken handler-map keys in production code ahead of generic request/nullability/helper typing issues.
+- [ ] Prioritize missing runtime enum/object members, missing discriminants, broken handler-map keys, and live payload-shape mismatches ahead of generic request/nullability/helper typing issues.
+- [ ] Do not work on plain frontend \`tsc\`-only import/export/name errors unless ${severe_type_audit_file} proves they will break a supported runtime path after a successful build.
 - [ ] Do not skip a higher-tier shortlist item unless ${severe_type_audit_file} records why it is blocked, already disproven, or lower leverage than the chosen target.
 - [ ] If the chosen target is a request/response nullability issue or OpenAPI helper typing issue, prove the concrete runtime rejection or broken behavior first. If a focused test shows the current runtime already works, abandon that target as non-critical.
 - [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
@@ -354,7 +358,7 @@ Rules:
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-typefix:\`.
 
 ## Completion
-- [ ] Mark completion only after a fresh audit plus fresh saved typecheck outputs show no remaining actionable runtime-break type errors under the rubric, and the high-risk shared-contract/dispatch audit is also clean. Non-critical backlog may remain.
+- [ ] Mark completion only after a fresh audit plus fresh saved typecheck outputs show no remaining actionable runtime bugs surfaced by type errors under the rubric, and the high-risk shared-contract/dispatch audit is also clean. Non-critical backlog may remain.
 EOF
 fi
 
@@ -363,7 +367,7 @@ You are running inside an automated Codex loop for this repository.
 
 Mission:
 Complete the single phase of this loop:
-fix only actionable runtime-break type errors in the repo without burning time on non-critical type backlog.
+fix only actionable runtime bugs in the repo that are surfaced by type errors, without burning time on non-bug type backlog.
 
 Read first, in this order:
 - ${ROOT_DIR}/AGENTS.md
@@ -376,19 +380,20 @@ Read first, in this order:
 - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
 
 Severity rubric:
-- Count an error as actionable for this loop only when it indicates a concrete supported-flow runtime break.
+- Count an error as actionable for this loop only when it indicates a concrete supported-flow runtime break or app-start failure.
 - Typical actionable examples:
-  - missing or renamed exports, imports, symbols, properties, enum members, discriminants, or required fields used by production code
+  - missing runtime properties, enum members, discriminants, or handler-map keys that production code actively uses on the live path
   - generated contract drift that breaks protocol dispatch, handler maps, or other live runtime wiring
-  - JSX/component type failures that imply a component may be undefined or called with impossible live props
   - request/response type errors where the current code would send or depend on a payload shape that the live runtime path cannot actually handle
-- Production build failures in non-test code count as actionable when they block the supported app path from building or running.
+- Type errors are leads, not the goal. Only fix them when they point to a real runtime bug.
 - Duplication policy for this loop:
   - Do not introduce duplicate code or logic merely to silence type errors.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first search for an existing authoritative type or helper and reuse it.
   - If the only issue is that an owner-side helper type is private, export and reuse it from the owner module instead of re-declaring the same structure locally.
   - If two owner surfaces are genuinely different and a normalization boundary is unavoidable, keep it minimal, keep exactly one such boundary for that concept, and record the reason in ${severe_type_audit_file}.
 - Usually not actionable for this loop:
+  - frontend \`tsc\`-only import/export/name failures that would not change bundled runtime behavior on a supported flow
+  - Go or Python compile/import issues unless you can tie them to a concrete supported-flow runtime failure instead of a tooling-only failure
   - exactOptionalPropertyTypes, nullability, or narrowing churn that does not indicate runtime breakage
   - test-only fixture typing, helper typing, or broad legacy test backlog
   - contract precision drift, union narrowing drift, or owner/generated type drift that does not imply a concrete runtime failure
@@ -410,12 +415,13 @@ Execution rules for every iteration:
 - Run ${go_typecheck_command} and save stdout/stderr to ${go_typecheck_file} whenever you touch Go code or before declaring completion.
 - After refreshing outputs, update ${severe_type_audit_file} so it reflects only current actionable runtime-break findings and the brief deferred non-critical backlog relevant to triage.
 - Before editing code, fill in `Production evidence` and `Failure mode` in ${severe_type_audit_file}. If you cannot do that concretely, pick a different target.
-- Use ${runtime_break_shortlist_file} as the primary candidate queue. Treat the raw saved typecheck outputs as supporting evidence, not as a blanket requirement to fix every reported issue.
+- Use ${runtime_break_shortlist_file} as the primary lead queue. Treat the raw saved typecheck outputs as supporting evidence, not as a blanket requirement to fix every reported issue.
 - Pick one actionable runtime-break error or tightly related runtime-break cluster that you can complete confidently in this session.
 - Start from the highest-tier entries in ${runtime_break_shortlist_file}. If you skip a higher-tier item, record the concrete reason in ${severe_type_audit_file} before touching code.
 - If ${runtime_break_shortlist_file} contains `Tier 1`, do not work on Tier 2 or Tier 3 until the audit records why Tier 1 is blocked, disproven, or already resolved by the chosen fix.
-- Use the shortlist to focus first on non-test production files with high-signal errors such as missing exports, missing enum members, missing discriminants, missing symbols, broken handler-map keys, or JSX components that are undefined/unusable.
+- Use the shortlist to focus first on non-test production files with high-confidence runtime signals such as missing generated runtime enum/object members, missing discriminants, broken handler-map keys, or payload shapes the live path cannot actually handle.
 - Do not start an iteration with test-only errors or lower-signal helper-generic noise while higher-signal production breakages remain unresolved in the saved outputs.
+- Do not work on plain frontend \`tsc\`-only import/export/name drift unless the audit proves a supported runtime path would still break after a successful frontend build.
 - Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
 - Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
 - Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
@@ -427,7 +433,7 @@ Execution rules for every iteration:
   - Any drift that can leave production-path runtime dispatch unable to handle real owner-side messages or payloads must block completion.
 - Do not hand-edit generated files. If a generated file is wrong, fix the owner and regenerate.
 - Run focused verification for the behavior you changed.
-- Do not use Chrome DevTools, browser MCP, or other browser-driven verification in this loop. This is a type-error cleanup loop; prefer static checks, generation, and focused tests.
+- Do not use Chrome DevTools, browser MCP, or other browser-driven verification in this loop. This is a runtime-bug loop using static/type signals; prefer generation, focused tests, and direct runtime checks.
 - Before every non-stop commit, run the relevant language type checks for the code you touched, then run \`./gcf.sh\`, then run \`./scripts/check_quality_for_git_changes.sh\`.
 - When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
 - Treat \`No supported files to check.\` from \`./scripts/check_quality_for_git_changes.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
@@ -445,7 +451,7 @@ Runtime-break-only discipline:
 - If a focused test or local runtime check demonstrates that the current behavior already works on the supported path, treat that as evidence the target is non-critical for this loop and back out instead of doubling down on the cleanup.
 
 Completion rule:
-- If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable runtime-break type errors under the rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
+- If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable runtime bugs surfaced by type errors under the rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
   ${complete_stop_sentinel}
 
 Completion discipline:
