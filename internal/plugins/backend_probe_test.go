@@ -131,7 +131,7 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 			{TargetID: " go-target ", Language: "go", Name: "Go target", DefaultFileName: "go.txt"},
 		},
 		LanguageServers: []PluginRegisteredLanguageServer{
-			{Name: "TypeScript LS", Language: " typescript ", Command: "node", Args: []string{"--stdio"}},
+			{Name: "TypeScript LS", Language: " typescript ", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
 			{Name: "Go LS", Language: "go", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
 		},
 		UISettingsRaw: []map[string]any{

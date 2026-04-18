@@ -11608,6 +11608,15 @@
             "$ref": "#/$defs/PluginRegisteredCodegenTarget"
           }
         },
+        "registeredLanguageServers": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/PluginRegisteredLanguageServer"
+          }
+        },
         "registeredBackendRoutes": {
           "type": [
             "null",
@@ -11680,6 +11689,7 @@
         "blockedCapabilities",
         "components",
         "registeredCodegenTargets",
+        "registeredLanguageServers",
         "registeredBackendRoutes",
         "registeredStaticDirs",
         "registeredListenerEndpoints",
