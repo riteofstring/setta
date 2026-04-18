@@ -215,6 +215,7 @@ def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
 
     assert any(name.endswith("backend/main.py") for name in names)
     assert not any(name.endswith("backend/main.go") for name in names)
+    assert any(name.endswith("content/config/schema.json") for name in names)
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

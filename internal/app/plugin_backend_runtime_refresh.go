@@ -5,24 +5,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
+	"slices"
 	"strings"
 	"sync"
 
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service     *plugins.Service
-	logger      *slog.Logger
-	runtimeRoot string
-	mcpServer   *mcpx.Server
-	settings    *settingsstate.Runtime
-	runtime     *pluginBackendMCPRuntime
-	lspRouter   *lsp.Router
-	lspSpecs    []lsp.LanguageServerSpec
+	service      *plugins.Service
+	logger       *slog.Logger
+	runtimeRoot  string
+	mcpServer    *mcpx.Server
+	settings     *settingsstate.Runtime
+	runtime      *pluginBackendMCPRuntime
+	lspRouter    *lsp.Router
+	lspSpecs     []lsp.LanguageServerSpec
+	projectState *projectstate.Runtime
+	projectSync  *lsp.ProjectSynchronizer
 
 	mu sync.Mutex
 }
@@ -48,7 +53,12 @@ func newPluginMutationRuntimeService(base *plugins.Service, refresher *pluginBac
 }
 
 func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	return s.base.Runtime(options)
+	response, err := s.base.Runtime(options)
+	if err != nil || s.refresher == nil {
+		return response, err
+	}
+	s.refresher.applyAppliedLanguageServerStatus(&response.Status)
+	return response, nil
 }
 
 func (s *pluginMutationRuntimeService) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
@@ -283,7 +293,38 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
+	if err := r.reconcileProjectDocumentLocked(ctx, transition.previousLSPSpecs, transition.nextLSPSpecs); err != nil {
+		r.rollbackRefreshTransitionLocked(transition)
+		return plugins.DiscoverySnapshot{}, err
+	}
 	return r.commitRefreshTransitionLocked(transition)
+}
+
+func (r *pluginBackendRuntimeRefresher) RefreshLanguageServers(ctx context.Context) error {
+	if r == nil || r.service == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	snapshot, err := r.service.Rescan()
+	if err != nil {
+		return err
+	}
+	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
+	if err != nil {
+		return err
+	}
+	previousLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
+	if err := r.replaceLSPSpecsLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
+		return err
+	}
+	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
+	return nil
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
@@ -357,6 +398,10 @@ func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	)
 	r.runtime = transition.previousRuntime
 	r.lspSpecs = transition.previousLSPSpecs
+	r.logPluginBackendRuntimeError(
+		"rollback plugin backend project reconciliation failed",
+		r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
+	)
 	closePluginBackendRuntime(transition.nextRuntime)
 }
 
@@ -388,6 +433,35 @@ func (r *pluginBackendRuntimeRefresher) HasConfiguredLanguageServers() bool {
 	defer r.mu.Unlock()
 
 	return len(r.lspSpecs) != 0
+}
+
+func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status *plugins.PluginStatusResponse) {
+	if r == nil || status == nil || len(status.Plugins) == 0 {
+		return
+	}
+
+	r.mu.Lock()
+	appliedByPlugin := appliedLanguageServerLanguagesByPlugin(r.lspSpecs)
+	r.mu.Unlock()
+	if len(appliedByPlugin) == 0 {
+		return
+	}
+
+	for index := range status.Plugins {
+		entry := &status.Plugins[index]
+		languages, ok := appliedByPlugin[entry.PluginID]
+		if !ok {
+			continue
+		}
+		if entry.State != plugins.PluginRuntimeStateActive && entry.State != plugins.PluginRuntimeStatePendingRestart {
+			continue
+		}
+		entry.AppliedLanguageServerLanguages = append([]string(nil), languages...)
+		delete(appliedByPlugin, entry.PluginID)
+		if len(appliedByPlugin) == 0 {
+			return
+		}
+	}
 }
 
 func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plugins.DiscoverySnapshot) ([]lsp.LanguageServerSpec, error) {
@@ -461,6 +535,21 @@ func (r *pluginBackendRuntimeRefresher) logPluginBackendRuntimeError(message str
 	r.logger.Error(message, "error", err)
 }
 
+func (r *pluginBackendRuntimeRefresher) reconcileProjectDocumentLocked(
+	ctx context.Context,
+	previous []lsp.LanguageServerSpec,
+	next []lsp.LanguageServerSpec,
+) error {
+	if r == nil || r.projectState == nil || r.projectSync == nil {
+		return nil
+	}
+	if languageServerSpecSlicesEqual(previous, next) {
+		return nil
+	}
+	snapshot := r.projectState.Snapshot()
+	return r.projectSync.MaterializeDocument(ctx, snapshot.Document)
+}
+
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {
 	for _, entry := range entries {
 		if entry.PluginID == pluginID && entry.Scope == scope {
@@ -504,6 +593,74 @@ func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServ
 		})
 	}
 	return cloned
+}
+
+func languageServerSpecSlicesEqual(left []lsp.LanguageServerSpec, right []lsp.LanguageServerSpec) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if !lspLanguageServerSpecsEqual(left[index], right[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+func lspLanguageServerSpecsEqual(left lsp.LanguageServerSpec, right lsp.LanguageServerSpec) bool {
+	if left.PluginID != right.PluginID ||
+		left.Name != right.Name ||
+		left.LanguageID != right.LanguageID ||
+		left.Command != right.Command {
+		return false
+	}
+	if !slices.Equal(left.Args, right.Args) {
+		return false
+	}
+	if !languageServerSettingsEqual(left.Settings, right.Settings) {
+		return false
+	}
+	return optionalStringPointersEqual(left.SettingsKey, right.SettingsKey)
+}
+
+func languageServerSettingsEqual(left map[string]any, right map[string]any) bool {
+	return reflect.DeepEqual(
+		clonePluginLanguageServerSettings(left),
+		clonePluginLanguageServerSettings(right),
+	)
+}
+
+func optionalStringPointersEqual(left *string, right *string) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
+}
+
+func appliedLanguageServerLanguagesByPlugin(specs []lsp.LanguageServerSpec) map[string][]string {
+	if len(specs) == 0 {
+		return nil
+	}
+	byPlugin := map[string][]string{}
+	for _, spec := range specs {
+		pluginID := strings.TrimSpace(spec.PluginID)
+		languageID := strings.ToLower(strings.TrimSpace(spec.LanguageID))
+		if pluginID == "" || languageID == "" {
+			continue
+		}
+		if slices.Contains(byPlugin[pluginID], languageID) {
+			continue
+		}
+		byPlugin[pluginID] = append(byPlugin[pluginID], languageID)
+	}
+	for pluginID := range byPlugin {
+		slices.Sort(byPlugin[pluginID])
+	}
+	return byPlugin
 }
 
 func clonePluginLanguageServerSettings(settings map[string]any) map[string]any {

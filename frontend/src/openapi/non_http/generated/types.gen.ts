@@ -4111,6 +4111,7 @@ type PluginSourceTrustStatus = "unverified";
  * PluginStatusEntry
  */
 export type PluginStatusEntry = {
+  appliedLanguageServerLanguages: null | Array<string>;
   blockedCapabilities: null | Array<PluginBlockedCapability>;
   canonicalSourceKey: string;
   components: null | Array<string>;

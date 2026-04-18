@@ -36,6 +36,26 @@ func loadPluginConfigSchemaJSON(schemaPath string) (map[string]any, error) {
 	return schemaJSON, nil
 }
 
+func loadPluginConfigSchemaDocument(entry DiscoveredPlugin) (string, map[string]any, bool, error) {
+	schemaPath, ok, err := resolvePluginConfigSchemaPath(entry)
+	if err != nil || !ok {
+		return "", nil, ok, err
+	}
+	schemaJSON, err := loadPluginConfigSchemaJSON(schemaPath)
+	if err != nil {
+		return schemaPath, nil, true, err
+	}
+	return schemaPath, schemaJSON, true, nil
+}
+
+func validateDiscoveredPluginConfigSchema(entry DiscoveredPlugin) error {
+	schemaPath, _, ok, err := loadPluginConfigSchemaDocument(entry)
+	if err == nil || !ok {
+		return err
+	}
+	return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema JSON: %s", schemaPath)
+}
+
 func pluginConfigSchemaDefaultValue(schema map[string]any) (any, bool) {
 	if len(schema) == 0 {
 		return nil, false

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"setta/internal/lsp"
+	"setta/internal/plugins"
 )
 
 func TestCloneLanguageServerSpecsDeepCopiesSettings(t *testing.T) {
@@ -92,5 +93,35 @@ func TestRollbackRefreshTransitionRestoresLanguageServerSettings(t *testing.T) {
 	}
 	if overrides["reportUnknownVariableType"] != "none" {
 		t.Fatalf("expected restored reportUnknownVariableType override, got %#v", overrides["reportUnknownVariableType"])
+	}
+}
+
+func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) {
+	refresher := &pluginBackendRuntimeRefresher{
+		lspSpecs: []lsp.LanguageServerSpec{
+			{
+				PluginID:   "setta-basedpyright",
+				LanguageID: "python",
+			},
+		},
+	}
+	status := plugins.PluginStatusResponse{
+		Plugins: []plugins.PluginStatusEntry{
+			{
+				PluginID:                       "setta-basedpyright",
+				State:                          plugins.PluginRuntimeStateActive,
+				AppliedLanguageServerLanguages: []string{},
+			},
+			{
+				PluginID: "setta-shadowed",
+				State:    plugins.PluginRuntimeStateShadowed,
+			},
+		},
+	}
+
+	refresher.applyAppliedLanguageServerStatus(&status)
+
+	if len(status.Plugins[0].AppliedLanguageServerLanguages) != 1 || status.Plugins[0].AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected applied python status, got %#v", status.Plugins[0].AppliedLanguageServerLanguages)
 	}
 }

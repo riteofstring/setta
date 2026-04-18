@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"setta/internal/lsp"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 )
 
@@ -16,7 +15,7 @@ type projectLSPAdmin interface {
 }
 
 type runtimeLSPRefresher interface {
-	Refresh(context.Context) (plugins.DiscoverySnapshot, error)
+	RefreshLanguageServers(context.Context) error
 	HasConfiguredLanguageServers() bool
 }
 
@@ -40,10 +39,13 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 		return errors.New("lsp admin is not configured")
 	}
 	if a.runtime != nil {
-		if _, err := a.runtime.Refresh(ctx); err != nil {
+		if err := a.runtime.RefreshLanguageServers(ctx); err != nil {
 			return err
 		}
 		if !a.runtime.HasConfiguredLanguageServers() {
+			if err := a.projectAdmin.Restart(ctx, document); err != nil {
+				return err
+			}
 			return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
 		}
 	}

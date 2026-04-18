@@ -8490,6 +8490,12 @@
       "PluginsPluginStatusEntry": {
         "additionalProperties": false,
         "properties": {
+          "appliedLanguageServerLanguages": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
           "blockedCapabilities": {
             "items": {
               "$ref": "#/components/schemas/PluginsPluginBlockedCapability"
@@ -8615,6 +8621,7 @@
           "components",
           "registeredCodegenTargets",
           "registeredLanguageServers",
+          "appliedLanguageServerLanguages",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",

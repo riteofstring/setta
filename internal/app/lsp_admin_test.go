@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"setta/internal/lsp"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 )
 
@@ -33,9 +32,9 @@ type stubRuntimeLSPRefresher struct {
 	hasSpecs     bool
 }
 
-func (s *stubRuntimeLSPRefresher) Refresh(_ context.Context) (plugins.DiscoverySnapshot, error) {
+func (s *stubRuntimeLSPRefresher) RefreshLanguageServers(_ context.Context) error {
 	s.refreshCalls++
-	return plugins.DiscoverySnapshot{}, s.refreshErr
+	return s.refreshErr
 }
 
 func (s *stubRuntimeLSPRefresher) HasConfiguredLanguageServers() bool {
@@ -71,7 +70,7 @@ func TestWorkspaceLSPAdminRestartReturnsUnconfiguredWhenNoSpecsRemain(t *testing
 	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
 		t.Fatalf("expected unconfigured error, got %v", err)
 	}
-	if projectAdmin.restartCalls != 0 {
-		t.Fatalf("expected restart to stop before project sync, got %d calls", projectAdmin.restartCalls)
+	if projectAdmin.restartCalls != 1 {
+		t.Fatalf("expected restart to reconcile project state before returning unconfigured, got %d calls", projectAdmin.restartCalls)
 	}
 }

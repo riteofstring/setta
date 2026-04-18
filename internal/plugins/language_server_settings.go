@@ -20,12 +20,8 @@ func languageServerSettingsRoot(entry DiscoveredPlugin, pluginsState *PluginsSta
 }
 
 func pluginLanguageServerDefaults(entry DiscoveredPlugin) map[string]any {
-	schemaPath, ok, err := resolvePluginConfigSchemaPath(entry)
+	_, schemaJSON, ok, err := loadPluginConfigSchemaDocument(entry)
 	if err != nil || !ok {
-		return nil
-	}
-	schemaJSON, err := loadPluginConfigSchemaJSON(schemaPath)
-	if err != nil {
 		return nil
 	}
 	return pluginConfigSchemaDefaults(schemaJSON)

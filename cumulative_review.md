@@ -14,10 +14,10 @@
 - Still unverified: No manual workspace session proving completions and diagnostics against a real selected plugin beyond the automated LSP/bootstrap coverage.
 
 ### Plugin Config Schema Ownership
-- Invariant: Plugin config schema loading and default extraction must have one shared owner used by config write, runtime metadata, and LSP settings construction.
-- Last finding commit: aa25246aabf24ddfa2da138200f38912c4e8e627
-- Proof tests: `internal/plugins.TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults`
-- Still unverified: No dedicated regression test yet asserts the shared-owner path across both runtime descriptor emission and config-write validation.
+- Invariant: Plugin config schema validation, default extraction, and runtime descriptor emission must share one owner path; a declared unreadable or invalid schema must invalidate the plugin before it can contribute active LSP specs or defaults.
+- Last finding commit: 323111b0cc5369a0c99f87d1dc23d5f9690c360b
+- Proof tests: `internal/plugins.TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults`; `internal/plugins.TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema`; `tests/start/test_packaged_distribution.py::test_first_party_basedpyright_plugin_wheel_packages_python_backend_only`
+- Still unverified: No manual packaged-plugin install with a corrupted or missing schema; validation coverage is automated only.
 
 ### Plugin Backend Refresh Rollback Fidelity
 - Invariant: Plugin backend refresh snapshots must deep-clone `lsp.LanguageServerSpec.Settings` so rollback restores the exact pre-refresh spec state.
@@ -26,10 +26,16 @@
 - Still unverified: No manual restart/disable cycle was forced outside unit coverage.
 
 ### Explicit-Spec-Only LSP Router
-- Invariant: The router must start from explicit selected specs only; there is no implicit Python fallback and no hidden bootstrap path outside selected plugin specs.
-- Last finding commit: aa25246aabf24ddfa2da138200f38912c4e8e627
-- Proof tests: `internal/lsp.TestRouterInitializesFromExplicitSpecsOnly`; `internal/lsp.TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages`
-- Still unverified: No browser verification was run because no UI behavior changed in this iteration.
+- Invariant: Restart and refresh must rebuild only explicit selected language-server specs, remain independent from unrelated MCP runtime failures, and reconcile project diagnostics when selected specs are removed.
+- Last finding commit: 323111b0cc5369a0c99f87d1dc23d5f9690c360b
+- Proof tests: `internal/app.TestWorkspaceLSPAdminRestartReturnsUnconfiguredWhenNoSpecsRemain`; `internal/app.TestAppRestartLanguageServerIgnoresBrokenUnrelatedMCPPlugin`; `internal/lsp.TestProjectSynchronizerMaterializeDocumentClearsUnavailablePythonDiagnostics`
+- Still unverified: No manual disable or uninstall session was run outside automated app coverage.
+
+### Applied LSP Lifecycle Status
+- Invariant: Selected-plugin discovery and applied router state must stay distinct; runtime status and header UX should not treat a selected language server as applied until the router has actually applied that language, and project diagnostics must reconcile when selected specs appear or disappear.
+- Last finding commit: 323111b0cc5369a0c99f87d1dc23d5f9690c360b
+- Proof tests: `internal/app.TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus`; `internal/app.TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection`; `internal/app.TestAppLinkedSelectedBasedpyrightPublishesDiagnosticsAfterLink`; `internal/app.TestAppDisablingSelectedBasedpyrightClearsDiagnosticsWithoutRestart`; `frontend/src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
+- Still unverified: No automated end-to-end browser test covers the pending-to-applied banner transition; coverage is unit/integration plus CDP only.
 
 ## 2026-04-18 20:10:39 PDT
 Fixes applied:
@@ -53,3 +59,27 @@ Verification run:
 Residual risks / verification gaps:
 - Packaged/defaults behavior is covered by automated package-manager and wheel tests, but not by a manual fresh-machine wheel install.
 - No end-to-end manual editor session was run to observe basedpyright diagnostics/completions after selection and restart.
+
+## 2026-04-18 21:14:26 PDT
+Fixes applied:
+- Added applied-language status to plugin runtime and made selected-plugin link, disable, and banner flows wait for actual router application instead of discovery-only availability.
+- Scoped `/api/restartLanguageServer` to selected LSP spec refresh so unrelated broken MCP plugins no longer block language-server restart, and reconciled project diagnostics when selected specs disappear.
+- Validated declared plugin config schemas during discovery and reused the same schema owner path for LSP defaults and runtime descriptor emission.
+
+Tests added or upgraded:
+- Added app coverage for selected-plugin link, disable, applied-status tracking, and restart with an unrelated broken MCP plugin.
+- Added LSP/project-sync coverage for clearing unavailable Python diagnostics, plugin-runtime status overlay coverage, invalid-schema rejection coverage, frontend banner coverage, and wheel schema packaging coverage.
+
+Verification run:
+- `./scripts/go.sh test ./internal/lsp -run 'TestProjectSynchronizerMaterializeDocumentClearsUnavailablePythonDiagnostics|TestProjectSynchronizerMaterializeDocument|TestProjectSynchronizerTypeCheckProjectLogsDebugSummary'`
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceLanguageServerSpecs(IncludesFirstPartyBasedpyrightDefaults|MergesConfiguredBasedpyrightExtraPathsWithSettaFilesRoot|RejectsInvalidPluginConfigSchema)'`
+- `./scripts/go.sh test ./internal/app -run 'TestWorkspaceLSPAdminRestart|TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus|TestAppLinkedSelectedBasedpyrightPublishesDiagnosticsAfterLink|TestAppDisablingSelectedBasedpyrightClearsDiagnosticsWithoutRestart|TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection|TestAppRestartLanguageServerIgnoresBrokenUnrelatedMCPPlugin'`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -k basedpyright`
+- `pnpm -C frontend gcf`
+- `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx src/plugins/runtime.test.ts`
+- `./check_quality.sh`
+- Browser verification: `./aireset.sh` + CDP on `/home`; verified the pending-restart banner appears for selected-but-unapplied `setta-basedpyright`, verified it disappears after `/api/restartLanguageServer`, then stopped the session.
+
+Residual risks / verification gaps:
+- No Playwright coverage yet exercises the header banner transition; browser verification was CDP-only.
+- No manual editor session exercised completions and diagnostics through the full install-select-restart cycle outside targeted app tests.

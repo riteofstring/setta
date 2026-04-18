@@ -102,6 +102,7 @@ function buildPluginStatusEntry(
     components: [],
     registeredCodegenTargets: [],
     registeredLanguageServers: [],
+    appliedLanguageServerLanguages: [],
     registeredBackendRoutes: [],
     registeredStaticDirs: [],
     registeredListenerEndpoints: [],
@@ -169,6 +170,7 @@ describe("LanguageServerStatusBanner", () => {
     pluginStatusEntries = [
       buildPluginStatusEntry({
         pluginId: "setta-python-lsp",
+        appliedLanguageServerLanguages: ["python"],
         registeredLanguageServers: [
           {
             pluginId: "setta-python-lsp",
@@ -190,6 +192,40 @@ describe("LanguageServerStatusBanner", () => {
           '[data-testid="python-language-server-status-banner"]',
         ),
       ).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("warns when the selected plugin is available but still pending application", async () => {
+    selectedPythonPlugin = "setta-python-lsp";
+    pluginStatusEntries = [
+      buildPluginStatusEntry({
+        pluginId: "setta-python-lsp",
+        registeredLanguageServers: [
+          {
+            pluginId: "setta-python-lsp",
+            name: "Python LSP",
+            language: "python",
+            command: "/bin/pyright",
+            args: ["--stdio"],
+            settingsKey: "pythonLanguageServer",
+          },
+        ],
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("restart is still required");
     } finally {
       await act(async () => {
         root.unmount();

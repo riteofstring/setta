@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -240,6 +241,40 @@ func TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSet
 		if extraPaths[index] != path {
 			t.Fatalf("expected extraPaths %#v, got %#v", expected, extraPaths)
 		}
+	}
+}
+
+func TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema(t *testing.T) {
+	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+	if err := os.WriteFile(filepath.Join(targetRoot, "content", "config", "schema.json"), []byte("{bad-json"), 0o644); err != nil {
+		t.Fatalf("write invalid plugin schema: %v", err)
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-basedpyright", PluginRuntimeStateInvalid)
+	if len(entry.Errors) != 1 || entry.Errors[0].Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+		t.Fatalf("expected config schema invalid status error, got %#v", entry.Errors)
+	}
+
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-basedpyright"),
+	})
+	if err != nil {
+		t.Fatalf("load basedpyright specs with invalid schema: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Fatalf("expected invalid schema plugin to contribute no specs, got %#v", specs)
 	}
 }
 

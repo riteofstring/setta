@@ -11617,6 +11617,15 @@
             "$ref": "#/$defs/PluginRegisteredLanguageServer"
           }
         },
+        "appliedLanguageServerLanguages": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
         "registeredBackendRoutes": {
           "type": [
             "null",
@@ -11690,6 +11699,7 @@
         "components",
         "registeredCodegenTargets",
         "registeredLanguageServers",
+        "appliedLanguageServerLanguages",
         "registeredBackendRoutes",
         "registeredStaticDirs",
         "registeredListenerEndpoints",

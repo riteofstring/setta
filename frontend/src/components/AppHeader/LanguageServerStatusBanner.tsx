@@ -91,7 +91,9 @@ function buildPythonLanguageServerBanner({
   if (
     matchingEntries.some(
       (entry) =>
-        entryProvidesLanguage(entry, "python") && entryHasActiveRuntime(entry),
+        entryProvidesLanguage(entry, "python") &&
+        entryHasActiveRuntime(entry) &&
+        entryHasAppliedLanguageServer(entry, "python"),
     )
   ) {
     return null;
@@ -106,6 +108,11 @@ function buildPythonLanguageServerBanner({
   ) {
     return {
       message: `Selected Python language server plugin "${selectedPythonPlugin}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`,
+    };
+  }
+  if (matchingEntries.some((entry) => entryHasActiveRuntime(entry))) {
+    return {
+      message: `Selected Python language server plugin "${selectedPythonPlugin}" is available, but restart is still required before it is applied.`,
     };
   }
   return {
@@ -124,6 +131,16 @@ function entryProvidesLanguage(
   const registrations = entry.registeredLanguageServers ?? [];
   return registrations.some(
     (registration) => registration.language.toLowerCase() === language,
+  );
+}
+
+function entryHasAppliedLanguageServer(
+  entry: PluginStatusEntry,
+  language: string,
+): boolean {
+  const appliedLanguages = entry.appliedLanguageServerLanguages ?? [];
+  return appliedLanguages.some(
+    (appliedLanguage) => appliedLanguage.toLowerCase() === language,
   );
 }
 
