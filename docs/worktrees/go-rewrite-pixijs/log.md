@@ -821,3 +821,30 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable and dict lanes closed and continue the active `settings-section__globalVariablesSectionDefault` lane by targeting the remaining default-visible kwargs/filter chrome there, starting with the `Args` label if it is still visible at normal section zoom
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 034
+
+- Item: Move the GlobalVariables kwargs-controls `Args` label to retained-canvas resting text ownership on `settings-section__globalVariablesSectionDefault`.
+- Status: `done`
+- Details:
+  - Extended `isCanvasOwnedSectionArgsLabelRestingText(...)` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the GlobalVariables canary now rides the same `Args` label resting-text handoff already proven on the dict lane.
+  - No new renderer primitive or section-specific branch was needed in `frontend/src/components/Section/SectionParts/KwargsControls.tsx`; the existing `data-canvas-owned-resting-text="true"` path already covered the `Args` label once the ownership helper included the GlobalVariables section.
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` with one bounded normal-zoom probe that:
+    - reframes `settings-section__globalVariablesSectionDefault` to normal section zoom
+    - forces one retained-scene remeasure
+    - confirms the visible `Args` label is hidden on the DOM side and repainted by the retained canvas before continuing the existing inline `Style Color` activation proof
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` so the ownership helper now treats both dict and GlobalVariables as valid `Args` label canaries.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: the trusted GlobalVariables probe passed on the live worktree runtime with the new retained `Args` label assertions
+- CDP visual check is done:
+  - `http://127.0.0.1:3068/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - after reframing the section at normal zoom, the kwargs-controls row still looked intact with the DOM `Args` label transparent on the canvas path
+  - caveat: the fresh bootstrap token was rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend session instead
+- Next action:
+  - keep the callable and dict lanes closed and continue the active `settings-section__globalVariablesSectionDefault` lane by targeting the remaining default-visible filter/search chrome there, starting with the resting filter underline if it is still visible at normal section zoom
+LOOP_TERMINAL_MARKER: none

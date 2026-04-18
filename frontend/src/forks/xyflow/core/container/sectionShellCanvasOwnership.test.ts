@@ -92,7 +92,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets only the dict canary args label for canvas resting-text ownership", () => {
+  it("targets the dict and global variables canary args labels for canvas resting-text ownership", () => {
     expect(
       isCanvasOwnedSectionArgsLabelRestingText(
         DICT_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -107,7 +107,7 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionArgsLabelRestingText(
         GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("targets only the dict canary filter underline for canvas ownership", () => {
