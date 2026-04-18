@@ -10308,6 +10308,64 @@ func TestAppStartsWithFirstPartyBasedpyrightPluginCompletion(t *testing.T) {
 	}
 }
 
+func TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv("SETTA_PYTHON", appTestWorkerPython(t, repoRoot))
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+
+	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
+	if existingPythonPath == "" {
+		t.Setenv("PYTHONPATH", sitePackages)
+	} else {
+		t.Setenv("PYTHONPATH", sitePackages+string(os.PathListSeparator)+existingPythonPath)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(app.SettingsState().Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected bootstrapped defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+	if app.pluginRuntime == nil || !app.pluginRuntime.HasConfiguredLanguageServers() {
+		t.Fatal("expected defaults profile plugin runtime to configure Python language servers")
+	}
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected basedpyright completions from defaults profile package-manager plugin")
+	}
+}
+
 func TestAppServesSetProjectConfigCodegenTargetsRouteForPython(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
