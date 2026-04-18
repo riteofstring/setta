@@ -11,6 +11,7 @@ import {
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
 import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
+import type { AppNotification } from "state/types/notifications";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -54,7 +55,6 @@ import {
   ListenerCoverageSnapshot,
   LLMConfig,
   LSPDiagnostic,
-  Notification,
   Policy,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
@@ -484,7 +484,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<Notification> };
+type ZustandNotificationState = { notifications: Array<AppNotification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({

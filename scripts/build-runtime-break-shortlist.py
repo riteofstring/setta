@@ -11,6 +11,10 @@ from pathlib import Path
 FRONTEND_DIAGNOSTIC_RE = re.compile(
     r"^(src/[^(:]+\.(?:ts|tsx|js|jsx))\((\d+),(\d+)\): error TS(\d+): (.+)$"
 )
+NAMED_IMPORT_RE = re.compile(
+    r'import\s+(type\s+)?(?:[^;{}]+,\s*)?\{([^}]*)\}\s*from\s*["\']([^"\']+)["\'];?',
+    re.DOTALL,
+)
 ENUM_BLOCK_RE = re.compile(
     r"export const ([A-Za-z_][A-Za-z0-9_]*Enum)\s*=\s*{(.*?)}\s*as const;",
     re.DOTALL,
@@ -22,8 +26,25 @@ GENERATED_TYPES_IMPORT_RE = re.compile(
 ENUM_USAGE_RE = re.compile(
     r"\b([A-Za-z_][A-Za-z0-9_]*Enum)\.([A-Za-z_][A-Za-z0-9_]*)\b"
 )
+MISSING_EXPORT_RE = re.compile(
+    r"""^Module\s+['"]+([^'"]+)['"]+\s+has no exported member\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\.(?: .+)?$"""
+)
+MISSING_NAMED_EXPORT_RE = re.compile(
+    r"""^['"]+([^'"]+)['"]+\s+has no exported member named\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\.(?: .+)?$"""
+)
+LOCAL_NOT_EXPORTED_RE = re.compile(
+    r"""^Module\s+['"]+([^'"]+)['"]+\s+declares\s+['"]+([A-Za-z_][A-Za-z0-9_]*)['"]+\s+locally, but it is not exported\.$"""
+)
 
-RUNTIME_BREAK_TYPESCRIPT_CODES = {"2339"}
+RUNTIME_BREAK_TYPESCRIPT_CODES = {"2305", "2339", "2459", "2614", "2724"}
+LOCAL_FRONTEND_MODULE_PREFIXES = (
+    "components/",
+    "forks/",
+    "openapi/",
+    "plugins/",
+    "state/",
+    "utils/",
+)
 
 
 @dataclass
@@ -127,11 +148,48 @@ def parse_import_symbols(text: str) -> dict[str, set[str]]:
     return imports
 
 
+def parse_named_imports(text: str) -> dict[str, dict[str, bool]]:
+    imports: dict[str, dict[str, bool]] = {}
+    for whole_type, members_text, module_path in NAMED_IMPORT_RE.findall(text):
+        module_members = imports.setdefault(module_path, {})
+        all_type_only = bool(whole_type)
+        for raw_member in members_text.split(","):
+            member = raw_member.strip()
+            if not member:
+                continue
+            is_type_only = all_type_only
+            if member.startswith("type "):
+                is_type_only = True
+                member = member[len("type ") :].strip()
+            member = member.split(" as ", 1)[0].strip()
+            if not member:
+                continue
+            module_members.setdefault(member, False)
+            if not is_type_only:
+                module_members[member] = True
+    return imports
+
+
+def is_frontend_local_module(module_path: str) -> bool:
+    return module_path.startswith(".") or module_path.startswith(
+        LOCAL_FRONTEND_MODULE_PREFIXES
+    )
+
+
+def missing_export_details(message: str) -> tuple[str, str] | None:
+    for pattern in (MISSING_EXPORT_RE, MISSING_NAMED_EXPORT_RE, LOCAL_NOT_EXPORTED_RE):
+        match = pattern.match(message)
+        if match:
+            return match.group(1), match.group(2)
+    return None
+
+
 def parse_frontend_diagnostics(
-    frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
+    repo_root: Path, frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
 ) -> None:
     if not frontend_typecheck.is_file():
         return
+    import_cache: dict[str, dict[str, dict[str, bool]]] = {}
     for raw_line in frontend_typecheck.read_text(
         encoding="utf-8", errors="replace"
     ).splitlines():
@@ -158,6 +216,41 @@ def parse_frontend_diagnostics(
                 why="A readonly generated runtime object used by production code is missing members, which strongly suggests broken live dispatch or contract wiring.",
                 evidence=f"{file_path}:{line} TS{code}: {message}",
             )
+            continue
+
+        missing_export = missing_export_details(message)
+        if missing_export is None:
+            continue
+
+        module_path, symbol = missing_export
+        if not is_frontend_local_module(module_path):
+            continue
+
+        imports = import_cache.get(file_path)
+        if imports is None:
+            source_path = repo_root / file_path
+            if not source_path.is_file():
+                import_cache[file_path] = {}
+                continue
+            imports = parse_named_imports(
+                source_path.read_text(encoding="utf-8", errors="replace")
+            )
+            import_cache[file_path] = imports
+
+        if not imports.get(module_path, {}).get(symbol, False):
+            continue
+
+        priority = 100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99
+        add_bucket(
+            buckets,
+            kind="missing-runtime-export",
+            file_path=file_path,
+            line=line,
+            priority=priority,
+            title="Production code imports value symbols that the source module does not export",
+            why="A production-path value import points at a missing export, which breaks module evaluation and can crash app startup or any supported flow that loads the module.",
+            evidence=f"{file_path}:{line} TS{code}: {message}",
+        )
 
 
 def scan_generated_type_contracts(
@@ -213,7 +306,7 @@ def render_markdown(
         "# Runtime-Break Shortlist",
         "",
         "This shortlist intentionally keeps only high-confidence runtime-bug signals inferred from typecheck and static contract scans.",
-        "Typecheck-only import/export churn, test-only noise, and helper/nullability cleanup are omitted on purpose.",
+        "Type-only import/export churn, test-only noise, and helper/nullability cleanup are omitted on purpose.",
         "",
         "## Sources",
     ]
@@ -277,7 +370,7 @@ def build_shortlist(args: argparse.Namespace) -> int:
 
     buckets: dict[tuple[str, str], Finding] = {}
     if frontend_typecheck is not None:
-        parse_frontend_diagnostics(frontend_typecheck, buckets)
+        parse_frontend_diagnostics(repo_root, frontend_typecheck, buckets)
     scan_generated_type_contracts(repo_root, buckets)
 
     findings = sorted(

@@ -271,6 +271,7 @@ Overwrite stale notes instead of appending an iteration diary.
 - Critical for this loop:
   - the type error indicates a concrete supported-flow runtime break, crash, dropped message, broken dispatch path, invalid live request/response shape, or app-start failure
   - missing runtime properties, enum members, discriminants, or handler-map keys that production code actively uses on the live path
+  - production value imports from local/frontend owner modules or generated/shared surfaces that point at missing exports, because they break module evaluation on load
   - generated-contract drift that proves live runtime wiring is broken
 - Duplication policy:
   - Do not introduce duplicate code or logic merely to satisfy the type checker.
@@ -279,7 +280,7 @@ Overwrite stale notes instead of appending an iteration diary.
   - If a normalization boundary is genuinely unavoidable because two owner surfaces are materially different, keep it minimal, make it the only such boundary for that concept, and record the reason briefly in this audit.
 - Usually not critical for this loop:
   - frontend \`tsc\`-only failures that do not imply a bundled runtime break on a supported flow
-  - missing or renamed imports, exports, or symbols unless you can show value-level runtime use and a concrete live failure
+  - type-only import/export/name churn, or missing exports used only by tests or type positions
   - exactOptionalPropertyTypes or nullability churn that does not indicate runtime breakage
   - test-only fixture typing or helper typing backlog
   - contract precision or owner/generated narrowing drift that does not imply a concrete runtime failure on supported flows
@@ -347,7 +348,7 @@ Rules:
 - [ ] If ${runtime_break_shortlist_file} contains `Tier 1`, pick from Tier 1 only. Do not work on Tier 2 or Tier 3 while Tier 1 remains unexplained.
 - [ ] Prefer non-test production-file breakages first. Do not start with test-only errors unless the same production break is already identified and being fixed in the same iteration.
 - [ ] Prioritize missing runtime enum/object members, missing discriminants, broken handler-map keys, and live payload-shape mismatches ahead of generic request/nullability/helper typing issues.
-- [ ] Do not work on plain frontend \`tsc\`-only import/export/name errors unless ${severe_type_audit_file} proves they will break a supported runtime path after a successful build.
+- [ ] Treat production value-import missing-export diagnostics on local/generated/shared frontend modules as actionable runtime-break signals; keep ignoring type-only or test-only import/export churn.
 - [ ] Do not skip a higher-tier shortlist item unless ${severe_type_audit_file} records why it is blocked, already disproven, or lower leverage than the chosen target.
 - [ ] If the chosen target is a request/response nullability issue or OpenAPI helper typing issue, prove the concrete runtime rejection or broken behavior first. If a focused test shows the current runtime already works, abandon that target as non-critical.
 - [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
@@ -383,6 +384,7 @@ Severity rubric:
 - Count an error as actionable for this loop only when it indicates a concrete supported-flow runtime break or app-start failure.
 - Typical actionable examples:
   - missing runtime properties, enum members, discriminants, or handler-map keys that production code actively uses on the live path
+  - production value imports from local/frontend owner modules or generated/shared surfaces that target missing exports and therefore break module evaluation
   - generated contract drift that breaks protocol dispatch, handler maps, or other live runtime wiring
   - request/response type errors where the current code would send or depend on a payload shape that the live runtime path cannot actually handle
 - Type errors are leads, not the goal. Only fix them when they point to a real runtime bug.
@@ -392,7 +394,7 @@ Severity rubric:
   - If the only issue is that an owner-side helper type is private, export and reuse it from the owner module instead of re-declaring the same structure locally.
   - If two owner surfaces are genuinely different and a normalization boundary is unavoidable, keep it minimal, keep exactly one such boundary for that concept, and record the reason in ${severe_type_audit_file}.
 - Usually not actionable for this loop:
-  - frontend \`tsc\`-only import/export/name failures that would not change bundled runtime behavior on a supported flow
+  - type-only frontend import/export/name failures, or missing exports referenced only from tests
   - Go or Python compile/import issues unless you can tie them to a concrete supported-flow runtime failure instead of a tooling-only failure
   - exactOptionalPropertyTypes, nullability, or narrowing churn that does not indicate runtime breakage
   - test-only fixture typing, helper typing, or broad legacy test backlog
@@ -421,7 +423,7 @@ Execution rules for every iteration:
 - If ${runtime_break_shortlist_file} contains `Tier 1`, do not work on Tier 2 or Tier 3 until the audit records why Tier 1 is blocked, disproven, or already resolved by the chosen fix.
 - Use the shortlist to focus first on non-test production files with high-confidence runtime signals such as missing generated runtime enum/object members, missing discriminants, broken handler-map keys, or payload shapes the live path cannot actually handle.
 - Do not start an iteration with test-only errors or lower-signal helper-generic noise while higher-signal production breakages remain unresolved in the saved outputs.
-- Do not work on plain frontend \`tsc\`-only import/export/name drift unless the audit proves a supported runtime path would still break after a successful frontend build.
+- Do not ignore production value-import missing-export diagnostics on local/generated/shared frontend modules; they count as supported-flow runtime-break leads because they can fail module load during startup or route entry.
 - Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
 - Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
 - Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
