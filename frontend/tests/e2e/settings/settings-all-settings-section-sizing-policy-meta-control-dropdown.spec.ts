@@ -346,6 +346,11 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
           .filter((rowId): rowId is string => rowId !== null),
       ),
     );
+    const lightweightDropdownRoots = Array.from(
+      section.querySelectorAll<HTMLElement>(
+        '[data-canvas-owned-resting-dropdown-lightweight="true"]',
+      ),
+    );
     const liveInteractiveRows = rows
       .filter((row) =>
         Array.from(
@@ -387,6 +392,16 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
       legacyTextUnderlineCount: section.querySelectorAll(
         '[data-canvas-owned-underline="true"]:not([data-canvas-owned-resting-text-lightweight="true"])',
       ).length,
+      legacyDropdownWrapperCount: lightweightDropdownRoots.filter((root) =>
+        root.parentElement instanceof HTMLElement &&
+        root.parentElement.matches(".section-value"),
+      ).length,
+      lightweightDropdownDirectChildCount: lightweightDropdownRoots.filter(
+        (root) =>
+          root.parentElement instanceof HTMLElement &&
+          root.parentElement.matches('article[id^="ParamContainer-"]'),
+      ).length,
+      lightweightDropdownRootCount: lightweightDropdownRoots.length,
       lightweightDropdownRows,
       liveInteractiveRows,
       restingTextRootCount: section.querySelectorAll(
@@ -411,6 +426,11 @@ test("section sizing policy keeps repeated inactive controls off the live DOM at
   expect(summary.legacyResizeHandleCount).toBe(0);
   expect(summary.lightweightTextUnderlineCount).toBeGreaterThan(100);
   expect(summary.legacyTextUnderlineCount).toBe(0);
+  expect(summary.lightweightDropdownRootCount).toBeGreaterThan(20);
+  expect(summary.legacyDropdownWrapperCount).toBe(0);
+  expect(summary.lightweightDropdownDirectChildCount).toBe(
+    summary.lightweightDropdownRootCount,
+  );
   expect(summary.lightweightDropdownRows.length).toBeGreaterThan(20);
   expect(
     summary.lightweightDropdownRows.every((rowId) =>

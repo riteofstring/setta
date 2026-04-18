@@ -144,49 +144,52 @@ export function IdNameCombobox<T>({
     }, 0);
   }, [canvasOwnedRestingInput, isOpen]);
 
+  if (showCanvasOwnedRestingInput) {
+    return (
+      <CanvasOwnedRestingComboboxInput
+        bg={bg}
+        displayText={displayText}
+        divId={inputDivId}
+        inputOuterClasses={inputOuterClasses}
+        inputThemeClassName={inputThemeClassName}
+        isDisabled={isDisabled}
+        onFocus={activateCanvasOwnedKeyboardInput}
+        onMouseDownCapture={activateCanvasOwnedPointerInput}
+        placeholder={placeholder}
+        rightButtonThemeClassName={rightButtonThemeClassName}
+        rootClassName={outerDivClasses}
+        small={small}
+        variant={variant}
+      />
+    );
+  }
+
   return (
     <div
       className={`flex ${
         small ? "h-[20px]" : "h-8"
       } relative w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >
-      {showCanvasOwnedRestingInput ? (
-        <CanvasOwnedRestingComboboxInput
-          bg={bg}
-          displayText={displayText}
-          divId={inputDivId}
-          inputOuterClasses={inputOuterClasses}
-          inputThemeClassName={inputThemeClassName}
-          isDisabled={isDisabled}
-          onFocus={activateCanvasOwnedKeyboardInput}
-          onMouseDownCapture={activateCanvasOwnedPointerInput}
-          placeholder={placeholder}
-          rightButtonThemeClassName={rightButtonThemeClassName}
-          small={small}
-          variant={variant}
-        />
-      ) : (
-        <ComboboxInput
-          divId={inputDivId}
-          getInputProps={getInputProps}
-          getToggleButtonProps={getToggleButtonProps}
-          isOpen={isOpen}
-          small={small}
-          onBlur={handleCanvasOwnedBlur}
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          bg={bg}
-          isDisabled={isDisabled}
-          inputRef={inputRef}
-          inputOuterClasses={inputOuterClasses}
-          inputThemeClassName={inputThemeClassName}
-          rightButtonThemeClassName={rightButtonThemeClassName}
-          variant={variant}
-        />
-      )}
+      <ComboboxInput
+        divId={inputDivId}
+        getInputProps={getInputProps}
+        getToggleButtonProps={getToggleButtonProps}
+        isOpen={isOpen}
+        small={small}
+        onBlur={handleCanvasOwnedBlur}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        bg={bg}
+        isDisabled={isDisabled}
+        inputRef={inputRef}
+        inputOuterClasses={inputOuterClasses}
+        inputThemeClassName={inputThemeClassName}
+        rightButtonThemeClassName={rightButtonThemeClassName}
+        variant={variant}
+      />
 
       <ComboboxList
-        isOpen={!showCanvasOwnedRestingInput && isOpen}
+        isOpen={isOpen}
         getMenuProps={getMenuProps}
         inputRef={inputRef}
         listThemeClassName={listThemeClassName}

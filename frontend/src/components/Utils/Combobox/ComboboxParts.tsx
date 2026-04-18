@@ -188,6 +188,7 @@ export function CanvasOwnedRestingComboboxInput({
   onMouseDownCapture,
   placeholder,
   rightButtonThemeClassName = "",
+  rootClassName = "",
   small,
   variant = "pill",
 }) {
@@ -211,7 +212,10 @@ export function CanvasOwnedRestingComboboxInput({
   return (
     <div
       className={joinClasses(
-        "flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200",
+        "relative flex min-w-0 w-full items-center nodrag dark:text-setta-200",
+        small ? "h-[20px]" : "h-8",
+        rootClassName,
+        "mx-[2px]",
         resolvedOuterClasses,
       )}
       data-canvas-owned-resting-dropdown-lightweight="true"

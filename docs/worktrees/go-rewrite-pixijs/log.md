@@ -1331,3 +1331,67 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - stay on `settings-section__sectionSizingPolicy` and target the next repeated structural value-side row/container DOM still mounted above the lightweight text/dropdown/resize/label/nested-child activators before opening a new dense section lane
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 047
+
+- Item: Progress review checkpoint after loop iteration 30.
+- Status: `replan_and_continue`
+- Details:
+  - Reviewed `RALPH.md`, the active plan/handoff, and run artifacts `021` through `030`.
+  - The recent stretch is still meaningful forward progress toward Phase 4 dense rollout: the normalized dense `All Settings` evidence remains materially better than baseline, and the active retained-canvas chain reduced `documentNodeCount` from `9181` at the first `sectionSizingPolicy` rollout to `8466` while preserving the existing first-click inline activation checks and CDP visual health.
+  - No real rabbit hole was reopened on the callable, dict, or GlobalVariables lanes; those lanes stayed closed as intended.
+  - Diminishing returns are now visible on the active `settings-section__sectionSizingPolicy` lane:
+    - `inputCount` and `buttonCount` have stayed flat at `60` and `477` since the repeated dropdown slice
+    - the last three landed slices were increasingly small wrapper/decorator removals
+    - the latest rerun regressed motion (`raf.meanMs 110.24 -> 134.26`, `longTasks.totalMs 17832 -> 22119`) even though DOM nodes dropped
+  - Durable plan and handoff were tightened accordingly: the next automated pass gets one inventory-backed structural value-side container slice on `settings-section__sectionSizingPolicy`, then must rerun the dense baseline and pivot/replan if the remaining family still does not move the heavier live counts or expose a larger repeated container layer.
+- Next action:
+  - start the next loop iteration with a whole-section DOM inventory on `settings-section__sectionSizingPolicy` and either land one clearly repeated value-side container collapse or stop the default wrapper-harvest lane for a broader replan
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 048
+
+- Item: Collapse the at-rest combobox container on the dense `settings-section__sectionSizingPolicy` lane.
+- Status: `done`
+- Details:
+  - Started from the required whole-section DOM inventory on the canonical section and found one real remaining value-side family instead of another tiny decorator hop:
+    - `lightweightDropdownRootCount: 30`
+    - each root still sat under a row-level `.section-value` wrapper (`parentSectionValueCount: 30`)
+    - page-level hidden combobox menu portal nodes were `36` before the slice
+  - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx` now returns the lightweight `CanvasOwnedRestingComboboxInput` directly on the `canvasOwnedRestingInput` path, so the inactive combobox no longer mounts the extra row-level wrapper or hidden menu portal until activation.
+  - `frontend/src/components/Utils/Combobox/ComboboxParts.tsx` now lets that lightweight resting root absorb the row-level classes directly, keeping the same first-interaction handoff while making the dropdown root the value-side row child itself.
+  - Added focused coverage at:
+    - new `frontend/src/components/Utils/Combobox/IdNameCombobox.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - The live `sectionSizingPolicy` subtree now proves the new structural contract:
+    - `lightweightDropdownRootCount: 30`
+    - `legacyDropdownWrapperCount: 0`
+    - `lightweightDropdownDirectChildCount: 30`
+    - page-level hidden combobox list nodes dropped from `36` to `6`
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-resting-dropdown-container-rerun.md`.
+  - Dense rerun outcome versus the prior lightweight text-underline report:
+    - `documentNodeCount` dropped from `8466` to `8226`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` improved from `134.26ms` to `113.96ms`
+    - `raf.p95Ms` stayed effectively flat (`233.3ms` -> `233.4ms`)
+    - `longTasks.totalMs` improved from `22119ms` to `18423ms`
+  - Interpretation:
+    - this was a meaningful final wrapper-harvest slice on `sectionSizingPolicy`, not another pure forwarding/container churn pass
+    - the live interactive-core plateau still stayed flat at `60` inputs / `477` buttons, so this lane is now closed and the next frontier should pivot to a broader overlay primitive or a different dense section family rather than another micro removal on the same section
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/Combobox/IdNameCombobox.test.tsx src/components/Utils/Combobox/ComboboxParts.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/Combobox/ComboboxParts.tsx src/components/Utils/Combobox/IdNameCombobox.tsx src/components/Utils/Combobox/IdNameCombobox.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-031/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.5s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-031/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.9s)` on the live worktree runtime with `documentNodeCount: 8226`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done:
+  - `All Settings` was active
+  - `settings-section__sectionSizingPolicy` was visible
+  - exactly one retained `canvas` was mounted under `.react-flow__section-shell-backdrop`
+  - the `By Type` / `Browser` size-mode rows looked intact at rest with no obvious blank value slot after the wrapper collapse
+  - caveat: the headless CDP pass could not surface the inline `Search` editor from that row despite click/focus/keyboard attempts, so the deterministic Playwright activation proof remains the authority for first-click inline editing on this slice
+- Next action:
+  - pivot off the closed `sectionSizingPolicy` wrapper-harvest lane and target a broader row/value overlay primitive or another dense section family that can move the remaining `60` / `477` interactive-core plateau
+LOOP_TERMINAL_MARKER: none
