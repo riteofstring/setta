@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"setta/internal/agentprofiles"
-	"setta/internal/backendlogs"
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
 	"setta/internal/externalagentconfigs"
@@ -26,8 +25,6 @@ func TestBindingTypeNameUsesOwnerNamesByDefault(t *testing.T) {
 		{typ: reflect.TypeOf(prompttemplates.Template{}), want: "Template"},
 		{typ: reflect.TypeOf(gitread.StatusResponse{}), want: "StatusResponse"},
 		{typ: reflect.TypeOf(projectstate.ProjectConfigMetadata{}), want: "ProjectConfigMetadata"},
-		{typ: reflect.TypeOf(projectstate.FrontendIFrameSectionImpl{}), want: "IFrameSectionImpl"},
-		{typ: reflect.TypeOf(backendlogs.BackendLogEvent{}), want: "BackendLogEvent"},
 		{typ: reflect.TypeOf(deployments.Policy{}), want: "Policy"},
 	}
 

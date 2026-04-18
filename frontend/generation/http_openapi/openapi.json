@@ -8360,34 +8360,6 @@
         ],
         "type": "object"
       },
-      "PluginsPluginRegisteredLanguageServer": {
-        "additionalProperties": false,
-        "properties": {
-          "args": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "command": {
-            "type": "string"
-          },
-          "language": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "pluginId": {
-            "type": "string"
-          },
-          "settingsKey": {
-            "type": "string"
-          }
-        },
-        "required": ["pluginId", "name", "language", "command", "args"],
-        "type": "object"
-      },
       "PluginsPluginRegisteredListenerEndpoint": {
         "additionalProperties": false,
         "properties": {
@@ -8538,12 +8510,6 @@
             },
             "type": ["array", "null"]
           },
-          "registeredLanguageServers": {
-            "items": {
-              "$ref": "#/components/schemas/PluginsPluginRegisteredLanguageServer"
-            },
-            "type": ["array", "null"]
-          },
           "registeredListenerEndpoints": {
             "items": {
               "$ref": "#/components/schemas/PluginsPluginRegisteredListenerEndpoint"
@@ -8614,7 +8580,6 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
-          "registeredLanguageServers",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
@@ -11310,62 +11275,6 @@
         ],
         "type": "object"
       },
-      "SettingsstateFrontendSettingsChatWindowing": {
-        "additionalProperties": false,
-        "properties": {
-          "autoCreateInitialChat": {
-            "type": "boolean"
-          },
-          "restorePriorStateOnUnmaximize": {
-            "type": "boolean"
-          },
-          "shortcuts": {
-            "$ref": "#/components/schemas/SettingsstateFrontendSettingsChatWindowingShortcuts"
-          }
-        },
-        "required": [
-          "autoCreateInitialChat",
-          "restorePriorStateOnUnmaximize",
-          "shortcuts"
-        ],
-        "type": "object"
-      },
-      "SettingsstateFrontendSettingsChatWindowingShortcuts": {
-        "additionalProperties": false,
-        "properties": {
-          "canvasToggle": {
-            "type": "string"
-          },
-          "maximizeFocused": {
-            "type": "string"
-          },
-          "minimizeFocused": {
-            "type": "string"
-          },
-          "snapBottom": {
-            "type": "string"
-          },
-          "snapLeft": {
-            "type": "string"
-          },
-          "snapRight": {
-            "type": "string"
-          },
-          "snapTop": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "canvasToggle",
-          "maximizeFocused",
-          "minimizeFocused",
-          "snapLeft",
-          "snapRight",
-          "snapTop",
-          "snapBottom"
-        ],
-        "type": "object"
-      },
       "SettingsstateFrontendSettingsGUI": {
         "additionalProperties": false,
         "properties": {
@@ -11475,19 +11384,6 @@
           "transitionDuration",
           "sectionTagColorChoices"
         ],
-        "type": "object"
-      },
-      "SettingsstateFrontendSettingsLanguageServer": {
-        "additionalProperties": false,
-        "properties": {
-          "selectedByLanguage": {
-            "additionalProperties": {
-              "type": ["string", "null"]
-            },
-            "type": "object"
-          }
-        },
-        "required": ["selectedByLanguage"],
         "type": "object"
       },
       "SettingsstateFrontendSettingsShortcuts": {
@@ -11752,14 +11648,12 @@
           "backend": {
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsBackend"
           },
-          "chatWindowing": {
-            "$ref": "#/components/schemas/SettingsstateFrontendSettingsChatWindowing"
-          },
           "gui": {
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsGUI"
           },
           "languageServer": {
-            "$ref": "#/components/schemas/SettingsstateFrontendSettingsLanguageServer"
+            "additionalProperties": {},
+            "type": "object"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicy"
@@ -11772,7 +11666,6 @@
           "shortcuts",
           "gui",
           "backend",
-          "chatWindowing",
           "sectionSizingPolicy",
           "languageServer"
         ],
