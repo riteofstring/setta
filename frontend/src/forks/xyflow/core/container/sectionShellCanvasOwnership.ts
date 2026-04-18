@@ -110,6 +110,12 @@ export function isCanvasOwnedSectionLightweightNestedChildren(
   return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 }
 
+export function isCanvasOwnedSectionLightweightTextUnderline(
+  sectionId: string,
+) {
+  return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+}
+
 export function isCanvasOwnedSectionNestedGuide(sectionId: string) {
   return (
     isCanvasOwnedSectionShell(sectionId) ||

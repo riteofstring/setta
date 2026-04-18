@@ -64,12 +64,21 @@ vi.mock("utils/paramValue", () => ({
 
 vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
   TextInputCodeMirror: (props: {
+    canvasOwnedUnderline?: boolean;
     canvasOwnedRestingText?: boolean;
     dummyCodeClassName: string;
     language: string;
   }) => {
     mocks.textInputProps(props);
-    return <div data-testid="text-input" data-language={props.language} />;
+    return (
+      <div
+        data-testid="text-input"
+        data-language={props.language}
+        data-canvas-owned-underline={
+          props.canvasOwnedUnderline ? "true" : undefined
+        }
+      />
+    );
   },
 }));
 
@@ -304,10 +313,14 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
       true,
     );
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+      true,
+    );
     expect(
       mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
     ).toContain("opacity-0");
     expect(markup).toContain('data-canvas-owned-underline="true"');
+    expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
   });
 
   it("uses the canvas-owned resting dropdown path for section sizing policy size-mode controls", () => {

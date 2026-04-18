@@ -19,6 +19,7 @@ const singleLineStyle = {
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
   canvasOwnedRestingText = false,
+  canvasOwnedUnderline = false,
   divId,
   code,
   theme,
@@ -36,6 +37,7 @@ export function DummyCodeMirror({
   if (canvasOwnedRestingText) {
     return (
       <CanvasOwnedRestingTextRoot
+        canvasOwnedUnderline={canvasOwnedUnderline}
         divId={divId}
         code={code}
         className={className}
@@ -48,6 +50,7 @@ export function DummyCodeMirror({
   }
   return code ? (
     <HighlightedCode
+      canvasOwnedUnderline={canvasOwnedUnderline}
       divId={divId}
       canvasOwnedRestingText={canvasOwnedRestingText}
       code={code}
@@ -61,6 +64,7 @@ export function DummyCodeMirror({
     />
   ) : (
     <PlaceholderCode
+      canvasOwnedUnderline={canvasOwnedUnderline}
       divId={divId}
       canvasOwnedRestingText={canvasOwnedRestingText}
       className={className}
@@ -73,6 +77,7 @@ export function DummyCodeMirror({
 }
 
 function CanvasOwnedRestingTextRoot({
+  canvasOwnedUnderline,
   divId,
   code,
   className,
@@ -95,6 +100,7 @@ function CanvasOwnedRestingTextRoot({
     <div
       id={divId}
       className={`${className} outline-none ${placeholderText ? "text-gray-600" : ""}`}
+      data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
       data-canvas-owned-resting-text="true"
       data-canvas-owned-resting-text-lightweight="true"
       style={style}
@@ -114,6 +120,7 @@ function CanvasOwnedRestingTextRoot({
 }
 
 function PlaceholderCode({
+  canvasOwnedUnderline,
   canvasOwnedRestingText,
   divId,
   className,
@@ -127,6 +134,7 @@ function PlaceholderCode({
     <span
       id={divId}
       className={`${className} text-gray-600 outline-none`}
+      data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
       data-canvas-owned-resting-text={
         canvasOwnedRestingText ? "true" : undefined
       }
@@ -141,6 +149,7 @@ function PlaceholderCode({
 }
 
 function HighlightedCode({
+  canvasOwnedUnderline,
   canvasOwnedRestingText,
   divId,
   code,
@@ -240,6 +249,7 @@ function HighlightedCode({
     <div
       id={divId}
       className={`${className} ${scopeClassName} outline-none`}
+      data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
       data-canvas-owned-resting-text={
         canvasOwnedRestingText ? "true" : undefined
       }

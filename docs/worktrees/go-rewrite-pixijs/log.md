@@ -1286,3 +1286,48 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - stay on `settings-section__sectionSizingPolicy` and target the next repeated structural row/container DOM still mounted above the lightweight text/dropdown/resize/label/nested-child activators before opening a new dense section lane
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 046
+
+- Item: Remove the extra inactive underline sibling node from the dense `settings-section__sectionSizingPolicy` text rows.
+- Status: `done`
+- Details:
+  - Kept this slice on the active dense structural blocker instead of reopening any closed callable/dict/globalVariables underline lane.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now marks `settings-section__sectionSizingPolicy` as the lightweight text-underline lane while leaving the earlier shell canaries on the existing shared underline path.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`, `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`, and `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now let those owned text rows carry `data-canvas-owned-underline="true"` on the existing lightweight text root at rest instead of mounting a second hidden underline sibling node.
+  - The active inline editor handoff still keeps a live underline target by wrapping the mounted CodeMirror root only while that editor is active, so first-click activation stays on the existing product path.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - The live `sectionSizingPolicy` subtree now proves the new structural contract:
+    - `lightweightTextUnderlineCount > 100`
+    - `legacyTextUnderlineCount: 0`
+    - the Browser `maxHeight` row uses the same lightweight text root as its retained underline target at rest
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-text-underline-rerun.md`.
+  - Dense rerun outcome versus the prior lightweight nested-children report:
+    - `documentNodeCount` dropped from `8604` to `8466`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` regressed from `110.24ms` to `134.26ms`
+    - `raf.p95Ms` regressed from `216.6ms` to `233.3ms`
+    - `longTasks.totalMs` regressed from `17832ms` to `22119ms`
+  - Interpretation: this was a real inactive DOM reduction on the active dense lane, but not a new motion win; treat it as a structural cost-reduction prerequisite and keep the next slice on repeated row/container DOM before re-judging motion.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-030/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (52.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-030/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (58.7s)` on the live worktree runtime with `documentNodeCount: 8466`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done:
+  - a fresh headless DevTools pass bootstrapped the current worktree runtime and loaded `/settings` with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` and the Browser `maxHeight` row remained present on the live surface
+  - the DevTools DOM check confirmed that row now uses the lightweight text root as its underline target with no legacy underline sibling at rest
+  - caveat: the headless CDP viewport did not yield a strong human-only zoomed read of the tiny fitted row, so this was a technical visual pass paired with the deterministic Playwright row probe rather than a microscopic fidelity judgment
+- Next action:
+  - stay on `settings-section__sectionSizingPolicy` and target the next repeated structural value-side row/container DOM still mounted above the lightweight text/dropdown/resize/label/nested-child activators before opening a new dense section lane
+LOOP_TERMINAL_MARKER: none

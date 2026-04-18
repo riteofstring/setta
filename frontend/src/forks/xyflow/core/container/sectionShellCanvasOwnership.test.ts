@@ -12,6 +12,7 @@ import {
   isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
+  isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
@@ -241,6 +242,19 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it("targets the section sizing policy dense lane for lightweight text underlines", () => {
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
         CANVAS_OWNED_SECTION_SHELL_ID,
       ),
     ).toBe(false);

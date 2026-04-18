@@ -2,6 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
   isCanvasOwnedSectionMetaControlDropdown,
+  isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -701,11 +702,18 @@ function TextParamConfigured({
   isSelectingParams: boolean;
 }) {
   const canvasOwnedUnderline = canvasOwnedRestingText;
+  const lightweightCanvasOwnedUnderline =
+    canvasOwnedUnderline &&
+    isCanvasOwnedSectionLightweightTextUnderline(sectionId);
+  const underlineClassName = lightweightCanvasOwnedUnderline
+    ? `border-box border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "focus-within:border-blue-400" : ""}`
+    : "";
 
   return (
     <>
       <TextInputCodeMirror
         canvasOwnedRestingText={canvasOwnedRestingText}
+        canvasOwnedUnderline={lightweightCanvasOwnedUnderline}
         dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -717,8 +725,8 @@ function TextParamConfigured({
             onEscape();
           }
         }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem] ${canvasOwnedRestingText ? "opacity-0" : ""}`}
-        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem] ${canvasOwnedRestingText ? "opacity-0" : ""} ${underlineClassName}`.trim()}
+        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem] ${underlineClassName}`.trim()}
         language={configLanguage}
         isDisabled={isDisabled}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
@@ -726,12 +734,14 @@ function TextParamConfigured({
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
-      <span
-        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${canvasOwnedUnderline ? "opacity-0" : ""} ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} ${canvasOwnedUnderline && !isSelectingParams ? "peer-focus-within/textinput:opacity-100" : ""}`}
-        data-canvas-owned-underline={
-          canvasOwnedUnderline ? "true" : undefined
-        }
-      />
+      {!lightweightCanvasOwnedUnderline && (
+        <span
+          className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${canvasOwnedUnderline ? "opacity-0" : ""} ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} ${canvasOwnedUnderline && !isSelectingParams ? "peer-focus-within/textinput:opacity-100" : ""}`}
+          data-canvas-owned-underline={
+            canvasOwnedUnderline ? "true" : undefined
+          }
+        />
+      )}
     </>
   );
 }

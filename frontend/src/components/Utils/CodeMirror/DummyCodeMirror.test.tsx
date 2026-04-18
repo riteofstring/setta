@@ -42,4 +42,22 @@ describe("DummyCodeMirror canvas-owned resting text", () => {
     expect(markup).toContain('<div class="cm-line">bar</div>');
     expect(markup).not.toContain("<span");
   });
+
+  it("can mark the lightweight root as the retained underline measurement target", () => {
+    const markup = renderToStaticMarkup(
+      <DummyCodeMirror
+        canvasOwnedRestingText={true}
+        canvasOwnedUnderline={true}
+        divId="canvas-owned-text-underline"
+        code="python"
+        className="section-value border-b opacity-0"
+        theme={[]}
+        language="python"
+        singleLine={true}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-underline="true"');
+    expect(markup.match(/data-canvas-owned-underline="true"/g)?.length).toBe(1);
+  });
 });
