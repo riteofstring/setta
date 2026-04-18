@@ -1,4 +1,8 @@
-import { createAgentRun, createUserChatMessage } from "utils/generatedTypes";
+import {
+  ChatAppGenerationMessageModeEnum,
+  createAgentRun,
+  createUserChatMessage,
+} from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,7 +10,6 @@ import {
   deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   normalizeChatAppGenerationContext,
-  PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
   resolveChatAppGenerationContextFromMessageState,
   retainChatAppGenerationDetailsForMessages,
   serializeChatAppGenerationByMessageId,
@@ -150,12 +153,12 @@ describe("chatAppGeneration", () => {
 
     expect(serialized).toEqual({
       "msg-a": "prompt_builder",
-      "msg-b": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+      "msg-b": ChatAppGenerationMessageModeEnum.plain_chat,
     });
     expect(
       deserializeChatAppGenerationByMessageId({
         "msg-a": "prompt_builder",
-        "msg-b": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+        "msg-b": ChatAppGenerationMessageModeEnum.plain_chat,
         "msg-c": "not-a-mode",
       }),
     ).toEqual({
@@ -216,7 +219,7 @@ describe("chatAppGeneration", () => {
         inputs: {
           chatId: "chat-2",
           appGenerationByMessageId: {
-            "msg-3": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+            "msg-3": ChatAppGenerationMessageModeEnum.plain_chat,
           },
           messages: [
             { id: "msg-3", role: "user", content: [], attachments: [] },

@@ -5,8 +5,8 @@ import type {
   useProjectState as useProjectStateType,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
+  ChatAppGenerationMessageModeEnum,
   ChatRoleEnum,
   createMessageTextContent,
   createProjectConfig,
@@ -360,7 +360,7 @@ describe("chat hydration waitingForResponse", () => {
         waitingForResponse: false,
         llmConfig: null,
         appGenerationByMessageId: {
-          "user-plain-1": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+          "user-plain-1": ChatAppGenerationMessageModeEnum.plain_chat,
         },
       },
     });

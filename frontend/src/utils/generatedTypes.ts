@@ -1191,8 +1191,6 @@ function createMetaControlSizingPolicyTypeEntry(
   return options as MetaControlSizingPolicyTypeEntry;
 }
 
-export type NameValidationContract = gt.NameValidationContract;
-
 type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
 
 export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;

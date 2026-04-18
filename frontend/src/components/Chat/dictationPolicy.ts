@@ -29,18 +29,14 @@ type DictationProviderFailurePolicy = Record<
   Record<DictationProviderFailureClass, ProviderFailureDecision>
 >;
 
-const BROWSER_DICTATION_SOURCE: DictationSource = ChatDictationModeEnum.browser;
-const PROVIDER_DICTATION_SOURCE: DictationSource =
-  ChatDictationModeEnum.provider;
-
 const DICTATION_SOURCE_CHAIN_BY_MODE: Record<DictationMode, DictationSource[]> =
   {
     [ChatDictationModeEnum.auto]: [
-      PROVIDER_DICTATION_SOURCE,
-      BROWSER_DICTATION_SOURCE,
+      ChatDictationModeEnum.provider,
+      ChatDictationModeEnum.browser,
     ],
-    [ChatDictationModeEnum.browser]: [BROWSER_DICTATION_SOURCE],
-    [ChatDictationModeEnum.provider]: [PROVIDER_DICTATION_SOURCE],
+    [ChatDictationModeEnum.browser]: [ChatDictationModeEnum.browser],
+    [ChatDictationModeEnum.provider]: [ChatDictationModeEnum.provider],
   };
 
 const ALL_PROVIDER_FAILURE_CLASSES: Array<DictationProviderFailureClass> = [
@@ -96,7 +92,7 @@ const DICTATION_PROVIDER_FAILURE_POLICY: Record<
 };
 
 function formatDictationSource(source: DictationSource): string {
-  if (source === PROVIDER_DICTATION_SOURCE) {
+  if (source === ChatDictationModeEnum.provider) {
     return "provider";
   }
   return "browser/OS";

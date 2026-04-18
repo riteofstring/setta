@@ -1,7 +1,7 @@
 import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
 import { resetProjectStores } from "state/utils";
-import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
+  ChatAppGenerationMessageModeEnum,
   ChatRoleEnum,
   createMessageTextContent,
   createUserChatMessage,
@@ -279,7 +279,7 @@ describe("submitEditedMessage", () => {
     const payload = request.body;
     expect(payload.appGenerationMode).toBeNull();
     expect(payload.appGenerationByMessageId).toEqual({
-      "msg-plain": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+      "msg-plain": ChatAppGenerationMessageModeEnum.plain_chat,
     });
   });
 

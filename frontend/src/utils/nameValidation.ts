@@ -1,7 +1,4 @@
-import {
-  NameValidationRules,
-  type NameValidationContract,
-} from "utils/generatedTypes";
+import { NameValidationRules } from "utils/generatedTypes";
 import {
   isGeneratedPythonIdentifier,
   sanitizeGeneratedSimpleNameSlug,
@@ -19,24 +16,18 @@ type ParamNameValidationOptions = {
   skipPathChecks?: boolean;
 };
 
-const generatedNameValidation: NameValidationContract = NameValidationRules;
-
 const simpleNameAllowedChars = new Set(
-  generatedNameValidation.simpleNameAllowedChars,
+  NameValidationRules.simpleNameAllowedChars,
 );
-const projectReservedNames = new Set(
-  generatedNameValidation.projectReservedNames,
-);
+const projectReservedNames = new Set(NameValidationRules.projectReservedNames);
 const pythonIdentifierStartChars = new Set(
-  generatedNameValidation.pythonIdentifierStartChars,
+  NameValidationRules.pythonIdentifierStartChars,
 );
 const pythonIdentifierContinueChars = new Set(
-  generatedNameValidation.pythonIdentifierContinueChars,
+  NameValidationRules.pythonIdentifierContinueChars,
 );
-const pythonKeywords = new Set(generatedNameValidation.pythonKeywords);
-const slugReplacementChars = new Set(
-  generatedNameValidation.slugReplacementChars,
-);
+const pythonKeywords = new Set(NameValidationRules.pythonKeywords);
+const slugReplacementChars = new Set(NameValidationRules.slugReplacementChars);
 const emptyNameValidationSet = new Set<string>();
 
 function validateSimpleNameInput(

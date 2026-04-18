@@ -1,8 +1,8 @@
 import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { resetProjectStores } from "state/utils";
-import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
+  ChatAppGenerationMessageModeEnum,
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createMessageTextContent,
@@ -371,7 +371,7 @@ describe("submitMessage", () => {
     const payload = request.body;
     expect(payload.appGenerationMode).toBeNull();
     expect(payload.appGenerationByMessageId).toEqual({
-      [payload.message.id]: PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+      [payload.message.id]: ChatAppGenerationMessageModeEnum.plain_chat,
     });
   });
 
