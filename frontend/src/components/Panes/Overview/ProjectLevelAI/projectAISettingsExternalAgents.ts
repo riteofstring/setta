@@ -41,14 +41,6 @@ export type ExternalAgentConfigDraft = {
   claudeDenyText: string;
 };
 
-const DEFAULT_CLAUDE_ASK_RULES = ExternalAgentUIConfig.defaultClaudeAskRules;
-
-export const CLAUDE_APPROVAL_POLICY_OPTIONS =
-  ExternalAgentUIConfig.claudeApprovalPolicyOptions;
-
-const DEFAULT_CLAUDE_SETTINGS_SOURCES: Array<ClaudeSettingsSourceValue> =
-  ExternalAgentUIConfig.defaultClaudeSettingsSources;
-
 type ExternalAgentConfigSavePayload = {
   name: string;
   description: string;
@@ -88,7 +80,7 @@ export function createExternalAgentConfigDraft(
     sandboxPolicy: "",
     approvalPolicy: "",
     settingsMode: SettingsModeEnum.managed_local,
-    settingsSources: [...DEFAULT_CLAUDE_SETTINGS_SOURCES],
+    settingsSources: [...ExternalAgentUIConfig.defaultClaudeSettingsSources],
     settingsFilePath: "",
     settingsAllowSettaEdits: true,
     envVarWhitelistText: "",
@@ -168,7 +160,7 @@ export function toggleClaudeSettingsSource(
 function defaultClaudePermissionTexts(): ClaudePermissionTexts {
   return {
     claudeAllowText: "",
-    claudeAskText: DEFAULT_CLAUDE_ASK_RULES.join("\n"),
+    claudeAskText: ExternalAgentUIConfig.defaultClaudeAskRules.join("\n"),
     claudeDenyText: "",
   };
 }
@@ -179,7 +171,10 @@ function buildClaudePermissionTexts(
   const permissions = config.settingsManagedBlock?.claude?.permissions;
   return {
     claudeAllowText: joinLines(permissions?.allow),
-    claudeAskText: joinLines(permissions?.ask, DEFAULT_CLAUDE_ASK_RULES),
+    claudeAskText: joinLines(
+      permissions?.ask,
+      ExternalAgentUIConfig.defaultClaudeAskRules,
+    ),
     claudeDenyText: joinLines(permissions?.deny),
   };
 }
@@ -240,7 +235,7 @@ function resolveDraftSettingsSources(
     return [...config.settingsSources];
   }
   if (config.toolType === ToolTypeEnum.claude_code) {
-    return [...DEFAULT_CLAUDE_SETTINGS_SOURCES];
+    return [...ExternalAgentUIConfig.defaultClaudeSettingsSources];
   }
   return [];
 }

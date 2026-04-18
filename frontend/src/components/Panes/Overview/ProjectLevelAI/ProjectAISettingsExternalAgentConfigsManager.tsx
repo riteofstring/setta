@@ -8,6 +8,7 @@ import { useAIStore } from "state/definitions";
 import {
   ClaudeSettingsSourceEnum,
   type ExternalAgentConfig,
+  ExternalAgentUIConfig,
   RunModeEnum,
   SettingsModeEnum,
   ToolTypeEnum,
@@ -15,7 +16,6 @@ import {
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
-  CLAUDE_APPROVAL_POLICY_OPTIONS,
   type ClaudeSettingsSourceValue,
   type ExternalAgentConfigDraft,
   type ExternalAgentRunModeValue,
@@ -508,14 +508,16 @@ function ExternalAgentToolFields({
               className={SELECT_CLASS_NAME}
               disabled={!canEdit}
             >
-              {CLAUDE_APPROVAL_POLICY_OPTIONS.map((option) => (
-                <option
-                  key={option.value || "default-source"}
-                  value={option.value}
-                >
-                  {option.label}
-                </option>
-              ))}
+              {ExternalAgentUIConfig.claudeApprovalPolicyOptions.map(
+                (option) => (
+                  <option
+                    key={option.value || "default-source"}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
             </select>
           ) : (
             <input

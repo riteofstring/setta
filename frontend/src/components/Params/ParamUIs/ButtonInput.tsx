@@ -20,8 +20,6 @@ import {
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
 import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
-const ACTION_MODE_OPTIONS = ButtonParamUIConfig.actionModeOptions;
-const REQUEST_METHOD_OPTIONS = ButtonParamUIConfig.requestMethodOptions;
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 const LABEL_CLASS_NAME =
@@ -249,7 +247,7 @@ export function ButtonInputConfigForParam({
           value={editorState.actionMode}
           onChange={onActionModeChange}
         >
-          {ACTION_MODE_OPTIONS.map((option) => (
+          {ButtonParamUIConfig.actionModeOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -265,7 +263,7 @@ export function ButtonInputConfigForParam({
               value={editorState.requestMethod}
               onChange={onRequestMethodChange}
             >
-              {REQUEST_METHOD_OPTIONS.map((option) => (
+              {ButtonParamUIConfig.requestMethodOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

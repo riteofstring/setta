@@ -27,8 +27,6 @@ const CHILD_SECTION_TYPE_OPTIONS = (
 )
   .filter((type) => !DISALLOWED_CHILD_DEFAULTS.has(type))
   .map((type) => ({ value: type, label: type }));
-const LIST_ROOT_VIEW_MODE_OPTIONS =
-  ChildDefaultsUIConfig.listRootViewModeOptions;
 export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
   const { sectionType, defaultChildSectionType, listRootViewMode, isFrozen } =
@@ -145,7 +143,7 @@ export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
               }
               disabled={isFrozen || !canEditStructure}
             >
-              {LIST_ROOT_VIEW_MODE_OPTIONS.map((option) => (
+              {ChildDefaultsUIConfig.listRootViewModeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
