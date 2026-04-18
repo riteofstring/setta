@@ -46,7 +46,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
     );
     const inner = document.getElementById(`${sectionId}-CustomResizable`);
     const header = outer?.querySelector<HTMLElement>("header.section-title");
+    const kwargsControls = outer?.querySelector<HTMLElement>(".section-args");
     const node = outer?.closest<HTMLElement>(".react-flow__node");
+    const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
     const canvas = document.querySelector(
       ".react-flow__section-shell-backdrop canvas",
     );
@@ -60,8 +62,14 @@ test("canvas shell path owns the resting callable section chrome", async ({
     if (!(header instanceof HTMLElement)) {
       throw new Error(`Missing section header for ${sectionId}`);
     }
+    if (!(kwargsControls instanceof HTMLElement)) {
+      throw new Error(`Missing callable toolbar for ${sectionId}`);
+    }
     if (!(node instanceof HTMLElement)) {
       throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
+    }
+    if (!(viewport instanceof HTMLElement)) {
+      throw new Error(`Missing React Flow viewport for ${sectionId}`);
     }
     if (!(canvas instanceof HTMLCanvasElement)) {
       throw new Error("Missing retained shell canvas");
@@ -77,39 +85,83 @@ test("canvas shell path owns the resting callable section chrome", async ({
     }
 
     const nodeTransform = window.getComputedStyle(node).transform;
-    const transformMatch = /^matrix\(([^)]+)\)$/.exec(nodeTransform);
+    const viewportTransform = window.getComputedStyle(viewport).transform;
+    const nodeTransformMatch = /^matrix\(([^)]+)\)$/.exec(nodeTransform);
+    const viewportTransformMatch = /^matrix\(([^)]+)\)$/.exec(viewportTransform);
 
-    if (!transformMatch) {
+    if (!nodeTransformMatch) {
       throw new Error(`Unexpected node transform for ${sectionId}: ${nodeTransform}`);
     }
+    if (!viewportTransformMatch) {
+      throw new Error(
+        `Unexpected viewport transform for ${sectionId}: ${viewportTransform}`,
+      );
+    }
 
-    const [, transformBody] = transformMatch;
-    const matrixParts = transformBody
+    const [, nodeTransformBody] = nodeTransformMatch;
+    const nodeMatrixParts = nodeTransformBody
+      .split(",")
+      .map((value) => Number.parseFloat(value.trim()));
+    const [, viewportTransformBody] = viewportTransformMatch;
+    const viewportMatrixParts = viewportTransformBody
       .split(",")
       .map((value) => Number.parseFloat(value.trim()));
 
-    if (matrixParts.length < 6 || matrixParts.some((value) => !Number.isFinite(value))) {
+    if (
+      nodeMatrixParts.length < 6 ||
+      nodeMatrixParts.some((value) => !Number.isFinite(value))
+    ) {
       throw new Error(`Invalid node transform matrix for ${sectionId}: ${nodeTransform}`);
     }
+    if (
+      viewportMatrixParts.length < 6 ||
+      viewportMatrixParts.some((value) => !Number.isFinite(value))
+    ) {
+      throw new Error(
+        `Invalid viewport transform matrix for ${sectionId}: ${viewportTransform}`,
+      );
+    }
 
-    const nodeX = matrixParts[4];
-    const nodeY = matrixParts[5];
+    const viewportScale = viewportMatrixParts[0];
+    if (!Number.isFinite(viewportScale) || viewportScale <= 0) {
+      throw new Error(
+        `Invalid viewport scale for ${sectionId}: ${viewportTransform}`,
+      );
+    }
+
+    const nodeX = nodeMatrixParts[4];
+    const nodeY = nodeMatrixParts[5];
     const canvasLeft = Number.parseFloat(canvas.style.left);
     const canvasTop = Number.parseFloat(canvas.style.top);
     const canvasScaleX = canvas.width / canvas.clientWidth;
     const canvasScaleY = canvas.height / canvas.clientHeight;
-    const headerHeight = header.offsetHeight;
-    const sampleX =
-      (nodeX - canvasLeft + Math.min(Math.max(inner.offsetWidth * 0.2, 24), 48)) *
-      canvasScaleX;
+    const nodeRect = node.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    const kwargsRect = kwargsControls.getBoundingClientRect();
+    const headerOffsetX = (headerRect.left - nodeRect.left) / viewportScale;
+    const headerOffsetY = (headerRect.top - nodeRect.top) / viewportScale;
+    const headerWidth = headerRect.width / viewportScale;
+    const headerHeight = headerRect.height / viewportScale;
+    const kwargsOffsetX = (kwargsRect.left - nodeRect.left) / viewportScale;
+    const kwargsOffsetY = (kwargsRect.top - nodeRect.top) / viewportScale;
+    const kwargsWidth = kwargsRect.width / viewportScale;
+    const kwargsHeight = kwargsRect.height / viewportScale;
+    const headerSampleX =
+      (nodeX - canvasLeft + headerOffsetX + headerWidth * 0.5) * canvasScaleX;
     const headerSampleY =
-      (nodeY - canvasTop + Math.min(Math.max(headerHeight * 0.5, 6), 18)) *
+      (nodeY - canvasTop + headerOffsetY + headerHeight * 0.5) * canvasScaleY;
+    const bodySampleX =
+      (nodeX - canvasLeft + Math.min(inner.offsetWidth * 0.6, inner.offsetWidth - 24)) *
+      canvasScaleX;
+    const bodySampleY =
+      (nodeY -
+        canvasTop +
+        Math.min(inner.offsetHeight - 24, kwargsOffsetY + kwargsHeight + 24)) *
       canvasScaleY;
-    const bodySampleY = Math.min(
-      (nodeY - canvasTop + inner.offsetHeight - 12) * canvasScaleY,
-      (nodeY - canvasTop + headerHeight + Math.max(12, headerHeight * 0.4)) *
-        canvasScaleY,
-    );
+    const kwargsSampleX =
+      (nodeX - canvasLeft + kwargsOffsetX + kwargsWidth * 0.72) * canvasScaleX;
+    const kwargsSampleY =
+      (nodeY - canvasTop + kwargsOffsetY + kwargsHeight * 0.5) * canvasScaleY;
 
     function sampleCanvasPixel(canvasX: number, canvasY: number) {
       const clampedX = Math.max(
@@ -129,10 +181,18 @@ test("canvas shell path owns the resting callable section chrome", async ({
       return `${r},${g},${b},${a}`;
     }
 
+    const kwargsStyle = window.getComputedStyle(kwargsControls);
+
     return {
-      bodyPixel: sampleCanvasPixel(sampleX, bodySampleY),
+      bodyPixel: sampleCanvasPixel(bodySampleX, bodySampleY),
       headerHeight,
-      headerPixel: sampleCanvasPixel(sampleX, headerSampleY),
+      headerPixel: sampleCanvasPixel(headerSampleX, headerSampleY),
+      kwargsBottomBorderColor: kwargsStyle.borderBottomColor,
+      kwargsOwnershipFlag:
+        kwargsControls.dataset.canvasOwnedCallableToolbar ?? null,
+      kwargsPixel: sampleCanvasPixel(kwargsSampleX, kwargsSampleY),
+      kwargsShadow: kwargsStyle.boxShadow,
+      kwargsToolbarBackground: kwargsStyle.backgroundColor,
       outerOwnershipFlag: outer.dataset.canvasOwnedShell ?? null,
       innerOwnershipFlag: inner.dataset.canvasOwnedShell ?? null,
       outerBackground: outerStyle.backgroundColor,
@@ -151,5 +211,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.headerHeight).toBeGreaterThan(0);
   expect(shellState.headerPixel).not.toBe("0,0,0,0");
   expect(shellState.bodyPixel).not.toBe("0,0,0,0");
-  expect(shellState.headerPixel).not.toBe(shellState.bodyPixel);
+  expect(shellState.kwargsOwnershipFlag).toBe("true");
+  expect(shellState.kwargsToolbarBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(shellState.kwargsBottomBorderColor).toBe("rgba(0, 0, 0, 0)");
+  expect(shellState.kwargsShadow).toBe("none");
+  expect(shellState.kwargsPixel).not.toBe("0,0,0,0");
+  expect(shellState.kwargsPixel).not.toBe(shellState.bodyPixel);
 });

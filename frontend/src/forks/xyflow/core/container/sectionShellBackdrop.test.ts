@@ -54,23 +54,44 @@ function createMockCanvasContext(): MockCanvasContext {
 
 describe("sectionShellBackdrop", () => {
   it("carries canary header chrome metadata into the retained scene", () => {
-    const scene = buildSectionShellBackdropScene([
-      createNode({
-        id: "settings-section__callableSectionDefault",
-        height: 80,
-      }),
-    ], {
-      getFrameVisual: () => ({
-        fill: "#f5f7fb",
-        headerDivider: "#d4dae5",
-        headerFill: "#fcfdff",
-        headerHeight: 120,
-        stroke: "#ffffff",
-      }),
-    });
+    const scene = buildSectionShellBackdropScene(
+      [
+        createNode({
+          id: "settings-section__callableSectionDefault",
+          height: 80,
+        }),
+      ],
+      {
+        getFrameVisual: () => ({
+          detailBands: [
+            {
+              cornerRadius: 12,
+              divider: "#ffffff",
+              fill: "#fbfcff",
+              height: 64,
+              offsetY: 56,
+            },
+          ],
+          fill: "#f5f7fb",
+          headerDivider: "#d4dae5",
+          headerFill: "#fcfdff",
+          headerHeight: 120,
+          stroke: "#ffffff",
+        }),
+      },
+    );
 
     expect(scene.frames).toEqual([
       expect.objectContaining({
+        detailBands: [
+          {
+            cornerRadius: 12,
+            divider: "#ffffff",
+            fill: "#fbfcff",
+            height: 24,
+            offsetY: 56,
+          },
+        ],
         fill: "#f5f7fb",
         headerDivider: "#d4dae5",
         headerFill: "#fcfdff",
@@ -78,6 +99,56 @@ describe("sectionShellBackdrop", () => {
         stroke: "#ffffff",
       }),
     ]);
+  });
+
+  it("paints a callable toolbar band and divider inside the retained shell", () => {
+    const context = createMockCanvasContext();
+
+    paintSectionShellBackdrop(
+      context,
+      {
+        bounds: {
+          height: 120,
+          width: 160,
+          x: 10,
+          y: 20,
+        },
+        frames: [
+          {
+            detailBands: [
+              {
+                cornerRadius: 12,
+                divider: "#ffffff",
+                fill: "#fbfcff",
+                height: 32,
+                offsetY: 40,
+              },
+            ],
+            fill: "#f5f7fb",
+            headerDivider: "#d4dae5",
+            headerFill: "#fcfdff",
+            headerHeight: 24,
+            height: 120,
+            id: "settings-section__callableSectionDefault",
+            stroke: "#ffffff",
+            width: 160,
+            x: 10,
+            y: 20,
+            zIndex: 0,
+          },
+        ],
+      },
+      {
+        cornerRadius: 16,
+        darkMode: false,
+        padding: 24,
+      },
+    );
+
+    expect(context.fillRect).toHaveBeenCalledWith(24, 24, 160, 24);
+    expect(context.roundRect).toHaveBeenNthCalledWith(3, 24, 64, 160, 32, 12);
+    expect(context.moveTo).toHaveBeenNthCalledWith(2, 36, 96);
+    expect(context.lineTo).toHaveBeenNthCalledWith(2, 172, 96);
   });
 
   it("paints a clipped header band and divider before the outer stroke", () => {
@@ -94,6 +165,7 @@ describe("sectionShellBackdrop", () => {
         },
         frames: [
           {
+            detailBands: [],
             fill: "#f5f7fb",
             headerDivider: "#d4dae5",
             headerFill: "#fcfdff",

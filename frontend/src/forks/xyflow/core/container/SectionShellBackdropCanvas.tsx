@@ -7,7 +7,12 @@ import {
   useTemporaryMiscState,
   type ZustandNodeInternalsState,
 } from "state/definitions";
-import { getSectionHeaderHeightKey } from "utils/constants";
+import {
+  getKwargsControlsHeightKey,
+  getSectionHeaderHeightKey,
+  getSectionSearchHeightKey,
+} from "utils/constants";
+import { shallow } from "zustand/shallow";
 import { containerStyle } from "../styles";
 import {
   buildSectionShellBackdropScene,
@@ -21,6 +26,13 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 const SHELL_BACKDROP_PADDING_PX = 24;
+const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
+
+function normalizeStoredHeight(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(value, 0)
+    : 0;
+}
 
 export default function SectionShellBackdropCanvas() {
   const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
@@ -32,13 +44,24 @@ export default function SectionShellBackdropCanvas() {
     );
     return typeof impl?.styleColor === "string" ? impl.styleColor : null;
   });
-  const canvasOwnedShellHeaderHeight = useTemporaryMiscState((state) => {
-    const storedHeight =
-      state[getSectionHeaderHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)];
-    return typeof storedHeight === "number" && Number.isFinite(storedHeight)
-      ? Math.max(storedHeight, 0)
-      : 0;
-  });
+  const {
+    canvasOwnedShellHeaderHeight,
+    canvasOwnedShellKwargsControlsHeight,
+    canvasOwnedShellSearchHeight,
+  } = useTemporaryMiscState(
+    (state) => ({
+      canvasOwnedShellHeaderHeight: normalizeStoredHeight(
+        state[getSectionHeaderHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      ),
+      canvasOwnedShellKwargsControlsHeight: normalizeStoredHeight(
+        state[getKwargsControlsHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      ),
+      canvasOwnedShellSearchHeight: normalizeStoredHeight(
+        state[getSectionSearchHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      ),
+    }),
+    shallow,
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
     () =>
@@ -48,16 +71,39 @@ export default function SectionShellBackdropCanvas() {
             return null;
           }
 
+          const chrome = resolveCanvasOwnedSectionShellChrome({
+            darkMode,
+            styleColor: canvasOwnedShellStyleColor,
+          });
+          const callableToolbarOffsetY =
+            canvasOwnedShellHeaderHeight + canvasOwnedShellSearchHeight;
+
           return {
-            ...resolveCanvasOwnedSectionShellChrome({
-              darkMode,
-              styleColor: canvasOwnedShellStyleColor,
-            }),
+            ...chrome,
+            detailBands:
+              canvasOwnedShellKwargsControlsHeight > 0
+                ? [
+                    {
+                      cornerRadius: CALLABLE_TOOLBAR_CORNER_RADIUS_PX,
+                      divider: chrome.callableToolbarDivider,
+                      fill: chrome.callableToolbarFill,
+                      height: canvasOwnedShellKwargsControlsHeight,
+                      offsetY: callableToolbarOffsetY,
+                    },
+                  ]
+                : null,
             headerHeight: canvasOwnedShellHeaderHeight,
           };
         },
       }),
-    [canvasOwnedShellHeaderHeight, canvasOwnedShellStyleColor, darkMode, nodes],
+    [
+      canvasOwnedShellHeaderHeight,
+      canvasOwnedShellKwargsControlsHeight,
+      canvasOwnedShellSearchHeight,
+      canvasOwnedShellStyleColor,
+      darkMode,
+      nodes,
+    ],
   );
 
   const expandedBounds = useMemo(() => {

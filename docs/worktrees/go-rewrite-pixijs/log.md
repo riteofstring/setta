@@ -331,3 +331,28 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move one more visible non-editing callable shell detail for `settings-section__callableSectionDefault` into the retained scene layer, likely the next top-level separation beneath the new header band without starting param-row migration
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 016
+
+- Item: Add a retained-canvas callable toolbar band for `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the canary shell chrome now resolves `callableToolbarFill` and `callableToolbarDivider` alongside the existing shell/header colors, reusing section-style theme colors when a style color is present.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene reads both `getSectionSearchHeightKey(...)` and `getKwargsControlsHeightKey(...)` for the canary section and emits one retained detail band for the callable toolbar beneath the header band.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` so retained frames now carry normalized `detailBands` metadata and the painter renders rounded retained panel fills plus bottom dividers before the outer shell stroke.
+  - Updated `frontend/src/components/Section/SectionParts/KwargsControls.tsx` so only the canary callable toolbar container becomes transparent on the `canvas-shell-underlay` path while the live controls and filter DOM stay mounted and interactive.
+  - Added focused node coverage in `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts` and updated `sectionShellCanvasOwnership.test.ts` to lock the new toolbar-band chrome contract.
+  - Extended the live canary probe in `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so it now derives graph-space rects from DOM bounds divided by the parent `.react-flow__viewport` transform scale instead of treating the `.react-flow__node` transform as the zoom source.
+  - The first runtime probe for this slice failed because the prior helper assumed the node transform carried zoom scale; in the current runtime it stays at scale `1`, so the fitted header/toolbar samples collapsed back to the body pixel. The final viewport-scale version fixed that oracle issue without changing product code.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/KwargsControls.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+  - CDP visual check is done:
+    - `/settings` loaded cleanly with no crash/error boundary visible
+    - the retained shell `canvas` was mounted and the workspace surface remained intact
+    - `settings-section__callableSectionDefault` still showed the header, filter input, and the callable toolbar row after the DOM toolbar container was made transparent on the canvas path
+    - caveat: the fitted headless view still makes the toolbar row too small for a confident human-only pixel read, so the updated Playwright viewport-scale probe is the deterministic proof for this exact detail
+- Next action:
+  - move the pinned-params panel chrome for `settings-section__callableSectionDefault` into the retained scene layer while keeping param rows live
+LOOP_TERMINAL_MARKER: none
