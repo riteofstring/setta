@@ -859,32 +859,51 @@ func scaffoldContentTemplate(root string) error {
 }
 
 func buildInitTemplatePyproject(pluginID string, manifest PluginManifest) string {
+	installRoot := pluginPackageInstallRoot(pluginID)
 	var builder strings.Builder
 	builder.WriteString("[build-system]\n" +
-		"requires = [\"setuptools>=68\", \"wheel\"]\n" +
-		"build-backend = \"setuptools.build_meta\"\n\n" +
+		"requires = [\"hatchling==1.29.0\"]\n" +
+		"build-backend = \"hatchling.build\"\n\n" +
 		"[project]\n" +
 		fmt.Sprintf("name = %q\n", pluginID) +
 		"version = \"0.1.0\"\n" +
 		"description = \"Setta plugin\"\n" +
 		"requires-python = \">=3.12\"\n" +
 		"dependencies = []\n\n" +
-		"[tool.setuptools]\n" +
-		"py-modules = []\n\n" +
-		"[tool.setuptools.data-files]\n" +
-		"\".\" = [\"setta.plugin.json\", \"README.md\"]\n")
+		"[tool.hatch.build.targets.wheel]\n" +
+		"only-include = []\n\n" +
+		"[tool.hatch.build.targets.wheel.force-include]\n" +
+		fmt.Sprintf("%q = %q\n", "setta.plugin.json", installRoot+"/setta.plugin.json") +
+		fmt.Sprintf("%q = %q\n", "README.md", installRoot+"/README.md"))
 	if manifest.Backend != nil {
-		builder.WriteString("\"backend\" = [\"backend/*\"]\n")
+		builder.WriteString(fmt.Sprintf("%q = %q\n", "backend", installRoot+"/backend"))
 	}
 	if manifest.Frontend != nil {
-		builder.WriteString("\"frontend/dist\" = [\"frontend/dist/*\"]\n")
+		builder.WriteString(fmt.Sprintf("%q = %q\n", "frontend/dist", installRoot+"/frontend/dist"))
 	}
 	if manifest.Content != nil {
-		builder.WriteString("\"content/blueprints\" = [\"content/blueprints/*\"]\n")
-		builder.WriteString("\"content/project_templates\" = [\"content/project_templates/*\"]\n")
-		builder.WriteString("\"content/prompts\" = [\"content/prompts/*\"]\n")
+		builder.WriteString(fmt.Sprintf("%q = %q\n", "content", installRoot+"/content"))
 	}
+	builder.WriteString("\n[tool.hatch.build.targets.sdist]\ninclude = [\n" +
+		"  \"/setta.plugin.json\",\n" +
+		"  \"/README.md\",\n" +
+		"  \"/pyproject.toml\",\n")
+	if manifest.Backend != nil {
+		builder.WriteString("  \"/backend\",\n")
+	}
+	if manifest.Frontend != nil {
+		builder.WriteString("  \"/frontend/dist\",\n")
+	}
+	if manifest.Content != nil {
+		builder.WriteString("  \"/content\",\n")
+	}
+	builder.WriteString("]\n")
 	return builder.String()
+}
+
+func pluginPackageInstallRoot(pluginID string) string {
+	normalizedPluginID := strings.ToLower(strings.TrimSpace(pluginID))
+	return strings.NewReplacer("-", "_", ".", "_").Replace(normalizedPluginID)
 }
 
 const initTemplateWorkflow = "name: publish-plugin\n\n" +

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,7 +79,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfilePreservesExplicitNullSelection(
 	}
 }
 
-func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t *testing.T) {
+func TestBootstrapWorkspaceDefaultsInstallProfileWaitsUntilSelectionsAreAvailable(t *testing.T) {
 	runtimeRoot := t.TempDir()
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
 
@@ -86,6 +87,9 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t
 	firstPluginService := newDefaultsProfilePluginService(t, []string{emptySitePackages})
 	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, firstPluginService); err != nil {
 		t.Fatalf("first bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+	if _, err := os.Stat(defaultsProfileBootstrapStatePath(runtimeRoot)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected bootstrap state to stay absent until selections are available, got err=%v", err)
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
@@ -99,8 +103,8 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t
 	if err != nil {
 		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
 	}
-	if ok || selection != nil {
-		t.Fatalf("expected python selection to stay missing after first-open bootstrap, got ok=%v selection=%#v", ok, selection)
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected python selection to bootstrap once defaults plugin becomes available, got ok=%v selection=%#v", ok, selection)
 	}
 }
 

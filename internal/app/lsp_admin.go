@@ -39,13 +39,8 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 	if a == nil || a.projectAdmin == nil {
 		return errors.New("lsp admin is not configured")
 	}
-	if a.runtime != nil {
-		if _, err := a.runtime.Refresh(ctx); err != nil {
-			return err
-		}
-		if !a.runtime.HasConfiguredLanguageServers() {
-			return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
-		}
+	if err := a.ensureConfiguredLanguageServers(ctx); err != nil {
+		return err
 	}
 	return a.projectAdmin.Restart(ctx, document)
 }
@@ -54,5 +49,25 @@ func (a *workspaceLSPAdmin) TypeCheckProject(ctx context.Context, document proje
 	if a == nil || a.projectAdmin == nil {
 		return errors.New("lsp admin is not configured")
 	}
+	if _, err := document.ProjectByID(projectID); err == nil {
+		if err := a.ensureConfiguredLanguageServers(ctx); err != nil {
+			return err
+		}
+	} else if !errors.Is(err, projectstate.ErrProjectNotFound) && !errors.Is(err, projectstate.ErrProjectIDRequired) {
+		return err
+	}
 	return a.projectAdmin.TypeCheckProject(ctx, document, projectID)
+}
+
+func (a *workspaceLSPAdmin) ensureConfiguredLanguageServers(ctx context.Context) error {
+	if a == nil || a.runtime == nil {
+		return nil
+	}
+	if _, err := a.runtime.Refresh(ctx); err != nil {
+		return err
+	}
+	if !a.runtime.HasConfiguredLanguageServers() {
+		return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
+	}
+	return nil
 }

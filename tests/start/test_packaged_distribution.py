@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -137,6 +138,23 @@ def _install_editable(project_root: Path, venv_python: Path) -> subprocess.Compl
     )
 
 
+def _install_wheel(wheel_path: Path, venv_python: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(venv_python), "-m", "pip", "install", "--no-deps", str(wheel_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _venv_python(venv_root: Path) -> Path:
+    return (
+        venv_root / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else venv_root / "bin" / "python"
+    )
+
+
 def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
     project_root = _write_minimal_distribution_project(
         tmp_path,
@@ -185,6 +203,68 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     )
 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
+
+
+def test_first_party_basedpyright_plugin_wheel_installs_into_isolated_plugin_root(
+    tmp_path: Path,
+) -> None:
+    plugin_root = _repo_root() / "plugins" / "setta-basedpyright"
+    outdir = tmp_path / "dist"
+
+    result = _build_wheel(plugin_root, outdir)
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+
+    venv_root = tmp_path / "wheel-venv"
+    subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    venv_python = _venv_python(venv_root)
+
+    install_result = _install_wheel(wheel_paths[0], venv_python)
+    combined_install_output = f"{install_result.stdout}\n{install_result.stderr}"
+    assert install_result.returncode == 0, combined_install_output
+
+    inspect_result = subprocess.run(
+        [
+            str(venv_python),
+            "-c",
+            (
+                "import importlib.metadata, json, pathlib\n"
+                "for dist in importlib.metadata.distributions():\n"
+                "    if (dist.metadata.get('Name') or '').strip() != 'setta-basedpyright':\n"
+                "        continue\n"
+                "    manifests = [\n"
+                "        str(pathlib.Path(dist.locate_file(file)).resolve(strict=False))\n"
+                "        for file in (dist.files or [])\n"
+                "        if pathlib.Path(str(file)).name == 'setta.plugin.json'\n"
+                "    ]\n"
+                "    print(json.dumps({'manifests': manifests}))\n"
+                "    break\n"
+                "else:\n"
+                "    raise SystemExit('missing setta-basedpyright distribution metadata')\n"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert inspect_result.returncode == 0, inspect_result.stderr
+
+    payload = json.loads(inspect_result.stdout)
+    manifest_paths = payload["manifests"]
+    assert len(manifest_paths) == 1
+    manifest_path = Path(manifest_paths[0])
+    assert manifest_path.name == "setta.plugin.json"
+    assert manifest_path.parent.name == "setta_basedpyright"
+    assert "site-packages" in manifest_path.parts
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

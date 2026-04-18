@@ -42,6 +42,17 @@ func (s *stubRuntimeLSPRefresher) HasConfiguredLanguageServers() bool {
 	return s.hasSpecs
 }
 
+func testProjectDocument() projectstate.Document {
+	return projectstate.Document{
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}
+}
+
 func TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync(t *testing.T) {
 	t.Parallel()
 
@@ -73,5 +84,57 @@ func TestWorkspaceLSPAdminRestartReturnsUnconfiguredWhenNoSpecsRemain(t *testing
 	}
 	if projectAdmin.restartCalls != 0 {
 		t.Fatalf("expected restart to stop before project sync, got %d calls", projectAdmin.restartCalls)
+	}
+}
+
+func TestWorkspaceLSPAdminTypeCheckRefreshesRuntimeBeforeSync(t *testing.T) {
+	t.Parallel()
+
+	projectAdmin := &stubProjectLSPAdmin{}
+	runtime := &stubRuntimeLSPRefresher{hasSpecs: true}
+	admin := newWorkspaceLSPAdmin(projectAdmin, runtime)
+
+	if err := admin.TypeCheckProject(context.Background(), testProjectDocument(), "project-alpha"); err != nil {
+		t.Fatalf("type check project: %v", err)
+	}
+	if runtime.refreshCalls != 1 {
+		t.Fatalf("expected one runtime refresh, got %d", runtime.refreshCalls)
+	}
+	if projectAdmin.typeCheckCalls != 1 {
+		t.Fatalf("expected one type-check call, got %d", projectAdmin.typeCheckCalls)
+	}
+}
+
+func TestWorkspaceLSPAdminTypeCheckReturnsUnconfiguredWhenNoSpecsRemain(t *testing.T) {
+	t.Parallel()
+
+	projectAdmin := &stubProjectLSPAdmin{}
+	runtime := &stubRuntimeLSPRefresher{hasSpecs: false}
+	admin := newWorkspaceLSPAdmin(projectAdmin, runtime)
+
+	err := admin.TypeCheckProject(context.Background(), testProjectDocument(), "project-alpha")
+	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected unconfigured error, got %v", err)
+	}
+	if projectAdmin.typeCheckCalls != 0 {
+		t.Fatalf("expected type check to stop before project sync, got %d calls", projectAdmin.typeCheckCalls)
+	}
+}
+
+func TestWorkspaceLSPAdminTypeCheckPreservesMissingProjectNoOp(t *testing.T) {
+	t.Parallel()
+
+	projectAdmin := &stubProjectLSPAdmin{}
+	runtime := &stubRuntimeLSPRefresher{hasSpecs: false}
+	admin := newWorkspaceLSPAdmin(projectAdmin, runtime)
+
+	if err := admin.TypeCheckProject(context.Background(), testProjectDocument(), "project-missing"); err != nil {
+		t.Fatalf("type check missing project: %v", err)
+	}
+	if runtime.refreshCalls != 0 {
+		t.Fatalf("expected missing-project type check to skip runtime refresh, got %d", runtime.refreshCalls)
+	}
+	if projectAdmin.typeCheckCalls != 1 {
+		t.Fatalf("expected missing-project type check to delegate once, got %d", projectAdmin.typeCheckCalls)
 	}
 }
