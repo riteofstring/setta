@@ -250,3 +250,32 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - start the first real product slice by identifying the narrowest `settings` canary seam where Pixi can take camera or resting-surface ownership without another pure forwarding seam lift
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 013
+
+- Item: Land the first real graph-surface product seam on the `settings` canary path.
+- Status: `done`
+- Details:
+  - Added `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` so `ReactFlow.tsx` now delegates graph-surface composition through one implementation boundary instead of inlining the edge/node renderers directly.
+  - Added `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` plus `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` to derive top-level node bounds from `useNodeInternals` and paint one retained canvas shell underlay behind the existing DOM section nodes.
+  - Added `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` covering the scene bounds math and retained-canvas sizing path.
+  - Narrow source cleanup in `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` also removed the existing `d3Zoom!` / `d3Selection!` non-null assertions surfaced by the focused lint pass.
+  - Focused lint verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts`
+  - Focused Vitest execution for the new retained-canvas test is still blocked by the same existing jsdom dependency/runtime issue before test collection:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - Live runtime verification passed on the worktree canary with a fresh bootstrap token:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line`
+    - result: passed with `canvasCount: 1`, `flowNodeCount: 46`, `documentNodeCount: 9555`, `raf.meanMs: 34.91`, `longTasks.totalMs: 119`
+  - Treat that runtime probe as a smoke check that the new retained scene layer is mounted on the live canary, not as a new durable benchmark claim yet.
+  - Canonical target section for the next lane is now `settings-section__callableSectionDefault`.
+  - CDP visual check is done:
+    - `/settings` loads normally
+    - `All Settings` is visible and active
+    - the graph surface is mounted and usable
+    - a `canvas` is visible inside `.react-flow__section-shell-backdrop`
+    - no crash overlay or obviously detached/blank section bodies are visible
+- Next action:
+  - move actual top-level shell chrome authority for `settings-section__callableSectionDefault` into the retained scene layer instead of stopping at the parallel underlay
+LOOP_TERMINAL_MARKER: none

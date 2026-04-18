@@ -39,7 +39,19 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `All Settings` is visible and active
   - no React error boundary or crash overlay is visible
   - non-target chrome still visible during the check included the left settings list, right tool rail, bottom tab bar, and a `Chat Window 1` overlay/suggestion panel, but none blocked the graph surface
-- No Pixi/settings product renderer code has been changed under this restart plan yet.
+- The first settings product renderer slice is now landed:
+  - `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` is now the graph-surface composition boundary instead of inlining the edge/node renderers inside `ReactFlow.tsx`
+  - the active implementation is a new `canvas-shell-underlay` surface that mounts one retained canvas behind the existing DOM section nodes
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now derive top-level node bounds from `useNodeInternals` and paint shell backdrops into a single canvas underlay
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now covers the scene bounds math and retained-canvas sizing path
+- A fresh post-slice live baseline probe on 2026-04-18 passed on the worktree runtime and confirmed the new underlay is present on `settings` -> `All Settings`:
+  - `canvasCount: 1`
+  - `flowNodeCount: 46`
+  - `documentNodeCount: 9555`
+  - `raf.meanMs: 34.91`
+  - `longTasks.totalMs: 119`
+- Treat that post-slice probe as a runtime smoke check for the new surface seam, not as a new durable benchmark claim yet.
+- Canonical target section for the next settings graph-surface lane: `settings-section__callableSectionDefault`.
 - The Phase 1 baseline lane is now complete:
   - the browser-side `loadProjectConfig` transport failure on the live worktree runtime (`http://127.0.0.1:8068`) is fixed
   - focused runtime verification now succeeds for that exact request shape:
@@ -58,6 +70,17 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 - focused Vitest verification for the new minimap regression test is currently blocked by an existing jsdom dependency/runtime issue before test collection:
   - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
   - fresh bootstrap URLs are one-shot; stale URLs quickly turn into misleading `401` bootstrap failures
+- focused Vitest verification for the new retained-canvas shell test is blocked by the same existing jsdom dependency/runtime issue before test collection:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+  - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- focused lint verification for the new graph-surface files passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts`
+- CDP visual check is done for the retained-canvas slice:
+  - `/settings` loads normally
+  - `All Settings` is visible and active
+  - the graph surface is mounted and usable
+  - a `canvas` is present inside `.react-flow__section-shell-backdrop`
+  - no crash overlay or obviously detached/blank section bodies are visible
 
 ## Preservation rule
 
@@ -84,9 +107,9 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Start the first product slice: identify the narrowest `settings` canary seam where Pixi can take camera or resting-surface ownership without recreating old-branch scaffolding.
+1. Deepen the new `GraphSurface` seam by moving actual top-level shell chrome authority for the named canary `settings-section__callableSectionDefault` into the retained scene layer instead of only drawing a parallel underlay.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the first product frontier constrained to one real implementation boundary, not another pure forwarding seam lift.
+3. Keep the next product frontier constrained to top-level settings shell chrome only; do not reopen harness work or start row/body migration yet.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -99,8 +122,9 @@ The first product frontier is not:
 
 The first product frontier is:
 
-- one Pixi-owned camera/surface seam on the `settings` canary path
-- with the branch explicitly targeting a Pixi-owned resting graph surface rather than a partially shared runtime body experiment
+- a real graph-surface composition boundary on the `settings` canary path
+- with one retained scene canvas now mounted under the DOM section nodes as the first renderer-owned static layer
+- next: move real shell/background ownership into that retained scene path for the named canary section instead of stopping at a parallel underlay
 
 ## Hard rules
 
