@@ -157,6 +157,54 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-18 052
 
+- Item: Replace the repeated settings section-header menu-trigger buttons with lightweight non-button roots on the canvas path.
+- Status: `done`
+- Details:
+  - Started from the post-switch frontier instead of reopening any closed `gui`, `backend`, `sectionSizingPolicy`, kwargs, or switch lane.
+  - A fresh live inventory confirmed the next repeated button family cleanly:
+    - `46` `button[role="menuitem"]` roots across `section[data-section-id^="settings-section__"]`
+    - one closed header-menu trigger per settings section
+  - That meant the real next bounded slice was the shared settings section-header menu trigger owner, not another section-local chrome follow-up.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionLightweightMenuTrigger(...)` so the family is explicit at the retained-canvas ownership boundary.
+  - `frontend/src/components/Utils/atoms/menubar/menudropdown.tsx`, `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx`, `frontend/src/components/Section/Container/TextBlockMetaControlMenuButton.tsx`, and `frontend/src/components/Section/Container/MetaControlMenuButton.tsx` now switch settings section header menus onto Radix `asChild` lightweight roots on the `canvas-shell-underlay` path.
+  - The shared lane now keeps the existing menu semantics and first-click open behavior while removing the legacy button roots at rest:
+    - `0` `button[role="menuitem"]` roots remain across `section[data-section-id^="settings-section__"]`
+    - `46` lightweight roots now mount with `data-canvas-owned-lightweight-menu-trigger="true"`
+    - `46` total `role="menuitem"` roots remain across those settings sections, so the family stayed interactive while the button roots disappeared
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-section-menu-triggers.spec.ts`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-section-menu-trigger-rerun.md`.
+  - Dense rerun outcome versus the prior shared lightweight-switch report:
+    - `documentNodeCount`: `8182 -> 8182`
+    - `inputCount`: `55 -> 55`
+    - `buttonCount`: `86 -> 40`
+    - `raf.meanMs`: `105.12 -> 103.91`
+    - `raf.p95Ms`: `200 -> 200`
+    - `longTasks.totalMs`: `16975 -> 16729`
+  - Interpretation:
+    - this was another real interactive-core plateau reduction, not a new motion win
+    - the shared section-menu-trigger lane is now closed at its useful ownership boundary
+    - the next pass should start from a fresh post-menu inventory of the remaining `55` / `40` plateau instead of reopening another closed trigger/kwargs/switch lane
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/atoms/menubar/menudropdown.tsx src/components/Section/Header/MenuButton/MenuButton.tsx src/components/Section/Container/TextBlockMetaControlMenuButton.tsx src/components/Section/Container/MetaControlMenuButton.tsx tests/e2e/settings/settings-all-settings-lightweight-section-menu-triggers.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-005/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-section-menu-triggers.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-005/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.1s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 40`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present on the live surface
+  - the callable section header menu trigger looked intact after moving off button roots
+  - opening the callable menu showed normal visible items on the live surface: `New Variant`, `Hide Unpinned Params`, `Clear Values`, and `Reset To Default Version`
+- Next action:
+  - start the next iteration with a fresh post-menu inventory of the remaining `55` / `40` interactive-core plateau and target the next shared value/editor or button primitive rather than reopening closed trigger/kwargs/switch lanes
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 052
+
 - Item: Replace the shared settings switch `button` roots with lightweight switch activators on the canvas path.
 - Status: `done`
 - Details:
