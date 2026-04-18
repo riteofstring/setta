@@ -34,21 +34,6 @@ export function resolveManagerItemClassName(isActive: boolean): string {
   return className;
 }
 
-export function parseListInput(value: string): Array<string> {
-  return value
-    .split(/[\n,]/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-}
-
-export function normalizeOptionalText(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
-}
-
 export function Field({ label, hint, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">

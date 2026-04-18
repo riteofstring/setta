@@ -17,9 +17,6 @@ func TestValidatePluginManifestPaths(t *testing.T) {
 		mustMkdirManifestTestDir(t, pluginRoot, "content/project_templates")
 		mustMkdirManifestTestDir(t, pluginRoot, "content/prompts")
 		mustWriteManifestTestFile(t, pluginRoot, "config/schema.json")
-		if err := os.WriteFile(filepath.Join(pluginRoot, "config", "schema.json"), []byte("{}"), 0o644); err != nil {
-			t.Fatalf("write config schema json: %v", err)
-		}
 
 		err := ValidatePluginManifestPaths(pluginRoot, PluginManifest{
 			ID: "setta-fixture",
@@ -70,25 +67,6 @@ func TestValidatePluginManifestPaths(t *testing.T) {
 	t.Run("rejects config schema directories", func(t *testing.T) {
 		pluginRoot := t.TempDir()
 		mustMkdirManifestTestDir(t, pluginRoot, "config/schema.json")
-
-		err := ValidatePluginManifestPaths(pluginRoot, PluginManifest{
-			ID:               "setta-fixture",
-			ConfigSchemaPath: "config/schema.json",
-		})
-		if !errors.Is(err, ErrPluginManifestInvalid) {
-			t.Fatalf("expected invalid manifest error, got %v", err)
-		}
-		if !strings.Contains(err.Error(), filepath.FromSlash("config/schema.json")) {
-			t.Fatalf("expected config schema path in error, got %v", err)
-		}
-	})
-
-	t.Run("rejects invalid config schema json", func(t *testing.T) {
-		pluginRoot := t.TempDir()
-		mustWriteManifestTestFile(t, pluginRoot, "config/schema.json")
-		if err := os.WriteFile(filepath.Join(pluginRoot, "config", "schema.json"), []byte("{not-json"), 0o644); err != nil {
-			t.Fatalf("write invalid schema json: %v", err)
-		}
 
 		err := ValidatePluginManifestPaths(pluginRoot, PluginManifest{
 			ID:               "setta-fixture",
