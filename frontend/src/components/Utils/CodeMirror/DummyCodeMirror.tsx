@@ -33,6 +33,19 @@ export function DummyCodeMirror({
 }) {
   const shouldWrap = wrapLines ?? !singleLine;
   const resolvedStyle = shouldWrap ? lineWrapStyle : singleLineStyle;
+  if (canvasOwnedRestingText) {
+    return (
+      <CanvasOwnedRestingTextRoot
+        divId={divId}
+        code={code}
+        className={className}
+        placeholder={placeholder}
+        onMouseDownCapture={onMouseDownCapture}
+        onFocus={onFocus}
+        style={resolvedStyle}
+      />
+    );
+  }
   return code ? (
     <HighlightedCode
       divId={divId}
@@ -56,6 +69,47 @@ export function DummyCodeMirror({
       onFocus={onFocus}
       style={resolvedStyle}
     />
+  );
+}
+
+function CanvasOwnedRestingTextRoot({
+  divId,
+  code,
+  className,
+  placeholder,
+  onMouseDownCapture,
+  onFocus,
+  style,
+}) {
+  const lines =
+    typeof code === "string" && code.length > 0 ? code.split("\n") : null;
+  const hasMultipleLines = (lines?.length ?? 0) > 1;
+  const placeholderText =
+    lines === null &&
+    typeof placeholder === "string" &&
+    placeholder.length > 0
+      ? placeholder
+      : null;
+
+  return (
+    <div
+      id={divId}
+      className={`${className} outline-none ${placeholderText ? "text-gray-600" : ""}`}
+      data-canvas-owned-resting-text="true"
+      data-canvas-owned-resting-text-lightweight="true"
+      style={style}
+      onMouseDownCapture={onMouseDownCapture}
+      onFocus={onFocus}
+      tabIndex={0}
+    >
+      {hasMultipleLines
+        ? lines.map((line, index) => (
+            <div key={`line-${index + 1}`} className="cm-line">
+              {line || <br />}
+            </div>
+          ))
+        : lines?.[0] ?? placeholderText ?? <br />}
+    </div>
   );
 }
 

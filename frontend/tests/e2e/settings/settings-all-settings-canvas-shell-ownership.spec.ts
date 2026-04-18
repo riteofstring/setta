@@ -544,6 +544,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
             columnWidthHeight * canvasScaleY,
             bodyPixel,
           ),
+        columnWidthHighlightSpanCount:
+          columnWidthInput.querySelectorAll(".cm-line span").length,
+        columnWidthLightweightOwnershipFlag:
+          columnWidthInput.dataset.canvasOwnedRestingTextLightweight ?? null,
         edgeInputParamsDummyOpacity: edgeInputParamsStyle.opacity,
         edgeInputParamsDistinctPixelCount:
           countPixelsDifferentFromReferenceInCanvasRect(
@@ -578,7 +582,11 @@ test("canvas shell path owns the resting callable section chrome", async ({
             styleColorLabelHeight * canvasScaleY,
             bodyPixel,
           ),
+        styleColorHighlightSpanCount:
+          styleColorInput.querySelectorAll(".cm-line span").length,
         styleColorDummyOpacity: styleColorStyle.opacity,
+        styleColorLightweightOwnershipFlag:
+          styleColorInput.dataset.canvasOwnedRestingTextLightweight ?? null,
         styleColorUnderlineDistinctPixelCount:
           countPixelsDifferentFromReferenceInCanvasRect(
             (nodeX - canvasLeft + styleColorUnderlineOffsetX) * canvasScaleX,
@@ -607,6 +615,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
         styleColorOwnershipFlag:
           styleColorInput.dataset.canvasOwnedRestingText ?? null,
         configLanguageDummyOpacity: configLanguageStyle.opacity,
+        configLanguageHighlightSpanCount:
+          configLanguageInput.querySelectorAll(".cm-line span").length,
         configLanguageDistinctPixelCount:
           countPixelsDifferentFromReferenceInCanvasRect(
             (nodeX - canvasLeft + configLanguageOffsetX) * canvasScaleX,
@@ -615,6 +625,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
             configLanguageHeight * canvasScaleY,
             bodyPixel,
           ),
+        configLanguageLightweightOwnershipFlag:
+          configLanguageInput.dataset.canvasOwnedRestingTextLightweight ?? null,
         headerHeight,
         headerPixel: sampleCanvasPixel(headerSampleX, headerSampleY),
         kwargsBottomBorderColor: kwargsStyle.borderBottomColor,
@@ -664,8 +676,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.aspectRatioSwitchPixel).not.toBe("0,0,0,0");
   expect(shellState.aspectRatioSwitchPixel).not.toBe(shellState.bodyPixel);
   expect(shellState.columnWidthDummyOpacity).toBe("0");
+  expect(shellState.columnWidthHighlightSpanCount).toBe(0);
+  expect(shellState.columnWidthLightweightOwnershipFlag).toBe("true");
   expect(shellState.columnWidthDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.configLanguageDummyOpacity).toBe("0");
+  expect(shellState.configLanguageHighlightSpanCount).toBe(0);
+  expect(shellState.configLanguageLightweightOwnershipFlag).toBe("true");
   expect(shellState.configLanguageDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.edgeInputParamsDummyOpacity).toBe("0");
   expect(shellState.edgeInputParamsDistinctPixelCount).toBeGreaterThan(0);
@@ -676,6 +692,8 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.sizeNestedGuideDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.styleColorOwnershipFlag).toBe("true");
   expect(shellState.styleColorDummyOpacity).toBe("0");
+  expect(shellState.styleColorHighlightSpanCount).toBe(0);
+  expect(shellState.styleColorLightweightOwnershipFlag).toBe("true");
   expect(shellState.styleColorDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.styleColorUnderlineOwnershipFlag).toBe("true");
   expect(shellState.styleColorUnderlineOpacity).toBe("0");

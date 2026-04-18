@@ -1009,3 +1009,39 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and land the next graph-surface product slice that reduces dense inactive row/widget DOM cost, using the new dense report as the current evidence baseline
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 041
+
+- Item: Replace hidden canvas-owned `DummyCodeMirror` token trees with a lightweight resting-text activator on the retained graph-surface path.
+- Status: `done`
+- Details:
+  - Kept this slice on the current dense inactive-DOM blocker instead of reopening another closed section-specific ownership lane.
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now short-circuits `canvasOwnedRestingText` to a lightweight focusable root with the existing mouse/focus activation handoff intact.
+  - Single-line canvas-owned rows now collapse to one lightweight root node, and multiline canvas-owned rows keep only plain `.cm-line` wrappers instead of syntax-highlighted token spans.
+  - The lightweight root keeps `data-canvas-owned-resting-text="true"` for retained measurement and now also exposes `data-canvas-owned-resting-text-lightweight="true"` so the live canary probe can prove the lower-DOM path directly.
+  - Added focused unit coverage at `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`.
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted callable canary now requires:
+    - zero highlighted `.cm-line span` descendants on owned `Config Language`, `Column Width`, and `Style Color` rows
+    - `data-canvas-owned-resting-text-lightweight="true"` on those owned text roots
+    - the existing retained-canvas pixel checks plus inline `Style Color` editor activation
+  - Recorded the follow-up dense-scene rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`.
+  - Dense rerun outcome versus the prior retained-canvas dense report:
+    - `documentNodeCount` dropped from `9517` to `9457`
+    - `raf.meanMs` stayed roughly flat (`111.45` -> `113.5`)
+    - `longTasks.totalMs` stayed roughly flat (`18159` -> `18520`)
+    - interpretation: this slice moved DOM cost in the right direction without claiming a new motion win yet
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/CodeMirror/DummyCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-023/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (29.7s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-023/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.2s)` on the live worktree runtime with `documentNodeCount: 9457`
+- CDP visual check is done:
+  - `All Settings` mounted cleanly on the live worktree runtime
+  - `settings-section__callableSectionDefault` remained visible on the retained canvas path
+  - the canary text rows still looked intact after the dummy text DOM became lightweight
+  - activating the `Style Color` row surfaced the inline editor (`#ff0000`) with no blank or detached canvas jump
+- Next action:
+  - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and target the next heavy inactive row/widget subtree above these text leaves on the retained graph-surface path
+LOOP_TERMINAL_MARKER: none

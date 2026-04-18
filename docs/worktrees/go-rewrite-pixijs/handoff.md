@@ -566,6 +566,22 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the React Flow viewport was normalized (`matrix(0.133509, 0, 0, 0.133509, 2653.05, 62.1818)`)
   - `.react-flow__section-shell-backdrop canvas` was mounted
   - no visible crash/error overlay was present
+- The next dense inactive-text DOM reduction slice is now landed on the shared callable/dict/GlobalVariables retained path:
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now short-circuits `canvasOwnedRestingText` to a lightweight focusable activator root instead of keeping hidden syntax-highlight span trees mounted under `opacity-0`
+  - single-line canvas-owned rows now collapse to one lightweight root node, while multiline rows keep only plain `.cm-line` wrappers for measurement instead of highlighted token spans
+  - first-click activation is preserved because the lightweight root still owns the same `onMouseDownCapture` / focus handoff used to mount the real inline CodeMirror editor
+  - focused coverage now exists at `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` now proves the live callable canary uses the lightweight path by requiring `data-canvas-owned-resting-text-lightweight="true"` and zero highlighted `.cm-line span` descendants on owned `Config Language`, `Column Width`, and `Style Color` rows
+  - a fresh dense rerun is recorded at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`
+  - that rerun moved the intended blocker metric:
+    - `documentNodeCount` dropped from `9517` to `9457` versus the prior retained-canvas dense rerun
+    - `documentNodeCount` is now down `96` from the durable `go-rewrite` baseline (`9553` -> `9457`)
+    - motion stayed roughly flat (`raf.meanMs 111.45 -> 113.5`, `longTasks.totalMs 18159 -> 18520`), so treat this slice as a DOM-cost reduction prerequisite rather than a new motion win
+- CDP visual check is done for the lightweight resting-text slice:
+  - `All Settings` mounted cleanly on the live worktree runtime
+  - `settings-section__callableSectionDefault` remained visible on the retained canvas path
+  - the canary text rows still looked intact after the dummy text DOM became lightweight
+  - activating the `Style Color` row surfaced the inline editor (`#ff0000`) with no blank or detached canvas jump
 
 ## Preservation rule
 
@@ -597,9 +613,9 @@ That leaves one primary architectural move:
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
 5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
-6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the fresh dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`.
-7. Use the new dense rerun plus the pre-change baseline together as the current benchmark pair: motion improved materially, but dense `All Settings` still carries roughly `9.5k` DOM nodes and more than `500` buttons on the live surface.
-8. The next bounded product slice should reduce that remaining inactive row/widget DOM cost on the graph surface path; do not reopen another section-specific shell/text/filter/kwargs ownership lane unless a concrete visual regression on the callable, dict, or GlobalVariables canary forces it.
+6. Keep the callable, dict, and GlobalVariables section-specific chrome lanes closed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md` plus `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`.
+7. Use the durable baseline plus those two retained-canvas reruns as the current benchmark chain: motion improved materially from baseline, and the latest lightweight-text slice pushed `documentNodeCount` down again to `9457`, but dense `All Settings` still carries roughly `9.5k` DOM nodes and more than `500` buttons on the live surface.
+8. The next bounded product slice should remove the next heavy inactive row/widget subtree above these text leaves on the graph-surface path; do not reopen another section-specific shell/text/filter/kwargs ownership lane unless a concrete visual regression on the callable, dict, or GlobalVariables canary forces it.
 
 ## First product frontier
 
