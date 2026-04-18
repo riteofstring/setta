@@ -6,6 +6,7 @@
 - Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
 - Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
+- Before adding a new Python or TypeScript type, alias, helper, adapter, or normalizer, first check whether an existing authoritative type or helper already fits. Reuse it, or export it from the owner, instead of creating a parallel local definition.
 - When duplication is unavoidable, keep the duplicated surface minimal and document the reason near the implementation or in the relevant design notes.
 - Go tests belong with packages under `cmd/*` and `internal/*`. Frontend unit and integration tests belong alongside frontend code under `frontend/src/*` where appropriate, and frontend E2E coverage belongs under `frontend/tests/`. Python/package pytest coverage belongs under `tests/`.
 - Python SDK/runtime ownership boundaries are defined in `docs/reference/go-backed-python.md`.
