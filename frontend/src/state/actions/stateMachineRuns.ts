@@ -248,11 +248,19 @@ async function finalizeStateMachineMutationSuccess<TSuccess>(
         },
       ) => void)
     | undefined,
+  skipDirectRefresh: boolean,
 ): Promise<boolean> {
   onSuccess?.(data, {
     projectConfigId: context.projectConfigId,
     machineGroupId: context.machineGroupId,
   });
+  if (skipDirectRefresh) {
+    return true;
+  }
+  await refreshStateMachineRunForMachineGroup(
+    context.projectConfigId,
+    context.machineGroupId,
+  );
   return true;
 }
 async function runStateMachineMutation<TSuccess>({
@@ -261,6 +269,7 @@ async function runStateMachineMutation<TSuccess>({
   failureMessage,
   send,
   onSuccess,
+  skipDirectRefresh,
 }: {
   machineGroupId: string;
   startSectionId?: string | null;
@@ -277,6 +286,7 @@ async function runStateMachineMutation<TSuccess>({
       machineGroupId: string;
     },
   ) => void;
+  skipDirectRefresh?: boolean;
 }): Promise<boolean> {
   const context = resolveStateMachineMutationContext({
     machineGroupId,
@@ -300,6 +310,7 @@ async function runStateMachineMutation<TSuccess>({
     context,
     res.data,
     onSuccess,
+    skipDirectRefresh ?? false,
   );
 }
 export async function startStateMachineRun(
@@ -321,6 +332,7 @@ export async function startStateMachineRun(
         } as Parameters<typeof apiStartStateMachineRun>[0]),
       ),
     onSuccess: receiveAgentRunUpdate,
+    skipDirectRefresh: true,
   });
 }
 export async function stopStateMachineRun(
@@ -352,6 +364,7 @@ export async function stopStateMachineRun(
         stoppedRunId,
       );
     },
+    skipDirectRefresh: true,
   });
 }
 export async function resetStateMachineRun(
@@ -383,5 +396,6 @@ export async function resetStateMachineRun(
         stoppedRunId,
       );
     },
+    skipDirectRefresh: true,
   });
 }

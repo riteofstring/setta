@@ -1,4 +1,9 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import {
+  isCanvasOwnedSectionRestingText,
+  isCanvasOwnedSectionShell,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -91,6 +96,8 @@ type ParamUIState = {
 };
 
 type ParamUIRenderContext = ParamUIProps & {
+  canvasOwnedSectionChrome: boolean;
+  canvasOwnedRestingText: boolean;
   isDisabled: boolean;
   isSelectingParams: boolean;
   onEscape: () => void;
@@ -251,6 +258,7 @@ function resolvePasswordRevealState({
 }
 
 function renderTextLikeParam({
+  canvasOwnedRestingText,
   sectionId,
   paramInfoId,
   value,
@@ -268,6 +276,7 @@ function renderTextLikeParam({
 
   return (
     <TextParamConfigured
+      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -378,6 +387,7 @@ function renderRotaryParam({
 }
 
 function renderSwitchParam({
+  canvasOwnedSectionChrome,
   value,
   onChange,
   onEscape,
@@ -386,6 +396,7 @@ function renderSwitchParam({
 }: ParamUIRenderContext) {
   return (
     <SwitchParamConfigured
+      canvasOwnedTrack={canvasOwnedSectionChrome}
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
@@ -583,6 +594,7 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const paramUiState = useParamUIState(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -612,6 +624,15 @@ export function ParamUI({
   }
 
   const renderContext = {
+    canvasOwnedSectionChrome:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionShell(sectionId),
+    canvasOwnedRestingText:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionRestingText({
+        codeObjType: paramUiState.codeObjType,
+        sectionId,
+      }),
     sectionId,
     paramInfoId,
     value,
@@ -643,6 +664,7 @@ export function ParamUI({
 }
 
 function TextParamConfigured({
+  canvasOwnedRestingText,
   sectionId,
   paramInfoId,
   value,
@@ -655,6 +677,7 @@ function TextParamConfigured({
   waitingForResult,
   isSelectingParams,
 }: {
+  canvasOwnedRestingText: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string;
@@ -670,6 +693,7 @@ function TextParamConfigured({
   return (
     <>
       <TextInputCodeMirror
+        canvasOwnedRestingText={canvasOwnedRestingText}
         dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -681,7 +705,7 @@ function TextParamConfigured({
             onEscape();
           }
         }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem] ${canvasOwnedRestingText ? "opacity-0" : ""}`}
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
@@ -842,20 +866,34 @@ function DropzoneParamConfigured({
 }
 
 function SwitchParamConfigured({
+  canvasOwnedTrack,
   value,
   defaultVal,
   onChange,
   onEscape,
   isDisabled,
+}: {
+  canvasOwnedTrack: boolean;
+  value: boolean | string;
+  defaultVal?: boolean | string;
+  onChange: ParamValueChange;
+  onEscape?: () => void;
+  isDisabled: boolean;
 }) {
+  const rootThemeClassName = canvasOwnedTrack
+    ? "bg-transparent data-[state='checked']:bg-transparent dark:bg-transparent dark:data-[state='checked']:bg-transparent"
+    : undefined;
+
   return (
     <SwitchInput
+      canvasOwnedTrack={canvasOwnedTrack}
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
       outerDivClassName="section-value flex justify-self-start self-center"
+      rootThemeClassName={rootThemeClassName}
     />
   );
 }

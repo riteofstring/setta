@@ -2,10 +2,10 @@ package lsp
 
 import "testing"
 
-func TestBuildBasedpyrightSettingsRootAddsSettaFilesExtraPath(t *testing.T) {
+func TestCurrentProcessPythonSettingsAddsSettaFilesExtraPath(t *testing.T) {
 	t.Parallel()
 
-	settings := BuildBasedpyrightSettingsRoot(nil, []string{"/tmp/workspace/setta_files"})
+	settings := CurrentProcessPythonSettings(nil, []string{"/tmp/workspace/setta_files"})
 	expected := map[string]any{
 		"basedpyright": map[string]any{
 			"analysis": map[string]any{
@@ -18,7 +18,7 @@ func TestBuildBasedpyrightSettingsRootAddsSettaFilesExtraPath(t *testing.T) {
 	}
 }
 
-func TestBuildBasedpyrightSettingsRootMergesExtraPathsWithoutDroppingExistingSettings(t *testing.T) {
+func TestCurrentProcessPythonSettingsMergesExtraPathsWithoutDroppingExistingSettings(t *testing.T) {
 	t.Parallel()
 
 	base := map[string]any{
@@ -34,7 +34,7 @@ func TestBuildBasedpyrightSettingsRootMergesExtraPathsWithoutDroppingExistingSet
 		},
 	}
 
-	settings := BuildBasedpyrightSettingsRoot(base, []string{"/tmp/workspace/setta_files", "/tmp/added"})
+	settings := CurrentProcessPythonSettings(base, []string{"/tmp/workspace/setta_files", "/tmp/added"})
 	expected := map[string]any{
 		"basedpyright": map[string]any{
 			"analysis": map[string]any{

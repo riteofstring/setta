@@ -4,42 +4,24 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 	"sync"
 
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/settingsstate"
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service     pluginBackendRefreshService
+	service     *plugins.Service
 	logger      *slog.Logger
 	runtimeRoot string
-	mcpServer   pluginBackendToolReplacer
-	settings    *settingsstate.Runtime
+	mcpServer   *mcpx.Server
 	runtime     *pluginBackendMCPRuntime
-	lspRouter   pluginBackendLanguageServerReplacer
+	lspRouter   *lsp.Router
 	lspSpecs    []lsp.LanguageServerSpec
 
 	mu sync.Mutex
-}
-
-type pluginBackendRefreshService interface {
-	Rescan() (plugins.DiscoverySnapshot, error)
-	PreviewBackendRuntimeRefresh() (plugins.DiscoverySnapshot, error)
-	CommitBackendRuntimeRefresh() (plugins.DiscoverySnapshot, error)
-	LanguageServerSpecsForSnapshot(snapshot plugins.DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error)
-}
-
-type pluginBackendToolReplacer interface {
-	ReplaceTools(removeNames []string, registrations []mcpx.ToolRegistration) error
-}
-
-type pluginBackendLanguageServerReplacer interface {
-	ReplaceAdditionalSpecs(ctx context.Context, specs []lsp.LanguageServerSpec) error
 }
 
 type pluginBackendRefreshTransition struct {
@@ -63,12 +45,7 @@ func newPluginMutationRuntimeService(base *plugins.Service, refresher *pluginBac
 }
 
 func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	response, err := s.base.Runtime(options)
-	if err != nil || s.refresher == nil {
-		return response, err
-	}
-	response.Status.SelectedLanguageServers = s.refresher.SelectedLanguageServerStatuses(response.Status.Plugins)
-	return response, nil
+	return s.base.Runtime(options)
 }
 
 func (s *pluginMutationRuntimeService) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
@@ -261,7 +238,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
+	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(snapshot)
 	if err != nil {
 		return err
 	}
@@ -281,7 +258,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 		return err
 	}
 	r.runtime = nextRuntime
-	r.lspSpecs = lsp.CloneLanguageServerSpecs(nextLSPSpecs)
+	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	return nil
 }
 
@@ -316,7 +293,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 	if err != nil {
 		return nil, err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(previewSnapshot)
+	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(previewSnapshot)
 	if err != nil {
 		closePluginBackendRuntime(nextRuntime)
 		return nil, err
@@ -326,7 +303,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 		nextRuntime:      nextRuntime,
 		nextLSPSpecs:     nextLSPSpecs,
 		previousRuntime:  r.runtime,
-		previousLSPSpecs: lsp.CloneLanguageServerSpecs(r.lspSpecs),
+		previousLSPSpecs: cloneLanguageServerSpecs(r.lspSpecs),
 	}, nil
 }
 
@@ -359,7 +336,7 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 		return committedSnapshot, commitErr
 	}
 
-	r.lspSpecs = lsp.CloneLanguageServerSpecs(transition.nextLSPSpecs)
+	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
 	closePluginBackendRuntime(transition.previousRuntime)
 	return committedSnapshot, nil
 }
@@ -397,219 +374,6 @@ func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
 	runtime := r.runtime
 	r.runtime = nil
 	return runtime.Close(ctx)
-}
-
-func (r *pluginBackendRuntimeRefresher) HasConfiguredLanguageServers() bool {
-	if r == nil {
-		return false
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return len(r.lspSpecs) != 0
-}
-
-func (r *pluginBackendRuntimeRefresher) SelectedLanguageServerStatuses(statusEntries []plugins.PluginStatusEntry) []plugins.SelectedLanguageServerStatus {
-	if r == nil {
-		return []plugins.SelectedLanguageServerStatus{}
-	}
-
-	selections, err := r.selectedLanguageServerPlugins()
-	if err != nil {
-		r.logPluginBackendRuntimeError("load selected language server settings", err)
-		return []plugins.SelectedLanguageServerStatus{}
-	}
-
-	r.mu.Lock()
-	appliedSpecs := lsp.CloneLanguageServerSpecs(r.lspSpecs)
-	r.mu.Unlock()
-
-	return buildSelectedLanguageServerStatuses(selections, statusEntries, appliedSpecs)
-}
-
-func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plugins.DiscoverySnapshot) ([]lsp.LanguageServerSpec, error) {
-	selections, err := r.selectedLanguageServerPlugins()
-	if err != nil {
-		return nil, err
-	}
-	return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
-}
-
-func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[string]*string, error) {
-	if r == nil || r.settings == nil {
-		return map[string]*string{}, nil
-	}
-	return settingsstate.LanguageServerSelectedByLanguage(r.settings.Snapshot().Document)
-}
-
-func buildSelectedLanguageServerStatuses(
-	selections map[string]*string,
-	statusEntries []plugins.PluginStatusEntry,
-	appliedSpecs []lsp.LanguageServerSpec,
-) []plugins.SelectedLanguageServerStatus {
-	languages := trackedLanguageServerLanguages(selections, statusEntries, appliedSpecs)
-	statuses := make([]plugins.SelectedLanguageServerStatus, 0, len(languages))
-	for _, language := range languages {
-		statuses = append(statuses, buildSelectedLanguageServerStatus(language, selections, statusEntries, appliedSpecs))
-	}
-	return statuses
-}
-
-func trackedLanguageServerLanguages(
-	selections map[string]*string,
-	statusEntries []plugins.PluginStatusEntry,
-	appliedSpecs []lsp.LanguageServerSpec,
-) []string {
-	languages := map[string]struct{}{
-		"python": {},
-	}
-	for language := range selections {
-		normalized := normalizeTrackedLanguage(language)
-		if normalized == "" {
-			continue
-		}
-		languages[normalized] = struct{}{}
-	}
-	for _, entry := range statusEntries {
-		for _, registration := range entry.RegisteredLanguageServers {
-			normalized := normalizeTrackedLanguage(registration.Language)
-			if normalized == "" {
-				continue
-			}
-			languages[normalized] = struct{}{}
-		}
-	}
-	for _, spec := range appliedSpecs {
-		normalized := normalizeTrackedLanguage(spec.LanguageID)
-		if normalized == "" {
-			continue
-		}
-		languages[normalized] = struct{}{}
-	}
-
-	ordered := make([]string, 0, len(languages))
-	for language := range languages {
-		ordered = append(ordered, language)
-	}
-	sort.Strings(ordered)
-	return ordered
-}
-
-func buildSelectedLanguageServerStatus(
-	language string,
-	selections map[string]*string,
-	statusEntries []plugins.PluginStatusEntry,
-	appliedSpecs []lsp.LanguageServerSpec,
-) plugins.SelectedLanguageServerStatus {
-	appliedPluginID, hasAppliedSpec := appliedLanguageServerPluginID(language, appliedSpecs)
-	selectedPluginID, hasSelection := selections[language]
-	if !hasSelection {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID: language,
-			State:      plugins.SelectedLanguageServerStateNotSelected,
-			Applied:    !hasAppliedSpec,
-		}
-	}
-	if selectedPluginID == nil {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID: language,
-			State:      plugins.SelectedLanguageServerStateDisabled,
-			Applied:    !hasAppliedSpec,
-		}
-	}
-
-	pluginID := strings.TrimSpace(*selectedPluginID)
-	if pluginID == "" {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID: language,
-			State:      plugins.SelectedLanguageServerStateNotSelected,
-			Applied:    !hasAppliedSpec,
-		}
-	}
-
-	selectedPlugin := &pluginID
-	matchingEntries := statusEntriesForPlugin(statusEntries, pluginID)
-	if len(matchingEntries) == 0 {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginMissing,
-			Applied:          false,
-		}
-	}
-
-	providesLanguage := false
-	isReady := false
-	for _, entry := range matchingEntries {
-		if !statusEntryProvidesLanguage(entry, language) {
-			continue
-		}
-		providesLanguage = true
-		if entry.State == plugins.PluginRuntimeStateActive || entry.State == plugins.PluginRuntimeStatePendingRestart {
-			isReady = true
-		}
-	}
-
-	if !providesLanguage {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginWrongLang,
-			Applied:          false,
-		}
-	}
-	if !isReady {
-		return plugins.SelectedLanguageServerStatus{
-			LanguageID:       language,
-			SelectedPluginID: selectedPlugin,
-			State:            plugins.SelectedLanguageServerStateSelectedPluginUnavailable,
-			Applied:          false,
-		}
-	}
-
-	return plugins.SelectedLanguageServerStatus{
-		LanguageID:       language,
-		SelectedPluginID: selectedPlugin,
-		State:            plugins.SelectedLanguageServerStateReady,
-		Applied:          hasAppliedSpec && appliedPluginID == pluginID,
-	}
-}
-
-func normalizeTrackedLanguage(language string) string {
-	return strings.ToLower(strings.TrimSpace(language))
-}
-
-func appliedLanguageServerPluginID(language string, appliedSpecs []lsp.LanguageServerSpec) (string, bool) {
-	normalizedLanguage := normalizeTrackedLanguage(language)
-	for _, spec := range appliedSpecs {
-		if normalizeTrackedLanguage(spec.LanguageID) != normalizedLanguage {
-			continue
-		}
-		return strings.TrimSpace(spec.PluginID), true
-	}
-	return "", false
-}
-
-func statusEntriesForPlugin(statusEntries []plugins.PluginStatusEntry, pluginID string) []plugins.PluginStatusEntry {
-	matching := make([]plugins.PluginStatusEntry, 0, 1)
-	for _, entry := range statusEntries {
-		if strings.TrimSpace(entry.PluginID) != pluginID {
-			continue
-		}
-		matching = append(matching, entry)
-	}
-	return matching
-}
-
-func statusEntryProvidesLanguage(entry plugins.PluginStatusEntry, language string) bool {
-	normalizedLanguage := normalizeTrackedLanguage(language)
-	for _, registration := range entry.RegisteredLanguageServers {
-		if normalizeTrackedLanguage(registration.Language) == normalizedLanguage {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
@@ -687,6 +451,31 @@ func findHighestPrecedencePlugin(entries []plugins.DiscoveredPlugin, pluginID st
 }
 
 func cloneOptionalDigest(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := strings.TrimSpace(*value)
+	return &cloned
+}
+
+func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServerSpec {
+	if len(specs) == 0 {
+		return nil
+	}
+	cloned := make([]lsp.LanguageServerSpec, 0, len(specs))
+	for _, spec := range specs {
+		cloned = append(cloned, lsp.LanguageServerSpec{
+			Name:        spec.Name,
+			LanguageID:  spec.LanguageID,
+			Command:     spec.Command,
+			Args:        append([]string(nil), spec.Args...),
+			SettingsKey: cloneOptionalString(spec.SettingsKey),
+		})
+	}
+	return cloned
+}
+
+func cloneOptionalString(value *string) *string {
 	if value == nil {
 		return nil
 	}

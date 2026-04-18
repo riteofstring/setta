@@ -2,7 +2,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tomllib
 import zipfile
 from pathlib import Path
 
@@ -127,55 +126,6 @@ def _build_wheel(project_root: Path, outdir: Path) -> subprocess.CompletedProces
     )
 
 
-def _build_plugin_wheel(plugin_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
-        cwd=plugin_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-def _write_stub_dependency_wheel(
-    outdir: Path,
-    package_name: str,
-    version: str,
-) -> Path:
-    normalized_name = package_name.replace("-", "_")
-    wheel_path = outdir / f"{normalized_name}-{version}-py3-none-any.whl"
-    dist_info_dir = f"{normalized_name}-{version}.dist-info"
-
-    with zipfile.ZipFile(wheel_path, "w") as wheel_archive:
-        wheel_archive.writestr(
-            f"{dist_info_dir}/METADATA",
-            "\n".join(
-                [
-                    "Metadata-Version: 2.1",
-                    f"Name: {package_name}",
-                    f"Version: {version}",
-                    f"Summary: Stub wheel for {package_name}",
-                    "",
-                ]
-            ),
-        )
-        wheel_archive.writestr(
-            f"{dist_info_dir}/WHEEL",
-            "\n".join(
-                [
-                    "Wheel-Version: 1.0",
-                    "Generator: setta-tests",
-                    "Root-Is-Purelib: true",
-                    "Tag: py3-none-any",
-                    "",
-                ]
-            ),
-        )
-        wheel_archive.writestr(f"{dist_info_dir}/RECORD", "")
-
-    return wheel_path
-
-
 def _install_editable(project_root: Path, venv_python: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(venv_python), "-m", "pip", "install", "--no-deps", "-e", str(project_root)],
@@ -183,14 +133,6 @@ def _install_editable(project_root: Path, venv_python: Path) -> subprocess.Compl
         capture_output=True,
         text=True,
         check=False,
-    )
-
-
-def _venv_python(venv_root: Path) -> Path:
-    return (
-        venv_root / "Scripts" / "python.exe"
-        if os.name == "nt"
-        else venv_root / "bin" / "python"
     )
 
 
@@ -215,104 +157,16 @@ def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) 
         capture_output=True,
         text=True,
     )
-    venv_python = _venv_python(venv_root)
+    venv_python = (
+        venv_root / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else venv_root / "bin" / "python"
+    )
 
     result = _install_editable(project_root, venv_python)
 
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
-
-
-def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
-    pyproject = tomllib.loads((_repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
-
-    optional_dependencies = pyproject["project"]["optional-dependencies"]
-    assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
-
-
-def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() -> None:
-    plugin_pyproject = tomllib.loads(
-        (_repo_root() / "plugins" / "setta-basedpyright" / "pyproject.toml").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
-
-
-def test_defaults_extra_installs_from_local_wheelhouse(tmp_path: Path) -> None:
-    project_root = _write_minimal_distribution_project(
-        tmp_path,
-        include_go_binaries=True,
-    )
-    wheelhouse = tmp_path / "wheelhouse"
-
-    root_result = _build_wheel(project_root, wheelhouse)
-    root_output = f"{root_result.stdout}\n{root_result.stderr}"
-    assert root_result.returncode == 0, root_output
-
-    plugin_result = _build_plugin_wheel(
-        _repo_root() / "plugins" / "setta-basedpyright",
-        wheelhouse,
-    )
-    plugin_output = f"{plugin_result.stdout}\n{plugin_result.stderr}"
-    assert plugin_result.returncode == 0, plugin_output
-    for requirement in (
-        "claude-agent-sdk==0.1.52",
-        "ruff==0.12.12",
-        "basedpyright==1.25.0",
-    ):
-        package_name, version = requirement.split("==", maxsplit=1)
-        _write_stub_dependency_wheel(wheelhouse, package_name, version)
-
-    venv_root = tmp_path / "defaults-venv"
-    venv_result = subprocess.run(
-        [sys.executable, "-m", "venv", str(venv_root)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert venv_result.returncode == 0, (
-        f"{venv_result.stdout}\n{venv_result.stderr}"
-    ).strip()
-
-    venv_python = _venv_python(venv_root)
-    install_result = subprocess.run(
-        [
-            str(venv_python),
-            "-m",
-            "pip",
-            "install",
-            "--no-index",
-            "--find-links",
-            str(wheelhouse),
-            "setta[defaults]==0.0.0",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert install_result.returncode == 0, (
-        f"{install_result.stdout}\n{install_result.stderr}"
-    ).strip()
-
-    version_result = subprocess.run(
-        [
-            str(venv_python),
-            "-c",
-            (
-                "import importlib.metadata as metadata; "
-                'print(metadata.version("setta-basedpyright"))'
-            ),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert version_result.returncode == 0, (
-        f"{version_result.stdout}\n{version_result.stderr}"
-    ).strip()
-    assert version_result.stdout.strip() == "0.1.0"
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
@@ -413,8 +267,7 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     tmp_path: Path,
 ) -> None:
     # The default wheel install should only depend on the Python tools and
-    # sidecar SDK that the packaged runtime still uses directly. Python LSP now
-    # enters through the defaults/plugin path rather than core metadata.
+    # sidecar SDK that the packaged runtime still uses directly.
     project_root = _write_minimal_distribution_project(
         tmp_path,
         include_go_binaries=True,
@@ -438,9 +291,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     default_requires = {
         line for line in requires_lines if "extra ==" not in line
     }
-    defaults_requires = {
-        line for line in requires_lines if "extra == 'defaults'" in line
-    }
     source_requires = {
         line for line in requires_lines if "extra == 'source'" in line
     }
@@ -450,12 +300,8 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
 
     assert default_requires == {
         "Requires-Dist: claude-agent-sdk==0.1.52",
+        "Requires-Dist: basedpyright==1.25.0",
         "Requires-Dist: ruff==0.12.12",
-    }
-
-    assert "Provides-Extra: defaults" in metadata
-    assert defaults_requires == {
-        "Requires-Dist: setta-basedpyright==0.1.0; extra == 'defaults'",
     }
 
     assert "Requires-Dist: click==8.2.1" not in default_requires
@@ -476,8 +322,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     }
     assert dev_requires == {
         "Requires-Dist: build==1.0.3; extra == 'dev'",
-        "Requires-Dist: coverage==7.10.6; extra == 'dev'",
-        "Requires-Dist: datamodel-code-generator==0.56.0; extra == 'dev'",
         "Requires-Dist: pip-audit==2.9.0; extra == 'dev'",
         "Requires-Dist: pyyaml==6.0.2; extra == 'dev'",
         "Requires-Dist: pytest==8.3.3; extra == 'dev'",
@@ -485,7 +329,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
         "Requires-Dist: python-dotenv==1.1.0; extra == 'dev'",
         "Requires-Dist: twine==6.1.0; extra == 'dev'",
         "Requires-Dist: ty==0.0.26; extra == 'dev'",
-        "Requires-Dist: vulture==2.14; extra == 'dev'",
         "Requires-Dist: watchdog==6.0.0; extra == 'dev'",
     }
 

@@ -5,7 +5,6 @@ import {
   PROJECT_CONFIG_ROUTER_PATH,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
-import { LanguageServerStatusBanner } from "./LanguageServerStatusBanner";
 import { Notification } from "./Notification";
 import { PluginRestartBanner } from "./PluginRestartBanner";
 import { ProjectNav } from "./ProjectNav";
@@ -37,7 +36,6 @@ export function HeaderContainer({ path }: { path: string }) {
         <>
           <ProjectNav />
           <SearchSwitch path={path} />
-          <LanguageServerStatusBanner />
           <PluginRestartBanner />
           {isDeploymentMode && (
             <span className="ml-2 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-700">

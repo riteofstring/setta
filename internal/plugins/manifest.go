@@ -103,7 +103,7 @@ func ValidatePluginManifestPaths(pluginRoot string, manifest PluginManifest) err
 	if err := validatePluginContentPaths(pluginRoot, manifest); err != nil {
 		return err
 	}
-	return validateOptionalManifestJSONObjectFile(pluginRoot, manifest.ConfigSchemaPath, "plugin config schema")
+	return validateOptionalManifestRegularFile(pluginRoot, manifest.ConfigSchemaPath, "plugin config schema")
 }
 
 func validatePluginBackendPaths(pluginRoot string, manifest PluginManifest) error {
@@ -149,18 +149,6 @@ func validateOptionalManifestRegularFile(pluginRoot string, relativePath string,
 		return nil
 	}
 	_, err := resolveManifestRegularFile(pluginRoot, relativePath, label)
-	return err
-}
-
-func validateOptionalManifestJSONObjectFile(pluginRoot string, relativePath string, label string) error {
-	if strings.TrimSpace(relativePath) == "" {
-		return nil
-	}
-	resolvedPath, err := resolveManifestRegularFile(pluginRoot, relativePath, label)
-	if err != nil {
-		return err
-	}
-	_, err = readManifestJSONObjectFile(resolvedPath)
 	return err
 }
 
@@ -221,22 +209,6 @@ func readStrictJSONFile[T any](path string) (T, error) {
 	}
 	if decoder.More() {
 		return value, &strictJSONFileError{err: fmt.Errorf("trailing JSON content")}
-	}
-	return value, nil
-}
-
-func readManifestJSONObjectFile(path string) (map[string]any, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var payload any
-	if err := json.Unmarshal(content, &payload); err != nil {
-		return nil, fmt.Errorf("%w: invalid JSON in %s: %v", ErrPluginManifestInvalid, path, err)
-	}
-	value, ok := payload.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("%w: %s must contain a JSON object", ErrPluginManifestInvalid, path)
 	}
 	return value, nil
 }

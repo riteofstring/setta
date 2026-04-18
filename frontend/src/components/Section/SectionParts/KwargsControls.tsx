@@ -1,4 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   addKwarg,
@@ -9,7 +11,7 @@ import {
   setSectionPinnedParams,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -45,6 +47,21 @@ import {
 type KwargsControlsProps = {
   sectionId: string;
 };
+
+function getCanvasOwnedCallableToolbarStyle(
+  canvasOwnedCallableToolbar: boolean,
+): CSSProperties | undefined {
+  if (!canvasOwnedCallableToolbar) {
+    return undefined;
+  }
+
+  return {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    boxShadow: "none",
+  };
+}
+
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
   sectionId: string,
@@ -66,6 +83,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
   useKwargsControlsHeightMeasurement(controlsRef, heightKey);
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -102,6 +120,9 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     darkMode,
     isCallableSection,
   });
+  const canvasOwnedCallableToolbar =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionShell(sectionId);
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
@@ -352,7 +373,14 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   }
   return (
     <>
-      <section className={controlsContainerClassName} ref={controlsRef}>
+      <section
+        className={controlsContainerClassName}
+        data-canvas-owned-callable-toolbar={
+          canvasOwnedCallableToolbar ? "true" : undefined
+        }
+        ref={controlsRef}
+        style={getCanvasOwnedCallableToolbarStyle(canvasOwnedCallableToolbar)}
+      >
         <article
           className={`flex flex-wrap items-center ${isCallableSection ? "py-1" : ""}`}
         >
