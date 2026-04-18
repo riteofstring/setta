@@ -456,9 +456,13 @@ def parse_frontend_diagnostics(
     import_cache: dict[str, dict[str, dict[str, bool]]] = {}
     emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None] = {}
     transpiled_source_cache: dict[str, str | None] = {}
-    for file_path, line, source_path, code, message in iter_frontend_runtime_diagnostics(
-        repo_root, frontend_typecheck
-    ):
+    for (
+        file_path,
+        line,
+        source_path,
+        code,
+        message,
+    ) in iter_frontend_runtime_diagnostics(repo_root, frontend_typecheck):
         if record_missing_runtime_name(
             buckets,
             transpiled_source_cache,

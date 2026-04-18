@@ -43,10 +43,6 @@ func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, sel
 	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.store.settaFilesRoot)
 }
 
-func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage, "")
-}
-
 func languageServerSpecsFromSnapshotWithState(snapshot DiscoverySnapshot, pluginsState *PluginsStateFile, selectedByLanguage map[string]*string, settaFilesRoot string) ([]lsp.LanguageServerSpec, error) {
 	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState, settaFilesRoot)
 	if err != nil {
@@ -91,7 +87,7 @@ func pluginProvidesLanguageServer(entry DiscoveredPlugin) bool {
 	if entry.Manifest == nil {
 		return false
 	}
-	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
+	if entry.State != PluginRuntimeStateActive {
 		return false
 	}
 	return containsString(entry.EffectiveCapabilities, "registerLanguageServer")

@@ -370,6 +370,7 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 6
     assert calls.count("call:exec resume") == 2
+    assert calls.count(f"--cd {repo_dir}") == 6
 
 
 def test_branch_review_loop_fails_closed_when_consolidator_omits_sentinel(

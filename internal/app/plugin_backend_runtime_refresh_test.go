@@ -117,6 +117,56 @@ func TestBuildSelectedLanguageServerStatusesKeepsReadySelectionPendingUntilAppli
 	}
 }
 
+func TestBuildSelectedLanguageServerStatusesUsesPrimaryPluginEntryForClassification(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{
+			{
+				PluginID: "setta-basedpyright",
+				State:    plugins.PluginRuntimeStateActive,
+				RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Name:     "basedpyright",
+						Language: "javascript",
+						Command:  "/tmp/js-lsp",
+					},
+				},
+			},
+			{
+				PluginID: "setta-basedpyright",
+				State:    plugins.PluginRuntimeStateShadowed,
+				RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Name:     "basedpyright-shadowed",
+						Language: "python",
+						Command:  "/tmp/python-lsp",
+					},
+				},
+			},
+		},
+		nil,
+	)
+	if len(statuses) != 2 {
+		t.Fatalf("expected tracked javascript and python statuses, got %#v", statuses)
+	}
+
+	for _, status := range statuses {
+		if status.LanguageID != "python" {
+			continue
+		}
+		if status.State != plugins.SelectedLanguageServerStateSelectedPluginWrongLang {
+			t.Fatalf("expected wrong-language state from primary entry, got %#v", status)
+		}
+		return
+	}
+	t.Fatalf("expected python selected language server status, got %#v", statuses)
+}
+
 type stubPluginBackendRefreshService struct {
 	previewSnapshot plugins.DiscoverySnapshot
 	nextSpecs       []lsp.LanguageServerSpec

@@ -30,6 +30,51 @@ Outcome:
 - The reviewed regressions are fixed in this branch snapshot.
 - No unresolved findings from this review pass remain recorded here.
 
+## 2026-04-18 01:18:06 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had eight concrete issues: packaged `setta-basedpyright` wheels still depended on host Go toolchains at runtime, live LSP selection could cross the explicit `pending_restart` boundary, selected-language-server banner state could be derived from shadowed same-ID plugins instead of the primary instance, legacy `languageServer.basedpyright` settings still affected runtime behavior, schema-invalid plugin configs lost their specific error classification on config write, the branch-review loop dropped repo cwd on `codex exec resume`, the Python distribution build helper misread attached short outdir flags like `-owheelhouse`, and an unused `LanguageServerSpecsFromSnapshot` helper remained in the plugin language-server path.
+- I implemented the fixes directly and removed superseded code rather than carrying the review notes forward as open findings.
+
+Fixes applied:
+- Reworked `plugins/setta-basedpyright` wheel packaging so the plugin wheel now builds and ships a platform backend executable during wheel creation, rewrites the packaged manifest to point at that executable, and produces a platform-specific wheel instead of a runtime source-build dependency.
+- Updated backend runtime/build handling so plugin backends can execute packaged binaries directly while still supporting Go-source backends in the source checkout flow.
+- Tightened live language-server application so only `active` plugin state can supply live LSP specs; `pending_restart` now remains desired-but-not-applied until the explicit restart boundary.
+- Simplified selected-language-server status classification to use the primary discovered plugin entry only, preventing shadowed lower-precedence copies from changing banner remediation.
+- Removed the legacy nested `languageServer.basedpyright` settings fallback so basedpyright settings now come only from the current owner-defined root.
+- Preserved config-schema-invalid classification through discovery and config writes by carrying explicit invalid-schema metadata instead of collapsing everything into generic manifest/config-invalid errors.
+- Removed the dead `LanguageServerSpecsFromSnapshot` helper so there is only one authoritative service-owned path for language-server spec generation.
+- Fixed `scripts/run-codex-branch-review-loop.sh` so resume sessions also pass `--cd "${root_dir}"`.
+- Reworked short-flag tracking in `scripts/build_python_distribution_with_go_binaries.sh` so `-s`, `-w`, and attached outdir forms like `-owheelhouse` preserve the caller’s requested artifact behavior.
+
+Tests added or upgraded:
+- Go unit coverage for packaged backend executable handling.
+- Go discovery/config regression coverage for schema-invalid plugin classification.
+- Go unit coverage for primary-entry selected-language-server classification.
+- Go app integration coverage for the `pending_restart` restart boundary with selected Python LSP state and pre/post-restart completions.
+- Go `internal/lsp` coverage proving the legacy nested basedpyright settings branch is ignored.
+- Python packaging coverage for first-party basedpyright wheel contents, installed manifest/backend paths, and continued local-wheelhouse `setta[defaults]` installs.
+- Python script-wiring coverage for `-s -owheelhouse` and resume-session `--cd` propagation.
+- Focused Playwright coverage for the wrong-language Python banner state.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestBuildGoBackendExecutableReturnsPackagedExecutableEntrypoint|TestBuildGoBackendExecutableRejectsNonExecutablePackagedEntrypoint|TestDiscoveryServiceRescanClassifiesInvalidConfigSchemaSeparately|TestServiceWriteConfigRejectsInvalidSchemaDocument' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestBuildSelectedLanguageServerStatusesUsesPrimaryPluginEntryForClassification|TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart|TestAppPluginRuntimeReportsSelectedLanguageServerApplyState' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestAppStartsWithFirstPartyBasedpyrightPluginCompletion|TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestBootstrapWorkspaceDefaultsInstallProfile.*' -count=1`
+- `./scripts/go.sh test ./internal/lsp -run 'TestBuildBasedpyrightSettingsRoot.*' -count=1`
+- `./scripts/go.sh test ./internal/pythonenv -run 'TestRuntimePluginDistributionsDetectsFirstPartyBasedpyrightWheel' -count=1`
+- `source activate.sh && pytest tests/start/test_distribution_script_wiring.py -q`
+- `source activate.sh && pytest tests/start/test_run_codex_branch_review_loop_script.py -q`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -q -k 'basedpyright_plugin or defaults_extra_installs_from_local_wheelhouse'`
+- `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
+- `./check_quality.sh`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/header/language-server-status-banner.spec.ts` was attempted, but the disposable E2E environment failed before the banner assertions with `Project Not Found` / `ERR_ALPN_NEGOTIATION_FAILED`.
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- No unresolved findings from this review pass remain recorded here.
+
 ## 2026-04-18 00:34 PDT
 
 Summary:

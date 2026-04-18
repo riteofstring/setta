@@ -66,11 +66,7 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 		return preparedPluginConfigWrite{}, err
 	}
 	if entry.Manifest == nil {
-		return preparedPluginConfigWrite{}, newServiceError(
-			ServiceErrorCodeConfigInvalid,
-			"Plugin manifest missing for plugin: %s",
-			options.PluginID,
-		)
+		return preparedPluginConfigWrite{}, invalidPluginConfigWriteTargetError(entry, options.PluginID)
 	}
 	if err := validatePluginConfig(entry, options.Config); err != nil {
 		return preparedPluginConfigWrite{}, err
@@ -108,6 +104,20 @@ func pluginConfigWriteNoopResponse(
 		return pluginConfigWriteResponse(prepared.entry.PluginID, prepared.currentConfig), true
 	}
 	return PluginConfigWriteResponse{}, false
+}
+
+func invalidPluginConfigWriteTargetError(entry DiscoveredPlugin, pluginID string) error {
+	for _, entryError := range entry.Errors {
+		if entryError.Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+			continue
+		}
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "%s", entryError.Message)
+	}
+	return newServiceError(
+		ServiceErrorCodeConfigInvalid,
+		"Plugin manifest missing for plugin: %s",
+		pluginID,
+	)
 }
 
 func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (PluginConfigWriteResponse, error) {

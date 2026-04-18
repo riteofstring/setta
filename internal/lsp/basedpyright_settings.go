@@ -30,7 +30,7 @@ func basedpyrightSettingsBranch(document map[string]any) map[string]any {
 	if direct, ok := document["basedpyright"].(map[string]any); ok {
 		return direct
 	}
-	return nestedSettingsMap(document, []string{"languageServer", "basedpyright"})
+	return nil
 }
 
 func mergeBasedpyrightExtraPaths(branch map[string]any, extraPaths []string) []string {

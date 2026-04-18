@@ -23,5 +23,7 @@ setta_basedpyright = [
     "setta.plugin.json",
     "backend/go.mod",
     "backend/main.go",
+    "backend/plugin-backend",
+    "backend/plugin-backend.exe",
     "content/config/schema.json",
 ]

@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -238,6 +239,104 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     )
 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
+
+
+def test_first_party_basedpyright_plugin_wheel_is_platform_specific_and_ships_backend(
+    tmp_path: Path,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+
+    plugin_result = _build_plugin_wheel(
+        _repo_root() / "plugins" / "setta-basedpyright",
+        wheelhouse,
+    )
+    plugin_output = f"{plugin_result.stdout}\n{plugin_result.stderr}"
+    assert plugin_result.returncode == 0, plugin_output
+
+    wheel_paths = list(wheelhouse.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+    wheel_path = wheel_paths[0]
+    assert not wheel_path.name.endswith("-any.whl")
+
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        archive_names = set(wheel_archive.namelist())
+        backend_names = [
+            "setta_basedpyright/backend/plugin-backend",
+            "setta_basedpyright/backend/plugin-backend.exe",
+        ]
+        assert any(
+            any(name.endswith(expected) for expected in backend_names)
+            for name in archive_names
+        )
+
+        manifest_name = next(
+            name
+            for name in archive_names
+            if name.endswith("setta_basedpyright/setta.plugin.json")
+        )
+        manifest = json.loads(
+            wheel_archive.read(manifest_name).decode("utf-8")
+        )
+
+    assert manifest["backend"]["entrypoint"] in {
+        "backend/plugin-backend",
+        "backend/plugin-backend.exe",
+    }
+
+
+def test_first_party_basedpyright_plugin_install_points_manifest_at_packaged_backend(
+    tmp_path: Path,
+) -> None:
+    wheelhouse = tmp_path / "wheelhouse"
+    plugin_result = _build_plugin_wheel(
+        _repo_root() / "plugins" / "setta-basedpyright",
+        wheelhouse,
+    )
+    plugin_output = f"{plugin_result.stdout}\n{plugin_result.stderr}"
+    assert plugin_result.returncode == 0, plugin_output
+
+    wheel_paths = list(wheelhouse.glob("setta_basedpyright-*.whl"))
+    assert len(wheel_paths) == 1
+
+    venv_root = tmp_path / "plugin-venv"
+    subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    venv_python = _venv_python(venv_root)
+
+    install_result = subprocess.run(
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            str(wheel_paths[0]),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    package_root = (
+        venv_root / "Lib" / "site-packages" / "setta_basedpyright"
+        if os.name == "nt"
+        else venv_root / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages" / "setta_basedpyright"
+    )
+    manifest = json.loads((package_root / "setta.plugin.json").read_text(encoding="utf-8"))
+    backend_path = package_root / Path(manifest["backend"]["entrypoint"])
+
+    assert manifest["backend"]["entrypoint"] in {
+        "backend/plugin-backend",
+        "backend/plugin-backend.exe",
+    }
+    assert backend_path.exists()
 
 
 def test_defaults_extra_installs_from_local_wheelhouse(tmp_path: Path) -> None:

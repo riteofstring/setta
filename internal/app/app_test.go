@@ -7841,6 +7841,194 @@ func TestAppPluginRuntimeReportsSelectedLanguageServerApplyState(t *testing.T) {
 	}
 }
 
+func TestAppSelectedPythonLanguageServerStaysUnappliedUntilRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+	if err := os.WriteFile(
+		filepath.Join(cfg.Paths.SettaFilesRoot, "plugins_state.json"),
+		[]byte(`{"pendingRestartBackendPluginIds":["setta-basedpyright"]}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write pending restart plugin state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		languageServerSettings := document["languageServer"].(map[string]any)
+		languageServerSettings["selectedByLanguage"] = map[string]any{
+			"python": "setta-basedpyright",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("save python language server selection: %v", err)
+	}
+
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	doRequest := func(method string, path string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(method, server.URL+path, nil)
+		if err != nil {
+			t.Fatalf("new %s %s request: %v", method, path, err)
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("%s %s: %v", method, path, err)
+		}
+		return response
+	}
+	readPythonRuntime := func() (
+		struct {
+			SelectedPluginID *string `json:"selectedPluginId"`
+			State            string  `json:"state"`
+			Applied          bool    `json:"applied"`
+		},
+		string,
+	) {
+		t.Helper()
+
+		response := doRequest(http.MethodGet, "/api"+httpapi.RoutePluginsRuntime)
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+		}
+
+		var payload struct {
+			Status struct {
+				SelectedLanguageServers []struct {
+					LanguageID       string  `json:"languageId"`
+					SelectedPluginID *string `json:"selectedPluginId"`
+					State            string  `json:"state"`
+					Applied          bool    `json:"applied"`
+				} `json:"selectedLanguageServers"`
+				Plugins []struct {
+					PluginID string `json:"pluginId"`
+					State    string `json:"state"`
+				} `json:"plugins"`
+			} `json:"status"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode plugin runtime payload: %v", err)
+		}
+
+		var pythonStatus struct {
+			SelectedPluginID *string `json:"selectedPluginId"`
+			State            string  `json:"state"`
+			Applied          bool    `json:"applied"`
+		}
+		foundPythonStatus := false
+		for _, status := range payload.Status.SelectedLanguageServers {
+			if status.LanguageID != "python" {
+				continue
+			}
+			pythonStatus = struct {
+				SelectedPluginID *string `json:"selectedPluginId"`
+				State            string  `json:"state"`
+				Applied          bool    `json:"applied"`
+			}{
+				SelectedPluginID: status.SelectedPluginID,
+				State:            status.State,
+				Applied:          status.Applied,
+			}
+			foundPythonStatus = true
+			break
+		}
+		if !foundPythonStatus {
+			t.Fatal("expected python selected language server status")
+		}
+
+		for _, entry := range payload.Status.Plugins {
+			if entry.PluginID == "setta-basedpyright" {
+				return pythonStatus, entry.State
+			}
+		}
+		t.Fatal("expected setta-basedpyright runtime status entry")
+		return pythonStatus, ""
+	}
+
+	pendingStatus, pendingPluginState := readPythonRuntime()
+	if pendingPluginState != "pending_restart" {
+		t.Fatalf("expected setta-basedpyright to stay pending_restart before restart, got %q", pendingPluginState)
+	}
+	if pendingStatus.State != "ready" {
+		t.Fatalf("expected pending selected status to stay ready, got %#v", pendingStatus)
+	}
+	if pendingStatus.Applied {
+		t.Fatalf("expected pending selected status to remain unapplied before restart")
+	}
+
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) != 0 {
+		t.Fatalf("expected no Python completions before restart, got %#v", completions)
+	}
+
+	restartResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRestart)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected plugin restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	var restartPayload struct {
+		Accepted bool   `json:"accepted"`
+		Mode     string `json:"mode"`
+	}
+	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+		t.Fatalf("decode plugin restart payload: %v", err)
+	}
+	if !restartPayload.Accepted || restartPayload.Mode != "programmatic" {
+		t.Fatalf("expected accepted programmatic restart payload, got %#v", restartPayload)
+	}
+
+	appliedStatus, appliedPluginState := readPythonRuntime()
+	if appliedPluginState != "active" {
+		t.Fatalf("expected setta-basedpyright to become active after restart, got %q", appliedPluginState)
+	}
+	if appliedStatus.State != "ready" || !appliedStatus.Applied {
+		t.Fatalf("expected selected status to become applied after restart, got %#v", appliedStatus)
+	}
+
+	completions = requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions after restart")
+	}
+}
+
 func TestAppPluginRestartClearsPendingBackendPluginState(t *testing.T) {
 	// Programmatic restart should rebuild backend plugin runtime and clear persisted pending_restart markers.
 	cfg := testConfig(t)

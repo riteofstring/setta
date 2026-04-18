@@ -3,6 +3,7 @@ package plugins
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -103,7 +104,10 @@ func ValidatePluginManifestPaths(pluginRoot string, manifest PluginManifest) err
 	if err := validatePluginContentPaths(pluginRoot, manifest); err != nil {
 		return err
 	}
-	return validateOptionalManifestJSONObjectFile(pluginRoot, manifest.ConfigSchemaPath, "plugin config schema")
+	if err := validateOptionalManifestJSONObjectFile(pluginRoot, manifest.ConfigSchemaPath, "plugin config schema"); err != nil {
+		return wrapPluginConfigSchemaValidationError(err)
+	}
+	return nil
 }
 
 func validatePluginBackendPaths(pluginRoot string, manifest PluginManifest) error {
@@ -239,6 +243,36 @@ func readManifestJSONObjectFile(path string) (map[string]any, error) {
 		return nil, fmt.Errorf("%w: %s must contain a JSON object", ErrPluginManifestInvalid, path)
 	}
 	return value, nil
+}
+
+type pluginConfigSchemaValidationError struct {
+	err error
+}
+
+func wrapPluginConfigSchemaValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &pluginConfigSchemaValidationError{err: err}
+}
+
+func isPluginConfigSchemaValidationError(err error) bool {
+	var target *pluginConfigSchemaValidationError
+	return errors.As(err, &target)
+}
+
+func (e *pluginConfigSchemaValidationError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *pluginConfigSchemaValidationError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
 }
 
 type strictJSONFileError struct {

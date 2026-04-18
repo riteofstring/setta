@@ -407,6 +407,8 @@ build_codex_command() {
       codex
       exec
       resume
+      --cd
+      "${root_dir}"
       --output-last-message
       "${response_file}"
     )

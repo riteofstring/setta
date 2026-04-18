@@ -22,13 +22,11 @@ func TestBuildBasedpyrightSettingsRootMergesExtraPathsWithoutDroppingExistingSet
 	t.Parallel()
 
 	base := map[string]any{
-		"languageServer": map[string]any{
-			"basedpyright": map[string]any{
-				"analysis": map[string]any{
-					"extraPaths": []any{"/tmp/already-there", " /tmp/workspace/setta_files "},
-					"diagnosticSeverityOverrides": map[string]any{
-						"reportUnknownVariableType": "none",
-					},
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"extraPaths": []any{"/tmp/already-there", " /tmp/workspace/setta_files "},
+				"diagnosticSeverityOverrides": map[string]any{
+					"reportUnknownVariableType": "none",
 				},
 			},
 		},
@@ -47,5 +45,31 @@ func TestBuildBasedpyrightSettingsRootMergesExtraPathsWithoutDroppingExistingSet
 	}
 	if !settingsMapsEqual(settings, expected) {
 		t.Fatalf("expected merged basedpyright settings %#v, got %#v", expected, settings)
+	}
+}
+
+func TestBuildBasedpyrightSettingsRootIgnoresLegacyLanguageServerBranch(t *testing.T) {
+	t.Parallel()
+
+	base := map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"extraPaths": []any{"/tmp/legacy"},
+				},
+			},
+		},
+	}
+
+	settings := BuildBasedpyrightSettingsRoot(base, []string{"/tmp/workspace/setta_files"})
+	expected := map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"extraPaths": []any{"/tmp/workspace/setta_files"},
+			},
+		},
+	}
+	if !settingsMapsEqual(settings, expected) {
+		t.Fatalf("expected legacy languageServer branch to be ignored, got %#v", settings)
 	}
 }

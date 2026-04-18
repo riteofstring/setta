@@ -529,8 +529,8 @@ func buildSelectedLanguageServerStatus(
 	}
 
 	selectedPlugin := &pluginID
-	matchingEntries := statusEntriesForPlugin(statusEntries, pluginID)
-	if len(matchingEntries) == 0 {
+	selectedEntry, ok := primaryStatusEntryForPlugin(statusEntries, pluginID)
+	if !ok {
 		return plugins.SelectedLanguageServerStatus{
 			LanguageID:       language,
 			SelectedPluginID: selectedPlugin,
@@ -538,20 +538,7 @@ func buildSelectedLanguageServerStatus(
 			Applied:          false,
 		}
 	}
-
-	providesLanguage := false
-	isReady := false
-	for _, entry := range matchingEntries {
-		if !statusEntryProvidesLanguage(entry, language) {
-			continue
-		}
-		providesLanguage = true
-		if entry.State == plugins.PluginRuntimeStateActive || entry.State == plugins.PluginRuntimeStatePendingRestart {
-			isReady = true
-		}
-	}
-
-	if !providesLanguage {
+	if !statusEntryProvidesLanguage(selectedEntry, language) {
 		return plugins.SelectedLanguageServerStatus{
 			LanguageID:       language,
 			SelectedPluginID: selectedPlugin,
@@ -559,7 +546,7 @@ func buildSelectedLanguageServerStatus(
 			Applied:          false,
 		}
 	}
-	if !isReady {
+	if selectedEntry.State != plugins.PluginRuntimeStateActive && selectedEntry.State != plugins.PluginRuntimeStatePendingRestart {
 		return plugins.SelectedLanguageServerStatus{
 			LanguageID:       language,
 			SelectedPluginID: selectedPlugin,
@@ -591,15 +578,14 @@ func appliedLanguageServerPluginID(language string, appliedSpecs []lsp.LanguageS
 	return "", false
 }
 
-func statusEntriesForPlugin(statusEntries []plugins.PluginStatusEntry, pluginID string) []plugins.PluginStatusEntry {
-	matching := make([]plugins.PluginStatusEntry, 0, 1)
+func primaryStatusEntryForPlugin(statusEntries []plugins.PluginStatusEntry, pluginID string) (plugins.PluginStatusEntry, bool) {
 	for _, entry := range statusEntries {
 		if strings.TrimSpace(entry.PluginID) != pluginID {
 			continue
 		}
-		matching = append(matching, entry)
+		return entry, true
 	}
-	return matching
+	return plugins.PluginStatusEntry{}, false
 }
 
 func statusEntryProvidesLanguage(entry plugins.PluginStatusEntry, language string) bool {

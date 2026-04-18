@@ -20,6 +20,25 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cleanup_before_build=1
 build_args=()
 build_outdir="dist"
+build_request_has_wheel=0
+build_request_has_sdist=0
+
+record_short_build_flags() {
+  local flag_cluster="$1"
+  local index=0
+
+  while [[ "${index}" -lt "${#flag_cluster}" ]]; do
+    case "${flag_cluster:${index}:1}" in
+      w)
+        build_request_has_wheel=1
+        ;;
+      s)
+        build_request_has_sdist=1
+        ;;
+    esac
+    index="$((index + 1))"
+  done
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -64,6 +83,21 @@ while [[ $# -gt 0 ]]; do
       build_args+=("$1")
       shift
       ;;
+    --wheel)
+      build_request_has_wheel=1
+      build_args+=("$1")
+      shift
+      ;;
+    --sdist)
+      build_request_has_sdist=1
+      build_args+=("$1")
+      shift
+      ;;
+    -[!-]*)
+      record_short_build_flags "${1#-}"
+      build_args+=("$1")
+      shift
+      ;;
     *)
       build_args+=("$1")
       shift
@@ -75,25 +109,10 @@ build_request_includes_wheel() {
   if (( ${#build_args[@]} == 0 )); then
     return 0
   fi
-
-  local saw_wheel=0
-  local saw_sdist=0
-  local arg
-  for arg in "${build_args[@]}"; do
-    case "${arg}" in
-      --wheel|-w|-[!-]*w[!-]*)
-        saw_wheel=1
-        ;;
-      --sdist|-s|-[!-]*s[!-]*)
-        saw_sdist=1
-        ;;
-    esac
-  done
-
-  if [[ "${saw_wheel}" == "1" ]]; then
+  if [[ "${build_request_has_wheel}" == "1" ]]; then
     return 0
   fi
-  if [[ "${saw_sdist}" == "1" ]]; then
+  if [[ "${build_request_has_sdist}" == "1" ]]; then
     return 1
   fi
   return 0

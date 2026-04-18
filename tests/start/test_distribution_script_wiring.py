@@ -337,6 +337,34 @@ def test_distribution_helper_short_sdist_flag_preserves_outdir_without_plugin_wh
     ]
 
 
+def test_distribution_helper_does_not_treat_short_outdir_value_as_wheel_flag(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, command_log, cleanup_count = _build_distribution_sandbox(tmp_path)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "build_python_distribution_with_go_binaries.sh"),
+            "--skip-cleanup",
+            "-s",
+            "-owheelhouse",
+        ],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not cleanup_count.exists()
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "go-binaries",
+        "python -m build -s -owheelhouse",
+    ]
+
+
 def test_distribution_helper_short_wheel_flag_uses_short_outdir_for_plugin_wheel(
     tmp_path: Path,
 ) -> None:
