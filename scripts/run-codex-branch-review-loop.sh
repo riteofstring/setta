@@ -773,6 +773,10 @@ EOF
   cat > "${consolidate_prompt_file}" <<'EOF'
 Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person.
 
+Guardrails
+- Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence.
+- Use `cumulative_review.md` as prior-decision context for recurring areas. Do not treat prior review-driven changes as findings again unless there is concrete regression evidence.
+
 Output requirements:
 - The first non-empty line must be exactly one of:
   - `CONSOLIDATED_STATUS: NO_FINDINGS`
@@ -790,14 +794,33 @@ After the sentinel line:
 EOF
 
   cat > "${fix_prompt_file}" <<'EOF'
-Implement the fixes. Prefer owner-level, issue-class elimination over patching symptoms at multiple call sites. Keep the result smaller and simpler where possible: remove dead or superseded code, avoid speculative abstractions, wrapper growth, compatibility shims, and dual-path behavior. If a finding touches a subsystem called out in the recurring matrix at the top of `cumulative_review.md`, fix that invariant rather than only the local symptom, and extend the proof tests for that subsystem. Add unit, integration, and Playwright tests when appropriate. When browser/CDP visual verification is needed, use `./aireset.sh` and stop that session afterwards. If UI behavior changed, browser verification counts only if one affected flow actually ran end-to-end in Playwright or CDP. Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, then fix any issues they surface against the current worktree. Do not update `cumulative_review.md`, remove the top-level `review*.md` files, or commit. Do not run `pnpm start` or `pnpm reset`.
+Implement the consolidated fixes.
+
+Guardrails
+- Read `branch_intent.md`. Do not undo documented branch behavior unless the consolidated findings show a concrete regression.
+- Use `cumulative_review.md` as prior-decision context. Do not undo prior review-driven changes for preference reasons; only change them when the consolidated findings classify the area as `regression after prior fix` or `adjacent fallout` with concrete evidence.
+
+Method
+- Prefer owner-level fixes that remove the issue class instead of patching symptoms at multiple call sites.
+- Keep the result as small and simple as possible: delete dead or superseded code, avoid wrapper growth, compatibility shims, dual-path behavior, and speculative abstractions.
+- If a finding touches a subsystem in the recurring matrix at the top of `cumulative_review.md`, fix that invariant and extend the proof tests for that subsystem.
+
+Verification
+- Add unit, integration, and Playwright tests when appropriate.
+- When browser/CDP visual verification is needed, use `./aireset.sh` and stop that session afterwards.
+- If UI behavior changed, browser verification counts only if one affected flow actually ran end-to-end in Playwright or CDP.
+- Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, then fix any issues they surface against the current worktree.
+
+Do not update `cumulative_review.md`, remove the top-level `review*.md` files, or commit. Do not run `pnpm start` or `pnpm reset`.
 EOF
 
   cat > "${simplify_prompt_file}" <<'EOF'
 Simplify the current iteration's uncommitted fixes before commit.
 
 Context:
-- Read the current iteration's consolidated findings and fix-stage response first. Preserve the behavior, invariants, and test expectations they establish.
+- Read `branch_intent.md`, the current iteration's consolidated findings, and the fix-stage response first.
+- Preserve documented branch intent plus the behavior, invariants, and test expectations established by the consolidated findings and fix-stage response.
+- Use `cumulative_review.md` as prior-decision context. Do not undo prior review-driven changes unless the consolidated findings classify the area as `regression after prior fix` or `adjacent fallout` with concrete evidence.
 
 Scope:
 - Review only the current uncommitted diff vs `HEAD`:
@@ -822,7 +845,34 @@ Output:
 EOF
 
   cat > "${finalize_prompt_file}" <<'EOF'
-The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage. Only finish the iteration metadata: update `cumulative_review.md` for any touched or new recurring subsystems, refresh `Last finding commit` and `Still unverified` notes using the current pre-finalization `HEAD`, append the dated entry, remove the top-level `review*.md` files, make sure any earlier `./aireset.sh` session is stopped, and commit all remaining changes except `review*.md`. Keep it factual. Be explicit about blocked verification and browser-verification status.
+The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage.
+
+Read `branch_intent.md` before writing metadata so the notes reflect intended branch behavior.
+
+Only finish iteration metadata:
+- Update `cumulative_review.md`.
+- Remove the top-level `review*.md` files.
+- Make sure any earlier `./aireset.sh` session is stopped.
+- Commit all remaining changes except `review*.md`.
+
+`cumulative_review.md` format:
+- If the file is empty, start with:
+  - `# Cumulative Review`
+  - `## Recurring Subsystem Invariant Matrix`
+- For each touched or new recurring subsystem, add or update:
+  - `### <Subsystem Name>`
+  - `- Invariant: ...`
+  - `- Last finding commit: <pre-finalization HEAD>`
+  - `- Proof tests: ...`
+  - `- Still unverified: ...`
+- Then append one dated entry:
+  - `## YYYY-MM-DD HH:MM[:SS] TZ`
+  - `Fixes applied:`
+  - `Tests added or upgraded:`
+  - `Verification run:`
+  - `Residual risks / verification gaps:`
+
+Keep it factual and concise. No boilerplate. Be explicit about blocked verification and browser-verification status.
 EOF
 
 }
