@@ -26,10 +26,6 @@ import { createRandomName } from "utils/idNameCreation";
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type SharePolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
-const DEPLOYMENT_RUN_SNAPSHOT_MODE_OPTIONS: Array<{
-  value: RunSnapshotMode;
-  label: string;
-}> = RunSnapshotModeUIConfig.deploymentOptions;
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -264,7 +260,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             label="Run snapshot mode"
             description="How run output should be stored."
             value={policyOverrides.runSnapshotMode}
-            options={DEPLOYMENT_RUN_SNAPSHOT_MODE_OPTIONS}
+            options={RunSnapshotModeUIConfig.deploymentOptions}
             onChange={setPolicyRunSnapshotMode}
             disabled={!policyOverrides.allowRun}
           />

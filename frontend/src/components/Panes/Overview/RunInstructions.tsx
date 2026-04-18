@@ -157,11 +157,6 @@ const WORKFLOW_CONTROL_ACTIONS: WorkflowControlActionConfig[] = [
     isUnavailable: (machineRun) => !machineRun.hasRun,
   },
 ];
-const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
-  value: RunSnapshotMode;
-  label: string;
-  description: string;
-}> = RunSnapshotModeUIConfig.options;
 const RUN_SNAPSHOT_MODE_CHOICES: Array<{
   value: RunSnapshotModeChoice;
   label: string;
@@ -172,7 +167,7 @@ const RUN_SNAPSHOT_MODE_CHOICES: Array<{
     label: "Use Settings",
     description: "Follow the settings default for this project.",
   },
-  ...RUN_SNAPSHOT_MODE_OPTIONS,
+  ...RunSnapshotModeUIConfig.options,
 ];
 
 const RUN_INSTRUCTIONS_CODEGEN_POLICY_STYLES: RunInstructionsCodegenPolicyStyles =
@@ -765,9 +760,9 @@ function useRunSnapshotModeState(projectConfigId: string) {
   const selectedRunSnapshotMode: RunSnapshotModeChoice =
     runSnapshotModeOverride ?? "default";
   const runSnapshotModeMeta =
-    RUN_SNAPSHOT_MODE_OPTIONS.find(
+    RunSnapshotModeUIConfig.options.find(
       (option) => option.value === runSnapshotMode,
-    ) ?? RUN_SNAPSHOT_MODE_OPTIONS[0];
+    ) ?? RunSnapshotModeUIConfig.options[0];
   const runSnapshotModePrefix = runSnapshotModeOverride
     ? "Override for this project."
     : "Using settings default.";

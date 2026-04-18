@@ -2,21 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   CodeObjValueRepresentationModeEnum,
+  PythonCodegenPolicyUIConfig,
   SectionRepresentationModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
 import {
-  RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES,
-  RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES,
-  RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES,
   getRunInstructionsCodeObjRepresentationOptions,
   getRunInstructionsSectionRepresentationOptions,
 } from "./runInstructionsCodegenPolicyConfig";
 
 describe("runInstructionsCodegenPolicyConfig", () => {
   it("loads Go-owned visible section and code object lists", () => {
-    expect(RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES).toEqual([
+    expect(PythonCodegenPolicyUIConfig.sectionTypes).toEqual([
       "Callable",
       "Dict",
       "ListRoot",
@@ -28,7 +26,7 @@ describe("runInstructionsCodegenPolicyConfig", () => {
       "MetaControl",
       "Chat",
     ]);
-    expect(RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES).toEqual([
+    expect(PythonCodegenPolicyUIConfig.codeObjTypes).toEqual([
       "CodeParam",
       "TextParam",
       "DateParam",
@@ -44,7 +42,7 @@ describe("runInstructionsCodegenPolicyConfig", () => {
       "DropzoneParam",
       "NestedParam",
     ]);
-    expect(RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES).toEqual([
+    expect(PythonCodegenPolicyUIConfig.metaControlCodeObjTypes).toEqual([
       { type: "DropdownParam", label: "Dropdown" },
       { type: "SliderParam", label: "Slider" },
       { type: "RotaryParam", label: "Rotary" },

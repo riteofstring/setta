@@ -6,15 +6,6 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 
-export const RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES =
-  PythonCodegenPolicyUIConfig.sectionTypes;
-
-export const RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES =
-  PythonCodegenPolicyUIConfig.metaControlCodeObjTypes;
-
-export const RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES =
-  PythonCodegenPolicyUIConfig.codeObjTypes;
-
 const sectionRepresentationOptionsByType = new Map<
   SectionType,
   readonly SectionRepresentationMode[]

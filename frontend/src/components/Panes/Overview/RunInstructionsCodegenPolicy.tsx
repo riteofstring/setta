@@ -2,6 +2,7 @@ import * as Switch from "@radix-ui/react-switch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import React from "react";
 import {
+  PythonCodegenPolicyUIConfig,
   SectionTypeEnum,
   type CodeObjType,
   type CodeObjValueRepresentationMode,
@@ -11,9 +12,6 @@ import {
 import {
   getRunInstructionsCodeObjRepresentationOptions,
   getRunInstructionsSectionRepresentationOptions,
-  RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES,
-  RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES,
-  RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES,
 } from "./runInstructionsCodegenPolicyConfig";
 
 type SectionPolicy = ProjectCodegenPythonTarget["sectionPolicy"];
@@ -299,7 +297,7 @@ function SectionAllowlistCard({
       </div>
       {allowlistEnabled ? (
         <div className="mt-2 grid grid-cols-1 gap-y-1">
-          {RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES.map((sectionType) => {
+          {PythonCodegenPolicyUIConfig.sectionTypes.map((sectionType) => {
             const isChecked = allowlist.includes(sectionType);
             const isMetaControl = sectionType === SectionTypeEnum.MetaControl;
             return (
@@ -325,7 +323,7 @@ function SectionAllowlistCard({
                 </label>
                 {isChecked && isMetaControl ? (
                   <div className="ml-6 grid grid-cols-1 gap-y-1">
-                    {RUN_INSTRUCTIONS_CODEGEN_META_CONTROL_CODE_OBJ_TYPES.map(
+                    {PythonCodegenPolicyUIConfig.metaControlCodeObjTypes.map(
                       ({ type: codeObjType, label }) => (
                         <label
                           key={codeObjType}
@@ -383,7 +381,7 @@ function SectionTypeDefaultsCard({
         Section Type Defaults
       </div>
       <div className="mt-1 space-y-1">
-        {RUN_INSTRUCTIONS_CODEGEN_SECTION_TYPES.map((sectionType) => {
+        {PythonCodegenPolicyUIConfig.sectionTypes.map((sectionType) => {
           const typePolicy = sectionPolicy.typePolicies[sectionType];
           const isMetaControl = sectionType === SectionTypeEnum.MetaControl;
           const representationOptions = isMetaControl
@@ -682,7 +680,7 @@ function CodeObjTypeDefaultsCard({
         Choose how param values are formatted by default.
       </div>
       <div className="mt-1 space-y-1">
-        {RUN_INSTRUCTIONS_CODEGEN_CODE_OBJ_TYPES.map((codeObjType) => {
+        {PythonCodegenPolicyUIConfig.codeObjTypes.map((codeObjType) => {
           const typePolicy =
             codeObjValuePolicy.typePolicies[codeObjType] ??
             defaultCodeObjValuePolicy.typePolicies[codeObjType];
