@@ -14,6 +14,8 @@
 
 - When Go-owned contracts need downstream Python or TypeScript surfaces, prefer generation over hand-maintained mirrors.
 - Drive generators from authoritative Go-side structure or metadata, prefer broad discovery plus pruning over brittle inventories, and keep generator-specific design constraints in `docs/reference/generation-contracts.md`.
+- When a generated helper, union, type guard, or exported value is missing, first extend or export the existing authoritative generator path such as semantic sidecar metadata, discovery-driven declarations, or owner-owned metadata. Do not add handwritten compatibility declarations, hard-coded member inventories, or parallel generator-only mirrors when the same surface can be derived from an existing owner path.
+- If a generator exception is truly unavoidable, keep it minimal, document in code why the authoritative path could not be used, and prefer a Go-owned metadata input over restating downstream TypeScript or Python structure in generator code.
 - For HTTP, frontend callers must use the standard OpenAPI-generated client/types rather than bespoke generated endpoint wrappers. For non-HTTP route/constants surfaces, use the current Go-owned generated or value-exported frontend surface rather than hand-maintained mirrors.
 - If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate affected outputs before cleanup and before finishing the task.
 - Prefer `./gcf.sh` when full generate/cleanup/format is appropriate. Large diffs after generation or cleanup are normal.

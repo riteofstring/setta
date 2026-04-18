@@ -277,6 +277,7 @@ Overwrite stale notes instead of appending an iteration diary.
   - Do not introduce duplicate code or logic merely to satisfy the type checker.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first reuse an existing authoritative type or helper if one already exists.
   - If the only problem is that an owner-side helper type is private, prefer exporting and reusing it from the owner module instead of re-declaring the same shape locally.
+  - If a generated frontend or Python helper surface is missing, first extend or export the existing authoritative generator path such as semantic sidecar metadata, discovery-driven declarations, or owner-owned metadata. Do not add handwritten compatibility declarations or hard-coded generator inventories when the same surface can be derived from an existing owner path.
   - If a normalization boundary is genuinely unavoidable because two owner surfaces are materially different, keep it minimal, make it the only such boundary for that concept, and record the reason briefly in this audit.
 - Usually not critical for this loop:
   - frontend \`tsc\`-only failures that do not imply a bundled runtime break on a supported flow
@@ -352,6 +353,7 @@ Rules:
 - [ ] Do not skip a higher-tier shortlist item unless ${severe_type_audit_file} records why it is blocked, already disproven, or lower leverage than the chosen target.
 - [ ] If the chosen target is a request/response nullability issue or OpenAPI helper typing issue, prove the concrete runtime rejection or broken behavior first. If a focused test shows the current runtime already works, abandon that target as non-critical.
 - [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
+- [ ] For generated surfaces, prefer extending the existing semantic sidecar, discovery, or owner-metadata path over adding compatibility declarations or hard-coded member lists in generator code. If no authoritative path exists, record why in ${severe_type_audit_file} before adding any generator exception.
 - [ ] Manually audit high-risk shared-contract and dispatch surfaces that can evade raw typecheck output, especially generated enums or unions used by runtime handler maps.
 - [ ] When generated artifacts are implicated, fix the owner inputs and regenerate instead of manually editing generated files.
 - [ ] Run focused verification and the relevant language type checks for the code you changed.
@@ -374,6 +376,7 @@ Read first, in this order:
 - ${ROOT_DIR}/AGENTS.md
 - ${ROOT_DIR}/docs/guides/dev-scripts.md
 - ${ROOT_DIR}/docs/reference/go-backed-python.md
+- ${ROOT_DIR}/docs/reference/generation-contracts.md
 - \`git log --oneline --decorate -n 15\`
 - ${checklist_file}
 - ${runtime_break_shortlist_file} if it exists
@@ -392,6 +395,7 @@ Severity rubric:
   - Do not introduce duplicate code or logic merely to silence type errors.
   - Before adding a local type, helper, wrapper, adapter, or normalizer, first search for an existing authoritative type or helper and reuse it.
   - If the only issue is that an owner-side helper type is private, export and reuse it from the owner module instead of re-declaring the same structure locally.
+  - For generated surfaces, do not add handwritten compatibility declarations, hard-coded member inventories, or parallel generator-only mirrors when the missing surface can be derived by extending an existing semantic sidecar, discovery, or owner-metadata path.
   - If two owner surfaces are genuinely different and a normalization boundary is unavoidable, keep it minimal, keep exactly one such boundary for that concept, and record the reason in ${severe_type_audit_file}.
 - Usually not actionable for this loop:
   - type-only frontend import/export/name failures, or missing exports referenced only from tests
@@ -426,6 +430,7 @@ Execution rules for every iteration:
 - Do not ignore production value-import missing-export diagnostics on local/generated/shared frontend modules; they count as supported-flow runtime-break leads because they can fail module load during startup or route entry.
 - Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
 - Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
+- For generator-backed surfaces, first look for the existing semantic sidecar, discovery, or owner-metadata path that should emit the missing helper. Do not solve generated-surface drift by adding hard-coded member lists or manual compat declarations unless the audit records why no authoritative path can express it.
 - Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
 - Do not add or adjust tests first. Fix the production owner/code path first, then update or add the minimum focused test coverage needed to lock in the runtime-break fix.
 - In addition to reading typecheck outputs, manually audit high-risk shared-contract surfaces that often evade raw typecheck logs:
