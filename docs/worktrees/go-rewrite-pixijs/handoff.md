@@ -44,6 +44,15 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the active implementation is a new `canvas-shell-underlay` surface that mounts one retained canvas behind the existing DOM section nodes
   - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now derive top-level node bounds from `useNodeInternals` and paint shell backdrops into a single canvas underlay
   - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now covers the scene bounds math and retained-canvas sizing path
+- The named canary shell-authority slice is now landed for `settings-section__callableSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/graphSurfaceImplementation.tsx` now exposes the active graph-surface implementation through context so section chrome can react at the real composition boundary instead of via prop threading
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now declares the canonical canvas-owned section shell id and resolves the retained-canvas fill/stroke for that shell, including style-color-aware chrome when a section style is present
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now let the retained scene paint per-frame chrome overrides, so the canary callable section uses canvas-owned resting fill/border instead of the old generic underlay colors
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx` and `frontend/src/components/Utils/Resizable/CustomResizable.tsx` now make only the canary section's resting DOM shell transparent on the `canvas-shell-underlay` path while leaving the legacy DOM implementation unchanged
+  - `SectionShellBackdropCanvas.tsx` now uses `getCurrEffectiveSectionImplIfPresent(...)` for the canary lookup so non-settings project routes like `/round_lime` no longer crash when that section is absent
+  - focused coverage now exists for this slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
 - A fresh post-slice live baseline probe on 2026-04-18 passed on the worktree runtime and confirmed the new underlay is present on `settings` -> `All Settings`:
   - `canvasCount: 1`
   - `flowNodeCount: 46`
@@ -81,6 +90,17 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the graph surface is mounted and usable
   - a `canvas` is present inside `.react-flow__section-shell-backdrop`
   - no crash overlay or obviously detached/blank section bodies are visible
+- focused verification for the canary shell-authority slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/graphSurfaceImplementation.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line`
+- CDP visual check is done for the canary shell-authority slice:
+  - `/settings` loads normally
+  - `All Settings` is active
+  - `settings-section__callableSectionDefault` is visible with no crash/error boundary
+  - one retained shell `canvas` is mounted
+  - the section shell still looks intact after the DOM shell was made transparent on the canvas path
+  - residual risk: this headless CDP pass confirmed mounted canvas presence and healthy shell appearance, but the transformed canvas content itself was not fully centered in the viewport for pixel-level inspection
 
 ## Preservation rule
 
@@ -107,7 +127,7 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Deepen the new `GraphSurface` seam by moving actual top-level shell chrome authority for the named canary `settings-section__callableSectionDefault` into the retained scene layer instead of only drawing a parallel underlay.
+1. Move the next visible static shell primitive for `settings-section__callableSectionDefault` into the retained scene layer, likely the header/body chrome split or another obvious non-editing shell detail, instead of stopping at flat resting fill/border ownership.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
 3. Keep the next product frontier constrained to top-level settings shell chrome only; do not reopen harness work or start row/body migration yet.
 4. Keep the append-only log current from the first running iteration onward.
@@ -124,7 +144,8 @@ The first product frontier is:
 
 - a real graph-surface composition boundary on the `settings` canary path
 - with one retained scene canvas now mounted under the DOM section nodes as the first renderer-owned static layer
-- next: move real shell/background ownership into that retained scene path for the named canary section instead of stopping at a parallel underlay
+- with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
+- next: move the next visible static shell detail into that retained scene path for the same named canary section instead of reopening broad DOM or harness work
 
 ## Hard rules
 

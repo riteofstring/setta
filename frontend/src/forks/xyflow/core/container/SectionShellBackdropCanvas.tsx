@@ -1,8 +1,9 @@
-import _ from "lodash";
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   useLocalStorage,
   useNodeInternals,
+  useProjectState,
   type ZustandNodeInternalsState,
 } from "state/definitions";
 import { containerStyle } from "../styles";
@@ -11,16 +12,41 @@ import {
   expandSectionShellBackdropBounds,
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
+import {
+  CANVAS_OWNED_SECTION_SHELL_ID,
+  isCanvasOwnedSectionShell,
+  resolveCanvasOwnedSectionShellChrome,
+} from "./sectionShellCanvasOwnership";
 
 const SHELL_BACKDROP_PADDING_PX = 24;
 
-const selectSectionShellBackdropScene = (state: ZustandNodeInternalsState) =>
-  buildSectionShellBackdropScene(state.x.values());
-
 export default function SectionShellBackdropCanvas() {
-  const scene = useNodeInternals(selectSectionShellBackdropScene, _.isEqual);
+  const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
   const darkMode = useLocalStorage((state) => state.darkMode);
+  const canvasOwnedShellStyleColor = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplIfPresent(
+      state,
+      CANVAS_OWNED_SECTION_SHELL_ID,
+    );
+    return typeof impl?.styleColor === "string" ? impl.styleColor : null;
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scene = useMemo(
+    () =>
+      buildSectionShellBackdropScene(nodes.values(), {
+        getFrameVisual: (node) => {
+          if (!isCanvasOwnedSectionShell(node.id)) {
+            return null;
+          }
+
+          return resolveCanvasOwnedSectionShellChrome({
+            darkMode,
+            styleColor: canvasOwnedShellStyleColor,
+          });
+        },
+      }),
+    [canvasOwnedShellStyleColor, darkMode, nodes],
+  );
 
   const expandedBounds = useMemo(() => {
     return scene.bounds
@@ -29,7 +55,7 @@ export default function SectionShellBackdropCanvas() {
           SHELL_BACKDROP_PADDING_PX,
         )
       : null;
-  }, [scene]);
+  }, [scene.bounds]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;

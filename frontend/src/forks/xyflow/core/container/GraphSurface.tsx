@@ -1,13 +1,13 @@
 import { memo } from "react";
 import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
 import EdgeRenderer from "./EdgeRenderer";
+import {
+  GraphSurfaceImplementationProvider,
+  type GraphSurfaceImplementation,
+} from "./graphSurfaceImplementation";
 import NodeRenderer from "./NodeRenderer";
 import SectionShellBackdropCanvas from "./SectionShellBackdropCanvas";
 import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
-
-export type GraphSurfaceImplementation =
-  | "legacy-dom"
-  | "canvas-shell-underlay";
 
 type GraphSurfaceProps = {
   readyToRender: boolean;
@@ -43,15 +43,24 @@ function GraphSurface({ readyToRender }: GraphSurfaceProps) {
   }
 
   const implementation = getDefaultGraphSurfaceImplementation();
+  let surface: JSX.Element;
 
   switch (implementation) {
     case "legacy-dom":
-      return <LegacyDomGraphSurface />;
+      surface = <LegacyDomGraphSurface />;
+      break;
     case "canvas-shell-underlay":
-      return <CanvasShellUnderlayGraphSurface />;
+      surface = <CanvasShellUnderlayGraphSurface />;
+      break;
     default:
       return implementation satisfies never;
   }
+
+  return (
+    <GraphSurfaceImplementationProvider value={implementation}>
+      {surface}
+    </GraphSurfaceImplementationProvider>
+  );
 }
 
 GraphSurface.displayName = "GraphSurface";

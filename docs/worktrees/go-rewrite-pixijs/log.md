@@ -279,3 +279,30 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move actual top-level shell chrome authority for `settings-section__callableSectionDefault` into the retained scene layer instead of stopping at the parallel underlay
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 014
+
+- Item: Move resting shell chrome authority for `settings-section__callableSectionDefault` into the retained canvas layer.
+- Status: `done`
+- Details:
+  - Added `frontend/src/forks/xyflow/core/container/graphSurfaceImplementation.tsx` so section chrome can read the active graph-surface implementation from the real composition boundary instead of via another forwarding seam.
+  - Added `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` plus `sectionShellCanvasOwnership.test.ts` to declare the canonical canvas-owned shell id, resolve default/style-color-aware canvas fill and stroke, and lock that logic with a focused node-environment Vitest file.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `sectionShellBackdrop.ts` so the retained backdrop scene accepts per-frame chrome overrides; the named callable canary now paints its resting shell fill/border from canvas-owned values instead of the generic parallel underlay palette.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCore.tsx` and `frontend/src/components/Utils/Resizable/CustomResizable.tsx` so only the canary section opts out of resting DOM shell chrome on the `canvas-shell-underlay` path while the legacy DOM implementation remains unchanged.
+  - The first Playwright run exposed a real regression on non-settings project routes: `SectionShellBackdropCanvas.tsx` called `getCurrEffectiveSectionImpl(...)` unconditionally for the canary id and crashed on `/round_lime`.
+  - Fixed that crash in the same slice by switching the canary lookup to `getCurrEffectiveSectionImplIfPresent(...)`, so project routes without the settings canary no longer trip the retained-canvas selector.
+  - Added a focused live check at `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` that loads `/settings`, activates `All Settings`, and verifies the canary section shell is canvas-owned while the retained shell canvas is mounted.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/graphSurfaceImplementation.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line`
+  - CDP visual check is done:
+    - `/settings` loaded normally
+    - `All Settings` was active
+    - `settings-section__callableSectionDefault` was visible with no crash/error boundary
+    - one retained shell `canvas` was mounted
+    - the section shell still looked intact after the DOM shell was made transparent on the canvas path
+    - residual risk: this headless pass confirmed shell integrity and mounted-canvas presence, but the transformed canvas content was not centered for a full pixel-level inspection
+- Next action:
+  - move the next visible static shell primitive for `settings-section__callableSectionDefault` into the retained scene layer, likely the header/body chrome split or another obvious non-editing shell detail, instead of reopening harness or broad DOM work
+LOOP_TERMINAL_MARKER: none

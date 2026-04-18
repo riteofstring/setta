@@ -7,12 +7,22 @@ export type SectionShellBackdropFrame = {
   width: number;
   height: number;
   fill: string | null;
+  stroke: string | null;
   zIndex: number;
 };
 
 export type SectionShellBackdropScene = {
   bounds: Rect | null;
   frames: Array<SectionShellBackdropFrame>;
+};
+
+type SectionShellBackdropFrameVisual = {
+  fill?: string | null;
+  stroke?: string | null;
+};
+
+type BuildSectionShellBackdropSceneOptions = {
+  getFrameVisual?: (node: Node) => SectionShellBackdropFrameVisual | null;
 };
 
 type PaintSectionShellBackdropOptions = {
@@ -35,6 +45,7 @@ const DARK_BACKDROP_PALETTE = {
 
 export function buildSectionShellBackdropScene(
   nodes: Iterable<Node>,
+  { getFrameVisual }: BuildSectionShellBackdropSceneOptions = {},
 ): SectionShellBackdropScene {
   const frames: Array<SectionShellBackdropFrame> = [];
   let minX = Number.POSITIVE_INFINITY;
@@ -57,6 +68,8 @@ export function buildSectionShellBackdropScene(
       continue;
     }
 
+    const frameVisual = getFrameVisual?.(node) ?? null;
+
     frames.push({
       id: node.id,
       x,
@@ -64,9 +77,11 @@ export function buildSectionShellBackdropScene(
       width,
       height,
       fill:
-        typeof node.style?.background === "string"
+        frameVisual?.fill ??
+        (typeof node.style?.background === "string"
           ? node.style.background
-          : null,
+          : null),
+      stroke: frameVisual?.stroke ?? null,
       zIndex: node.tempZIndex ?? node.zIndex,
     });
 
@@ -164,7 +179,7 @@ export function paintSectionShellBackdrop(
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = palette.stroke;
+    ctx.strokeStyle = frame.stroke ?? palette.stroke;
     beginRoundedRect(
       ctx,
       frameX,
