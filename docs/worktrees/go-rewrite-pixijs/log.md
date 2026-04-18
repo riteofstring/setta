@@ -155,6 +155,54 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 050
+
+- Item: Land the backend lightweight switch activator slice.
+- Status: `done`
+- Details:
+  - Chose the next real dense frontier from the handoff instead of reopening the closed `sectionSizingPolicy`, `gui`, or backend-dropdown lanes.
+  - Confirmed on the live runtime that `settings-section__backend` still carried `9` live `role="switch"` controls and `15` total buttons before this slice.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID` and `isCanvasOwnedSectionLightweightSwitch(...)`, so the backend switch-family lane is explicit at the ownership boundary instead of piggybacking on the older shell-only switch chrome path.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now routes backend `SwitchParam` rows through that helper on the `canvas-shell-underlay` path, and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now renders those owned rows with a lightweight non-button `div[role="switch"]` root marked by `data-canvas-owned-lightweight-switch="true"` while preserving the same thumb visuals and first-click toggle semantics.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts`
+  - The live backend canary now proves the new structural contract:
+    - all `9` backend switch rows mount lightweight `role="switch"` roots at rest
+    - those rows mount `0` `button[role="switch"]` nodes at rest while keeping one `role="switch"` control per row
+    - the owned `Autosave` row still toggles on the first click and restores to its original `aria-checked` / `data-state` value on the second click
+  - Recorded the follow-up dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-backend-lightweight-switch-activator-rerun.md`.
+  - Dense rerun outcome versus the prior backend lightweight resting-dropdown report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` stayed at `55`
+    - `buttonCount` dropped from `472` to `463`
+    - `raf.meanMs` stayed effectively flat (`102.7ms` -> `102.98ms`)
+    - `raf.p95Ms` improved from `216.6ms` to `200ms`
+    - `longTasks.totalMs` regressed slightly from `16512ms` to `16654ms`
+  - Interpretation:
+    - this was a real interactive-core plateau reduction, not another renderer seam lift or backend-only forwarding hop
+    - the backend switch-family lane is now closed at its useful ownership boundary
+    - the next frontier should be a shared lightweight action-button primitive or another cross-section value/editor primitive that can move the remaining `55` / `463` plateau
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-002/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.0s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-002/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.0s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 463`
+- CDP visual check is done:
+  - the supplied bootstrap token was rejected during the fresh headless DevTools pass, but the authenticated `/settings` session was already healthy and usable
+  - `All Settings` was active
+  - no crash or error overlay was visible
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__backend"]` was visible
+  - backend switch rows, including `Autosave`, still looked intact with no obvious blank value slot after the switch roots moved off `button`
+- Next action:
+  - keep the backend switch-family lane closed and target a shared lightweight action-button primitive or another cross-section value/editor primitive that can move the remaining `55` / `463` interactive-core plateau
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 049
 
 - Item: Extend the lightweight resting-dropdown path onto the dense `settings-section__gui` family.

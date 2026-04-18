@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
       | "legacy-dom",
   },
   dropdownProps: vi.fn(),
+  switchProps: vi.fn(),
   textInputProps: vi.fn(),
 }));
 
@@ -122,7 +123,13 @@ vi.mock("./SliderInput", () => ({
 }));
 
 vi.mock("./SwitchInput", () => ({
-  SwitchInput: () => null,
+  SwitchInput: (props: {
+    canvasOwnedTrack?: boolean;
+    lightweightActivator?: boolean;
+  }) => {
+    mocks.switchProps(props);
+    return <div data-testid="switch-input" />;
+  },
 }));
 
 vi.mock("./TextParamInput", () => ({
@@ -149,6 +156,7 @@ describe("ParamUI canvas-owned resting text", () => {
     mocks.state.waitingForResult = false;
     mocks.state.graphSurfaceImplementation = "legacy-dom";
     mocks.dropdownProps.mockReset();
+    mocks.switchProps.mockReset();
     mocks.textInputProps.mockReset();
   });
 
@@ -382,4 +390,25 @@ describe("ParamUI canvas-owned resting text", () => {
     );
     },
   );
+
+  it("uses the lightweight switch activator path for backend switch params on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.SwitchParam,
+      defaultVal: false,
+    };
+
+    renderToStaticMarkup(
+      <ParamUI
+        sectionId={BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
+        paramInfoId="settings-codeobj__backend__backend__autosave"
+        value="false"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.switchProps).toHaveBeenCalledTimes(1);
+    expect(mocks.switchProps.mock.calls[0][0].lightweightActivator).toBe(true);
+    expect(mocks.switchProps.mock.calls[0][0].canvasOwnedTrack).toBe(false);
+  });
 });

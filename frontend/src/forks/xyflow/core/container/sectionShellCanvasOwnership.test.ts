@@ -2,6 +2,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
   BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionArgsLabelRestingText,
@@ -14,6 +15,7 @@ import {
   isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
+  isCanvasOwnedSectionLightweightSwitch,
   isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionMetaControlDropdown,
   isCanvasOwnedSectionParamFilterUnderline,
@@ -252,6 +254,27 @@ describe("sectionShellCanvasOwnership", () => {
         codeObjType: CodeObjTypeEnum.TextParam,
         paramInfoId: "settings-codeobj__backend__backend__defaultTerminalShell",
         sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(false);
+  });
+
+  it("targets backend switch params for the lightweight switch activator lane", () => {
+    expect(
+      isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: CodeObjTypeEnum.SwitchParam,
+        sectionId: BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
+      }),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: CodeObjTypeEnum.SwitchParam,
+        sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       }),
     ).toBe(false);
   });

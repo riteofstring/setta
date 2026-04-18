@@ -1,6 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
+  isCanvasOwnedSectionLightweightSwitch,
   isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionRestingDropdown,
   isCanvasOwnedSectionRestingText,
@@ -98,6 +99,7 @@ type ParamUIState = {
 };
 
 type ParamUIRenderContext = ParamUIProps & {
+  canvasOwnedLightweightSwitch: boolean;
   canvasOwnedRestingDropdown: boolean;
   canvasOwnedSectionChrome: boolean;
   canvasOwnedRestingText: boolean;
@@ -390,6 +392,7 @@ function renderRotaryParam({
 }
 
 function renderSwitchParam({
+  canvasOwnedLightweightSwitch,
   canvasOwnedSectionChrome,
   value,
   onChange,
@@ -399,6 +402,7 @@ function renderSwitchParam({
 }: ParamUIRenderContext) {
   return (
     <SwitchParamConfigured
+      lightweightActivator={canvasOwnedLightweightSwitch}
       canvasOwnedTrack={canvasOwnedSectionChrome}
       value={value}
       defaultVal={paramUiState.defaultVal}
@@ -629,6 +633,12 @@ export function ParamUI({
   }
 
   const renderContext = {
+    canvasOwnedLightweightSwitch:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: paramUiState.codeObjType,
+        sectionId,
+      }),
     canvasOwnedRestingDropdown:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionRestingDropdown({
@@ -892,6 +902,7 @@ function DropzoneParamConfigured({
 }
 
 function SwitchParamConfigured({
+  lightweightActivator,
   canvasOwnedTrack,
   value,
   defaultVal,
@@ -899,6 +910,7 @@ function SwitchParamConfigured({
   onEscape,
   isDisabled,
 }: {
+  lightweightActivator: boolean;
   canvasOwnedTrack: boolean;
   value: boolean | string;
   defaultVal?: boolean | string;
@@ -912,6 +924,7 @@ function SwitchParamConfigured({
 
   return (
     <SwitchInput
+      lightweightActivator={lightweightActivator}
       canvasOwnedTrack={canvasOwnedTrack}
       value={value}
       defaultVal={defaultVal}

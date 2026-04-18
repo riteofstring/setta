@@ -13,6 +13,8 @@ export const GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__gui";
 export const BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__backend";
+export const BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID =
+  "settings-section__backend";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -117,6 +119,19 @@ export function isCanvasOwnedSectionRestingDropdown({
     ((sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
       sectionId === BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID) &&
       codeObjType === CodeObjTypeEnum.DropdownParam)
+  );
+}
+
+export function isCanvasOwnedSectionLightweightSwitch({
+  codeObjType,
+  sectionId,
+}: {
+  codeObjType: CodeObjTypeEnum;
+  sectionId: string;
+}) {
+  return (
+    sectionId === BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID &&
+    codeObjType === CodeObjTypeEnum.SwitchParam
   );
 }
 
