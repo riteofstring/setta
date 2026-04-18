@@ -15,7 +15,6 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "claude-agent-sdk==0.1.52",
-    "basedpyright==1.25.0",  # later versions were slower, so stick with this version
     "ruff==0.12.12",
 ]
 
@@ -96,3 +95,6 @@ artifacts = [
     "backend/setta/launcher_artifacts/assets/**",
     "backend/setta/go_bin/**",
 ]
+
+[tool.uv.sources]
+setta-basedpyright = { path = "plugins/setta-basedpyright" }
