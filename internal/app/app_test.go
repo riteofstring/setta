@@ -10849,6 +10849,76 @@ func TestAppRestartLanguageServerAppliesExplicitPythonDisable(t *testing.T) {
 	}
 }
 
+func TestAppRestartLanguageServerAllowsMixedLanguageProjectWithPythonSelection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	selectAppLanguageServer(t, app, "python", "setta-basedpyright")
+	seedAppLSPCodeSectionProjectWithSections(t, app, []appLSPCodeSectionFixture{
+		{SectionID: "runner", Language: projectstate.CodeLanguagePython, Source: "str."},
+		{SectionID: "shell", Language: projectstate.CodeLanguageBash, Source: "echo runner\n"},
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	completions := requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions before mixed-language restart")
+	}
+
+	restartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRestartLanguageServer, strings.NewReader("null"))
+	if err != nil {
+		t.Fatalf("new restart language server request: %v", err)
+	}
+	restartRequest.Header.Set("Content-Type", "application/json")
+	restartRequest.AddCookie(authCookie)
+
+	restartResponse, err := http.DefaultClient.Do(restartRequest)
+	if err != nil {
+		t.Fatalf("post restart language server: %v", err)
+	}
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200 for mixed-language project, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	completions = requestAppCodeAreaCompletion(
+		t,
+		server.URL,
+		authCookie,
+		"project-alpha",
+		"runner",
+		"str.",
+		4,
+	)
+	if len(completions) == 0 {
+		t.Fatal("expected Python completions after mixed-language restart")
+	}
+}
+
 func TestAppRestartLanguageServerRejectsWrongLanguageSelectionForCurrentProject(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -11991,46 +12061,71 @@ func seedAppLSPCodeSectionProjectWithSource(t *testing.T, app *App, source strin
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, source)
 }
 
+type appLSPCodeSectionFixture struct {
+	SectionID string
+	Language  projectstate.CodeLanguage
+	Source    string
+}
+
 func seedAppLSPCodeSectionProjectWithLanguage(t *testing.T, app *App, language projectstate.CodeLanguage, source string) {
 	t.Helper()
 
+	seedAppLSPCodeSectionProjectWithSections(t, app, []appLSPCodeSectionFixture{{
+		SectionID: "runner",
+		Language:  language,
+		Source:    source,
+	}})
+}
+
+func seedAppLSPCodeSectionProjectWithSections(t *testing.T, app *App, sections []appLSPCodeSectionFixture) {
+	t.Helper()
+
+	if len(sections) == 0 {
+		t.Fatal("at least one code section fixture is required")
+	}
+
+	sectionVariantMap := make(map[string]string, len(sections))
+	projectSections := make(map[string]projectstate.Section, len(sections))
+	sectionVariants := make(map[string]projectstate.SectionVariant, len(sections))
+	sectionImpls := make(map[string]projectstate.SectionImpl, len(sections))
+	for _, section := range sections {
+		variantID := section.SectionID + "-variant"
+		implID := section.SectionID + "-impl"
+		sectionVariantMap[section.SectionID] = variantID
+		projectSections[section.SectionID] = projectstate.Section{
+			ID:               section.SectionID,
+			Name:             section.SectionID,
+			VariantIDs:       []string{variantID},
+			DefaultVariantID: variantID,
+		}
+		sectionVariants[variantID] = projectstate.SectionVariant{
+			ID:     variantID,
+			ImplID: implID,
+		}
+		sectionImpls[implID] = projectstate.SectionImpl{
+			ID:   implID,
+			Kind: projectstate.SectionKindCode,
+			Code: &projectstate.CodeSectionImpl{
+				Language: section.Language,
+			},
+			Payload: mustAppJSON(t, map[string]any{
+				"id":           implID,
+				"type":         "Code",
+				"code":         section.Source,
+				"codeLanguage": string(section.Language),
+				"children":     []string{},
+			}),
+		}
+	}
+
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-			SectionVariantMap: map[string]string{
-				"runner": "runner-variant",
-			},
-			Sections: map[string]projectstate.Section{
-				"runner": {
-					ID:               "runner",
-					Name:             "Runner",
-					VariantIDs:       []string{"runner-variant"},
-					DefaultVariantID: "runner-variant",
-				},
-			},
-			SectionVariants: map[string]projectstate.SectionVariant{
-				"runner-variant": {
-					ID:     "runner-variant",
-					ImplID: "runner-impl",
-				},
-			},
-			SectionImpls: map[string]projectstate.SectionImpl{
-				"runner-impl": {
-					ID:   "runner-impl",
-					Kind: projectstate.SectionKindCode,
-					Code: &projectstate.CodeSectionImpl{
-						Language: language,
-					},
-					Payload: mustAppJSON(t, map[string]any{
-						"id":           "runner-impl",
-						"type":         "Code",
-						"code":         source,
-						"codeLanguage": string(language),
-						"children":     []string{},
-					}),
-				},
-			},
+			ID:                "project-alpha",
+			Name:              "Alpha",
+			SectionVariantMap: sectionVariantMap,
+			Sections:          projectSections,
+			SectionVariants:   sectionVariants,
+			SectionImpls:      sectionImpls,
 		}
 		document.DefaultProjectID = "project-alpha"
 		return document, nil

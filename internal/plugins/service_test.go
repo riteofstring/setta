@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -1111,6 +1112,66 @@ func TestServiceCommitBackendRuntimeRefreshClearsPendingState(t *testing.T) {
 	}
 	if len(committedSnapshot.Plugins) != 0 {
 		t.Fatalf("expected backend uninstall tombstone to clear after commit, got %#v", committedSnapshot.Plugins)
+	}
+}
+
+func TestServiceCommitBackendRuntimeRefreshKeepsPendingStateWhenSaveFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permissions do not reliably block AtomicWriteFile temp creation on windows")
+	}
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, newFixtureCandidateProvider(t, map[string]fixtureCandidateSpec{
+		"pypi:setta-fixture-backend==0.1.0": {
+			FixtureName: "backend",
+			Version:     "0.1.0",
+		},
+	}), config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-backend==0.1.0",
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install backend plugin: %v", err)
+	}
+	if !installResult.RestartRequired || installResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected backend install to require restart before commit, got %#v", installResult)
+	}
+
+	if err := os.Chmod(roots.settaFilesRoot, 0o555); err != nil {
+		t.Fatalf("chmod setta_files root read-only: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(roots.settaFilesRoot, 0o755); err != nil {
+			t.Fatalf("restore setta_files root permissions: %v", err)
+		}
+	})
+
+	if _, err := service.CommitBackendRuntimeRefresh(); err == nil {
+		t.Fatal("expected commit backend runtime refresh to fail when plugins state cannot be saved")
+	}
+
+	if err := os.Chmod(roots.settaFilesRoot, 0o755); err != nil {
+		t.Fatalf("restore setta_files root permissions before verification: %v", err)
+	}
+
+	liveSnapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan after failed commit: %v", err)
+	}
+	liveEntry := mustFindDiscoveredPlugin(t, liveSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if liveEntry.State != PluginRuntimeStatePendingRestart || !liveEntry.RestartRequired {
+		t.Fatalf("expected persisted state to remain pending_restart after failed commit, got %#v", liveEntry)
+	}
+
+	previewSnapshot, err := service.PreviewBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("preview after failed commit: %v", err)
+	}
+	previewEntry := mustFindDiscoveredPlugin(t, previewSnapshot.Plugins, "setta-fixture-backend", PluginScopeWorkspace)
+	if previewEntry.State != PluginRuntimeStateActive || previewEntry.RestartRequired {
+		t.Fatalf("expected preview snapshot to stay active after failed commit, got %#v", previewEntry)
 	}
 }
 

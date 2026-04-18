@@ -419,6 +419,61 @@ func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessi
 	}
 }
 
+func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessionAfterCommitFailure(t *testing.T) {
+	t.Parallel()
+
+	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
+	nextSpecs := []lsp.LanguageServerSpec{{
+		PluginID:   "setta-basedpyright",
+		Name:       "basedpyright",
+		LanguageID: "python",
+		Command:    "python3",
+	}}
+	commitErr := errors.New("commit failed")
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs:       nextSpecs,
+		commitErr:       commitErr,
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+		lspSpecs:  lsp.CloneLanguageServerSpecs(currentSpecs),
+	}
+
+	restartCalls := 0
+	err := refresher.RestartProject(
+		context.Background(),
+		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func(context.Context) error {
+			restartCalls++
+			return nil
+		},
+	)
+	if !errors.Is(err, commitErr) {
+		t.Fatalf("expected commit error %v, got %v", commitErr, err)
+	}
+	if restartCalls != 2 {
+		t.Fatalf("expected restart callback to run twice for post-commit rollback restore, got %d calls", restartCalls)
+	}
+	if service.commitCalls != 1 {
+		t.Fatalf("expected one commit attempt, got %d calls", service.commitCalls)
+	}
+	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
+		t.Fatalf("expected refresher specs to roll back after commit failure, got %#v", refresher.lspSpecs)
+	}
+	if len(router.replacedSpecs) != 2 {
+		t.Fatalf("expected apply and rollback replacements, got %#v", router.replacedSpecs)
+	}
+	if !reflect.DeepEqual(router.replacedSpecs[0], nextSpecs) {
+		t.Fatalf("expected staged specs to be applied first, got %#v", router.replacedSpecs[0])
+	}
+	if !reflect.DeepEqual(router.replacedSpecs[1], currentSpecs) {
+		t.Fatalf("expected rollback to restore previous specs, got %#v", router.replacedSpecs[1])
+	}
+}
+
 func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessionWithInternalContext(t *testing.T) {
 	t.Parallel()
 
@@ -465,6 +520,73 @@ func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessi
 	}
 	if !reflect.DeepEqual(refresher.lspSpecs, currentSpecs) {
 		t.Fatalf("expected refresher specs to roll back, got %#v", refresher.lspSpecs)
+	}
+}
+
+func TestPluginBackendRuntimeRefresherRestartProjectAllowsMixedLanguageProjectsWhenManagedLanguageIsConfigured(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
+	if _, err := settingsRuntime.MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
+		document["languageServer"] = map[string]any{
+			"selectedByLanguage": map[string]any{
+				"python": selectedPluginID,
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed settings runtime: %v", err)
+	}
+
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs: []lsp.LanguageServerSpec{{
+			PluginID:   "setta-basedpyright",
+			Name:       "basedpyright",
+			LanguageID: "python",
+			Command:    "python3",
+		}},
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		settings:  settingsRuntime,
+		lspRouter: router,
+	}
+
+	restartCalls := 0
+	err := refresher.RestartProject(
+		context.Background(),
+		fixtureRestartProjectDocumentWithLanguages(
+			t,
+			projectstate.CodeLanguagePython,
+			projectstate.CodeLanguageBash,
+		),
+		func(context.Context) error {
+			restartCalls++
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected mixed-language restart to succeed, got %v", err)
+	}
+	if restartCalls != 1 {
+		t.Fatalf("expected one restart callback, got %d calls", restartCalls)
+	}
+	if service.commitCalls != 1 {
+		t.Fatalf("expected one commit call, got %d calls", service.commitCalls)
+	}
+	if len(router.replacedSpecs) != 1 {
+		t.Fatalf("expected one spec replacement, got %#v", router.replacedSpecs)
+	}
+	if len(router.replacedSpecs[0]) != 1 || router.replacedSpecs[0][0].LanguageID != "python" {
+		t.Fatalf("expected python-only spec application, got %#v", router.replacedSpecs[0])
 	}
 }
 
@@ -620,50 +742,66 @@ func TestPluginBackendRuntimeRefresherRestartProjectAllowsExplicitDisableWithout
 func fixtureRestartProjectDocument(t *testing.T, language projectstate.CodeLanguage) projectstate.Document {
 	t.Helper()
 
+	return fixtureRestartProjectDocumentWithLanguages(t, language)
+}
+
+func fixtureRestartProjectDocumentWithLanguages(t *testing.T, languages ...projectstate.CodeLanguage) projectstate.Document {
+	t.Helper()
+
+	if len(languages) == 0 {
+		t.Fatal("at least one project language is required")
+	}
+
+	sectionVariantMap := make(map[string]string, len(languages))
+	sections := make(map[string]projectstate.Section, len(languages))
+	sectionVariants := make(map[string]projectstate.SectionVariant, len(languages))
+	sectionImpls := make(map[string]projectstate.SectionImpl, len(languages))
+	for index, language := range languages {
+		sectionID := fmt.Sprintf("runner-%d", index)
+		variantID := sectionID + "-variant"
+		implID := sectionID + "-impl"
+		sectionVariantMap[sectionID] = variantID
+		sections[sectionID] = projectstate.Section{
+			ID:               sectionID,
+			Name:             fmt.Sprintf("Runner %d", index+1),
+			VariantIDs:       []string{variantID},
+			DefaultVariantID: variantID,
+		}
+		sectionVariants[variantID] = projectstate.SectionVariant{
+			ID:     variantID,
+			ImplID: implID,
+		}
+		sectionImpls[implID] = projectstate.SectionImpl{
+			ID:   implID,
+			Kind: projectstate.SectionKindCode,
+			Payload: mustRestartProjectJSON(t, map[string]any{
+				"id":           implID,
+				"type":         "Code",
+				"code":         fmt.Sprintf("print('%s')\n", language),
+				"codeLanguage": string(language),
+				"children":     []string{},
+			}),
+			Code: &projectstate.CodeSectionImpl{
+				Language: language,
+				Binding: &projectstate.CodeFileBinding{
+					Path:       fmt.Sprintf("code/%s.txt", sectionID),
+					AccessMode: projectstate.CodeFileAccessModeReadWrite,
+				},
+			},
+		}
+	}
+
 	document, err := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-				SectionVariantMap: map[string]string{
-					"runner": "runner-variant",
-				},
-				Sections: map[string]projectstate.Section{
-					"runner": {
-						ID:               "runner",
-						Name:             "Runner",
-						VariantIDs:       []string{"runner-variant"},
-						DefaultVariantID: "runner-variant",
-					},
-				},
-				SectionVariants: map[string]projectstate.SectionVariant{
-					"runner-variant": {
-						ID:     "runner-variant",
-						ImplID: "runner-impl",
-					},
-				},
-				SectionImpls: map[string]projectstate.SectionImpl{
-					"runner-impl": {
-						ID:   "runner-impl",
-						Kind: projectstate.SectionKindCode,
-						Payload: mustRestartProjectJSON(t, map[string]any{
-							"id":           "runner-impl",
-							"type":         "Code",
-							"code":         "print('runner')\n",
-							"codeLanguage": string(language),
-							"children":     []string{},
-						}),
-						Code: &projectstate.CodeSectionImpl{
-							Language: language,
-							Binding: &projectstate.CodeFileBinding{
-								Path:       fmt.Sprintf("code/runner-%s.txt", language),
-								AccessMode: projectstate.CodeFileAccessModeReadWrite,
-							},
-						},
-					},
-				},
+				ID:                "project-alpha",
+				Name:              "Alpha",
+				SectionVariantMap: sectionVariantMap,
+				Sections:          sections,
+				SectionVariants:   sectionVariants,
+				SectionImpls:      sectionImpls,
 			},
 		},
 	}.Normalized()
@@ -687,6 +825,7 @@ type stubPluginBackendRefreshService struct {
 	previewSnapshot plugins.DiscoverySnapshot
 	nextSpecs       []lsp.LanguageServerSpec
 	commitCalls     int
+	commitErr       error
 }
 
 func (s *stubPluginBackendRefreshService) Rescan() (plugins.DiscoverySnapshot, error) {
@@ -699,7 +838,7 @@ func (s *stubPluginBackendRefreshService) PreviewBackendRuntimeRefresh() (plugin
 
 func (s *stubPluginBackendRefreshService) CommitBackendRuntimeRefresh() (plugins.DiscoverySnapshot, error) {
 	s.commitCalls++
-	return s.previewSnapshot, nil
+	return s.previewSnapshot, s.commitErr
 }
 
 func (s *stubPluginBackendRefreshService) LanguageServerSpecsForSnapshot(

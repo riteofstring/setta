@@ -127,9 +127,7 @@ func runLanguageServerPluginContractSuite(t *testing.T, target languageServerCon
 		clearedSelection := map[string]*string{
 			target.languageID: nil,
 		}
-		if specs, err := harness.service.LanguageServerSpecs(context.Background(), clearedSelection); err != nil {
-			t.Fatalf("load cleared language server specs: %v", err)
-		} else if len(specs) != 0 {
+		if specs := loadSelectedLanguageServerSpecs(t, harness.service, clearedSelection); len(specs) != 0 {
 			t.Fatalf("expected cleared selection to have no active specs, got %#v", specs)
 		}
 
@@ -242,10 +240,7 @@ func newLanguageServerContractHarness(t *testing.T, target languageServerContrac
 	selectedByLanguage := map[string]*string{
 		target.languageID: stringPointer(target.pluginID),
 	}
-	specs, err := service.LanguageServerSpecs(context.Background(), selectedByLanguage)
-	if err != nil {
-		t.Fatalf("load language server specs for %s: %v", target.pluginID, err)
-	}
+	specs := loadSelectedLanguageServerSpecs(t, service, selectedByLanguage)
 	router, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot:   roots.workspaceRoot,
 		AdditionalSpecs: specs,
@@ -277,10 +272,7 @@ func newLanguageServerContractHarness(t *testing.T, target languageServerContrac
 func (h *languageServerContractHarness) refreshSelectedSpecs(t *testing.T, selectedByLanguage map[string]*string) []lsp.LanguageServerSpec {
 	t.Helper()
 
-	specs, err := h.service.LanguageServerSpecs(context.Background(), selectedByLanguage)
-	if err != nil {
-		t.Fatalf("load language server specs: %v", err)
-	}
+	specs := loadSelectedLanguageServerSpecs(t, h.service, selectedByLanguage)
 	if err := h.router.ReplaceAdditionalSpecs(h.ctx, specs); err != nil {
 		t.Fatalf("replace router specs: %v", err)
 	}

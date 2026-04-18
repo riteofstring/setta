@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"setta/internal/lsp"
 )
 
 const (
@@ -91,6 +93,24 @@ func rewritePluginManifest(t *testing.T, pluginRoot string, mutate func(map[stri
 	}
 	mutate(manifest)
 	writeJSONFile(t, manifestPath, manifest)
+}
+
+func loadSelectedLanguageServerSpecs(
+	t *testing.T,
+	service *Service,
+	selectedByLanguage map[string]*string,
+) []lsp.LanguageServerSpec {
+	t.Helper()
+
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins before loading language server specs: %v", err)
+	}
+	specs, err := service.LanguageServerSpecsForSnapshot(snapshot, selectedByLanguage)
+	if err != nil {
+		t.Fatalf("load language server specs: %v", err)
+	}
+	return specs
 }
 
 func writeJSONFile(t *testing.T, path string, payload any) {

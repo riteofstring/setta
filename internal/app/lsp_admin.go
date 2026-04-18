@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 )
 
@@ -14,7 +13,6 @@ type projectLSPAdmin interface {
 }
 
 type runtimeLSPRefresher interface {
-	Refresh(context.Context) (plugins.DiscoverySnapshot, error)
 	RestartProject(context.Context, projectstate.Document, func(context.Context) error) error
 }
 

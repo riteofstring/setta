@@ -1,32 +1,12 @@
 package plugins
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
 
 	"setta/internal/lsp"
 )
-
-func (s *Service) LanguageServerSpecs(_ context.Context, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	if s == nil {
-		return nil, ErrWorkspaceRootRequired
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	snapshot, err := s.rescanLocked()
-	if err != nil {
-		return nil, err
-	}
-	state, err := s.store.LoadPluginsState()
-	if err != nil {
-		return nil, err
-	}
-	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.store.settaFilesRoot)
-}
 
 func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
 	if s == nil {

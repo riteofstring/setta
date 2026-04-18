@@ -1,3 +1,34 @@
+## 2026-04-18 03:42:50 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had three concrete regressions: mixed-language workspaces could get a false `language_server_not_configured` on `restartLanguageServer`, post-restart commit failure could split the live project LSP session from router/persisted plugin state, and the standard repo Python install path no longer installed the `defaults` lane that owns the first-party Python LSP plugin.
+- I implemented the fixes directly and simplified the surrounding code instead of preserving extra dead paths for test convenience.
+
+Fixes applied:
+- Reworked `internal/app/plugin_backend_runtime_refresh.go` so restart validation only considers project languages the restart is actually responsible for: `python`, languages already applied, languages present in the next spec set, or languages with an explicit selection entry. That preserves the explicit `null` disable flow while allowing Python+Bash/JS projects to restart a valid Python server without a false `409`.
+- Tightened the same restart path so a commit failure after a successful live restart now restores the previous project session as well as rolling runtime/spec state back. Combined with the service-side transactional commit below, the restart boundary is once again all-or-nothing.
+- Reworked `internal/plugins/service.go` so `CommitBackendRuntimeRefresh()` builds the post-clear snapshot before saving `PendingRestartBackendPluginIDs`. A save failure now leaves persisted pending state untouched instead of clearing it before the refresh commit is known-good.
+- Updated `init_env.sh` so the standard repo Python setup installs `--extra defaults` in addition to `source` and `dev`, matching the branch’s pluginized Python LSP ownership.
+- Removed the dead `Refresh(...)` requirement from `internal/app/lsp_admin.go` and removed the unused production `Service.LanguageServerSpecs(...)` entrypoint so tests now follow the same snapshot-owned language-server-spec path as production code.
+
+Tests added or upgraded:
+- Go unit coverage for mixed-language restart admission, restore-after-commit-failure, and the trimmed workspace LSP admin/runtime interface.
+- Go integration coverage for `POST /api/restartLanguageServer` succeeding in a Python+Bash project with a valid selected Python plugin.
+- Go plugin service coverage for transactional backend-runtime commit behavior when saving plugins state fails.
+- Python script-wiring coverage for repo Python installs and dependency refreshes now requiring `--extra defaults`.
+- No Playwright coverage was added in this pass because the regressions were backend/runtime and install-path issues rather than browser-only behavior; the real restart regression is covered at the Go HTTP integration layer.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceCommitBackendRuntimeRefresh|TestServicePreviewBackendRuntimeRefreshOmitsPendingRestartState|TestServiceLanguageServerSpecs|TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit|TestLanguageServerContracts'`
+- `./scripts/go.sh test ./internal/app -run 'TestWorkspaceLSPAdmin|TestPluginBackendRuntimeRefresherRestartProject|TestAppRestartLanguageServerAllowsMixedLanguageProjectWithPythonSelection'`
+- `source activate.sh && pytest tests/start/test_dev_install_script_wiring.py tests/start/test_supply_chain_scripts.py -q`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- Requested repo generation and quality verification completed successfully after this review pass.
+
 ## 2026-04-18 03:13:20 PDT
 
 Summary:

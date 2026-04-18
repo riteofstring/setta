@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"setta/internal/lsp"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 )
 
@@ -30,16 +29,10 @@ func (s *stubProjectLSPAdmin) TypeCheckProject(_ context.Context, _ projectstate
 }
 
 type stubRuntimeLSPRefresher struct {
-	refreshCalls int
-	refreshErr   error
 	hasSpecs     bool
 	restartCalls int
 	restartCtx   context.Context
-}
-
-func (s *stubRuntimeLSPRefresher) Refresh(_ context.Context) (plugins.DiscoverySnapshot, error) {
-	s.refreshCalls++
-	return plugins.DiscoverySnapshot{}, s.refreshErr
+	restartErr   error
 }
 
 func (s *stubRuntimeLSPRefresher) RestartProject(
@@ -48,8 +41,8 @@ func (s *stubRuntimeLSPRefresher) RestartProject(
 	restart func(context.Context) error,
 ) error {
 	s.restartCalls++
-	if s.refreshErr != nil {
-		return s.refreshErr
+	if s.restartErr != nil {
+		return s.restartErr
 	}
 	if !s.hasSpecs {
 		return lsp.ErrLanguageServerNotConfigured
