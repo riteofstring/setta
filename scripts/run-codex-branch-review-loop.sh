@@ -175,6 +175,26 @@ set_current_status() {
   fi
 }
 
+run_with_relaxed_errexit() {
+  local had_errexit="0"
+  local command_exit_code="0"
+
+  if [[ $- == *e* ]]; then
+    had_errexit="1"
+  fi
+
+  set +e
+  "$@"
+  command_exit_code="$?"
+  if [[ "${had_errexit}" == "1" ]]; then
+    set -e
+  else
+    set +e
+  fi
+
+  return "${command_exit_code}"
+}
+
 cleanup_review_stage_artifacts() {
   local artifact_path=""
 
@@ -538,10 +558,9 @@ run_codex_command() {
   codex_timed_out="0"
 
   if [[ "${inactivity_timeout_seconds}" -eq 0 ]]; then
-    set +e
-    bash -lc "${codex_command}" < "${prompt_path}" > "${transcript_path}" 2>&1
+    run_with_relaxed_errexit \
+      bash -lc "${codex_command}" < "${prompt_path}" > "${transcript_path}" 2>&1
     codex_exit_code="$?"
-    set -e
     return
   fi
 
@@ -578,19 +597,13 @@ run_codex_command() {
   done
 
   if [[ "${codex_timed_out}" != "1" ]]; then
-    set +e
-    wait "${codex_pid}"
+    run_with_relaxed_errexit wait "${codex_pid}"
     codex_exit_code="$?"
-    set -e
   else
-    set +e
-    wait "${codex_pid}" >/dev/null 2>&1
-    set -e
+    run_with_relaxed_errexit wait "${codex_pid}" >/dev/null 2>&1 || true
   fi
 
-  set +e
-  wait "${transcript_writer_pid}" >/dev/null 2>&1
-  set -e
+  run_with_relaxed_errexit wait "${transcript_writer_pid}" >/dev/null 2>&1 || true
   rm -f "${fifo_path}"
 }
 
@@ -607,8 +620,6 @@ build_codex_command() {
       codex
       exec
       resume
-      --cd
-      "${root_dir}"
       --output-last-message
       "${response_file}"
     )

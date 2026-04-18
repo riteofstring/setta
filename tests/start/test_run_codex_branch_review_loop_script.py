@@ -600,7 +600,117 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     calls = calls_file.read_text(encoding="utf-8")
     assert calls.count("call:exec ") == 7
     assert calls.count("call:exec resume") == 2
-    assert calls.count(f"--cd {repo_dir}") == 7
+    assert calls.count(f"--cd {repo_dir}") == 5
+
+
+def test_branch_review_loop_recovers_after_fix_session_failure(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "output"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "calls.txt"
+    output_dir.mkdir()
+    bin_dir.mkdir()
+
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+resume_mode="0"
+json_mode="0"
+prompt="$(cat)"
+
+printf 'call:%s\\n' "$*" >> "{calls_file}"
+printf 'prompt:%s\\n===\\n' "${{prompt}}" >> "{calls_file}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      response_file="$2"
+      shift 2
+      ;;
+    --json)
+      json_mode="1"
+      shift
+      ;;
+    resume)
+      resume_mode="1"
+      shift
+      ;;
+    --color|--cd|--model|--config)
+      shift 2
+      ;;
+    --dangerously-bypass-approvals-and-sandbox|--ephemeral|never|-)
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [[ "${{resume_mode}}" == "1" ]]; then
+  echo "simulated fix-stage failure" >&2
+  exit 2
+fi
+
+if [[ "${{json_mode}}" == "1" ]]; then
+  printf '{{"type":"thread.started","thread_id":"thread-fix-failure"}}\\n'
+  cat > "${{response_file}}" <<'EOR'
+CONSOLIDATED_STATUS: FINDINGS_PRESENT
+
+Consolidated finding: README should be updated.
+EOR
+  exit 0
+fi
+
+printf 'review output for %s\\n' "$(basename "${{response_file}}")" > "${{response_file}}"
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--post-commit-settle-seconds",
+            "0",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == "failure:fix"
+    assert (output_dir / "state" / "status.txt").read_text(encoding="utf-8").strip() == "retrying:failure:fix"
+    assert (repo_dir / "review1.md").exists() is False
+    assert (repo_dir / "review2.md").exists() is False
+    assert (repo_dir / "review3.md").exists() is False
+    status = subprocess.run(
+        ["git", "status", "--short"],
+        cwd=repo_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert status.stdout.strip() == ""
+    loop_log = (output_dir / "loop.log").read_text(encoding="utf-8")
+    assert "Fix phase failed; resetting to HEAD and retrying." in loop_log
+    calls = calls_file.read_text(encoding="utf-8")
+    assert calls.count("call:exec ") == 5
+    assert calls.count("call:exec resume") == 1
+    assert calls.count(f"--cd {repo_dir}") == 4
 
 
 def test_branch_review_loop_stops_repo_dev_sessions_between_iterations(
