@@ -733,3 +733,26 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep `settings-section__dictSectionDefault` as the active named lane and target the remaining dict filter/search chrome beyond the underline itself, while keeping filter text/editing DOM-owned until there is a concrete reason to move more of that surface
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 031
+
+- Item: Close the dict filter/search micro-lane at its current ownership boundary on `settings-section__dictSectionDefault`.
+- Status: `done`
+- Details:
+  - Re-read `frontend/src/components/Section/SectionParts/KwargsControls.tsx` and used a fresh live inventory on `/settings` -> `All Settings` to avoid opening a third dict filter-row ownership slice by inertia after the underline/icon passes.
+  - The current filter row on the `canvas-shell-underlay` path is now reduced to:
+    - the live `search` wrapper plus the live `input#settings-section__dictSectionDefault-args-filter` editor core as the only visible DOM for that row
+    - the static `i.gg-sort-az` icon and underline `span` still mounted only as hidden handoff surfaces with `opacity: 0`
+    - the adjacent `Param Filter` label row already hidden on the DOM side because it rides the shared retained-text lane
+  - Outcome: no default-visible non-editor filter/search chrome still remains DOM-owned on this dict lane, so the filter/search micro-lane should be treated as complete at this ownership boundary instead of manufacturing another filter-row hop.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe still passed on the live worktree runtime after the closure inventory
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active
+    - `.react-flow__section-shell-backdrop canvas` was mounted and healthy
+    - `section[data-section-id="settings-section__dictSectionDefault"]` was present on the live surface
+    - the visible filter/search row was limited to the live input/editor core; the static icon, underline, and `Param Filter` label remained in DOM only as hidden handoff surfaces on the canvas path
+- Next action:
+  - keep `settings-section__dictSectionDefault` as the named lane, but move the next pass to any remaining default-visible dict-specific inactive chrome outside the filter row; if only live interactive cores remain there too, close the broader dict lane instead of opening another micro-slice
+LOOP_TERMINAL_MARKER: none

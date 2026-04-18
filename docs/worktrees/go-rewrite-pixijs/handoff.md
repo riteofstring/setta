@@ -394,6 +394,18 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `.react-flow__section-shell-backdrop canvas` was mounted
   - `section[data-section-id="settings-section__dictSectionDefault"]` was present and visible
   - the dict filter/search row looked intact after the static filter icon moved to retained canvas ownership
+- The dict filter/search micro-lane is now closed at its useful ownership boundary:
+  - re-read `frontend/src/components/Section/SectionParts/KwargsControls.tsx` and ran a fresh live inventory on `settings-section__dictSectionDefault` instead of opening a third filter-row ownership hop after the underline/icon slices
+  - on the `canvas-shell-underlay` path, the row now contains only the live `search` wrapper plus the live `input#settings-section__dictSectionDefault-args-filter` editor core as visible DOM; the static `gg-sort-az` icon and underline span remain mounted only as hidden handoff surfaces with `opacity: 0`
+  - the adjacent `Param Filter` label row is also already hidden on the DOM side because it rides the shared retained-text lane, so there is no remaining default-visible non-editor filter/search chrome still DOM-owned on this section
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe still passes on the live worktree runtime while the lane-closure inventory confirms the remaining visible filter-row DOM is only the live editor core
+- CDP visual check is done for the dict filter/search lane-closure slice:
+  - `/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted and healthy
+  - `section[data-section-id="settings-section__dictSectionDefault"]` was present on the live surface
+  - the visible filter/search row was limited to the live `input#settings-section__dictSectionDefault-args-filter` editor core; the static icon, underline, and `Param Filter` label remained in DOM only as hidden handoff surfaces on the canvas path
 
 ## Preservation rule
 
@@ -422,9 +434,9 @@ That leaves one primary architectural move:
 
 1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass plus the dict filter underline/icon slices are now landed there, so the next pass should avoid reopening shared-family expansion by inertia.
+3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass plus the dict filter/search micro-lane are now closed there, so the next pass should avoid reopening shared-family expansion or the filter row by inertia.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Treat the dict filter underline and icon slices as complete; the next pass should re-inventory the exact remaining default-visible non-editor filter/search chrome and close this micro-lane if only the live input/editor core remains, rather than manufacturing another ownership hop.
+5. Treat the dict filter/search micro-lane as closed; the next pass should inventory the remaining default-visible dict-specific inactive chrome outside that row and either land one real product slice or close the broader dict lane if only live interactive cores remain.
 6. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -450,7 +462,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass plus the dict filter underline/icon slices as done, and re-inventory the remaining default-visible non-editor filter/search chrome before deciding whether this dict micro-lane is already complete at its useful boundary
+- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass plus the dict filter/search micro-lane as closed, and inventory the remaining default-visible dict-specific inactive chrome outside that row before opening another dict-specific ownership slice
 
 ## Hard rules
 
