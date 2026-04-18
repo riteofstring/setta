@@ -7,9 +7,11 @@ export type SectionShellCanvasChrome = {
   callableToolbarDivider: string;
   callableToolbarFill: string;
   fill: string;
-  stroke: string;
   headerFill: string;
   headerDivider: string;
+  pinnedParamsDivider: string;
+  pinnedParamsFill: string;
+  stroke: string;
 };
 
 const DEFAULT_LIGHT_SECTION_SHELL_CANVAS_CHROME = {
@@ -18,6 +20,8 @@ const DEFAULT_LIGHT_SECTION_SHELL_CANVAS_CHROME = {
   fill: "hsl(222, 28%, 95%)",
   headerDivider: "hsl(220, 24%, 86%)",
   headerFill: "hsl(220, 33%, 98%)",
+  pinnedParamsDivider: "#ffffff",
+  pinnedParamsFill: "#ffffff",
   stroke: "#ffffff",
 } satisfies SectionShellCanvasChrome;
 
@@ -27,6 +31,8 @@ const DEFAULT_DARK_SECTION_SHELL_CANVAS_CHROME = {
   fill: "hsl(220, 25%, 8.5%)",
   headerDivider: "hsl(219, 24%, 18%)",
   headerFill: "hsl(220, 24%, 12%)",
+  pinnedParamsDivider: "hsl(219, 26%, 23%)",
+  pinnedParamsFill: "hsl(220, 24%, 12%)",
   stroke: "hsl(219, 26%, 23%)",
 } satisfies SectionShellCanvasChrome;
 
@@ -56,6 +62,8 @@ export function resolveCanvasOwnedSectionShellChrome({
         fill: theme.bg,
         headerDivider: theme.border,
         headerFill: theme.panelBg,
+        pinnedParamsDivider: theme.border,
+        pinnedParamsFill: theme.panelBg,
         stroke: theme.border,
       };
     }

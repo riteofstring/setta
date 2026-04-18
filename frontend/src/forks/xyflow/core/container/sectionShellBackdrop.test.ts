@@ -53,7 +53,7 @@ function createMockCanvasContext(): MockCanvasContext {
 }
 
 describe("sectionShellBackdrop", () => {
-  it("carries canary header chrome metadata into the retained scene", () => {
+  it("carries canary header and detail-band metadata into the retained scene", () => {
     const scene = buildSectionShellBackdropScene(
       [
         createNode({
@@ -68,14 +68,21 @@ describe("sectionShellBackdrop", () => {
               cornerRadius: 12,
               divider: "#ffffff",
               fill: "#fbfcff",
-              height: 64,
-              offsetY: 56,
+              height: 20,
+              offsetY: 24,
+            },
+            {
+              cornerRadius: 0,
+              divider: "#f1f5f9",
+              fill: "#ffffff",
+              height: 24,
+              offsetY: 48,
             },
           ],
           fill: "#f5f7fb",
           headerDivider: "#d4dae5",
           headerFill: "#fcfdff",
-          headerHeight: 120,
+          headerHeight: 20,
           stroke: "#ffffff",
         }),
       },
@@ -85,30 +92,37 @@ describe("sectionShellBackdrop", () => {
       expect.objectContaining({
         detailBands: [
           {
-            cornerRadius: 12,
+            cornerRadius: 10,
             divider: "#ffffff",
             fill: "#fbfcff",
+            height: 20,
+            offsetY: 24,
+          },
+          {
+            cornerRadius: 0,
+            divider: "#f1f5f9",
+            fill: "#ffffff",
             height: 24,
-            offsetY: 56,
+            offsetY: 48,
           },
         ],
         fill: "#f5f7fb",
         headerDivider: "#d4dae5",
         headerFill: "#fcfdff",
-        headerHeight: 80,
+        headerHeight: 20,
         stroke: "#ffffff",
       }),
     ]);
   });
 
-  it("paints a callable toolbar band and divider inside the retained shell", () => {
+  it("paints callable toolbar and pinned-params bands inside the retained shell", () => {
     const context = createMockCanvasContext();
 
     paintSectionShellBackdrop(
       context,
       {
         bounds: {
-          height: 120,
+          height: 160,
           width: 160,
           x: 10,
           y: 20,
@@ -123,12 +137,19 @@ describe("sectionShellBackdrop", () => {
                 height: 32,
                 offsetY: 40,
               },
+              {
+                cornerRadius: 0,
+                divider: "#f1f5f9",
+                fill: "#ffffff",
+                height: 40,
+                offsetY: 72,
+              },
             ],
             fill: "#f5f7fb",
             headerDivider: "#d4dae5",
             headerFill: "#fcfdff",
             headerHeight: 24,
-            height: 120,
+            height: 160,
             id: "settings-section__callableSectionDefault",
             stroke: "#ffffff",
             width: 160,
@@ -147,8 +168,11 @@ describe("sectionShellBackdrop", () => {
 
     expect(context.fillRect).toHaveBeenCalledWith(24, 24, 160, 24);
     expect(context.roundRect).toHaveBeenNthCalledWith(3, 24, 64, 160, 32, 12);
+    expect(context.roundRect).toHaveBeenNthCalledWith(4, 24, 96, 160, 40, 0);
     expect(context.moveTo).toHaveBeenNthCalledWith(2, 36, 96);
     expect(context.lineTo).toHaveBeenNthCalledWith(2, 172, 96);
+    expect(context.moveTo).toHaveBeenNthCalledWith(3, 32, 136);
+    expect(context.lineTo).toHaveBeenNthCalledWith(3, 176, 136);
   });
 
   it("paints a clipped header band and divider before the outer stroke", () => {

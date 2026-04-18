@@ -9,6 +9,7 @@ import {
 } from "state/definitions";
 import {
   getKwargsControlsHeightKey,
+  getPinnedParamsAreaHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
@@ -47,6 +48,7 @@ export default function SectionShellBackdropCanvas() {
   const {
     canvasOwnedShellHeaderHeight,
     canvasOwnedShellKwargsControlsHeight,
+    canvasOwnedShellPinnedParamsHeight,
     canvasOwnedShellSearchHeight,
   } = useTemporaryMiscState(
     (state) => ({
@@ -55,6 +57,9 @@ export default function SectionShellBackdropCanvas() {
       ),
       canvasOwnedShellKwargsControlsHeight: normalizeStoredHeight(
         state[getKwargsControlsHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
+      ),
+      canvasOwnedShellPinnedParamsHeight: normalizeStoredHeight(
+        state[getPinnedParamsAreaHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
       ),
       canvasOwnedShellSearchHeight: normalizeStoredHeight(
         state[getSectionSearchHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)],
@@ -77,21 +82,37 @@ export default function SectionShellBackdropCanvas() {
           });
           const callableToolbarOffsetY =
             canvasOwnedShellHeaderHeight + canvasOwnedShellSearchHeight;
+          const detailBands: Array<{
+            cornerRadius: number;
+            divider: string | null;
+            fill: string | null;
+            height: number;
+            offsetY: number;
+          }> = [];
+
+          if (canvasOwnedShellKwargsControlsHeight > 0) {
+            detailBands.push({
+              cornerRadius: CALLABLE_TOOLBAR_CORNER_RADIUS_PX,
+              divider: chrome.callableToolbarDivider,
+              fill: chrome.callableToolbarFill,
+              height: canvasOwnedShellKwargsControlsHeight,
+              offsetY: callableToolbarOffsetY,
+            });
+          }
+          if (canvasOwnedShellPinnedParamsHeight > 0) {
+            detailBands.push({
+              cornerRadius: 0,
+              divider: chrome.pinnedParamsDivider,
+              fill: chrome.pinnedParamsFill,
+              height: canvasOwnedShellPinnedParamsHeight,
+              offsetY:
+                callableToolbarOffsetY + canvasOwnedShellKwargsControlsHeight,
+            });
+          }
 
           return {
             ...chrome,
-            detailBands:
-              canvasOwnedShellKwargsControlsHeight > 0
-                ? [
-                    {
-                      cornerRadius: CALLABLE_TOOLBAR_CORNER_RADIUS_PX,
-                      divider: chrome.callableToolbarDivider,
-                      fill: chrome.callableToolbarFill,
-                      height: canvasOwnedShellKwargsControlsHeight,
-                      offsetY: callableToolbarOffsetY,
-                    },
-                  ]
-                : null,
+            detailBands,
             headerHeight: canvasOwnedShellHeaderHeight,
           };
         },
@@ -99,6 +120,7 @@ export default function SectionShellBackdropCanvas() {
     [
       canvasOwnedShellHeaderHeight,
       canvasOwnedShellKwargsControlsHeight,
+      canvasOwnedShellPinnedParamsHeight,
       canvasOwnedShellSearchHeight,
       canvasOwnedShellStyleColor,
       darkMode,

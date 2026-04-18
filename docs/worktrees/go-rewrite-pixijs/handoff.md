@@ -4,11 +4,15 @@ Last updated: 2026-04-18
 Worktree: `go-rewrite-pixijs`
 Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
 Related history: `docs/worktrees/go-rewrite-pixijs/log.md`
-Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
+Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The tracking model is now explicit:
+  - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
+  - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
+  - `docs/worktrees/go-rewrite-pixijs/checklist.md` is limited to stable guardrails and acceptance gates instead of checkbox progress tracking
 - Ralph/supervisor bootstrap files have been ported into the worktree.
 - `RALPH.md` now points at this worktree plan set.
 - `RALPH.md` now also pins `main_worktree_root` to `/home/ubuntu/dev/setta`, and the loop scripts honor that explicit reference path instead of requiring branch-name discovery.
@@ -140,6 +144,27 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the retained shell `canvas` was mounted and the workspace surface remained intact
   - `settings-section__callableSectionDefault` was present and its control cluster still showed the header, filter input, and the `Remove arg` / `Add arg` / `Pin selected args` / `Convert to edge connectors` / `Delete selected args` toolbar row after the DOM toolbar container was made transparent on the canvas path
   - caveat: the fitted headless view still makes the toolbar row too small for a confident human-only pixel read, so treat the updated Playwright viewport-scale probe as the deterministic oracle for the toolbar-band detail
+- The next callable body-panel slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `pinnedParamsFill` and `pinnedParamsDivider` alongside the existing shell/header/toolbar chrome so the retained scene can paint the pinned-params card with the same section-style-aware palette rules
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads `getPinnedParamsAreaHeightKey(...)` for `settings-section__callableSectionDefault` and emits a second retained detail band below the callable toolbar using the measured pinned-panel height
+  - `frontend/src/components/Params/GroupContainer.tsx` now makes only the canary pinned-params container transparent on the `canvas-shell-underlay` path while keeping the live pinned param rows and controls mounted
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/GroupContainer.test.tsx`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted shell/header/toolbar canary smoke still passes unchanged after the pinned-panel product slice
+  - attempted to extend `tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` into a dedicated pinned-panel oracle in the same iteration, but reverted that oracle work after it hit untrusted settings-route automation shapes (`POST /api/setActiveIds -> 404` when headless row-selection replay missed param-select mode, plus empty `/settings` `useProjectState` reads in that setup); keep the checked-in Playwright file on the previously trusted shell/toolbar lane for now
+- CDP visual check is done for the pinned-params slice:
+  - `/settings` loaded normally in the headless worktree session
+  - `All Settings` was active with no crash/error overlay
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was present on the live surface
+  - the pinned-params panel was visible by default on that section and the live surface still looked healthy after the pinned container chrome was made transparent on the canvas path
+  - residual risk: this slice now has focused unit coverage plus live CDP confirmation, but it does not yet have its own dedicated Playwright graph-space pixel probe because the attempted oracle extension was reverted as untrustworthy
 
 ## Preservation rule
 
@@ -166,7 +191,7 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Move the next visible non-editing callable body panel for `settings-section__callableSectionDefault` into the retained scene layer, likely the pinned-params panel chrome beneath the new toolbar band while keeping param rows live.
+1. Move the next visible non-editing callable body panel for `settings-section__callableSectionDefault` into the retained scene layer, likely the unpinned params area chrome beneath the newly canvas-owned pinned panel while keeping param rows live.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
 3. Keep the next product frontier constrained to top-level callable shell/body panel chrome only; do not reopen broad harness work or start row/body migration yet.
 4. Keep the append-only log current from the first running iteration onward.
@@ -186,7 +211,8 @@ The first product frontier is:
 - with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
 - with the same canary section now also painting a canvas-owned header band/divider from the measured header height
 - with the same canary section now also painting a canvas-owned callable toolbar band beneath the search row while the live controls/filter DOM stays interactive
-- next: move the pinned-params panel chrome for that same named canary section into the retained scene path instead of reopening broad DOM or harness work
+- with the same canary section now also painting a canvas-owned pinned-params panel chrome while the live pinned rows stay mounted
+- next: move the unpinned params area chrome for that same named canary section into the retained scene path instead of reopening broad DOM or harness work
 
 ## Hard rules
 

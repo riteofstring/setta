@@ -356,3 +356,47 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move the pinned-params panel chrome for `settings-section__callableSectionDefault` into the retained scene layer while keeping param rows live
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 017
+
+- Item: Simplify the worktree tracking system so the append-only log is the canonical progress ledger.
+- Status: `done`
+- Details:
+  - Repurposed `docs/worktrees/go-rewrite-pixijs/checklist.md` into a short guardrails-and-acceptance-gates page instead of a checkbox progress tracker.
+  - Documented the intended tracking split:
+    - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
+    - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
+    - `docs/worktrees/go-rewrite-pixijs/checklist.md` now holds only stable guardrails and success gates
+  - Updated the handoff and plan wording to match that tracking model while keeping the existing file path stable for the worktree doc set.
+  - No runtime or product verification was needed because this slice only changes tracking documentation.
+- Next action:
+  - keep future execution state in the append-only log and reserve checklist edits for actual guardrail or acceptance-gate changes
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 018
+
+- Item: Add a retained-canvas pinned-params panel for `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the canary shell chrome now resolves `pinnedParamsFill` and `pinnedParamsDivider` alongside the existing shell/header/toolbar colors, reusing section-style theme colors when a style color is present.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene reads `getPinnedParamsAreaHeightKey(...)` for the canary section and emits a second retained detail band below the callable toolbar using the measured pinned-panel height.
+  - Updated `frontend/src/components/Params/GroupContainer.tsx` so only the canary pinned-params container becomes transparent on the `canvas-shell-underlay` path while the live pinned param rows and controls stay mounted.
+  - Added focused node coverage in `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`, updated `sectionShellCanvasOwnership.test.ts`, and added a `GroupContainer.test.tsx` assertion locking the transparent pinned-panel DOM chrome on the canvas path.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted shell/header/toolbar canary smoke still passes unchanged after the pinned-panel product slice
+  - Attempted to extend the checked-in Playwright canary into a dedicated pinned-panel oracle in the same iteration, but reverted that oracle change after it hit untrusted settings-route automation shapes:
+    - headless param-row replay that missed select mode triggered `POST /api/setActiveIds -> 404`
+    - direct `/settings` `useProjectState` reads in that setup appeared empty and could not be trusted as the lane oracle
+    - the checked-in Playwright file therefore stays on the previously trusted shell/toolbar lane for now
+  - CDP visual check is done:
+    - `/settings` loaded normally in the headless worktree session
+    - `All Settings` was active with no crash/error overlay visible
+    - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+    - `settings-section__callableSectionDefault` was present on the live surface
+    - the pinned-params panel was visible by default on that section and the live surface still looked healthy after the pinned container chrome was made transparent on the canvas path
+- Next action:
+  - move the unpinned params area chrome for `settings-section__callableSectionDefault` into the retained scene layer while keeping param rows live
+LOOP_TERMINAL_MARKER: none
