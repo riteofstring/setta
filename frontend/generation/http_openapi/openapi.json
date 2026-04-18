@@ -11442,6 +11442,19 @@
         ],
         "type": "object"
       },
+      "SettingsstateFrontendSettingsLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "selectedByLanguage": {
+            "additionalProperties": {
+              "type": ["string", "null"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["selectedByLanguage"],
+        "type": "object"
+      },
       "SettingsstateFrontendSettingsShortcuts": {
         "additionalProperties": false,
         "properties": {
@@ -11711,8 +11724,7 @@
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsGUI"
           },
           "languageServer": {
-            "additionalProperties": {},
-            "type": "object"
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsLanguageServer"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicy"

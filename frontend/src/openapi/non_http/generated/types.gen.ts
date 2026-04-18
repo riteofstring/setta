@@ -5743,6 +5743,15 @@ export type SettingsGUI = {
 };
 
 /**
+ * SettingsLanguageServer
+ */
+export type SettingsLanguageServer = {
+  selectedByLanguage: {
+    [key: string]: null | string;
+  };
+};
+
+/**
  * SettingsManagedBlock
  */
 type SettingsManagedBlock = {
@@ -5836,9 +5845,7 @@ export type SettingsState = {
   backend: SettingsBackend;
   chatWindowing: SettingsChatWindowing;
   gui: SettingsGUI;
-  languageServer: {
-    [key: string]: unknown;
-  };
+  languageServer: SettingsLanguageServer;
   sectionSizingPolicy: SectionSizingPolicy;
   shortcuts: SettingsShortcuts;
 };
