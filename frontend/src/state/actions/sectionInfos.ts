@@ -866,7 +866,9 @@ function resolveGeneratedImplUpdateValue<T>(
   }
   return value;
 }
-function generatedImplFieldUsesDefaultUnsharedOwnership(fieldName: string): boolean {
+function generatedImplFieldUsesDefaultUnsharedOwnership(
+  fieldName: string,
+): boolean {
   return DEFAULT_UNSHARED_PROJECT_FIELDS.has(fieldName);
 }
 function setEffectiveImplValue<T extends MutableGeneratedImpl>(

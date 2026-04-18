@@ -15,9 +15,6 @@ func TestDefaultsInstallProfileIsExplicitAndVersioned(t *testing.T) {
 	if profile.Version != DefaultsInstallProfileVersion {
 		t.Fatalf("expected defaults profile version %d, got %d", DefaultsInstallProfileVersion, profile.Version)
 	}
-	if !reflect.DeepEqual(profile.PackageSpecs, []string{"setta-basedpyright==0.1.0"}) {
-		t.Fatalf("unexpected defaults profile package specs %#v", profile.PackageSpecs)
-	}
 	if !reflect.DeepEqual(profile.LanguageServerPluginByLanguage, map[string]string{
 		"python": "setta-basedpyright",
 	}) {

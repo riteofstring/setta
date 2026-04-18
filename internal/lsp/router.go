@@ -167,6 +167,17 @@ func mergeLanguageServerSpecMaps(base map[string]LanguageServerSpec, additional 
 	return merged
 }
 
+func CloneLanguageServerSpecs(source []LanguageServerSpec) []LanguageServerSpec {
+	if len(source) == 0 {
+		return nil
+	}
+	cloned := make([]LanguageServerSpec, 0, len(source))
+	for _, spec := range source {
+		cloned = append(cloned, cloneLanguageServerSpec(spec))
+	}
+	return cloned
+}
+
 func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string]LanguageServerSpec {
 	if len(source) == 0 {
 		return map[string]LanguageServerSpec{}

@@ -5,20 +5,20 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"setta/internal/config"
 	"setta/internal/plugins"
 	"setta/internal/pythonenv"
 	"setta/internal/settingsstate"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestBootstrapWorkspaceDefaultsInstallProfileWritesMissingPythonSelection(t *testing.T) {
 	runtimeRoot := t.TempDir()
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	firstpartyplugin.InstallBasedpyrightPluginWheel(t, sitePackages)
 	pluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
 
 	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
@@ -62,7 +62,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfilePreservesExplicitNullSelection(
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	firstpartyplugin.InstallBasedpyrightPluginWheel(t, sitePackages)
 	pluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
 
 	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
@@ -89,7 +89,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	firstpartyplugin.InstallBasedpyrightPluginWheel(t, sitePackages)
 	secondPluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
 	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, secondPluginService); err != nil {
 		t.Fatalf("second bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
@@ -157,55 +157,4 @@ func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugin
 		t.Fatalf("new plugin service: %v", err)
 	}
 	return service
-}
-
-func installDefaultsProfilePackageManagerPlugin(t *testing.T, sitePackages string) {
-	t.Helper()
-
-	repoRoot := appTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, "setta_basedpyright")
-	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
-
-	distInfoRoot := filepath.Join(sitePackages, "setta_basedpyright-0.1.0.dist-info")
-	writeDefaultsProfilePackageManagerFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
-		"Metadata-Version: 2.1",
-		"Name: setta-basedpyright",
-		"Version: 0.1.0",
-		"Summary: Setta basedpyright defaults profile plugin",
-		"",
-	}, "\n"))
-
-	recordLines := make([]string, 0)
-	for _, root := range []string{pluginRoot, distInfoRoot} {
-		err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if info.IsDir() || filepath.Base(path) == "RECORD" {
-				return nil
-			}
-			relativePath, err := filepath.Rel(sitePackages, path)
-			if err != nil {
-				return err
-			}
-			recordLines = append(recordLines, filepath.ToSlash(relativePath)+",,")
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("walk package-manager plugin fixture: %v", err)
-		}
-	}
-	recordLines = append(recordLines, filepath.ToSlash(filepath.Join("setta_basedpyright-0.1.0.dist-info", "RECORD"))+",,")
-	writeDefaultsProfilePackageManagerFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
-}
-
-func writeDefaultsProfilePackageManagerFile(t *testing.T, path string, content string) {
-	t.Helper()
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
 }

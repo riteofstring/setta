@@ -14,16 +14,31 @@ import (
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service     *plugins.Service
+	service     pluginBackendRefreshService
 	logger      *slog.Logger
 	runtimeRoot string
-	mcpServer   *mcpx.Server
+	mcpServer   pluginBackendToolReplacer
 	settings    *settingsstate.Runtime
 	runtime     *pluginBackendMCPRuntime
-	lspRouter   *lsp.Router
+	lspRouter   pluginBackendLanguageServerReplacer
 	lspSpecs    []lsp.LanguageServerSpec
 
 	mu sync.Mutex
+}
+
+type pluginBackendRefreshService interface {
+	Rescan() (plugins.DiscoverySnapshot, error)
+	PreviewBackendRuntimeRefresh() (plugins.DiscoverySnapshot, error)
+	CommitBackendRuntimeRefresh() (plugins.DiscoverySnapshot, error)
+	LanguageServerSpecsForSnapshot(snapshot plugins.DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error)
+}
+
+type pluginBackendToolReplacer interface {
+	ReplaceTools(removeNames []string, registrations []mcpx.ToolRegistration) error
+}
+
+type pluginBackendLanguageServerReplacer interface {
+	ReplaceAdditionalSpecs(ctx context.Context, specs []lsp.LanguageServerSpec) error
 }
 
 type pluginBackendRefreshTransition struct {
@@ -260,7 +275,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 		return err
 	}
 	r.runtime = nextRuntime
-	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
+	r.lspSpecs = lsp.CloneLanguageServerSpecs(nextLSPSpecs)
 	return nil
 }
 
@@ -305,7 +320,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 		nextRuntime:      nextRuntime,
 		nextLSPSpecs:     nextLSPSpecs,
 		previousRuntime:  r.runtime,
-		previousLSPSpecs: cloneLanguageServerSpecs(r.lspSpecs),
+		previousLSPSpecs: lsp.CloneLanguageServerSpecs(r.lspSpecs),
 	}, nil
 }
 
@@ -338,7 +353,7 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 		return committedSnapshot, commitErr
 	}
 
-	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
+	r.lspSpecs = lsp.CloneLanguageServerSpecs(transition.nextLSPSpecs)
 	closePluginBackendRuntime(transition.previousRuntime)
 	return committedSnapshot, nil
 }
@@ -479,32 +494,6 @@ func findHighestPrecedencePlugin(entries []plugins.DiscoveredPlugin, pluginID st
 }
 
 func cloneOptionalDigest(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	cloned := strings.TrimSpace(*value)
-	return &cloned
-}
-
-func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServerSpec {
-	if len(specs) == 0 {
-		return nil
-	}
-	cloned := make([]lsp.LanguageServerSpec, 0, len(specs))
-	for _, spec := range specs {
-		cloned = append(cloned, lsp.LanguageServerSpec{
-			PluginID:    spec.PluginID,
-			Name:        spec.Name,
-			LanguageID:  spec.LanguageID,
-			Command:     spec.Command,
-			Args:        append([]string(nil), spec.Args...),
-			SettingsKey: cloneOptionalString(spec.SettingsKey),
-		})
-	}
-	return cloned
-}
-
-func cloneOptionalString(value *string) *string {
 	if value == nil {
 		return nil
 	}

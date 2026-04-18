@@ -10,7 +10,6 @@ const (
 type InstallProfile struct {
 	ID                             string
 	Version                        int
-	PackageSpecs                   []string
 	LanguageServerPluginByLanguage map[string]string
 }
 
@@ -18,9 +17,6 @@ func DefaultsInstallProfile() InstallProfile {
 	return InstallProfile{
 		ID:      DefaultsInstallProfileID,
 		Version: DefaultsInstallProfileVersion,
-		PackageSpecs: []string{
-			"setta-basedpyright==0.1.0",
-		},
 		LanguageServerPluginByLanguage: map[string]string{
 			"python": "setta-basedpyright",
 		},

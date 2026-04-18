@@ -14,7 +14,6 @@ const (
 	lspCommandEnv        = "SETTA_LSP_COMMAND"
 	lspArgsEnv           = "SETTA_LSP_ARGS"
 	pythonEnv            = "SETTA_PYTHON"
-	virtualEnvEnv        = "VIRTUAL_ENV"
 	basedpyrightSettings = "basedpyright"
 )
 
@@ -66,26 +65,15 @@ func resolveLanguageServerCommand(lookupEnv func(string) (string, bool)) (string
 }
 
 func resolveInterpreter(lookupEnv func(string) (string, bool)) (string, error) {
-	if configured, ok := lookupEnv(pythonEnv); ok && strings.TrimSpace(configured) != "" {
-		return resolveCommand(strings.TrimSpace(configured))
+	configured, ok := lookupEnv(pythonEnv)
+	if !ok || strings.TrimSpace(configured) == "" {
+		return "", fmt.Errorf("python interpreter unavailable for setta-basedpyright plugin; set %s", pythonEnv)
 	}
-	if virtualEnv, ok := lookupEnv(virtualEnvEnv); ok && strings.TrimSpace(virtualEnv) != "" {
-		candidate := filepath.Join(strings.TrimSpace(virtualEnv), "bin", "python")
-		if isExecutableFile(candidate) {
-			return candidate, nil
-		}
-	}
-	for _, candidate := range []string{"python3", "python"} {
-		resolved, err := exec.LookPath(candidate)
-		if err == nil {
-			return resolved, nil
-		}
-	}
-	return "", fmt.Errorf("python interpreter unavailable for setta-basedpyright plugin")
+	return resolveCommand(strings.TrimSpace(configured))
 }
 
 func resolveCommand(candidate string) (string, error) {
-	if strings.ContainsRune(candidate, filepath.Separator) {
+	if strings.ContainsRune(candidate, os.PathSeparator) {
 		return filepath.Abs(candidate)
 	}
 	resolved, err := exec.LookPath(candidate)
@@ -93,14 +81,6 @@ func resolveCommand(candidate string) (string, error) {
 		return "", fmt.Errorf("resolve command %q: %w", candidate, err)
 	}
 	return resolved, nil
-}
-
-func isExecutableFile(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return false
-	}
-	return info.Mode()&0o111 != 0
 }
 
 func fail(err error) {

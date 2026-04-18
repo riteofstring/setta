@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -113,6 +114,66 @@ func firstPartyBasedpyrightDependency() (string, error) {
 	return dependency, nil
 }
 
+func RepoPython(t testing.TB) string {
+	t.Helper()
+
+	repoRoot := repoRoot()
+	candidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+	}
+	if runtime.GOOS == "windows" {
+		candidates = append(candidates, filepath.Join(repoRoot, ".venv", "Scripts", "python.exe"))
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
+	return ""
+}
+
+func BuildBasedpyrightPluginWheel(t testing.TB, artifactDir string) string {
+	t.Helper()
+
+	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
+		t.Fatalf("mkdir wheel artifact dir: %v", err)
+	}
+
+	pluginRoot := filepath.Join(repoRoot(), "plugins", "setta-basedpyright")
+	pythonPath := RepoPython(t)
+	if err := runCommandInDir(pluginRoot, pythonPath, "-m", "build", "--wheel", "--outdir", artifactDir); err != nil {
+		t.Fatalf("build setta-basedpyright wheel: %v", err)
+	}
+
+	wheelPaths, err := filepath.Glob(filepath.Join(artifactDir, "setta_basedpyright-*.whl"))
+	if err != nil {
+		t.Fatalf("glob basedpyright wheel: %v", err)
+	}
+	slices.Sort(wheelPaths)
+	if len(wheelPaths) != 1 {
+		t.Fatalf("expected one built setta-basedpyright wheel, got %#v", wheelPaths)
+	}
+	return wheelPaths[0]
+}
+
+func InstallBasedpyrightPluginWheel(t testing.TB, sitePackages string) string {
+	t.Helper()
+
+	if err := os.MkdirAll(sitePackages, 0o755); err != nil {
+		t.Fatalf("mkdir site-packages dir: %v", err)
+	}
+
+	wheelPath := BuildBasedpyrightPluginWheel(t, t.TempDir())
+	pythonPath := RepoPython(t)
+	if err := runCommand(pythonPath, "-m", "pip", "install", "--no-deps", "--target", sitePackages, wheelPath); err != nil {
+		t.Fatalf("install setta-basedpyright wheel: %v", err)
+	}
+	return filepath.Join(sitePackages, "setta_basedpyright")
+}
+
 func repoRoot() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -122,7 +183,14 @@ func repoRoot() string {
 }
 
 func runCommand(command string, args ...string) error {
+	return runCommandInDir("", command, args...)
+}
+
+func runCommandInDir(dir string, command string, args ...string) error {
 	cmd := exec.Command(command, args...)
+	if strings.TrimSpace(dir) != "" {
+		cmd.Dir = dir
+	}
 	cmd.Env = append(os.Environ(), "PIP_DISABLE_PIP_VERSION_CHECK=1", "PIP_NO_INPUT=1")
 
 	var output bytes.Buffer

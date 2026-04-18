@@ -12,9 +12,16 @@ dependencies = [
 ]
 
 [tool.setuptools]
-py-modules = []
+packages = ["setta_basedpyright"]
 
-[tool.setuptools.data-files]
-"." = ["setta.plugin.json", "README.md"]
-"backend" = ["backend/go.mod", "backend/main.go"]
-"content/config" = ["content/config/schema.json"]
+[tool.setuptools.package-dir]
+setta_basedpyright = "."
+
+[tool.setuptools.package-data]
+setta_basedpyright = [
+    "README.md",
+    "setta.plugin.json",
+    "backend/go.mod",
+    "backend/main.go",
+    "content/config/schema.json",
+]

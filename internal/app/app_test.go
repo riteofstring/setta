@@ -10317,7 +10317,7 @@ func TestAppBootstrapsDefaultsProfilePackageManagerBasedpyrightOnFirstOpen(t *te
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	firstpartyplugin.InstallBasedpyrightPluginWheel(t, sitePackages)
 
 	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
 	if existingPythonPath == "" {

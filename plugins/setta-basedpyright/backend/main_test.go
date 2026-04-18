@@ -51,3 +51,14 @@ func TestResolveLanguageServerCommandFallsBackToConfiguredInterpreter(t *testing
 		t.Fatalf("unexpected interpreter args %#v", args)
 	}
 }
+
+func TestResolveLanguageServerCommandRequiresConfiguredInterpreter(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := resolveLanguageServerCommand(func(string) (string, bool) {
+		return "", false
+	})
+	if err == nil {
+		t.Fatal("expected missing interpreter to fail")
+	}
+}

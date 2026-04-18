@@ -97,6 +97,35 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 	}
 }
 
+func TestCloneLanguageServerSpecsDeepClonesSettings(t *testing.T) {
+	t.Parallel()
+
+	specs := []LanguageServerSpec{{
+		PluginID:   "setta-basedpyright",
+		Name:       "basedpyright",
+		LanguageID: "python",
+		Command:    "python",
+		Args:       []string{"-c", "print('fixture')"},
+		Settings: map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"severityOverrides": map[string]any{
+						"reportUnusedCallResult": "warning",
+					},
+				},
+			},
+		},
+	}}
+
+	cloned := CloneLanguageServerSpecs(specs)
+	specs[0].Settings["basedpyright"].(map[string]any)["analysis"].(map[string]any)["severityOverrides"].(map[string]any)["reportUnusedCallResult"] = "error"
+
+	got := cloned[0].Settings["basedpyright"].(map[string]any)["analysis"].(map[string]any)["severityOverrides"].(map[string]any)["reportUnusedCallResult"]
+	if got != "warning" {
+		t.Fatalf("expected cloned settings to keep original value, got %#v", got)
+	}
+}
+
 func TestNewRouterAllowsNoConfiguredLanguageServers(t *testing.T) {
 	t.Parallel()
 

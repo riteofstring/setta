@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"setta/internal/pythonenv"
 )
 
 func TestNormalizeBackendProbeResponseRejectsInvalidRoutePaths(t *testing.T) {
@@ -237,6 +239,49 @@ func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand
 	}
 	if normalized.Command != commandPath {
 		t.Fatalf("expected plugin-relative command to resolve to %q, got %q", commandPath, normalized.Command)
+	}
+}
+
+func TestAppendResolvedPythonEnvAddsResolvedInterpreter(t *testing.T) {
+	t.Parallel()
+
+	environment := []string{"PATH=/usr/bin"}
+	resolved := appendResolvedPythonEnv(
+		environment,
+		func(string) (string, bool) { return "", false },
+		func(func(string) (string, bool)) (string, error) {
+			return "/tmp/resolved-python", nil
+		},
+	)
+
+	if len(resolved) != 2 {
+		t.Fatalf("expected resolved env append, got %#v", resolved)
+	}
+	if resolved[1] != pythonenv.InterpreterEnv+"=/tmp/resolved-python" {
+		t.Fatalf("unexpected resolved interpreter env %#v", resolved)
+	}
+}
+
+func TestAppendResolvedPythonEnvPreservesExistingInterpreterOverride(t *testing.T) {
+	t.Parallel()
+
+	environment := []string{pythonenv.InterpreterEnv + "=/tmp/configured-python"}
+	resolved := appendResolvedPythonEnv(
+		environment,
+		func(key string) (string, bool) {
+			if key == pythonenv.InterpreterEnv {
+				return "/tmp/configured-python", true
+			}
+			return "", false
+		},
+		func(func(string) (string, bool)) (string, error) {
+			t.Fatal("expected resolver not to run when interpreter is already configured")
+			return "", nil
+		},
+	)
+
+	if !slices.Equal(resolved, environment) {
+		t.Fatalf("expected existing env to stay unchanged, got %#v", resolved)
 	}
 }
 

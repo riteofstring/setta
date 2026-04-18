@@ -227,7 +227,9 @@ type EmptyUIConfig = Record<string, never>;
 type ParamCodeObjUIConfig<T extends CodeObjType> =
   T extends ExtractableUIConfigType ? ExtractorResult<T> : EmptyUIConfig;
 
-function hasUIConfigExtractor(type: CodeObjType): type is ExtractableUIConfigType {
+function hasUIConfigExtractor(
+  type: CodeObjType,
+): type is ExtractableUIConfigType {
   return type in UI_CONFIG_EXTRACTORS;
 }
 
