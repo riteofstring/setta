@@ -189,6 +189,29 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
   - `settings-section__callableSectionDefault` was visible on the live surface
   - the `Aspect Ratio` row remained visible and its switch still looked intact after the DOM switch track was made transparent on the canvas path
+- The first canary resting-text slice is now landed for the same canary section using `Config Language` as the deterministic probe row:
+  - the old `Config Language` dropdown/combobox assumption is now closed as stale for this canary; the live row is a text-like `DummyCodeMirror`/CodeMirror-backed value that shows `python` at rest
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now declares the exact canary `Config Language` param info id so the resting-text handoff stays tied to one explicit product target instead of label heuristics
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now makes only that canary row's inactive `DummyCodeMirror` transparent on the `canvas-shell-underlay` path while leaving the real CodeMirror editor path intact for first-click activation
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now supports retained-scene `detailTexts`, so the canvas path can paint measured text lines in graph space instead of only shell bands and control boxes
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures the canary `Config Language` dummy text line in graph space and paints the resting `python` text into the retained canvas; that measurement drops out automatically when the live editor mounts
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Config Language` text pixel on the canvas path and that activating the dummy text node surfaces the live editor inline with no blank/detached jump
+      - note: an intermediate row-wrapper click replay hit non-target DnD/selection noise (`POST /api/setActiveIds -> 404`); the final checked-in probe dispatches activation directly to the dummy text node and passes without that side effect
+- CDP visual check is done for the `Config Language` resting-text slice:
+  - `/settings` loaded cleanly with no crash or error overlay visible
+  - `All Settings` was active on the live worktree surface
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was visible and the `Config Language` row showed resting `python` text on the canvas path
+  - activating the `Config Language` row surfaced the inline editor with no blank or detached visual jump
 
 ## Preservation rule
 
@@ -217,7 +240,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Start the next bounded production slice at the first non-switch visible control family on that same canary, beginning with the `Config Language` dropdown shell/chrome while keeping the live combobox interaction intact.
+3. Start the next bounded production slice at the next visible text-like control family on that same canary, beginning with `Column Width` now that the stale `Config Language` dropdown assumption is closed.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -236,8 +259,10 @@ The first product frontier is:
 - with the same canary section now also painting a canvas-owned header band/divider from the measured header height
 - with the same canary section now also painting a canvas-owned callable toolbar band while the live controls remain interactive
 - with the same canary section now also painting canvas-owned switch tracks for visible switch rows while the live switch thumbs/buttons remain interactive
+- with the same canary section now also painting the resting `Config Language` text in the retained canvas while the live CodeMirror editor still activates inline on first click
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
-- next: move to the first non-switch visible control family on that same named canary instead of reopening top-level shell/body panel work
+- with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
+- next: move to the next visible text-like control family on that same named canary instead of reopening top-level shell/body panel work
 
 ## Hard rules
 

@@ -2,6 +2,8 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
 export const CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__callableSectionDefault";
+export const CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID =
+  "settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage";
 
 export type SectionShellCanvasChrome = {
   callableToolbarDivider: string;
@@ -50,6 +52,19 @@ function hasNonEmptyStyleColor(
 
 export function isCanvasOwnedSectionShell(sectionId: string) {
   return sectionId === CANVAS_OWNED_SECTION_SHELL_ID;
+}
+
+export function isCanvasOwnedSectionRestingTextParam({
+  paramInfoId,
+  sectionId,
+}: {
+  paramInfoId: string;
+  sectionId: string;
+}) {
+  return (
+    isCanvasOwnedSectionShell(sectionId) &&
+    paramInfoId === CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID
+  );
 }
 
 export function resolveCanvasOwnedSectionShellChrome({

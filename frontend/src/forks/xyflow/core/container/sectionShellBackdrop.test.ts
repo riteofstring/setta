@@ -1,15 +1,16 @@
+import { describe, expect, it, vi } from "vitest";
 import type { Node } from "../types";
 import {
   buildSectionShellBackdropScene,
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
-import { describe, expect, it, vi } from "vitest";
 
 type MockCanvasContext = CanvasRenderingContext2D & {
   beginPath: ReturnType<typeof vi.fn>;
   clip: ReturnType<typeof vi.fn>;
   fill: ReturnType<typeof vi.fn>;
   fillRect: ReturnType<typeof vi.fn>;
+  fillText: ReturnType<typeof vi.fn>;
   lineTo: ReturnType<typeof vi.fn>;
   moveTo: ReturnType<typeof vi.fn>;
   rect: ReturnType<typeof vi.fn>;
@@ -36,7 +37,9 @@ function createMockCanvasContext(): MockCanvasContext {
     clip: vi.fn(),
     fill: vi.fn(),
     fillRect: vi.fn(),
+    fillText: vi.fn(),
     fillStyle: "#000000",
+    font: "12px monospace",
     lineTo: vi.fn(),
     lineWidth: 1,
     moveTo: vi.fn(),
@@ -49,6 +52,8 @@ function createMockCanvasContext(): MockCanvasContext {
     shadowOffsetY: 0,
     stroke: vi.fn(),
     strokeStyle: "#000000",
+    textAlign: "left",
+    textBaseline: "alphabetic",
   } as unknown as MockCanvasContext;
 }
 
@@ -89,6 +94,16 @@ describe("sectionShellBackdrop", () => {
               y: 52,
             },
           ],
+          detailTexts: [
+            {
+              fill: "rgb(3, 47, 98)",
+              font: "500 12px monospace",
+              maxWidth: 64,
+              text: "python",
+              x: 56,
+              y: 52,
+            },
+          ],
           fill: "#f5f7fb",
           headerDivider: "#d4dae5",
           headerFill: "#fcfdff",
@@ -123,6 +138,16 @@ describe("sectionShellBackdrop", () => {
             height: 10,
             width: 28,
             x: 88,
+            y: 52,
+          },
+        ],
+        detailTexts: [
+          {
+            fill: "rgb(3, 47, 98)",
+            font: "500 12px monospace",
+            maxWidth: 64,
+            text: "python",
+            x: 56,
             y: 52,
           },
         ],
@@ -163,22 +188,32 @@ describe("sectionShellBackdrop", () => {
                 fill: "#ffffff",
                 height: 40,
                 offsetY: 72,
-            },
-          ],
-          detailBoxes: [
-            {
-              cornerRadius: 5,
-              fill: "#94a3b8",
-              height: 10,
-              width: 28,
-              x: 116,
-              y: 70,
-            },
-          ],
-          fill: "#f5f7fb",
-          headerDivider: "#d4dae5",
-          headerFill: "#fcfdff",
-          headerHeight: 24,
+              },
+            ],
+            detailBoxes: [
+              {
+                cornerRadius: 5,
+                fill: "#94a3b8",
+                height: 10,
+                width: 28,
+                x: 116,
+                y: 70,
+              },
+            ],
+            detailTexts: [
+              {
+                fill: "rgb(3, 47, 98)",
+                font: "500 12px monospace",
+                maxWidth: 64,
+                text: "python",
+                x: 68,
+                y: 70,
+              },
+            ],
+            fill: "#f5f7fb",
+            headerDivider: "#d4dae5",
+            headerFill: "#fcfdff",
+            headerHeight: 24,
             height: 160,
             id: "settings-section__callableSectionDefault",
             stroke: "#ffffff",
@@ -200,6 +235,7 @@ describe("sectionShellBackdrop", () => {
     expect(context.roundRect).toHaveBeenCalledWith(24, 64, 160, 32, 12);
     expect(context.roundRect).toHaveBeenCalledWith(24, 96, 160, 40, 0);
     expect(context.roundRect).toHaveBeenCalledWith(140, 94, 28, 10, 5);
+    expect(context.fillText).toHaveBeenCalledWith("python", 92, 94, 64);
     expect(context.moveTo).toHaveBeenCalledWith(36, 96);
     expect(context.lineTo).toHaveBeenCalledWith(172, 96);
     expect(context.moveTo).toHaveBeenCalledWith(32, 136);
@@ -222,6 +258,7 @@ describe("sectionShellBackdrop", () => {
           {
             detailBands: [],
             detailBoxes: [],
+            detailTexts: [],
             fill: "#f5f7fb",
             headerDivider: "#d4dae5",
             headerFill: "#fcfdff",

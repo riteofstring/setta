@@ -447,3 +447,34 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to the first non-switch visible control family on `settings-section__callableSectionDefault`, starting with the `Config Language` dropdown shell/chrome while keeping the live combobox interaction intact
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 021
+
+- Item: Add the first retained-canvas resting-text handoff for `settings-section__callableSectionDefault` using the visible `Config Language` row.
+- Status: `done`
+- Details:
+  - Closed the stale `Config Language` dropdown/combobox assumption on this canary after rechecking the live `/settings` -> `All Settings` surface; the mounted row is a text-like `DummyCodeMirror` / CodeMirror-backed value that shows `python` at rest.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the canary lane now owns one exact `Config Language` param info id instead of discovering the row by label or DOM shape.
+  - Updated `frontend/src/components/Params/ParamUIs/ParamUI.tsx` so only that canary row's inactive `DummyCodeMirror` becomes transparent on the `canvas-shell-underlay` path while the real CodeMirror editor path remains intact for first-click activation.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` so retained frames now support normalized `detailTexts`, allowing the retained canvas to paint measured text lines in graph space in addition to shell bands and control boxes.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene measures the canary `Config Language` dummy text line in graph space and paints the resting `python` text into the retained canvas; that measurement automatically drops out when the live editor mounts.
+  - Added/updated focused coverage:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Config Language` text pixel on the canvas path and that activating the dummy text node surfaces the live editor inline with no blank/detached jump
+  - An intermediate Playwright click attempt on the whole row hit non-target DnD/selection noise (`POST /api/setActiveIds -> 404`); the final checked-in probe dispatches activation directly to the dummy text node and passes without that side effect.
+  - CDP visual check is done:
+    - `/settings` loaded cleanly with no crash or error overlay visible
+    - `All Settings` was active on the live worktree surface
+    - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+    - `settings-section__callableSectionDefault` was visible and the `Config Language` row showed resting `python` text on the canvas path
+    - activating the `Config Language` row surfaced the inline editor with no blank or detached visual jump
+- Next action:
+  - move to the next visible text-like control family on `settings-section__callableSectionDefault`, beginning with `Column Width`, instead of reopening the stale `Config Language` dropdown assumption
+LOOP_TERMINAL_MARKER: none

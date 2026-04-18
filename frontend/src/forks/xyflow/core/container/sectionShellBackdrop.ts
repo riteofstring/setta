@@ -17,9 +17,19 @@ export type SectionShellBackdropFrameDetailBox = {
   y: number;
 };
 
+export type SectionShellBackdropFrameDetailText = {
+  fill: string | null;
+  font: string | null;
+  maxWidth: number;
+  text: string;
+  x: number;
+  y: number;
+};
+
 export type SectionShellBackdropFrame = {
   detailBands: Array<SectionShellBackdropFrameDetailBand>;
   detailBoxes: Array<SectionShellBackdropFrameDetailBox>;
+  detailTexts: Array<SectionShellBackdropFrameDetailText>;
   headerDivider: string | null;
   headerFill: string | null;
   headerHeight: number;
@@ -55,9 +65,19 @@ type SectionShellBackdropFrameDetailBoxVisual = {
   y: number;
 };
 
+type SectionShellBackdropFrameDetailTextVisual = {
+  fill?: string | null;
+  font?: string | null;
+  maxWidth: number;
+  text: string;
+  x: number;
+  y: number;
+};
+
 type SectionShellBackdropFrameVisual = {
   detailBands?: Array<SectionShellBackdropFrameDetailBandVisual> | null;
   detailBoxes?: Array<SectionShellBackdropFrameDetailBoxVisual> | null;
+  detailTexts?: Array<SectionShellBackdropFrameDetailTextVisual> | null;
   fill?: string | null;
   headerDivider?: string | null;
   headerFill?: string | null;
@@ -138,9 +158,7 @@ function normalizeDetailBands({
       };
     })
     .filter(
-      (
-        detailBand,
-      ): detailBand is SectionShellBackdropFrameDetailBand =>
+      (detailBand): detailBand is SectionShellBackdropFrameDetailBand =>
         detailBand !== null,
     )
     .sort((a, b) => a.offsetY - b.offsetY);
@@ -206,9 +224,66 @@ function normalizeDetailBoxes({
       };
     })
     .filter(
-      (
-        detailBox,
-      ): detailBox is SectionShellBackdropFrameDetailBox => detailBox !== null,
+      (detailBox): detailBox is SectionShellBackdropFrameDetailBox =>
+        detailBox !== null,
+    )
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+function normalizeDetailTexts({
+  detailTexts,
+  frameHeight,
+  frameWidth,
+}: {
+  detailTexts: Array<SectionShellBackdropFrameDetailTextVisual> | null;
+  frameHeight: number;
+  frameWidth: number;
+}): Array<SectionShellBackdropFrameDetailText> {
+  if (!Array.isArray(detailTexts) || detailTexts.length === 0) {
+    return [];
+  }
+
+  return detailTexts
+    .map((detailText) => {
+      const rawX = detailText.x;
+      const rawY = detailText.y;
+      const rawMaxWidth = detailText.maxWidth;
+      const text = detailText.text;
+      if (
+        !Number.isFinite(rawX) ||
+        !Number.isFinite(rawY) ||
+        !Number.isFinite(rawMaxWidth) ||
+        rawMaxWidth <= 0 ||
+        typeof text !== "string" ||
+        text.length === 0
+      ) {
+        return null;
+      }
+
+      const x = Math.max(0, Math.min(rawX, frameWidth));
+      const y = Math.max(0, Math.min(rawY, frameHeight));
+      const maxWidth = Math.max(0, Math.min(rawMaxWidth, frameWidth - x));
+      if (maxWidth <= 0) {
+        return null;
+      }
+
+      const font =
+        typeof detailText.font === "string" && detailText.font.trim().length > 0
+          ? detailText.font.trim()
+          : null;
+
+      return {
+        fill: detailText.fill ?? null,
+        font,
+        maxWidth,
+        text,
+        x,
+        y,
+      };
+    })
+    .filter(
+      (detailText): detailText is SectionShellBackdropFrameDetailText =>
+        detailText !== null,
     )
     .sort((a, b) => a.y - b.y || a.x - b.x);
 }
@@ -254,13 +329,19 @@ export function buildSectionShellBackdropScene(
       frameHeight: height,
       frameWidth: width,
     });
+    const detailTexts = normalizeDetailTexts({
+      detailTexts: frameVisual?.detailTexts ?? null,
+      frameHeight: height,
+      frameWidth: width,
+    });
 
     frames.push({
       detailBands,
       detailBoxes,
+      detailTexts,
       headerDivider:
-        headerHeight > 0 ? (frameVisual?.headerDivider ?? null) : null,
-      headerFill: headerHeight > 0 ? (frameVisual?.headerFill ?? null) : null,
+        headerHeight > 0 ? frameVisual?.headerDivider ?? null : null,
+      headerFill: headerHeight > 0 ? frameVisual?.headerFill ?? null : null,
       headerHeight,
       id: node.id,
       x,
@@ -348,7 +429,14 @@ function paintFrameHeaderBand(
   }
 
   ctx.save();
-  beginRoundedRect(ctx, frameX, frameY, frame.width, frame.height, cornerRadius);
+  beginRoundedRect(
+    ctx,
+    frameX,
+    frameY,
+    frame.width,
+    frame.height,
+    cornerRadius,
+  );
   ctx.clip();
   ctx.fillStyle = frame.headerFill;
   ctx.fillRect(frameX, frameY, frame.width, frame.headerHeight);
@@ -478,6 +566,38 @@ function paintFrameDetailBoxFill(
   ctx.fill();
 }
 
+function paintFrameDetailText(
+  ctx: CanvasRenderingContext2D,
+  detailText: SectionShellBackdropFrameDetailText,
+  {
+    frameX,
+    frameY,
+  }: {
+    frameX: number;
+    frameY: number;
+  },
+) {
+  if (
+    !detailText.fill ||
+    !detailText.font ||
+    detailText.maxWidth <= 0 ||
+    detailText.text.length === 0
+  ) {
+    return;
+  }
+
+  ctx.fillStyle = detailText.fill;
+  ctx.font = detailText.font;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(
+    detailText.text,
+    frameX + detailText.x,
+    frameY + detailText.y,
+    detailText.maxWidth,
+  );
+}
+
 export function paintSectionShellBackdrop(
   ctx: CanvasRenderingContext2D,
   scene: SectionShellBackdropScene,
@@ -544,6 +664,12 @@ export function paintSectionShellBackdrop(
     }
     for (const detailBox of frame.detailBoxes ?? []) {
       paintFrameDetailBoxFill(ctx, detailBox, {
+        frameX,
+        frameY,
+      });
+    }
+    for (const detailText of frame.detailTexts ?? []) {
+      paintFrameDetailText(ctx, detailText, {
         frameX,
         frameY,
       });

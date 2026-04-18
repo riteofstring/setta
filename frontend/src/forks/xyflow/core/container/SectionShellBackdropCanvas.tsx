@@ -21,6 +21,7 @@ import {
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
 import {
+  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -29,6 +30,7 @@ import {
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
+const CANVAS_OWNED_RESTING_TEXT_INPUT_ID = `${CANVAS_OWNED_SECTION_SHELL_ID}-${CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID}-ParamInput`;
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
@@ -36,6 +38,15 @@ type CanvasOwnedSwitchTrackBox = {
   offsetX: number;
   offsetY: number;
   width: number;
+};
+
+type CanvasOwnedRestingTextLine = {
+  fill: string;
+  font: string;
+  maxWidth: number;
+  offsetX: number;
+  offsetY: number;
+  text: string;
 };
 
 function normalizeStoredHeight(value: unknown) {
@@ -87,6 +98,27 @@ function areSwitchTrackBoxesEqual(
   });
 }
 
+function areCanvasOwnedRestingTextLinesEqual(
+  left: Array<CanvasOwnedRestingTextLine>,
+  right: Array<CanvasOwnedRestingTextLine>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftLine, index) => {
+    const rightLine = right[index];
+    return (
+      leftLine.fill === rightLine.fill &&
+      leftLine.font === rightLine.font &&
+      leftLine.maxWidth === rightLine.maxWidth &&
+      leftLine.offsetX === rightLine.offsetX &&
+      leftLine.offsetY === rightLine.offsetY &&
+      leftLine.text === rightLine.text
+    );
+  });
+}
+
 function measureCanvasOwnedSwitchTrackBoxes(
   sectionId: string,
 ): Array<CanvasOwnedSwitchTrackBox> {
@@ -130,11 +162,84 @@ function measureCanvasOwnedSwitchTrackBoxes(
       };
     })
     .filter(
-      (
-        switchTrackBox,
-      ): switchTrackBox is CanvasOwnedSwitchTrackBox =>
+      (switchTrackBox): switchTrackBox is CanvasOwnedSwitchTrackBox =>
         switchTrackBox !== null,
     );
+}
+
+function measureCanvasOwnedRestingTextLines(
+  sectionId: string,
+  inputId: string,
+): Array<CanvasOwnedRestingTextLine> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  const textRoot = document.getElementById(inputId);
+  if (!(section instanceof HTMLElement) || !(textRoot instanceof HTMLElement)) {
+    return [];
+  }
+
+  const viewport = section.closest<HTMLElement>(".react-flow__viewport");
+  const viewportScale = parseViewportScale(
+    viewport ? window.getComputedStyle(viewport).transform : null,
+  );
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  const computedStyle = window.getComputedStyle(textRoot);
+  const font = computedStyle.font.trim();
+  const fill = computedStyle.color.trim();
+  if (font.length === 0 || fill.length === 0) {
+    return [];
+  }
+
+  const measuredLines = Array.from(
+    textRoot.querySelectorAll<HTMLElement>(".cm-line"),
+  )
+    .map((lineElement) => {
+      const text = (lineElement.textContent ?? "").replace(/\u200b/gu, "");
+      const rect = lineElement.getBoundingClientRect();
+      if (text.length === 0 || rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+
+      return {
+        fill,
+        font,
+        maxWidth: rect.width / viewportScale,
+        offsetX: (rect.left - sectionRect.left) / viewportScale,
+        offsetY: (rect.top - sectionRect.top) / viewportScale,
+        text,
+      };
+    })
+    .filter((line): line is CanvasOwnedRestingTextLine => line !== null);
+
+  if (measuredLines.length > 0) {
+    return measuredLines;
+  }
+
+  const text = (textRoot.textContent ?? "").replace(/\u200b/gu, "");
+  const rect = textRoot.getBoundingClientRect();
+  if (text.length === 0 || rect.width <= 0 || rect.height <= 0) {
+    return [];
+  }
+
+  return [
+    {
+      fill,
+      font,
+      maxWidth: rect.width / viewportScale,
+      offsetX: (rect.left - sectionRect.left) / viewportScale,
+      offsetY: (rect.top - sectionRect.top) / viewportScale,
+      text,
+    },
+  ];
 }
 
 function useCanvasOwnedSwitchTrackBoxes(
@@ -216,6 +321,90 @@ function useCanvasOwnedSwitchTrackBoxes(
   return switchTrackBoxes;
 }
 
+function useCanvasOwnedRestingTextLines(
+  sectionId: string,
+  inputId: string,
+  layoutRefreshKey: string,
+) {
+  const [restingTextLines, setRestingTextLines] = useState<
+    Array<CanvasOwnedRestingTextLine>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredLines = () => {
+      const nextLines = measureCanvasOwnedRestingTextLines(sectionId, inputId);
+      setRestingTextLines((previousLines) =>
+        areCanvasOwnedRestingTextLinesEqual(previousLines, nextLines)
+          ? previousLines
+          : nextLines,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setRestingTextLines((previousLines) =>
+        previousLines.length === 0 ? previousLines : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredLines);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      const textRoot = document.getElementById(inputId);
+      if (textRoot instanceof HTMLElement) {
+        resizeObserver.observe(textRoot);
+        for (const lineElement of textRoot.querySelectorAll<HTMLElement>(
+          ".cm-line",
+        )) {
+          resizeObserver.observe(lineElement);
+        }
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["class", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [inputId, layoutRefreshKey, sectionId]);
+
+  return restingTextLines;
+}
+
 export default function SectionShellBackdropCanvas() {
   const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
   const canvasOwnedSectionNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
@@ -252,6 +441,11 @@ export default function SectionShellBackdropCanvas() {
   const switchTrackBoxes = useCanvasOwnedSwitchTrackBoxes(
     CANVAS_OWNED_SECTION_SHELL_ID,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}`,
+  );
+  const restingTextLines = useCanvasOwnedRestingTextLines(
+    CANVAS_OWNED_SECTION_SHELL_ID,
+    CANVAS_OWNED_RESTING_TEXT_INPUT_ID,
+    `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
@@ -309,6 +503,14 @@ export default function SectionShellBackdropCanvas() {
               x: switchTrackBox.offsetX,
               y: switchTrackBox.offsetY,
             })),
+            detailTexts: restingTextLines.map((restingTextLine) => ({
+              fill: restingTextLine.fill,
+              font: restingTextLine.font,
+              maxWidth: restingTextLine.maxWidth,
+              text: restingTextLine.text,
+              x: restingTextLine.offsetX,
+              y: restingTextLine.offsetY,
+            })),
             headerHeight: canvasOwnedShellHeaderHeight,
           };
         },
@@ -321,6 +523,7 @@ export default function SectionShellBackdropCanvas() {
       canvasOwnedShellStyleColor,
       darkMode,
       nodes,
+      restingTextLines,
       switchTrackBoxes,
     ],
   );

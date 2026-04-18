@@ -1,6 +1,9 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
+import {
+  isCanvasOwnedSectionRestingTextParam,
+  isCanvasOwnedSectionShell,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -94,6 +97,7 @@ type ParamUIState = {
 
 type ParamUIRenderContext = ParamUIProps & {
   canvasOwnedSectionChrome: boolean;
+  canvasOwnedRestingText: boolean;
   isDisabled: boolean;
   isSelectingParams: boolean;
   onEscape: () => void;
@@ -254,6 +258,7 @@ function resolvePasswordRevealState({
 }
 
 function renderTextLikeParam({
+  canvasOwnedRestingText,
   sectionId,
   paramInfoId,
   value,
@@ -271,6 +276,7 @@ function renderTextLikeParam({
 
   return (
     <TextParamConfigured
+      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -621,6 +627,12 @@ export function ParamUI({
     canvasOwnedSectionChrome:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionShell(sectionId),
+    canvasOwnedRestingText:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionRestingTextParam({
+        paramInfoId,
+        sectionId,
+      }),
     sectionId,
     paramInfoId,
     value,
@@ -652,6 +664,7 @@ export function ParamUI({
 }
 
 function TextParamConfigured({
+  canvasOwnedRestingText,
   sectionId,
   paramInfoId,
   value,
@@ -664,6 +677,7 @@ function TextParamConfigured({
   waitingForResult,
   isSelectingParams,
 }: {
+  canvasOwnedRestingText: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string;
@@ -690,7 +704,7 @@ function TextParamConfigured({
             onEscape();
           }
         }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem] ${canvasOwnedRestingText ? "opacity-0" : ""}`}
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
