@@ -353,6 +353,30 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `.react-flow__section-shell-backdrop canvas` was mounted
   - both `settings-section__callableSectionDefault` and `settings-section__dictSectionDefault` were present and looked intact on the live canvas path
   - the dict filter/search surface remained present on the live DOM-owned path as expected for this slice
+- The next dict-specific filter/search slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamFilterUnderline(...)` and scopes that ownership rule to the dict canary only instead of treating the filter input as part of the shared-family lane
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now gives the dict filter input a dedicated retained-underline handoff on the `canvas-shell-underlay` path by:
+    - keeping the live input text/editor DOM-owned
+    - making the input's resting DOM border transparent only on the dict canvas path
+    - adding a sibling underline span tagged with `data-canvas-owned-underline="true"` so the existing retained-scene underline measurement paints the idle filter underline on canvas while the blue focus underline still hands off through the live DOM peer-focus state
+  - no new retained-scene primitive was needed for this slice; it intentionally reuses the existing underline measurement/rendering path instead of opening another renderer branch
+  - focused coverage now exists for this dict-specific ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the filter underline ownership flag, the transparent resting DOM border, and distinct retained-canvas underline pixels while preserving the existing dict shared-family shell/text/switch/underline/nested-guide checks
+  - verification caveats closed in this iteration:
+    - the first Playwright rerun failed on a stale bootstrap token (`401`); refresh runtime info before rerunning that probe instead of treating that as renderer drift
+    - an attempted direct click/fill interaction add-on for the dict filter triggered `POST /api/setActiveIds -> 404` in the current headless harness; that interaction add-on was removed from the checked oracle because this slice changed only the visual underline ownership, not filter-editing behavior
+- CDP visual check is done for the dict filter-underline slice:
+  - `/settings` loaded cleanly in the worktree UI slice with `All Settings` active
+  - no crash/error overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was present on the live surface
+  - the dict filter/search row looked intact and its underline remained visible after the resting underline moved to retained canvas ownership
 
 ## Preservation rule
 
@@ -383,7 +407,8 @@ That leaves one primary architectural move:
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
 3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass is now landed there, so the next product slice should target the dict filter/search surface itself instead of reopening shared-family expansion.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Keep the append-only log current from the first running iteration onward.
+5. Treat the dict filter underline slice as complete; the next dict-specific frontier is the remaining filter/search chrome beyond the underline itself, not another shared-family ownership pass and not another attempt to prove filter focus through the current `POST /api/setActiveIds -> 404` headless noise.
+6. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
 
@@ -408,7 +433,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass as done, and move to the first truly dict-specific chrome family at the filter/search surface
+- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass plus the filter-underline slice as done, and move to the remaining dict filter/search chrome beyond the underline while keeping the live input/editor behavior DOM-owned
 
 ## Hard rules
 

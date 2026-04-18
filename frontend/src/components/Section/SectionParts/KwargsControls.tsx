@@ -1,6 +1,9 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
+import {
+  isCanvasOwnedSectionParamFilterUnderline,
+  isCanvasOwnedSectionShell,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   addKwarg,
@@ -507,9 +510,16 @@ function ParamFilter({
   const sortIconColorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-300 dark:text-setta-600";
-  const inputColorClassName = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
-    : "text-setta-700 placeholder-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
+  const inputTextColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-700 placeholder-setta-400 dark:text-setta-300";
+  const inputFocusUnderlineClassName = hasSectionStyleTheme
+    ? "focus-visible:border-[color:var(--setta-section-style-outline)]"
+    : "focus-visible:border-blue-300 dark:focus-visible:border-blue-400/50";
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedFilterUnderline =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionParamFilterUnderline(sectionId);
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -527,20 +537,28 @@ function ParamFilter({
       className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${includeCallablePadding ? "py-1" : ""}`}
     >
       <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
-      <input
-        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-        value={paramFilterValue}
-        className={`min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputColorClassName}`}
-        placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-        tabIndex={0}
-        onChange={onSearchChange}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            e.currentTarget.blur();
-            // focusOnSection(null, sectionId, false);
-          }
-        }}
-      />
+      <span className="relative min-w-0 flex-1">
+        <input
+          id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+          value={paramFilterValue}
+          className={`peer/dictfilter min-w-0 w-full cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputTextColorClassName} ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`}
+          placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+          tabIndex={0}
+          onChange={onSearchChange}
+          onKeyDown={(e) => {
+            if (e.code === "Escape") {
+              e.currentTarget.blur();
+              // focusOnSection(null, sectionId, false);
+            }
+          }}
+        />
+        {canvasOwnedFilterUnderline ? (
+          <span
+            className={`pointer-events-none absolute bottom-0 left-0 right-0 border-b border-setta-200/50 opacity-0 dark:border-setta-600/30 ${hasSectionStyleTheme ? "peer-focus-visible/dictfilter:border-[color:var(--setta-section-style-outline)]" : "peer-focus-visible/dictfilter:border-blue-300 dark:peer-focus-visible/dictfilter:border-blue-400/50"} peer-focus-visible/dictfilter:opacity-100`}
+            data-canvas-owned-underline="true"
+          />
+        ) : null}
+      </span>
     </search>
   );
 }

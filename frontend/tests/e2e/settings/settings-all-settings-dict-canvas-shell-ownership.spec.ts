@@ -97,6 +97,9 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       const header = outer?.querySelector<HTMLElement>("header.section-title");
       const filterInput = document.getElementById(filterInputId);
       const filterSearch = filterInput?.closest<HTMLElement>("search");
+      const filterUnderline = filterSearch?.querySelector<HTMLElement>(
+        '[data-canvas-owned-underline="true"]',
+      );
       const aspectRatioRow = document.getElementById(aspectRatioRowId);
       const aspectRatioSwitch = aspectRatioRow?.querySelector<HTMLElement>(
         '[data-canvas-owned-switch-track="true"]',
@@ -142,6 +145,9 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       }
       if (!(filterSearch instanceof HTMLElement)) {
         throw new Error(`Missing dict filter container for ${sectionId}`);
+      }
+      if (!(filterUnderline instanceof HTMLElement)) {
+        throw new Error(`Missing dict filter underline for ${sectionId}`);
       }
       if (!(aspectRatioRow instanceof HTMLElement)) {
         throw new Error(`Missing Aspect Ratio row for ${sectionId}`);
@@ -255,6 +261,7 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       const nodeRect = node.getBoundingClientRect();
       const headerRect = header.getBoundingClientRect();
       const filterRect = filterSearch.getBoundingClientRect();
+      const filterUnderlineRect = filterUnderline.getBoundingClientRect();
       const aspectRatioSwitchRect = aspectRatioSwitch.getBoundingClientRect();
       const configLanguageRect = configLanguageLine.getBoundingClientRect();
       const styleColorRect = styleColorLine.getBoundingClientRect();
@@ -266,6 +273,12 @@ test("canvas shell path owns shared resting dict section chrome", async ({
       const headerHeight = headerRect.height / viewportScale;
       const filterOffsetY = (filterRect.top - nodeRect.top) / viewportScale;
       const filterHeight = filterRect.height / viewportScale;
+      const filterUnderlineOffsetX =
+        (filterUnderlineRect.left - nodeRect.left) / viewportScale;
+      const filterUnderlineOffsetY =
+        (filterUnderlineRect.top - nodeRect.top) / viewportScale;
+      const filterUnderlineWidth = filterUnderlineRect.width / viewportScale;
+      const filterUnderlineHeight = filterUnderlineRect.height / viewportScale;
       const headerSampleX =
         (nodeX - canvasLeft + headerOffsetX + headerWidth * 0.5) * canvasScaleX;
       const headerSampleY =
@@ -431,6 +444,8 @@ test("canvas shell path owns shared resting dict section chrome", async ({
 
       const aspectRatioSwitchStyle = window.getComputedStyle(aspectRatioSwitch);
       const configLanguageStyle = window.getComputedStyle(configLanguageInput);
+      const filterInputStyle = window.getComputedStyle(filterInput);
+      const filterUnderlineStyle = window.getComputedStyle(filterUnderline);
       const styleColorStyle = window.getComputedStyle(styleColorInput);
       const styleColorUnderlineStyle =
         window.getComputedStyle(styleColorUnderline);
@@ -446,6 +461,18 @@ test("canvas shell path owns shared resting dict section chrome", async ({
           aspectRatioSwitchSampleY,
         ),
         bodyPixel,
+        filterUnderlineDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + filterUnderlineOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + filterUnderlineOffsetY) * canvasScaleY,
+            filterUnderlineWidth * canvasScaleX,
+            filterUnderlineHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        filterUnderlineOpacity: filterUnderlineStyle.opacity,
+        filterUnderlineOwnershipFlag:
+          filterUnderline.dataset.canvasOwnedUnderline ?? null,
+        filterInputBorderBottomColor: filterInputStyle.borderBottomColor,
         configLanguageDistinctPixelCount:
           countPixelsDifferentFromReferenceInCanvasRect(
             (nodeX - canvasLeft + configLanguageOffsetX) * canvasScaleX,
@@ -533,6 +560,10 @@ test("canvas shell path owns shared resting dict section chrome", async ({
   expect(shellState.aspectRatioSwitchBackground).toBe("rgba(0, 0, 0, 0)");
   expect(shellState.aspectRatioSwitchPixel).not.toBe("0,0,0,0");
   expect(shellState.aspectRatioSwitchPixel).not.toBe(shellState.bodyPixel);
+  expect(shellState.filterUnderlineOwnershipFlag).toBe("true");
+  expect(shellState.filterUnderlineOpacity).toBe("0");
+  expect(shellState.filterInputBorderBottomColor).toBe("rgba(0, 0, 0, 0)");
+  expect(shellState.filterUnderlineDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.configLanguageDummyOpacity).toBe("0");
   expect(shellState.configLanguageDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.sizeNestedGuideOwnershipFlag).toBe("true");

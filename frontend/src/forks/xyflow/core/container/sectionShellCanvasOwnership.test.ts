@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
@@ -71,6 +72,22 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__globalVariables",
+      ),
+    ).toBe(false);
+  });
+
+  it("targets only the dict canary filter underline for canvas ownership", () => {
+    expect(
+      isCanvasOwnedSectionParamFilterUnderline(
+        DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamFilterUnderline(CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionParamFilterUnderline(
         "settings-section__globalVariables",
       ),
     ).toBe(false);

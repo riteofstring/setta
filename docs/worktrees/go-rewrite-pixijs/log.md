@@ -679,3 +679,33 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep `settings-section__dictSectionDefault` as the active named lane, but stop expanding the shared-family path there; the next bounded product slice should target the dict filter/search chrome itself
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 029
+
+- Item: Move the dict filter input underline to retained canvas ownership on `settings-section__dictSectionDefault`.
+- Status: `done`
+- Details:
+  - Added `isCanvasOwnedSectionParamFilterUnderline(...)` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` and scoped that ownership rule to the dict canary only, so the filter surface is now tracked as a real dict-specific lane instead of another shared-family expansion.
+  - Updated `frontend/src/components/Section/SectionParts/KwargsControls.tsx` so the dict filter input keeps its live DOM text/editor path but hands its resting underline to canvas ownership on the `canvas-shell-underlay` path:
+    - the input border is transparent at rest only on that dict canvas path
+    - a sibling underline span tagged with `data-canvas-owned-underline="true"` carries the existing retained-underline measurement
+    - the live blue focus underline still hands off through DOM peer-focus styling instead of adding another renderer branch
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts` so the dict probe now checks the filter underline ownership flag, the transparent resting DOM border, and distinct retained-canvas underline pixels alongside the existing shared-family shell/text/switch/nested-guide assertions.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` to cover the new dict-only filter-underline ownership rule.
+  - Verification notes:
+    - the first Playwright rerun failed on a stale bootstrap token (`401`); refreshed runtime info and reran with a fresh token
+    - an attempted direct click/fill interaction add-on for the dict filter triggered `POST /api/setActiveIds -> 404` in the current headless harness, so that extra interaction check was removed from the checked oracle because this slice changed only the visual underline ownership
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe passed on the live worktree runtime with the new retained filter underline assertions
+  - CDP visual check is done:
+    - `/settings` loaded cleanly in the worktree UI slice with `All Settings` active
+    - no crash/error overlay was visible
+    - `.react-flow__section-shell-backdrop canvas` was mounted
+    - `settings-section__dictSectionDefault` was present on the live surface
+    - the dict filter/search row looked intact and its underline remained visible after the resting underline moved to retained canvas ownership
+- Next action:
+  - keep `settings-section__dictSectionDefault` as the active named lane and target the remaining dict filter/search chrome beyond the underline itself, while keeping filter text/editing DOM-owned until there is a concrete reason to move more of that surface
+LOOP_TERMINAL_MARKER: none
