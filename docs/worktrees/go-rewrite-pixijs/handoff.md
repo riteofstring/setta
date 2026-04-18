@@ -73,6 +73,10 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `longTasks.totalMs: 119`
 - Treat that post-slice probe as a runtime smoke check for the new surface seam, not as a new durable benchmark claim yet.
 - Canonical target section for the next settings graph-surface lane: `settings-section__callableSectionDefault`.
+- Fresh live canary inventory on 2026-04-18 closes the stale top-level callable body-panel assumptions for that section:
+  - the retained canvas shell is still mounted and the section is healthy on `/settings` -> `All Settings`
+  - the visible canary shows the section header, the callable `ARGS` toolbar row, and visible settings rows such as `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Hide Params`, and `Hide Unpinned Params`
+  - the mounted canary does not currently show a separate section search field or a visible pinned-params panel in the checked viewport, so do not spend another slice on search/pinned/unpinned panel chrome for this target
 - The Phase 1 baseline lane is now complete:
   - the browser-side `loadProjectConfig` transport failure on the live worktree runtime (`http://127.0.0.1:8068`) is fixed
   - focused runtime verification now succeeds for that exact request shape:
@@ -191,9 +195,9 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Move the next visible non-editing callable body panel for `settings-section__callableSectionDefault` into the retained scene layer, likely the unpinned params area chrome beneath the newly canvas-owned pinned panel while keeping param rows live.
+1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the next product frontier constrained to top-level callable shell/body panel chrome only; do not reopen broad harness work or start row/body migration yet.
+3. Start the next bounded production slice at the earliest visible remaining chrome on that same canary: the first retained-canvas param-row shell or row-group chrome for the visible settings rows while keeping the live editors and interactions intact.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -210,9 +214,9 @@ The first product frontier is:
 - with one retained scene canvas now mounted under the DOM section nodes as the first renderer-owned static layer
 - with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
 - with the same canary section now also painting a canvas-owned header band/divider from the measured header height
-- with the same canary section now also painting a canvas-owned callable toolbar band beneath the search row while the live controls/filter DOM stays interactive
-- with the same canary section now also painting a canvas-owned pinned-params panel chrome while the live pinned rows stay mounted
-- next: move the unpinned params area chrome for that same named canary section into the retained scene path instead of reopening broad DOM or harness work
+- with the same canary section now also painting a canvas-owned callable toolbar band while the live controls remain interactive
+- with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
+- next: move to the first visible param-row or row-group chrome on that same named canary instead of reopening top-level shell/body panel work
 
 ## Hard rules
 

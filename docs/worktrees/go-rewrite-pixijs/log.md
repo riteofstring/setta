@@ -400,3 +400,24 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move the unpinned params area chrome for `settings-section__callableSectionDefault` into the retained scene layer while keeping param rows live
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 019
+
+- Item: Close the stale callable shell/body-panel lane assumptions for `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Re-probed the live worktree canary on `/settings` -> `All Settings` before continuing the next renderer slice.
+  - The retained canvas shell is still mounted and healthy for `settings-section__callableSectionDefault`.
+  - The visible canary currently shows the section header, the callable `ARGS` toolbar row, and visible settings rows such as `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Hide Params`, and `Hide Unpinned Params`.
+  - The checked live canary does not currently show a separate section search field or a visible pinned-params panel in the viewport, so the old `search / pinned / unpinned body-panel chrome` continuation path is stale for this named target.
+  - Started a search-pill canvas ownership spike in this iteration, but reverted it in the same pass once the live canary probe showed that control is not mounted on this target; no product code was kept from that experiment.
+  - Result: treat the top-level callable shell/body-panel lane as complete on this canary and move the next product slice to visible param-row or row-group chrome instead of another missing panel band.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+  - CDP visual check is done:
+    - the retained shell `canvas` is mounted on the live `All Settings` surface
+    - `settings-section__callableSectionDefault` looks healthy and shows the header, callable `ARGS` toolbar, and visible settings rows
+    - no separate section search field or visible pinned-params panel was present in the checked viewport
+- Next action:
+  - start the first visible param-row or row-group canvas-chrome slice for `settings-section__callableSectionDefault` instead of another top-level panel-chrome pass
+LOOP_TERMINAL_MARKER: none
