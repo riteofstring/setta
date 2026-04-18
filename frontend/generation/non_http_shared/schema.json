@@ -16307,6 +16307,25 @@
       ],
       "additionalProperties": false
     },
+    "SettingsLanguageServer": {
+      "type": "object",
+      "properties": {
+        "selectedByLanguage": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "title": "SettingsLanguageServer",
+      "required": [
+        "selectedByLanguage"
+      ],
+      "additionalProperties": false
+    },
     "SettingsManagedBlock": {
       "type": "object",
       "properties": {
@@ -16614,8 +16633,7 @@
           "$ref": "#/$defs/SectionSizingPolicy"
         },
         "languageServer": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/SettingsLanguageServer"
         }
       },
       "title": "SettingsState",
