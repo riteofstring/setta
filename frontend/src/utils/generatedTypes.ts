@@ -2631,6 +2631,14 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
   };
 }
 
+type SettingsLanguageServer = gt.SettingsLanguageServer;
+
+function createSettingsLanguageServer(
+  options: Partial<SettingsLanguageServer> = {},
+): SettingsLanguageServer {
+  return options as SettingsLanguageServer;
+}
+
 type SettingsShortcuts = gt.SettingsShortcuts;
 
 function createSettingsShortcuts(
@@ -2798,16 +2806,7 @@ export function createSettingsState(
       zoomOnScroll: true,
     },
     languageServer: {
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportSelfClsParameterName: "none",
-            reportUnannotatedClassAttribute: "none",
-            reportUnknownMemberType: "none",
-            reportUnknownVariableType: "none",
-          },
-        },
-      },
+      selectedByLanguage: {},
     },
     sectionSizingPolicy: {
       byType: {
@@ -3142,6 +3141,9 @@ export function createSettingsState(
     ),
     sectionSizingPolicy: createSectionSizingPolicy(
       options["sectionSizingPolicy"] ?? defaults["sectionSizingPolicy"],
+    ),
+    languageServer: createSettingsLanguageServer(
+      options["languageServer"] ?? defaults["languageServer"],
     ),
   };
 }

@@ -409,16 +409,7 @@
     }
   },
   "languageServer": {
-    "basedpyright": {
-      "analysis": {
-        "diagnosticSeverityOverrides": {
-          "reportUnknownVariableType": "none",
-          "reportUnknownMemberType": "none",
-          "reportUnannotatedClassAttribute": "none",
-          "reportSelfClsParameterName": "none"
-        }
-      }
-    }
+    "selectedByLanguage": {}
   },
   "browserSectionDefault": {
     "isFrozen": false,
