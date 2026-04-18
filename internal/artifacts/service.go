@@ -559,7 +559,7 @@ func parseChartArtifactValue(artifactID string, rawValue *json.RawMessage) (Char
 }
 
 func buildJSONUpdateAction(_ *Service, input artifactUpdateInput) (updateAction, error) {
-	canonicalJSON, err := parseJSONObjectValue(input.artifactID, input.artifact.Value)
+	canonicalJSON, err := parseJSONObjectValue(input.artifact.Type, input.artifactID, input.artifact.Value)
 	if err != nil {
 		return updateAction{}, err
 	}
@@ -573,11 +573,11 @@ func buildJSONUpdateAction(_ *Service, input artifactUpdateInput) (updateAction,
 	}, nil
 }
 
-func parseJSONObjectValue(artifactID string, rawValue *json.RawMessage) (json.RawMessage, error) {
+func parseJSONObjectValue(artifactType ArtifactType, artifactID string, rawValue *json.RawMessage) (json.RawMessage, error) {
 	if rawValue == nil {
 		return nil, missingArtifactValueError(artifactID)
 	}
-	canonicalJSON, err := canonicalizeJSONObject(*rawValue)
+	canonicalJSON, err := canonicalizeArtifactJSONObject(artifactType, *rawValue)
 	if err != nil {
 		return nil, invalidArtifactRequestf(artifactID, "has an invalid JSON value.")
 	}
@@ -841,7 +841,7 @@ func (s *Service) loadCachedJSON(rawPath string, artifactType ArtifactType) (*JS
 	}
 	s.mu.RUnlock()
 
-	canonicalJSON, err := canonicalizeJSONObject(content)
+	canonicalJSON, err := canonicalizeArtifactJSONObject(artifactType, content)
 	if err != nil {
 		return nil, nil
 	}
@@ -1081,6 +1081,23 @@ func canonicalizeJSONObject(raw []byte) (json.RawMessage, error) {
 	if err := json.Unmarshal(raw, &value); err != nil {
 		return nil, err
 	}
+	return canonicalizeJSONObjectValue(value)
+}
+
+func canonicalizeArtifactJSONObject(artifactType ArtifactType, raw []byte) (json.RawMessage, error) {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("expected object")
+	}
+	normalizeArtifactJSONObject(artifactType, object)
+	return canonicalizeJSONObjectValue(object)
+}
+
+func canonicalizeJSONObjectValue(value any) (json.RawMessage, error) {
 	if _, ok := value.(map[string]any); !ok {
 		return nil, fmt.Errorf("expected object")
 	}
@@ -1089,6 +1106,37 @@ func canonicalizeJSONObject(raw []byte) (json.RawMessage, error) {
 		return nil, err
 	}
 	return json.RawMessage(encoded), nil
+}
+
+func normalizeArtifactJSONObject(artifactType ArtifactType, object map[string]any) {
+	switch artifactType {
+	case ArtifactTypeBrushStroke:
+		normalizeArtifactJSONArrayField(object, "points")
+	case ArtifactTypeDrawAreaLayerItemTransform:
+		normalizeArtifactJSONArrayField(object, "eraserStrokes")
+		strokes, ok := object["eraserStrokes"].([]any)
+		if !ok {
+			return
+		}
+		for _, rawStroke := range strokes {
+			stroke, ok := rawStroke.(map[string]any)
+			if !ok {
+				continue
+			}
+			normalizeArtifactJSONArrayField(stroke, "points")
+		}
+	}
+}
+
+func normalizeArtifactJSONArrayField(object map[string]any, field string) {
+	rawValue, ok := object[field]
+	if !ok || rawValue == nil {
+		object[field] = []any{}
+		return
+	}
+	if values, ok := rawValue.([]any); ok && values == nil {
+		object[field] = []any{}
+	}
 }
 
 func chartDataToCSV(data ChartDataValue) ([]byte, error) {

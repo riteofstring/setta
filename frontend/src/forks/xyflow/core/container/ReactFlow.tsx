@@ -11,8 +11,11 @@ import {
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
+import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
+import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
-import GraphSurface from "./GraphSurface";
+import NodeRenderer from "./NodeRenderer";
+import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
 import ViewportWrapper from "./Viewport";
 
 const wrapperStyle: CSSProperties = {
@@ -96,7 +99,14 @@ const ReactFlow = () => {
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
           <ViewportWrapper>
-            <GraphSurface readyToRender={readyToRender} />
+            {readyToRender && (
+              <>
+                <EdgeRenderer />
+                <AgenticEdgeRenderer />
+                <StateMachineEdgeRenderer />
+                <NodeRenderer />
+              </>
+            )}
           </ViewportWrapper>
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
@@ -110,11 +120,8 @@ function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
     return;
   }
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
-  if (!d3Zoom || !d3Selection) {
-    return;
-  }
-  d3Zoom.translateBy(
-    d3Selection,
+  d3Zoom!.translateBy(
+    d3Selection!,
     -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
     -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
   );

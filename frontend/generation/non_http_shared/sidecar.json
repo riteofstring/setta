@@ -250,6 +250,11 @@
       "schemaRef": "#/$defs/BackendListenerEndpointRequest"
     },
     {
+      "name": "BackendLogEvent",
+      "kind": "model",
+      "schemaRef": "#/$defs/BackendLogEvent"
+    },
+    {
       "name": "BackendRequestContext",
       "kind": "model",
       "schemaRef": "#/$defs/BackendRequestContext"
@@ -445,6 +450,11 @@
       "name": "CanvasPoint",
       "kind": "alias",
       "schemaRef": "#/$defs/CanvasPoint"
+    },
+    {
+      "name": "ChangeParamImplUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ChangeParamImplUIConfigValue"
     },
     {
       "name": "ChartDataArtifact",
@@ -1680,6 +1690,11 @@
       ]
     },
     {
+      "name": "IFrameSectionImpl",
+      "kind": "model",
+      "schemaRef": "#/$defs/IFrameSectionImpl"
+    },
+    {
       "name": "IdentityContent",
       "kind": "model",
       "schemaRef": "#/$defs/IdentityContent"
@@ -2254,6 +2269,11 @@
           "value": "RealtimeDependencyEvent"
         }
       ]
+    },
+    {
+      "name": "MetaControlSectionImpl",
+      "kind": "model",
+      "schemaRef": "#/$defs/MetaControlSectionImpl"
     },
     {
       "name": "MetaControlSizeMode",
@@ -5228,9 +5248,24 @@
       "schemaRef": "#/$defs/SettingsBackend"
     },
     {
+      "name": "SettingsChatWindowing",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsChatWindowing"
+    },
+    {
+      "name": "SettingsChatWindowingShortcuts",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsChatWindowingShortcuts"
+    },
+    {
       "name": "SettingsGUI",
       "kind": "model",
       "schemaRef": "#/$defs/SettingsGUI"
+    },
+    {
+      "name": "SettingsLanguageServer",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsLanguageServer"
     },
     {
       "name": "SettingsManagedBlock",
@@ -5274,6 +5309,29 @@
       "name": "SettingsUpdateMessage",
       "kind": "model",
       "schemaRef": "#/$defs/SettingsUpdateMessage"
+    },
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "schemaRef": "#/$defs/Severity",
+      "enumValues": [
+        {
+          "name": "info",
+          "value": "info"
+        },
+        {
+          "name": "warning",
+          "value": "warning"
+        },
+        {
+          "name": "error",
+          "value": "error"
+        },
+        {
+          "name": "critical",
+          "value": "critical"
+        }
+      ]
     },
     {
       "name": "SharePolicyOverrides",
@@ -6305,6 +6363,11 @@
       "name": "WatchCodeRegistryEntry",
       "kind": "model",
       "schemaRef": "#/$defs/WatchCodeRegistryEntry"
+    },
+    {
+      "name": "WebsocketMessage",
+      "kind": "model",
+      "schemaRef": "#/$defs/WebsocketMessage"
     },
     {
       "name": "WebsocketMessageType",
@@ -9701,6 +9764,36 @@
     },
     {
       "profile": "frontend",
+      "type": "SettingsChatWindowing",
+      "value": {
+        "autoCreateInitialChat": true,
+        "restorePriorStateOnUnmaximize": true,
+        "shortcuts": {
+          "canvasToggle": "Shift + Esc",
+          "maximizeFocused": "Mod + Shift + Enter",
+          "minimizeFocused": "Mod + Shift + M",
+          "snapBottom": "Mod + Alt + ArrowDown",
+          "snapLeft": "Mod + Alt + ArrowLeft",
+          "snapRight": "Mod + Alt + ArrowRight",
+          "snapTop": "Mod + Alt + ArrowUp"
+        }
+      }
+    },
+    {
+      "profile": "frontend",
+      "type": "SettingsChatWindowingShortcuts",
+      "value": {
+        "canvasToggle": "Shift + Esc",
+        "maximizeFocused": "Mod + Shift + Enter",
+        "minimizeFocused": "Mod + Shift + M",
+        "snapBottom": "Mod + Alt + ArrowDown",
+        "snapLeft": "Mod + Alt + ArrowLeft",
+        "snapRight": "Mod + Alt + ArrowRight",
+        "snapTop": "Mod + Alt + ArrowUp"
+      }
+    },
+    {
+      "profile": "frontend",
       "type": "SettingsGUI",
       "value": {
         "defaultZoomLevel": 1,
@@ -9851,6 +9944,19 @@
           "saveRenderedValues": false,
           "showDefaultConfigOnLoad": true
         },
+        "chatWindowing": {
+          "autoCreateInitialChat": true,
+          "restorePriorStateOnUnmaximize": true,
+          "shortcuts": {
+            "canvasToggle": "Shift + Esc",
+            "maximizeFocused": "Mod + Shift + Enter",
+            "minimizeFocused": "Mod + Shift + M",
+            "snapBottom": "Mod + Alt + ArrowDown",
+            "snapLeft": "Mod + Alt + ArrowLeft",
+            "snapRight": "Mod + Alt + ArrowRight",
+            "snapTop": "Mod + Alt + ArrowUp"
+          }
+        },
         "gui": {
           "defaultZoomLevel": 1,
           "gridColor": "#afbacf",
@@ -9912,16 +10018,7 @@
           "zoomOnScroll": true
         },
         "languageServer": {
-          "basedpyright": {
-            "analysis": {
-              "diagnosticSeverityOverrides": {
-                "reportSelfClsParameterName": "none",
-                "reportUnannotatedClassAttribute": "none",
-                "reportUnknownMemberType": "none",
-                "reportUnknownVariableType": "none"
-              }
-            }
-          }
+          "selectedByLanguage": {}
         },
         "sectionSizingPolicy": {
           "byType": {
@@ -10696,6 +10793,58 @@
         "SETTA_TERMINAL_READY": "SETTA_TERMINAL_READY",
         "SETTINGS_PROJECT_NAME": "settings",
         "WS_TERMINAL_RESIZE": "terminalResize"
+      }
+    },
+    {
+      "name": "ChangeParamImplUIConfig",
+      "type": "ChangeParamImplUIConfigValue",
+      "value": {
+        "allParamCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ],
+        "controlCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam"
+        ],
+        "sectionParamCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ]
       }
     },
     {
@@ -12416,6 +12565,10 @@
           "discriminatorValue": "Prompt"
         },
         {
+          "name": "MetaControlSectionImpl",
+          "discriminatorValue": "MetaControl"
+        },
+        {
           "name": "GlobalVariablesSectionImpl",
           "discriminatorValue": "GlobalVariables"
         },
@@ -12434,6 +12587,10 @@
         {
           "name": "TerminalSectionImpl",
           "discriminatorValue": "Terminal"
+        },
+        {
+          "name": "IFrameSectionImpl",
+          "discriminatorValue": "IFrame"
         },
         {
           "name": "ChatSectionImpl",
@@ -12472,7 +12629,8 @@
           "memberTypes": [
             "CallableSectionImpl",
             "DictSectionImpl",
-            "GlobalVariablesSectionImpl"
+            "GlobalVariablesSectionImpl",
+            "MetaControlSectionImpl"
           ]
         }
       ],
@@ -12684,6 +12842,26 @@
           "tagColor": null,
           "type": "Group"
         },
+        "IFrame": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "code": "",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "IFrame"
+        },
         "ListRoot": {
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
@@ -12705,6 +12883,39 @@
           "tagColor": null,
           "type": "ListRoot",
           "viewMode": "default"
+        },
+        "MetaControl": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "codeObjVariantMap": {},
+          "columnWidth": null,
+          "edgeInputParams": [],
+          "edgeOutputPorts": [],
+          "hideUnpinnedParams": false,
+          "id": "",
+          "ignoreTypeErrors": {
+            "callable": false,
+            "params": {}
+          },
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "metaControlParamId": "",
+          "name": "",
+          "paramFilter": "",
+          "pinnedParams": [],
+          "positionAndSizeLocked": false,
+          "selectedParams": [],
+          "showSectionTitle": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "MetaControl"
         },
         "Prompt": {
           "aspectRatio": false,

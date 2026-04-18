@@ -40,12 +40,13 @@ if [ -n "${SETTA_MIN_RELEASE_AGE_DAYS:-}" ] && [ "${SETTA_MIN_RELEASE_AGE_DAYS}"
     --lockfile ./uv.lock
 fi
 
-# Repo-local source/dev installs intentionally pull the Python SDK,
-# source-only helpers, and repo test/release tooling. The packaged user install
-# path is narrower and does not use these extras.
+# Repo-local installs intentionally pull the curated defaults profile alongside
+# the Python SDK, source-only helpers, and repo test/release tooling. The
+# packaged user install path is narrower and does not use these extras.
 if [ "${SETTA_INIT_ENV_NO_INSTALL_PROJECT:-}" = "1" ]; then
   uv sync \
     --frozen \
+    --extra defaults \
     --extra source \
     --extra dev \
     --python "${SETTA_PYTHON_VERSION}" \
@@ -53,6 +54,7 @@ if [ "${SETTA_INIT_ENV_NO_INSTALL_PROJECT:-}" = "1" ]; then
 else
   uv sync \
     --frozen \
+    --extra defaults \
     --extra source \
     --extra dev \
     --python "${SETTA_PYTHON_VERSION}"
