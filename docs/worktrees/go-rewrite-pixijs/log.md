@@ -756,3 +756,28 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep `settings-section__dictSectionDefault` as the named lane, but move the next pass to any remaining default-visible dict-specific inactive chrome outside the filter row; if only live interactive cores remain there too, close the broader dict lane instead of opening another micro-slice
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 032
+
+- Item: Move the dict kwargs-controls `Args` label to retained-canvas resting text ownership and close the broader dict lane.
+- Status: `done`
+- Details:
+  - A fresh normal-zoom live inventory on `settings-section__dictSectionDefault` showed the broader dict lane was not actually done yet: once the section is framed large enough, the kwargs-controls `Args` label becomes visible default-inactive chrome outside the already-closed filter row.
+  - Added `isCanvasOwnedSectionArgsLabelRestingText(...)` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts`, scoped only to the dict canary so this stayed a dict-lane slice instead of reopening callable/shared-family work by inertia.
+  - Updated `frontend/src/components/Section/SectionParts/KwargsControls.tsx` so only that dict `Args` label gets `data-canvas-owned-resting-text="true"` and `opacity-0` on the `canvas-shell-underlay` path while the live toolbar buttons/icons and filter input remain DOM-owned interactive cores.
+  - Tightened `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts` with one bounded normal-zoom probe: it now zooms the dict section into view, forces one subtree remeasure, and confirms the visible `Args` label is hidden in DOM and repainted by the retained canvas before continuing the existing dict ownership/editor checks.
+  - Outcome: the broader dict lane is now closed at its useful boundary. The remaining visible kwargs-controls DOM at normal dict zoom is only the live interactive core (toolbar buttons/icons inside buttons plus the live filter input editor).
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: the trusted dict probe now confirms the hidden DOM `Args` label plus retained-canvas text pixels at normal dict zoom while preserving the existing dict shell/text/switch/underline/nested-guide and inline editor checks
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was visible on the live surface
+  - after panning/zooming to frame the dict section, the kwargs-controls row still looked intact once the DOM `Args` label was made transparent on the canvas path
+  - caveat: the supplied bootstrap token had already been rejected during the CDP pass, so the visual confirmation reused the still-healthy authenticated frontend session directly at `http://127.0.0.1:3068/settings`
+- Next action:
+  - keep the callable and dict lanes closed, then inventory the next param-heavy family and name the canonical `GlobalVariables` settings target before opening another section-specific ownership slice
+LOOP_TERMINAL_MARKER: none

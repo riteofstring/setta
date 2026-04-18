@@ -3,6 +3,7 @@ import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   isCanvasOwnedSectionParamFilterIcon,
+  isCanvasOwnedSectionArgsLabelRestingText,
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionParamFilterUnderline,
@@ -73,6 +74,24 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__globalVariables",
+      ),
+    ).toBe(false);
+  });
+
+  it("targets only the dict canary args label for canvas resting-text ownership", () => {
+    expect(
+      isCanvasOwnedSectionArgsLabelRestingText(
+        DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionArgsLabelRestingText(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionArgsLabelRestingText(
         "settings-section__globalVariables",
       ),
     ).toBe(false);

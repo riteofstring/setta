@@ -82,6 +82,10 @@ export function isCanvasOwnedSectionParamLabelRestingText(sectionId: string) {
   return isCanvasOwnedSectionShell(sectionId);
 }
 
+export function isCanvasOwnedSectionArgsLabelRestingText(sectionId: string) {
+  return sectionId === DICT_CANVAS_OWNED_SECTION_SHELL_ID;
+}
+
 export function isCanvasOwnedSectionParamFilterUnderline(sectionId: string) {
   return sectionId === DICT_CANVAS_OWNED_SECTION_SHELL_ID;
 }

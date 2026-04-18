@@ -662,6 +662,210 @@ test("canvas shell path owns shared resting dict section chrome", async ({
   expect(shellState.styleColorLabelDummyOpacity).toBe("0");
   expect(shellState.styleColorLabelDistinctPixelCount).toBeGreaterThan(0);
 
+  const argsLabelState = await page.evaluate(async (sectionId) => {
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const inner = document.getElementById(`${sectionId}-CustomResizable`);
+    const label = section?.querySelector<HTMLElement>(".section-args h3");
+    const node = section?.closest<HTMLElement>(".react-flow__node");
+    const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      ".react-flow__section-shell-backdrop canvas",
+    );
+    if (!(section instanceof HTMLElement)) {
+      throw new Error(`Missing section for ${sectionId}`);
+    }
+    if (!(inner instanceof HTMLElement)) {
+      throw new Error(`Missing inner shell for ${sectionId}`);
+    }
+    if (!(label instanceof HTMLElement)) {
+      throw new Error(`Missing Args label for ${sectionId}`);
+    }
+    if (!(node instanceof HTMLElement)) {
+      throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
+    }
+    if (!(viewport instanceof HTMLElement)) {
+      throw new Error(`Missing React Flow viewport for ${sectionId}`);
+    }
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("Missing retained shell canvas");
+    }
+
+    const nodeTransform = window.getComputedStyle(node).transform;
+    const nodeTransformMatch = /^matrix\(([^)]+)\)$/.exec(nodeTransform);
+    if (!nodeTransformMatch) {
+      throw new Error(
+        `Unexpected node transform for ${sectionId}: ${nodeTransform}`,
+      );
+    }
+    const [, nodeTransformBody] = nodeTransformMatch;
+    const nodeMatrixParts = nodeTransformBody
+      .split(",")
+      .map((value) => Number.parseFloat(value.trim()));
+    if (
+      nodeMatrixParts.length < 6 ||
+      nodeMatrixParts.some((value) => !Number.isFinite(value))
+    ) {
+      throw new Error(
+        `Invalid node transform matrix for ${sectionId}: ${nodeTransform}`,
+      );
+    }
+
+    const nodeX = nodeMatrixParts[4];
+    const nodeY = nodeMatrixParts[5];
+    const zoom = 1.3;
+    const nextViewportX =
+      window.innerWidth / 2 - (nodeX + inner.offsetWidth / 2) * zoom;
+    const nextViewportY =
+      window.innerHeight / 2 - (nodeY + inner.offsetHeight / 2) * zoom;
+    viewport.style.transform = `translate(${nextViewportX}px, ${nextViewportY}px) scale(${zoom})`;
+    section.setAttribute("data-codex-force-remeasure", "args-label");
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
+    const canvasContext = canvas.getContext("2d");
+    if (!canvasContext) {
+      throw new Error("Missing retained shell canvas context");
+    }
+
+    const viewportTransform = window.getComputedStyle(viewport).transform;
+    const viewportTransformMatch = /^matrix\(([^)]+)\)$/.exec(
+      viewportTransform,
+    );
+    if (!viewportTransformMatch) {
+      throw new Error(
+        `Unexpected viewport transform for ${sectionId}: ${viewportTransform}`,
+      );
+    }
+    const [, viewportTransformBody] = viewportTransformMatch;
+    const viewportMatrixParts = viewportTransformBody
+      .split(",")
+      .map((value) => Number.parseFloat(value.trim()));
+    if (
+      viewportMatrixParts.length < 6 ||
+      viewportMatrixParts.some((value) => !Number.isFinite(value))
+    ) {
+      throw new Error(
+        `Invalid viewport transform matrix for ${sectionId}: ${viewportTransform}`,
+      );
+    }
+
+    const viewportScale = viewportMatrixParts[0];
+    if (!Number.isFinite(viewportScale) || viewportScale <= 0) {
+      throw new Error(
+        `Invalid viewport scale for ${sectionId}: ${viewportTransform}`,
+      );
+    }
+
+    const canvasLeft = Number.parseFloat(canvas.style.left);
+    const canvasTop = Number.parseFloat(canvas.style.top);
+    const canvasScaleX = canvas.width / canvas.clientWidth;
+    const canvasScaleY = canvas.height / canvas.clientHeight;
+    const nodeRect = node.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    if (labelRect.width <= 0 || labelRect.height <= 0) {
+      throw new Error(`Args label remained hidden for ${sectionId}`);
+    }
+
+    const labelOffsetX = (labelRect.left - nodeRect.left) / viewportScale;
+    const labelOffsetY = (labelRect.top - nodeRect.top) / viewportScale;
+    const labelWidth = labelRect.width / viewportScale;
+    const labelHeight = labelRect.height / viewportScale;
+    const bodySampleX =
+      (nodeX - canvasLeft + Math.min(inner.offsetWidth * 0.6, inner.offsetWidth - 24)) *
+      canvasScaleX;
+    const bodySampleY =
+      (nodeY - canvasTop + Math.min(inner.offsetHeight - 24, inner.offsetHeight * 0.7)) *
+      canvasScaleY;
+
+    function sampleCanvasPixel(canvasX: number, canvasY: number) {
+      const clampedX = Math.max(
+        0,
+        Math.min(canvas.width - 1, Math.round(canvasX)),
+      );
+      const clampedY = Math.max(
+        0,
+        Math.min(canvas.height - 1, Math.round(canvasY)),
+      );
+      const [r, g, b, a] = canvasContext.getImageData(
+        clampedX,
+        clampedY,
+        1,
+        1,
+      ).data;
+      return `${r},${g},${b},${a}`;
+    }
+
+    function countPixelsDifferentFromReferenceInCanvasRect(
+      canvasX: number,
+      canvasY: number,
+      width: number,
+      height: number,
+      referencePixel: string,
+    ) {
+      const clampedLeft = Math.max(
+        0,
+        Math.min(canvas.width - 1, Math.floor(canvasX)),
+      );
+      const clampedTop = Math.max(
+        0,
+        Math.min(canvas.height - 1, Math.floor(canvasY)),
+      );
+      const clampedWidth = Math.max(
+        1,
+        Math.min(canvas.width - clampedLeft, Math.ceil(width)),
+      );
+      const clampedHeight = Math.max(
+        1,
+        Math.min(canvas.height - clampedTop, Math.ceil(height)),
+      );
+      const data = canvasContext.getImageData(
+        clampedLeft,
+        clampedTop,
+        clampedWidth,
+        clampedHeight,
+      ).data;
+      let distinctPixelCount = 0;
+      for (let index = 0; index < data.length; index += 4) {
+        const pixel = `${data[index]},${data[index + 1]},${data[index + 2]},${data[index + 3]}`;
+        if (pixel !== referencePixel) {
+          distinctPixelCount += 1;
+        }
+      }
+      return distinctPixelCount;
+    }
+
+    const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
+    const labelStyle = window.getComputedStyle(label);
+
+    return {
+      labelDistinctPixelCount:
+        countPixelsDifferentFromReferenceInCanvasRect(
+          (nodeX - canvasLeft + labelOffsetX) * canvasScaleX,
+          (nodeY - canvasTop + labelOffsetY) * canvasScaleY,
+          labelWidth * canvasScaleX,
+          labelHeight * canvasScaleY,
+          bodyPixel,
+        ),
+      labelHeight: labelRect.height,
+      labelOpacity: labelStyle.opacity,
+      labelOwnershipFlag: label.dataset.canvasOwnedRestingText ?? null,
+      labelText: label.textContent?.trim() ?? "",
+      labelWidth: labelRect.width,
+    };
+  }, TARGET_SECTION_ID);
+
+  expect(argsLabelState.labelText).toBe("Args");
+  expect(argsLabelState.labelWidth).toBeGreaterThan(0);
+  expect(argsLabelState.labelHeight).toBeGreaterThan(0);
+  expect(argsLabelState.labelOwnershipFlag).toBe("true");
+  expect(argsLabelState.labelOpacity).toBe("0");
+  expect(argsLabelState.labelDistinctPixelCount).toBeGreaterThan(0);
+
   const activatedEditor = await page.evaluate((rowId) => {
     const styleColorLabel = document
       .getElementById(rowId)

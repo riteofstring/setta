@@ -1,6 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
+  isCanvasOwnedSectionArgsLabelRestingText,
   isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionShell,
@@ -127,6 +128,9 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const canvasOwnedCallableToolbar =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionShell(sectionId);
+  const canvasOwnedArgsLabel =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionArgsLabelRestingText(sectionId);
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
@@ -390,7 +394,10 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         >
           <section className="ml-1 flex items-center gap-1">
             <h3
-              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
+              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName} ${canvasOwnedArgsLabel ? "opacity-0" : ""}`}
+              data-canvas-owned-resting-text={
+                canvasOwnedArgsLabel ? "true" : undefined
+              }
             >
               Args
             </h3>

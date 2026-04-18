@@ -406,6 +406,30 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `.react-flow__section-shell-backdrop canvas` was mounted and healthy
   - `section[data-section-id="settings-section__dictSectionDefault"]` was present on the live surface
   - the visible filter/search row was limited to the live `input#settings-section__dictSectionDefault-args-filter` editor core; the static icon, underline, and `Param Filter` label remained in DOM only as hidden handoff surfaces on the canvas path
+- The next dict-specific kwargs-controls slice is now landed for `settings-section__dictSectionDefault`:
+  - a fresh normal-zoom live inventory on the dict canary closed the previous closure assumption: once the section is framed large enough, the kwargs-controls `Args` label is visible default-inactive chrome outside the filter row, so the broader dict lane was not actually done yet
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionArgsLabelRestingText(...)` and scopes that ownership rule to the dict canary only, so this stays a dict-lane product slice instead of reopening callable/shared-family work by inertia
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now tags only that dict `Args` label with `data-canvas-owned-resting-text="true"` and hides the resting DOM label with `opacity-0` on the `canvas-shell-underlay` path while leaving the live toolbar buttons and filter editor DOM-owned
+  - no new retained-scene primitive was needed for this slice; it intentionally reuses the existing retained resting-text measurement/rendering path instead of opening another renderer branch
+  - focused coverage now exists for this dict-specific ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+      - the trusted dict probe now performs one bounded zoom-to-section + forced subtree remeasure so it can assert the `Args` label is visible at normal section zoom, hidden on the DOM side, and repainted by the retained canvas before the existing inline-editor checks continue
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the hidden DOM `Args` label flag plus distinct retained-canvas text pixels at normal section zoom while preserving the existing dict shell/text/switch/underline/nested-guide and inline `Style Color` activation checks
+- CDP visual check is done for the dict `Args` label slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was visible on the live surface
+  - after panning/zooming the graph to frame the dict section, the kwargs-controls row still looked intact once the DOM `Args` label was made transparent on the canvas path
+  - caveat: the provided bootstrap token had already been rejected during the CDP pass, so the visual check reused the still-healthy authenticated frontend session at `http://127.0.0.1:3068/settings`
+- The broader dict lane is now closed at its useful ownership boundary:
+  - the filter/search micro-lane is already closed
+  - the only remaining default-visible kwargs-controls DOM at normal dict zoom is now the live interactive core: toolbar buttons/icons inside buttons plus the live filter editor input
+  - do not spend another iteration on `settings-section__dictSectionDefault` shell/text/filter/kwargs-label ownership unless a new defect appears there
 
 ## Preservation rule
 
@@ -434,9 +458,9 @@ That leaves one primary architectural move:
 
 1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep `settings-section__dictSectionDefault` as the active named lane; the shared retained shell/text/switch/underline/nested-guide ownership pass plus the dict filter/search micro-lane are now closed there, so the next pass should avoid reopening shared-family expansion or the filter row by inertia.
+3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Treat the dict filter/search micro-lane as closed; the next pass should inventory the remaining default-visible dict-specific inactive chrome outside that row and either land one real product slice or close the broader dict lane if only live interactive cores remain.
+5. Move to the next param-heavy family and name the next canonical target section, starting with the live `GlobalVariables` settings surface, before opening another section-specific ownership slice.
 6. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -462,7 +486,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep `settings-section__dictSectionDefault` as the active named lane, treat the retained shared-family ownership pass plus the dict filter/search micro-lane as closed, and inventory the remaining default-visible dict-specific inactive chrome outside that row before opening another dict-specific ownership slice
+- next: keep both the callable and dict lanes closed at their current ownership boundaries and move the next pass to the next param-heavy family, starting by naming the canonical `GlobalVariables` settings target before opening another section-specific ownership slice
 
 ## Hard rules
 
