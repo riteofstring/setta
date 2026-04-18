@@ -182,6 +182,29 @@ func TestDiscoveryServiceRescanKeepsInvalidEntriesAndMetadataCanonicalSourceKey(
 	}
 }
 
+func TestDiscoveryServiceRescanClassifiesInvalidConfigSchemaSeparately(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	schemaPath := filepath.Join(pluginRoot, "content", "config", "schema.json")
+	if err := os.WriteFile(schemaPath, []byte("{\n"), 0o644); err != nil {
+		t.Fatalf("write malformed schema: %v", err)
+	}
+
+	service := mustNewDiscoveryService(t, roots, config.ModeIDE)
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins: %v", err)
+	}
+
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-full", PluginScopeWorkspace)
+	if entry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid plugin state, got %#v", entry.State)
+	}
+	if len(entry.Errors) != 1 || entry.Errors[0].Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+		t.Fatalf("expected config schema invalid discovery error, got %#v", entry.Errors)
+	}
+}
+
 func TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
@@ -201,7 +224,7 @@ func TestDiscoveryServiceRescanMarksPersistedCorruptPluginConfigRootInvalid(t *t
 	writeJSONFile(t, schemaPath, schemaPayload)
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
-			string(PluginScopeWorkspace) + ":setta-fixture-full": "invalid-root",
+			pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta): "invalid-root",
 		},
 	})
 
