@@ -496,10 +496,14 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__globalVariablesSectionDefault` was visible on the live surface
   - the filter/search row still looked intact after the static filter icon moved to retained canvas ownership
   - the live filter input/editor core remained visible on the DOM path
-- The active named lane is now `settings-section__globalVariablesSectionDefault`:
-  - keep the callable and dict lanes closed unless a fresh defect appears there
-  - the next bounded GlobalVariables pass should re-inventory the filter/search row at normal section zoom; if the only remaining visible DOM there is the live filter input/editor core, close the broader GlobalVariables lane instead of inventing another micro-slice
-  - keep the GlobalVariables filter input/editor core DOM-owned unless there is a concrete product reason to move more of that surface
+- The broader GlobalVariables lane is now closed at its useful ownership boundary:
+  - a fresh 2026-04-18 focused Playwright rerun of `tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` still passed unchanged on the live worktree runtime after the latest filter-icon slice
+  - a same-day headless CDP inventory on `settings-section__globalVariablesSectionDefault` at normal section zoom confirmed the retained canvas is mounted and the row remains visually intact
+  - the only remaining visible kwargs/filter DOM on that row is the interactive core:
+    - the standard action-strip buttons/icons inside buttons
+    - the live filter `<input>` / editor core
+  - the `Param Filter` label is still present in DOM but not visibly rendered (`opacity-0`), and no additional default-visible filter/search chrome remains to move
+  - keep the GlobalVariables filter input/editor core and action-strip controls DOM-owned unless a concrete product requirement appears there
 
 ## Preservation rule
 
@@ -530,8 +534,8 @@ That leaves one primary architectural move:
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Keep `settings-section__globalVariablesSectionDefault` as the active named lane, but use a fresh normal-zoom inventory before opening another filter/search micro-slice there; if the remaining visible DOM is only the live filter input/editor core, close the broader lane instead of reopening callable/dict slices.
-6. Keep the append-only log current from the first running iteration onward.
+5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep the live filter input/editor core plus action-strip controls DOM-owned.
+6. With the callable, dict, and GlobalVariables section-specific chrome lanes now closed, pivot the next bounded product slice to the first non-forwarding Pixi-owned camera/viewport seam on the `settings` canary path, and keep the append-only log current.
 
 ## First product frontier
 
@@ -556,7 +560,8 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep the callable and dict lanes closed at their current ownership boundaries and re-inventory the active `settings-section__globalVariablesSectionDefault` filter/search row before opening any further GlobalVariables micro-slice
+- with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
+- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and start the first non-forwarding Pixi-owned camera/viewport seam on the `settings` canary path
 
 ## Hard rules
 

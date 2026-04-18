@@ -877,3 +877,27 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - re-inventory `settings-section__globalVariablesSectionDefault` at normal section zoom; if the remaining visible filter/search DOM is only the live input/editor core, close the broader GlobalVariables lane instead of opening another micro-slice
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 036
+
+- Item: Close the broader GlobalVariables lane at its useful ownership boundary.
+- Status: `done`
+- Details:
+  - Re-ran the existing trusted GlobalVariables live probe unchanged on the current worktree runtime to confirm the lane still behaved correctly after the latest retained filter-icon slice.
+  - Used a fresh headless CDP inventory on `http://127.0.0.1:3068/settings` with `All Settings` active and `settings-section__globalVariablesSectionDefault` framed at normal section zoom to classify the remaining default-visible kwargs/filter DOM instead of opening another ownership micro-slice by inertia.
+  - Inventory result:
+    - the retained shell canvas is mounted and the section remains visually intact
+    - the `Param Filter` label is still present in DOM but not visibly rendered (`opacity-0`)
+    - the only remaining visible kwargs/filter DOM on that row is the live interactive core: the standard action-strip buttons/icons inside buttons plus the live filter `<input>` / editor core
+  - Outcome: the broader GlobalVariables lane is now closed at its useful ownership boundary. Do not spend another iteration on GlobalVariables kwargs/filter chrome unless a fresh visible defect appears there.
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-019/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (29.3s)` on the live worktree runtime
+- CDP visual check is done:
+  - `/settings` had `All Settings` active on the live worktree runtime
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible and intact at normal section zoom
+  - the only remaining visible kwargs/filter row DOM was the live input/editor core plus the standard action-strip controls; no extra default-visible filter/search chrome remained beyond that
+- Next action:
+  - keep the callable, dict, and GlobalVariables section-specific chrome lanes closed and pivot the next bounded product slice to the first non-forwarding Pixi-owned camera/viewport seam on the `settings` canary path
+LOOP_TERMINAL_MARKER: none
