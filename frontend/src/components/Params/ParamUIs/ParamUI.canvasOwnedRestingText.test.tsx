@@ -1,11 +1,8 @@
 import {
-  CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
-  CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
-  CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
-  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -63,6 +60,7 @@ vi.mock("utils/paramValue", () => ({
 
 vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
   TextInputCodeMirror: (props: {
+    canvasOwnedRestingText?: boolean;
     dummyCodeClassName: string;
     language: string;
   }) => {
@@ -135,27 +133,31 @@ describe("ParamUI canvas-owned resting text", () => {
 
   it.each([
     {
-      paramInfoId: CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
+      codeObjType: CodeObjTypeEnum.CodeParam,
+      paramInfoId:
+        "settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage",
       value: "python",
     },
     {
-      paramInfoId: CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
-      value: "220",
+      codeObjType: CodeObjTypeEnum.TextParam,
+      paramInfoId:
+        "settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor",
+      value: "null",
     },
     {
+      codeObjType: CodeObjTypeEnum.TextAreaParam,
       paramInfoId:
-        CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
-      value: "[]",
-    },
-    {
-      paramInfoId:
-        CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
+        "settings-codeobj__callableSectionDefault__callableSectionDefault__edgeOutputPorts",
       value: "[]",
     },
   ])(
-    "hides the canary resting text dummy for $paramInfoId on the canvas path",
-    ({ paramInfoId, value }) => {
+    "hides text-like canary resting text for $paramInfoId on the canvas path",
+    ({ codeObjType, paramInfoId, value }) => {
       mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: codeObjType,
+        defaultVal: "",
+      };
 
       renderToStaticMarkup(
         <ParamUI
@@ -167,9 +169,53 @@ describe("ParamUI canvas-owned resting text", () => {
       );
 
       expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+        true,
+      );
       expect(
         mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
       ).toContain("opacity-0");
     },
   );
+
+  it("does not hide non-canary or non-text params on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.SwitchParam,
+      defaultVal: false,
+    };
+
+    renderToStaticMarkup(
+      <ParamUI
+        sectionId={CANVAS_OWNED_SECTION_SHELL_ID}
+        paramInfoId="settings-codeobj__callableSectionDefault__callableSectionDefault__hideParams"
+        value="false"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).not.toHaveBeenCalled();
+
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.TextParam,
+      defaultVal: "",
+    };
+
+    renderToStaticMarkup(
+      <ParamUI
+        sectionId="settings-section__dictSectionDefault"
+        paramInfoId="settings-codeobj__dictSectionDefault__dictSectionDefault__styleColor"
+        value="null"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+      false,
+    );
+    expect(
+      mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+    ).not.toContain("opacity-0");
+  });
 });

@@ -15,6 +15,8 @@ const TARGET_EDGE_INPUT_PARAMS_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeInputParams-ParamInput";
 const TARGET_EDGE_OUTPUT_PORTS_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeOutputPorts-ParamInput";
+const TARGET_STYLE_COLOR_INPUT_ID =
+  "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor-ParamInput";
 const TARGET_SWITCH_ROW_ID =
   "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio";
 
@@ -33,7 +35,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
   await allSettingsTab.click();
 
   await page.waitForFunction(
-    ({ columnWidthInputId, configLanguageInputId, sectionId }) => {
+    ({
+      columnWidthInputId,
+      configLanguageInputId,
+      sectionId,
+      styleColorInputId,
+    }) => {
       const edgeInputParams = document.getElementById(
         "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeInputParams-ParamInput",
       );
@@ -52,6 +59,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
         document.getElementById(`${sectionId}-CustomResizable`) !== null &&
         document.getElementById(columnWidthInputId) !== null &&
         document.getElementById(configLanguageInputId) !== null &&
+        document.getElementById(styleColorInputId) !== null &&
         edgeInputParams !== null &&
         edgeOutputPorts !== null &&
         canvas !== null &&
@@ -66,6 +74,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
       sectionId: TARGET_SECTION_ID,
+      styleColorInputId: TARGET_STYLE_COLOR_INPUT_ID,
     },
   );
 
@@ -78,6 +87,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
         edgeOutputPortsInputId,
         rowId,
         sectionId,
+        styleColorInputId,
       },
     ) => {
       const outer = document.querySelector<HTMLElement>(
@@ -112,6 +122,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const edgeOutputPortsLine =
         edgeOutputPortsInput?.querySelector<HTMLElement>(".cm-line") ??
         edgeOutputPortsInput;
+      const styleColorInput = document.getElementById(styleColorInputId);
+      const styleColorLine =
+        styleColorInput?.querySelector<HTMLElement>(".cm-line") ??
+        styleColorInput;
       const node = outer?.closest<HTMLElement>(".react-flow__node");
       const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
       const canvas = document.querySelector(
@@ -159,6 +173,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
       }
       if (!(edgeOutputPortsLine instanceof HTMLElement)) {
         throw new Error(`Missing Edge Output Ports line for ${sectionId}`);
+      }
+      if (!(styleColorInput instanceof HTMLElement)) {
+        throw new Error(`Missing Style Color input for ${sectionId}`);
+      }
+      if (!(styleColorLine instanceof HTMLElement)) {
+        throw new Error(`Missing Style Color line for ${sectionId}`);
       }
       if (!(node instanceof HTMLElement)) {
         throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
@@ -318,6 +338,13 @@ test("canvas shell path owns the resting callable section chrome", async ({
         (edgeOutputPortsRect.top - nodeRect.top) / viewportScale;
       const edgeOutputPortsWidth = edgeOutputPortsRect.width / viewportScale;
       const edgeOutputPortsHeight = edgeOutputPortsRect.height / viewportScale;
+      const styleColorRect = styleColorLine.getBoundingClientRect();
+      const styleColorOffsetX =
+        (styleColorRect.left - nodeRect.left) / viewportScale;
+      const styleColorOffsetY =
+        (styleColorRect.top - nodeRect.top) / viewportScale;
+      const styleColorWidth = styleColorRect.width / viewportScale;
+      const styleColorHeight = styleColorRect.height / viewportScale;
 
       function sampleCanvasPixel(canvasX: number, canvasY: number) {
         const clampedX = Math.max(
@@ -383,6 +410,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const edgeInputParamsStyle = window.getComputedStyle(edgeInputParamsInput);
       const edgeOutputPortsStyle =
         window.getComputedStyle(edgeOutputPortsInput);
+      const styleColorStyle = window.getComputedStyle(styleColorInput);
       const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
 
       return {
@@ -421,6 +449,17 @@ test("canvas shell path owns the resting callable section chrome", async ({
             edgeOutputPortsHeight * canvasScaleY,
             bodyPixel,
           ),
+        styleColorDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + styleColorOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + styleColorOffsetY) * canvasScaleY,
+            styleColorWidth * canvasScaleX,
+            styleColorHeight * canvasScaleY,
+            bodyPixel,
+          ),
+        styleColorDummyOpacity: styleColorStyle.opacity,
+        styleColorOwnershipFlag:
+          styleColorInput.dataset.canvasOwnedRestingText ?? null,
         configLanguageDummyOpacity: configLanguageStyle.opacity,
         configLanguageDistinctPixelCount:
           countPixelsDifferentFromReferenceInCanvasRect(
@@ -453,6 +492,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       edgeOutputPortsInputId: TARGET_EDGE_OUTPUT_PORTS_INPUT_ID,
       rowId: TARGET_SWITCH_ROW_ID,
       sectionId: TARGET_SECTION_ID,
+      styleColorInputId: TARGET_STYLE_COLOR_INPUT_ID,
     },
   );
 
@@ -483,6 +523,9 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.edgeInputParamsDistinctPixelCount).toBeGreaterThan(0);
   expect(shellState.edgeOutputPortsDummyOpacity).toBe("0");
   expect(shellState.edgeOutputPortsDistinctPixelCount).toBeGreaterThan(0);
+  expect(shellState.styleColorOwnershipFlag).toBe("true");
+  expect(shellState.styleColorDummyOpacity).toBe("0");
+  expect(shellState.styleColorDistinctPixelCount).toBeGreaterThan(0);
 
   const activatedEditor = await page.evaluate((configLanguageInputId) => {
     const configLanguageInput = document.getElementById(configLanguageInputId);

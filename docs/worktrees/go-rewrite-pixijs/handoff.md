@@ -249,6 +249,28 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
   - both `Edge Input Params` and `Edge Output Ports` were visible and looked intact on the canvas path
   - caveat: the supplied bootstrap token had already been rejected during the CDP pass, but the existing authenticated `/settings` session remained healthy and sufficient for the required visual confirmation
+- The canary resting-text lane is now closed as a per-row allowlist lane and moved to the real ownership boundary:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats canvas-owned resting text as a canary-section rule for text-like params (`CodeParam`, `TextParam`, `TextAreaParam`) instead of enumerating individual param ids
+  - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx` and `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now mark canvas-owned dummy roots with `data-canvas-owned-resting-text="true"`, and `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those marked roots directly instead of rebuilding a manual `ParamInput` id list
+  - that change means newly covered canary text rows such as `Style Color`, `Tag Color`, and the visible `Size` subfields ride the same retained-text path automatically without another ownership-list edit
+  - focused coverage now proves the generalized rule and one newly covered row:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` with a deterministic `Style Color` probe
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - note: the first Playwright attempt in this iteration hit the expected one-shot bootstrap failure (`401` on a spent token); rerunning with a freshly minted token passed unchanged
+- CDP visual check is done for the generalized resting-text slice:
+  - `/settings` loaded with `All Settings` active and no crash/error overlay visible
+  - `settings-section__callableSectionDefault` remained visible
+  - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+  - the newly covered `Style Color` row was present and looked intact on the live canvas path
+  - caveat: the fitted headless viewport still leaves that row small, so treat this as a technical visual pass backed by the deterministic Playwright pixel probe rather than a strong human-only readability judgment
+- The next frontier should not reopen per-row text-id churn on this section:
+  - treat the canary resting-text lane as complete at this ownership boundary
+  - move to the next visible inactive DOM family on `settings-section__callableSectionDefault`, preferably param-label text or another row-chrome family, instead of adding more explicit text-row exceptions
 
 ## Preservation rule
 

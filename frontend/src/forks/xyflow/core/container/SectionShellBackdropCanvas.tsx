@@ -21,7 +21,6 @@ import {
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
 import {
-  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_IDS,
   CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -30,11 +29,7 @@ import {
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
-const CANVAS_OWNED_RESTING_TEXT_INPUT_IDS =
-  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_IDS.map(
-    (paramInfoId) =>
-      `${CANVAS_OWNED_SECTION_SHELL_ID}-${paramInfoId}-ParamInput`,
-  );
+const CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE = "data-canvas-owned-resting-text";
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
@@ -173,14 +168,9 @@ function measureCanvasOwnedSwitchTrackBoxes(
 
 function measureCanvasOwnedRestingTextLinesForRoot(
   section: HTMLElement,
-  inputId: string,
+  textRoot: HTMLElement,
   viewportScale: number,
 ): Array<CanvasOwnedRestingTextLine> {
-  const textRoot = document.getElementById(inputId);
-  if (!(textRoot instanceof HTMLElement)) {
-    return [];
-  }
-
   const sectionRect = section.getBoundingClientRect();
   if (sectionRect.width <= 0 || sectionRect.height <= 0) {
     return [];
@@ -238,7 +228,6 @@ function measureCanvasOwnedRestingTextLinesForRoot(
 
 function measureCanvasOwnedRestingTextLines(
   sectionId: string,
-  inputIds: readonly string[],
 ): Array<CanvasOwnedRestingTextLine> {
   if (typeof document === "undefined" || typeof window === "undefined") {
     return [];
@@ -256,10 +245,14 @@ function measureCanvasOwnedRestingTextLines(
     viewport ? window.getComputedStyle(viewport).transform : null,
   );
 
-  return inputIds.flatMap((inputId) =>
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(
+      `[${CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE}="true"]`,
+    ),
+  ).flatMap((textRoot) =>
     measureCanvasOwnedRestingTextLinesForRoot(
       section,
-      inputId,
+      textRoot,
       viewportScale,
     ),
   );
@@ -346,7 +339,6 @@ function useCanvasOwnedSwitchTrackBoxes(
 
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
-  inputIds: readonly string[],
   layoutRefreshKey: string,
 ) {
   const [restingTextLines, setRestingTextLines] = useState<
@@ -365,7 +357,7 @@ function useCanvasOwnedRestingTextLines(
     );
 
     const updateMeasuredLines = () => {
-      const nextLines = measureCanvasOwnedRestingTextLines(sectionId, inputIds);
+      const nextLines = measureCanvasOwnedRestingTextLines(sectionId);
       setRestingTextLines((previousLines) =>
         areCanvasOwnedRestingTextLinesEqual(previousLines, nextLines)
           ? previousLines
@@ -391,15 +383,14 @@ function useCanvasOwnedRestingTextLines(
       resizeObserver?.disconnect();
       resizeObserver = new ResizeObserver(scheduleMeasure);
       resizeObserver.observe(section);
-      for (const inputId of inputIds) {
-        const textRoot = document.getElementById(inputId);
-        if (textRoot instanceof HTMLElement) {
-          resizeObserver.observe(textRoot);
-          for (const lineElement of textRoot.querySelectorAll<HTMLElement>(
-            ".cm-line",
-          )) {
-            resizeObserver.observe(lineElement);
-          }
+      for (const textRoot of section.querySelectorAll<HTMLElement>(
+        `[${CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(textRoot);
+        for (const lineElement of textRoot.querySelectorAll<HTMLElement>(
+          ".cm-line",
+        )) {
+          resizeObserver.observe(lineElement);
         }
       }
     };
@@ -425,7 +416,7 @@ function useCanvasOwnedRestingTextLines(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [inputIds, layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId]);
 
   return restingTextLines;
 }
@@ -469,7 +460,6 @@ export default function SectionShellBackdropCanvas() {
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     CANVAS_OWNED_SECTION_SHELL_ID,
-    CANVAS_OWNED_RESTING_TEXT_INPUT_IDS,
     `${canvasOwnedSectionNode?.width ?? 0}:${canvasOwnedSectionNode?.height ?? 0}:${canvasOwnedShellHeaderHeight}:${canvasOwnedShellKwargsControlsHeight}:${canvasOwnedShellPinnedParamsHeight}:${canvasOwnedShellSearchHeight}`,
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);

@@ -1,12 +1,9 @@
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
-  CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
-  CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
-  CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
-  isCanvasOwnedSectionRestingTextParam,
+  isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
@@ -19,39 +16,35 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the canary resting text rows inside the canary section", () => {
+  it("targets text-like params inside the canary section for resting text ownership", () => {
     expect(
-      isCanvasOwnedSectionRestingTextParam({
-        paramInfoId: CANVAS_OWNED_SECTION_RESTING_TEXT_PARAM_INFO_ID,
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
     ).toBe(true);
     expect(
-      isCanvasOwnedSectionRestingTextParam({
-        paramInfoId:
-          CANVAS_OWNED_SECTION_COLUMN_WIDTH_RESTING_TEXT_PARAM_INFO_ID,
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.CodeParam,
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
     ).toBe(true);
     expect(
-      isCanvasOwnedSectionRestingTextParam({
-        paramInfoId:
-          CANVAS_OWNED_SECTION_EDGE_INPUT_PARAMS_RESTING_TEXT_PARAM_INFO_ID,
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextAreaParam,
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
     ).toBe(true);
     expect(
-      isCanvasOwnedSectionRestingTextParam({
-        paramInfoId:
-          CANVAS_OWNED_SECTION_EDGE_OUTPUT_PORTS_RESTING_TEXT_PARAM_INFO_ID,
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.SwitchParam,
         sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      isCanvasOwnedSectionRestingTextParam({
-        paramInfoId:
-          "settings-codeobj__callableSectionDefault__callableSectionDefault__hideParams",
-        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: "settings-section__dictSectionDefault",
       }),
     ).toBe(false);
   });

@@ -1,7 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
-  isCanvasOwnedSectionRestingTextParam,
+  isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
@@ -629,8 +629,8 @@ export function ParamUI({
       isCanvasOwnedSectionShell(sectionId),
     canvasOwnedRestingText:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionRestingTextParam({
-        paramInfoId,
+      isCanvasOwnedSectionRestingText({
+        codeObjType: paramUiState.codeObjType,
         sectionId,
       }),
     sectionId,
@@ -693,6 +693,7 @@ function TextParamConfigured({
   return (
     <>
       <TextInputCodeMirror
+        canvasOwnedRestingText={canvasOwnedRestingText}
         dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
         sectionId={sectionId}
         paramInfoId={paramInfoId}

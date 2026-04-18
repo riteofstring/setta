@@ -155,6 +155,37 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 024
+
+- Item: Close the canary resting-text lane at the ownership boundary by replacing the per-row allowlist with a canary-section text-like rule, using `Style Color` as the new deterministic proof row.
+- Status: `done`
+- Details:
+  - The last few iterations had started to repeat the same explicit-param-id refactor shape (`Config Language` -> `Column Width` -> edge rows), so this slice intentionally stopped that pattern instead of adding another row id.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so canvas-owned resting text is now a canary-section rule for text-like params (`CodeParam`, `TextParam`, `TextAreaParam`) rather than a manually expanded param-id set.
+  - Updated `frontend/src/components/Params/ParamUIs/ParamUI.tsx` so the canary section now opts any text-like param into the canvas resting-text path through that rule, while non-canary sections and non-text params remain unchanged.
+  - Updated `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx` and `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` so canvas-owned dummy roots carry `data-canvas-owned-resting-text="true"`.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so retained-scene text measurement now queries those explicit dummy-root markers inside `settings-section__callableSectionDefault` instead of rebuilding a manual `ParamInput` id list.
+  - Result: newly covered canary rows such as `Style Color`, `Tag Color`, and the visible `Size` subfields now flow through the same retained-text path automatically without another ownership-list edit.
+  - Updated focused coverage:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - The e2e oracle now uses `Style Color` as the newly covered deterministic proof row and asserts its dummy root marker, hidden DOM opacity, and retained-canvas text pixels distinct from the body fill.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - note: the first Playwright attempt in this iteration hit the expected spent-token failure (`401` during global setup on a one-shot bootstrap URL); rerunning with a freshly minted token passed unchanged
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active and no crash/error overlay visible
+    - `settings-section__callableSectionDefault` was visible
+    - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+    - the newly covered `Style Color` row was present and looked intact on the live surface
+    - caveat: the fitted headless viewport still leaves `Style Color` small, so this is a technical visual pass backed by the deterministic Playwright probe rather than a strong human-only readability call
+- Next action:
+  - treat the canary resting-text lane as complete at this ownership boundary and move to the next visible inactive DOM family on `settings-section__callableSectionDefault`, preferably param-label text or another row-chrome family instead of reopening per-row text allowlists
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 009
 
 - Item: Clear the `ProjectChatBottomDock` missing-constant runtime crash that was blocking the live Settings baseline.
