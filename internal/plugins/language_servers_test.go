@@ -2,14 +2,32 @@ package plugins
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"testing"
 
 	"setta/internal/config"
 )
 
-func TestServiceLanguageServerSpecsIncludesRegisteredPluginLanguageServer(t *testing.T) {
+func TestServiceLanguageServerSpecsRequiresExplicitSelection(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Fatalf("expected no active language server specs without explicit selection, got %#v", specs)
+	}
+}
+
+func TestServiceLanguageServerSpecsIncludesSelectedPluginLanguageServer(t *testing.T) {
 	pythonPath, scriptPath := preparePluginLanguageServerFixture(t)
 
 	roots := newFilesystemResolverTestRoots(t)
@@ -19,7 +37,9 @@ func TestServiceLanguageServerSpecsIncludesRegisteredPluginLanguageServer(t *tes
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	specs, err := service.LanguageServerSpecs(context.Background())
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
 	if err != nil {
 		t.Fatalf("load plugin language server specs: %v", err)
 	}
@@ -45,7 +65,7 @@ func TestServiceLanguageServerSpecsIncludesRegisteredPluginLanguageServer(t *tes
 	}
 }
 
-func TestServiceLanguageServerSpecsRejectsAmbiguousPluginRegistrations(t *testing.T) {
+func TestServiceLanguageServerSpecsAllowsSameLanguagePluginsUntilSelectionChoosesOne(t *testing.T) {
 	preparePluginLanguageServerFixture(t)
 
 	roots := newFilesystemResolverTestRoots(t)
@@ -63,8 +83,41 @@ func TestServiceLanguageServerSpecsRejectsAmbiguousPluginRegistrations(t *testin
 	}
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	_, err := service.LanguageServerSpecs(context.Background())
-	if !errors.Is(err, ErrRegisteredLanguageServerConflict) {
-		t.Fatalf("expected conflicting plugin language server registration error, got %v", err)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend-b"),
+	})
+	if err != nil {
+		t.Fatalf("load selected language server specs: %v", err)
 	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one selected language server spec, got %#v", specs)
+	}
+	if specs[0].PluginID != "setta-fixture-backend-b" {
+		t.Fatalf("expected selected plugin b, got %#v", specs[0])
+	}
+}
+
+func TestServiceLanguageServerSpecsKeepsMissingSelectionInactive(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("missing-plugin"),
+	})
+	if err != nil {
+		t.Fatalf("load language server specs with missing selection: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Fatalf("expected missing selection to stay inactive, got %#v", specs)
+	}
+}
+
+func testStringPointer(value string) *string {
+	return &value
 }
