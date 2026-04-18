@@ -72,7 +72,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `raf.meanMs: 34.91`
   - `longTasks.totalMs: 119`
 - Treat that post-slice probe as a runtime smoke check for the new surface seam, not as a new durable benchmark claim yet.
-- Canonical target section for the next settings graph-surface lane: `settings-section__dictSectionDefault`.
+- Canonical target section for the active settings graph-surface lane: `settings-section__globalVariablesSectionDefault`.
 - Fresh live canary inventory on 2026-04-18 closes the stale top-level callable body-panel assumptions for that section:
   - the retained canvas shell is still mounted and the section is healthy on `/settings` -> `All Settings`
   - the visible canary shows the section header, the callable `ARGS` toolbar row, and visible settings rows such as `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Hide Params`, and `Hide Unpinned Params`
@@ -430,6 +430,38 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - the filter/search micro-lane is already closed
   - the only remaining default-visible kwargs-controls DOM at normal dict zoom is now the live interactive core: toolbar buttons/icons inside buttons plus the live filter editor input
   - do not spend another iteration on `settings-section__dictSectionDefault` shell/text/filter/kwargs-label ownership unless a new defect appears there
+- The first GlobalVariables shared-family slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes the GlobalVariables canary in the explicit retained-shell section set, so the section rides the same shared-family shell/text/label ownership boundary as the callable and dict canaries.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that third owned section directly, so the live GlobalVariables surface can paint retained shell/header chrome plus the existing shared switch/text/underline/nested-guide primitives without opening a new section-specific renderer branch.
+  - shared-family ownership is now live on that section for the currently checked inactive chrome:
+    - shell/header
+    - `Aspect Ratio` switch track
+    - resting `Config Language` and `Style Color` text
+    - the `Style Color` label and underline
+    - the `Size` nested guide rail
+  - the GlobalVariables kwargs/filter surface remains intentionally DOM-owned in this slice:
+    - the visible `Args` label still renders through DOM
+    - `input#settings-section__globalVariablesSectionDefault-args-filter` stays the live editor core
+    - no dict-only filter-icon / filter-underline handoff markers are attached there yet
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the new GlobalVariables probe passed on the live worktree runtime and confirmed retained shell/text/switch/guide pixels plus inline `Style Color` activation
+- CDP visual check is done for the GlobalVariables shared-family slice:
+  - `/settings` loaded on the live worktree runtime with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__globalVariablesSectionDefault"]` was visible on the live surface
+  - the section looked intact after moving its shared shell/text/switch/guide chrome to retained canvas ownership
+- The active named lane is now `settings-section__globalVariablesSectionDefault`:
+  - keep the callable and dict lanes closed unless a fresh defect appears there
+  - the next bounded GlobalVariables slice should target the remaining default-visible kwargs/filter chrome, starting with the visible `Args` label if it is still present at normal section zoom
+  - keep the GlobalVariables filter input/editor core DOM-owned unless there is a concrete product reason to move more of that surface
 
 ## Preservation rule
 
@@ -460,7 +492,7 @@ That leaves one primary architectural move:
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
 3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
 4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
-5. Move to the next param-heavy family and name the next canonical target section, starting with the live `GlobalVariables` settings surface, before opening another section-specific ownership slice.
+5. Keep `settings-section__globalVariablesSectionDefault` as the active named lane and target its remaining default-visible kwargs/filter chrome, starting with the `Args` label if it is visible at normal section zoom, instead of reopening callable/dict slices.
 6. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -486,7 +518,7 @@ The first product frontier is:
 - with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: keep both the callable and dict lanes closed at their current ownership boundaries and move the next pass to the next param-heavy family, starting by naming the canonical `GlobalVariables` settings target before opening another section-specific ownership slice
+- next: keep the callable and dict lanes closed at their current ownership boundaries and continue the active `settings-section__globalVariablesSectionDefault` lane by targeting the remaining kwargs/filter chrome there instead of reopening older sections
 
 ## Hard rules
 

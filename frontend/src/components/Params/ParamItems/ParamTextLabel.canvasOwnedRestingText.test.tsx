@@ -1,6 +1,7 @@
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -74,7 +75,7 @@ describe("ParamTextLabel canvas-owned resting text", () => {
       <ParamTextLabel
         bg="bg-white"
         paramInfoId={PARAM_INFO_ID}
-        sectionId="settings-section__globalVariables"
+        sectionId="settings-section__textBlockSectionDefault"
       />,
     );
 
@@ -92,6 +93,21 @@ describe("ParamTextLabel canvas-owned resting text", () => {
         bg="bg-white"
         paramInfoId={PARAM_INFO_ID}
         sectionId={DICT_CANVAS_OWNED_SECTION_SHELL_ID}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-resting-text="true"');
+    expect(markup).toContain("opacity-0");
+  });
+
+  it("hides global variables canary param labels on the canvas path", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+
+    const markup = renderToStaticMarkup(
+      <ParamTextLabel
+        bg="bg-white"
+        paramInfoId={PARAM_INFO_ID}
+        sectionId={GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID}
       />,
     );
 

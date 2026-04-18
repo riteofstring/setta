@@ -6,6 +6,7 @@ import {
   isCanvasOwnedSectionArgsLabelRestingText,
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionParamFilterUnderline,
   isCanvasOwnedSectionParamLabelRestingText,
   isCanvasOwnedSectionRestingText,
@@ -14,14 +15,15 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable and dict settings canary sections", () => {
+  it("targets the callable, dict, and global variables settings canary sections", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
-    expect(isCanvasOwnedSectionShell("settings-section__globalVariables")).toBe(
-      false,
-    );
+    expect(
+      isCanvasOwnedSectionShell(GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(isCanvasOwnedSectionShell("settings-section__textBlockSectionDefault")).toBe(false);
   });
 
   it("targets text-like params inside the owned canary sections for resting text ownership", () => {
@@ -58,7 +60,13 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
-        sectionId: "settings-section__globalVariables",
+        sectionId: GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: "settings-section__textBlockSectionDefault",
       }),
     ).toBe(false);
   });
@@ -74,7 +82,12 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
-        "settings-section__globalVariables",
+        GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__textBlockSectionDefault",
       ),
     ).toBe(false);
   });
@@ -92,7 +105,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
     expect(
       isCanvasOwnedSectionArgsLabelRestingText(
-        "settings-section__globalVariables",
+        GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
     ).toBe(false);
   });
@@ -108,7 +121,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
     expect(
       isCanvasOwnedSectionParamFilterUnderline(
-        "settings-section__globalVariables",
+        GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
     ).toBe(false);
   });
@@ -121,7 +134,9 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionParamFilterIcon(CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(false);
     expect(
-      isCanvasOwnedSectionParamFilterIcon("settings-section__globalVariables"),
+      isCanvasOwnedSectionParamFilterIcon(
+        GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
     ).toBe(false);
   });
 

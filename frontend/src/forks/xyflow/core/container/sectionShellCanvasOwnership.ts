@@ -5,9 +5,12 @@ export const CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__callableSectionDefault";
 export const DICT_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__dictSectionDefault";
+export const GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID =
+  "settings-section__globalVariablesSectionDefault";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
 ] as const;
 
 const CANVAS_OWNED_SECTION_SHELL_ID_SET = new Set<string>(

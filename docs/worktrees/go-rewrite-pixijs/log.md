@@ -781,3 +781,43 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the callable and dict lanes closed, then inventory the next param-heavy family and name the canonical `GlobalVariables` settings target before opening another section-specific ownership slice
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 033
+
+- Item: Expand the retained shared-family canvas path to `settings-section__globalVariablesSectionDefault`.
+- Status: `done`
+- Details:
+  - Added `GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` and included that section in the explicit retained-shell id set, so the GlobalVariables canary now rides the same shared-family shell/text/label ownership boundary as the callable and dict canaries.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` to measure the GlobalVariables node directly and include it in the retained-scene measurement map, while keeping the callable-only toolbar/pinned-panel bands scoped to `settings-section__callableSectionDefault`.
+  - That product slice moved the GlobalVariables canary onto the already-proven retained shell/header/text/switch/underline/nested-guide path without introducing a new section-specific renderer branch:
+    - shell/header
+    - `Aspect Ratio` switch track
+    - resting `Config Language` and `Style Color` text
+    - the `Style Color` label and underline
+    - the `Size` nested guide rail
+  - Added focused coverage for the expanded ownership boundary:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - The first live Playwright probe exposed one oracle mistake, not a product regression:
+    - the GlobalVariables filter input already rests with a transparent underline on the DOM path, so checking its border color was not a valid proof that the filter surface stayed DOM-owned
+    - tightened the checked oracle to assert the absence of dict-only filter handoff markers instead of relying on that border-color assumption
+  - The checked Playwright oracle now proves the intended boundary for `settings-section__globalVariablesSectionDefault`:
+    - retained shell canvas pixels are present
+    - shared-family switch/text/underline/nested-guide pixels are present on canvas
+    - the dict-only filter icon/underline handoff markers are absent on the GlobalVariables filter row
+    - clicking the hidden `Style Color` label still surfaces the inline editor on first click
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: the new GlobalVariables probe passed on the live worktree runtime
+- CDP visual check is done:
+  - `/settings` loaded on the live worktree runtime with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__globalVariablesSectionDefault"]` was visible on the live surface
+  - the section looked intact after moving its shared shell/text/switch/guide chrome to retained canvas ownership
+- Next action:
+  - keep the callable and dict lanes closed and continue the active `settings-section__globalVariablesSectionDefault` lane by targeting the remaining default-visible kwargs/filter chrome there, starting with the `Args` label if it is still visible at normal section zoom
+LOOP_TERMINAL_MARKER: none

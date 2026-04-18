@@ -1,6 +1,7 @@
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
@@ -206,7 +207,7 @@ describe("ParamUI canvas-owned resting text", () => {
 
     const markup = renderToStaticMarkup(
       <ParamUI
-        sectionId="settings-section__globalVariables"
+        sectionId="settings-section__textBlockSectionDefault"
         paramInfoId="settings-codeobj__dictSectionDefault__dictSectionDefault__styleColor"
         value="null"
         onChange={() => undefined}
@@ -234,6 +235,32 @@ describe("ParamUI canvas-owned resting text", () => {
       <ParamUI
         sectionId={DICT_CANVAS_OWNED_SECTION_SHELL_ID}
         paramInfoId="settings-codeobj__dictSectionDefault__dictSectionDefault__styleColor"
+        value="null"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+      true,
+    );
+    expect(
+      mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+    ).toContain("opacity-0");
+    expect(markup).toContain('data-canvas-owned-underline="true"');
+  });
+
+  it("hides global variables canary resting text on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.TextParam,
+      defaultVal: "",
+    };
+
+    const markup = renderToStaticMarkup(
+      <ParamUI
+        sectionId={GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID}
+        paramInfoId="settings-codeobj__globalVariablesSectionDefault__globalVariablesSectionDefault__styleColor"
         value="null"
         onChange={() => undefined}
       />,

@@ -23,6 +23,7 @@ import {
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
@@ -1088,6 +1089,9 @@ export default function SectionShellBackdropCanvas() {
   const darkMode = useLocalStorage((state) => state.darkMode);
   const callableNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
   const dictNode = nodes.get(DICT_CANVAS_OWNED_SECTION_SHELL_ID);
+  const globalVariablesNode = nodes.get(
+    GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  );
   const callableMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: callableNode?.height,
     nodeWidth: callableNode?.width,
@@ -1098,12 +1102,21 @@ export default function SectionShellBackdropCanvas() {
     nodeWidth: dictNode?.width,
     sectionId: DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   });
+  const globalVariablesMeasurements = useCanvasOwnedSectionBackdropMeasurements(
+    {
+      nodeHeight: globalVariablesNode?.height,
+      nodeWidth: globalVariablesNode?.width,
+      sectionId: GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+    },
+  );
   const backdropMeasurementsBySectionId = useMemo(
     () => ({
       [CANVAS_OWNED_SECTION_SHELL_ID]: callableMeasurements,
       [DICT_CANVAS_OWNED_SECTION_SHELL_ID]: dictMeasurements,
+      [GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID]:
+        globalVariablesMeasurements,
     }),
-    [callableMeasurements, dictMeasurements],
+    [callableMeasurements, dictMeasurements, globalVariablesMeasurements],
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
