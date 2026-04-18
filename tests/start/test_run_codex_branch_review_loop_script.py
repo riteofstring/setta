@@ -472,7 +472,7 @@ exit 2
     assert "review-worktree-3" in calls
 
 
-def test_branch_review_loop_retries_after_malformed_review_output(
+def test_branch_review_loop_allows_nonstandard_review_output(
     tmp_path: Path,
 ) -> None:
     repo_dir = _create_git_repo(tmp_path)
@@ -553,7 +553,7 @@ EOR
   exit 0
 fi
 
-echo "unexpected resume for malformed-review flow" >&2
+echo "unexpected resume for nonstandard-review flow" >&2
 exit 2
 """,
     )
@@ -568,7 +568,7 @@ exit 2
             "--root-dir",
             str(repo_dir),
             "--iterations",
-            "2",
+            "1",
             "--output-dir",
             str(output_dir),
             "--post-commit-settle-seconds",
@@ -581,21 +581,18 @@ exit 2
     assert result.returncode == 0, result.stderr
     assert (
         output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "failure:review"
-    assert (
-        output_dir / "run-002" / "status.txt"
     ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
     assert (
         output_dir / "state" / "status.txt"
     ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
     assert (repo_dir / "review1.md").read_text(encoding="utf-8").strip() == "No actionable findings."
-    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "Wrote the findings to review1.md."
     assert (repo_dir / "review3.md").read_text(encoding="utf-8").strip() == "No actionable findings."
     loop_log = (output_dir / "loop.log").read_text(encoding="utf-8")
-    assert "Review 2: Review output must start with `Cluster:` or exactly `No actionable findings.`" in loop_log
+    assert "Review output must start with `Cluster:` or exactly `No actionable findings.`" not in loop_log
     calls = calls_file.read_text(encoding="utf-8")
     assert "review-worktree-2" in calls
-    assert calls.count("call:exec ") == 7
+    assert calls.count("call:exec ") == 4
     assert "call:exec resume" not in calls
 
 

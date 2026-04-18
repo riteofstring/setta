@@ -311,101 +311,6 @@ normalize_review_response_paths() {
     perl -0pi -e 's/\Q$ENV{FROM_PATH}\E/$ENV{TO_PATH}/g' "${response_file}"
 }
 
-review_response_is_valid() {
-  local response_file="$1"
-  local error_file="$2"
-  local first_non_empty_line=""
-  local line=""
-  local line_number="0"
-  local non_empty_count="0"
-  local expected_prefix=""
-  local block_line_index="0"
-  local expected_prefixes=(
-    "Cluster:"
-    "Severity:"
-    "Merge risk:"
-    "Evidence:"
-    "Invariant:"
-    "Classification:"
-    "Principled fix:"
-    "Regression tests:"
-  )
-
-  : > "${error_file}"
-
-  if [[ ! -s "${response_file}" ]]; then
-    printf 'Review response file is empty: %s\n' "${response_file}" > "${error_file}"
-    return 1
-  fi
-
-  while IFS= read -r line || [[ -n "${line}" ]]; do
-    if [[ -n "${line}" ]]; then
-      first_non_empty_line="${line}"
-      break
-    fi
-  done < "${response_file}"
-
-  if [[ -z "${first_non_empty_line}" ]]; then
-    printf 'Review response file did not contain any non-empty lines: %s\n' "${response_file}" > "${error_file}"
-    return 1
-  fi
-
-  if [[ "${first_non_empty_line}" == "No actionable findings." ]]; then
-    while IFS= read -r line || [[ -n "${line}" ]]; do
-      [[ -n "${line}" ]] || continue
-      non_empty_count="$((non_empty_count + 1))"
-    done < "${response_file}"
-
-    if [[ "${non_empty_count}" -eq 1 ]]; then
-      return 0
-    fi
-
-    printf 'No-findings review output must contain exactly one non-empty line.\n' > "${error_file}"
-    return 1
-  fi
-
-  if [[ "${first_non_empty_line}" != Cluster:* ]]; then
-    printf 'Review output must start with `Cluster:` or exactly `No actionable findings.`\n' > "${error_file}"
-    return 1
-  fi
-
-  while IFS= read -r line || [[ -n "${line}" ]]; do
-    line_number="$((line_number + 1))"
-
-    if [[ -z "${line}" ]]; then
-      if [[ "${block_line_index}" -eq 0 ]]; then
-        continue
-      fi
-      if [[ "${block_line_index}" -ne "${#expected_prefixes[@]}" ]]; then
-        printf 'Incomplete review cluster before blank line at line %s.\n' "${line_number}" > "${error_file}"
-        return 1
-      fi
-      block_line_index="0"
-      continue
-    fi
-
-    if [[ "${block_line_index}" -ge "${#expected_prefixes[@]}" ]]; then
-      printf 'Unexpected extra review content at line %s: %s\n' "${line_number}" "${line}" > "${error_file}"
-      return 1
-    fi
-
-    expected_prefix="${expected_prefixes[$block_line_index]}"
-    if [[ "${line}" != "${expected_prefix}"* ]]; then
-      printf 'Expected `%s` at line %s but found: %s\n' "${expected_prefix}" "${line_number}" "${line}" > "${error_file}"
-      return 1
-    fi
-
-    block_line_index="$((block_line_index + 1))"
-  done < "${response_file}"
-
-  if [[ "${block_line_index}" -ne "${#expected_prefixes[@]}" ]]; then
-    printf 'Final review cluster is incomplete in %s.\n' "${response_file}" > "${error_file}"
-    return 1
-  fi
-
-  return 0
-}
-
 collect_pending_paths() {
   local output_path="$1"
   local path=""
@@ -1374,17 +1279,13 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       review_exit_code="$?"
       printf '%s\n' "${codex_timed_out}" > "${review_timeout_file}"
       if [[ "${review_exit_code}" -eq 0 ]]; then
-        if ! review_response_is_valid "${review_file}" "${review_error_file}"; then
+        normalize_review_response_paths "${review_file}" "${review_worktree_path}"
+        if ! review_worktree_is_clean "${review_worktree_path}" "${review_worktree_status_file}"; then
+          {
+            printf 'Review dirtied isolated worktree %s:\n' "${review_worktree_path}"
+            cat "${review_worktree_status_file}"
+          } > "${review_error_file}"
           review_exit_code="1"
-        else
-          normalize_review_response_paths "${review_file}" "${review_worktree_path}"
-          if ! review_worktree_is_clean "${review_worktree_path}" "${review_worktree_status_file}"; then
-            {
-              printf 'Review dirtied isolated worktree %s:\n' "${review_worktree_path}"
-              cat "${review_worktree_status_file}"
-            } > "${review_error_file}"
-            review_exit_code="1"
-          fi
         fi
       fi
       exit "${review_exit_code}"
