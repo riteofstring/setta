@@ -16,6 +16,7 @@ var (
 )
 
 type LanguageServerSpec struct {
+	PluginID    string
 	Name        string
 	LanguageID  string
 	Command     string
@@ -46,26 +47,12 @@ type Router struct {
 }
 
 func NewRouter(options RouterOptions) (*Router, error) {
-	lookupEnv := options.LookupEnv
-	if lookupEnv == nil {
-		lookupEnv = os.LookupEnv
-	}
 	environ := options.Environ
 	if environ == nil {
 		environ = os.Environ
 	}
 
-	pythonSpec, err := currentProcessPythonSpec(lookupEnv)
-	if err != nil {
-		return nil, err
-	}
-	normalizedPythonSpec, err := normalizeLanguageServerSpec(pythonSpec)
-	if err != nil {
-		return nil, err
-	}
-	baseSpecs := map[string]LanguageServerSpec{
-		normalizedPythonSpec.LanguageID: normalizedPythonSpec,
-	}
+	baseSpecs := map[string]LanguageServerSpec{}
 	additionalSpecs, err := normalizeAdditionalLanguageServerSpecs(baseSpecs, options.AdditionalSpecs)
 	if err != nil {
 		return nil, err
@@ -126,23 +113,9 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 	return joined
 }
 
-func currentProcessPythonSpec(lookupEnv func(string) (string, bool)) (LanguageServerSpec, error) {
-	command, args, err := resolveCurrentProcessCommand(lookupEnv)
-	if err != nil {
-		return LanguageServerSpec{}, err
-	}
-	settingsKey := "basedpyright"
-	return LanguageServerSpec{
-		Name:        "full",
-		LanguageID:  "python",
-		Command:     command,
-		Args:        args,
-		SettingsKey: &settingsKey,
-	}, nil
-}
-
 func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, error) {
 	normalized := LanguageServerSpec{
+		PluginID:    strings.TrimSpace(spec.PluginID),
 		Name:        strings.TrimSpace(spec.Name),
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
@@ -204,6 +177,7 @@ func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string
 
 func cloneLanguageServerSpec(spec LanguageServerSpec) LanguageServerSpec {
 	return LanguageServerSpec{
+		PluginID:    strings.TrimSpace(spec.PluginID),
 		Name:        strings.TrimSpace(spec.Name),
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
@@ -213,7 +187,10 @@ func cloneLanguageServerSpec(spec LanguageServerSpec) LanguageServerSpec {
 }
 
 func languageServerSpecsEqual(left LanguageServerSpec, right LanguageServerSpec) bool {
-	if left.Name != right.Name || left.LanguageID != right.LanguageID || left.Command != right.Command {
+	if left.PluginID != right.PluginID ||
+		left.Name != right.Name ||
+		left.LanguageID != right.LanguageID ||
+		left.Command != right.Command {
 		return false
 	}
 	if !slices.Equal(left.Args, right.Args) {
