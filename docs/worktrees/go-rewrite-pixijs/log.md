@@ -560,3 +560,28 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the same named canary section, but avoid another single-row text drip; if this lane continues, take the next grouped visible family such as `Size` / `Style Color` / `Tag Color` in one bounded product slice
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 024
+
+- Item: Move the visible param-label family for `settings-section__callableSectionDefault` onto the retained canvas path.
+- Status: `done`
+- Details:
+  - Started this iteration by targeting `ParamNameInput`, but a timed-out live wait plus source re-check showed the visible canary labels on this lane render through `ParamTextLabel` except for kwargs; no product code from that dead-end was kept.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the canary ownership boundary now exposes `isCanvasOwnedSectionParamLabelRestingText(...)` alongside the existing text-like value rule.
+  - Updated `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` so only the canary section's resting labels become transparent on the `canvas-shell-underlay` path and carry `data-canvas-owned-resting-text="true"` for the retained-scene measurement pass, while preserving the existing click-to-focus handoff into the row input.
+  - Added focused coverage in `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx` and updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` to lock the new param-label ownership rule.
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so the trusted canary probe now samples the retained `Style Color` label text separately from the retained `Style Color` value text and clicks the `Style Color` label to surface the inline editor on first click.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe passed with retained `Style Color` label pixels present and the `Style Color` editor surfacing inline from a label click with no blank/detached jump
+  - CDP visual check is done:
+    - no crash/error overlay was visible on `/settings` with `All Settings` active
+    - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+    - `settings-section__callableSectionDefault` remained present on the live surface
+    - the `Style Color` label looked intact on the callable canvas path
+    - clicking the `Style Color` label surfaced the inline `Style Color` editor with the `null` value rendered inline and no blank/detached jump
+- Next action:
+  - keep the same named canary section, but move to the next repeated row-chrome family instead of reopening param-label or value-text coverage
+LOOP_TERMINAL_MARKER: none

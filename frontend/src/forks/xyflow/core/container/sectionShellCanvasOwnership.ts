@@ -68,6 +68,10 @@ export function isCanvasOwnedSectionRestingText({
   );
 }
 
+export function isCanvasOwnedSectionParamLabelRestingText(sectionId: string) {
+  return isCanvasOwnedSectionShell(sectionId);
+}
+
 export function resolveCanvasOwnedSectionShellChrome({
   darkMode,
   styleColor,

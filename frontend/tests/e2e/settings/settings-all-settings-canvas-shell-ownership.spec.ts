@@ -7,8 +7,6 @@ const READY_SELECTOR = ".react-flow__pane";
 const TARGET_SECTION_ID = "settings-section__callableSectionDefault";
 const TARGET_CONFIG_LANGUAGE_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage-ParamInput";
-const TARGET_CONFIG_LANGUAGE_EDITOR_ID =
-  "CodeMirror-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__configLanguage";
 const TARGET_COLUMN_WIDTH_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__columnWidth-ParamInput";
 const TARGET_EDGE_INPUT_PARAMS_INPUT_ID =
@@ -17,6 +15,10 @@ const TARGET_EDGE_OUTPUT_PORTS_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeOutputPorts-ParamInput";
 const TARGET_STYLE_COLOR_INPUT_ID =
   "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor-ParamInput";
+const TARGET_STYLE_COLOR_EDITOR_ID =
+  "CodeMirror-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor";
+const TARGET_STYLE_COLOR_ROW_ID =
+  "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor";
 const TARGET_SWITCH_ROW_ID =
   "ParamContainer-settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio";
 
@@ -36,10 +38,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
 
   await page.waitForFunction(
     ({
+      aspectRatioRowId,
       columnWidthInputId,
       configLanguageInputId,
       sectionId,
       styleColorInputId,
+      styleColorRowId,
     }) => {
       const edgeInputParams = document.getElementById(
         "settings-section__callableSectionDefault-settings-codeobj__callableSectionDefault__callableSectionDefault__edgeInputParams-ParamInput",
@@ -57,9 +61,11 @@ test("canvas shell path owns the resting callable section chrome", async ({
         document.querySelector(`section[data-section-id="${sectionId}"]`) !==
           null &&
         document.getElementById(`${sectionId}-CustomResizable`) !== null &&
+        document.getElementById(aspectRatioRowId) !== null &&
         document.getElementById(columnWidthInputId) !== null &&
         document.getElementById(configLanguageInputId) !== null &&
         document.getElementById(styleColorInputId) !== null &&
+        document.getElementById(styleColorRowId) !== null &&
         edgeInputParams !== null &&
         edgeOutputPorts !== null &&
         canvas !== null &&
@@ -71,23 +77,26 @@ test("canvas shell path owns the resting callable section chrome", async ({
       );
     },
     {
+      aspectRatioRowId: TARGET_SWITCH_ROW_ID,
       columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
       sectionId: TARGET_SECTION_ID,
       styleColorInputId: TARGET_STYLE_COLOR_INPUT_ID,
+      styleColorRowId: TARGET_STYLE_COLOR_ROW_ID,
     },
   );
 
   const shellState = await page.evaluate(
     (
       {
+        aspectRatioRowId,
         columnWidthInputId,
         configLanguageInputId,
         edgeInputParamsInputId,
         edgeOutputPortsInputId,
-        rowId,
         sectionId,
         styleColorInputId,
+        styleColorRowId,
       },
     ) => {
       const outer = document.querySelector<HTMLElement>(
@@ -96,7 +105,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const inner = document.getElementById(`${sectionId}-CustomResizable`);
       const header = outer?.querySelector<HTMLElement>("header.section-title");
       const kwargsControls = outer?.querySelector<HTMLElement>(".section-args");
-      const aspectRatioRow = document.getElementById(rowId);
+      const aspectRatioRow = document.getElementById(aspectRatioRowId);
       const aspectRatioSwitch = aspectRatioRow?.querySelector<HTMLElement>(
         '[data-canvas-owned-switch-track="true"]',
       );
@@ -126,6 +135,10 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const styleColorLine =
         styleColorInput?.querySelector<HTMLElement>(".cm-line") ??
         styleColorInput;
+      const styleColorRow = document.getElementById(styleColorRowId);
+      const styleColorLabel = styleColorRow?.querySelector<HTMLElement>(
+        '[data-canvas-owned-resting-text="true"]',
+      );
       const node = outer?.closest<HTMLElement>(".react-flow__node");
       const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
       const canvas = document.querySelector(
@@ -179,6 +192,12 @@ test("canvas shell path owns the resting callable section chrome", async ({
       }
       if (!(styleColorLine instanceof HTMLElement)) {
         throw new Error(`Missing Style Color line for ${sectionId}`);
+      }
+      if (!(styleColorRow instanceof HTMLElement)) {
+        throw new Error(`Missing Style Color row for ${sectionId}`);
+      }
+      if (!(styleColorLabel instanceof HTMLElement)) {
+        throw new Error(`Missing Style Color label for ${sectionId}`);
       }
       if (!(node instanceof HTMLElement)) {
         throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
@@ -345,6 +364,13 @@ test("canvas shell path owns the resting callable section chrome", async ({
         (styleColorRect.top - nodeRect.top) / viewportScale;
       const styleColorWidth = styleColorRect.width / viewportScale;
       const styleColorHeight = styleColorRect.height / viewportScale;
+      const styleColorLabelRect = styleColorLabel.getBoundingClientRect();
+      const styleColorLabelOffsetX =
+        (styleColorLabelRect.left - nodeRect.left) / viewportScale;
+      const styleColorLabelOffsetY =
+        (styleColorLabelRect.top - nodeRect.top) / viewportScale;
+      const styleColorLabelWidth = styleColorLabelRect.width / viewportScale;
+      const styleColorLabelHeight = styleColorLabelRect.height / viewportScale;
 
       function sampleCanvasPixel(canvasX: number, canvasY: number) {
         const clampedX = Math.max(
@@ -411,6 +437,7 @@ test("canvas shell path owns the resting callable section chrome", async ({
       const edgeOutputPortsStyle =
         window.getComputedStyle(edgeOutputPortsInput);
       const styleColorStyle = window.getComputedStyle(styleColorInput);
+      const styleColorLabelStyle = window.getComputedStyle(styleColorLabel);
       const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
 
       return {
@@ -457,7 +484,18 @@ test("canvas shell path owns the resting callable section chrome", async ({
             styleColorHeight * canvasScaleY,
             bodyPixel,
           ),
+        styleColorLabelDistinctPixelCount:
+          countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + styleColorLabelOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + styleColorLabelOffsetY) * canvasScaleY,
+            styleColorLabelWidth * canvasScaleX,
+            styleColorLabelHeight * canvasScaleY,
+            bodyPixel,
+          ),
         styleColorDummyOpacity: styleColorStyle.opacity,
+        styleColorLabelDummyOpacity: styleColorLabelStyle.opacity,
+        styleColorLabelOwnershipFlag:
+          styleColorLabel.dataset.canvasOwnedRestingText ?? null,
         styleColorOwnershipFlag:
           styleColorInput.dataset.canvasOwnedRestingText ?? null,
         configLanguageDummyOpacity: configLanguageStyle.opacity,
@@ -486,13 +524,14 @@ test("canvas shell path owns the resting callable section chrome", async ({
       };
     },
     {
+      aspectRatioRowId: TARGET_SWITCH_ROW_ID,
       columnWidthInputId: TARGET_COLUMN_WIDTH_INPUT_ID,
       configLanguageInputId: TARGET_CONFIG_LANGUAGE_INPUT_ID,
       edgeInputParamsInputId: TARGET_EDGE_INPUT_PARAMS_INPUT_ID,
       edgeOutputPortsInputId: TARGET_EDGE_OUTPUT_PORTS_INPUT_ID,
-      rowId: TARGET_SWITCH_ROW_ID,
       sectionId: TARGET_SECTION_ID,
       styleColorInputId: TARGET_STYLE_COLOR_INPUT_ID,
+      styleColorRowId: TARGET_STYLE_COLOR_ROW_ID,
     },
   );
 
@@ -526,28 +565,24 @@ test("canvas shell path owns the resting callable section chrome", async ({
   expect(shellState.styleColorOwnershipFlag).toBe("true");
   expect(shellState.styleColorDummyOpacity).toBe("0");
   expect(shellState.styleColorDistinctPixelCount).toBeGreaterThan(0);
+  expect(shellState.styleColorLabelOwnershipFlag).toBe("true");
+  expect(shellState.styleColorLabelDummyOpacity).toBe("0");
+  expect(shellState.styleColorLabelDistinctPixelCount).toBeGreaterThan(0);
 
-  const activatedEditor = await page.evaluate((configLanguageInputId) => {
-    const configLanguageInput = document.getElementById(configLanguageInputId);
-    if (!(configLanguageInput instanceof HTMLElement)) {
+  const activatedEditor = await page.evaluate((rowId) => {
+    const styleColorLabel = document
+      .getElementById(rowId)
+      ?.querySelector<HTMLElement>('[data-canvas-owned-resting-text="true"]');
+    if (!(styleColorLabel instanceof HTMLElement)) {
       return false;
     }
-
-    const eventInit = {
-      bubbles: true,
-      button: 0,
-      cancelable: true,
-    } satisfies MouseEventInit;
-
-    configLanguageInput.dispatchEvent(new MouseEvent("mousedown", eventInit));
-    configLanguageInput.dispatchEvent(new MouseEvent("mouseup", eventInit));
-    configLanguageInput.dispatchEvent(new MouseEvent("click", eventInit));
+    styleColorLabel.click();
     return true;
-  }, TARGET_CONFIG_LANGUAGE_INPUT_ID);
+  }, TARGET_STYLE_COLOR_ROW_ID);
   expect(activatedEditor).toBe(true);
-  const configLanguageEditor = page.locator(
-    `#${TARGET_CONFIG_LANGUAGE_EDITOR_ID}`,
+  const styleColorEditor = page.locator(
+    `#${TARGET_STYLE_COLOR_EDITOR_ID}`,
   );
-  await expect(configLanguageEditor).toBeVisible();
-  await expect(configLanguageEditor).not.toHaveCSS("opacity", "0");
+  await expect(styleColorEditor).toBeVisible();
+  await expect(styleColorEditor).not.toHaveCSS("opacity", "0");
 });

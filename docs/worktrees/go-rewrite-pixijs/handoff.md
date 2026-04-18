@@ -268,9 +268,28 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
   - the newly covered `Style Color` row was present and looked intact on the live canvas path
   - caveat: the fitted headless viewport still leaves that row small, so treat this as a technical visual pass backed by the deterministic Playwright pixel probe rather than a strong human-only readability judgment
-- The next frontier should not reopen per-row text-id churn on this section:
-  - treat the canary resting-text lane as complete at this ownership boundary
-  - move to the next visible inactive DOM family on `settings-section__callableSectionDefault`, preferably param-label text or another row-chrome family, instead of adding more explicit text-row exceptions
+- The next visible inactive DOM family slice is now landed for param-label text on the same canary section:
+  - the first attempt in this iteration targeted `ParamNameInput`, but a timed-out live wait plus source re-check showed the visible canary labels on this lane render through `ParamTextLabel` except for kwargs; no product code from that dead-end was kept
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamLabelRestingText(...)` so the label lane is explicit at the same canary ownership boundary as the existing resting-text/value lane
+  - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` now makes only the canary section's resting labels transparent on the `canvas-shell-underlay` path and tags them with `data-canvas-owned-resting-text="true"` so the retained scene can measure and paint them without changing the existing click-to-focus handoff
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now samples the retained `Style Color` label text separately from the retained `Style Color` value text and clicks the label to surface the inline `Style Color` editor on first click with no blank/detached jump
+- CDP visual check is done for the param-label slice:
+  - no crash/error overlay was visible on `/settings` with `All Settings` active
+  - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` remained present on the live surface
+  - the `Style Color` label looked intact on the callable canvas path
+  - clicking the `Style Color` label surfaced the inline `Style Color` editor with the `null` value rendered inline and no blank/detached jump
+- The next frontier should not reopen param-label text on this section:
+  - treat the canary param-label lane as complete at this ownership boundary
+  - move to the next visible row-chrome family on `settings-section__callableSectionDefault` instead of adding more label/text coverage; likely candidates are shared text-row underline/input-shell chrome or another repeated inactive row-decoration family
 
 ## Preservation rule
 
@@ -299,7 +318,7 @@ That leaves one primary architectural move:
 
 1. Treat the callable shell/body-panel chrome lane for `settings-section__callableSectionDefault` as complete; do not spend another iteration on nonexistent search, pinned-panel, or unpinned-panel chrome for that target.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the same named canary section, but do not spend another pass on a single-row text drip; if the resting-text lane continues, take the next grouped visible family such as `Size` / `Style Color` / `Tag Color` in one bounded product slice.
+3. Keep the same named canary section, but do not spend another pass on value-text or param-label drift; take the next repeated row-chrome family in one bounded product slice instead.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -320,9 +339,10 @@ The first product frontier is:
 - with the same canary section now also painting canvas-owned switch tracks for visible switch rows while the live switch thumbs/buttons remain interactive
 - with the same canary section now also painting the resting `Config Language` text in the retained canvas while the live CodeMirror editor still activates inline on first click
 - with the same canary section now also painting the resting `Column Width`, `Edge Input Params`, and `Edge Output Ports` text in the retained canvas while the live editors remain available
+- with the same canary section now also painting the resting `Style Color` label text in the retained canvas while label clicks still hand off directly to the inline `Style Color` editor
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
-- next: move to the next grouped visible text family on that same named canary instead of reopening top-level shell/body panel work or continuing one-row-at-a-time churn
+- next: move to the next repeated row-chrome family on that same named canary instead of reopening top-level shell/body panel work or continuing label/text churn
 
 ## Hard rules
 

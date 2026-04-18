@@ -3,6 +3,7 @@ import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   CANVAS_OWNED_SECTION_SHELL_ID,
+  isCanvasOwnedSectionParamLabelRestingText,
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -46,6 +47,17 @@ describe("sectionShellCanvasOwnership", () => {
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: "settings-section__dictSectionDefault",
       }),
+    ).toBe(false);
+  });
+
+  it("targets param-label resting text inside the canary section", () => {
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__dictSectionDefault",
+      ),
     ).toBe(false);
   });
 
