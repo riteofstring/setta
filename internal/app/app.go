@@ -524,7 +524,7 @@ func initializeWorkspaceLSPServices(
 				cloned := services.settingsStateRuntime.Snapshot().Document.Clone()
 				document = map[string]any(cloned)
 			}
-			return lsp.CurrentProcessPythonSettings(document, []string{cfg.Paths.SettaFilesRoot})
+			return document
 		},
 	})
 	if err != nil {
@@ -1738,6 +1738,7 @@ type appHandlerDeps struct {
 	lspDiagnostics           *projectstate.LSPDiagnosticsRegistry
 	lspCompletion            *lspcompletion.Service
 	projectLSPSyncer         *lsp.ProjectSynchronizer
+	pluginRuntime            *pluginBackendRuntimeRefresher
 }
 
 func registerRootRoutes(r chi.Router, deps appHandlerDeps) error {
@@ -2029,7 +2030,7 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ProjectState: deps.projectRuntime,
 		Diagnostics:  deps.lspDiagnostics,
 		Completions:  deps.lspCompletion,
-		Admin:        deps.projectLSPSyncer,
+		Admin:        newWorkspaceLSPAdmin(deps.projectLSPSyncer, deps.pluginRuntime),
 	}
 	return httpapi.RegisterFrontendAPIRoutes(r, apiDeps)
 }
@@ -2449,6 +2450,7 @@ func configureAppPluginRuntime(
 		service:     projectServices.pluginMutationService,
 		logger:      logger,
 		runtimeRoot: cfg.Paths.RuntimeRoot,
+		settings:    projectServices.settingsStateRuntime,
 		lspRouter:   projectServices.lspRouter,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
@@ -2665,6 +2667,7 @@ func initializeAppHandlerAndWatchServices(
 		lspDiagnostics:           projectServices.lspDiagnostics,
 		lspCompletion:            projectServices.lspCompletion,
 		projectLSPSyncer:         projectServices.projectLSPSyncer,
+		pluginRuntime:            platformServices.pluginRuntime,
 	})
 	if err != nil {
 		return appHandlerServices{}, err
