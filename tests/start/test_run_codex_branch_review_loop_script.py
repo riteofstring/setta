@@ -11,7 +11,7 @@ CORRECTNESS_REVIEW_PROMPT = (
     "- Analyze only branch-introduced changes vs merge base:\n"
     "  - `git diff --name-status go-rewrite...HEAD`\n"
     "  - `git diff $(git merge-base go-rewrite HEAD)..HEAD`\n\n"
-    "Lens\n"
+    "Review Focus\n"
     "- This is a correctness / invariants review.\n"
     "- Focus on correctness bugs, invariant violations, regressions after prior "
     "fixes, and missing tests that would let those regressions recur.\n"
@@ -47,10 +47,28 @@ CORRECTNESS_REVIEW_PROMPT = (
     "- Principled fix that removes the whole issue class (no BC shim)\n"
     "- Regression tests to add/update (unit/integration/e2e) with exact "
     "assertions\n\n"
-    "Output format\n"
-    "1. `Lens: correctness/invariants`\n"
-    "2. Either `No actionable findings.` or findings by root-cause cluster "
-    "(highest severity first)\n"
+    "Output\n"
+    "- The response will be written directly to the review file. Write only the "
+    "review findings.\n"
+    "- Do not include headings, preambles, conclusions, or any note about "
+    "writing/saving the file.\n"
+    "- If there are no actionable findings, output exactly `No actionable "
+    "findings.`\n"
+    "- Otherwise, output findings by root-cause cluster, highest severity "
+    "first.\n"
+    "- For each finding cluster, use this exact field order:\n"
+    "  - `Cluster: <short root cause name>`\n"
+    "  - `Severity: critical|high|medium|low`\n"
+    "  - `Merge risk: blocker|major|minor`\n"
+    "  - `Evidence: <file + line references and brief description>`\n"
+    "  - `Invariant: <violated invariant>`\n"
+    "  - `Classification: new issue | regression after prior fix | adjacent fallout "
+    "in same subsystem`\n"
+    "  - `Principled fix: <smallest owner-level fix that removes the whole issue "
+    "class>`\n"
+    "  - `Regression tests: <unit/integration/e2e coverage with exact "
+    "assertions>`\n"
+    "- Separate clusters with a blank line.\n"
 )
 CLEANUP_REVIEW_PROMPT = (
     "Review this branch for merge into `go-rewrite`.\n\n"
@@ -58,7 +76,7 @@ CLEANUP_REVIEW_PROMPT = (
     "- Analyze only branch-introduced changes vs merge base:\n"
     "  - `git diff --name-status go-rewrite...HEAD`\n"
     "  - `git diff $(git merge-base go-rewrite HEAD)..HEAD`\n\n"
-    "Lens\n"
+    "Review Focus\n"
     "- This is a dead code / shims / simplification review.\n"
     "- Focus on dead or unused code, backward-compatibility shims, dual-path "
     "behavior, duplicated logic, unnecessary wrappers, and cases where a smaller "
@@ -95,10 +113,28 @@ CLEANUP_REVIEW_PROMPT = (
     "in same subsystem`\n"
     "- Principled simplification or deletion that removes the whole issue class\n"
     "- Regression tests to keep or add so the simplification stays safe\n\n"
-    "Output format\n"
-    "1. `Lens: dead-code/shims/simplification`\n"
-    "2. Either `No actionable findings.` or findings by root-cause cluster "
-    "(highest severity first)\n"
+    "Output\n"
+    "- The response will be written directly to the review file. Write only the "
+    "review findings.\n"
+    "- Do not include headings, preambles, conclusions, or any note about "
+    "writing/saving the file.\n"
+    "- If there are no actionable findings, output exactly `No actionable "
+    "findings.`\n"
+    "- Otherwise, output findings by root-cause cluster, highest severity "
+    "first.\n"
+    "- For each finding cluster, use this exact field order:\n"
+    "  - `Cluster: <short root cause name>`\n"
+    "  - `Severity: critical|high|medium|low`\n"
+    "  - `Merge risk: blocker|major|minor`\n"
+    "  - `Evidence: <file + line references and brief description>`\n"
+    "  - `Invariant: <cleanup / simplification invariant being violated>`\n"
+    "  - `Classification: new issue | regression after prior fix | adjacent fallout "
+    "in same subsystem`\n"
+    "  - `Principled fix: <principled simplification or deletion that removes the "
+    "whole issue class>`\n"
+    "  - `Regression tests: <tests to keep or add so the simplification stays "
+    "safe>`\n"
+    "- Separate clusters with a blank line.\n"
 )
 CONSOLIDATE_PROMPT = (
     "Read all the top-level review*.md docs. Each review document is a review of the "
@@ -423,8 +459,12 @@ exit 2
     assert not (output_dir / "state" / "last-observed-head.txt").exists()
     assert not (output_dir / "run-001" / "review1.exit").exists()
     calls = calls_file.read_text(encoding="utf-8")
-    assert calls.count("`Lens: correctness/invariants`") == 2
-    assert calls.count("`Lens: dead-code/shims/simplification`") == 1
+    assert "`Lens: correctness/invariants`" not in calls
+    assert "`Lens: dead-code/shims/simplification`" not in calls
+    assert calls.count("Write only the review findings.") == 3
+    assert calls.count(
+        "Do not include headings, preambles, conclusions, or any note about writing/saving the file."
+    ) == 3
     assert calls.count("call:exec ") == 4
     assert "call:exec resume" not in calls
 

@@ -711,7 +711,7 @@ Scope
   - `git diff --name-status go-rewrite...HEAD`
   - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
 
-Lens
+Review Focus
 - This is a correctness / invariants review.
 - Focus on correctness bugs, invariant violations, regressions after prior fixes, and missing tests that would let those regressions recur.
 - Ignore dead code, shims, and simplification opportunities unless they directly create a correctness failure.
@@ -737,9 +737,21 @@ For each actionable finding, provide
 - Principled fix that removes the whole issue class (no BC shim)
 - Regression tests to add/update (unit/integration/e2e) with exact assertions
 
-Output format
-1. `Lens: correctness/invariants`
-2. Either `No actionable findings.` or findings by root-cause cluster (highest severity first)
+Output
+- The response will be written directly to the review file. Write only the review findings.
+- Do not include headings, preambles, conclusions, or any note about writing/saving the file.
+- If there are no actionable findings, output exactly `No actionable findings.`
+- Otherwise, output findings by root-cause cluster, highest severity first.
+- For each finding cluster, use this exact field order:
+  - `Cluster: <short root cause name>`
+  - `Severity: critical|high|medium|low`
+  - `Merge risk: blocker|major|minor`
+  - `Evidence: <file + line references and brief description>`
+  - `Invariant: <violated invariant>`
+  - `Classification: new issue | regression after prior fix | adjacent fallout in same subsystem`
+  - `Principled fix: <smallest owner-level fix that removes the whole issue class>`
+  - `Regression tests: <unit/integration/e2e coverage with exact assertions>`
+- Separate clusters with a blank line.
 EOF
 
   cat > "${cleanup_review_prompt_file}" <<'EOF'
@@ -750,7 +762,7 @@ Scope
   - `git diff --name-status go-rewrite...HEAD`
   - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
 
-Lens
+Review Focus
 - This is a dead code / shims / simplification review.
 - Focus on dead or unused code, backward-compatibility shims, dual-path behavior, duplicated logic, unnecessary wrappers, and cases where a smaller owner-level rewrite would reduce future bug surface.
 - Do not report style nits or speculative refactors. Only report cleanup / simplification findings that materially reduce maintenance risk, issue-class surface, or future diff growth.
@@ -776,9 +788,21 @@ For each actionable finding, provide
 - Principled simplification or deletion that removes the whole issue class
 - Regression tests to keep or add so the simplification stays safe
 
-Output format
-1. `Lens: dead-code/shims/simplification`
-2. Either `No actionable findings.` or findings by root-cause cluster (highest severity first)
+Output
+- The response will be written directly to the review file. Write only the review findings.
+- Do not include headings, preambles, conclusions, or any note about writing/saving the file.
+- If there are no actionable findings, output exactly `No actionable findings.`
+- Otherwise, output findings by root-cause cluster, highest severity first.
+- For each finding cluster, use this exact field order:
+  - `Cluster: <short root cause name>`
+  - `Severity: critical|high|medium|low`
+  - `Merge risk: blocker|major|minor`
+  - `Evidence: <file + line references and brief description>`
+  - `Invariant: <cleanup / simplification invariant being violated>`
+  - `Classification: new issue | regression after prior fix | adjacent fallout in same subsystem`
+  - `Principled fix: <principled simplification or deletion that removes the whole issue class>`
+  - `Regression tests: <tests to keep or add so the simplification stays safe>`
+- Separate clusters with a blank line.
 EOF
 
   cat > "${consolidate_prompt_file}" <<'EOF'
