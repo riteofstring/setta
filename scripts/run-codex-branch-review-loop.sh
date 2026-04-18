@@ -512,7 +512,7 @@ Implement the fixes. Add unit, integration, and Playwright tests when appropriat
 EOF
 
   cat > "${finalize_prompt_file}" <<'EOF'
-Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Run check_quality.sh, then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Run check_quality.sh, fix any quality issues, then commit all your changes (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 EOF
 }
 
