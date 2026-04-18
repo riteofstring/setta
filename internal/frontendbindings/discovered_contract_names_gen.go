@@ -9,6 +9,7 @@ import (
 	agentruns "setta/internal/agentruns"
 	appspec "setta/internal/appspec"
 	artifacts "setta/internal/artifacts"
+	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
 	config "setta/internal/config"
 	deployments "setta/internal/deployments"
@@ -69,6 +70,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(plugins.BackendHTTPRequest{}):                                        "BackendHTTPRequest",
 	reflect.TypeOf(plugins.BackendHTTPResponse{}):                                       "BackendHTTPResponse",
 	reflect.TypeOf(plugins.BackendListenerEndpointRequest{}):                            "BackendListenerEndpointRequest",
+	reflect.TypeOf(backendlogs.BackendLogEvent{}):                                       "BackendLogEvent",
 	reflect.TypeOf(plugins.BackendRequestContext{}):                                     "BackendRequestContext",
 	reflect.TypeOf(settingsstate.BackgroundVariant("")):                                 "BackgroundVariant",
 	reflect.TypeOf(artifacts.BaseArtifactUnion{}):                                       "BaseArtifactUnion",
@@ -98,6 +100,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectview.ButtonParamUIConfigValue{}):                              "ButtonParamUIConfigValue",
 	reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}):                          "CallableSectionImpl",
 	reflect.TypeOf(artifacts.CanvasPoint{}):                                             "CanvasPoint",
+	reflect.TypeOf(projectstate.ChangeParamImplUIConfigValue{}):                         "ChangeParamImplUIConfigValue",
 	reflect.TypeOf(artifacts.ChartDataArtifact{}):                                       "ChartDataArtifact",
 	reflect.TypeOf(artifacts.ChartDataValue(nil)):                                       "ChartDataValue",
 	reflect.TypeOf(projectstate.FrontendChartSectionImpl{}):                             "ChartSectionImpl",
@@ -231,6 +234,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.FrontendGroupSectionImpl{}):                             "GroupSectionImpl",
 	reflect.TypeOf(projectstate.GroupSectionsInput{}):                                   "GroupSectionsInput",
 	reflect.TypeOf(projectstate.FrontendHTTPRequestMethod("")):                          "HTTPRequestMethod",
+	reflect.TypeOf(projectstate.FrontendIFrameSectionImpl{}):                            "IFrameSectionImpl",
 	reflect.TypeOf(realtime.FrontendIdentityContent{}):                                  "IdentityContent",
 	reflect.TypeOf(realtime.FrontendIdentityMessage{}):                                  "IdentityMessage",
 	reflect.TypeOf(artifacts.ImageArtifact{}):                                           "ImageArtifact",
@@ -324,6 +328,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(scriptablechat.MessageThinkingContent{}):                             "MessageThinkingContent",
 	reflect.TypeOf(realtime.MessageThinkingDelta{}):                                     "MessageThinkingDelta",
 	reflect.TypeOf(wsapi.FrontendMessageType("")):                                       "MessageType",
+	reflect.TypeOf(projectstate.FrontendMetaControlSectionImpl{}):                       "MetaControlSectionImpl",
 	reflect.TypeOf(projectstate.MetaControlSizeMode("")):                                "MetaControlSizeMode",
 	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}):                "MetaControlSizingPolicyByType",
 	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyTypeEntry{}):             "MetaControlSizingPolicyTypeEntry",
@@ -510,12 +515,15 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(httpapi.FrontendSettaFilesLocation("")):                              "SettaFilesLocation",
 	reflect.TypeOf(httpapi.FrontendSettaFilesLocationPolicy{}):                          "SettaFilesLocationPolicy",
 	reflect.TypeOf(settingsstate.FrontendSettingsBackend{}):                             "SettingsBackend",
+	reflect.TypeOf(settingsstate.FrontendSettingsChatWindowing{}):                       "SettingsChatWindowing",
+	reflect.TypeOf(settingsstate.FrontendSettingsChatWindowingShortcuts{}):              "SettingsChatWindowingShortcuts",
 	reflect.TypeOf(settingsstate.FrontendSettingsGUI{}):                                 "SettingsGUI",
 	reflect.TypeOf(externalagentconfigs.SettingsManagedBlock{}):                         "SettingsManagedBlock",
 	reflect.TypeOf(externalagentconfigs.SettingsMode("")):                               "SettingsMode",
 	reflect.TypeOf(settingsstate.FrontendSettingsShortcuts{}):                           "SettingsShortcuts",
 	reflect.TypeOf(settingsstate.FrontendSettingsState{}):                               "SettingsState",
 	reflect.TypeOf(realtime.SettingsUpdateMessage{}):                                    "SettingsUpdateMessage",
+	reflect.TypeOf(backendlogs.Severity("")):                                            "Severity",
 	reflect.TypeOf(deployments.SharePolicyOverrides{}):                                  "SharePolicyOverrides",
 	reflect.TypeOf(projectview.ShownParamIDDetails{}):                                   "ShownParamIDDetails",
 	reflect.TypeOf(projectview.ShownParamIDs{}):                                         "ShownParamIDs",
@@ -635,6 +643,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.WatchCodeCallableKind("")):                              "WatchCodeCallableKind",
 	reflect.TypeOf(projectstate.WatchCodeFolder{}):                                      "WatchCodeFolder",
 	reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}):                               "WatchCodeRegistryEntry",
+	reflect.TypeOf(backendlogs.WebsocketMessage{}):                                      "WebsocketMessage",
 	reflect.TypeOf(realtime.WebsocketMessageType("")):                                   "WebsocketMessageType",
 	reflect.TypeOf(httpapi.FrontendWebsocketTransportRoutes{}):                          "WebsocketTransportRoutes",
 	reflect.TypeOf(projectstate.WindowSpaceConfig{}):                                    "WindowSpaceConfig",

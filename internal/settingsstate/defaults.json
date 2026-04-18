@@ -629,6 +629,7 @@
     "isFrozen": false,
     "tagColor": null,
     "styleColor": null,
+    "code": "",
     "size": {
       "width": "auto",
       "height": "auto"

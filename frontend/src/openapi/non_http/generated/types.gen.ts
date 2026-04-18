@@ -222,12 +222,16 @@ type AppCapabilities = {
  * AppDefinition
  */
 export type AppDefinition = {
-  actions?: RawMessage | null;
+  actions?: {
+    [key: string]: RawMessage;
+  } | null;
   appSpecPath?: string;
   appSpecVersion?: string;
   assets?: RawMessage | null;
   catalogId?: string;
-  dataBindings?: RawMessage | null;
+  dataBindings?: {
+    [key: string]: RawMessage;
+  } | null;
   routes?: null | Array<AppRoute>;
   theme?: RawMessage | null;
 };
@@ -287,7 +291,7 @@ type AppValidationIssue = {
  */
 type AppendMessagesRequest = {
   chatId: string;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   projectConfigId?: null | string;
 };
 
@@ -372,6 +376,17 @@ type BackendListenerEndpointRequest = {
   payload: {
     [key: string]: unknown;
   };
+};
+
+/**
+ * BackendLogEvent
+ */
+export type BackendLogEvent = {
+  id: string;
+  message: string;
+  projectConfigId: null | string;
+  severity: Severity;
+  timestamp: string;
 };
 
 /**
@@ -519,7 +534,7 @@ type BaseParamCodeObjImpl = {
 /**
  * BaseSectionImpl
  */
-type BaseSectionImpl = {
+export type BaseSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   id: string;
@@ -547,11 +562,13 @@ export type BaseSectionImplUnion =
   | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
+  | MetaControlSectionImpl
   | GlobalVariablesSectionImpl
   | CodeSectionImpl
   | GenPythonCodeSectionImpl
   | GenPythonMetadataSectionImpl
   | TerminalSectionImpl
+  | IFrameSectionImpl
   | ChatSectionImpl
   | BrowserSectionImpl
   | TaskBoardSectionImpl
@@ -681,7 +698,7 @@ export type BrushStroke = {
   globalCompositeOperation: string;
   lineCap: DrawAreaBrushShape;
   lineWidth: number;
-  points: null | Array<unknown>;
+  points: Array<unknown>;
   strokeStyle: string;
 };
 
@@ -701,7 +718,7 @@ export type BrushStrokeWithTransform = {
   globalCompositeOperation: string;
   lineCap: DrawAreaBrushShape;
   lineWidth: number;
-  points: null | Array<unknown>;
+  points: Array<unknown>;
   strokeStyle: string;
   transform: DrawAreaTransform;
 };
@@ -818,6 +835,15 @@ export type CallableSectionImpl = {
 export type CanvasPoint = [number, number];
 
 /**
+ * ChangeParamImplUIConfigValue
+ */
+export type ChangeParamImplUIConfigValue = {
+  allParamCodeObjTypes: null | Array<CodeObjType>;
+  controlCodeObjTypes: null | Array<CodeObjType>;
+  sectionParamCodeObjTypes: null | Array<CodeObjType>;
+};
+
+/**
  * ChartDataArtifact
  */
 export type ChartDataArtifact = {
@@ -888,7 +914,7 @@ type Chat = {
   id: string;
   lastUpdated: string;
   llmConfig: LLMConfig;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   name: string;
   projectConfigId?: null | string;
   systemPrompt: null | string;
@@ -953,7 +979,7 @@ export type ChatRunTypeSet = {
 export type ChatSectionBranch = {
   branchFromMessageId: null | string;
   createdAt: number;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   parentBranchId: null | string;
 };
 
@@ -1036,7 +1062,7 @@ export type ChatSectionState = {
     [key: string]: ChatSectionBranch;
   };
   inputText: string;
-  messages: null | Array<BaseChatMessageUnion>;
+  messages: Array<BaseChatMessageUnion> | null;
   toolCallArguments: {
     [key: string]: string;
   };
@@ -1205,11 +1231,13 @@ type ClipboardProjectStateCore = {
       | ChartSectionImpl
       | TextBlockSectionImpl
       | PromptSectionImpl
+      | MetaControlSectionImpl
       | GlobalVariablesSectionImpl
       | CodeSectionImpl
       | GenPythonCodeSectionImpl
       | GenPythonMetadataSectionImpl
       | TerminalSectionImpl
+      | IFrameSectionImpl
       | ChatSectionImpl
       | BrowserSectionImpl
       | TaskBoardSectionImpl
@@ -1525,7 +1553,9 @@ export type Core = {
   displayName: string;
   id: string;
   name: string;
-  sharedModifier: RawMessage | null;
+  sharedModifier: {
+    [key: string]: RawMessage;
+  };
   unsharedKeys: null | Array<string>;
   variants: null | Array<string>;
 };
@@ -1841,7 +1871,7 @@ export type DrawAreaBrushShape = "butt" | "round" | "square";
  * DrawAreaLayer
  */
 export type DrawAreaLayer = {
-  elements: null | Array<DrawAreaLayerItem>;
+  elements: Array<DrawAreaLayerItem>;
   layerOpacity: number;
   name: string;
   visible: boolean;
@@ -1860,7 +1890,7 @@ export type DrawAreaLayerItem = {
  * DrawAreaLayerItemTransform
  */
 export type DrawAreaLayerItemTransform = {
-  eraserStrokes: null | Array<BrushStrokeWithTransform>;
+  eraserStrokes: Array<BrushStrokeWithTransform>;
   transform: DrawAreaTransform;
 };
 
@@ -1906,7 +1936,7 @@ type DrawSectionImpl = {
  * DropdownParamCodeObjImpl
  */
 export type DropdownParamCodeObjImpl = {
-  choices: null | Array<string>;
+  choices: Array<string>;
   coreNameEditable: boolean;
   coreNameType: string;
   defaultVal: string;
@@ -2372,6 +2402,35 @@ export type HTTPRequestMethod =
   | "OPTIONS";
 
 /**
+ * IFrameSectionImpl
+ */
+export type IFrameSectionImpl = {
+  aspectRatioExtraHeight: number;
+  aspectRatioExtraWidth: number;
+  code: string;
+  id: string;
+  isFrozen: boolean;
+  isInOtherProjectConfigs: boolean;
+  isMinimized: boolean;
+  isPreset: boolean;
+  name: string;
+  positionAndSizeLocked: boolean;
+  size: {
+    height: {
+      Auto: boolean;
+      Value: number;
+    };
+    width: {
+      Auto: boolean;
+      Value: number;
+    };
+  };
+  styleColor: null | string;
+  tagColor: null | string;
+  type: string;
+};
+
+/**
  * IdentityContent
  */
 type IdentityContent = {
@@ -2642,7 +2701,7 @@ type ListenerCoverageDependency = {
  * ListenerCoverageSnapshot
  */
 export type ListenerCoverageSnapshot = {
-  dependencies: null | Array<BaseDependencyKeyUnion>;
+  dependencies: Array<BaseDependencyKeyUnion> | null;
   hasRealtimeWildcard: boolean;
   projectConfigId: string;
 };
@@ -3193,7 +3252,7 @@ type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
  * MessageDeltaEvent
  */
 export type MessageDeltaEvent = {
-  content: null | Array<MessageContentDelta>;
+  content: Array<MessageContentDelta> | null;
   message_id: string;
   type: StreamingEventType;
 };
@@ -3284,6 +3343,55 @@ type MessageType =
   | "UISettingRevealResult"
   | "RealtimeUIChange"
   | "RealtimeDependencyEvent";
+
+/**
+ * MetaControlSectionImpl
+ */
+export type MetaControlSectionImpl = {
+  aspectRatioExtraHeight: number;
+  aspectRatioExtraWidth: number;
+  codeObjVariantMap: {
+    [key: string]: string;
+  };
+  columnWidth: null | number;
+  edgeInputParams: null | Array<string>;
+  edgeOutputPorts: null | Array<{
+    accessor: string;
+    id: string;
+  }>;
+  hideUnpinnedParams: boolean;
+  id: string;
+  ignoreTypeErrors: {
+    callable: boolean;
+    params: {
+      [key: string]: boolean;
+    };
+  };
+  isFrozen: boolean;
+  isInOtherProjectConfigs: boolean;
+  isMinimized: boolean;
+  isPreset: boolean;
+  metaControlParamId: null | string;
+  name: string;
+  paramFilter: string;
+  pinnedParams: null | Array<string>;
+  positionAndSizeLocked: boolean;
+  selectedParams: null | Array<string>;
+  showSectionTitle: boolean;
+  size: {
+    height: {
+      Auto: boolean;
+      Value: number;
+    };
+    width: {
+      Auto: boolean;
+      Value: number;
+    };
+  };
+  styleColor: null | string;
+  tagColor: null | string;
+  type: string;
+};
 
 /**
  * MetaControlSizeMode
@@ -5003,7 +5111,7 @@ type RunToolsRequest = {
   frontendAffinityToken?: null | string;
   projectConfigId?: null | string;
   sectionId: string;
-  toolCalls: null | Array<ToolCall>;
+  toolCalls: Array<ToolCall> | null;
 };
 
 /**
@@ -5087,7 +5195,9 @@ type Section = {
   id: string;
   name: string;
   parentSectionId?: string;
-  sharedModifier?: RawMessage | null;
+  sharedModifier?: {
+    [key: string]: RawMessage;
+  } | null;
   unsharedKeys?: null | Array<string>;
   variantIds?: null | Array<string>;
 };
@@ -5321,7 +5431,9 @@ type SectionVariant = {
   id: string;
   implId: string;
   isFrozen?: boolean;
-  modifier?: RawMessage | null;
+  modifier?: {
+    [key: string]: RawMessage;
+  } | null;
   name?: string;
   nonPresetImplIds?: null | Array<string>;
 };
@@ -5581,6 +5693,28 @@ export type SettingsBackend = {
 };
 
 /**
+ * SettingsChatWindowing
+ */
+export type SettingsChatWindowing = {
+  autoCreateInitialChat: boolean;
+  restorePriorStateOnUnmaximize: boolean;
+  shortcuts: SettingsChatWindowingShortcuts;
+};
+
+/**
+ * SettingsChatWindowingShortcuts
+ */
+export type SettingsChatWindowingShortcuts = {
+  canvasToggle: string;
+  maximizeFocused: string;
+  minimizeFocused: string;
+  snapBottom: string;
+  snapLeft: string;
+  snapRight: string;
+  snapTop: string;
+};
+
+/**
  * SettingsGUI
  */
 export type SettingsGUI = {
@@ -5700,6 +5834,7 @@ export type SettingsShortcuts = {
  */
 export type SettingsState = {
   backend: SettingsBackend;
+  chatWindowing: SettingsChatWindowing;
   gui: SettingsGUI;
   languageServer: {
     [key: string]: unknown;
@@ -5715,6 +5850,11 @@ type SettingsUpdateMessage = {
   content: Document;
   messageType: WebsocketMessageType;
 };
+
+/**
+ * Severity
+ */
+type Severity = "info" | "warning" | "error" | "critical";
 
 /**
  * SharePolicyOverrides
@@ -5809,11 +5949,13 @@ export type SingleConfig = {
       | ChartSectionImpl
       | TextBlockSectionImpl
       | PromptSectionImpl
+      | MetaControlSectionImpl
       | GlobalVariablesSectionImpl
       | CodeSectionImpl
       | GenPythonCodeSectionImpl
       | GenPythonMetadataSectionImpl
       | TerminalSectionImpl
+      | IFrameSectionImpl
       | ChatSectionImpl
       | BrowserSectionImpl
       | TaskBoardSectionImpl
@@ -6983,7 +7125,7 @@ type UnindentParamsInput = {
  * UpdateArtifactsContent
  */
 type UpdateArtifactsContent = {
-  artifacts: null | Array<BaseArtifactUnion>;
+  artifacts: Array<BaseArtifactUnion> | null;
   updateType: string;
 };
 
@@ -7000,7 +7142,7 @@ type UpdateArtifactsMessage = {
  * UpdateRequest
  */
 type UpdateRequest = {
-  artifacts: null | Array<BaseArtifactUnion>;
+  artifacts: Array<BaseArtifactUnion> | null;
   conflictStrategy: SaveConflictStrategy | null;
   uploadScope: UploadScope;
 };
@@ -7030,7 +7172,9 @@ export type Variant = {
   id: string;
   impl: string;
   isFrozen: boolean;
-  modifier: RawMessage | null;
+  modifier: {
+    [key: string]: RawMessage;
+  };
   name: string;
   nonPresetImpls: null | Array<string>;
 };
@@ -7097,6 +7241,15 @@ type WatchCodeRegistryEntry = {
   sectionsCount?: number;
   signatureHash: string;
   sourcePath: string;
+};
+
+/**
+ * WebsocketMessage
+ */
+type WebsocketMessage = {
+  content: BackendLogEvent;
+  id: null | string;
+  messageType: WebsocketMessageType;
 };
 
 /**
