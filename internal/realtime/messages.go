@@ -48,7 +48,30 @@ const (
 type WebsocketMessageType string
 
 const (
-	WebsocketMessageTypeBackendLogEvent WebsocketMessageType = "BackendLogEvent"
+	WebsocketMessageTypeNotification                 WebsocketMessageType = MessageTypeNotification
+	WebsocketMessageTypeAllProjectMetadata           WebsocketMessageType = MessageTypeAllProjectMetadata
+	WebsocketMessageTypeAllConnections               WebsocketMessageType = MessageTypeAllConnections
+	WebsocketMessageTypeFrontendIdentity             WebsocketMessageType = MessageTypeFrontendIdentity
+	WebsocketMessageTypeListenerCoverageSnapshot     WebsocketMessageType = MessageTypeListenerCoverageSnapshot
+	WebsocketMessageTypeUpdateArtifacts              WebsocketMessageType = MessageTypeUpdateArtifacts
+	WebsocketMessageTypeLLMStreamingResponse         WebsocketMessageType = MessageTypeLLMStreamingResponse
+	WebsocketMessageTypeAIFollowToolArgumentsUpdate  WebsocketMessageType = MessageTypeAIFollowToolArgumentsUpdate
+	WebsocketMessageTypeAIFollowToolResultUpdate     WebsocketMessageType = MessageTypeAIFollowToolResultUpdate
+	WebsocketMessageTypeUISettingReveal              WebsocketMessageType = MessageTypeUISettingReveal
+	WebsocketMessageTypeLSPDiagnostics               WebsocketMessageType = MessageTypeLSPDiagnostics
+	WebsocketMessageTypeNameValidationErrors         WebsocketMessageType = MessageTypeNameValidationErrors
+	WebsocketMessageTypeLLMConfigUpdated             WebsocketMessageType = MessageTypeLLMConfigUpdated
+	WebsocketMessageTypeLLMAPIKeysUpdated            WebsocketMessageType = MessageTypeLLMAPIKeysUpdated
+	WebsocketMessageTypeExternalAgentConfigsUpdated  WebsocketMessageType = MessageTypeExternalAgentConfigsUpdated
+	WebsocketMessageTypeEngineConfigsUpdated         WebsocketMessageType = MessageTypeEngineConfigsUpdated
+	WebsocketMessageTypeAgentProfilesUpdated         WebsocketMessageType = MessageTypeAgentProfilesUpdated
+	WebsocketMessageTypeAgentRunUpdated              WebsocketMessageType = MessageTypeAgentRunUpdated
+	WebsocketMessageTypePromptTemplatesUpdated       WebsocketMessageType = MessageTypePromptTemplatesUpdated
+	WebsocketMessageTypeTranscriptionProfilesUpdated WebsocketMessageType = MessageTypeTranscriptionProfilesUpdated
+	WebsocketMessageTypeUpdateFrontendProjectState   WebsocketMessageType = MessageTypeUpdateFrontendProjectState
+	WebsocketMessageTypeUpdateSettings               WebsocketMessageType = MessageTypeUpdateSettings
+	WebsocketMessageTypeReturnRenameRefactorResults  WebsocketMessageType = MessageTypeReturnRenameRefactorResults
+	WebsocketMessageTypeBackendLogEvent              WebsocketMessageType = "BackendLogEvent"
 )
 
 type NotificationType string
@@ -425,7 +448,7 @@ type RenameRefactorResultsMessage struct {
 
 func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMessage {
 	return FrontendIdentityMessage{
-		MessageType: WebsocketMessageType(MessageTypeFrontendIdentity),
+		MessageType: WebsocketMessageTypeFrontendIdentity,
 		Content: FrontendIdentityContent{
 			FrontendAffinityToken: frontendAffinityToken,
 		},
@@ -434,7 +457,7 @@ func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMe
 
 func NewListenerCoverageSnapshotMessage(content ListenerCoverageSnapshot) ListenerCoverageSnapshotMessage {
 	return ListenerCoverageSnapshotMessage{
-		MessageType: WebsocketMessageType(MessageTypeListenerCoverageSnapshot),
+		MessageType: WebsocketMessageTypeListenerCoverageSnapshot,
 		Content: ListenerCoverageSnapshot{
 			ProjectID:           content.ProjectID,
 			Dependencies:        append([]ListenerCoverageDependency(nil), content.Dependencies...),
@@ -483,84 +506,84 @@ func cloneToolArgumentPreviewTargetIDsList(values []string) []string {
 
 func NewUpdateArtifactsMessage(content UpdateArtifactsContent) UpdateArtifactsMessage {
 	return UpdateArtifactsMessage{
-		MessageType: WebsocketMessageType(MessageTypeUpdateArtifacts),
+		MessageType: WebsocketMessageTypeUpdateArtifacts,
 		Content:     content,
 	}
 }
 
 func NewLLMStreamingResponseMessage(content LLMStreamingResponseContent) LLMStreamingResponseMessage {
 	return LLMStreamingResponseMessage{
-		MessageType: WebsocketMessageType(MessageTypeLLMStreamingResponse),
+		MessageType: WebsocketMessageTypeLLMStreamingResponse,
 		Content:     content,
 	}
 }
 
 func NewAIFollowToolArgumentsUpdateMessage(content AIFollowToolArgumentsUpdateContent) AIFollowToolArgumentsUpdateMessage {
 	return AIFollowToolArgumentsUpdateMessage{
-		MessageType: WebsocketMessageType(MessageTypeAIFollowToolArgumentsUpdate),
+		MessageType: WebsocketMessageTypeAIFollowToolArgumentsUpdate,
 		Content:     content,
 	}
 }
 
 func NewAIFollowToolResultUpdateMessage(content AIFollowToolResultUpdateContent) AIFollowToolResultUpdateMessage {
 	return AIFollowToolResultUpdateMessage{
-		MessageType: WebsocketMessageType(MessageTypeAIFollowToolResultUpdate),
+		MessageType: WebsocketMessageTypeAIFollowToolResultUpdate,
 		Content:     content,
 	}
 }
 
 func NewUISettingRevealMessage(content UISettingRevealContent) UISettingRevealMessage {
 	return UISettingRevealMessage{
-		MessageType: WebsocketMessageType(MessageTypeUISettingReveal),
+		MessageType: WebsocketMessageTypeUISettingReveal,
 		Content:     content,
 	}
 }
 
 func NewNotificationMessage(content NotificationContent) NotificationMessage {
 	return NotificationMessage{
-		MessageType: WebsocketMessageType(MessageTypeNotification),
+		MessageType: WebsocketMessageTypeNotification,
 		Content:     content,
 	}
 }
 
 func NewAllProjectMetadataMessage(content AllProjectMetadataContent) AllProjectMetadataMessage {
 	return AllProjectMetadataMessage{
-		MessageType: WebsocketMessageType(MessageTypeAllProjectMetadata),
+		MessageType: WebsocketMessageTypeAllProjectMetadata,
 		Content:     content,
 	}
 }
 
 func NewAllConnectionsMessage(connections []Connection) AllConnectionsMessage {
 	return AllConnectionsMessage{
-		MessageType: WebsocketMessageType(MessageTypeAllConnections),
+		MessageType: WebsocketMessageTypeAllConnections,
 		Content:     connections,
 	}
 }
 
 func NewLSPDiagnosticsMessage(content projectstate.LSPDiagnosticsPayload) LSPDiagnosticsMessage {
 	return LSPDiagnosticsMessage{
-		MessageType: WebsocketMessageType(MessageTypeLSPDiagnostics),
+		MessageType: WebsocketMessageTypeLSPDiagnostics,
 		Content:     content,
 	}
 }
 
 func NewNameValidationErrorsMessage(content projectstate.NameValidationErrors) NameValidationErrorsMessage {
 	return NameValidationErrorsMessage{
-		MessageType: WebsocketMessageType(MessageTypeNameValidationErrors),
+		MessageType: WebsocketMessageTypeNameValidationErrors,
 		Content:     content,
 	}
 }
 
 func NewLLMConfigUpdatedMessage(content llmconfig.AllConfigs) LLMConfigUpdatedMessage {
 	return LLMConfigUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeLLMConfigUpdated),
+		MessageType: WebsocketMessageTypeLLMConfigUpdated,
 		Content:     content,
 	}
 }
 
 func NewLLMAPIKeysUpdatedMessage(content llmconfig.ManagedAPIKeysSnapshot) LLMAPIKeysUpdatedMessage {
 	return LLMAPIKeysUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeLLMAPIKeysUpdated),
+		MessageType: WebsocketMessageTypeLLMAPIKeysUpdated,
 		Content:     content,
 	}
 }
@@ -571,7 +594,7 @@ func NewExternalAgentConfigsUpdatedMessage(content []externalagentconfigs.Config
 		configs = []externalagentconfigs.Config{}
 	}
 	return ExternalAgentConfigsUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeExternalAgentConfigsUpdated),
+		MessageType: WebsocketMessageTypeExternalAgentConfigsUpdated,
 		Content: ExternalAgentConfigsUpdatedContent{
 			Configs: configs,
 		},
@@ -584,7 +607,7 @@ func NewEngineConfigsUpdatedMessage(content []agentruns.EngineConfig) EngineConf
 		configs = []agentruns.EngineConfig{}
 	}
 	return EngineConfigsUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeEngineConfigsUpdated),
+		MessageType: WebsocketMessageTypeEngineConfigsUpdated,
 		Content: EngineConfigsUpdatedContent{
 			Configs: configs,
 		},
@@ -597,7 +620,7 @@ func NewAgentProfilesUpdatedMessage(content []agentprofiles.Profile) AgentProfil
 		profiles = []agentprofiles.Profile{}
 	}
 	return AgentProfilesUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeAgentProfilesUpdated),
+		MessageType: WebsocketMessageTypeAgentProfilesUpdated,
 		Content: AgentProfilesUpdatedContent{
 			Profiles: profiles,
 		},
@@ -610,7 +633,7 @@ func NewPromptTemplatesUpdatedMessage(content []prompttemplates.Template) Prompt
 		templates = []prompttemplates.Template{}
 	}
 	return PromptTemplatesUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypePromptTemplatesUpdated),
+		MessageType: WebsocketMessageTypePromptTemplatesUpdated,
 		Content: PromptTemplatesUpdatedContent{
 			Templates: templates,
 		},
@@ -623,7 +646,7 @@ func NewTranscriptionProfilesUpdatedMessage(content []transcriptionprofiles.Prof
 		profiles = []transcriptionprofiles.Profile{}
 	}
 	return TranscriptionProfilesUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeTranscriptionProfilesUpdated),
+		MessageType: WebsocketMessageTypeTranscriptionProfilesUpdated,
 		Content: TranscriptionProfilesUpdatedContent{
 			Profiles: profiles,
 		},
@@ -632,28 +655,28 @@ func NewTranscriptionProfilesUpdatedMessage(content []transcriptionprofiles.Prof
 
 func NewAgentRunUpdatedMessage(content agentruns.Run) AgentRunUpdatedMessage {
 	return AgentRunUpdatedMessage{
-		MessageType: WebsocketMessageType(MessageTypeAgentRunUpdated),
+		MessageType: WebsocketMessageTypeAgentRunUpdated,
 		Content:     content.Clone(),
 	}
 }
 
 func NewProjectStateUpdateMessage(content ProjectStateUpdateContent) ProjectStateUpdateMessage {
 	return ProjectStateUpdateMessage{
-		MessageType: WebsocketMessageType(MessageTypeUpdateFrontendProjectState),
+		MessageType: WebsocketMessageTypeUpdateFrontendProjectState,
 		Content:     content,
 	}
 }
 
 func NewSettingsUpdateMessage(content settingsstate.Document) SettingsUpdateMessage {
 	return SettingsUpdateMessage{
-		MessageType: WebsocketMessageType(MessageTypeUpdateSettings),
+		MessageType: WebsocketMessageTypeUpdateSettings,
 		Content:     content.Clone(),
 	}
 }
 
 func NewRenameRefactorResultsMessage(content RenameRefactorBroadcastContent) RenameRefactorResultsMessage {
 	return RenameRefactorResultsMessage{
-		MessageType: WebsocketMessageType(MessageTypeReturnRenameRefactorResults),
+		MessageType: WebsocketMessageTypeReturnRenameRefactorResults,
 		Content:     content,
 	}
 }

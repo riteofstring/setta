@@ -4086,6 +4086,29 @@ export const ToolTypeEnum = {
 export type UIEditorTabName = gt.UIEditorTabName;
 
 export const WebsocketMessageTypeEnum = {
+  Notification: "Notification",
+  AllProjectMetadata: "AllProjectMetadata",
+  AllConnections: "AllConnections",
+  FrontendIdentity: "FrontendIdentity",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  UpdateArtifacts: "UpdateArtifacts",
+  LLMStreamingResponse: "LLMStreamingResponse",
+  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  UISettingReveal: "UISettingReveal",
+  LSPDiagnostics: "LSPDiagnostics",
+  NameValidationErrors: "NameValidationErrors",
+  LLMConfigUpdated: "LLMConfigUpdated",
+  LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  AgentRunUpdated: "AgentRunUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
+  UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateSettings: "UpdateSettings",
+  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   BackendLogEvent: "BackendLogEvent",
 } as const;
 export type WebsocketMessageType = gt.WebsocketMessageType;

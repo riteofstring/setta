@@ -11,6 +11,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/realtime"
 	"setta/internal/stringenumvalues"
 	"setta/internal/tools"
 	"setta/internal/wsapi"
@@ -38,6 +39,51 @@ func TestBuildSchemaDocumentIncludesAuthoritativeEnumValues(t *testing.T) {
 	}
 	if got, want := len(schema.Enum), len(values); got != want {
 		t.Fatalf("SectionType enum count = %d, want %d", got, want)
+	}
+}
+
+func TestBuildSchemaDocumentIncludesAuthoritativeWebsocketMessageTypeEnumValues(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	schema := document.Defs["WebsocketMessageType"]
+	if schema == nil {
+		t.Fatalf("expected WebsocketMessageType schema in $defs")
+	}
+
+	values, ok, err := stringenumvalues.Default().Values(reflect.TypeOf(realtime.WebsocketMessageType("")))
+	if err != nil {
+		t.Fatalf("enum discovery error = %v", err)
+	}
+	if !ok || len(values) == 0 {
+		t.Fatalf("expected authoritative WebsocketMessageType enum values")
+	}
+	if got, want := len(schema.Enum), len(values); got != want {
+		t.Fatalf("WebsocketMessageType enum count = %d, want %d", got, want)
+	}
+
+	enumValues := map[string]struct{}{}
+	for _, value := range schema.Enum {
+		text, ok := value.(string)
+		if !ok {
+			t.Fatalf("WebsocketMessageType enum value type = %T, want string", value)
+		}
+		enumValues[text] = struct{}{}
+	}
+	for _, want := range []string{
+		string(realtime.WebsocketMessageTypeFrontendIdentity),
+		string(realtime.WebsocketMessageTypeNotification),
+		string(realtime.WebsocketMessageTypeAllConnections),
+		string(realtime.WebsocketMessageTypeLLMStreamingResponse),
+		string(realtime.WebsocketMessageTypeBackendLogEvent),
+	} {
+		if _, ok := enumValues[want]; !ok {
+			t.Fatalf("WebsocketMessageType schema is missing %q", want)
+		}
 	}
 }
 
