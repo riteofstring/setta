@@ -36,6 +36,9 @@ This plan is intentionally not compatibility-constrained.
 - One plugin package corresponds to one language-server implementation for now.
 - `basedpyright` becomes a first-party plugin rather than a direct built-in
   runtime dependency.
+- First-party plugin implementations live under the top-level `plugins/`
+  directory as normal plugin package roots rather than under the core app
+  runtime packages.
 - A curated "defaults" install profile can install a known-good plugin set for
   supported packaging flows, including the default Python language-server
   plugin.
@@ -108,6 +111,9 @@ plugin languages", not "plugins own language-server selection".
 - Cross-plugin coverage should exist, but only in a narrow integration lane.
 - First-party plugins should use the same runtime path as third-party plugins
   whenever practical.
+- In this repo, first-party plugin source should live under `plugins/` as real
+  plugin package roots, not under `internal/` or `backend/setta/` except for
+  shared core APIs they consume.
 - When language-server features are unavailable, the app should explain why via
   normal product UI on the main project page, not through synthetic LSP
   diagnostics.
@@ -301,6 +307,10 @@ This keeps:
 
 Create a first-party plugin that owns the Python language server currently
 hardcoded in the app.
+
+For repo layout, place this implementation at
+`plugins/setta-basedpyright/` as a normal plugin root with its own manifest,
+package metadata, and backend entrypoint.
 
 Responsibilities of the plugin:
 
