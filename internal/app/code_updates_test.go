@@ -1314,7 +1314,7 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
 		Settings: func() map[string]any {
-			return lsp.CurrentProcessPythonSettings(map[string]any{
+			return codeUpdatesTestPythonSettings(map[string]any{
 				"languageServer": map[string]any{
 					"basedpyright": map[string]any{
 						"analysis": map[string]any{
@@ -1429,7 +1429,7 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
 		Settings: func() map[string]any {
-			return lsp.CurrentProcessPythonSettings(map[string]any{
+			return codeUpdatesTestPythonSettings(map[string]any{
 				"languageServer": map[string]any{
 					"basedpyright": map[string]any{
 						"analysis": map[string]any{
@@ -1974,4 +1974,102 @@ func addRepoVenvRuffToPath(t *testing.T) {
 		t.Fatalf("stat repo ruff binary: %v", err)
 	}
 	t.Setenv("PATH", venvBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func codeUpdatesTestPythonSettings(settings map[string]any, extraPaths []string) map[string]any {
+	branch := codeUpdatesTestPythonSettingsBranch(settings)
+	mergedExtraPaths := mergeCodeUpdatesPythonExtraPaths(branch, extraPaths)
+	if len(mergedExtraPaths) != 0 {
+		analysis, ok := branch["analysis"].(map[string]any)
+		if !ok {
+			analysis = map[string]any{}
+			branch["analysis"] = analysis
+		}
+		analysis["extraPaths"] = codeUpdatesStringSliceToAnySlice(mergedExtraPaths)
+	}
+	if len(branch) == 0 {
+		return nil
+	}
+	return map[string]any{"basedpyright": branch}
+}
+
+func codeUpdatesTestPythonSettingsBranch(settings map[string]any) map[string]any {
+	if settings == nil {
+		return map[string]any{}
+	}
+	languageServer, ok := settings["languageServer"].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	basedpyrightSettings, ok := languageServer["basedpyright"].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return cloneCodeUpdatesSettingsMap(basedpyrightSettings)
+}
+
+func mergeCodeUpdatesPythonExtraPaths(branch map[string]any, extraPaths []string) []string {
+	merged := make([]string, 0, len(extraPaths))
+	seen := map[string]struct{}{}
+
+	if analysis, ok := branch["analysis"].(map[string]any); ok {
+		if existing, ok := analysis["extraPaths"].([]any); ok {
+			for _, rawPath := range existing {
+				path, ok := rawPath.(string)
+				if !ok {
+					continue
+				}
+				normalizedPath := strings.TrimSpace(path)
+				if normalizedPath == "" {
+					continue
+				}
+				normalizedPath = filepath.Clean(normalizedPath)
+				if _, ok := seen[normalizedPath]; ok {
+					continue
+				}
+				seen[normalizedPath] = struct{}{}
+				merged = append(merged, normalizedPath)
+			}
+		}
+	}
+
+	for _, rawPath := range extraPaths {
+		normalizedPath := strings.TrimSpace(rawPath)
+		if normalizedPath == "" {
+			continue
+		}
+		normalizedPath = filepath.Clean(normalizedPath)
+		if _, ok := seen[normalizedPath]; ok {
+			continue
+		}
+		seen[normalizedPath] = struct{}{}
+		merged = append(merged, normalizedPath)
+	}
+	return merged
+}
+
+func codeUpdatesStringSliceToAnySlice(values []string) []any {
+	if len(values) == 0 {
+		return nil
+	}
+	converted := make([]any, len(values))
+	for index, value := range values {
+		converted[index] = value
+	}
+	return converted
+}
+
+func cloneCodeUpdatesSettingsMap(values map[string]any) map[string]any {
+	if values == nil {
+		return map[string]any{}
+	}
+	payload, err := json.Marshal(values)
+	if err != nil {
+		return map[string]any{}
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		return map[string]any{}
+	}
+	return cloned
 }
