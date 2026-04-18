@@ -21,23 +21,46 @@ func (s *Service) LanguageServerSpecs(_ context.Context, selectedByLanguage map[
 	if err != nil {
 		return nil, err
 	}
-	return LanguageServerSpecsFromSnapshot(snapshot, selectedByLanguage)
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return nil, err
+	}
+	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage)
+}
+
+func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	if s == nil {
+		return nil, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return nil, err
+	}
+	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage)
 }
 
 func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins)
+	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage)
+}
+
+func languageServerSpecsFromSnapshotWithState(snapshot DiscoverySnapshot, pluginsState *PluginsStateFile, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState)
 	if err != nil {
 		return nil, err
 	}
 	return selectedLanguageServerSpecs(registrations, selectedByLanguage), nil
 }
 
-func languageServerSpecsFromEntries(entries []DiscoveredPlugin) ([]lsp.LanguageServerSpec, error) {
+func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *PluginsStateFile) ([]lsp.LanguageServerSpec, error) {
 	collector := languageServerSpecCollector{
 		specs: make([]lsp.LanguageServerSpec, 0),
 	}
 	for _, entry := range entries {
-		if err := collector.addEntry(entry); err != nil {
+		if err := collector.addEntry(entry, pluginsState); err != nil {
 			return nil, err
 		}
 	}
@@ -49,12 +72,12 @@ type languageServerSpecCollector struct {
 	specs []lsp.LanguageServerSpec
 }
 
-func (c *languageServerSpecCollector) addEntry(entry DiscoveredPlugin) error {
+func (c *languageServerSpecCollector) addEntry(entry DiscoveredPlugin, pluginsState *PluginsStateFile) error {
 	if !pluginProvidesLanguageServer(entry) {
 		return nil
 	}
 	for _, registration := range entry.RegisteredLanguageServers {
-		spec, language, err := buildLanguageServerSpec(registration)
+		spec, language, err := buildLanguageServerSpec(entry, registration, pluginsState)
 		if err != nil {
 			return err
 		}
@@ -74,7 +97,7 @@ func pluginProvidesLanguageServer(entry DiscoveredPlugin) bool {
 	return containsString(entry.EffectiveCapabilities, "registerLanguageServer")
 }
 
-func buildLanguageServerSpec(registration PluginRegisteredLanguageServer) (lsp.LanguageServerSpec, string, error) {
+func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer, pluginsState *PluginsStateFile) (lsp.LanguageServerSpec, string, error) {
 	language := strings.ToLower(strings.TrimSpace(registration.Language))
 	if language == "" {
 		return lsp.LanguageServerSpec{}, "", fmt.Errorf("plugin language server language is required")
@@ -85,6 +108,7 @@ func buildLanguageServerSpec(registration PluginRegisteredLanguageServer) (lsp.L
 		LanguageID:  language,
 		Command:     strings.TrimSpace(registration.Command),
 		Args:        append([]string(nil), registration.Args...),
+		Settings:    languageServerSettingsRoot(entry, pluginsState),
 		SettingsKey: cloneOptionalString(registration.SettingsKey),
 	}, language, nil
 }

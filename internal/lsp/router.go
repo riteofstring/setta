@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -21,6 +22,7 @@ type LanguageServerSpec struct {
 	LanguageID  string
 	Command     string
 	Args        []string
+	Settings    map[string]any
 	SettingsKey *string
 }
 
@@ -120,6 +122,7 @@ func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, e
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
 		Args:        append([]string(nil), spec.Args...),
+		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 		SettingsKey: cloneOptionalString(spec.SettingsKey),
 	}
 	if normalized.Name == "" {
@@ -182,6 +185,7 @@ func cloneLanguageServerSpec(spec LanguageServerSpec) LanguageServerSpec {
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
 		Args:        append([]string(nil), spec.Args...),
+		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 		SettingsKey: cloneOptionalString(spec.SettingsKey),
 	}
 }
@@ -194,6 +198,12 @@ func languageServerSpecsEqual(left LanguageServerSpec, right LanguageServerSpec)
 		return false
 	}
 	if !slices.Equal(left.Args, right.Args) {
+		return false
+	}
+	if !reflect.DeepEqual(
+		cloneLanguageServerSettingsMap(left.Settings),
+		cloneLanguageServerSettingsMap(right.Settings),
+	) {
 		return false
 	}
 	switch {
@@ -412,7 +422,7 @@ func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
 		Args:          append([]string(nil), spec.Args...),
 		Environment:   append([]string(nil), r.environment...),
 		WorkingDir:    r.workingDir,
-		Settings:      resolveLanguageServerSettings(loadRouterSettings(r.settings), spec.SettingsKey),
+		Settings:      resolveLanguageServerSettings(loadLanguageServerSettingsRoot(spec, r.settings), spec.SettingsKey),
 	})
 	if err != nil {
 		return nil, false, err
@@ -427,6 +437,13 @@ func loadRouterSettings(settings func() map[string]any) map[string]any {
 		return nil
 	}
 	return cloneLanguageServerSettingsMap(settings())
+}
+
+func loadLanguageServerSettingsRoot(spec LanguageServerSpec, settings func() map[string]any) map[string]any {
+	if spec.Settings != nil {
+		return cloneLanguageServerSettingsMap(spec.Settings)
+	}
+	return loadRouterSettings(settings)
 }
 
 func resolveLanguageServerSettings(settings map[string]any, settingsKey *string) map[string]any {
