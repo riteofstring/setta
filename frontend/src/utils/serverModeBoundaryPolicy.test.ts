@@ -1,9 +1,11 @@
 import type { ServerModeValue } from "utils/serverModeTypes";
 import { describe, expect, it } from "vitest";
 
-import { TransportRouteConstants } from "./generatedTypes";
 import {
-  ENDPOINT_ORIGIN_POLICY,
+  EndpointOriginPolicyByRoute,
+  TransportRouteConstants,
+} from "./generatedTypes";
+import {
   resolveEndpointOriginForMode,
   resolveServerModeCapabilities,
   resolveWorkspaceLaunchRouteKind,
@@ -104,7 +106,7 @@ describe("serverModeBoundaryPolicy", () => {
         "launcher",
       ),
     ).toBe("backend-origin");
-    expect(Object.keys(ENDPOINT_ORIGIN_POLICY)).not.toContain(
+    expect(Object.keys(EndpointOriginPolicyByRoute)).not.toContain(
       "/launcherAppMode",
     );
   });

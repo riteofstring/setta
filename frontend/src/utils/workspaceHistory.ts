@@ -15,11 +15,7 @@ export type WorkspaceHistoryEntry = {
 };
 
 const HISTORY_KEY = "setta.workspaceHistory";
-const HISTORY_HANDOFF_KEY = BootstrapProtocol.workspaceHistoryStorageKey;
-const HISTORY_HANDOFF_QUERY_PARAM =
-  BootstrapProtocol.workspaceHistoryQueryParam;
 const HISTORY_LIMIT = 6;
-const HISTORY_HANDOFF_MAX_LENGTH = BootstrapProtocol.maxValueLength;
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -223,7 +219,7 @@ export function consumeWorkspaceHistoryHandoff(): void {
 
   let encoded: string | null = null;
   try {
-    encoded = storage.getItem(HISTORY_HANDOFF_KEY);
+    encoded = storage.getItem(BootstrapProtocol.workspaceHistoryStorageKey);
   } catch {
     return;
   }
@@ -233,7 +229,7 @@ export function consumeWorkspaceHistoryHandoff(): void {
   }
 
   try {
-    storage.removeItem(HISTORY_HANDOFF_KEY);
+    storage.removeItem(BootstrapProtocol.workspaceHistoryStorageKey);
   } catch {
     // Ignore storage failures.
   }
@@ -266,7 +262,7 @@ function getWorkspaceHistoryHandoffUrl(): URL | null {
 
 function persistWorkspaceHistoryHandoff(rawHandoff: string): void {
   const trimmed = rawHandoff.trim();
-  if (!trimmed || trimmed.length > HISTORY_HANDOFF_MAX_LENGTH) {
+  if (!trimmed || trimmed.length > BootstrapProtocol.maxValueLength) {
     return;
   }
   const storage = safeLocalStorage();
@@ -274,7 +270,7 @@ function persistWorkspaceHistoryHandoff(rawHandoff: string): void {
     return;
   }
   try {
-    storage.setItem(HISTORY_HANDOFF_KEY, trimmed);
+    storage.setItem(BootstrapProtocol.workspaceHistoryStorageKey, trimmed);
   } catch {
     // Ignore storage failures.
   }
@@ -310,12 +306,14 @@ export function applyWorkspaceHistoryHandoffFromUrl(): void {
     return;
   }
 
-  const rawHandoff = url.searchParams.get(HISTORY_HANDOFF_QUERY_PARAM);
+  const rawHandoff = url.searchParams.get(
+    BootstrapProtocol.workspaceHistoryQueryParam,
+  );
   if (!rawHandoff) {
     return;
   }
   persistWorkspaceHistoryHandoff(rawHandoff);
-  url.searchParams.delete(HISTORY_HANDOFF_QUERY_PARAM);
+  url.searchParams.delete(BootstrapProtocol.workspaceHistoryQueryParam);
   cleanWorkspaceHistoryHandoffUrl(url.toString());
 }
 

@@ -5,8 +5,6 @@ import { safeSessionStorage } from "utils/storage";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";
-const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM =
-  BootstrapProtocol.backendOriginOverrideQueryParam;
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;
@@ -130,12 +128,14 @@ export function applyBackendOriginOverrideFromUrl(): void {
     return;
   }
 
-  const rawOverride = url.searchParams.get(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
+  const rawOverride = url.searchParams.get(
+    BootstrapProtocol.backendOriginOverrideQueryParam,
+  );
   if (!rawOverride) {
     return;
   }
 
   persistBackendOriginOverride(rawOverride, url.origin);
-  url.searchParams.delete(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
+  url.searchParams.delete(BootstrapProtocol.backendOriginOverrideQueryParam);
   cleanBackendOriginOverrideFromUrl(url.toString());
 }

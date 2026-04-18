@@ -22,8 +22,6 @@ export type WorkspaceLaunchRouteKind = GeneratedWorkspaceLaunchRouteKind;
 
 export type ServerModeCapabilities = GeneratedServerModeCapabilities;
 
-export const ENDPOINT_ORIGIN_POLICY = EndpointOriginPolicyByRoute;
-
 const NULL_SERVER_MODE_CAPABILITIES: ServerModeCapabilities = {
   canManageDesktopLauncher: false,
 };

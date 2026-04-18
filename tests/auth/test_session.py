@@ -10,8 +10,8 @@ from setta.sessions.registry import SessionRegistry
 from setta.types.generated.go_shared_constants import (
     SESSIONS_ROOT_ENV_VAR,
     SESSION_ID_ENV_VAR,
+    SESSION_SECRET_BYTES,
 )
-from setta.utils.constants import C
 
 
 def _clear_session_cache() -> None:
@@ -49,7 +49,7 @@ def test_load_current_session_secret_returns_metadata(
     assert result is not None
     metadata, secret = result
     assert metadata.id == created.id
-    assert len(secret) == C.SESSION_SECRET_BYTES
+    assert len(secret) == SESSION_SECRET_BYTES
 
 
 def test_load_current_session_secret_prefers_env_session(
@@ -81,7 +81,7 @@ def test_load_current_session_secret_prefers_env_session(
     assert result is not None
     metadata, secret = result
     assert metadata.id == target.id
-    assert len(secret) == C.SESSION_SECRET_BYTES
+    assert len(secret) == SESSION_SECRET_BYTES
 
 
 def test_load_current_session_secret_uses_sessions_root_env(
@@ -112,7 +112,7 @@ def test_load_current_session_secret_uses_sessions_root_env(
     assert result is not None
     metadata, secret = result
     assert metadata.id == created.id
-    assert len(secret) == C.SESSION_SECRET_BYTES
+    assert len(secret) == SESSION_SECRET_BYTES
 
 
 def test_load_current_session_secret_returns_none_without_session_id(

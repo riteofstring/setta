@@ -45,12 +45,9 @@ class classproperty:
 
 class C:
     # Basic configuration
-    DEFAULT_HOST = go_shared_constants.DEFAULT_HOST
-    DEFAULT_PORT = go_shared_constants.DEFAULT_PORT
-
     # Set HOST and PORT from defaults (can be overridden)
-    HOST: str = DEFAULT_HOST
-    PORT: int = DEFAULT_PORT
+    HOST: str = go_shared_constants.DEFAULT_HOST
+    PORT: int = go_shared_constants.DEFAULT_PORT
 
     @classproperty
     def RUNTIME_SESSIONS_FOLDER(cls) -> Path:
@@ -59,13 +56,6 @@ class C:
     @classproperty
     def AUTH_COOKIE_NAME(cls) -> str:
         return _resolved_auth_cookie_name()
-
-    AUTH_COOKIE_MAX_AGE_SECONDS = go_shared_constants.AUTH_COOKIE_MAX_AGE_SECONDS
-    BOOTSTRAP_TOKEN_TTL_SECONDS = go_shared_constants.BOOTSTRAP_TOKEN_TTL_SECONDS
-    LAUNCH_INTENT_TOKEN_TTL_SECONDS = (
-        go_shared_constants.LAUNCH_INTENT_TOKEN_TTL_SECONDS
-    )
-    SESSION_SECRET_BYTES = go_shared_constants.SESSION_SECRET_BYTES
 
     @classproperty
     def BACKEND(cls):

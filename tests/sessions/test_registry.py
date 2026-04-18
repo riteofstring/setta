@@ -13,8 +13,10 @@ from setta.sessions.registry import (
     SessionRegistry,
     _cmdline_matches_setta_process,
 )
-from setta.types.generated.go_shared_constants import IN_PROCESS_ENV_VAR
-from setta.utils.constants import C
+from setta.types.generated.go_shared_constants import (
+    IN_PROCESS_ENV_VAR,
+    SESSION_SECRET_BYTES,
+)
 
 
 def test_create_and_load_session() -> None:
@@ -47,7 +49,7 @@ def test_create_and_load_session() -> None:
         assert secret_path.exists()
 
         secret_bytes = registry.load_secret(loaded)
-        assert len(secret_bytes) == C.SESSION_SECRET_BYTES
+        assert len(secret_bytes) == SESSION_SECRET_BYTES
 
 
 def test_create_session_persists_connect_info_path_fields() -> None:

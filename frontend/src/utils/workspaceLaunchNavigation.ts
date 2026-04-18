@@ -1,9 +1,6 @@
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { BootstrapProtocol } from "utils/generatedTypes";
 
-const OPEN_WORKSPACE_SWITCHER_QUERY_PARAM =
-  BootstrapProtocol.openWorkspaceSwitcherQueryParam;
-
 type WorkspaceLaunchBackNavigation =
   | { kind: "navigate"; target: string }
   | { kind: "assign"; target: string };
@@ -35,12 +32,12 @@ export function resolveWorkspaceLaunchReturnUrl(
 }
 
 function buildWorkspaceSwitcherTarget(url: URL): string {
-  url.searchParams.set(OPEN_WORKSPACE_SWITCHER_QUERY_PARAM, "1");
+  url.searchParams.set(BootstrapProtocol.openWorkspaceSwitcherQueryParam, "1");
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
 function buildWorkspaceSwitcherFallbackTarget(): string {
-  return `${HOME_ROUTER_PATH}?${OPEN_WORKSPACE_SWITCHER_QUERY_PARAM}=1`;
+  return `${HOME_ROUTER_PATH}?${BootstrapProtocol.openWorkspaceSwitcherQueryParam}=1`;
 }
 
 export function resolveWorkspaceLaunchBackNavigation(
@@ -67,7 +64,7 @@ export function resolveWorkspaceLaunchBackNavigation(
       throw new Error("Cross-origin return URL requires backend validation.");
     }
     resolvedReturnUrl.searchParams.set(
-      OPEN_WORKSPACE_SWITCHER_QUERY_PARAM,
+      BootstrapProtocol.openWorkspaceSwitcherQueryParam,
       "1",
     );
     return { kind: "assign", target: resolvedReturnUrl.toString() };

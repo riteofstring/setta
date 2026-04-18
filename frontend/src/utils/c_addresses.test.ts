@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "./backendOriginOverride";
 import { C_ADDRESSES } from "./c_addresses";
-import { API_ROUTE_PREFIX } from "./transportRouteConstants";
+import { TransportRouteConstants } from "./generatedTypes";
 
 function createMemoryStorage() {
   const storage = new Map<string, string>();
@@ -102,7 +102,7 @@ describe("C_ADDRESSES", () => {
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://127.0.0.1:61000");
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://127.0.0.1:8000");
     expect(C_ADDRESSES.LAUNCHER).toBe(
-      `http://127.0.0.1:8000${API_ROUTE_PREFIX}`,
+      `http://127.0.0.1:8000${TransportRouteConstants.apiPrefix}`,
     );
   });
 
@@ -117,7 +117,7 @@ describe("C_ADDRESSES", () => {
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://remote.example:7777");
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://remote.example:9999");
     expect(C_ADDRESSES.LAUNCHER).toBe(
-      `http://remote.example:9999${API_ROUTE_PREFIX}`,
+      `http://remote.example:9999${TransportRouteConstants.apiPrefix}`,
     );
   });
 

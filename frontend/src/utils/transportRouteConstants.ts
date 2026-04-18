@@ -1,16 +1,14 @@
 import { TransportRouteConstants } from "./generatedTypes";
 
-const TRANSPORT_ROUTES = TransportRouteConstants;
-
-export const API_ROUTE_PREFIX = TRANSPORT_ROUTES.apiPrefix;
-
-export const ROOT_TRANSPORT_ROUTES = Object.freeze(TRANSPORT_ROUTES.root);
-
-export const WEBSOCKET_TRANSPORT_ROUTES = Object.freeze(
-  TRANSPORT_ROUTES.websocket,
+export const ROOT_TRANSPORT_ROUTES = Object.freeze(
+  TransportRouteConstants.root,
 );
 
-const BINARY_TRANSPORT_ROUTES = Object.freeze(TRANSPORT_ROUTES.binary);
+export const WEBSOCKET_TRANSPORT_ROUTES = Object.freeze(
+  TransportRouteConstants.websocket,
+);
+
+const BINARY_TRANSPORT_ROUTES = Object.freeze(TransportRouteConstants.binary);
 
 function replaceTransportRoutePathParams(
   routePath: string,

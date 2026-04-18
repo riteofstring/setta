@@ -17,6 +17,7 @@ from setta.types.generated.go_shared_constants import (
     SESSION_PROCESS_BASENAMES,
     SESSION_PROCESS_INVOCATION_ARGUMENTS,
     SESSION_PROCESS_INVOCATION_PREFIXES,
+    SESSION_SECRET_BYTES,
     SESSION_SECRET_FILENAME,
     SESSION_SERVER_MODE_VALUES,
 )
@@ -24,9 +25,6 @@ from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 
-_SETTA_PROCESS_BASENAMES = SESSION_PROCESS_BASENAMES
-_SETTA_PROCESS_INVOCATION_ARGUMENTS = SESSION_PROCESS_INVOCATION_ARGUMENTS
-_SETTA_PROCESS_INVOCATION_PREFIXES = SESSION_PROCESS_INVOCATION_PREFIXES
 _ALLOWED_SESSION_SERVER_MODES = frozenset(SESSION_SERVER_MODE_VALUES)
 
 
@@ -122,7 +120,7 @@ class SessionRegistry:
 
         session_dir.mkdir(parents=True, exist_ok=False)
         secret_path = session_dir / SESSION_SECRET_FILENAME
-        secret_path.write_bytes(secrets.token_bytes(C.SESSION_SECRET_BYTES))
+        secret_path.write_bytes(secrets.token_bytes(SESSION_SECRET_BYTES))
         if os.name != "nt":
             os.chmod(secret_path, stat.S_IRUSR | stat.S_IWUSR)
 
@@ -546,13 +544,13 @@ def _process_create_time_matches_session(
 
 
 def _process_basename_matches_setta(value: str) -> bool:
-    return os.path.basename(value).lower() in _SETTA_PROCESS_BASENAMES
+    return os.path.basename(value).lower() in SESSION_PROCESS_BASENAMES
 
 
 def _process_invocation_argument_matches_setta(value: str) -> bool:
     lowered = value.strip().lower()
-    if lowered in _SETTA_PROCESS_INVOCATION_ARGUMENTS:
+    if lowered in SESSION_PROCESS_INVOCATION_ARGUMENTS:
         return True
     return any(
-        lowered.startswith(prefix) for prefix in _SETTA_PROCESS_INVOCATION_PREFIXES
+        lowered.startswith(prefix) for prefix in SESSION_PROCESS_INVOCATION_PREFIXES
     )

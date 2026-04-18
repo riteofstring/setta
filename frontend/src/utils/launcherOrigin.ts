@@ -3,8 +3,6 @@ import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
-const LAUNCHER_ORIGIN_STORAGE_KEY = BootstrapProtocol.launcherOriginStorageKey;
-
 function launcherOriginStorage(): Storage | undefined {
   return safeSessionStorage();
 }
@@ -36,7 +34,7 @@ function readLauncherOrigin(): string | undefined {
     return undefined;
   }
   try {
-    const raw = storage.getItem(LAUNCHER_ORIGIN_STORAGE_KEY);
+    const raw = storage.getItem(BootstrapProtocol.launcherOriginStorageKey);
     if (!raw) {
       return undefined;
     }
@@ -49,7 +47,7 @@ function readLauncherOrigin(): string | undefined {
       !isLauncherOriginAllowed(normalized, window.location.origin)
     ) {
       try {
-        storage.removeItem(LAUNCHER_ORIGIN_STORAGE_KEY);
+        storage.removeItem(BootstrapProtocol.launcherOriginStorageKey);
       } catch {
         // Ignore storage failures.
       }
@@ -77,7 +75,7 @@ function writeLauncherOrigin(origin: string): void {
     return;
   }
   try {
-    storage.setItem(LAUNCHER_ORIGIN_STORAGE_KEY, normalized);
+    storage.setItem(BootstrapProtocol.launcherOriginStorageKey, normalized);
   } catch {
     // Ignore storage failures.
   }

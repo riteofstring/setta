@@ -6,7 +6,6 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TransportRouteConstants } from "./generatedTypes";
 import { importNativeFileToWorkspace } from "./nativeFileImport";
-import { API_ROUTE_PREFIX } from "./transportRouteConstants";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -24,7 +23,7 @@ function resolveFetchURL(input: unknown): string {
 
 function matchesGoHTTPRoute(input: unknown, routePath: string): boolean {
   const url = new URL(resolveFetchURL(input), "http://setta.test");
-  return url.pathname === `${API_ROUTE_PREFIX}${routePath}`;
+  return url.pathname === `${TransportRouteConstants.apiPrefix}${routePath}`;
 }
 
 async function getRequestJSONBody(
