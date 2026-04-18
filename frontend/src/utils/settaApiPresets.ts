@@ -8,12 +8,11 @@ type SettaApiPreset = {
   buildBody: () => Record<string, unknown>;
 };
 
-const SETTA_API_RUNTIME_VALUE_TOKENS = SettaAPIPresetConfig.runtimeValueTokens;
-
 function buildSettaApiRuntimeValuesByToken(): Record<string, unknown> {
   return {
-    [SETTA_API_RUNTIME_VALUE_TOKENS.projectConfigId]: getCurrProjectConfigId(),
-    [SETTA_API_RUNTIME_VALUE_TOKENS.emptySpacePosition]:
+    [SettaAPIPresetConfig.runtimeValueTokens.projectConfigId]:
+      getCurrProjectConfigId(),
+    [SettaAPIPresetConfig.runtimeValueTokens.emptySpacePosition]:
       getEmptySpacePosition(),
   };
 }

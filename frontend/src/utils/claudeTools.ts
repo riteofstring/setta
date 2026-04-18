@@ -6,10 +6,6 @@ import {
 } from "utils/generatedTypes";
 import { normalizeGeneratedToolName } from "./bindingRuntime";
 
-export const QUESTION_TOOL_NAME =
-  ToolNameNormalizationConfig.askUserQuestionToolName;
-export const APPROVAL_TOOL_NAME = ToolNameNormalizationConfig.approvalToolName;
-
 type AskUserQuestionOption = {
   label: string;
   description?: string;
@@ -273,7 +269,10 @@ function isPendingToolInteraction(
 }
 
 function isToolInteractionName(value: string | null): boolean {
-  return value === QUESTION_TOOL_NAME || value === APPROVAL_TOOL_NAME;
+  return (
+    value === ToolNameNormalizationConfig.askUserQuestionToolName ||
+    value === ToolNameNormalizationConfig.approvalToolName
+  );
 }
 
 function extractToolName(value: Record<string, unknown>): string | undefined {

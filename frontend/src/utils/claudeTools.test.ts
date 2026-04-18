@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { QUESTION_TOOL_NAME, normalizeToolName } from "./claudeTools";
+import { ToolNameNormalizationConfig } from "utils/generatedTypes";
+import { normalizeToolName } from "./claudeTools";
 
 describe("normalizeToolName", () => {
   it("returns null for empty values", () => {
@@ -19,8 +20,12 @@ describe("normalizeToolName", () => {
   });
 
   it("maps the bare question tool to AskUserQuestion", () => {
-    expect(normalizeToolName("question")).toBe(QUESTION_TOOL_NAME);
-    expect(normalizeToolName("QUESTION")).toBe(QUESTION_TOOL_NAME);
+    expect(normalizeToolName("question")).toBe(
+      ToolNameNormalizationConfig.askUserQuestionToolName,
+    );
+    expect(normalizeToolName("QUESTION")).toBe(
+      ToolNameNormalizationConfig.askUserQuestionToolName,
+    );
     expect(normalizeToolName("mcp__question")).toBe("question");
   });
 });

@@ -71,9 +71,7 @@ import {
 import { formatBytes } from "utils/attachments";
 import { C } from "utils/c";
 import {
-  APPROVAL_TOOL_NAME,
   type AskUserQuestionPayload,
-  QUESTION_TOOL_NAME,
   normalizeToolName,
   parseAnswers,
   parseApprovalPayload,
@@ -86,6 +84,7 @@ import {
   ChatRoleEnum,
   ToolCall,
   ToolChatMessage,
+  ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChatMessageEditor } from "./ChatMessageEditor";
@@ -216,7 +215,6 @@ type ActivityToolLikeRowKind = StructuredOutputOwner;
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
 const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
-const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const CHAT_MARKDOWN_BASE_CLASS =
   "prose prose-sm max-w-full prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1 prose-ol:my-1 prose-ul:pl-5 prose-ol:pl-5 prose-ul:leading-[1.45] prose-ol:leading-[1.45] prose-li:my-0 prose-li:leading-[1.45] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_p+ul]:mt-2 [&_p+ol]:mt-2 [&_ul+p]:mt-2.5 [&_ol+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
 const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
@@ -5111,13 +5109,17 @@ function wrapAssistantActivityCard(key: string, child: ReactNode): ReactNode {
 function resolveAssistantInteractiveActivityCard(
   context: AssistantToolActivityContext,
 ): ReactNode | null {
-  if (context.normalizedToolName === APPROVAL_TOOL_NAME) {
+  if (
+    context.normalizedToolName === ToolNameNormalizationConfig.approvalToolName
+  ) {
     const approvalPayload = parseApprovalPayload(context.argsToDisplay);
     if (!approvalPayload) {
       return null;
     }
     const approvalToolName = normalizeToolName(approvalPayload.toolName);
-    if (approvalToolName === QUESTION_TOOL_NAME) {
+    if (
+      approvalToolName === ToolNameNormalizationConfig.askUserQuestionToolName
+    ) {
       const questionPayload = parseAskUserQuestionPayload(
         approvalPayload.input,
       );
@@ -5147,7 +5149,10 @@ function resolveAssistantInteractiveActivityCard(
       />,
     );
   }
-  if (context.normalizedToolName !== QUESTION_TOOL_NAME) {
+  if (
+    context.normalizedToolName !==
+    ToolNameNormalizationConfig.askUserQuestionToolName
+  ) {
     return null;
   }
   const questionPayload = parseAskUserQuestionPayload(context.argsToDisplay);
@@ -5395,8 +5400,8 @@ function hasPendingInteractiveToolCall(
   return toolCalls.some((toolCall) => {
     const normalizedName = normalizeToolName(toolCall.function?.name);
     if (
-      normalizedName !== APPROVAL_TOOL_NAME &&
-      normalizedName !== QUESTION_TOOL_NAME
+      normalizedName !== ToolNameNormalizationConfig.approvalToolName &&
+      normalizedName !== ToolNameNormalizationConfig.askUserQuestionToolName
     ) {
       return false;
     }
@@ -5657,7 +5662,7 @@ function AssistantMessageGroup({
   actions?: ReactNode;
   isSearchMatchActive?: boolean;
 }) {
-  const widthClass = `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`;
+  const widthClass = `group flex w-full ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`;
   const containerClassName = isSearchMatchActive
     ? "mb-2 mt-1.5 flex justify-start rounded-md ring-1 ring-blue-400/70 [&_mark[data-chat-search-highlight=true]]:bg-amber-300/90 dark:ring-blue-500/70 dark:[&_mark[data-chat-search-highlight=true]]:bg-amber-400/35 @container/chat-message"
     : "mb-2 mt-1.5 flex justify-start @container/chat-message";

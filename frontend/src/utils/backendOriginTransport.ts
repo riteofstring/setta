@@ -14,8 +14,6 @@ type BuildTerminalWebsocketUrlOptions = {
   shareSessionId: string | null;
 };
 
-const FRONTEND_WEBSOCKET_ROUTE = WEBSOCKET_TRANSPORT_ROUTES.frontend;
-
 export function buildBackendOriginURL(
   address: string,
   addressParams?: Record<string, string | number | boolean | null | undefined>,
@@ -35,13 +33,13 @@ export function buildBootstrapPageUrl(): string {
 }
 
 export function getFrontendWebsocketRoute(): string {
-  return FRONTEND_WEBSOCKET_ROUTE;
+  return WEBSOCKET_TRANSPORT_ROUTES.frontend;
 }
 
 export function buildFrontendWebsocketUrl(
   shareSessionId: string | null,
 ): string {
-  return buildBackendOriginWebsocketURL(FRONTEND_WEBSOCKET_ROUTE, {
+  return buildBackendOriginWebsocketURL(WEBSOCKET_TRANSPORT_ROUTES.frontend, {
     shareSessionId: shareSessionId ?? undefined,
   });
 }
