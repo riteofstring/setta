@@ -12,9 +12,6 @@ import (
 
 func TestServiceWriteConfigPersistsForHighestPrecedencePlugin(t *testing.T) {
 	// Config writes should target the active highest-precedence plugin scope and refresh runtime reads.
-	workspaceConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta)
-	globalConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeGlobal, PluginSourceManagerSetta)
-
 	roots := newFilesystemResolverTestRoots(t)
 	globalRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "full")
 	rewritePluginManifest(t, globalRoot, func(payload map[string]any) {
@@ -51,7 +48,7 @@ func TestServiceWriteConfigPersistsForHighestPrecedencePlugin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load plugins state: %v", err)
 	}
-	savedRaw, ok := state.PluginConfigByID[workspaceConfigKey]
+	savedRaw, ok := state.PluginConfigByID["workspace:setta-fixture-full"]
 	if !ok {
 		t.Fatalf("expected workspace-scoped plugin config, got %#v", state.PluginConfigByID)
 	}
@@ -62,7 +59,7 @@ func TestServiceWriteConfigPersistsForHighestPrecedencePlugin(t *testing.T) {
 	if got := savedConfig["label"]; got != "workspace-config" {
 		t.Fatalf("expected saved workspace label, got %#v", got)
 	}
-	if _, ok := state.PluginConfigByID[globalConfigKey]; ok {
+	if _, ok := state.PluginConfigByID["global:setta-fixture-full"]; ok {
 		t.Fatalf("expected global-scoped config to remain untouched, got %#v", state.PluginConfigByID)
 	}
 
@@ -84,9 +81,6 @@ func TestServiceWriteConfigPersistsForHighestPrecedencePlugin(t *testing.T) {
 
 func TestServiceWriteConfigKeepsScopedValuesAcrossShadowingLifecycle(t *testing.T) {
 	// Config storage should stay keyed by scope so removing a shadowing variant restores the lower-precedence config.
-	globalConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeGlobal, PluginSourceManagerSetta)
-	workspaceConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta)
-
 	roots := newFilesystemResolverTestRoots(t)
 	globalRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "full")
 	rewritePluginManifest(t, globalRoot, func(payload map[string]any) {
@@ -126,10 +120,10 @@ func TestServiceWriteConfigKeepsScopedValuesAcrossShadowingLifecycle(t *testing.
 	if err != nil {
 		t.Fatalf("load plugins state after scoped writes: %v", err)
 	}
-	if _, ok := state.PluginConfigByID[globalConfigKey]; !ok {
+	if _, ok := state.PluginConfigByID["global:setta-fixture-full"]; !ok {
 		t.Fatalf("expected global-scoped config entry, got %#v", state.PluginConfigByID)
 	}
-	if _, ok := state.PluginConfigByID[workspaceConfigKey]; !ok {
+	if _, ok := state.PluginConfigByID["workspace:setta-fixture-full"]; !ok {
 		t.Fatalf("expected workspace-scoped config entry, got %#v", state.PluginConfigByID)
 	}
 
@@ -148,11 +142,11 @@ func TestServiceWriteConfigKeepsScopedValuesAcrossShadowingLifecycle(t *testing.
 	if err != nil {
 		t.Fatalf("reload plugins state after workspace uninstall: %v", err)
 	}
-	if _, ok := state.PluginConfigByID[workspaceConfigKey]; ok {
+	if _, ok := state.PluginConfigByID["workspace:setta-fixture-full"]; ok {
 		t.Fatalf("expected workspace-scoped config to be removed, got %#v", state.PluginConfigByID)
 	}
-	if globalConfig, ok := state.PluginConfigByID[globalConfigKey].(map[string]any); !ok || globalConfig["label"] != "global-config" {
-		t.Fatalf("expected preserved global config, got %#v", state.PluginConfigByID[globalConfigKey])
+	if globalConfig, ok := state.PluginConfigByID["global:setta-fixture-full"].(map[string]any); !ok || globalConfig["label"] != "global-config" {
+		t.Fatalf("expected preserved global config, got %#v", state.PluginConfigByID["global:setta-fixture-full"])
 	}
 
 	runtimeResponse, err := service.Runtime(RuntimeOptions{})
@@ -243,8 +237,6 @@ func TestServiceWriteConfigRejectsInvalidSchemaDocument(t *testing.T) {
 
 func TestServiceUninstallClearsPersistedPluginConfigBeforeRelink(t *testing.T) {
 	// Uninstall should clear persisted config so relinking the same plugin starts from defaults.
-	workspaceConfigKey := pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta)
-
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 	sourceRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
@@ -301,7 +293,7 @@ func TestServiceUninstallClearsPersistedPluginConfigBeforeRelink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load plugins state after uninstall: %v", err)
 	}
-	if _, ok := state.PluginConfigByID[workspaceConfigKey]; ok {
+	if _, ok := state.PluginConfigByID["workspace:setta-fixture-full"]; ok {
 		t.Fatalf("expected uninstall to clear persisted plugin config, got %#v", state.PluginConfigByID)
 	}
 
@@ -330,112 +322,5 @@ func TestServiceUninstallClearsPersistedPluginConfigBeforeRelink(t *testing.T) {
 	}
 	if len(runtimeResponse.List.Plugins[0].Config.CurrentConfig) != 0 {
 		t.Fatalf("expected relinked plugin config to reset to defaults, got %#v", runtimeResponse.List.Plugins[0].Config.CurrentConfig)
-	}
-}
-
-func TestServiceWriteConfigKeepsSameScopeSourceManagersIsolated(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages, _ := installPackageManagerFixture(
-		t,
-		"frontend",
-		"setta-fixture-frontend",
-		"0.1.0",
-		func(pluginRoot string) {
-			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
-				frontend := payload["frontend"].(map[string]any)
-				frontend["entrypoint"] = "frontend/src/index.js"
-				frontend["style"] = "frontend/src/index.css"
-			})
-		},
-	)
-	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
-
-	packageManagerConfig := map[string]any{
-		"enabled": true,
-		"label":   "package-manager-config",
-	}
-	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
-		PluginID: "setta-fixture-frontend",
-		Config:   packageManagerConfig,
-	}); err != nil {
-		t.Fatalf("write package-manager plugin config: %v", err)
-	}
-
-	localRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "frontend")
-	rewritePluginManifest(t, localRoot, func(payload map[string]any) {
-		frontend := payload["frontend"].(map[string]any)
-		frontend["entrypoint"] = "frontend/src/index.js"
-		frontend["style"] = "frontend/src/index.css"
-	})
-
-	localConfig := map[string]any{
-		"enabled": true,
-		"label":   "local-config",
-	}
-	if _, err := service.WriteConfig(context.Background(), ConfigWriteOptions{
-		PluginID: "setta-fixture-frontend",
-		Config:   localConfig,
-	}); err != nil {
-		t.Fatalf("write local setta_files plugin config: %v", err)
-	}
-
-	state, err := service.store.LoadPluginsState()
-	if err != nil {
-		t.Fatalf("load plugins state: %v", err)
-	}
-	packageManagerKey := pluginConfigKey("setta-fixture-frontend", PluginScopeSettaFiles, PluginSourceManagerPackageManager)
-	localKey := pluginConfigKey("setta-fixture-frontend", PluginScopeSettaFiles, PluginSourceManagerSetta)
-	if got, ok := state.PluginConfigByID[packageManagerKey].(map[string]any); !ok || got["label"] != "package-manager-config" {
-		t.Fatalf("expected package-manager config entry, got %#v", state.PluginConfigByID)
-	}
-	if got, ok := state.PluginConfigByID[localKey].(map[string]any); !ok || got["label"] != "local-config" {
-		t.Fatalf("expected local setta_files config entry, got %#v", state.PluginConfigByID)
-	}
-
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime with shadowing local plugin: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 {
-		t.Fatalf("expected one active runtime plugin, got %#v", runtimeResponse.List.Plugins)
-	}
-	if got := runtimeResponse.List.Plugins[0].Config.CurrentConfig["label"]; got != "local-config" {
-		t.Fatalf("expected local config on active shadowing plugin, got %#v", got)
-	}
-
-	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
-		PluginID: "setta-fixture-frontend",
-		Scope:    scopePointer(PluginScopeSettaFiles),
-	})
-	if err != nil {
-		t.Fatalf("uninstall local setta_files plugin: %v", err)
-	}
-	if uninstallResult.RemovedFromScope != PluginScopeSettaFiles {
-		t.Fatalf("unexpected uninstall scope %#v", uninstallResult)
-	}
-
-	state, err = service.store.LoadPluginsState()
-	if err != nil {
-		t.Fatalf("reload plugins state after uninstall: %v", err)
-	}
-	if _, ok := state.PluginConfigByID[localKey]; ok {
-		t.Fatalf("expected local config entry to be removed, got %#v", state.PluginConfigByID)
-	}
-	if got, ok := state.PluginConfigByID[packageManagerKey].(map[string]any); !ok || got["label"] != "package-manager-config" {
-		t.Fatalf("expected package-manager config to remain, got %#v", state.PluginConfigByID)
-	}
-
-	runtimeResponse, err = service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime after local uninstall: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 {
-		t.Fatalf("expected one remaining runtime plugin, got %#v", runtimeResponse.List.Plugins)
-	}
-	if runtimeResponse.List.Plugins[0].SourceManager != PluginSourceManagerPackageManager {
-		t.Fatalf("expected package-manager plugin to remain active, got %#v", runtimeResponse.List.Plugins[0].SourceManager)
-	}
-	if got := runtimeResponse.List.Plugins[0].Config.CurrentConfig["label"]; got != "package-manager-config" {
-		t.Fatalf("expected package-manager config after local uninstall, got %#v", got)
 	}
 }

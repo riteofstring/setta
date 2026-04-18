@@ -18,6 +18,7 @@ const singleLineStyle = {
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
+  canvasOwnedRestingText = false,
   divId,
   code,
   theme,
@@ -35,6 +36,7 @@ export function DummyCodeMirror({
   return code ? (
     <HighlightedCode
       divId={divId}
+      canvasOwnedRestingText={canvasOwnedRestingText}
       code={code}
       theme={theme}
       onMouseDownCapture={onMouseDownCapture}
@@ -47,6 +49,7 @@ export function DummyCodeMirror({
   ) : (
     <PlaceholderCode
       divId={divId}
+      canvasOwnedRestingText={canvasOwnedRestingText}
       className={className}
       placeholder={placeholder}
       onMouseDownCapture={onMouseDownCapture}
@@ -57,6 +60,7 @@ export function DummyCodeMirror({
 }
 
 function PlaceholderCode({
+  canvasOwnedRestingText,
   divId,
   className,
   placeholder,
@@ -69,6 +73,9 @@ function PlaceholderCode({
     <span
       id={divId}
       className={`${className} text-gray-600 outline-none`}
+      data-canvas-owned-resting-text={
+        canvasOwnedRestingText ? "true" : undefined
+      }
       style={style}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
@@ -80,6 +87,7 @@ function PlaceholderCode({
 }
 
 function HighlightedCode({
+  canvasOwnedRestingText,
   divId,
   code,
   theme,
@@ -96,6 +104,9 @@ function HighlightedCode({
       <div
         id={divId}
         className={`${className} outline-none`}
+        data-canvas-owned-resting-text={
+          canvasOwnedRestingText ? "true" : undefined
+        }
         style={style}
         onMouseDownCapture={onMouseDownCapture}
         onFocus={onFocus}
@@ -175,6 +186,9 @@ function HighlightedCode({
     <div
       id={divId}
       className={`${className} ${scopeClassName} outline-none`}
+      data-canvas-owned-resting-text={
+        canvasOwnedRestingText ? "true" : undefined
+      }
       style={style}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
