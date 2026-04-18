@@ -50,6 +50,20 @@ while [[ $# -gt 0 ]]; do
       build_args+=("$1")
       shift
       ;;
+    -o)
+      if [[ $# -lt 2 ]]; then
+        echo "missing value for -o" >&2
+        exit 1
+      fi
+      build_outdir="$2"
+      build_args+=("$1" "$2")
+      shift 2
+      ;;
+    -o?*)
+      build_outdir="${1#-o}"
+      build_args+=("$1")
+      shift
+      ;;
     *)
       build_args+=("$1")
       shift
@@ -67,10 +81,10 @@ build_request_includes_wheel() {
   local arg
   for arg in "${build_args[@]}"; do
     case "${arg}" in
-      --wheel)
+      --wheel|-w|-[!-]*w[!-]*)
         saw_wheel=1
         ;;
-      --sdist)
+      --sdist|-s|-[!-]*s[!-]*)
         saw_sdist=1
         ;;
     esac

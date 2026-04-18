@@ -9833,6 +9833,12 @@
           "schemaVersion": {
             "type": "integer"
           },
+          "selectedLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/SelectedLanguageServerStatus"
+            },
+            "type": ["null", "array"]
+          },
           "serverMode": {
             "$ref": "#/components/schemas/Mode"
           }
@@ -9841,6 +9847,7 @@
           "schemaVersion",
           "serverMode",
           "restartCapability",
+          "selectedLanguageServers",
           "plugins"
         ],
         "title": "PluginStatusResponse",
@@ -13285,6 +13292,38 @@
         },
         "required": ["type", "data"],
         "title": "SectionsClipboardData",
+        "type": "object"
+      },
+      "SelectedLanguageServerState": {
+        "enum": [
+          "not_selected",
+          "disabled",
+          "ready",
+          "selected_plugin_missing",
+          "selected_plugin_wrong_language",
+          "selected_plugin_unavailable"
+        ],
+        "title": "SelectedLanguageServerState",
+        "type": "string"
+      },
+      "SelectedLanguageServerStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "languageId": {
+            "type": "string"
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "state": {
+            "$ref": "#/components/schemas/SelectedLanguageServerState"
+          }
+        },
+        "required": ["languageId", "selectedPluginId", "state", "applied"],
+        "title": "SelectedLanguageServerStatus",
         "type": "object"
       },
       "SelectionMode": {

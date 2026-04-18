@@ -4145,6 +4145,7 @@ export type PluginStatusResponse = {
   plugins: null | Array<PluginStatusEntry>;
   restartCapability: PluginRestartCapability;
   schemaVersion: number;
+  selectedLanguageServers: null | Array<SelectedLanguageServerStatus>;
   serverMode: Mode;
 };
 
@@ -5493,6 +5494,27 @@ type SectionWithParamsTrailingFields = {
 export type SectionsClipboardData = {
   data: ClipboardProjectStateCoreWithSectionVariantMap;
   type: ClipboardDataType;
+};
+
+/**
+ * SelectedLanguageServerState
+ */
+type SelectedLanguageServerState =
+  | "not_selected"
+  | "disabled"
+  | "ready"
+  | "selected_plugin_missing"
+  | "selected_plugin_wrong_language"
+  | "selected_plugin_unavailable";
+
+/**
+ * SelectedLanguageServerStatus
+ */
+export type SelectedLanguageServerStatus = {
+  applied: boolean;
+  languageId: string;
+  selectedPluginId: null | string;
+  state: SelectedLanguageServerState;
 };
 
 /**

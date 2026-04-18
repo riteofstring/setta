@@ -25,7 +25,7 @@ func (s *Service) LanguageServerSpecs(_ context.Context, selectedByLanguage map[
 	if err != nil {
 		return nil, err
 	}
-	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage)
+	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.store.settaFilesRoot)
 }
 
 func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
@@ -40,27 +40,27 @@ func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, sel
 	if err != nil {
 		return nil, err
 	}
-	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage)
+	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.store.settaFilesRoot)
 }
 
 func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage)
+	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage, "")
 }
 
-func languageServerSpecsFromSnapshotWithState(snapshot DiscoverySnapshot, pluginsState *PluginsStateFile, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState)
+func languageServerSpecsFromSnapshotWithState(snapshot DiscoverySnapshot, pluginsState *PluginsStateFile, selectedByLanguage map[string]*string, settaFilesRoot string) ([]lsp.LanguageServerSpec, error) {
+	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState, settaFilesRoot)
 	if err != nil {
 		return nil, err
 	}
 	return selectedLanguageServerSpecs(registrations, selectedByLanguage), nil
 }
 
-func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *PluginsStateFile) ([]lsp.LanguageServerSpec, error) {
+func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *PluginsStateFile, settaFilesRoot string) ([]lsp.LanguageServerSpec, error) {
 	collector := languageServerSpecCollector{
 		specs: make([]lsp.LanguageServerSpec, 0),
 	}
 	for _, entry := range entries {
-		if err := collector.addEntry(entry, pluginsState); err != nil {
+		if err := collector.addEntry(entry, pluginsState, settaFilesRoot); err != nil {
 			return nil, err
 		}
 	}
@@ -72,12 +72,12 @@ type languageServerSpecCollector struct {
 	specs []lsp.LanguageServerSpec
 }
 
-func (c *languageServerSpecCollector) addEntry(entry DiscoveredPlugin, pluginsState *PluginsStateFile) error {
+func (c *languageServerSpecCollector) addEntry(entry DiscoveredPlugin, pluginsState *PluginsStateFile, settaFilesRoot string) error {
 	if !pluginProvidesLanguageServer(entry) {
 		return nil
 	}
 	for _, registration := range entry.RegisteredLanguageServers {
-		spec, language, err := buildLanguageServerSpec(entry, registration, pluginsState)
+		spec, language, err := buildLanguageServerSpec(entry, registration, pluginsState, settaFilesRoot)
 		if err != nil {
 			return err
 		}
@@ -97,10 +97,15 @@ func pluginProvidesLanguageServer(entry DiscoveredPlugin) bool {
 	return containsString(entry.EffectiveCapabilities, "registerLanguageServer")
 }
 
-func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer, pluginsState *PluginsStateFile) (lsp.LanguageServerSpec, string, error) {
+func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer, pluginsState *PluginsStateFile, settaFilesRoot string) (lsp.LanguageServerSpec, string, error) {
 	language := strings.ToLower(strings.TrimSpace(registration.Language))
 	if language == "" {
 		return lsp.LanguageServerSpec{}, "", fmt.Errorf("plugin language server language is required")
+	}
+	settingsKey := cloneOptionalString(registration.SettingsKey)
+	settings := languageServerSettingsRoot(entry, pluginsState)
+	if language == "python" && settingsKey != nil && *settingsKey == "basedpyright" {
+		settings = lsp.BuildBasedpyrightSettingsRoot(settings, []string{settaFilesRoot})
 	}
 	return lsp.LanguageServerSpec{
 		PluginID:    strings.TrimSpace(registration.PluginID),
@@ -108,8 +113,8 @@ func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegister
 		LanguageID:  language,
 		Command:     strings.TrimSpace(registration.Command),
 		Args:        append([]string(nil), registration.Args...),
-		Settings:    languageServerSettingsRoot(entry, pluginsState),
-		SettingsKey: cloneOptionalString(registration.SettingsKey),
+		Settings:    settings,
+		SettingsKey: settingsKey,
 	}, language, nil
 }
 

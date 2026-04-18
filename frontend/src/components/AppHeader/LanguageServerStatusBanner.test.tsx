@@ -5,16 +5,15 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { OverviewTabNameEnum } from "utils/constants";
 import {
-  PluginRuntimeStateEnum,
-  type PluginStatusEntry,
+  SelectedLanguageServerStateEnum,
+  type SelectedLanguageServerStatus,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageServerStatusBanner } from "./LanguageServerStatusBanner";
 
-let selectedPythonPlugin: string | null | undefined;
 let runtimeStatus: "idle" | "loading" | "loaded" | "error";
 let serverMode: "ide" | "share" | "app" | null;
-let pluginStatusEntries: PluginStatusEntry[];
+let selectedLanguageServers: SelectedLanguageServerStatus[];
 let isDeploymentMode: boolean;
 
 const onOverviewTabClickMock = vi.fn();
@@ -28,33 +27,17 @@ vi.mock("plugins/runtime", () => ({
     selector: (state: {
       status: "idle" | "loading" | "loaded" | "error";
       serverMode: "ide" | "share" | "app" | null;
+      selectedLanguageServers: SelectedLanguageServerStatus[];
     }) => unknown,
   ) =>
     selector({
       status: runtimeStatus,
       serverMode,
+      selectedLanguageServers,
     }),
-  usePluginStatusEntries: () => pluginStatusEntries,
 }));
 
 vi.mock("state/definitions", () => ({
-  useSettings: (
-    selector: (state: {
-      languageServer: {
-        selectedByLanguage: {
-          python?: string | null;
-        };
-      };
-    }) => unknown,
-  ) =>
-    selector({
-      languageServer: {
-        selectedByLanguage:
-          selectedPythonPlugin === undefined
-            ? {}
-            : { python: selectedPythonPlugin },
-      },
-    }),
   useShareSession: (
     selector: (state: { isDeploymentMode: boolean }) => unknown,
   ) =>
@@ -80,45 +63,23 @@ async function renderBanner(): Promise<RenderedBanner> {
   return { host, root };
 }
 
-function buildPluginStatusEntry(
-  overrides: Partial<PluginStatusEntry>,
-): PluginStatusEntry {
+function buildPythonStatus(
+  overrides: Partial<SelectedLanguageServerStatus>,
+): SelectedLanguageServerStatus {
   return {
-    pluginId: "setta-example-plugin",
-    name: "Example Plugin",
-    version: "1.0.0",
-    state: PluginRuntimeStateEnum.active,
-    sourceScope: "workspace",
-    sourceScopeLabel: "workspace",
-    sourceManager: "setta",
-    sourceManagerHint: null,
-    sourcePath: "/tmp/setta-example-plugin",
-    canonicalSourceKey: "github:example/plugin",
-    sourceDigestSha256: null,
-    shadowedBySourcePath: null,
-    requestedCapabilities: [],
-    effectiveCapabilities: [],
-    blockedCapabilities: [],
-    components: [],
-    registeredCodegenTargets: [],
-    registeredLanguageServers: [],
-    registeredBackendRoutes: [],
-    registeredStaticDirs: [],
-    registeredListenerEndpoints: [],
-    enablementSource: null,
-    restartRequired: false,
-    runtimePayloadDigestSha256: "digest",
-    errors: [],
+    languageId: "python",
+    selectedPluginId: null,
+    state: SelectedLanguageServerStateEnum.not_selected,
+    applied: true,
     ...overrides,
   };
 }
 
 describe("LanguageServerStatusBanner", () => {
   beforeEach(() => {
-    selectedPythonPlugin = undefined;
     runtimeStatus = "loaded";
     serverMode = "ide";
-    pluginStatusEntries = [];
+    selectedLanguageServers = [buildPythonStatus({})];
     isDeploymentMode = false;
     onOverviewTabClickMock.mockReset();
   });
@@ -146,7 +107,11 @@ describe("LanguageServerStatusBanner", () => {
   });
 
   it("warns when Python language-server selection is explicitly cleared", async () => {
-    selectedPythonPlugin = null;
+    selectedLanguageServers = [
+      buildPythonStatus({
+        state: SelectedLanguageServerStateEnum.disabled,
+      }),
+    ];
 
     const { host, root } = await renderBanner();
 
@@ -165,20 +130,11 @@ describe("LanguageServerStatusBanner", () => {
   });
 
   it("stays hidden when the selected plugin is active for Python", async () => {
-    selectedPythonPlugin = "setta-python-lsp";
-    pluginStatusEntries = [
-      buildPluginStatusEntry({
-        pluginId: "setta-python-lsp",
-        registeredLanguageServers: [
-          {
-            pluginId: "setta-python-lsp",
-            name: "Python LSP",
-            language: "python",
-            command: "/bin/pyright",
-            args: ["--stdio"],
-            settingsKey: "pythonLanguageServer",
-          },
-        ],
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-python-lsp",
+        state: SelectedLanguageServerStateEnum.ready,
+        applied: true,
       }),
     ];
 
@@ -198,8 +154,38 @@ describe("LanguageServerStatusBanner", () => {
     }
   });
 
+  it("warns when the selected plugin is ready but not yet applied", async () => {
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-python-lsp",
+        state: SelectedLanguageServerStateEnum.ready,
+        applied: false,
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("restart is still required");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("warns when the selected plugin is missing and opens Plugins on click", async () => {
-    selectedPythonPlugin = "setta-missing-python-lsp";
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-missing-python-lsp",
+        state: SelectedLanguageServerStateEnum.selected_plugin_missing,
+      }),
+    ];
 
     const { host, root } = await renderBanner();
 
@@ -230,20 +216,10 @@ describe("LanguageServerStatusBanner", () => {
   });
 
   it("warns when the selected plugin does not provide Python", async () => {
-    selectedPythonPlugin = "setta-fixturedsl";
-    pluginStatusEntries = [
-      buildPluginStatusEntry({
-        pluginId: "setta-fixturedsl",
-        registeredLanguageServers: [
-          {
-            pluginId: "setta-fixturedsl",
-            name: "Fixture DSL LSP",
-            language: "fixturedsl",
-            command: "/bin/fixture-lsp",
-            args: ["--stdio"],
-            settingsKey: "fixtureLanguageServer",
-          },
-        ],
+    selectedLanguageServers = [
+      buildPythonStatus({
+        selectedPluginId: "setta-fixturedsl",
+        state: SelectedLanguageServerStateEnum.selected_plugin_wrong_language,
       }),
     ];
 

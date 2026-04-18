@@ -28,7 +28,6 @@ type LanguageServerSpec struct {
 
 type RouterOptions struct {
 	WorkspaceRoot   string
-	LookupEnv       func(string) (string, bool)
 	Environ         func() []string
 	WorkingDir      string
 	Settings        func() map[string]any

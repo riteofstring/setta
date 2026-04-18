@@ -74,13 +74,39 @@ func resolveInterpreter(lookupEnv func(string) (string, bool)) (string, error) {
 
 func resolveCommand(candidate string) (string, error) {
 	if strings.ContainsRune(candidate, os.PathSeparator) {
-		return filepath.Abs(candidate)
+		resolved, err := normalizeCommandPath(candidate)
+		if err != nil {
+			return "", fmt.Errorf("resolve command %q: %w", candidate, err)
+		}
+		return resolved, nil
 	}
 	resolved, err := exec.LookPath(candidate)
 	if err != nil {
 		return "", fmt.Errorf("resolve command %q: %w", candidate, err)
 	}
 	return resolved, nil
+}
+
+func normalizeCommandPath(raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", fmt.Errorf("missing path")
+	}
+	value = os.ExpandEnv(value)
+	if value == "~" || strings.HasPrefix(value, "~/") || strings.HasPrefix(value, "~\\") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve user home: %w", err)
+		}
+		suffix := strings.TrimPrefix(strings.TrimPrefix(value, "~"), string(os.PathSeparator))
+		suffix = strings.TrimPrefix(strings.TrimPrefix(suffix, "/"), "\\")
+		value = filepath.Join(home, suffix)
+	}
+	resolved, err := filepath.Abs(value)
+	if err != nil {
+		return "", fmt.Errorf("resolve path %q: %w", raw, err)
+	}
+	return filepath.Clean(resolved), nil
 }
 
 func fail(err error) {

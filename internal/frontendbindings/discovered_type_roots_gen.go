@@ -52,6 +52,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginSourceScheme("")),
 		reflect.TypeOf(plugins.PluginRestartCapabilityMode("")),
 		reflect.TypeOf(plugins.PluginRestartCapability{}),
+		reflect.TypeOf(plugins.SelectedLanguageServerState("")),
+		reflect.TypeOf(plugins.SelectedLanguageServerStatus{}),
 		reflect.TypeOf(plugins.PluginStatusEntry{}),
 		reflect.TypeOf(plugins.PluginStatusResponse{}),
 		reflect.TypeOf(plugins.RestartRequiredResponse{}),

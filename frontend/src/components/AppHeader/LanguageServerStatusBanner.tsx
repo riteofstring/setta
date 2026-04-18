@@ -1,40 +1,31 @@
 import { onOverviewTabClick } from "components/Panes/paneFns";
-import { usePluginRuntimeStore, usePluginStatusEntries } from "plugins/runtime";
-import { useMemo } from "react";
-import { useSettings, useShareSession } from "state/definitions";
+import { usePluginRuntimeStore } from "plugins/runtime";
+import { useShareSession } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import {
-  PluginRuntimeStateEnum,
-  type PluginStatusEntry,
+  SelectedLanguageServerStateEnum,
+  type SelectedLanguageServerStatus,
 } from "utils/generatedTypes";
 
 type BannerModel = {
   message: string;
 };
 
-const ACTIVE_LANGUAGE_SERVER_PLUGIN_STATES = new Set([
-  PluginRuntimeStateEnum.active,
-  PluginRuntimeStateEnum.pending_restart,
-]);
-
 export function LanguageServerStatusBanner() {
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const serverMode = usePluginRuntimeStore((state) => state.serverMode);
   const runtimeStatus = usePluginRuntimeStore((state) => state.status);
-  const selectedPythonPlugin = useSettings(
-    (state) => state.languageServer.selectedByLanguage.python,
+  const pythonStatus = usePluginRuntimeStore(
+    (state) =>
+      state.selectedLanguageServers.find(
+        (status) => status.languageId === "python",
+      ) ?? null,
   );
-  const pluginStatusEntries = usePluginStatusEntries();
 
-  const banner = useMemo(
-    () =>
-      buildPythonLanguageServerBanner({
-        selectedPythonPlugin,
-        runtimeStatus,
-        pluginStatusEntries,
-      }),
-    [pluginStatusEntries, runtimeStatus, selectedPythonPlugin],
-  );
+  const banner = buildPythonLanguageServerBanner({
+    pythonStatus,
+    runtimeStatus,
+  });
 
   if (isDeploymentMode || serverMode === "app" || serverMode === "share") {
     return null;
@@ -61,70 +52,49 @@ export function LanguageServerStatusBanner() {
 }
 
 function buildPythonLanguageServerBanner({
-  selectedPythonPlugin,
+  pythonStatus,
   runtimeStatus,
-  pluginStatusEntries,
 }: {
-  selectedPythonPlugin: string | null | undefined;
+  pythonStatus: SelectedLanguageServerStatus | null;
   runtimeStatus: "idle" | "loading" | "loaded" | "error";
-  pluginStatusEntries: PluginStatusEntry[];
 }): BannerModel | null {
-  if (selectedPythonPlugin === undefined) {
-    return {
-      message:
-        "Python language server is not selected. Choose a plugin in workspace settings, then restart after it is available.",
-    };
-  }
-  if (selectedPythonPlugin === null) {
-    return {
-      message:
-        "Python language server is turned off for this workspace. Select a plugin in workspace settings if you want completions and signature help.",
-    };
-  }
-  if (runtimeStatus !== "loaded") {
+  if (runtimeStatus !== "loaded" || pythonStatus == null) {
     return null;
   }
 
-  const matchingEntries = pluginStatusEntries.filter(
-    (entry) => entry.pluginId === selectedPythonPlugin,
-  );
-  if (
-    matchingEntries.some(
-      (entry) =>
-        entryProvidesLanguage(entry, "python") && entryHasActiveRuntime(entry),
-    )
-  ) {
+  const message = buildPythonLanguageServerMessage(pythonStatus);
+  if (message == null) {
     return null;
   }
-  if (matchingEntries.length === 0) {
-    return {
-      message: `Selected Python language server plugin "${selectedPythonPlugin}" is not installed or active. Install or enable it, then restart the language server.`,
-    };
-  }
-  if (
-    !matchingEntries.some((entry) => entryProvidesLanguage(entry, "python"))
-  ) {
-    return {
-      message: `Selected Python language server plugin "${selectedPythonPlugin}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`,
-    };
-  }
-  return {
-    message: `Selected Python language server plugin "${selectedPythonPlugin}" is unavailable. Enable or reinstall it, then restart the language server.`,
-  };
+  return { message };
 }
 
-function entryHasActiveRuntime(entry: PluginStatusEntry): boolean {
-  return ACTIVE_LANGUAGE_SERVER_PLUGIN_STATES.has(entry.state);
-}
-
-function entryProvidesLanguage(
-  entry: PluginStatusEntry,
-  language: string,
-): boolean {
-  const registrations = entry.registeredLanguageServers ?? [];
-  return registrations.some(
-    (registration) => registration.language.toLowerCase() === language,
-  );
+function buildPythonLanguageServerMessage(
+  pythonStatus: SelectedLanguageServerStatus,
+): string | null {
+  switch (pythonStatus.state) {
+    case SelectedLanguageServerStateEnum.not_selected:
+      return pythonStatus.applied
+        ? "Python language server is not selected. Choose a plugin in workspace settings, then restart after it is available."
+        : "Python language server is no longer selected. Restart the language server to apply this change, or choose a plugin in workspace settings.";
+    case SelectedLanguageServerStateEnum.disabled:
+      return pythonStatus.applied
+        ? "Python language server is turned off for this workspace. Select a plugin in workspace settings if you want completions and signature help."
+        : "Python language server is turned off for this workspace, but restart is still required to apply this change.";
+    case SelectedLanguageServerStateEnum.ready:
+      if (pythonStatus.applied) {
+        return null;
+      }
+      return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is ready, but restart is still required before Python completions and signature help become available.`;
+    case SelectedLanguageServerStateEnum.selected_plugin_missing:
+      return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is not installed or active. Install or enable it, then restart the language server.`;
+    case SelectedLanguageServerStateEnum.selected_plugin_wrong_language:
+      return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`;
+    case SelectedLanguageServerStateEnum.selected_plugin_unavailable:
+      return `Selected Python language server plugin "${pythonStatus.selectedPluginId}" is unavailable. Enable or reinstall it, then restart the language server.`;
+    default:
+      return null;
+  }
 }
 
 function openPluginsTab(): void {

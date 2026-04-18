@@ -25,6 +25,24 @@ type PluginRestartCapability struct {
 	Reason  *string                     `json:"reason"`
 }
 
+type SelectedLanguageServerState string
+
+const (
+	SelectedLanguageServerStateNotSelected               SelectedLanguageServerState = "not_selected"
+	SelectedLanguageServerStateDisabled                  SelectedLanguageServerState = "disabled"
+	SelectedLanguageServerStateReady                     SelectedLanguageServerState = "ready"
+	SelectedLanguageServerStateSelectedPluginMissing     SelectedLanguageServerState = "selected_plugin_missing"
+	SelectedLanguageServerStateSelectedPluginWrongLang   SelectedLanguageServerState = "selected_plugin_wrong_language"
+	SelectedLanguageServerStateSelectedPluginUnavailable SelectedLanguageServerState = "selected_plugin_unavailable"
+)
+
+type SelectedLanguageServerStatus struct {
+	LanguageID       string                      `json:"languageId"`
+	SelectedPluginID *string                     `json:"selectedPluginId"`
+	State            SelectedLanguageServerState `json:"state"`
+	Applied          bool                        `json:"applied"`
+}
+
 type PluginStatusEntry struct {
 	PluginID                    string                             `json:"pluginId"`
 	Name                        string                             `json:"name"`
@@ -54,10 +72,11 @@ type PluginStatusEntry struct {
 }
 
 type PluginStatusResponse struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	ServerMode        config.Mode             `json:"serverMode"`
-	RestartCapability PluginRestartCapability `json:"restartCapability"`
-	Plugins           []PluginStatusEntry     `json:"plugins"`
+	SchemaVersion           int                            `json:"schemaVersion"`
+	ServerMode              config.Mode                    `json:"serverMode"`
+	RestartCapability       PluginRestartCapability        `json:"restartCapability"`
+	SelectedLanguageServers []SelectedLanguageServerStatus `json:"selectedLanguageServers"`
+	Plugins                 []PluginStatusEntry            `json:"plugins"`
 }
 
 type RestartRequiredResponse struct {
@@ -195,10 +214,11 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRes
 		entries = append(entries, statusEntryFromDiscoveredPlugin(entry))
 	}
 	return PluginStatusResponse{
-		SchemaVersion:     pluginStatusSchemaVersion,
-		ServerMode:        snapshot.ServerMode,
-		RestartCapability: capability,
-		Plugins:           entries,
+		SchemaVersion:           pluginStatusSchemaVersion,
+		ServerMode:              snapshot.ServerMode,
+		RestartCapability:       capability,
+		SelectedLanguageServers: []SelectedLanguageServerStatus{},
+		Plugins:                 entries,
 	}
 }
 

@@ -63,6 +63,60 @@ func TestPluginBackendRuntimeRefresherRollbackRestoresSettings(t *testing.T) {
 	}
 }
 
+func TestBuildSelectedLanguageServerStatusesIncludesPythonWhenUnselected(t *testing.T) {
+	t.Parallel()
+
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{},
+		nil,
+		nil,
+	)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one default language status, got %#v", statuses)
+	}
+	if statuses[0].LanguageID != "python" {
+		t.Fatalf("expected default python status, got %#v", statuses[0])
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateNotSelected {
+		t.Fatalf("expected not-selected state, got %#v", statuses[0])
+	}
+	if !statuses[0].Applied {
+		t.Fatalf("expected unselected python state to be applied when no spec is live")
+	}
+}
+
+func TestBuildSelectedLanguageServerStatusesKeepsReadySelectionPendingUntilApplied(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-basedpyright",
+			State:    plugins.PluginRuntimeStateActive,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-basedpyright",
+				Name:     "basedpyright",
+				Language: "python",
+				Command:  "/tmp/basedpyright",
+			}},
+		}},
+		nil,
+	)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one language status, got %#v", statuses)
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateReady {
+		t.Fatalf("expected ready state, got %#v", statuses[0])
+	}
+	if statuses[0].Applied {
+		t.Fatalf("expected ready selection to remain unapplied without a live spec")
+	}
+	if statuses[0].SelectedPluginID == nil || *statuses[0].SelectedPluginID != selectedPluginID {
+		t.Fatalf("expected selected plugin id %q, got %#v", selectedPluginID, statuses[0].SelectedPluginID)
+	}
+}
+
 type stubPluginBackendRefreshService struct {
 	previewSnapshot plugins.DiscoverySnapshot
 	nextSpecs       []lsp.LanguageServerSpec

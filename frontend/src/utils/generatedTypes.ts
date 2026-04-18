@@ -2489,6 +2489,8 @@ function createSectionTypeCodegenPolicy(
 
 export type SectionsClipboardData = gt.SectionsClipboardData;
 
+export type SelectedLanguageServerStatus = gt.SelectedLanguageServerStatus;
+
 export type ServerModeCapabilities = gt.ServerModeCapabilities;
 
 type SettingsBackend = gt.SettingsBackend;
@@ -4112,6 +4114,15 @@ export const SectionTypeEnum = {
   Spreadsheet: "Spreadsheet",
 } as const;
 export type SectionType = gt.SectionType;
+
+export const SelectedLanguageServerStateEnum = {
+  not_selected: "not_selected",
+  disabled: "disabled",
+  ready: "ready",
+  selected_plugin_missing: "selected_plugin_missing",
+  selected_plugin_wrong_language: "selected_plugin_wrong_language",
+  selected_plugin_unavailable: "selected_plugin_unavailable",
+} as const;
 
 export const SelectionModeEnum = {
   partial: "partial",

@@ -516,7 +516,6 @@ func initializeWorkspaceLSPServices(
 	)
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
 		Settings: func() map[string]any {
 			var document map[string]any
