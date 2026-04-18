@@ -270,10 +270,6 @@ func (s *DiscoveryService) discoverFilesystemPlugin(scope PluginScope, pluginRoo
 		canonicalSourceKey = metadataEntry.CanonicalSourceKey
 	}
 	if err := ValidatePluginManifestPaths(pluginRoot, manifest); err != nil {
-		errorCode := "PLUGIN_MANIFEST_INVALID"
-		if isPluginConfigSchemaValidationError(err) {
-			errorCode = string(ServiceErrorCodeConfigSchemaInvalid)
-		}
 		return DiscoveredPlugin{
 			PluginID:           pluginID,
 			Name:               pluginID,
@@ -284,7 +280,7 @@ func (s *DiscoveryService) discoverFilesystemPlugin(scope PluginScope, pluginRoo
 			SourceManager:      PluginSourceManagerSetta,
 			Errors: []PluginErrorInfo{
 				{
-					Code:    errorCode,
+					Code:    "PLUGIN_MANIFEST_INVALID",
 					Message: err.Error(),
 				},
 			},

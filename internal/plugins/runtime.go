@@ -347,8 +347,15 @@ func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[strin
 	if err != nil {
 		return false, map[string]any{}, nil
 	}
-	schemaJSON, err := readManifestJSONObjectFile(schemaPath)
+	payload, err := os.ReadFile(schemaPath)
 	if err != nil {
+		return true, map[string]any{}, nil
+	}
+	var schemaJSON map[string]any
+	if err := json.Unmarshal(payload, &schemaJSON); err != nil {
+		return true, map[string]any{}, nil
+	}
+	if schemaJSON == nil {
 		return true, map[string]any{}, nil
 	}
 	return true, schemaJSON, runtimeDigestJSONValue(schemaJSON)
