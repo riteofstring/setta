@@ -10,8 +10,8 @@ import (
 
 	"setta/internal/lsp"
 	"setta/internal/projectstate"
-	"setta/internal/pythonenv"
 	"setta/internal/statefs"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 type stubSnapshotSignatureHelper struct {
@@ -307,14 +307,11 @@ func newCurrentProcessSignatureService(t *testing.T, settaFilesRoot string) (*Se
 		workspaceRoot = filepath.Dir(workspaceRoot)
 	}
 
-	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
-	if err != nil {
-		t.Fatalf("resolve current-process interpreter: %v", err)
-	}
+	pythonBinary := firstpartyplugin.BasedpyrightLangserverCommand(t)
 	session, err := lsp.NewSession(lsp.SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       pythonBinary,
-		Args:          []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		Args:          []string{"--stdio"},
 		Environment:   os.Environ(),
 	})
 	if err != nil {
