@@ -28,10 +28,10 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
-  isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
 type ParamNameInputProps = {
@@ -145,15 +145,17 @@ function useParamNameState(
     if (!impl || !codeObjImpl || !codeObjCore) {
       return null;
     }
+    const dictImpl =
+      impl.type === SectionTypeEnum.Dict
+        ? (impl as { topLevelParamId: string | null })
+        : null;
     const pythonCodegenEnabled = x.projectConfig.codegenTargets.some(
       (target) => target.language === ProjectCodegenLanguageEnum.python,
     );
     return {
       configLanguage: impl.configLanguage,
-      isDictSection: isBaseDictSectionImpl(impl),
-      topLevelParamId: isBaseDictSectionImpl(impl)
-        ? impl.topLevelParamId
-        : null,
+      isDictSection: dictImpl !== null,
+      topLevelParamId: dictImpl?.topLevelParamId ?? null,
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
       isKwarg: codeObjImpl.coreNameEditable,
