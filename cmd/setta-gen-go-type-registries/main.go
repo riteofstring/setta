@@ -157,6 +157,10 @@ func main() {
 					RequireJSONTaggedStructs: true,
 				},
 				{
+					PkgPath:                  "setta/internal/backendlogs",
+					RequireJSONTaggedStructs: true,
+				},
+				{
 					PkgPath:                  "setta/internal/projectstate",
 					RequireJSONTaggedStructs: true,
 				},
