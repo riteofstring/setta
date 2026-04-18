@@ -15,7 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
 
@@ -248,6 +247,9 @@ func normalizeBackendLanguageServers(pluginRoot string, pluginID string, registr
 	}, func(key string) error {
 		return fmt.Errorf("duplicate language server language %s", key)
 	}); err != nil {
+		return nil, err
+	}
+	if err := ensureSinglePluginLanguageServerImplementation(normalized); err != nil {
 		return nil, err
 	}
 	slices.SortFunc(normalized, compareBackendLanguageServers)
@@ -516,9 +518,6 @@ func normalizeBackendLanguageServerLanguage(raw string) (string, error) {
 	if language == "" {
 		return "", fmt.Errorf("language is required")
 	}
-	if language == string(projectstate.CodeLanguagePython) {
-		return "", fmt.Errorf("language servers cannot target python")
-	}
 	return language, nil
 }
 
@@ -558,6 +557,37 @@ func normalizeBackendLanguageServerSettingsKey(raw *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func ensureSinglePluginLanguageServerImplementation(registrations []PluginRegisteredLanguageServer) error {
+	if len(registrations) <= 1 {
+		return nil
+	}
+
+	baseline := registrations[0]
+	for _, registration := range registrations[1:] {
+		if baseline.Command != registration.Command {
+			return fmt.Errorf("language servers must share one implementation per plugin")
+		}
+		if !slices.Equal(baseline.Args, registration.Args) {
+			return fmt.Errorf("language servers must share one implementation per plugin")
+		}
+		if !optionalStringsEqual(baseline.SettingsKey, registration.SettingsKey) {
+			return fmt.Errorf("language servers must share one implementation per plugin")
+		}
+	}
+	return nil
+}
+
+func optionalStringsEqual(left *string, right *string) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
 }
 
 func normalizeBackendRouteRegistration(route PluginRegisteredBackendRoute) (PluginRegisteredBackendRoute, error) {
