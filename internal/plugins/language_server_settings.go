@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 )
 
@@ -32,8 +33,12 @@ func pluginLanguageServerDefaults(entry DiscoveredPlugin) map[string]any {
 	if err != nil {
 		return nil
 	}
-	schema, err := readManifestJSONObjectFile(schemaPath)
+	payload, err := os.ReadFile(schemaPath)
 	if err != nil {
+		return nil
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(payload, &schema); err != nil {
 		return nil
 	}
 	defaultValue, ok := schemaDefaultValue(schema)

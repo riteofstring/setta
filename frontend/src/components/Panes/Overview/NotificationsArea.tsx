@@ -26,8 +26,8 @@ import {
   type AppNotification,
 } from "state/types/notifications";
 import {
-  OverviewNotificationsPaneTabEnum,
   type OverviewNotificationsPaneTab,
+  OverviewNotificationsPaneTabEnum,
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {

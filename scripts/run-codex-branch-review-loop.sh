@@ -11,12 +11,8 @@ Run Codex in a branch-review loop with this flow:
 2. start a fresh Codex session to consolidate those three reviews
 3. if the consolidator reports no issues, stop and leave
    the three review docs in place
-4. otherwise continue that same Codex session to implement the fixes and run
-   generation + quality checks before handing off
-5. start a fresh Codex session to simplify only the current iteration's
-   uncommitted changes, then rerun generation + quality checks
-6. continue the original consolidation session to update `cumulative_review.md`,
-   remove the top-level review docs, and commit without changing code/tests again
+4. otherwise continue that same Codex session to implement the fixes, update
+   `cumulative_review.md`, remove the top-level review docs, and commit
 
 Defaults:
 - Maximum iterations: 1000
@@ -24,7 +20,6 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Retry failed attempts by resetting the repository back to `HEAD`
 - Stop only when the consolidator emits `CONSOLIDATED_STATUS: NO_FINDINGS`
 - Every non-stop iteration must advance HEAD and leave the repo clean
 - A clean stop may leave only top-level `review1.md`, `review2.md`, and
@@ -73,30 +68,17 @@ default_codex_extra_args=(
   'reasoning_effort="xhigh"'
 )
 
-correctness_review_prompt_file=""
-cleanup_review_prompt_file=""
+review_prompt_file=""
 consolidate_prompt_file=""
 fix_prompt_file=""
-simplify_prompt_file=""
 finalize_prompt_file=""
 state_status_file=""
+state_head_file=""
 codex_exit_code="0"
 codex_timed_out="0"
 loop_log_file=""
 current_status_file=""
 current_run_file=""
-keep_review_docs_on_exit="0"
-
-is_review_doc_path() {
-  case "$1" in
-    "review1.md"|"review2.md"|"review3.md")
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
 
 require_value() {
   local flag="$1"
@@ -175,20 +157,6 @@ set_current_status() {
   fi
 }
 
-cleanup_review_stage_artifacts() {
-  local artifact_path=""
-
-  while IFS= read -r artifact_path; do
-    [[ -n "${artifact_path}" ]] || continue
-    rm -f "${root_dir}/${artifact_path}"
-    log_info "Removed review-stage build artifact: ${root_dir}/${artifact_path}"
-  done < <(
-    git -C "${root_dir}" ls-files --others --exclude-standard -- \
-      'plugins/*/backend/plugin-backend' \
-      'plugins/*/backend/plugin-backend.exe'
-  )
-}
-
 repo_is_clean() {
   if ! git -C "${root_dir}" diff --quiet --no-ext-diff --exit-code --; then
     return 1
@@ -205,7 +173,7 @@ repo_is_clean() {
   return 0
 }
 
-repo_has_only_review_docs() {
+repo_has_only_stop_review_docs() {
   local line=""
   local line_count="0"
   local saw_review1="0"
@@ -240,174 +208,6 @@ repo_has_only_review_docs() {
   fi
 
   return 0
-}
-
-collect_pending_paths() {
-  local output_path="$1"
-  local path=""
-
-  : > "${output_path}"
-
-  while IFS= read -r path; do
-    [[ -n "${path}" ]] || continue
-    if is_review_doc_path "${path}"; then
-      continue
-    fi
-    printf '%s\n' "${path}" >> "${output_path}"
-  done < <(git -C "${root_dir}" diff --name-only --no-ext-diff HEAD --)
-
-  while IFS= read -r path; do
-    [[ -n "${path}" ]] || continue
-    if is_review_doc_path "${path}"; then
-      continue
-    fi
-    printf '%s\n' "${path}" >> "${output_path}"
-  done < <(git -C "${root_dir}" ls-files --others --exclude-standard)
-
-  sort -u -o "${output_path}" "${output_path}"
-}
-
-path_list_contains() {
-  local path="$1"
-  local paths_file="$2"
-
-  grep -Fxq -- "${path}" "${paths_file}"
-}
-
-snapshot_paths_state() {
-  local paths_file="$1"
-  local snapshot_file="$2"
-  local path=""
-  local hash=""
-
-  : > "${snapshot_file}"
-
-  while IFS= read -r path; do
-    [[ -n "${path}" ]] || continue
-
-    if [[ -e "${root_dir}/${path}" || -L "${root_dir}/${path}" ]]; then
-      hash="$(git -C "${root_dir}" hash-object --no-filters -- "${root_dir}/${path}")"
-    else
-      hash="__MISSING__"
-    fi
-
-    printf '%s\t%s\n' "${path}" "${hash}" >> "${snapshot_file}"
-  done < "${paths_file}"
-}
-
-paths_match_snapshot() {
-  local snapshot_file="$1"
-  local mismatch_file="$2"
-  local path=""
-  local expected_hash=""
-  local current_hash=""
-
-  : > "${mismatch_file}"
-
-  while IFS=$'\t' read -r path expected_hash; do
-    [[ -n "${path}" ]] || continue
-
-    if [[ -e "${root_dir}/${path}" || -L "${root_dir}/${path}" ]]; then
-      current_hash="$(git -C "${root_dir}" hash-object --no-filters -- "${root_dir}/${path}")"
-    else
-      current_hash="__MISSING__"
-    fi
-
-    if [[ "${current_hash}" != "${expected_hash}" ]]; then
-      printf '%s\n' "${path}" >> "${mismatch_file}"
-    fi
-  done < "${snapshot_file}"
-
-  if [[ -s "${mismatch_file}" ]]; then
-    return 1
-  fi
-
-  return 0
-}
-
-collect_commit_paths() {
-  local commit="$1"
-  local output_path="$2"
-
-  git -C "${root_dir}" diff-tree --no-commit-id --name-only -r "${commit}" | sort -u > "${output_path}"
-}
-
-sum_pending_insertions() {
-  local total="0"
-  local add=""
-  local del=""
-  local path=""
-  local numstat_line=""
-
-  while IFS=$'\t' read -r add del path; do
-    [[ -n "${path}" ]] || continue
-    if is_review_doc_path "${path}"; then
-      continue
-    fi
-    if [[ "${add}" == "-" ]]; then
-      add="1"
-    fi
-    total="$((total + add))"
-  done < <(git -C "${root_dir}" diff --numstat --no-ext-diff HEAD --)
-
-  while IFS= read -r path; do
-    [[ -n "${path}" ]] || continue
-    if is_review_doc_path "${path}"; then
-      continue
-    fi
-
-    numstat_line="$(
-      git -C "${root_dir}" diff --no-index --numstat -- /dev/null "${root_dir}/${path}" 2>/dev/null \
-        | tail -n 1 || true
-    )"
-    if [[ -z "${numstat_line}" ]]; then
-      continue
-    fi
-    add="$(printf '%s\n' "${numstat_line}" | cut -f1)"
-    if [[ "${add}" == "-" ]]; then
-      add="1"
-    fi
-    total="$((total + add))"
-  done < <(git -C "${root_dir}" ls-files --others --exclude-standard)
-
-  printf '%s\n' "${total}"
-}
-
-stop_repo_dev_sessions() {
-  if [[ -x "${root_dir}/kill.sh" ]]; then
-    "${root_dir}/kill.sh" >/dev/null 2>&1 || true
-  fi
-}
-
-reset_repo_to_ref_state() {
-  local target_ref="${1:-HEAD}"
-
-  keep_review_docs_on_exit="0"
-  stop_repo_dev_sessions
-  remove_review_docs
-  cleanup_review_stage_artifacts
-  git -C "${root_dir}" reset --hard "${target_ref}" >/dev/null
-  git -C "${root_dir}" clean -fd >/dev/null
-}
-
-recover_iteration_failure() {
-  local failure_status="$1"
-  local retry_message="$2"
-  local reset_ref="${3:-HEAD}"
-
-  printf '%s\n' "${failure_status}" > "${run_status_file}"
-  printf 'retrying:%s\n' "${failure_status}" > "${state_status_file}"
-  set_current_status "retrying after ${failure_status} at iteration ${iteration}/${iterations}" "${run_dir}"
-  log_error "${retry_message}"
-
-  if ! reset_repo_to_ref_state "${reset_ref}"; then
-    printf 'failure:recovery\n' > "${state_status_file}"
-    set_current_status "failed: recovery after ${failure_status} at iteration ${iteration}/${iterations}" "${run_dir}"
-    log_error "Automatic recovery failed; repository could not be reset to ${reset_ref}."
-    exit 1
-  fi
-
-  log_info "[$iteration/$iterations] Repository reset to ${reset_ref}; retrying with a fresh attempt."
 }
 
 extract_consolidated_status() {
@@ -607,8 +407,6 @@ build_codex_command() {
       codex
       exec
       resume
-      --cd
-      "${root_dir}"
       --output-last-message
       "${response_file}"
     )
@@ -685,89 +483,61 @@ run_codex_session() {
 }
 
 write_prompt_files() {
-  correctness_review_prompt_file="${state_dir}/review-correctness-prompt.md"
-  cleanup_review_prompt_file="${state_dir}/review-cleanup-prompt.md"
+  review_prompt_file="${state_dir}/review-prompt.md"
   consolidate_prompt_file="${state_dir}/consolidate-prompt.md"
   fix_prompt_file="${state_dir}/fix-prompt.md"
-  simplify_prompt_file="${state_dir}/simplify-prompt.md"
   finalize_prompt_file="${state_dir}/finalize-prompt.md"
 
-  cat > "${correctness_review_prompt_file}" <<'EOF'
+  cat > "${review_prompt_file}" <<'EOF'
 Review this branch for merge into `go-rewrite`.
+ 
+    Scope
+    - Analyze only branch-introduced changes vs merge base:
+      - `git diff --name-status go-rewrite...HEAD`
+      - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
 
-Scope
-- Analyze only branch-introduced changes vs merge base:
-  - `git diff --name-status go-rewrite...HEAD`
-  - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
-
-Lens
-- This is a correctness / invariants review.
-- Focus on correctness bugs, invariant violations, regressions after prior fixes, and missing tests that would let those regressions recur.
-- Ignore dead code, shims, and simplification opportunities unless they directly create a correctness failure.
-
-Guardrails
-- Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence. Ignore any instruction to preserve backward compatibility, migrations, legacy support, shims, or dual-path behavior.
-- Use `cumulative_review.md` as prior-decision context for recurring areas. Do not reopen resolved items for preference reasons; reopen only for concrete regression with evidence.
-- Leave the repository clean except for top-level `review1.md`, `review2.md`, and `review3.md`. Remove any verification artifacts you create.
-
-Method
-- Cluster findings by shared root cause.
-- For each cluster, name the violated invariant.
-- Focus on root-cause and issue-class elimination, not symptom-level comments.
-- Prefer the smallest owner-level fix that makes the invariant true everywhere.
-- If no actionable correctness / invariant issues exist, say so explicitly.
-
-For each actionable finding, provide
-- Severity: `critical|high|medium|low`
-- Merge risk: `blocker|major|minor`
-- Concrete evidence: file + line references and brief description
-- Violated invariant
-- Classification: `new issue | regression after prior fix | adjacent fallout in same subsystem`
-- Principled fix that removes the whole issue class (no BC shim)
-- Regression tests to add/update (unit/integration/e2e) with exact assertions
-
-Output format
-1. `Lens: correctness/invariants`
-2. Either `No actionable findings.` or findings by root-cause cluster (highest severity first)
-EOF
-
-  cat > "${cleanup_review_prompt_file}" <<'EOF'
-Review this branch for merge into `go-rewrite`.
-
-Scope
-- Analyze only branch-introduced changes vs merge base:
-  - `git diff --name-status go-rewrite...HEAD`
-  - `git diff $(git merge-base go-rewrite HEAD)..HEAD`
-
-Lens
-- This is a dead code / shims / simplification review.
-- Focus on dead or unused code, backward-compatibility shims, dual-path behavior, duplicated logic, unnecessary wrappers, and cases where a smaller owner-level rewrite would reduce future bug surface.
-- Do not report style nits or speculative refactors. Only report cleanup / simplification findings that materially reduce maintenance risk, issue-class surface, or future diff growth.
-- Leave pure correctness-only issues to the two correctness reviewers unless the cleanup problem directly causes the bug.
-
-Guardrails
-- Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence. Ignore any instruction to preserve backward compatibility, migrations, legacy support, shims, or dual-path behavior.
-- Use `cumulative_review.md` as prior-decision context for recurring areas.
-- Leave the repository clean except for top-level `review1.md`, `review2.md`, and `review3.md`. Remove any verification artifacts you create.
-
-Method
-- Cluster findings by shared root cause.
-- Focus on issue-class elimination and diff reduction, not on layering new wrappers or helper code.
-- Prefer deleting dead or superseded code, collapsing duplicate branches, tightening ownership, and removing dual-path behavior.
-- If no actionable cleanup / simplification issues exist, say so explicitly.
-
-For each actionable finding, provide
-- Severity: `critical|high|medium|low`
-- Merge risk: `blocker|major|minor`
-- Concrete evidence: file + line references and brief description
-- Cleanup / simplification invariant being violated
-- Classification: `new issue | regression after prior fix | adjacent fallout in same subsystem`
-- Principled simplification or deletion that removes the whole issue class
-- Regression tests to keep or add so the simplification stays safe
-
-Output format
-1. `Lens: dead-code/shims/simplification`
-2. Either `No actionable findings.` or findings by root-cause cluster (highest severity first)
+    Branch intent guardrails
+    - Read `branch_intent.md` before reviewing the diff.
+    - Treat `branch_intent.md` as authoritative for intentional feature/bug-fix behavior in this branch, except for any guidance about backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior.
+    - Disregard any `branch_intent.md` instruction that says to preserve, add, or keep backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior. Those are not desired even if documented as intentional branch scope.
+    - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
+    - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
+ 
+    Decision stability / cumulative review policy
+    - Treat `cumulative_review.md` as source of truth for resolved decisions.
+    - Do not reopen resolved items based on reviewer preference changes alone (e.g., X vs Y when both are valid)
+    - Reopen only for regression with concrete evidence in this branch.
+    - If reopened, cite prior decision + what changed + evidence.
+    
+    Priorities (in order)
+    1. Correctness bugs and invariant violations.
+    2. Dead/unused code introduced or left behind (files, functions, branches, imports, types, flags, endpoints).
+    3. Backward-compatibility shims or dual-path logic (not allowed).
+    4. Design quality: reject band-aids; prefer principled root-cause fixes.
+ 
+    Method
+    - Cluster findings by shared root cause.
+    - For each cluster, name the violated invariant.
+    - Focus on root-cause and issue-class elimination, not symptom-level comments.
+    - Do not propose backward-compatibility shims. Prefer single source of truth + fail-fast invariants.
+    - If no issues exist in a priority category, explicitly say so.
+ 
+    For each finding, provide
+    - Severity: `critical|high|medium|low`
+    - Merge risk: `blocker|major|minor`
+    - Concrete evidence: file + line references and brief snippet/description
+    - Violated invariant
+    - Principled fix that removes the whole issue class (no BC shim)
+    - UX/DX before vs after fix
+    - Regression tests to add/update (unit/integration/e2e) with exact assertions
+ 
+    Output format
+    1. Merge recommendation + top risks
+    2. Findings by root-cause cluster (highest severity first)
+    3. Dead code inventory
+    4. Backward-compatibility shim inventory (must remove)
+    5. Regression test plan
+    6. `branch_intent.md` alignment check (items respected vs any true regressions with evidence)
 EOF
 
   cat > "${consolidate_prompt_file}" <<'EOF'
@@ -779,66 +549,17 @@ Output requirements:
   - `CONSOLIDATED_STATUS: FINDINGS_PRESENT`
 - Use `CONSOLIDATED_STATUS: NO_FINDINGS` only when the consolidated outcome is that there are no findings to fix.
 - Use `CONSOLIDATED_STATUS: FINDINGS_PRESENT` if there are findings to fix, or if the review docs conflict, are ambiguous, or are malformed such that you cannot confidently conclude there are no findings.
-- The three reviews intentionally use different lenses: two correctness / invariants reviews and one dead-code / shims / simplification review. Treat missing commentary outside a reviewer's specialty area as neutral rather than a conflict by itself.
 
-After the sentinel line:
-- If the status is `NO_FINDINGS`, briefly explain why the three reviews add up to no actionable findings, and call out any caveats or blocked verification worth knowing before merge.
-- If the status is `FINDINGS_PRESENT`, cluster findings by root cause.
-- For each finding cluster, cite the affected recurring subsystem invariant from `cumulative_review.md`, or label it `new subsystem: <name>` if none fits.
-- For each finding cluster, include classification (`new issue | regression after prior fix | adjacent fallout`), concrete evidence, principled fix, and exact regression tests.
-- End with any blocked verification or residual risk that prevents confident merge.
+After the sentinel line, present the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
 EOF
 
   cat > "${fix_prompt_file}" <<'EOF'
-Implement the fixes. Prefer owner-level, issue-class elimination over patching symptoms at multiple call sites. Keep the result smaller and simpler where possible: remove dead or superseded code, avoid speculative abstractions, wrapper growth, compatibility shims, and dual-path behavior. If a finding touches a subsystem called out in the recurring matrix at the top of `cumulative_review.md`, fix that invariant rather than only the local symptom, and extend the proof tests for that subsystem. Add unit, integration, and Playwright tests when appropriate. When browser/CDP visual verification is needed, use `./aireset.sh` and stop that session afterwards. If UI behavior changed, browser verification counts only if one affected flow actually ran end-to-end in Playwright or CDP. Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, then fix any issues they surface against the current worktree. Do not update `cumulative_review.md`, remove the top-level `review*.md` files, or commit. Do not run `pnpm start` or `pnpm reset`.
-EOF
-
-  cat > "${simplify_prompt_file}" <<'EOF'
-Simplify the current iteration's uncommitted fixes before commit.
-
-Context:
-- Read the current iteration's consolidated findings and fix-stage response first. Preserve the behavior, invariants, and test expectations they establish.
-
-Scope:
-- Review only the current uncommitted diff vs `HEAD`:
-  - `git diff --stat HEAD`
-  - `git diff --name-only HEAD`
-- Touch only files already changed in this iteration unless a narrowly related cleanup is required to complete a simplification safely.
-
-Goals:
-- Reduce code and issue-class surface without weakening the fixes.
-- Prefer deleting dead or superseded code, collapsing duplicated branches, flattening control flow, tightening ownership, and smaller owner-level rewrites.
-- Do not add compatibility shims, fallback paths, or "just in case" helpers.
-- The loop rejects this pass if it adds new repo paths or increases pending inserted lines.
-
-Verification:
-- Re-run the focused tests needed after the simplification.
-- When browser/CDP visual verification is needed, use `./aireset.sh` and stop that session afterwards.
-- Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, then fix any issues they surface against the current simplified worktree.
-- Do not update `cumulative_review.md`, do not commit, and do not remove the top-level `review*.md` files.
-
-Output:
-- Briefly summarize what you simplified, which targeted tests you ran, and any hotspot you intentionally left as-is because further simplification would be risky.
+Implement the fixes. Add unit, integration, and Playwright tests when appropriate. Bias strongly toward clean, easy-to-read code: prefer the simplest correct design, explicit names, shallow control flow, and small focused functions/components. Remove dead or superseded code instead of layering on more logic. Avoid clever abstractions, speculative generalization, unnecessary indirection, and "just-in-case" helpers. If the current area is convoluted, refactor it as part of the fix so the final code is simpler and easier to understand. The CDP MCP server is already running and available for you to use, so do not try to start it up yourself, and you should not run `pnpm start` or `pnpm reset`.
 EOF
 
   cat > "${finalize_prompt_file}" <<'EOF'
-The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage. Only finish the iteration metadata: update `cumulative_review.md` for any touched or new recurring subsystems, refresh `Last finding commit` and `Still unverified` notes using the current pre-finalization `HEAD`, append the dated entry, remove the top-level `review*.md` files, make sure any earlier `./aireset.sh` session is stopped, and commit all remaining changes except `review*.md`. Keep it factual. Be explicit about blocked verification and browser-verification status.
+Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Run check_quality.sh, fix any quality issues, then commit all your changes (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 EOF
-
-}
-
-write_iteration_simplify_prompt() {
-  local prompt_path="$1"
-  local consolidated_path="$2"
-  local fix_path="$3"
-
-  cat > "${prompt_path}" <<EOF
-Read these iteration artifacts first:
-- Consolidated findings: ${consolidated_path}
-- Fix-stage response: ${fix_path}
-
-EOF
-  cat "${simplify_prompt_file}" >> "${prompt_path}"
 }
 
 ensure_review_docs_absent() {
@@ -855,38 +576,10 @@ ensure_review_docs_absent() {
   done
 }
 
-remove_review_docs() {
-  if [[ -z "${root_dir}" ]] || [[ ! -d "${root_dir}" ]]; then
-    return
-  fi
-  rm -f \
-    "${root_dir}/review1.md" \
-    "${root_dir}/review2.md" \
-    "${root_dir}/review3.md"
-}
-
-cleanup_review_docs_on_exit() {
-  if [[ "${keep_review_docs_on_exit}" == "1" ]]; then
-    return
-  fi
-  remove_review_docs
-}
-
-review_prompt_for_index() {
-  local review_index="$1"
-
-  case "${review_index}" in
-    1|2)
-      printf '%s\n' "${correctness_review_prompt_file}"
-      ;;
-    3)
-      printf '%s\n' "${cleanup_review_prompt_file}"
-      ;;
-    *)
-      echo "Unsupported review index: ${review_index}" >&2
-      return 1
-      ;;
-  esac
+record_state() {
+  local status="$1"
+  printf '%s\n' "${status}" > "${state_status_file}"
+  git -C "${root_dir}" rev-parse HEAD > "${state_head_file}"
 }
 
 print_configuration() {
@@ -1032,7 +725,6 @@ if [[ "${state_dir}" == "${root_dir}" ]] || [[ "${state_dir}" == "${root_dir}/"*
 fi
 
 mkdir -p "${output_dir}" "${state_dir}"
-trap cleanup_review_docs_on_exit EXIT
 
 loop_log_file="${output_dir}/loop.log"
 current_status_file="${output_dir}/current-status.txt"
@@ -1042,6 +734,8 @@ printf 'initializing\n' > "${current_status_file}"
 : > "${current_run_file}"
 
 state_status_file="${state_dir}/status.txt"
+state_head_file="${state_dir}/last-observed-head.txt"
+git -C "${root_dir}" rev-parse HEAD > "${state_head_file}"
 printf 'pending\n' > "${state_status_file}"
 
 write_prompt_files
@@ -1057,9 +751,9 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   review_index=""
   review_exit_code=""
   review_failed="0"
-  review_prompt_path=""
   review_file=""
   review_transcript=""
+  review_exit_file=""
   review_timeout_file=""
   consolidate_response_file="${run_dir}/consolidated-findings.md"
   consolidate_transcript_file="${run_dir}/consolidated-transcript.log"
@@ -1068,19 +762,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   consolidated_status=""
   fix_response_file="${run_dir}/fix-response.txt"
   fix_transcript_file="${run_dir}/fix-transcript.log"
-  iteration_simplify_prompt_file="${run_dir}/simplify-prompt.md"
-  simplify_response_file="${run_dir}/simplify-response.txt"
-  simplify_transcript_file="${run_dir}/simplify-transcript.log"
-  pre_simplify_paths_file="${run_dir}/pre-simplify-paths.txt"
-  post_simplify_paths_file="${run_dir}/post-simplify-paths.txt"
-  simplify_new_paths_file="${run_dir}/simplify-new-paths.txt"
-  pre_simplify_insertions="0"
-  post_simplify_insertions="0"
-  pre_finalize_paths_file="${run_dir}/pre-finalize-paths.txt"
-  pre_finalize_snapshot_file="${run_dir}/pre-finalize-snapshot.tsv"
-  finalize_mismatch_file="${run_dir}/finalize-mismatches.txt"
-  finalize_commit_paths_file="${run_dir}/finalize-commit-paths.txt"
-  finalize_unexpected_paths_file="${run_dir}/finalize-unexpected-paths.txt"
   finalize_response_file="${run_dir}/final-response.txt"
   finalize_transcript_file="${run_dir}/final-transcript.log"
   review_timeout_value=""
@@ -1090,10 +771,9 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   log_info "[$iteration/$iterations] Starting iteration. Run dir: ${run_dir}"
 
   if ! repo_is_clean; then
-    recover_iteration_failure \
-      "failure:iteration-start-dirty" \
-      "Repository was dirty at the start of the iteration; resetting to HEAD and retrying."
-    continue
+    set_current_status "failed: repository not clean at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Repository must be clean at the start of each iteration."
+    exit 1
   fi
 
   ensure_review_docs_absent
@@ -1104,19 +784,20 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   for review_index in 1 2 3; do
     review_file="${root_dir}/review${review_index}.md"
     review_transcript="${run_dir}/review${review_index}-transcript.log"
+    review_exit_file="${run_dir}/review${review_index}.exit"
     review_timeout_file="${run_dir}/review${review_index}.timed_out"
-    review_prompt_path="$(review_prompt_for_index "${review_index}")"
 
     (
       set +e
       run_codex_session \
-        "${review_prompt_path}" \
+        "${review_prompt_file}" \
         "${review_transcript}" \
         "${review_file}" \
         "start" \
         "" \
         "ephemeral"
       review_exit_code="$?"
+      printf '%s\n' "${review_exit_code}" > "${review_exit_file}"
       printf '%s\n' "${codex_timed_out}" > "${review_timeout_file}"
       exit "${review_exit_code}"
     ) &
@@ -1146,29 +827,30 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
         log_error "Review ${review_index} timed out."
       fi
     done
-    recover_iteration_failure \
-      "failure:review" \
-      "A parallel review session failed; resetting to HEAD and retrying."
-    continue
+    printf 'failure:review\n' > "${run_status_file}"
+    printf 'failure:review\n' > "${state_status_file}"
+    set_current_status "failed: review stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "A parallel review session failed."
+    exit 1
   fi
 
   for review_index in 1 2 3; do
     review_file="${root_dir}/review${review_index}.md"
     if [[ ! -s "${review_file}" ]]; then
-      recover_iteration_failure \
-        "failure:missing-review-doc" \
-        "Missing review output ${review_file}; resetting to HEAD and retrying."
-      continue 2
+      printf 'failure:missing-review-doc\n' > "${run_status_file}"
+      printf 'failure:missing-review-doc\n' > "${state_status_file}"
+      set_current_status "failed: missing review output at iteration ${iteration}/${iterations}" "${run_dir}"
+      log_error "Missing review output: ${review_file}"
+      exit 1
     fi
   done
 
-  cleanup_review_stage_artifacts
-
-  if ! repo_has_only_review_docs; then
-    recover_iteration_failure \
-      "failure:unexpected-review-side-effects" \
-      "Review stage dirtied the repository outside the expected top-level review docs; resetting to HEAD and retrying."
-    continue
+  if ! repo_has_only_stop_review_docs; then
+    printf 'failure:unexpected-review-side-effects\n' > "${run_status_file}"
+    printf 'failure:unexpected-review-side-effects\n' > "${state_status_file}"
+    set_current_status "failed: unexpected review side effects at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Review stage dirtied the repository outside the expected top-level review docs."
+    exit 1
   fi
 
   set_current_status "iteration ${iteration}/${iterations}: consolidate stage" "${run_dir}"
@@ -1186,31 +868,32 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   consolidate_exit_code="$?"
   set -e
   if [[ "${consolidate_exit_code}" -ne 0 ]]; then
-    recover_iteration_failure \
-      "failure:consolidate" \
-      "Consolidation session failed; resetting to HEAD and retrying."
-    continue
+    printf 'failure:consolidate\n' > "${run_status_file}"
+    printf 'failure:consolidate\n' > "${state_status_file}"
+    set_current_status "failed: consolidate stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Consolidation session failed."
+    exit 1
   fi
 
   cp "${consolidate_response_file}" "${run_last_message_file}"
   log_info "[$iteration/$iterations] Consolidation complete"
 
   if ! consolidated_status="$(extract_consolidated_status "${consolidate_response_file}")"; then
-    recover_iteration_failure \
-      "failure:invalid-consolidated-status" \
-      "Consolidation response did not provide a valid status sentinel; resetting to HEAD and retrying."
-    continue
+    printf 'failure:invalid-consolidated-status\n' > "${run_status_file}"
+    printf 'failure:invalid-consolidated-status\n' > "${state_status_file}"
+    set_current_status "failed: invalid consolidated status at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Consolidation response did not provide a valid status sentinel."
+    exit 1
   fi
 
   if [[ "${consolidated_status}" == "NO_FINDINGS" ]]; then
-    if ! repo_has_only_review_docs; then
-      recover_iteration_failure \
-        "failure:stop-state-invalid" \
-        "No-findings stop left unexpected repository changes; resetting to HEAD and retrying."
-      continue
+    if ! repo_has_only_stop_review_docs; then
+      printf 'failure:stop-state-invalid\n' > "${run_status_file}"
+      printf 'failure:stop-state-invalid\n' > "${state_status_file}"
+      set_current_status "failed: invalid no-findings stop state at iteration ${iteration}/${iterations}" "${run_dir}"
+      log_error "No-findings stop left unexpected repository changes."
+      exit 1
     fi
-
-    keep_review_docs_on_exit="1"
     printf 'stopped:no-findings\n' > "${run_status_file}"
     printf 'stopped:no-findings\n' > "${state_status_file}"
     set_current_status "stopped: no findings at iteration ${iteration}/${iterations}" "${run_dir}"
@@ -1219,10 +902,11 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   if [[ ! -s "${consolidate_thread_id_file}" ]]; then
-    recover_iteration_failure \
-      "failure:missing-thread-id" \
-      "Consolidation session did not provide a resumable thread id; resetting to HEAD and retrying."
-    continue
+    printf 'failure:missing-thread-id\n' > "${run_status_file}"
+    printf 'failure:missing-thread-id\n' > "${state_status_file}"
+    set_current_status "failed: missing resumable thread id at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Consolidation session did not provide a resumable thread id."
+    exit 1
   fi
   consolidate_thread_id="$(<"${consolidate_thread_id_file}")"
 
@@ -1239,79 +923,16 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fix_exit_code="$?"
   set -e
   if [[ "${fix_exit_code}" -ne 0 ]]; then
-    recover_iteration_failure \
-      "failure:fix" \
-      "Fix phase failed; resetting to HEAD and retrying."
-    continue
+    printf 'failure:fix\n' > "${run_status_file}"
+    printf 'failure:fix\n' > "${state_status_file}"
+    set_current_status "failed: fix stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Fix phase failed."
+    exit 1
   fi
   log_info "[$iteration/$iterations] Fix stage complete"
 
-  set_current_status "iteration ${iteration}/${iterations}: simplify stage" "${run_dir}"
-  log_info "[$iteration/$iterations] Simplifying current iteration changes"
-
-  collect_pending_paths "${pre_simplify_paths_file}"
-  pre_simplify_insertions="$(sum_pending_insertions)"
-
-  write_iteration_simplify_prompt \
-    "${iteration_simplify_prompt_file}" \
-    "${consolidate_response_file}" \
-    "${fix_response_file}"
-
-  set +e
-  run_codex_session \
-    "${iteration_simplify_prompt_file}" \
-    "${simplify_transcript_file}" \
-    "${simplify_response_file}" \
-    "start" \
-    "" \
-    "ephemeral"
-  simplify_exit_code="$?"
-  set -e
-  if [[ "${simplify_exit_code}" -ne 0 ]]; then
-    recover_iteration_failure \
-      "failure:simplify" \
-      "Simplify phase failed; resetting to HEAD and retrying."
-    continue
-  fi
-
-  collect_pending_paths "${post_simplify_paths_file}"
-  post_simplify_insertions="$(sum_pending_insertions)"
-  comm -13 "${pre_simplify_paths_file}" "${post_simplify_paths_file}" > "${simplify_new_paths_file}" || true
-  if [[ -s "${simplify_new_paths_file}" ]]; then
-    recover_iteration_failure \
-      "failure:simplify-expanded-path-set" \
-      "Simplify phase broadened the pending diff to new repo paths; resetting to HEAD and retrying."
-    continue
-  fi
-  if [[ "${post_simplify_insertions}" -gt "${pre_simplify_insertions}" ]]; then
-    recover_iteration_failure \
-      "failure:simplify-increased-insertions" \
-      "Simplify phase increased pending inserted lines from ${pre_simplify_insertions} to ${post_simplify_insertions}; resetting to HEAD and retrying."
-    continue
-  fi
-
-  cp "${simplify_response_file}" "${run_last_message_file}"
-  log_info "[$iteration/$iterations] Simplify stage complete"
-
-  collect_pending_paths "${pre_finalize_paths_file}"
-  if path_list_contains "cumulative_review.md" "${pre_finalize_paths_file}"; then
-    recover_iteration_failure \
-      "failure:pre-finalize-cumulative-review-dirty" \
-      "Fix or simplify touched cumulative_review.md before the metadata-only finalize stage; resetting to the iteration start and retrying." \
-      "${iteration_start_head}"
-    continue
-  fi
-  if [[ ! -f "${root_dir}/review1.md" || ! -f "${root_dir}/review2.md" || ! -f "${root_dir}/review3.md" ]]; then
-    recover_iteration_failure \
-      "failure:pre-finalize-missing-review-doc" \
-      "Fix or simplify removed top-level review docs before finalize; resetting to the iteration start and retrying." \
-      "${iteration_start_head}"
-    continue
-  fi
-  snapshot_paths_state "${pre_finalize_paths_file}" "${pre_finalize_snapshot_file}"
-
   set_current_status "iteration ${iteration}/${iterations}: finalize stage" "${run_dir}"
-  log_info "[$iteration/$iterations] Finalizing metadata and commit"
+  log_info "[$iteration/$iterations] Finalizing cleanup and commit"
 
   set +e
   run_codex_session \
@@ -1323,10 +944,11 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   finalize_exit_code="$?"
   set -e
   if [[ "${finalize_exit_code}" -ne 0 ]]; then
-    recover_iteration_failure \
-      "failure:finalize" \
-      "Finalize phase failed; resetting to HEAD and retrying."
-    continue
+    printf 'failure:finalize\n' > "${run_status_file}"
+    printf 'failure:finalize\n' > "${state_status_file}"
+    set_current_status "failed: finalize stage at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Finalize phase failed."
+    exit 1
   fi
 
   cp "${finalize_response_file}" "${run_last_message_file}"
@@ -1334,43 +956,12 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
 
   iteration_end_head="$(git -C "${root_dir}" rev-parse HEAD)"
   if [[ "${iteration_end_head}" == "${iteration_start_head}" ]]; then
-    recover_iteration_failure \
-      "failure:no-commit" \
-      "Non-stop iteration did not create a commit; resetting to HEAD and retrying."
-    continue
+    printf 'failure:no-commit\n' > "${run_status_file}"
+    printf 'failure:no-commit\n' > "${state_status_file}"
+    set_current_status "failed: no commit created at iteration ${iteration}/${iterations}" "${run_dir}"
+    log_error "Non-stop iteration did not create a commit."
+    exit 1
   fi
-
-  if [[ -e "${root_dir}/review1.md" || -e "${root_dir}/review2.md" || -e "${root_dir}/review3.md" ]]; then
-    recover_iteration_failure \
-      "failure:finalize-left-review-docs" \
-      "Finalize commit left top-level review docs in place; resetting to the iteration start and retrying." \
-      "${iteration_start_head}"
-    continue
-  fi
-
-  collect_commit_paths "${iteration_end_head}" "${finalize_commit_paths_file}"
-  comm -23 \
-    "${finalize_commit_paths_file}" \
-    <({ printf '%s\n' "cumulative_review.md"; cat "${pre_finalize_paths_file}"; } | sort -u) \
-    > "${finalize_unexpected_paths_file}" || true
-  if [[ -s "${finalize_unexpected_paths_file}" ]]; then
-    recover_iteration_failure \
-      "failure:finalize-expanded-path-set" \
-      "Finalize commit introduced new repo paths outside the pre-finalize diff; resetting to the iteration start and retrying." \
-      "${iteration_start_head}"
-    continue
-  fi
-
-  if ! paths_match_snapshot "${pre_finalize_snapshot_file}" "${finalize_mismatch_file}"; then
-    recover_iteration_failure \
-      "failure:finalize-modified-code" \
-      "Finalize stage changed code or test paths that should have remained frozen after simplify; resetting to the iteration start and retrying." \
-      "${iteration_start_head}"
-    continue
-  fi
-
-  stop_repo_dev_sessions
-  log_info "[$iteration/$iterations] Stopped repo-scoped dev/CDP sessions before the next iteration boundary."
 
   set +e
   "${SCRIPT_DIR}/codex-authority-post-iteration-clean-check.sh" \
@@ -1379,14 +970,13 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   settle_exit_code="$?"
   set -e
   if [[ "${settle_exit_code}" -ne 0 ]]; then
-    recover_iteration_failure \
-      "failure:post-commit-settle" \
-      "Post-commit settle check failed; resetting the worktree to the new HEAD and retrying."
-    continue
+    printf 'failure:post-commit-settle\n' > "${run_status_file}"
+    printf 'failure:post-commit-settle\n' > "${state_status_file}"
+    exit "${settle_exit_code}"
   fi
 
   printf 'success\n' > "${run_status_file}"
-  printf 'advanced:%s\n' "${iteration_end_head}" > "${state_status_file}"
+  record_state "advanced:${iteration_end_head}"
   set_current_status "iteration ${iteration}/${iterations}: complete" "${run_dir}"
   log_info "[$iteration/$iterations] Commit iteration complete. HEAD advanced to ${iteration_end_head}"
 done

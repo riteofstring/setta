@@ -499,8 +499,6 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.FrontendSectionWithParamsLeadingFields{}):               "SectionWithParamsLeadingFields",
 	reflect.TypeOf(projectstate.FrontendSectionWithParamsTrailingFields{}):              "SectionWithParamsTrailingFields",
 	reflect.TypeOf(projectstate.SectionsClipboardData{}):                                "SectionsClipboardData",
-	reflect.TypeOf(plugins.SelectedLanguageServerState("")):                             "SelectedLanguageServerState",
-	reflect.TypeOf(plugins.SelectedLanguageServerStatus{}):                              "SelectedLanguageServerStatus",
 	reflect.TypeOf(settingsstate.SelectionMode("")):                                     "SelectionMode",
 	reflect.TypeOf(llmconfig.ServerConfig{}):                                            "ServerConfig",
 	reflect.TypeOf(httpapi.FrontendServerModeBoundary{}):                                "ServerModeBoundary",

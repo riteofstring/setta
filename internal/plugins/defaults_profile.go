@@ -10,6 +10,7 @@ const (
 type InstallProfile struct {
 	ID                             string
 	Version                        int
+	PackageSpecs                   []string
 	LanguageServerPluginByLanguage map[string]string
 }
 
@@ -17,6 +18,9 @@ func DefaultsInstallProfile() InstallProfile {
 	return InstallProfile{
 		ID:      DefaultsInstallProfileID,
 		Version: DefaultsInstallProfileVersion,
+		PackageSpecs: []string{
+			"setta-basedpyright==0.1.0",
+		},
 		LanguageServerPluginByLanguage: map[string]string{
 			"python": "setta-basedpyright",
 		},
@@ -35,7 +39,8 @@ func (p InstallProfile) AvailableLanguageServerSelections(snapshot DiscoverySnap
 		if language == "" || pluginID == "" {
 			continue
 		}
-		if !defaultsProfileSelectionAvailable(snapshot.Plugins, language, pluginID) {
+		entry, ok := findHighestPrecedenceProfilePlugin(snapshot.Plugins, pluginID)
+		if !ok || !profileEntryProvidesLanguageServer(entry, language) {
 			continue
 		}
 		selected[language] = pluginID
@@ -50,41 +55,19 @@ func normalizeProfileLanguage(language string) string {
 	return strings.ToLower(strings.TrimSpace(language))
 }
 
-func defaultsProfileSelectionAvailable(entries []DiscoveredPlugin, language string, pluginID string) bool {
-	packageManagerEntry, ok := findPrimaryDiscoveredPluginForSourceManager(
-		entries,
-		pluginID,
-		PluginSourceManagerPackageManager,
-	)
-	if !ok || !packageManagerDefaultsCandidate(packageManagerEntry, language) {
-		return false
+func findHighestPrecedenceProfilePlugin(entries []DiscoveredPlugin, pluginID string) (DiscoveredPlugin, bool) {
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.PluginID) == pluginID {
+			return entry, true
+		}
 	}
-
-	effectiveEntry, ok := findPrimaryDiscoveredPlugin(entries, pluginID)
-	if !ok {
-		return false
-	}
-	return activeEntryProvidesLanguageServer(effectiveEntry, language)
+	return DiscoveredPlugin{}, false
 }
 
-func packageManagerDefaultsCandidate(entry DiscoveredPlugin, language string) bool {
+func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
 	if entry.SourceManager != PluginSourceManagerPackageManager {
 		return false
 	}
-	if entry.Manifest == nil {
-		return false
-	}
-	switch entry.State {
-	case PluginRuntimeStateShadowed:
-		return true
-	case PluginRuntimeStateActive:
-		return activeEntryProvidesLanguageServer(entry, language)
-	default:
-		return false
-	}
-}
-
-func activeEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
 	if !pluginProvidesLanguageServer(entry) {
 		return false
 	}

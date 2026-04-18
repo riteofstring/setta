@@ -11712,15 +11712,6 @@
         "restartCapability": {
           "$ref": "#/$defs/PluginRestartCapability"
         },
-        "selectedLanguageServers": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/SelectedLanguageServerStatus"
-          }
-        },
         "plugins": {
           "type": [
             "null",
@@ -11736,7 +11727,6 @@
         "schemaVersion",
         "serverMode",
         "restartCapability",
-        "selectedLanguageServers",
         "plugins"
       ],
       "additionalProperties": false
@@ -15728,50 +15718,6 @@
       "required": [
         "type",
         "data"
-      ],
-      "additionalProperties": false
-    },
-    "SelectedLanguageServerState": {
-      "type": "string",
-      "title": "SelectedLanguageServerState",
-      "enum": [
-        "not_selected",
-        "disabled",
-        "ready",
-        "selected_plugin_missing",
-        "selected_plugin_wrong_language",
-        "selected_plugin_unavailable"
-      ]
-    },
-    "SelectedLanguageServerStatus": {
-      "type": "object",
-      "properties": {
-        "languageId": {
-          "type": "string"
-        },
-        "selectedPluginId": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "state": {
-          "$ref": "#/$defs/SelectedLanguageServerState"
-        },
-        "selectedPluginApplied": {
-          "type": "boolean"
-        },
-        "liveServerAvailable": {
-          "type": "boolean"
-        }
-      },
-      "title": "SelectedLanguageServerStatus",
-      "required": [
-        "languageId",
-        "selectedPluginId",
-        "state",
-        "selectedPluginApplied",
-        "liveServerAvailable"
       ],
       "additionalProperties": false
     },

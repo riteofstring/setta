@@ -8641,12 +8641,6 @@
             "format": "int64",
             "type": "integer"
           },
-          "selectedLanguageServers": {
-            "items": {
-              "$ref": "#/components/schemas/PluginsSelectedLanguageServerStatus"
-            },
-            "type": ["array", "null"]
-          },
           "serverMode": {
             "type": "string"
           }
@@ -8655,7 +8649,6 @@
           "schemaVersion",
           "serverMode",
           "restartCapability",
-          "selectedLanguageServers",
           "plugins"
         ],
         "type": "object"
@@ -8701,34 +8694,6 @@
           "toVersion",
           "sourceDigestSha256",
           "restartRequired"
-        ],
-        "type": "object"
-      },
-      "PluginsSelectedLanguageServerStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "languageId": {
-            "type": "string"
-          },
-          "liveServerAvailable": {
-            "type": "boolean"
-          },
-          "selectedPluginApplied": {
-            "type": "boolean"
-          },
-          "selectedPluginId": {
-            "type": ["string", "null"]
-          },
-          "state": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "languageId",
-          "selectedPluginId",
-          "state",
-          "selectedPluginApplied",
-          "liveServerAvailable"
         ],
         "type": "object"
       },

@@ -28,6 +28,7 @@ type LanguageServerSpec struct {
 
 type RouterOptions struct {
 	WorkspaceRoot   string
+	LookupEnv       func(string) (string, bool)
 	Environ         func() []string
 	WorkingDir      string
 	Settings        func() map[string]any
@@ -164,17 +165,6 @@ func mergeLanguageServerSpecMaps(base map[string]LanguageServerSpec, additional 
 		merged[languageID] = cloneLanguageServerSpec(spec)
 	}
 	return merged
-}
-
-func CloneLanguageServerSpecs(source []LanguageServerSpec) []LanguageServerSpec {
-	if len(source) == 0 {
-		return nil
-	}
-	cloned := make([]LanguageServerSpec, 0, len(source))
-	for _, spec := range source {
-		cloned = append(cloned, cloneLanguageServerSpec(spec))
-	}
-	return cloned
 }
 
 func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string]LanguageServerSpec {

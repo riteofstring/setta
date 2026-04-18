@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	"setta/internal/pythonenv"
 	"setta/internal/statefs"
 )
 
@@ -106,7 +104,6 @@ func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, execut
 
 	command := exec.CommandContext(ctx, executablePath, backendProbeArg)
 	command.Dir = pluginRoot
-	command.Env = backendProbeEnvironment()
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
@@ -147,39 +144,6 @@ func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, execut
 		)
 	}
 	return probe, nil
-}
-
-func backendProbeEnvironment() []string {
-	return appendResolvedPythonEnv(os.Environ(), os.LookupEnv, pythonenv.ResolveCurrentProcessInterpreter)
-}
-
-func appendResolvedPythonEnv(
-	environment []string,
-	lookupEnv func(string) (string, bool),
-	resolveInterpreter func(func(string) (string, bool)) (string, error),
-) []string {
-	clonedEnv := append([]string(nil), environment...)
-	if envVarConfigured(lookupEnv, pythonenv.InterpreterEnv) {
-		return clonedEnv
-	}
-
-	interpreter, err := resolveInterpreter(lookupEnv)
-	if err != nil {
-		return clonedEnv
-	}
-	trimmedInterpreter := strings.TrimSpace(interpreter)
-	if trimmedInterpreter == "" {
-		return clonedEnv
-	}
-	return append(clonedEnv, pythonenv.InterpreterEnv+"="+trimmedInterpreter)
-}
-
-func envVarConfigured(lookupEnv func(string) (string, bool), key string) bool {
-	if lookupEnv == nil {
-		return false
-	}
-	value, ok := lookupEnv(key)
-	return ok && strings.TrimSpace(value) != ""
 }
 
 func decodeBackendProbeResponse(output []byte) (backendProbeResponse, error) {

@@ -119,9 +119,6 @@ func discoveredSharedDefaultValueProvidersByProfile() map[string]map[reflect.Typ
 			reflect.TypeOf(settingsstate.FrontendSettingsGUI{}): func() any {
 				return settingsstate.FrontendDefaultSettingsGUI()
 			},
-			reflect.TypeOf(settingsstate.FrontendSettingsLanguageServer{}): func() any {
-				return settingsstate.FrontendDefaultSettingsLanguageServer()
-			},
 			reflect.TypeOf(settingsstate.FrontendSettingsShortcuts{}): func() any {
 				return settingsstate.FrontendDefaultSettingsShortcuts()
 			},

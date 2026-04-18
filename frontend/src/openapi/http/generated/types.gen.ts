@@ -2862,7 +2862,6 @@ export type PluginsPluginStatusResponse = {
   plugins: Array<PluginsPluginStatusEntry> | null;
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
-  selectedLanguageServers: Array<PluginsSelectedLanguageServerStatus> | null;
   serverMode: string;
 };
 
@@ -2878,14 +2877,6 @@ export type PluginsPluginUpdateResponse = {
   restartRequired: boolean;
   sourceDigestSha256: string | null;
   toVersion: string;
-};
-
-export type PluginsSelectedLanguageServerStatus = {
-  languageId: string;
-  liveServerAvailable: boolean;
-  selectedPluginApplied: boolean;
-  selectedPluginId: string | null;
-  state: string;
 };
 
 export type ProjectshellAllProjectMetadata = {

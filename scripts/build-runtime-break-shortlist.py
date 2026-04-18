@@ -252,9 +252,7 @@ def load_named_imports_for_source(
     if not source_path.is_file():
         import_cache[file_path] = {}
         return None
-    imports = parse_named_imports(
-        source_path.read_text(encoding="utf-8", errors="replace")
-    )
+    imports = parse_named_imports(source_path.read_text(encoding="utf-8", errors="replace"))
     import_cache[file_path] = imports
     return imports
 
@@ -307,13 +305,14 @@ def missing_name_survives_js_emit(
     return re.search(rf"\b{re.escape(symbol)}\b", output_text) is not None
 
 
-def iter_frontend_runtime_diagnostics(
-    repo_root: Path, frontend_typecheck: Path
-) -> list[tuple[str, int, Path, str, str]]:
+def parse_frontend_diagnostics(
+    repo_root: Path, frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
+) -> None:
     if not frontend_typecheck.is_file():
-        return []
-
-    diagnostics: list[tuple[str, int, Path, str, str]] = []
+        return
+    import_cache: dict[str, dict[str, dict[str, bool]]] = {}
+    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None] = {}
+    transpiled_source_cache: dict[str, str | None] = {}
     for raw_line in frontend_typecheck.read_text(
         encoding="utf-8", errors="replace"
     ).splitlines():
@@ -327,172 +326,84 @@ def iter_frontend_runtime_diagnostics(
             or code not in RUNTIME_BREAK_TYPESCRIPT_CODES
         ):
             continue
-        diagnostics.append(
-            (file_path, int(line_text), repo_root / file_path, code, message)
-        )
-    return diagnostics
 
+        line = int(line_text)
+        source_path = repo_root / file_path
 
-def record_missing_runtime_name(
-    buckets: dict[tuple[str, str], Finding],
-    transpiled_source_cache: dict[str, str | None],
-    *,
-    repo_root: Path,
-    file_path: str,
-    line: int,
-    source_path: Path,
-    code: str,
-    message: str,
-) -> bool:
-    if code != "2304":
-        return False
-
-    symbol = missing_name_symbol(message)
-    if symbol is None:
-        return True
-
-    if not missing_name_survives_js_emit(
-        transpiled_source_cache,
-        repo_root=repo_root,
-        file_path=file_path,
-        source_path=source_path,
-        symbol=symbol,
-    ):
-        return True
-
-    add_bucket(
-        buckets,
-        kind="missing-runtime-name",
-        file_path=file_path,
-        line=line,
-        priority=100,
-        title="Production code references an unbound runtime identifier",
-        why="An unresolved identifier that still survives emitted JS will throw at render or module evaluation time on supported paths.",
-        evidence=f"{file_path}:{line} TS{code}: {message}",
-    )
-    return True
-
-
-def record_missing_generated_member(
-    buckets: dict[tuple[str, str], Finding],
-    *,
-    file_path: str,
-    line: int,
-    code: str,
-    message: str,
-) -> bool:
-    if code != "2339" or "does not exist on type '{ readonly" not in message:
-        return False
-
-    add_bucket(
-        buckets,
-        kind="missing-generated-member",
-        file_path=file_path,
-        line=line,
-        priority=98,
-        title="Production code expects runtime enum/object members that are missing",
-        why="A readonly generated runtime object used by production code is missing members, which strongly suggests broken live dispatch or contract wiring.",
-        evidence=f"{file_path}:{line} TS{code}: {message}",
-    )
-    return True
-
-
-def record_missing_runtime_export(
-    buckets: dict[tuple[str, str], Finding],
-    import_cache: dict[str, dict[str, dict[str, bool]]],
-    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None],
-    transpiled_source_cache: dict[str, str | None],
-    *,
-    repo_root: Path,
-    file_path: str,
-    line: int,
-    source_path: Path,
-    code: str,
-    message: str,
-) -> None:
-    missing_export = missing_export_details(message)
-    if missing_export is None:
-        return
-
-    module_path, symbol = missing_export
-    if not is_frontend_local_module(module_path):
-        return
-
-    imports = load_named_imports_for_source(
-        import_cache,
-        file_path=file_path,
-        source_path=source_path,
-    )
-    if imports is None or not imports.get(module_path, {}).get(symbol, False):
-        return
-
-    if not missing_export_survives_js_emit(
-        emitted_import_cache,
-        transpiled_source_cache,
-        repo_root=repo_root,
-        file_path=file_path,
-        source_path=source_path,
-        module_path=module_path,
-        symbol=symbol,
-    ):
-        return
-
-    priority = 100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99
-    add_bucket(
-        buckets,
-        kind="missing-runtime-export",
-        file_path=file_path,
-        line=line,
-        priority=priority,
-        title="Production code imports value symbols that the source module does not export",
-        why="A production-path value import points at a missing export, which breaks module evaluation and can crash app startup or any supported flow that loads the module.",
-        evidence=f"{file_path}:{line} TS{code}: {message}",
-    )
-
-
-def parse_frontend_diagnostics(
-    repo_root: Path, frontend_typecheck: Path, buckets: dict[tuple[str, str], Finding]
-) -> None:
-    import_cache: dict[str, dict[str, dict[str, bool]]] = {}
-    emitted_import_cache: dict[str, dict[str, dict[str, bool]] | None] = {}
-    transpiled_source_cache: dict[str, str | None] = {}
-    for (
-        file_path,
-        line,
-        source_path,
-        code,
-        message,
-    ) in iter_frontend_runtime_diagnostics(repo_root, frontend_typecheck):
-        if record_missing_runtime_name(
-            buckets,
-            transpiled_source_cache,
-            repo_root=repo_root,
-            file_path=file_path,
-            line=line,
-            source_path=source_path,
-            code=code,
-            message=message,
-        ):
+        if code == "2304":
+            symbol = missing_name_symbol(message)
+            if symbol is None:
+                continue
+            if not missing_name_survives_js_emit(
+                transpiled_source_cache,
+                repo_root=repo_root,
+                file_path=file_path,
+                source_path=source_path,
+                symbol=symbol,
+            ):
+                continue
+            add_bucket(
+                buckets,
+                kind="missing-runtime-name",
+                file_path=file_path,
+                line=line,
+                priority=100,
+                title="Production code references an unbound runtime identifier",
+                why="An unresolved identifier that still survives emitted JS will throw at render or module evaluation time on supported paths.",
+                evidence=f"{file_path}:{line} TS{code}: {message}",
+            )
             continue
-        if record_missing_generated_member(
-            buckets,
-            file_path=file_path,
-            line=line,
-            code=code,
-            message=message,
-        ):
+
+        if code == "2339" and "does not exist on type '{ readonly" in message:
+            add_bucket(
+                buckets,
+                kind="missing-generated-member",
+                file_path=file_path,
+                line=line,
+                priority=98,
+                title="Production code expects runtime enum/object members that are missing",
+                why="A readonly generated runtime object used by production code is missing members, which strongly suggests broken live dispatch or contract wiring.",
+                evidence=f"{file_path}:{line} TS{code}: {message}",
+            )
             continue
-        record_missing_runtime_export(
-            buckets,
+
+        missing_export = missing_export_details(message)
+        if missing_export is None:
+            continue
+
+        module_path, symbol = missing_export
+        if not is_frontend_local_module(module_path):
+            continue
+
+        imports = load_named_imports_for_source(
             import_cache,
+            file_path=file_path,
+            source_path=source_path,
+        )
+        if imports is None or not imports.get(module_path, {}).get(symbol, False):
+            continue
+
+        if not missing_export_survives_js_emit(
             emitted_import_cache,
             transpiled_source_cache,
             repo_root=repo_root,
             file_path=file_path,
-            line=line,
             source_path=source_path,
-            code=code,
-            message=message,
+            module_path=module_path,
+            symbol=symbol,
+        ):
+            continue
+
+        priority = 100 if module_path in {"utils/generatedTypes", "utils/constants"} else 99
+        add_bucket(
+            buckets,
+            kind="missing-runtime-export",
+            file_path=file_path,
+            line=line,
+            priority=priority,
+            title="Production code imports value symbols that the source module does not export",
+            why="A production-path value import points at a missing export, which breaks module evaluation and can crash app startup or any supported flow that loads the module.",
+            evidence=f"{file_path}:{line} TS{code}: {message}",
         )
 
 

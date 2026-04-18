@@ -24,7 +24,7 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	})
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
-			pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta): map[string]any{
+			string(PluginScopeWorkspace) + ":setta-fixture-full": map[string]any{
 				"enabled": true,
 				"label":   "fixture",
 			},
@@ -227,7 +227,7 @@ func TestServiceRuntimeRedactsConfigAndSourceOutsideIDE(t *testing.T) {
 	})
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
-			pluginConfigKey("setta-fixture-full", PluginScopeWorkspace, PluginSourceManagerSetta): map[string]any{
+			string(PluginScopeWorkspace) + ":setta-fixture-full": map[string]any{
 				"enabled": true,
 				"secret":  "value",
 			},
@@ -326,52 +326,6 @@ func TestServiceRuntimeConfigDigestsChangeAfterConfigWrite(t *testing.T) {
 	}
 	if got := secondEntry.Config.CurrentConfig["label"]; got != "digest-change" {
 		t.Fatalf("expected updated config label, got %#v", got)
-	}
-}
-
-func TestServiceRuntimeIgnoresLegacyPluginConfigKeysForSameScopeDuplicates(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages, _ := installPackageManagerFixture(
-		t,
-		"full",
-		"setta-fixture-full",
-		"0.1.0",
-		func(pluginRoot string) {
-			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
-				frontend := payload["frontend"].(map[string]any)
-				frontend["entrypoint"] = "frontend/src/index.js"
-				frontend["style"] = "frontend/src/index.css"
-			})
-		},
-	)
-	localRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "full")
-	rewritePluginManifest(t, localRoot, func(payload map[string]any) {
-		frontend := payload["frontend"].(map[string]any)
-		frontend["entrypoint"] = "frontend/src/index.js"
-		frontend["style"] = "frontend/src/index.css"
-	})
-	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
-		"pluginConfigById": map[string]any{
-			string(PluginScopeSettaFiles) + ":setta-fixture-full": map[string]any{
-				"label": "legacy-config",
-			},
-		},
-	})
-
-	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
-	runtimeResponse, err := service.Runtime(RuntimeOptions{
-		AssetURLBuilder: testRuntimeAssetURLBuilder,
-	})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-
-	listEntry := mustFindRuntimeListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
-	if listEntry.SourceScope != PluginScopeSettaFiles || listEntry.SourceManager != PluginSourceManagerSetta {
-		t.Fatalf("expected active same-scope setta entry, got scope=%q manager=%q", listEntry.SourceScope, listEntry.SourceManager)
-	}
-	if len(listEntry.Config.CurrentConfig) != 0 {
-		t.Fatalf("expected legacy config key to be ignored by runtime, got %#v", listEntry.Config.CurrentConfig)
 	}
 }
 
@@ -724,7 +678,10 @@ func TestServiceRuntimeBlocksLanguageServerCapabilityByModePolicy(t *testing.T) 
 				t.Fatalf("expected mode-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
 			}
 
-			specs := loadSelectedLanguageServerSpecs(t, service, nil)
+			specs, err := service.LanguageServerSpecs(context.Background(), nil)
+			if err != nil {
+				t.Fatalf("load language server specs: %v", err)
+			}
 			if len(specs) != 0 {
 				t.Fatalf("expected no language server specs in %s, got %#v", mode, specs)
 			}
@@ -934,9 +891,12 @@ func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing
 	if len(runtimeResponse.Status.Plugins) != 1 {
 		t.Fatalf("expected one runtime status plugin, got %#v", runtimeResponse.Status.Plugins)
 	}
-	languageServerSpecs := loadSelectedLanguageServerSpecs(t, service, map[string]*string{
+	languageServerSpecs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
 		"fixturedsl": stringPointer("setta-fixture-backend"),
 	})
+	if err != nil {
+		t.Fatalf("load language server specs after link refresh: %v", err)
+	}
 	if len(languageServerSpecs) != 1 {
 		t.Fatalf("expected one language server spec after link refresh, got %#v", languageServerSpecs)
 	}
@@ -969,9 +929,12 @@ func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing
 	if len(runtimeResponse.List.Plugins) != 0 || len(runtimeResponse.Status.Plugins) != 0 {
 		t.Fatalf("expected backend registrations to clear after uninstall refresh, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
 	}
-	languageServerSpecs = loadSelectedLanguageServerSpecs(t, service, map[string]*string{
+	languageServerSpecs, err = service.LanguageServerSpecs(context.Background(), map[string]*string{
 		"fixturedsl": stringPointer("setta-fixture-backend"),
 	})
+	if err != nil {
+		t.Fatalf("load language server specs after uninstall refresh: %v", err)
+	}
 	if len(languageServerSpecs) != 0 {
 		t.Fatalf("expected language server specs to clear after uninstall refresh, got %#v", languageServerSpecs)
 	}

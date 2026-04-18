@@ -14,6 +14,7 @@ const (
 	lspCommandEnv        = "SETTA_LSP_COMMAND"
 	lspArgsEnv           = "SETTA_LSP_ARGS"
 	pythonEnv            = "SETTA_PYTHON"
+	virtualEnvEnv        = "VIRTUAL_ENV"
 	basedpyrightSettings = "basedpyright"
 )
 
@@ -65,20 +66,27 @@ func resolveLanguageServerCommand(lookupEnv func(string) (string, bool)) (string
 }
 
 func resolveInterpreter(lookupEnv func(string) (string, bool)) (string, error) {
-	configured, ok := lookupEnv(pythonEnv)
-	if !ok || strings.TrimSpace(configured) == "" {
-		return "", fmt.Errorf("python interpreter unavailable for setta-basedpyright plugin; set %s", pythonEnv)
+	if configured, ok := lookupEnv(pythonEnv); ok && strings.TrimSpace(configured) != "" {
+		return resolveCommand(strings.TrimSpace(configured))
 	}
-	return resolveCommand(strings.TrimSpace(configured))
+	if virtualEnv, ok := lookupEnv(virtualEnvEnv); ok && strings.TrimSpace(virtualEnv) != "" {
+		candidate := filepath.Join(strings.TrimSpace(virtualEnv), "bin", "python")
+		if isExecutableFile(candidate) {
+			return candidate, nil
+		}
+	}
+	for _, candidate := range []string{"python3", "python"} {
+		resolved, err := exec.LookPath(candidate)
+		if err == nil {
+			return resolved, nil
+		}
+	}
+	return "", fmt.Errorf("python interpreter unavailable for setta-basedpyright plugin")
 }
 
 func resolveCommand(candidate string) (string, error) {
-	if strings.ContainsRune(candidate, os.PathSeparator) {
-		resolved, err := normalizeCommandPath(candidate)
-		if err != nil {
-			return "", fmt.Errorf("resolve command %q: %w", candidate, err)
-		}
-		return resolved, nil
+	if strings.ContainsRune(candidate, filepath.Separator) {
+		return filepath.Abs(candidate)
 	}
 	resolved, err := exec.LookPath(candidate)
 	if err != nil {
@@ -87,26 +95,12 @@ func resolveCommand(candidate string) (string, error) {
 	return resolved, nil
 }
 
-func normalizeCommandPath(raw string) (string, error) {
-	value := strings.TrimSpace(raw)
-	if value == "" {
-		return "", fmt.Errorf("missing path")
+func isExecutableFile(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
 	}
-	value = os.ExpandEnv(value)
-	if value == "~" || strings.HasPrefix(value, "~/") || strings.HasPrefix(value, "~\\") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve user home: %w", err)
-		}
-		suffix := strings.TrimPrefix(strings.TrimPrefix(value, "~"), string(os.PathSeparator))
-		suffix = strings.TrimPrefix(strings.TrimPrefix(suffix, "/"), "\\")
-		value = filepath.Join(home, suffix)
-	}
-	resolved, err := filepath.Abs(value)
-	if err != nil {
-		return "", fmt.Errorf("resolve path %q: %w", raw, err)
-	}
-	return filepath.Clean(resolved), nil
+	return info.Mode()&0o111 != 0
 }
 
 func fail(err error) {

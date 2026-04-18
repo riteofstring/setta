@@ -20,15 +20,11 @@ Use these first for day-to-day work.
   - Prefers worktree-derived backend/frontend/CDP ports and auto-selects free ports when collisions occur.
   - Uses the same default dev paths as `start.sh`.
   - Accepts the same runtime path flags as `start.sh`.
-  - Safe for Codex to start directly when temporary CDP/browser verification is needed.
-  - If Codex starts it for temporary verification, cleanup should stop the `./ai.sh` session, not just browser MCP. Use `./kill.sh` as the repo-scoped fallback.
   - Wrapper over `scripts/ai.sh`.
 - `./aireset.sh`
   - Wipes the resolved active state root, then runs `./ai.sh`.
   - Uses the same default dev paths as `start.sh`.
   - Accepts the same runtime path flags as `start.sh` (except `--force` / `--yes`).
-  - Prefer only when Codex needs a clean reset before browser verification.
-  - Cleanup has the same requirement as `./ai.sh`: stop the session, not only the browser MCP helper.
 - `./kill.sh`
   - Stops dev processes + browser MCP helpers.
   - Wrapper over `scripts/kill-setta.sh`.
@@ -146,8 +142,6 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
-  - On exit it stops browser MCP helpers automatically and kills the owned dev process.
-  - If you start browser MCP separately, use `./scripts/stop-browser-mcp.sh --devtools` for cleanup.
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
   - Browser MCP utilities.
   - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.
@@ -163,7 +157,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
   - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
-  - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires an agent-started or developer-started browser session.
+  - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires a developer-started browser session.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
   - Specialized Codex loop for fixing only actionable runtime bugs that are surfaced by type errors instead of broad repo type backlog cleanup.
   - Starts a fresh Codex session every iteration, seeds a single-phase runtime-bug checklist plus audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs to build a filtered `runtime-break-shortlist.md` rather than handing Codex the full raw checker dump.

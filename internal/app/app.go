@@ -516,6 +516,7 @@ func initializeWorkspaceLSPServices(
 	)
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
 		Settings: func() map[string]any {
 			var document map[string]any
@@ -2455,13 +2456,11 @@ func configureAppPluginRuntime(
 		return
 	}
 	services.pluginRuntime = &pluginBackendRuntimeRefresher{
-		service:        projectServices.pluginMutationService,
-		logger:         logger,
-		runtimeRoot:    cfg.Paths.RuntimeRoot,
-		settings:       projectServices.settingsStateRuntime,
-		projectState:   projectServices.projectRuntime,
-		projectLSPSync: projectServices.projectLSPSyncer,
-		lspRouter:      projectServices.lspRouter,
+		service:     projectServices.pluginMutationService,
+		logger:      logger,
+		runtimeRoot: cfg.Paths.RuntimeRoot,
+		settings:    projectServices.settingsStateRuntime,
+		lspRouter:   projectServices.lspRouter,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {

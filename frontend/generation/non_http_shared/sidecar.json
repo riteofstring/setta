@@ -4970,42 +4970,6 @@
       "schemaRef": "#/$defs/SectionsClipboardData"
     },
     {
-      "name": "SelectedLanguageServerState",
-      "kind": "enum",
-      "schemaRef": "#/$defs/SelectedLanguageServerState",
-      "enumValues": [
-        {
-          "name": "not_selected",
-          "value": "not_selected"
-        },
-        {
-          "name": "disabled",
-          "value": "disabled"
-        },
-        {
-          "name": "ready",
-          "value": "ready"
-        },
-        {
-          "name": "selected_plugin_missing",
-          "value": "selected_plugin_missing"
-        },
-        {
-          "name": "selected_plugin_wrong_language",
-          "value": "selected_plugin_wrong_language"
-        },
-        {
-          "name": "selected_plugin_unavailable",
-          "value": "selected_plugin_unavailable"
-        }
-      ]
-    },
-    {
-      "name": "SelectedLanguageServerStatus",
-      "kind": "model",
-      "schemaRef": "#/$defs/SelectedLanguageServerStatus"
-    },
-    {
       "name": "SelectionMode",
       "kind": "enum",
       "schemaRef": "#/$defs/SelectionMode",
@@ -9890,13 +9854,6 @@
         "zoomOnDoubleClick": false,
         "zoomOnPinch": true,
         "zoomOnScroll": true
-      }
-    },
-    {
-      "profile": "frontend",
-      "type": "SettingsLanguageServer",
-      "value": {
-        "selectedByLanguage": {}
       }
     },
     {

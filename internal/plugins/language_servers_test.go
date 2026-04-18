@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -17,7 +18,10 @@ func TestServiceLanguageServerSpecsRequiresExplicitSelection(t *testing.T) {
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	specs := loadSelectedLanguageServerSpecs(t, service, nil)
+	specs, err := service.LanguageServerSpecs(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
 	if len(specs) != 0 {
 		t.Fatalf("expected no active language server specs without explicit selection, got %#v", specs)
 	}
@@ -33,9 +37,12 @@ func TestServiceLanguageServerSpecsIncludesSelectedPluginLanguageServer(t *testi
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	specs := loadSelectedLanguageServerSpecs(t, service, map[string]*string{
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
 		"fixturedsl": testStringPointer("setta-fixture-backend"),
 	})
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
 	if len(specs) != 1 {
 		t.Fatalf("expected one plugin language server spec, got %#v", specs)
 	}
@@ -76,63 +83,17 @@ func TestServiceLanguageServerSpecsAllowsSameLanguagePluginsUntilSelectionChoose
 	}
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	specs := loadSelectedLanguageServerSpecs(t, service, map[string]*string{
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
 		"fixturedsl": testStringPointer("setta-fixture-backend-b"),
 	})
+	if err != nil {
+		t.Fatalf("load selected language server specs: %v", err)
+	}
 	if len(specs) != 1 {
 		t.Fatalf("expected one selected language server spec, got %#v", specs)
 	}
 	if specs[0].PluginID != "setta-fixture-backend-b" {
 		t.Fatalf("expected selected plugin b, got %#v", specs[0])
-	}
-}
-
-func TestLanguageServerSpecsFromSnapshotKeepsPrimaryPluginCopyForDuplicatePluginIDs(t *testing.T) {
-	t.Parallel()
-
-	snapshot := DiscoverySnapshot{
-		Plugins: []DiscoveredPlugin{
-			{
-				PluginID:              "setta-basedpyright",
-				State:                 PluginRuntimeStateActive,
-				Manifest:              &PluginManifest{ID: "setta-basedpyright"},
-				EffectiveCapabilities: []string{"registerLanguageServer"},
-				RegisteredLanguageServers: []PluginRegisteredLanguageServer{{
-					PluginID: "setta-basedpyright",
-					Name:     "basedpyright",
-					Language: "python",
-					Command:  "/workspace/basedpyright",
-				}},
-			},
-			{
-				PluginID:              "setta-basedpyright",
-				State:                 PluginRuntimeStateActive,
-				Manifest:              &PluginManifest{ID: "setta-basedpyright"},
-				EffectiveCapabilities: []string{"registerLanguageServer"},
-				RegisteredLanguageServers: []PluginRegisteredLanguageServer{{
-					PluginID: "setta-basedpyright",
-					Name:     "basedpyright",
-					Language: "python",
-					Command:  "/package-manager/basedpyright",
-				}},
-			},
-		},
-	}
-
-	specs, err := languageServerSpecsFromSnapshotWithState(
-		snapshot,
-		&PluginsStateFile{},
-		map[string]*string{"python": testStringPointer("setta-basedpyright")},
-		t.TempDir(),
-	)
-	if err != nil {
-		t.Fatalf("build selected language server specs: %v", err)
-	}
-	if len(specs) != 1 {
-		t.Fatalf("expected one selected language server spec, got %#v", specs)
-	}
-	if specs[0].Command != "/workspace/basedpyright" {
-		t.Fatalf("expected higher-precedence plugin command, got %#v", specs[0])
 	}
 }
 
@@ -146,9 +107,12 @@ func TestServiceLanguageServerSpecsKeepsMissingSelectionInactive(t *testing.T) {
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	specs := loadSelectedLanguageServerSpecs(t, service, map[string]*string{
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
 		"fixturedsl": testStringPointer("missing-plugin"),
 	})
+	if err != nil {
+		t.Fatalf("load language server specs with missing selection: %v", err)
+	}
 	if len(specs) != 0 {
 		t.Fatalf("expected missing selection to stay inactive, got %#v", specs)
 	}
@@ -165,9 +129,12 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	specs := loadSelectedLanguageServerSpecs(t, service, map[string]*string{
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
 		"python": testStringPointer("setta-basedpyright"),
 	})
+	if err != nil {
+		t.Fatalf("load first-party basedpyright language server specs: %v", err)
+	}
 	if len(specs) != 1 {
 		t.Fatalf("expected one basedpyright spec, got %#v", specs)
 	}

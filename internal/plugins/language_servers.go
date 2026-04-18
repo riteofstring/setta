@@ -1,12 +1,32 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
 
 	"setta/internal/lsp"
 )
+
+func (s *Service) LanguageServerSpecs(_ context.Context, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	if s == nil {
+		return nil, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return nil, err
+	}
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return nil, err
+	}
+	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage)
+}
 
 func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
 	if s == nil {
@@ -20,23 +40,27 @@ func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, sel
 	if err != nil {
 		return nil, err
 	}
-	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.store.settaFilesRoot)
+	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage)
 }
 
-func languageServerSpecsFromSnapshotWithState(snapshot DiscoverySnapshot, pluginsState *PluginsStateFile, selectedByLanguage map[string]*string, settaFilesRoot string) ([]lsp.LanguageServerSpec, error) {
-	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState, settaFilesRoot)
+func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage)
+}
+
+func languageServerSpecsFromSnapshotWithState(snapshot DiscoverySnapshot, pluginsState *PluginsStateFile, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState)
 	if err != nil {
 		return nil, err
 	}
 	return selectedLanguageServerSpecs(registrations, selectedByLanguage), nil
 }
 
-func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *PluginsStateFile, settaFilesRoot string) ([]lsp.LanguageServerSpec, error) {
+func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *PluginsStateFile) ([]lsp.LanguageServerSpec, error) {
 	collector := languageServerSpecCollector{
 		specs: make([]lsp.LanguageServerSpec, 0),
 	}
-	for _, entry := range primaryDiscoveredPluginEntries(entries) {
-		if err := collector.addEntry(entry, pluginsState, settaFilesRoot); err != nil {
+	for _, entry := range entries {
+		if err := collector.addEntry(entry, pluginsState); err != nil {
 			return nil, err
 		}
 	}
@@ -48,12 +72,12 @@ type languageServerSpecCollector struct {
 	specs []lsp.LanguageServerSpec
 }
 
-func (c *languageServerSpecCollector) addEntry(entry DiscoveredPlugin, pluginsState *PluginsStateFile, settaFilesRoot string) error {
+func (c *languageServerSpecCollector) addEntry(entry DiscoveredPlugin, pluginsState *PluginsStateFile) error {
 	if !pluginProvidesLanguageServer(entry) {
 		return nil
 	}
 	for _, registration := range entry.RegisteredLanguageServers {
-		spec, language, err := buildLanguageServerSpec(entry, registration, pluginsState, settaFilesRoot)
+		spec, language, err := buildLanguageServerSpec(entry, registration, pluginsState)
 		if err != nil {
 			return err
 		}
@@ -67,21 +91,16 @@ func pluginProvidesLanguageServer(entry DiscoveredPlugin) bool {
 	if entry.Manifest == nil {
 		return false
 	}
-	if entry.State != PluginRuntimeStateActive {
+	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
 		return false
 	}
 	return containsString(entry.EffectiveCapabilities, "registerLanguageServer")
 }
 
-func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer, pluginsState *PluginsStateFile, settaFilesRoot string) (lsp.LanguageServerSpec, string, error) {
+func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer, pluginsState *PluginsStateFile) (lsp.LanguageServerSpec, string, error) {
 	language := strings.ToLower(strings.TrimSpace(registration.Language))
 	if language == "" {
 		return lsp.LanguageServerSpec{}, "", fmt.Errorf("plugin language server language is required")
-	}
-	settingsKey := cloneOptionalString(registration.SettingsKey)
-	settings := languageServerSettingsRoot(entry, pluginsState)
-	if language == "python" && settingsKey != nil && *settingsKey == "basedpyright" {
-		settings = lsp.BuildBasedpyrightSettingsRoot(settings, []string{settaFilesRoot})
 	}
 	return lsp.LanguageServerSpec{
 		PluginID:    strings.TrimSpace(registration.PluginID),
@@ -89,8 +108,8 @@ func buildLanguageServerSpec(entry DiscoveredPlugin, registration PluginRegister
 		LanguageID:  language,
 		Command:     strings.TrimSpace(registration.Command),
 		Args:        append([]string(nil), registration.Args...),
-		Settings:    settings,
-		SettingsKey: settingsKey,
+		Settings:    languageServerSettingsRoot(entry, pluginsState),
+		SettingsKey: cloneOptionalString(registration.SettingsKey),
 	}, language, nil
 }
 
