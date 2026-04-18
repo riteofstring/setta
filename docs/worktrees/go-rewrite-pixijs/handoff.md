@@ -985,6 +985,42 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 - The shared kwargs action-button lane is now closed at its useful ownership boundary:
   - the repeated callable-style kwargs action strip no longer contributes legacy `button` roots at rest on the canvas path
   - do not reopen this lane unless a fresh visible defect appears in the shared kwargs toolbar family
+- The next shared switch-primitive slice is now landed on the canonical target `settings-section__chatSectionDefault`:
+  - fresh post-kwargs inventory showed the next repeated `button` family clearly: the dense `All Settings` surface still mounted `129` generic settings switch roots plus `18` canvas-track switch roots as live `button[role="switch"]` nodes at rest
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the lightweight switch activator as a shared settings-section rule instead of a backend-only lane, so every settings `SwitchParam` on the `canvas-shell-underlay` path reuses the existing lightweight `DIV[role="switch"]` primitive
+  - focused coverage now exists for this shared lane:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - the live structural contract now holds across the dense settings surface:
+    - `0` `button[role="switch"]` roots remain across `section[data-section-id^="settings-section__"]`
+    - `156` settings switch roots now mount `data-canvas-owned-lightweight-switch="true"`
+    - `settings-section__chatSectionDefault` now uses a lightweight `DIV[role="switch"]` root for the `Aspect Ratio` row and preserves first-click toggle
+    - `settings-section__callableSectionDefault` still mounts `6` lightweight switch roots with `data-canvas-owned-switch-track="true"`, so the existing canvas-track lane remained intact after the shared activator change
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-switch-rerun.md`
+  - dense rerun outcome versus the prior shared kwargs action-button report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` stayed at `55`
+    - `buttonCount` dropped from `233` to `86`
+    - `raf.meanMs` improved from `108.75ms` to `105.12ms`
+    - `raf.p95Ms` improved from `216.6ms` to `200ms`
+    - `longTasks.totalMs` improved from `17559ms` to `16975ms`
+  - treat this slice as a real interactive-core plateau reduction: it removes the repeated settings switch family from live `button` roots at rest without reopening a closed section-local lane or introducing a second click
+- focused verification passed for the shared lightweight switch slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-004/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.7s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-004/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.2s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 86`
+- CDP visual check is done for the shared lightweight switch slice:
+  - `/settings` loaded cleanly with no visible crash or error overlay
+  - `All Settings` was active and exactly one `.react-flow__section-shell-backdrop canvas` remained mounted
+  - `settings-section__chatSectionDefault` was present and its `Aspect Ratio` switch row still looked intact after the lightweight switch-root change
+  - `settings-section__callableSectionDefault` remained present and its canvas-owned switch-track rows still looked intact with no obvious blank or missing control slot
+- The shared settings switch lane is now closed at its useful ownership boundary:
+  - the repeated settings switch family no longer contributes legacy `button[role="switch"]` roots at rest on the canvas path
+  - do not reopen another settings-switch micro-lane unless a fresh visible switch defect appears
 
 ## Preservation rule
 
@@ -1024,11 +1060,11 @@ That leaves one primary architectural move:
 11. Treat the new `settings-section__backend` ordinary-dropdown lane as closed at its current ownership boundary; do not reopen it for another dropdown micro-slice unless a fresh visible defect appears there.
 12. Treat the new `settings-section__backend` switch-family lane as closed at its current ownership boundary; do not reopen it for another backend-only switch micro-slice unless a fresh visible defect appears there.
 13. Treat the shared kwargs action-button lane as closed at its current ownership boundary; do not reopen another kwargs toolbar micro-slice unless a fresh visible defect appears there.
-14. Treat the current best checkpoint as proof of direction, not proof of success: `settings` -> `All Settings` still performs poorly in absolute terms at `raf.meanMs 108.75`, `raf.p95Ms 216.6`, and `longTasks.totalMs 17559`, so the branch still owes a major pan/zoom win.
-15. The next automated pass must target the next real dense frontier from a fresh post-kwargs inventory, not another `gui`, `backend`, `sectionSizingPolicy`, or kwargs cleanup hop.
+14. Treat the current best checkpoint as proof of direction, not proof of success: `settings` -> `All Settings` still performs poorly in absolute terms even after the shared switch slice at `raf.meanMs 105.12`, `raf.p95Ms 200`, and `longTasks.totalMs 16975`, so the branch still owes a major pan/zoom win.
+15. The next automated pass must target the next real dense frontier from the fresh post-switch inventory, not another `gui`, `backend`, `sectionSizingPolicy`, kwargs, or switch cleanup hop.
 16. Current priority order is:
-    - another shared value/editor or switch primitive that can materially reduce the remaining `55` / `233` interactive-core plateau across multiple sections at once
-    - only after a fresh inventory confirms the owner, the single highest-payoff remaining repeated button/value family outside the closed kwargs/backend/gui/sectionSizingPolicy lanes
+    - the single highest-payoff remaining repeated button/value family after the shared switch slice; the fresh post-switch inventory now points first at the repeated per-section `button[role="menuitem"]` family (`46` roots) if its trigger ownership can move without breaking first-click menu behavior
+    - only if that menu-trigger owner is not a robust next slice, the next shared value/editor or button primitive that can materially reduce the remaining `55` / `86` interactive-core plateau across multiple settings sections at once
     - only if neither shared primitive exposes material payoff, the single highest-payoff remaining dense section family on `All Settings`
 17. If the next candidate slice does not plausibly move the global dense-scene numbers before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
 

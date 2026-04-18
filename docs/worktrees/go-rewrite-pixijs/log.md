@@ -155,6 +155,58 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-18 052
+
+- Item: Replace the shared settings switch `button` roots with lightweight switch activators on the canvas path.
+- Status: `done`
+- Details:
+  - Started from the fresh post-kwargs inventory instead of reopening the closed `gui`, `backend`, `sectionSizingPolicy`, or kwargs cleanup lanes.
+  - The live `All Settings` inventory showed the next repeated `button` family clearly:
+    - `129` generic settings `button[role="switch"]` roots
+    - `18` canvas-track `button[role="switch"]` roots in the callable/dict/globalVariables canary shells
+  - That made the real next bounded slice the shared switch primitive, not another section-local follow-up.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats lightweight switch activation as a shared settings-section rule instead of a backend-only rule, so every settings `SwitchParam` on the `canvas-shell-underlay` path reuses the existing lightweight `DIV[role="switch"]` primitive.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - The live structural contract now holds on the dense `All Settings` surface:
+    - `0` `button[role="switch"]` roots remain across `section[data-section-id^="settings-section__"]`
+    - `156` settings switch roots now mount `data-canvas-owned-lightweight-switch="true"`
+    - canonical target section for the lane: `settings-section__chatSectionDefault`
+    - target row: `ParamContainer-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__aspectRatio`
+    - `settings-section__callableSectionDefault` still mounts `6` lightweight switch roots with `data-canvas-owned-switch-track="true"`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-switch-rerun.md`.
+  - Dense rerun outcome versus the prior shared kwargs action-button report:
+    - `documentNodeCount`: `8182 -> 8182`
+    - `inputCount`: `55 -> 55`
+    - `buttonCount`: `233 -> 86`
+    - `raf.meanMs`: `108.75 -> 105.12`
+    - `raf.p95Ms`: `216.6 -> 200`
+    - `longTasks.totalMs`: `17559 -> 16975`
+  - Interpretation:
+    - this was a real interactive-core plateau reduction, not a wrapper-only cleanup pass
+    - the shared settings switch lane is now closed at its useful ownership boundary
+    - the next pass should start from the fresh post-switch inventory, where the repeated per-section `button[role="menuitem"]` family (`46` roots) is currently the leading remaining repeated button owner if its trigger semantics can move safely
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-004/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.7s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-004/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.2s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 86`
+- CDP visual check is done:
+  - existing headless session on `http://127.0.0.1:3068/settings` was healthy and usable
+  - `/settings` loaded cleanly with no visible crash/error overlay
+  - `All Settings` was visibly active
+  - exactly one `.react-flow__section-shell-backdrop canvas` remained mounted
+  - `settings-section__chatSectionDefault` was present and its `Aspect Ratio` switch row still rendered intact
+  - `settings-section__callableSectionDefault` was present and still showed the canvas-owned switch tracks without obvious blank or missing controls
+  - caveat: this was a live DOM + viewport check in the existing headless session, not a full-page manual scroll audit
+- Next action:
+  - start the next iteration from the fresh post-switch inventory and decide whether the repeated per-section `button[role="menuitem"]` owner (`46` roots) is the next safe shared primitive, or whether another shared value/editor family is the next real dense-scene payoff
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-18 050
 
 - Item: Land the backend lightweight switch activator slice.

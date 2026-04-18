@@ -258,7 +258,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets backend switch params for the lightweight switch activator lane", () => {
+  it("targets switch params across settings sections for the lightweight switch activator lane", () => {
     expect(
       isCanvasOwnedSectionLightweightSwitch({
         codeObjType: CodeObjTypeEnum.SwitchParam,
@@ -273,8 +273,26 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
     expect(
       isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightSwitch({
         codeObjType: CodeObjTypeEnum.SwitchParam,
         sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: CodeObjTypeEnum.SwitchParam,
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitch({
+        codeObjType: CodeObjTypeEnum.SwitchParam,
+        sectionId: "round_lime__callableSectionDefault",
       }),
     ).toBe(false);
   });

@@ -15,6 +15,7 @@ export const BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__backend";
 export const BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID =
   "settings-section__backend";
+const SETTINGS_SECTION_ID_PREFIX = "settings-section__";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -79,6 +80,10 @@ function hasNonEmptyStyleColor(
   return typeof styleColor === "string" && styleColor.trim().length > 0;
 }
 
+function isSettingsSectionId(sectionId: string) {
+  return sectionId.startsWith(SETTINGS_SECTION_ID_PREFIX);
+}
+
 export function isCanvasOwnedSectionShell(sectionId: string) {
   return CANVAS_OWNED_SECTION_SHELL_ID_SET.has(sectionId);
 }
@@ -130,8 +135,8 @@ export function isCanvasOwnedSectionLightweightSwitch({
   sectionId: string;
 }) {
   return (
-    sectionId === BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID &&
-    codeObjType === CodeObjTypeEnum.SwitchParam
+    codeObjType === CodeObjTypeEnum.SwitchParam &&
+    isSettingsSectionId(sectionId)
   );
 }
 

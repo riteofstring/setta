@@ -391,7 +391,27 @@ describe("ParamUI canvas-owned resting text", () => {
     },
   );
 
-  it("uses the lightweight switch activator path for backend switch params on the canvas path", () => {
+  it.each([
+    {
+      expectedCanvasOwnedTrack: false,
+      paramInfoId: "settings-codeobj__backend__backend__autosave",
+      sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+    },
+    {
+      expectedCanvasOwnedTrack: false,
+      paramInfoId:
+        "settings-codeobj__chatSectionDefault__chatSectionDefault__aspectRatio",
+      sectionId: "settings-section__chatSectionDefault",
+    },
+    {
+      expectedCanvasOwnedTrack: true,
+      paramInfoId:
+        "settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio",
+      sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+    },
+  ])(
+    "uses the lightweight switch activator path for switch params on the canvas path in $sectionId",
+    ({ expectedCanvasOwnedTrack, paramInfoId, sectionId }) => {
     mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
     mocks.state.codeObjImpl = {
       type: CodeObjTypeEnum.SwitchParam,
@@ -400,8 +420,8 @@ describe("ParamUI canvas-owned resting text", () => {
 
     renderToStaticMarkup(
       <ParamUI
-        sectionId={BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
-        paramInfoId="settings-codeobj__backend__backend__autosave"
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
         value="false"
         onChange={() => undefined}
       />,
@@ -409,6 +429,9 @@ describe("ParamUI canvas-owned resting text", () => {
 
     expect(mocks.switchProps).toHaveBeenCalledTimes(1);
     expect(mocks.switchProps.mock.calls[0][0].lightweightActivator).toBe(true);
-    expect(mocks.switchProps.mock.calls[0][0].canvasOwnedTrack).toBe(false);
-  });
+    expect(mocks.switchProps.mock.calls[0][0].canvasOwnedTrack).toBe(
+      expectedCanvasOwnedTrack,
+    );
+    },
+  );
 });
