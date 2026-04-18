@@ -39,11 +39,11 @@ func (s *stubRuntimeLSPRefresher) Refresh(_ context.Context) (plugins.DiscoveryS
 	return plugins.DiscoverySnapshot{}, s.refreshErr
 }
 
-func (s *stubRuntimeLSPRefresher) HasConfiguredLanguageServers() bool {
-	return s.hasSpecs
-}
-
-func (s *stubRuntimeLSPRefresher) RestartProject(_ context.Context, restart func() error) error {
+func (s *stubRuntimeLSPRefresher) RestartProject(
+	_ context.Context,
+	_ projectstate.Document,
+	restart func() error,
+) error {
 	s.restartCalls++
 	if s.refreshErr != nil {
 		return s.refreshErr

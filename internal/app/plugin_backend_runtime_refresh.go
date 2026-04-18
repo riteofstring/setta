@@ -13,6 +13,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 )
 
@@ -315,7 +316,11 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	return r.commitRefreshTransitionLocked(transition)
 }
 
-func (r *pluginBackendRuntimeRefresher) RestartProject(ctx context.Context, restart func() error) error {
+func (r *pluginBackendRuntimeRefresher) RestartProject(
+	ctx context.Context,
+	document projectstate.Document,
+	restart func() error,
+) error {
 	if restart == nil {
 		return errors.New("project restart callback is required")
 	}
@@ -333,19 +338,110 @@ func (r *pluginBackendRuntimeRefresher) RestartProject(ctx context.Context, rest
 	if err != nil {
 		return err
 	}
-	if len(transition.nextLSPSpecs) == 0 {
+	restartProjectLanguages, err := collectRestartProjectLanguages(document)
+	if err != nil {
 		closePluginBackendRuntime(transition.nextRuntime)
-		return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
+		return err
+	}
+	if !restartCanApplyToProjectLanguages(
+		restartProjectLanguages,
+		transition.previousLSPSpecs,
+		transition.nextLSPSpecs,
+	) {
+		closePluginBackendRuntime(transition.nextRuntime)
+		return fmt.Errorf(
+			"%w: no selected language servers are available for the current project",
+			lsp.ErrLanguageServerNotConfigured,
+		)
 	}
 	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
 		return err
 	}
 	if err := restart(); err != nil {
 		r.rollbackRefreshTransitionLocked(transition)
+		restoreErr := restart()
+		if restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("restore previous language server session: %w", restoreErr))
+		}
 		return err
 	}
 	_, err = r.commitRefreshTransitionLocked(transition)
 	return err
+}
+
+func collectRestartProjectLanguages(document projectstate.Document) (map[string]struct{}, error) {
+	normalized, err := document.Normalized()
+	if err != nil {
+		return nil, err
+	}
+
+	relevantProjects := restartRelevantProjects(normalized)
+	languages := map[string]struct{}{}
+	for _, project := range relevantProjects {
+		activeCodeSectionFiles, err := project.ActiveCodeSectionFiles()
+		if err != nil {
+			return nil, err
+		}
+		for _, sectionFile := range activeCodeSectionFiles {
+			languageID := normalizeTrackedLanguage(string(sectionFile.Language))
+			if languageID == "" {
+				continue
+			}
+			languages[languageID] = struct{}{}
+		}
+		if project.HasPythonCodegenTarget() {
+			languages["python"] = struct{}{}
+		}
+	}
+	return languages, nil
+}
+
+func restartRelevantProjects(document projectstate.Document) []projectstate.Project {
+	if projectID := strings.TrimSpace(document.DefaultProjectID); projectID != "" {
+		if project, ok := document.Projects[projectID]; ok {
+			return []projectstate.Project{project}
+		}
+	}
+
+	projectIDs := make([]string, 0, len(document.Projects))
+	for projectID := range document.Projects {
+		projectIDs = append(projectIDs, projectID)
+	}
+	sort.Strings(projectIDs)
+
+	projects := make([]projectstate.Project, 0, len(projectIDs))
+	for _, projectID := range projectIDs {
+		projects = append(projects, document.Projects[projectID])
+	}
+	return projects
+}
+
+func restartCanApplyToProjectLanguages(
+	projectLanguages map[string]struct{},
+	previousSpecs []lsp.LanguageServerSpec,
+	nextSpecs []lsp.LanguageServerSpec,
+) bool {
+	if len(projectLanguages) == 0 {
+		return true
+	}
+	return languageServerSpecsServeProjectLanguages(previousSpecs, projectLanguages) ||
+		languageServerSpecsServeProjectLanguages(nextSpecs, projectLanguages)
+}
+
+func languageServerSpecsServeProjectLanguages(
+	specs []lsp.LanguageServerSpec,
+	projectLanguages map[string]struct{},
+) bool {
+	for _, spec := range specs {
+		languageID := normalizeTrackedLanguage(spec.LanguageID)
+		if languageID == "" {
+			continue
+		}
+		if _, ok := projectLanguages[languageID]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
@@ -441,17 +537,6 @@ func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
 	return runtime.Close(ctx)
 }
 
-func (r *pluginBackendRuntimeRefresher) HasConfiguredLanguageServers() bool {
-	if r == nil {
-		return false
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return len(r.lspSpecs) != 0
-}
-
 func (r *pluginBackendRuntimeRefresher) SelectedLanguageServerStatuses(statusEntries []plugins.PluginStatusEntry) []plugins.SelectedLanguageServerStatus {
 	if r == nil {
 		return []plugins.SelectedLanguageServerStatus{}
@@ -467,7 +552,18 @@ func (r *pluginBackendRuntimeRefresher) SelectedLanguageServerStatuses(statusEnt
 	appliedSpecs := lsp.CloneLanguageServerSpecs(r.lspSpecs)
 	r.mu.Unlock()
 
-	return buildSelectedLanguageServerStatuses(selections, statusEntries, appliedSpecs)
+	previewStatusEntries, err := r.previewSelectedLanguageServerStatusEntries()
+	if err != nil {
+		r.logPluginBackendRuntimeError("preview selected language server statuses", err)
+		previewStatusEntries = clonePluginStatusEntries(statusEntries)
+	}
+
+	return buildSelectedLanguageServerStatuses(
+		selections,
+		statusEntries,
+		previewStatusEntries,
+		appliedSpecs,
+	)
 }
 
 func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plugins.DiscoverySnapshot) ([]lsp.LanguageServerSpec, error) {
@@ -487,20 +583,32 @@ func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[str
 
 func buildSelectedLanguageServerStatuses(
 	selections map[string]*string,
-	statusEntries []plugins.PluginStatusEntry,
+	liveStatusEntries []plugins.PluginStatusEntry,
+	previewStatusEntries []plugins.PluginStatusEntry,
 	appliedSpecs []lsp.LanguageServerSpec,
 ) []plugins.SelectedLanguageServerStatus {
-	languages := trackedLanguageServerLanguages(selections, statusEntries, appliedSpecs)
+	languages := trackedLanguageServerLanguages(
+		selections,
+		liveStatusEntries,
+		previewStatusEntries,
+		appliedSpecs,
+	)
 	statuses := make([]plugins.SelectedLanguageServerStatus, 0, len(languages))
 	for _, language := range languages {
-		statuses = append(statuses, buildSelectedLanguageServerStatus(language, selections, statusEntries, appliedSpecs))
+		statuses = append(statuses, buildSelectedLanguageServerStatus(
+			language,
+			selections,
+			previewStatusEntries,
+			appliedSpecs,
+		))
 	}
 	return statuses
 }
 
 func trackedLanguageServerLanguages(
 	selections map[string]*string,
-	statusEntries []plugins.PluginStatusEntry,
+	liveStatusEntries []plugins.PluginStatusEntry,
+	previewStatusEntries []plugins.PluginStatusEntry,
 	appliedSpecs []lsp.LanguageServerSpec,
 ) []string {
 	languages := map[string]struct{}{
@@ -513,15 +621,8 @@ func trackedLanguageServerLanguages(
 		}
 		languages[normalized] = struct{}{}
 	}
-	for _, entry := range statusEntries {
-		for _, registration := range entry.RegisteredLanguageServers {
-			normalized := normalizeTrackedLanguage(registration.Language)
-			if normalized == "" {
-				continue
-			}
-			languages[normalized] = struct{}{}
-		}
-	}
+	addTrackedLanguagesFromStatusEntries(languages, liveStatusEntries)
+	addTrackedLanguagesFromStatusEntries(languages, previewStatusEntries)
 	for _, spec := range appliedSpecs {
 		normalized := normalizeTrackedLanguage(spec.LanguageID)
 		if normalized == "" {
@@ -541,7 +642,7 @@ func trackedLanguageServerLanguages(
 func buildSelectedLanguageServerStatus(
 	language string,
 	selections map[string]*string,
-	statusEntries []plugins.PluginStatusEntry,
+	previewStatusEntries []plugins.PluginStatusEntry,
 	appliedSpecs []lsp.LanguageServerSpec,
 ) plugins.SelectedLanguageServerStatus {
 	appliedPluginID, hasAppliedSpec := appliedLanguageServerPluginID(language, appliedSpecs)
@@ -572,7 +673,7 @@ func buildSelectedLanguageServerStatus(
 
 	selectedPlugin := &pluginID
 	appliedMatchesSelection := hasAppliedSpec && appliedPluginID == pluginID
-	selectedEntry, ok := primaryStatusEntryForPlugin(statusEntries, pluginID)
+	selectedEntry, ok := primaryStatusEntryForPlugin(previewStatusEntries, pluginID)
 	if !ok {
 		return plugins.SelectedLanguageServerStatus{
 			LanguageID:       language,
@@ -603,6 +704,21 @@ func buildSelectedLanguageServerStatus(
 		SelectedPluginID: selectedPlugin,
 		State:            plugins.SelectedLanguageServerStateReady,
 		Applied:          appliedMatchesSelection,
+	}
+}
+
+func addTrackedLanguagesFromStatusEntries(
+	languages map[string]struct{},
+	statusEntries []plugins.PluginStatusEntry,
+) {
+	for _, entry := range statusEntries {
+		for _, registration := range entry.RegisteredLanguageServers {
+			normalized := normalizeTrackedLanguage(registration.Language)
+			if normalized == "" {
+				continue
+			}
+			languages[normalized] = struct{}{}
+		}
 	}
 }
 
@@ -639,6 +755,51 @@ func statusEntryProvidesLanguage(entry plugins.PluginStatusEntry, language strin
 		}
 	}
 	return false
+}
+
+func (r *pluginBackendRuntimeRefresher) previewSelectedLanguageServerStatusEntries() ([]plugins.PluginStatusEntry, error) {
+	if r == nil || r.service == nil {
+		return nil, nil
+	}
+
+	previewSnapshot, err := r.service.PreviewBackendRuntimeRefresh()
+	if err != nil {
+		return nil, err
+	}
+	return pluginStatusEntriesFromSnapshot(previewSnapshot), nil
+}
+
+func pluginStatusEntriesFromSnapshot(snapshot plugins.DiscoverySnapshot) []plugins.PluginStatusEntry {
+	entries := make([]plugins.PluginStatusEntry, 0, len(snapshot.Plugins))
+	for _, plugin := range snapshot.Plugins {
+		entries = append(entries, plugins.PluginStatusEntry{
+			PluginID: plugin.PluginID,
+			State:    plugin.State,
+			RegisteredLanguageServers: append(
+				[]plugins.PluginRegisteredLanguageServer(nil),
+				plugin.RegisteredLanguageServers...,
+			),
+		})
+	}
+	return entries
+}
+
+func clonePluginStatusEntries(entries []plugins.PluginStatusEntry) []plugins.PluginStatusEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	cloned := make([]plugins.PluginStatusEntry, 0, len(entries))
+	for _, entry := range entries {
+		cloned = append(cloned, plugins.PluginStatusEntry{
+			PluginID: entry.PluginID,
+			State:    entry.State,
+			RegisteredLanguageServers: append(
+				[]plugins.PluginRegisteredLanguageServer(nil),
+				entry.RegisteredLanguageServers...,
+			),
+		})
+	}
+	return cloned
 }
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {

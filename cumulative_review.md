@@ -1,3 +1,35 @@
+## 2026-04-18 02:35:18 PDT
+
+Summary:
+- Consolidated review findings were valid. This branch still had six concrete issues: `restartLanguageServer` validation was not scoped to the current project and could reject valid disable transitions or report success for the wrong language, restart failure could leave the active project without its prior LSP session, selected-language-server status still derived future state from stale live plugin rows, legacy plugin-config persistence still accepted ambiguous same-scope `scope:pluginId` keys, the frontend restart action discarded the new backend `409 language_server_not_configured` contract, and generated frontend settings helpers could emit an invalid empty `languageServer` object on partial overrides.
+- I implemented the fixes directly and removed superseded compatibility/dead-code paths rather than layering on more fallback behavior.
+
+Fixes applied:
+- Reworked plugin-runtime restart in `internal/app/plugin_backend_runtime_refresh.go` so restart validation is based on the current project’s effective languages, explicit per-language disable is allowed when it removes an already-applied server, rollback restores the prior live session if the restart callback fails, and selected-language-server status classification uses preview runtime state plus live applied specs instead of inferring future truth from stale rows.
+- Removed the dead `HasConfiguredLanguageServers` abstraction from `internal/app/lsp_admin.go` and its test stubs, keeping the runtime/admin interface aligned with actual production use.
+- Removed the legacy plugin-config dual-read/migration path from `internal/plugins/service.go`; persisted plugin config is now canonical `scope:sourceManager:pluginId` only, which prevents same-scope Setta and package-manager plugins from ambiguously sharing config.
+- Updated `frontend/src/state/actions/lsp.ts` so restart waits for the backend response, shows success only on `200`, and surfaces backend guidance for `409 language_server_not_configured` as an error notification.
+- Added an authoritative frontend default provider for `SettingsLanguageServer`, regenerated the frontend binding surface, and aligned `frontend/src/utils/idNameCreation.ts` with the generated helper imports. Partial `languageServer` overrides now preserve a valid `{ selectedByLanguage: {} }` shape.
+
+Tests added or upgraded:
+- Go unit coverage for current-project restart validation, rollback restoring the previous project LSP session, and truthful selected-language-server status classification for pending install/disable/uninstall states.
+- Go app integration coverage for explicit Python-language-server disable applying only after restart and for rejecting wrong-language selections against the active project with `language_server_not_configured`.
+- Go plugin persistence/runtime coverage proving legacy same-scope plugin-config keys are ignored and not migrated back into canonical config.
+- Frontend unit coverage for `restartLanguageServer()` handling backend `409 language_server_not_configured` responses and for generated settings defaults preserving nested `languageServer` structure.
+- Playwright coverage for the restart-language-server shortcut surfacing backend guidance, although the test remained environment-blocked locally because the required bootstrap/browser target was not available in this shell.
+
+Verification run:
+- `./scripts/go.sh test ./internal/app -run 'TestPluginBackendRuntimeRefresher|TestWorkspaceLSPAdmin|TestAppRestartLanguageServer' -count=1`
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceRescanLeavesLegacyPluginConfigKeysUnmigrated|TestServiceRuntimeIgnoresLegacyPluginConfigKeysForSameScopeDuplicates' -count=1`
+- `./scripts/go.sh test ./internal/frontendbindings ./internal/settingsstate ./cmd/setta-gen-frontend-bindings -count=1`
+- `pnpm -C frontend exec vitest run src/state/actions/lsp.test.ts src/utils/generatedTypes.settings.test.ts`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Outcome:
+- The reviewed regressions are fixed in this branch snapshot.
+- No unresolved findings from this review pass remain recorded here.
+
 ## 2026-04-18 01:54 PDT
 
 Summary:

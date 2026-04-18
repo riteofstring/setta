@@ -872,17 +872,6 @@ func (s *Service) rescanLocked() (DiscoverySnapshot, error) {
 }
 
 func (s *Service) rescanDiscoverySnapshotLocked() (DiscoverySnapshot, error) {
-	snapshot, err := s.discoveryService.Rescan()
-	if err != nil {
-		return DiscoverySnapshot{}, err
-	}
-	migrated, err := s.migrateLegacyPluginConfigKeysLocked(snapshot)
-	if err != nil {
-		return DiscoverySnapshot{}, err
-	}
-	if !migrated {
-		return snapshot, nil
-	}
 	return s.discoveryService.Rescan()
 }
 
@@ -1240,88 +1229,12 @@ func pluginConfigKeyForEntry(entry DiscoveredPlugin) string {
 	return pluginConfigKey(entry.PluginID, entry.Scope, entry.SourceManager)
 }
 
-func legacyPluginConfigKey(pluginID string, scope PluginScope) string {
-	return fmt.Sprintf("%s:%s", scope, pluginID)
-}
-
 func persistedPluginConfigRaw(entry DiscoveredPlugin, state *PluginsStateFile) (any, bool) {
 	if state == nil || state.PluginConfigByID == nil {
 		return nil, false
 	}
-	if rawValue, ok := state.PluginConfigByID[pluginConfigKeyForEntry(entry)]; ok {
-		return rawValue, true
-	}
-	rawValue, ok := state.PluginConfigByID[legacyPluginConfigKey(entry.PluginID, entry.Scope)]
+	rawValue, ok := state.PluginConfigByID[pluginConfigKeyForEntry(entry)]
 	return rawValue, ok
-}
-
-func (s *Service) migrateLegacyPluginConfigKeysLocked(snapshot DiscoverySnapshot) (bool, error) {
-	state, err := s.store.LoadPluginsState()
-	if err != nil {
-		return false, err
-	}
-	if len(state.PluginConfigByID) == 0 {
-		return false, nil
-	}
-
-	changed := false
-	for key, value := range state.PluginConfigByID {
-		scope, pluginID, ok := parseLegacyPluginConfigKey(key)
-		if !ok {
-			continue
-		}
-
-		targetEntry, found := firstDiscoveredPluginInScope(snapshot.Plugins, pluginID, scope)
-		if !found {
-			continue
-		}
-
-		migratedKey := pluginConfigKeyForEntry(targetEntry)
-		if migratedKey == key {
-			continue
-		}
-		if _, exists := state.PluginConfigByID[migratedKey]; !exists {
-			state.PluginConfigByID[migratedKey] = value
-		}
-		delete(state.PluginConfigByID, key)
-		changed = true
-	}
-	if !changed {
-		return false, nil
-	}
-	if err := s.store.SavePluginsState(state); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func parseLegacyPluginConfigKey(key string) (PluginScope, string, bool) {
-	if strings.Count(key, ":") != 1 {
-		return "", "", false
-	}
-	scopeValue, pluginID, ok := strings.Cut(key, ":")
-	if !ok {
-		return "", "", false
-	}
-	candidateScope := PluginScope(strings.TrimSpace(scopeValue))
-	scope, err := NormalizeScope(&candidateScope)
-	if err != nil {
-		return "", "", false
-	}
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return "", "", false
-	}
-	return scope, trimmedPluginID, true
-}
-
-func firstDiscoveredPluginInScope(entries []DiscoveredPlugin, pluginID string, scope PluginScope) (DiscoveredPlugin, bool) {
-	for _, entry := range entries {
-		if entry.PluginID == pluginID && entry.Scope == scope {
-			return entry, true
-		}
-	}
-	return DiscoveredPlugin{}, false
 }
 
 func removeString(values []string, target string) []string {

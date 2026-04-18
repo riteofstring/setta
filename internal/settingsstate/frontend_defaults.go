@@ -172,6 +172,10 @@ func FrontendDefaultSettingsChatWindowing() FrontendSettingsChatWindowing {
 	return frontendDefaultSettingsSection[FrontendSettingsChatWindowing]("chatWindowing")
 }
 
+func FrontendDefaultSettingsLanguageServer() FrontendSettingsLanguageServer {
+	return frontendDefaultSettingsSection[FrontendSettingsLanguageServer]("languageServer")
+}
+
 func FrontendDefaultSettingsState() FrontendSettingsState {
 	defaults, err := DefaultDocument()
 	if err != nil {

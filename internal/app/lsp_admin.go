@@ -15,8 +15,7 @@ type projectLSPAdmin interface {
 
 type runtimeLSPRefresher interface {
 	Refresh(context.Context) (plugins.DiscoverySnapshot, error)
-	HasConfiguredLanguageServers() bool
-	RestartProject(context.Context, func() error) error
+	RestartProject(context.Context, projectstate.Document, func() error) error
 }
 
 type workspaceLSPAdmin struct {
@@ -39,7 +38,7 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 		return errors.New("lsp admin is not configured")
 	}
 	if a.runtime != nil {
-		return a.runtime.RestartProject(ctx, func() error {
+		return a.runtime.RestartProject(ctx, document, func() error {
 			return a.projectAdmin.Restart(ctx, document)
 		})
 	}

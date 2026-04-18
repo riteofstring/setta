@@ -329,6 +329,52 @@ func TestServiceRuntimeConfigDigestsChangeAfterConfigWrite(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeIgnoresLegacyPluginConfigKeysForSameScopeDuplicates(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages, _ := installPackageManagerFixture(
+		t,
+		"full",
+		"setta-fixture-full",
+		"0.1.0",
+		func(pluginRoot string) {
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				frontend := payload["frontend"].(map[string]any)
+				frontend["entrypoint"] = "frontend/src/index.js"
+				frontend["style"] = "frontend/src/index.css"
+			})
+		},
+	)
+	localRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "full")
+	rewritePluginManifest(t, localRoot, func(payload map[string]any) {
+		frontend := payload["frontend"].(map[string]any)
+		frontend["entrypoint"] = "frontend/src/index.js"
+		frontend["style"] = "frontend/src/index.css"
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pluginConfigById": map[string]any{
+			string(PluginScopeSettaFiles) + ":setta-fixture-full": map[string]any{
+				"label": "legacy-config",
+			},
+		},
+	})
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	listEntry := mustFindRuntimeListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
+	if listEntry.SourceScope != PluginScopeSettaFiles || listEntry.SourceManager != PluginSourceManagerSetta {
+		t.Fatalf("expected active same-scope setta entry, got scope=%q manager=%q", listEntry.SourceScope, listEntry.SourceManager)
+	}
+	if len(listEntry.Config.CurrentConfig) != 0 {
+		t.Fatalf("expected legacy config key to be ignored by runtime, got %#v", listEntry.Config.CurrentConfig)
+	}
+}
+
 func TestServiceRuntimeRedactionKeepsEntriesDistinctAcrossScopes(t *testing.T) {
 	// Share/app redaction should keep duplicate plugin ids in different scopes distinguishable.
 	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {

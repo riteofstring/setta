@@ -2,12 +2,15 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
 	"setta/internal/lsp"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 )
 
 func TestPluginBackendRuntimeRefresherPrepareRefreshTransitionClonesPreviousSettings(t *testing.T) {
@@ -71,6 +74,7 @@ func TestBuildSelectedLanguageServerStatusesIncludesPythonWhenUnselected(t *test
 		map[string]*string{},
 		nil,
 		nil,
+		nil,
 	)
 	if len(statuses) != 1 {
 		t.Fatalf("expected one default language status, got %#v", statuses)
@@ -86,12 +90,16 @@ func TestBuildSelectedLanguageServerStatusesIncludesPythonWhenUnselected(t *test
 	}
 }
 
-func TestBuildSelectedLanguageServerStatusesKeepsReadySelectionPendingUntilApplied(t *testing.T) {
+func TestBuildSelectedLanguageServerStatusesKeepsPendingInstallReadyUntilApplied(t *testing.T) {
 	t.Parallel()
 
 	selectedPluginID := "setta-basedpyright"
 	statuses := buildSelectedLanguageServerStatuses(
 		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-basedpyright",
+			State:    plugins.PluginRuntimeStatePendingRestart,
+		}},
 		[]plugins.PluginStatusEntry{{
 			PluginID: "setta-basedpyright",
 			State:    plugins.PluginRuntimeStateActive,
@@ -150,6 +158,20 @@ func TestBuildSelectedLanguageServerStatusesUsesPrimaryPluginEntryForClassificat
 				},
 			},
 		},
+		[]plugins.PluginStatusEntry{
+			{
+				PluginID: "setta-basedpyright",
+				State:    plugins.PluginRuntimeStateActive,
+				RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Name:     "basedpyright",
+						Language: "javascript",
+						Command:  "/tmp/js-lsp",
+					},
+				},
+			},
+		},
 		nil,
 	)
 	if len(statuses) != 2 {
@@ -175,6 +197,7 @@ func TestBuildSelectedLanguageServerStatusesKeepsMissingSelectionAppliedUntilRef
 	statuses := buildSelectedLanguageServerStatuses(
 		map[string]*string{"python": &selectedPluginID},
 		nil,
+		nil,
 		[]lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
 	)
 	if len(statuses) != 1 {
@@ -199,6 +222,11 @@ func TestBuildSelectedLanguageServerStatusesTreatsInvalidSelectionAsUnavailable(
 			State:                     plugins.PluginRuntimeStateInvalid,
 			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{},
 		}},
+		[]plugins.PluginStatusEntry{{
+			PluginID:                  "setta-basedpyright",
+			State:                     plugins.PluginRuntimeStateInvalid,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{},
+		}},
 		nil,
 	)
 	if len(statuses) != 1 {
@@ -206,6 +234,71 @@ func TestBuildSelectedLanguageServerStatusesTreatsInvalidSelectionAsUnavailable(
 	}
 	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginUnavailable {
 		t.Fatalf("expected unavailable state for invalid selection, got %#v", statuses[0])
+	}
+}
+
+func TestBuildSelectedLanguageServerStatusesClassifiesPendingDisableUsingPreviewState(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-basedpyright",
+			State:    plugins.PluginRuntimeStatePendingRestart,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-basedpyright",
+				Name:     "basedpyright",
+				Language: "python",
+				Command:  "/tmp/basedpyright",
+			}},
+		}},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-basedpyright",
+			State:    plugins.PluginRuntimeStateDisabled,
+		}},
+		[]lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
+	)
+
+	if len(statuses) != 1 {
+		t.Fatalf("expected one language status, got %#v", statuses)
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginUnavailable {
+		t.Fatalf("expected unavailable state for pending disable, got %#v", statuses[0])
+	}
+	if !statuses[0].Applied {
+		t.Fatalf("expected pending disable to remain applied until restart, got %#v", statuses[0])
+	}
+}
+
+func TestBuildSelectedLanguageServerStatusesClassifiesPendingUninstallUsingPreviewState(t *testing.T) {
+	t.Parallel()
+
+	selectedPluginID := "setta-basedpyright"
+	statuses := buildSelectedLanguageServerStatuses(
+		map[string]*string{"python": &selectedPluginID},
+		[]plugins.PluginStatusEntry{{
+			PluginID: "setta-basedpyright",
+			State:    plugins.PluginRuntimeStatePendingRestart,
+			RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{{
+				PluginID: "setta-basedpyright",
+				Name:     "basedpyright",
+				Language: "python",
+				Command:  "/tmp/basedpyright",
+			}},
+		}},
+		nil,
+		[]lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()},
+	)
+
+	if len(statuses) != 1 {
+		t.Fatalf("expected one language status, got %#v", statuses)
+	}
+	if statuses[0].State != plugins.SelectedLanguageServerStateSelectedPluginMissing {
+		t.Fatalf("expected missing state for pending uninstall, got %#v", statuses[0])
+	}
+	if !statuses[0].Applied {
+		t.Fatalf("expected pending uninstall to remain applied until restart, got %#v", statuses[0])
 	}
 }
 
@@ -268,7 +361,7 @@ func TestUpdatedAppliedLanguageServerSpecsForPluginReplacesOnlyMatchingAppliedSp
 	}
 }
 
-func TestPluginBackendRuntimeRefresherRestartProjectRollsBackOnProjectFailure(t *testing.T) {
+func TestPluginBackendRuntimeRefresherRestartProjectRestoresPreviousProjectSessionAfterFailure(t *testing.T) {
 	t.Parallel()
 
 	currentSpecs := []lsp.LanguageServerSpec{fixtureRefresherLanguageServerSpec()}
@@ -290,11 +383,23 @@ func TestPluginBackendRuntimeRefresherRestartProjectRollsBackOnProjectFailure(t 
 	}
 
 	projectErr := errors.New("restart failed")
-	err := refresher.RestartProject(context.Background(), func() error {
-		return projectErr
-	})
+	restartCalls := 0
+	err := refresher.RestartProject(
+		context.Background(),
+		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func() error {
+			restartCalls++
+			if restartCalls == 1 {
+				return projectErr
+			}
+			return nil
+		},
+	)
 	if !errors.Is(err, projectErr) {
 		t.Fatalf("expected restart error %v, got %v", projectErr, err)
+	}
+	if restartCalls != 2 {
+		t.Fatalf("expected restart callback to run twice for rollback restore, got %d calls", restartCalls)
 	}
 	if service.commitCalls != 0 {
 		t.Fatalf("expected commit to be skipped on project failure, got %d calls", service.commitCalls)
@@ -311,6 +416,113 @@ func TestPluginBackendRuntimeRefresherRestartProjectRollsBackOnProjectFailure(t 
 	if !reflect.DeepEqual(router.replacedSpecs[1], currentSpecs) {
 		t.Fatalf("expected rollback to restore previous specs, got %#v", router.replacedSpecs[1])
 	}
+}
+
+func TestPluginBackendRuntimeRefresherRestartProjectRejectsUnconfiguredCurrentProjectLanguages(t *testing.T) {
+	t.Parallel()
+
+	service := &stubPluginBackendRefreshService{
+		previewSnapshot: plugins.DiscoverySnapshot{},
+		nextSpecs: []lsp.LanguageServerSpec{{
+			PluginID:   "setta-fixture-backend",
+			Name:       "fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python3",
+		}},
+	}
+	router := &stubPluginBackendLanguageServerReplacer{}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:   service,
+		lspRouter: router,
+	}
+
+	restartCalls := 0
+	err := refresher.RestartProject(
+		context.Background(),
+		fixtureRestartProjectDocument(t, projectstate.CodeLanguagePython),
+		func() error {
+			restartCalls++
+			return nil
+		},
+	)
+	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected ErrLanguageServerNotConfigured, got %v", err)
+	}
+	if restartCalls != 0 {
+		t.Fatalf("expected restart callback to be skipped, got %d calls", restartCalls)
+	}
+	if service.commitCalls != 0 {
+		t.Fatalf("expected commit to be skipped when project languages are unconfigured, got %d calls", service.commitCalls)
+	}
+	if len(router.replacedSpecs) != 0 {
+		t.Fatalf("expected no spec replacement when restart is rejected, got %#v", router.replacedSpecs)
+	}
+}
+
+func fixtureRestartProjectDocument(t *testing.T, language projectstate.CodeLanguage) projectstate.Document {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				SectionVariantMap: map[string]string{
+					"runner": "runner-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"runner": {
+						ID:               "runner",
+						Name:             "Runner",
+						VariantIDs:       []string{"runner-variant"},
+						DefaultVariantID: "runner-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"runner-variant": {
+						ID:     "runner-variant",
+						ImplID: "runner-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"runner-impl": {
+						ID:   "runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Payload: mustRestartProjectJSON(t, map[string]any{
+							"id":           "runner-impl",
+							"type":         "Code",
+							"code":         "print('runner')\n",
+							"codeLanguage": string(language),
+							"children":     []string{},
+						}),
+						Code: &projectstate.CodeSectionImpl{
+							Language: language,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       fmt.Sprintf("code/runner-%s.txt", language),
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize restart project document: %v", err)
+	}
+	return document
+}
+
+func mustRestartProjectJSON(t *testing.T, value map[string]any) projectstate.RawJSON {
+	t.Helper()
+
+	payload, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal restart project payload: %v", err)
+	}
+	return projectstate.RawJSON(payload)
 }
 
 type stubPluginBackendRefreshService struct {
