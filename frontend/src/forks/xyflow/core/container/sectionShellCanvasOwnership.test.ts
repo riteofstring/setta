@@ -22,6 +22,8 @@ describe("sectionShellCanvasOwnership", () => {
       }),
     ).toEqual({
       fill: "hsl(222, 28%, 95%)",
+      headerDivider: "hsl(220, 24%, 86%)",
+      headerFill: "hsl(220, 33%, 98%)",
       stroke: "#ffffff",
     });
 
@@ -32,6 +34,8 @@ describe("sectionShellCanvasOwnership", () => {
       }),
     ).toEqual({
       fill: "hsl(220, 25%, 8.5%)",
+      headerDivider: "hsl(219, 24%, 18%)",
+      headerFill: "hsl(220, 24%, 12%)",
       stroke: "hsl(219, 26%, 23%)",
     });
   });
@@ -49,6 +53,8 @@ describe("sectionShellCanvasOwnership", () => {
       }),
     ).toEqual({
       fill: theme.bg,
+      headerDivider: theme.border,
+      headerFill: theme.panelBg,
       stroke: theme.border,
     });
   });

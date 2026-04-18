@@ -4,8 +4,10 @@ import {
   useLocalStorage,
   useNodeInternals,
   useProjectState,
+  useTemporaryMiscState,
   type ZustandNodeInternalsState,
 } from "state/definitions";
+import { getSectionHeaderHeightKey } from "utils/constants";
 import { containerStyle } from "../styles";
 import {
   buildSectionShellBackdropScene,
@@ -30,6 +32,13 @@ export default function SectionShellBackdropCanvas() {
     );
     return typeof impl?.styleColor === "string" ? impl.styleColor : null;
   });
+  const canvasOwnedShellHeaderHeight = useTemporaryMiscState((state) => {
+    const storedHeight =
+      state[getSectionHeaderHeightKey(CANVAS_OWNED_SECTION_SHELL_ID)];
+    return typeof storedHeight === "number" && Number.isFinite(storedHeight)
+      ? Math.max(storedHeight, 0)
+      : 0;
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
     () =>
@@ -39,13 +48,16 @@ export default function SectionShellBackdropCanvas() {
             return null;
           }
 
-          return resolveCanvasOwnedSectionShellChrome({
-            darkMode,
-            styleColor: canvasOwnedShellStyleColor,
-          });
+          return {
+            ...resolveCanvasOwnedSectionShellChrome({
+              darkMode,
+              styleColor: canvasOwnedShellStyleColor,
+            }),
+            headerHeight: canvasOwnedShellHeaderHeight,
+          };
         },
       }),
-    [canvasOwnedShellStyleColor, darkMode, nodes],
+    [canvasOwnedShellHeaderHeight, canvasOwnedShellStyleColor, darkMode, nodes],
   );
 
   const expandedBounds = useMemo(() => {

@@ -1,6 +1,9 @@
 import type { Node, Rect } from "../types";
 
 export type SectionShellBackdropFrame = {
+  headerDivider: string | null;
+  headerFill: string | null;
+  headerHeight: number;
   id: string;
   x: number;
   y: number;
@@ -18,6 +21,9 @@ export type SectionShellBackdropScene = {
 
 type SectionShellBackdropFrameVisual = {
   fill?: string | null;
+  headerDivider?: string | null;
+  headerFill?: string | null;
+  headerHeight?: number | null;
   stroke?: string | null;
 };
 
@@ -69,8 +75,17 @@ export function buildSectionShellBackdropScene(
     }
 
     const frameVisual = getFrameVisual?.(node) ?? null;
+    const rawHeaderHeight = frameVisual?.headerHeight;
+    const headerHeight =
+      typeof rawHeaderHeight === "number" && Number.isFinite(rawHeaderHeight)
+        ? Math.max(0, Math.min(rawHeaderHeight, height))
+        : 0;
 
     frames.push({
+      headerDivider:
+        headerHeight > 0 ? (frameVisual?.headerDivider ?? null) : null,
+      headerFill: headerHeight > 0 ? (frameVisual?.headerFill ?? null) : null,
+      headerHeight,
       id: node.id,
       x,
       y,
@@ -139,6 +154,63 @@ function beginRoundedRect(
   ctx.rect(x, y, width, height);
 }
 
+function paintFrameHeaderBand(
+  ctx: CanvasRenderingContext2D,
+  frame: SectionShellBackdropFrame,
+  {
+    cornerRadius,
+    frameX,
+    frameY,
+  }: {
+    cornerRadius: number;
+    frameX: number;
+    frameY: number;
+  },
+) {
+  if (!frame.headerFill || frame.headerHeight <= 0) {
+    return;
+  }
+
+  ctx.save();
+  beginRoundedRect(ctx, frameX, frameY, frame.width, frame.height, cornerRadius);
+  ctx.clip();
+  ctx.fillStyle = frame.headerFill;
+  ctx.fillRect(frameX, frameY, frame.width, frame.headerHeight);
+  ctx.restore();
+}
+
+function paintFrameHeaderDivider(
+  ctx: CanvasRenderingContext2D,
+  frame: SectionShellBackdropFrame,
+  {
+    cornerRadius,
+    frameX,
+    frameY,
+  }: {
+    cornerRadius: number;
+    frameX: number;
+    frameY: number;
+  },
+) {
+  if (
+    !frame.headerDivider ||
+    frame.headerHeight <= 0 ||
+    frame.headerHeight >= frame.height
+  ) {
+    return;
+  }
+
+  const dividerInset = Math.min(cornerRadius, frame.width / 4);
+  const dividerY = frameY + frame.headerHeight;
+
+  ctx.beginPath();
+  ctx.moveTo(frameX + dividerInset, dividerY);
+  ctx.lineTo(frameX + frame.width - dividerInset, dividerY);
+  ctx.strokeStyle = frame.headerDivider;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
 export function paintSectionShellBackdrop(
   ctx: CanvasRenderingContext2D,
   scene: SectionShellBackdropScene,
@@ -176,10 +248,24 @@ export function paintSectionShellBackdrop(
     );
     ctx.fill();
 
+    paintFrameHeaderBand(ctx, frame, {
+      cornerRadius,
+      frameX,
+      frameY,
+    });
+
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
+
+    paintFrameHeaderDivider(ctx, frame, {
+      cornerRadius,
+      frameX,
+      frameY,
+    });
+
     ctx.strokeStyle = frame.stroke ?? palette.stroke;
+    ctx.lineWidth = darkMode ? 1.5 : 1;
     beginRoundedRect(
       ctx,
       frameX,

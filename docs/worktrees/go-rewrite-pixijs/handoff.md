@@ -53,6 +53,14 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - focused coverage now exists for this slice:
     - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
     - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+- The next callable shell-chrome slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves canvas-owned header fill/divider colors alongside the retained shell fill/stroke, reusing section style theme colors when a style color is present
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads the measured header height from `useTemporaryMiscState` via `getSectionHeaderHeightKey(...)` and feeds that height into the canary frame visual
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now carries per-frame header-band metadata and paints a clipped header band plus divider before the shell border stroke
+  - focused coverage now exists for this slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` using graph-space canvas pixel sampling derived from the `.react-flow__node` transform so the live canary can verify header-vs-body pixels even when `All Settings` is fitted far out
 - A fresh post-slice live baseline probe on 2026-04-18 passed on the worktree runtime and confirmed the new underlay is present on `settings` -> `All Settings`:
   - `canvasCount: 1`
   - `flowNodeCount: 46`
@@ -101,6 +109,16 @@ Related checklist: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - one retained shell `canvas` is mounted
   - the section shell still looks intact after the DOM shell was made transparent on the canvas path
   - residual risk: this headless CDP pass confirmed mounted canvas presence and healthy shell appearance, but the transformed canvas content itself was not fully centered in the viewport for pixel-level inspection
+- focused verification for the callable header-band slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the callable header-band slice:
+  - `/settings` loaded normally in the headless worktree session
+  - `All Settings` was active
+  - the retained shell `canvas` was mounted and the canary section remained visible with no crash/error-boundary state
+  - the section shell still looked intact on the live surface
+  - caveat: the new header-band/header-divider treatment was too tiny in the fitted `All Settings` view for a confident human-only visual call, so treat the updated Playwright graph-space pixel probe as the deterministic proof for that exact detail
 
 ## Preservation rule
 
@@ -127,9 +145,9 @@ That leaves one primary architectural move:
 
 ## Immediate next actions
 
-1. Move the next visible static shell primitive for `settings-section__callableSectionDefault` into the retained scene layer, likely the header/body chrome split or another obvious non-editing shell detail, instead of stopping at flat resting fill/border ownership.
+1. Move one more visible non-editing callable shell detail for `settings-section__callableSectionDefault` into the retained scene layer, likely the next top-level separation beneath the new header band without starting param-row migration.
 2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
-3. Keep the next product frontier constrained to top-level settings shell chrome only; do not reopen harness work or start row/body migration yet.
+3. Keep the next product frontier constrained to top-level callable shell chrome only; do not reopen harness work or start row/body migration yet.
 4. Keep the append-only log current from the first running iteration onward.
 
 ## First product frontier
@@ -145,7 +163,8 @@ The first product frontier is:
 - a real graph-surface composition boundary on the `settings` canary path
 - with one retained scene canvas now mounted under the DOM section nodes as the first renderer-owned static layer
 - with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
-- next: move the next visible static shell detail into that retained scene path for the same named canary section instead of reopening broad DOM or harness work
+- with the same canary section now also painting a canvas-owned header band/divider from the measured header height
+- next: move one more visible non-editing callable shell detail into that retained scene path for the same named canary section instead of reopening broad DOM or harness work
 
 ## Hard rules
 

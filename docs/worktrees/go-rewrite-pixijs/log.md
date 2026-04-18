@@ -306,3 +306,28 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move the next visible static shell primitive for `settings-section__callableSectionDefault` into the retained scene layer, likely the header/body chrome split or another obvious non-editing shell detail, instead of reopening harness or broad DOM work
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-18 015
+
+- Item: Add a retained-canvas header band/divider for `settings-section__callableSectionDefault`.
+- Status: `done`
+- Details:
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so the canary shell chrome now resolves `headerFill` and `headerDivider` alongside the existing retained shell fill/stroke, reusing section-style theme colors when present.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene reads the measured header height from `useTemporaryMiscState` via `getSectionHeaderHeightKey(...)` and passes that height into the canary frame visual.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` so retained frames can carry header-band metadata and the painter now clips a header band plus divider into the canary shell before the outer border stroke.
+  - Added focused node coverage in `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts` and updated `sectionShellCanvasOwnership.test.ts` to lock the new header-band/header-divider chrome contract.
+  - Extended the live canary probe in `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` so it samples the retained canvas in graph space using the `.react-flow__node` transform instead of transformed screen pixels; this keeps the probe trustworthy even when `All Settings` fits the target section down to only a few on-screen pixels.
+  - The first runtime probe for this slice failed because the original screen-space pixel sampling treated the fitted `All Settings` header as roughly `2.2px` tall on screen and could not distinguish the new band from the body fill; the final graph-space version fixed that oracle problem without changing product code.
+  - Focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+  - CDP visual check is done:
+    - `/settings` loaded normally in the headless worktree session
+    - `All Settings` was active
+    - the retained shell `canvas` was mounted and `settings-section__callableSectionDefault` remained visible with no crash/error-boundary state
+    - the section shell still looked intact on the live surface
+    - caveat: the new header-band/header-divider treatment was too tiny in the fitted `All Settings` view for a confident human-only call, so the updated Playwright graph-space pixel probe is the deterministic oracle for that exact detail
+- Next action:
+  - move one more visible non-editing callable shell detail for `settings-section__callableSectionDefault` into the retained scene layer, likely the next top-level separation beneath the new header band without starting param-row migration
+LOOP_TERMINAL_MARKER: none
