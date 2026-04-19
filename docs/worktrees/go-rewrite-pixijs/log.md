@@ -3766,6 +3766,35 @@ LOOP_TERMINAL_MARKER: none
   - keep the shared lightweight handle lane closed and choose the next product slice from the remaining article/body structure, with `settings-section__sectionSizingPolicy` as the canonical target and a stronger inactive-row primitive preferred over more survivor-family cleanup
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 072
+
+- Item: Normalize the remaining-value surface ranking probe for the now-closed value-surface lane.
+- Status: `done`
+- Details:
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts` so the probe now treats the zero-debt state as success instead of failing once the lightweight switch/dropdown/color/resting-text rollout fully clears the remaining value surface.
+  - Added aggregate lightweight ownership totals to the attached ranking payload so the probe still reports useful whole-scene value inventory after `totalRemainingValueRowCount` reaches zero.
+  - Live canary result on the current worktree runtime:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalLightweightColorInputRowCount: 6`
+    - `totalLightweightDropdownRowCount: 52`
+    - `totalLightweightRestingTextRowCount: 556`
+    - `totalLightweightSwitchRowCount: 158`
+    - `totalLightweightValueRowCount: 772`
+    - `totalRemainingValueRowCount: 0`
+    - `totalRemainingValueElementCount: 0`
+  - Interpretation:
+    - this closes the remaining-value ranking lane as a stale blocker rather than reopening another value-shell cleanup pass by inertia
+    - the next default frontier stays on the broader dense motion blocker, specifically article/body structure or a stronger inactive-row overlay primitive, not more value-surface harvesting
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.5s)`
+- CDP visual check: not run (`probe-only normalization; no runtime UI change`)
+- Next action:
+  - keep the remaining-value lane closed and choose the next product slice from the broader dense-scene motion blocker, not another lightweight value-shell or resting-text family pass
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 071
 
 - Item: Generalize the shared lightweight resize-handle primitive across the settings surface.

@@ -29,12 +29,18 @@ type SectionValueSurfaceSummary = {
 type RemainingValueSurfaceRanking = {
   mountedSectionCount: number;
   topSections: SectionValueSurfaceSummary[];
+  totalLightweightColorInputRowCount: number;
+  totalLightweightDropdownRowCount: number;
+  totalLightweightFilterActivatorRowCount: number;
+  totalLightweightRestingTextRowCount: number;
+  totalLightweightSwitchRowCount: number;
+  totalLightweightValueRowCount: number;
   totalRemainingValueElementCount: number;
   totalRemainingValueRowCount: number;
   totalRowCount: number;
 };
 
-test("settings All Settings ranking identifies the remaining non-lightweight value surface", async ({
+test("settings All Settings ranking reports value-surface ownership and accepts a fully lightweight success state", async ({
   page,
 }, testInfo) => {
   await ensureAppReady(page);
@@ -217,6 +223,40 @@ test("settings All Settings ranking identifies the remaining non-lightweight val
     return {
       mountedSectionCount: sections.length,
       topSections: sectionSummaries.slice(0, 12),
+      totalLightweightColorInputRowCount: sectionSummaries.reduce(
+        (count, sectionSummary) =>
+          count + sectionSummary.lightweightColorInputRowCount,
+        0,
+      ),
+      totalLightweightDropdownRowCount: sectionSummaries.reduce(
+        (count, sectionSummary) =>
+          count + sectionSummary.lightweightDropdownRowCount,
+        0,
+      ),
+      totalLightweightFilterActivatorRowCount: sectionSummaries.reduce(
+        (count, sectionSummary) =>
+          count + sectionSummary.lightweightFilterActivatorRowCount,
+        0,
+      ),
+      totalLightweightRestingTextRowCount: sectionSummaries.reduce(
+        (count, sectionSummary) =>
+          count + sectionSummary.lightweightRestingTextRowCount,
+        0,
+      ),
+      totalLightweightSwitchRowCount: sectionSummaries.reduce(
+        (count, sectionSummary) => count + sectionSummary.lightweightSwitchRowCount,
+        0,
+      ),
+      totalLightweightValueRowCount: sectionSummaries.reduce(
+        (count, sectionSummary) =>
+          count +
+          sectionSummary.lightweightColorInputRowCount +
+          sectionSummary.lightweightDropdownRowCount +
+          sectionSummary.lightweightFilterActivatorRowCount +
+          sectionSummary.lightweightRestingTextRowCount +
+          sectionSummary.lightweightSwitchRowCount,
+        0,
+      ),
       totalRemainingValueElementCount: sectionSummaries.reduce(
         (count, sectionSummary) =>
           count + sectionSummary.remainingValueElementCount,
@@ -247,10 +287,20 @@ test("settings All Settings ranking identifies the remaining non-lightweight val
 
   expect(ranking.mountedSectionCount).toBeGreaterThan(20);
   expect(ranking.totalRowCount).toBeGreaterThan(200);
-  expect(ranking.totalRemainingValueRowCount).toBeGreaterThan(0);
-  expect(ranking.totalRemainingValueElementCount).toBeGreaterThan(0);
+  expect(ranking.totalLightweightValueRowCount).toBeGreaterThan(0);
+  expect(ranking.totalLightweightRestingTextRowCount).toBeGreaterThan(0);
+  expect(ranking.totalLightweightDropdownRowCount).toBeGreaterThan(0);
+  expect(ranking.totalLightweightSwitchRowCount).toBeGreaterThan(0);
+  expect(ranking.totalRemainingValueRowCount).toBe(0);
+  expect(ranking.totalRemainingValueElementCount).toBe(0);
   expect(ranking.topSections.length).toBeGreaterThanOrEqual(3);
-  expect(ranking.topSections[0]?.remainingValueElementCount ?? 0).toBeGreaterThan(
+  expect(
+    (ranking.topSections[0]?.lightweightColorInputRowCount ?? 0) +
+      (ranking.topSections[0]?.lightweightDropdownRowCount ?? 0) +
+      (ranking.topSections[0]?.lightweightFilterActivatorRowCount ?? 0) +
+      (ranking.topSections[0]?.lightweightRestingTextRowCount ?? 0) +
+      (ranking.topSections[0]?.lightweightSwitchRowCount ?? 0),
+  ).toBeGreaterThan(
     0,
   );
 });

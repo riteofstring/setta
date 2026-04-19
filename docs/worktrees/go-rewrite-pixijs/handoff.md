@@ -9,6 +9,29 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The remaining-value surface ranking probe is now normalized for the closed value-surface lane.
+  - focused probe: `frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+  - implementation shape:
+    - the probe now treats `totalRemainingValueRowCount: 0` and `totalRemainingValueElementCount: 0` as the success state instead of failing once the shared lightweight value lanes are fully cleared
+    - the attached ranking payload now also records aggregate lightweight ownership totals so the probe still reports useful whole-scene inventory after the remaining-value lane closes
+  - focused runtime proof on the live worktree surface:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalLightweightColorInputRowCount: 6`
+    - `totalLightweightDropdownRowCount: 52`
+    - `totalLightweightRestingTextRowCount: 556`
+    - `totalLightweightSwitchRowCount: 158`
+    - `totalLightweightValueRowCount: 772`
+    - `totalRemainingValueRowCount: 0`
+    - `totalRemainingValueElementCount: 0`
+  - interpretation:
+    - the shared switch/dropdown/color/resting-text value-surface lane is now closed on the current `settings` -> `All Settings` surface, so the stale ranking should stop driving another value-shell slice by default
+    - the next real frontier remains the broader dense motion blocker: article/body structure or a stronger inactive-row overlay primitive, not another value-surface cleanup pass
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+    - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (23.5s)`
+  - CDP visual check: not run (`probe-only normalization; no runtime UI change`)
 - The nested-param resting-text slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-nested-param-resting-text-rerun.md`.
   - canonical target section: `settings-section__nestedParamCodeObjDefault`
   - canonical editor handoff row: `settings-codeobj__nestedParamCodeObjDefault__nestedParamCodeObjDefault__typeAnnotation`
