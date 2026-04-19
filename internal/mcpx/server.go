@@ -1664,13 +1664,13 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 	}
 }
 
-func newGetAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) tools.Handler {
+func newGetAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
+		if service == nil {
 			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
 		}
 
@@ -1687,7 +1687,7 @@ func newGetAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) t
 			)
 		}
 
-		result, err := projectState.GetAppDefinition(ctx)
+		result, err := service.GetAppDefinition(ctx)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -1695,13 +1695,13 @@ func newGetAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) t
 	}
 }
 
-func newValidateAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) tools.Handler {
+func newValidateAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		if err := requireProjectStateRuntime(projectState, "Project-state app-definition runtime is unavailable."); err != nil {
+		if err := requireProjectStateRuntime(service, "Project-state app-definition runtime is unavailable."); err != nil {
 			return nil, err
 		}
 		return executeScopedProjectStateOperation(
@@ -1709,19 +1709,19 @@ func newValidateAppDefinitionHandler(projectState AppSubsystemProjectStateProvid
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
 			func() (any, error) {
-				return projectState.ValidateAppDefinition(ctx, input)
+				return service.ValidateAppDefinition(ctx, input)
 			},
 		)
 	}
 }
 
-func newSetAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) tools.Handler {
+func newSetAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+		if err := requireProjectStateRuntime(service, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
 		return executeScopedProjectStateOperation(
@@ -1729,20 +1729,20 @@ func newSetAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) t
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
 			func() (any, error) {
-				_, result, err := projectState.SetAppDefinition(ctx, input)
+				_, result, err := service.SetAppDefinition(ctx, input)
 				return result, err
 			},
 		)
 	}
 }
 
-func newStreamAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) tools.Handler {
+func newStreamAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
 		if err != nil {
 			return nil, err
 		}
-		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+		if err := requireProjectStateRuntime(service, "Project-state mutation runtime is unavailable."); err != nil {
 			return nil, err
 		}
 		return executeScopedProjectStateOperation(
@@ -1750,7 +1750,7 @@ func newStreamAppDefinitionHandler(projectState AppSubsystemProjectStateProvider
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
 			func() (any, error) {
-				_, result, err := projectState.StreamAppDefinition(ctx, input)
+				_, result, err := service.StreamAppDefinition(ctx, input)
 				if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
 					return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
 				}
@@ -1760,7 +1760,7 @@ func newStreamAppDefinitionHandler(projectState AppSubsystemProjectStateProvider
 	}
 }
 
-func newUpdateAppDefinitionHandler(projectState AppSubsystemProjectStateProvider) tools.Handler {
+func newUpdateAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
@@ -1770,7 +1770,7 @@ func newUpdateAppDefinitionHandler(projectState AppSubsystemProjectStateProvider
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
+		if service == nil {
 			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
 		}
 
@@ -1787,7 +1787,7 @@ func newUpdateAppDefinitionHandler(projectState AppSubsystemProjectStateProvider
 			)
 		}
 
-		_, result, err := projectState.UpdateAppDefinition(ctx, patch)
+		_, result, err := service.UpdateAppDefinition(ctx, patch)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}

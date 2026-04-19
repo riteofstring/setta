@@ -457,9 +457,13 @@ func newAppDefinitionRouteTestHandler(
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
+			var service projectstate.AppDefinitionRuntime
+			if projectRuntime != nil {
+				service = projectRuntime
+			}
 			if err := RegisterAppDefinitionRoutes(r, AppDefinitionRouteDependencies{
-				ModePolicy:   modes.NewPolicy(mode),
-				ProjectState: projectRuntime,
+				ModePolicy: modes.NewPolicy(mode),
+				Service:    service,
 			}); err != nil {
 				t.Fatalf("register app definition routes: %v", err)
 			}

@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/tools"
 	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
@@ -38,10 +39,10 @@ func clonePluginBackendLaunchEnv(values map[string]string) map[string]string {
 }
 
 type pluginBackendMCPRuntimeOptions struct {
-	Logger                   *slog.Logger
-	RuntimeRoot              string
-	Snapshot                 plugins.DiscoverySnapshot
-	AppSubsystemProjectState mcpx.AppSubsystemProjectStateProvider
+	Logger               *slog.Logger
+	RuntimeRoot          string
+	Snapshot             plugins.DiscoverySnapshot
+	AppDefinitionService projectstate.AppDefinitionRuntime
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
@@ -73,23 +74,23 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 	}
 	runtime.appendAppSubsystemTools(
 		options.Snapshot,
-		options.AppSubsystemProjectState,
+		options.AppDefinitionService,
 	)
 	return runtime, nil
 }
 
 func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 	snapshot plugins.DiscoverySnapshot,
-	projectState mcpx.AppSubsystemProjectStateProvider,
+	service projectstate.AppDefinitionRuntime,
 ) {
-	if r == nil || projectState == nil {
+	if r == nil || service == nil {
 		return
 	}
 	capabilities := plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
 	if !appSubsystemMCPToolsEnabled(capabilities) {
 		return
 	}
-	registrations := appsubsystemplugin.BuildMCPToolRegistrations(projectState)
+	registrations := appsubsystemplugin.BuildMCPToolRegistrations(service)
 	if len(registrations) == 0 {
 		return
 	}

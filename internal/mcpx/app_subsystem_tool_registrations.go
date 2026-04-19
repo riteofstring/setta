@@ -1,25 +1,15 @@
 package mcpx
 
 import (
-	"context"
-
 	"setta/internal/projectstate"
 	"setta/internal/tools"
 )
 
-type AppSubsystemProjectStateProvider interface {
-	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
-	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
-	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-	StreamAppDefinition(ctx context.Context, input projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-}
-
 func BuildAppSubsystemToolRegistrations(
-	projectState AppSubsystemProjectStateProvider,
+	service projectstate.AppDefinitionRuntime,
 ) []ToolRegistration {
 	definitions := buildAppCatalogToolDefinitions()
-	definitions = append(definitions, buildAppDefinitionToolDefinitions(projectState)...)
+	definitions = append(definitions, buildAppDefinitionToolDefinitions(service)...)
 	return toolRegistrationsFromDefinitions(definitions)
 }
 
@@ -84,9 +74,9 @@ func buildAppCatalogToolDefinitions() []toolDefinition {
 }
 
 func buildAppDefinitionToolDefinitions(
-	projectState AppSubsystemProjectStateProvider,
+	service projectstate.AppDefinitionRuntime,
 ) []toolDefinition {
-	if projectState == nil {
+	if service == nil {
 		return nil
 	}
 
@@ -101,7 +91,7 @@ func buildAppDefinitionToolDefinitions(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "ui", "read", "structural"},
 				},
-				Handler: newGetAppDefinitionHandler(projectState),
+				Handler: newGetAppDefinitionHandler(service),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -137,7 +127,7 @@ func buildAppDefinitionToolDefinitions(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "validate", "diagnostics", "structural"},
 				},
-				Handler: newValidateAppDefinitionHandler(projectState),
+				Handler: newValidateAppDefinitionHandler(service),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -228,7 +218,7 @@ func buildAppDefinitionToolDefinitions(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "ui", "structural"},
 				},
-				Handler: newSetAppDefinitionHandler(projectState),
+				Handler: newSetAppDefinitionHandler(service),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -310,7 +300,7 @@ func buildAppDefinitionToolDefinitions(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "stream", "patch", "structural"},
 				},
-				Handler: newStreamAppDefinitionHandler(projectState),
+				Handler: newStreamAppDefinitionHandler(service),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -348,7 +338,7 @@ func buildAppDefinitionToolDefinitions(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "patch", "structural"},
 				},
-				Handler: newUpdateAppDefinitionHandler(projectState),
+				Handler: newUpdateAppDefinitionHandler(service),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
