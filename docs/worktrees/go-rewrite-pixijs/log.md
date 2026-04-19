@@ -155,6 +155,57 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 055
+
+- Item: Move the remaining pure-text gui/text-block pair onto the shared canvas-owned resting-text lane.
+- Status: `done`
+- Details:
+  - Checked the post-code-like ranking before coding and rejected the naïve full `8`-row cluster plan after a live inventory showed `settings-section__dateParamCodeObjDefault` and `settings-section__timeParamCodeObjDefault` route through the specialized `DateParam` / `TimeParam` path rather than the shared text-like `ParamInput` path.
+  - Kept this iteration bounded on the real shared primitive instead:
+    - canonical target section: `settings-section__gui`
+    - sibling section in the same slice: `settings-section__textBlockSectionDefault`
+    - canonical target inputs:
+      - `settings-section__gui-settings-codeobj__gui__gui__defaultZoomLevel-ParamInput`
+      - `settings-section__textBlockSectionDefault-settings-codeobj__textBlockSectionDefault__textBlockSectionDefault__format-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__gui` and `settings-section__textBlockSectionDefault` in the shared resting-text ownership lane and gives both sections lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those two sections so the retained scene can paint their resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-gui-textblock-resting-text-cluster.spec.ts`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-gui-textblock-resting-text-cluster-rerun.md`.
+  - Fresh focused pair probe after the product change:
+    - `settings-section__gui`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 15`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - `settings-section__textBlockSectionDefault`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 9`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - note: the larger `canvasOwnedRestingTextCount` totals include other pre-existing canvas-owned text roots in those sections, not surviving live editors on the target rows
+  - Dense rerun outcome versus the prior code-like cluster report:
+    - `documentNodeCount`: `7806 -> 7708`
+    - `inputCount`: `2 -> 2`
+    - `buttonCount`: `39 -> 39`
+    - `raf.meanMs`: `102.14 -> 105.12`
+    - `raf.p95Ms`: `183.4 -> 216.7`
+    - `longTasks.totalMs`: `16467 -> 16889`
+  - Interpretation:
+    - this slice moved another real mounted row-value surface while keeping the interactive-core plateau flat
+    - the gui/text-block pair lane is now closed at its useful ownership boundary unless a fresh visible defect appears
+    - the motion result was mixed even though mounted DOM dropped, so this should be treated as ownership progress rather than a clean perf win
+    - the next untouched pure-text frontier now starts at the `7`-row cluster: `settings-section__chatWindowing`, `settings-section__dropzoneParamCodeObjDefault`, `settings-section__genPythonCodeSectionDefault`, `settings-section__genPythonMetadataSectionDefault`, and `settings-section__pluginSectionDefault`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-gui-textblock-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-009/worktree-ai.log -- tests/e2e/settings/settings-all-settings-gui-textblock-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)` on the live worktree runtime with `documentNodeCount: 7708`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__gui"]` and `section[data-section-id="settings-section__textBlockSectionDefault"]` were present
+  - the `Default Zoom Level` and `Format` rows looked intact at rest on the canvas path
+  - focusing `#settings-section__gui-settings-codeobj__gui__gui__defaultZoomLevel-ParamInput` and `#settings-section__textBlockSectionDefault-settings-codeobj__textBlockSectionDefault__textBlockSectionDefault__format-ParamInput` surfaced inline editors in place with no blank/detached jump
+  - caveat: the inline editors remain visually small at the fitted canvas scale, so the visual pass leaned on anchored bounds and inline editor presence rather than a large close-up text read
+- Next action:
+  - start the next iteration from the fresh post-pair ranking and target the remaining pure-text `7`-row cluster (`settings-section__chatWindowing`, `settings-section__dropzoneParamCodeObjDefault`, `settings-section__genPythonCodeSectionDefault`, `settings-section__genPythonMetadataSectionDefault`, `settings-section__pluginSectionDefault`); do not reopen `dateParamCodeObjDefault` or `timeParamCodeObjDefault` on this shared text lane without a separate date/time-specific decision
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 059
 
 - Item: Move the untouched code-like `9`-row cluster onto the shared canvas-owned resting-text lane.

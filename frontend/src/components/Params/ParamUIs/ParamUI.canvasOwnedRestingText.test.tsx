@@ -13,6 +13,7 @@ import {
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
@@ -249,8 +250,8 @@ describe("ParamUI canvas-owned resting text", () => {
 
     const markup = renderToStaticMarkup(
       <ParamUI
-        sectionId="settings-section__textBlockSectionDefault"
-        paramInfoId="settings-codeobj__dictSectionDefault__dictSectionDefault__styleColor"
+        sectionId={BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
+        paramInfoId="settings-codeobj__backend__backend__defaultTerminalShell"
         value="null"
         onChange={() => undefined}
       />,
@@ -467,6 +468,51 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(markup).toContain('data-canvas-owned-underline="true"');
     expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
   });
+
+  it.each([
+    {
+      paramInfoId: "settings-codeobj__gui__gui__defaultZoomLevel",
+      sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      value: "1",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__textBlockSectionDefault__textBlockSectionDefault__format",
+      sectionId: TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "Plaintext",
+    },
+  ])(
+    "hides the gui/text-block resting-text pair on the canvas path for $sectionId",
+    ({ paramInfoId, sectionId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: CodeObjTypeEnum.TextParam,
+        defaultVal: "",
+      };
+
+      const markup = renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(
+        mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText,
+      ).toBe(true);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+        true,
+      );
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+    },
+  );
 
   it.each([
     {
