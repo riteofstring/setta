@@ -3,7 +3,6 @@ import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
 import {
   invokePluginSettingRevealHandler,
-  receivePluginRuntimeUpdate,
   refreshPluginRuntime,
   usePluginCommands,
   usePluginListEntries,
@@ -74,8 +73,6 @@ function resetPluginRuntimeStateForTests(): void {
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
-    languageServerSelectionsByLanguage: {},
-    languageServerSelections: [],
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -109,10 +106,6 @@ function buildPluginStatusEntry(
     blockedCapabilities: [],
     components: [],
     registeredCodegenTargets: [],
-    registeredLanguageServers: [],
-    registeredBackendRoutes: [],
-    registeredStaticDirs: [],
-    registeredListenerEndpoints: [],
     enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
@@ -200,13 +193,7 @@ function buildPluginStatusResponse(
   return {
     schemaVersion: 1,
     serverMode: "ide",
-    restartCapability: {
-      mode: "manual",
-      command: "setta",
-      reason: "Programmatic restart is not available in this runtime.",
-    } as PluginRestartCapability,
     plugins,
-    languageServerSelections: [],
     ...overrides,
   };
 }
@@ -1128,57 +1115,6 @@ describe("plugin runtime helpers", () => {
       "Failed to fetch plugins runtime: network error.",
     );
   });
-  it("hydrates plugin runtime state from backend websocket updates", async () => {
-    const plugin = buildPluginListEntry({
-      pluginId: "setta-basedpyright",
-      name: "Setta Basedpyright",
-      effectiveCapabilities: ["registerLanguageServer"],
-    });
-    const statusEntry = buildPluginStatusEntry({
-      pluginId: "setta-basedpyright",
-      name: "Setta Basedpyright",
-      effectiveCapabilities: ["registerLanguageServer"],
-    });
-
-    await receivePluginRuntimeUpdate(
-      buildPluginRuntimeResponse(
-        buildPluginListResponse([plugin]),
-        buildPluginStatusResponse([statusEntry], {
-          languageServerSelections: [
-            {
-              language: "python",
-              selectionState: "selected",
-              status: "active",
-              severity: "info",
-              message: '"setta-basedpyright" is active for Python.',
-              selectedPluginId: "setta-basedpyright",
-              appliedPluginId: "setta-basedpyright",
-              availableProviders: [
-                {
-                  pluginId: "setta-basedpyright",
-                  name: "Setta Basedpyright (setta-basedpyright)",
-                  available: true,
-                },
-              ],
-              restartRequired: false,
-            },
-          ],
-        }),
-      ),
-    );
-
-    const state = usePluginRuntimeStore.getState();
-    expect(state.status).toBe("loaded");
-    expect(state.pluginStatusById["setta-basedpyright"]?.state).toBe(
-      PluginRuntimeStateEnum.active,
-    );
-    expect(state.languageServerSelectionsByLanguage.python?.status).toBe(
-      "active",
-    );
-    expect(
-      state.languageServerSelectionsByLanguage.python?.appliedPluginId,
-    ).toBe("setta-basedpyright");
-  });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {
       rel: string;
@@ -1227,7 +1163,7 @@ describe("plugin runtime helpers", () => {
     await refreshPluginRuntime();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
-  it("uses the first backend-ordered status entry as the primary plugin status", async () => {
+  it("prefers non-shadowed status entries as the primary plugin status", async () => {
     const plugin = buildPluginListEntry({});
     vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
@@ -1235,13 +1171,13 @@ describe("plugin runtime helpers", () => {
         buildPluginStatusResponse([
           buildPluginStatusEntry({
             pluginId: "acme.plugin",
-            sourcePath: "/tmp/primary",
-            shadowedBySourcePath: null,
+            sourcePath: "/tmp/shadowed",
+            shadowedBySourcePath: "/tmp/primary",
           }),
           buildPluginStatusEntry({
             pluginId: "acme.plugin",
-            sourcePath: "/tmp/shadowed",
-            shadowedBySourcePath: "/tmp/primary",
+            sourcePath: "/tmp/primary",
+            shadowedBySourcePath: null,
           }),
         ]),
       ),
@@ -1250,60 +1186,6 @@ describe("plugin runtime helpers", () => {
     const state = usePluginRuntimeStore.getState();
     expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
       "/tmp/primary",
-    );
-  });
-  it("prefers active non-shadowed status entries over invalid duplicates", async () => {
-    const plugin = buildPluginListEntry({});
-    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
-      buildRuntimeEndpointResponse(
-        buildPluginListResponse([plugin]),
-        buildPluginStatusResponse([
-          buildPluginStatusEntry({
-            pluginId: "acme.plugin",
-            state: PluginRuntimeStateEnum.active,
-            sourcePath: "/tmp/setta-files-active",
-            shadowedBySourcePath: null,
-          }),
-          buildPluginStatusEntry({
-            pluginId: "acme.plugin",
-            state: PluginRuntimeStateEnum.invalid,
-            sourcePath: "/tmp/workspace-invalid",
-            shadowedBySourcePath: null,
-          }),
-        ]),
-      ),
-    );
-    await refreshPluginRuntime();
-    const state = usePluginRuntimeStore.getState();
-    expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
-      "/tmp/setta-files-active",
-    );
-  });
-  it("prefers active non-shadowed status entries over disabled duplicates", async () => {
-    const plugin = buildPluginListEntry({});
-    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
-      buildRuntimeEndpointResponse(
-        buildPluginListResponse([plugin]),
-        buildPluginStatusResponse([
-          buildPluginStatusEntry({
-            pluginId: "acme.plugin",
-            state: PluginRuntimeStateEnum.active,
-            sourcePath: "/tmp/setta-files-active",
-            shadowedBySourcePath: null,
-          }),
-          buildPluginStatusEntry({
-            pluginId: "acme.plugin",
-            state: PluginRuntimeStateEnum.disabled,
-            sourcePath: "/tmp/workspace-disabled",
-            shadowedBySourcePath: null,
-          }),
-        ]),
-      ),
-    );
-    await refreshPluginRuntime();
-    const state = usePluginRuntimeStore.getState();
-    expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
-      "/tmp/setta-files-active",
     );
   });
   it("reuses unchanged plugin frontend registrations across refreshes", async () => {
