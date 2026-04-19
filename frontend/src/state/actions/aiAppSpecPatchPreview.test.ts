@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import {
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "plugins/appSubsystemRuntime";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -11,9 +15,21 @@ import { clearAllAppSpecPatchPreviewStreams } from "../../../../plugins/setta-js
 import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
+const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
+  pluginId: "setta-json-render-app-gen",
+  pluginEnabled: true,
+  appAuthoringUi: true,
+  appPreviewUi: true,
+  appGenerationChatModes: true,
+  appDeploymentRuntime: true,
+} as const;
+
 describe("ai app spec patch preview streaming", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetProjectStores();
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
     clearAllAppSpecPatchPreviewStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
@@ -22,6 +38,7 @@ describe("ai app spec patch preview streaming", () => {
 
   afterEach(() => {
     clearAllAppSpecPatchPreviewStreams();
+    resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 

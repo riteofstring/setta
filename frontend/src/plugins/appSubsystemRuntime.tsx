@@ -1,4 +1,5 @@
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
+import type { GetLatestProjectStateResponse } from "openapi/http";
 import { type ComponentType } from "react";
 import { PluginRuntimeResponse } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -36,6 +37,15 @@ type AppSubsystemCustomSlashCommandModesRegistration = {
   defaultMode: string;
 };
 
+type AppSubsystemPatchPreviewDelta = {
+  toolCallId: string;
+  previewValueDelta: string;
+};
+
+type AppSubsystemSessionInitializationOptions = {
+  forceNewSession?: boolean;
+};
+
 type AppSubsystemFrontendRegistration = {
   overviewTab?: AppSubsystemOverviewTabRegistration;
   previewSurface?: AppSubsystemPreviewSurfaceRegistration;
@@ -44,6 +54,25 @@ type AppSubsystemFrontendRegistration = {
   slashCommands?: ChatSlashCommandDefinition[];
   imageRequiredModes?: string[];
   customSlashCommandModes?: AppSubsystemCustomSlashCommandModesRegistration;
+  getPreviewEnabled?: () => boolean;
+  subscribePreviewEnabled?: (
+    listener: (previewEnabled: boolean) => void,
+  ) => () => void;
+  applyAppDefinitionStructuredContentToStore?: (
+    structured: Record<string, unknown>,
+  ) => boolean;
+  applyAppSpecPatchPreviewDeltaToStore?: (
+    args: AppSubsystemPatchPreviewDelta,
+  ) => void;
+  clearAppSpecPatchPreviewStream?: (toolCallId: string) => void;
+  clearAllAppSpecPatchPreviewStreams?: () => void;
+  initializeAppSessionFromCurrentDeployment?: (
+    options?: AppSubsystemSessionInitializationOptions,
+  ) => Promise<boolean>;
+  resetAppSessionState?: () => void;
+  processAppProjectStateUpdateFromBackend?: (
+    payload: GetLatestProjectStateResponse,
+  ) => void;
   initializeProjectState?: () => void;
   resetProjectState?: () => void;
 };
@@ -65,6 +94,7 @@ type AppSubsystemFrontendStore = {
   status: AppSubsystemFrontendStatus;
   statusMessage: string | null;
   capabilitySignature: string | null;
+  previewEnabled: boolean;
   registration: AppSubsystemFrontendRegistration | null;
 };
 
@@ -73,6 +103,7 @@ const INITIAL_APP_SUBSYSTEM_FRONTEND_STORE: AppSubsystemFrontendStore = {
   status: "idle",
   statusMessage: null,
   capabilitySignature: null,
+  previewEnabled: false,
   registration: null,
 };
 const EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] = [];
@@ -81,6 +112,26 @@ const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCusto
   [{ id: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE, name: "Plain chat" }];
 
 let appSubsystemFrontendLoadSequence = 0;
+let appSubsystemPreviewEnabledUnsubscribe: (() => void) | null = null;
+
+type AppSubsystemPendingOperation =
+  | {
+      kind: "applyAppDefinitionStructuredContent";
+      structured: Record<string, unknown>;
+    }
+  | {
+      kind: "applyAppSpecPatchPreviewDelta";
+      args: AppSubsystemPatchPreviewDelta;
+    }
+  | { kind: "clearAppSpecPatchPreviewStream"; toolCallId: string }
+  | { kind: "clearAllAppSpecPatchPreviewStreams" }
+  | {
+      kind: "processAppProjectStateUpdate";
+      payload: GetLatestProjectStateResponse;
+    }
+  | { kind: "resetAppSessionState" };
+
+const pendingAppSubsystemOperations: AppSubsystemPendingOperation[] = [];
 
 export const useAppSubsystemFrontendStore =
   createWithEqualityFn<AppSubsystemFrontendStore>(() => ({
@@ -228,6 +279,35 @@ function hasOptionalFunction(
   return isFunction(entry);
 }
 
+function clearPendingAppSubsystemOperations(): void {
+  pendingAppSubsystemOperations.length = 0;
+}
+
+function enqueuePendingAppSubsystemOperation(
+  operation: AppSubsystemPendingOperation,
+): void {
+  pendingAppSubsystemOperations.push(operation);
+}
+
+function clearPreviewEnabledSubscription(): void {
+  if (!appSubsystemPreviewEnabledUnsubscribe) {
+    return;
+  }
+  appSubsystemPreviewEnabledUnsubscribe();
+  appSubsystemPreviewEnabledUnsubscribe = null;
+}
+
+function applyPreviewEnabledState(previewEnabled: boolean): void {
+  useAppSubsystemFrontendStore.setState((state) =>
+    state.previewEnabled === previewEnabled
+      ? state
+      : {
+          ...state,
+          previewEnabled,
+        },
+  );
+}
+
 const APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS = [
   ["overviewTab", isOverviewTabRegistration],
   ["previewSurface", isPreviewSurfaceRegistration],
@@ -237,6 +317,27 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS = [
   ["imageRequiredModes", isImageRequiredModeRegistration],
   ["customSlashCommandModes", isCustomSlashCommandModeRegistration],
 ] as const;
+const APP_SUBSYSTEM_FRONTEND_OPTIONAL_FUNCTION_KEYS = [
+  "getPreviewEnabled",
+  "subscribePreviewEnabled",
+  "applyAppDefinitionStructuredContentToStore",
+  "applyAppSpecPatchPreviewDeltaToStore",
+  "clearAppSpecPatchPreviewStream",
+  "clearAllAppSpecPatchPreviewStreams",
+  "initializeAppSessionFromCurrentDeployment",
+  "resetAppSessionState",
+  "processAppProjectStateUpdateFromBackend",
+  "initializeProjectState",
+  "resetProjectState",
+] as const;
+
+function hasValidOptionalFrontendFunctions(
+  value: Record<string, unknown>,
+): boolean {
+  return APP_SUBSYSTEM_FRONTEND_OPTIONAL_FUNCTION_KEYS.every((key) =>
+    hasOptionalFunction(value, key),
+  );
+}
 
 function isFrontendRegistration(
   value: unknown,
@@ -252,10 +353,7 @@ function isFrontendRegistration(
       return false;
     }
   }
-  return (
-    hasOptionalFunction(value, "initializeProjectState") &&
-    hasOptionalFunction(value, "resetProjectState")
-  );
+  return hasValidOptionalFrontendFunctions(value);
 }
 
 function formatAppSubsystemFrontendLoadError(error: unknown): string {
@@ -265,10 +363,107 @@ function formatAppSubsystemFrontendLoadError(error: unknown): string {
   return "Failed to load app subsystem frontend registration.";
 }
 
+function bindPreviewEnabledRegistration(
+  registration: AppSubsystemFrontendRegistration,
+): boolean {
+  clearPreviewEnabledSubscription();
+  const previewEnabled = registration.getPreviewEnabled?.() ?? false;
+  if (!registration.subscribePreviewEnabled) {
+    return previewEnabled;
+  }
+  appSubsystemPreviewEnabledUnsubscribe = registration.subscribePreviewEnabled(
+    (nextPreviewEnabled) => {
+      applyPreviewEnabledState(nextPreviewEnabled);
+    },
+  );
+  return previewEnabled;
+}
+
+const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
+  applyAppDefinitionStructuredContent: (
+    registration: AppSubsystemFrontendRegistration,
+    operation: Extract<
+      AppSubsystemPendingOperation,
+      { kind: "applyAppDefinitionStructuredContent" }
+    >,
+  ): void => {
+    registration.applyAppDefinitionStructuredContentToStore?.(
+      operation.structured,
+    );
+  },
+  applyAppSpecPatchPreviewDelta: (
+    registration: AppSubsystemFrontendRegistration,
+    operation: Extract<
+      AppSubsystemPendingOperation,
+      { kind: "applyAppSpecPatchPreviewDelta" }
+    >,
+  ): void => {
+    registration.applyAppSpecPatchPreviewDeltaToStore?.(operation.args);
+  },
+  clearAppSpecPatchPreviewStream: (
+    registration: AppSubsystemFrontendRegistration,
+    operation: Extract<
+      AppSubsystemPendingOperation,
+      { kind: "clearAppSpecPatchPreviewStream" }
+    >,
+  ): void => {
+    registration.clearAppSpecPatchPreviewStream?.(operation.toolCallId);
+  },
+  clearAllAppSpecPatchPreviewStreams: (
+    registration: AppSubsystemFrontendRegistration,
+  ): void => {
+    registration.clearAllAppSpecPatchPreviewStreams?.();
+  },
+  processAppProjectStateUpdate: (
+    registration: AppSubsystemFrontendRegistration,
+    operation: Extract<
+      AppSubsystemPendingOperation,
+      { kind: "processAppProjectStateUpdate" }
+    >,
+  ): void => {
+    registration.processAppProjectStateUpdateFromBackend?.(operation.payload);
+  },
+  resetAppSessionState: (
+    registration: AppSubsystemFrontendRegistration,
+  ): void => {
+    registration.resetAppSessionState?.();
+  },
+} as const;
+
+function applyPendingAppSubsystemOperation(
+  registration: AppSubsystemFrontendRegistration,
+  operation: AppSubsystemPendingOperation,
+): void {
+  const applyOperation = APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS[
+    operation.kind
+  ] as (
+    registration: AppSubsystemFrontendRegistration,
+    operation: AppSubsystemPendingOperation,
+  ) => void;
+  applyOperation(registration, operation);
+}
+
+function flushPendingAppSubsystemOperations(
+  registration: AppSubsystemFrontendRegistration,
+): void {
+  if (pendingAppSubsystemOperations.length === 0) {
+    return;
+  }
+  const operations = pendingAppSubsystemOperations.splice(
+    0,
+    pendingAppSubsystemOperations.length,
+  );
+  for (const operation of operations) {
+    applyPendingAppSubsystemOperation(registration, operation);
+  }
+}
+
 function setUnavailableAppSubsystemFrontendState(
   capabilities: AppSubsystemCapabilities | null,
   capabilitySignature: string,
 ): void {
+  clearPreviewEnabledSubscription();
+  clearPendingAppSubsystemOperations();
   useAppSubsystemFrontendStore.getState().registration?.resetProjectState?.();
   appSubsystemFrontendLoadSequence += 1;
   useAppSubsystemFrontendStore.setState({
@@ -276,6 +471,7 @@ function setUnavailableAppSubsystemFrontendState(
     status: "unavailable",
     statusMessage: null,
     capabilitySignature,
+    previewEnabled: false,
     registration: null,
   });
 }
@@ -393,6 +589,7 @@ export async function syncAppSubsystemFrontendRegistration(
     status: "loading",
     statusMessage: null,
     capabilitySignature,
+    previewEnabled: false,
     registration: null,
   });
 
@@ -408,28 +605,36 @@ export async function syncAppSubsystemFrontendRegistration(
       capabilities,
     );
     registration.initializeProjectState?.();
+    const previewEnabled = bindPreviewEnabledRegistration(registration);
+    flushPendingAppSubsystemOperations(registration);
     useAppSubsystemFrontendStore.setState({
       capabilities,
       status: "loaded",
       statusMessage: null,
       capabilitySignature,
+      previewEnabled,
       registration,
     });
   } catch (error) {
     if (loadSequence !== appSubsystemFrontendLoadSequence) {
       return;
     }
+    clearPreviewEnabledSubscription();
+    clearPendingAppSubsystemOperations();
     useAppSubsystemFrontendStore.setState({
       capabilities,
       status: "error",
       statusMessage: formatAppSubsystemFrontendLoadError(error),
       capabilitySignature,
+      previewEnabled: false,
       registration: null,
     });
   }
 }
 
 export function resetAppSubsystemFrontendRuntimeState(): void {
+  clearPreviewEnabledSubscription();
+  clearPendingAppSubsystemOperations();
   appSubsystemFrontendLoadSequence += 1;
   useAppSubsystemFrontendStore.setState({
     ...INITIAL_APP_SUBSYSTEM_FRONTEND_STORE,
@@ -558,4 +763,156 @@ export function useAppSubsystemDefaultCustomSlashCommandMode(): string {
 
 export function runAppSubsystemProjectResetHooks(): void {
   useAppSubsystemFrontendStore.getState().registration?.resetProjectState?.();
+}
+
+export function useAppSubsystemPreviewEnabled(): boolean {
+  return useAppSubsystemFrontendStore((state) => state.previewEnabled);
+}
+
+function getAppSubsystemLoadedRegistration(): AppSubsystemFrontendRegistration | null {
+  const state = useAppSubsystemFrontendStore.getState();
+  if (state.status !== "loaded") {
+    return null;
+  }
+  return state.registration;
+}
+
+function shouldQueueAppSubsystemOperation(): boolean {
+  const state = useAppSubsystemFrontendStore.getState();
+  return (
+    state.status === "loading" &&
+    hasFrontendSurfaceAvailability(state.capabilities)
+  );
+}
+
+async function waitForLoadedAppSubsystemRegistration(): Promise<AppSubsystemFrontendRegistration | null> {
+  const loadedRegistration = getAppSubsystemLoadedRegistration();
+  if (loadedRegistration) {
+    return loadedRegistration;
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return null;
+  }
+  return new Promise((resolve) => {
+    const unsubscribe = useAppSubsystemFrontendStore.subscribe((state) => {
+      if (state.status === "loaded") {
+        unsubscribe();
+        resolve(state.registration);
+        return;
+      }
+      if (state.status === "error" || state.status === "unavailable") {
+        unsubscribe();
+        resolve(null);
+      }
+    });
+  });
+}
+
+export function applyAppDefinitionStructuredContentToStore(
+  structured: Record<string, unknown>,
+): boolean {
+  const registration = getAppSubsystemLoadedRegistration();
+  if (registration?.applyAppDefinitionStructuredContentToStore) {
+    return registration.applyAppDefinitionStructuredContentToStore(structured);
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return false;
+  }
+  enqueuePendingAppSubsystemOperation({
+    kind: "applyAppDefinitionStructuredContent",
+    structured,
+  });
+  return true;
+}
+
+export function applyAppSpecPatchPreviewDeltaToStore(args: {
+  toolCallId: string;
+  previewValueDelta: string;
+}): void {
+  const registration = getAppSubsystemLoadedRegistration();
+  if (registration?.applyAppSpecPatchPreviewDeltaToStore) {
+    registration.applyAppSpecPatchPreviewDeltaToStore(args);
+    return;
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return;
+  }
+  enqueuePendingAppSubsystemOperation({
+    kind: "applyAppSpecPatchPreviewDelta",
+    args,
+  });
+}
+
+export function clearAppSpecPatchPreviewStream(toolCallId: string): void {
+  const registration = getAppSubsystemLoadedRegistration();
+  if (registration?.clearAppSpecPatchPreviewStream) {
+    registration.clearAppSpecPatchPreviewStream(toolCallId);
+    return;
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return;
+  }
+  enqueuePendingAppSubsystemOperation({
+    kind: "clearAppSpecPatchPreviewStream",
+    toolCallId,
+  });
+}
+
+export function clearAllAppSpecPatchPreviewStreams(): void {
+  const registration = getAppSubsystemLoadedRegistration();
+  if (registration?.clearAllAppSpecPatchPreviewStreams) {
+    registration.clearAllAppSpecPatchPreviewStreams();
+    return;
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return;
+  }
+  enqueuePendingAppSubsystemOperation({
+    kind: "clearAllAppSpecPatchPreviewStreams",
+  });
+}
+
+export async function initializeAppSessionFromCurrentDeployment(
+  options: {
+    forceNewSession?: boolean;
+  } = {},
+): Promise<boolean> {
+  const registration =
+    getAppSubsystemLoadedRegistration() ??
+    (await waitForLoadedAppSubsystemRegistration());
+  if (!registration?.initializeAppSessionFromCurrentDeployment) {
+    return false;
+  }
+  return registration.initializeAppSessionFromCurrentDeployment(options);
+}
+
+export function resetAppSessionState(): void {
+  const registration = getAppSubsystemLoadedRegistration();
+  if (registration?.resetAppSessionState) {
+    registration.resetAppSessionState();
+    return;
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return;
+  }
+  enqueuePendingAppSubsystemOperation({
+    kind: "resetAppSessionState",
+  });
+}
+
+export function processAppProjectStateUpdateFromBackend(
+  payload: GetLatestProjectStateResponse,
+): void {
+  const registration = getAppSubsystemLoadedRegistration();
+  if (registration?.processAppProjectStateUpdateFromBackend) {
+    registration.processAppProjectStateUpdateFromBackend(payload);
+    return;
+  }
+  if (!shouldQueueAppSubsystemOperation()) {
+    return;
+  }
+  enqueuePendingAppSubsystemOperation({
+    kind: "processAppProjectStateUpdate",
+    payload,
+  });
 }
