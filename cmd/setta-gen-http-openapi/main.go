@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"setta/internal/appsubsystem"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
@@ -27,8 +28,11 @@ func main() {
 	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
 			return appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
-				appsubsystemplugin.FrontendRouteRegistrationOptions{
-					API: deps,
+				appsubsystem.FrontendRouteRegistrationOptions{
+					ModePolicy:         deps.Project.ModePolicy,
+					ProjectState:       deps.Project.ProjectState,
+					AppGenSkill:        deps.AppGenSkill,
+					ShareDeploymentIDE: deps.ShareDeploymentIDE,
 					AppDeployment: httpapi.DeploymentRouteDependencies{
 						ModePolicy: modes.NewPolicy(config.ModeApp),
 					},
