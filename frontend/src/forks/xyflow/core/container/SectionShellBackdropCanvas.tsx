@@ -32,6 +32,7 @@ import {
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -45,6 +46,7 @@ import {
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -1461,11 +1463,13 @@ export default function SectionShellBackdropCanvas() {
     BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
   const codeSectionNode = nodes.get(CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const dateParamNode = nodes.get(DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const guiNode = nodes.get(GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID);
   const promptSectionNode = nodes.get(
     PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
   const textBlockNode = nodes.get(TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const timeParamNode = nodes.get(TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const stateMachineGateNode = nodes.get(
     STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   );
@@ -1563,6 +1567,12 @@ export default function SectionShellBackdropCanvas() {
     sectionId: CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const dateParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: dateParamNode?.height,
+    nodeWidth: dateParamNode?.width,
+    sectionId: DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const guiMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: guiNode?.height,
     nodeWidth: guiNode?.width,
@@ -1579,6 +1589,12 @@ export default function SectionShellBackdropCanvas() {
     nodeHeight: textBlockNode?.height,
     nodeWidth: textBlockNode?.width,
     sectionId: TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const timeParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: timeParamNode?.height,
+    nodeWidth: timeParamNode?.width,
+    sectionId: TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
   const stateMachineGateMeasurements =
@@ -1614,11 +1630,15 @@ export default function SectionShellBackdropCanvas() {
         buttonParamMeasurements,
       [CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         codeSectionMeasurements,
+      [DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        dateParamMeasurements,
       [GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]: guiMeasurements,
       [PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         promptSectionMeasurements,
       [TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         textBlockMeasurements,
+      [TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        timeParamMeasurements,
       [STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]:
         stateMachineGateMeasurements,
     }),
@@ -1638,9 +1658,11 @@ export default function SectionShellBackdropCanvas() {
       pluginSectionMeasurements,
       buttonParamMeasurements,
       codeSectionMeasurements,
+      dateParamMeasurements,
       guiMeasurements,
       promptSectionMeasurements,
       textBlockMeasurements,
+      timeParamMeasurements,
       stateMachineGateMeasurements,
     ],
   );

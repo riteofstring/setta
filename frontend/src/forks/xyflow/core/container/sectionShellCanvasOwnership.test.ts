@@ -12,6 +12,7 @@ import {
   isCanvasOwnedSectionArgsLabelRestingText,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -25,6 +26,7 @@ import {
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
   isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightMenuTrigger,
@@ -202,7 +204,17 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionRestingTextSection(
+        DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
         PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
+        TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(
@@ -310,7 +322,19 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       }),
     ).toBe(true);
     expect(
@@ -664,7 +688,17 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightTextUnderline(
+        DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
         PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(

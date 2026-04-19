@@ -155,6 +155,61 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 062
+
+- Item: Move the date/time settings pair onto the canvas-owned resting-text lane.
+- Status: `done`
+- Details:
+  - Re-checked the replan guardrail before coding: this was only taken after a fresh whole-scene inventory showed the untouched `settings-section__dateParamCodeObjDefault` and `settings-section__timeParamCodeObjDefault` pair still carried the same DummyCodeMirror-style resting-value DOM cost rather than a new widget family.
+  - Used live section inspection first to pin the real canonical targets instead of guessing from stale assumptions:
+    - canonical target sections:
+      - `settings-section__dateParamCodeObjDefault`
+      - `settings-section__timeParamCodeObjDefault`
+    - canonical target inputs:
+      - `#settings-section__dateParamCodeObjDefault-settings-codeobj__dateParamCodeObjDefault__dateParamCodeObjDefault__dateDisplayFormat-ParamInput`
+      - `#settings-section__timeParamCodeObjDefault-settings-codeobj__timeParamCodeObjDefault__timeParamCodeObjDefault__timeDisplayFormat-ParamInput`
+    - the live rows proved this pair was still eight untouched text-like `ParamInput` roots per section plus the pre-existing filter activator, so the bounded slice stayed on the existing shared resting-text/underline primitive instead of inventing a new renderer branch
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes both sections in the shared canvas-owned resting-text lane and gives both sections lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures both sections directly so the retained scene can paint their resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-date-time-resting-text-cluster.spec.ts`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-date-time-resting-text-cluster-rerun.md`.
+  - The deterministic focused probe proved the pair now rides the lightweight path:
+    - `settings-section__dateParamCodeObjDefault`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 9`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - `settings-section__timeParamCodeObjDefault`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 9`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - note: the extra non-lightweight root in each section is the pre-existing `args-filter` activator, not a surviving live value editor
+  - Dense rerun outcome on the current runtime:
+    - `documentNodeCount: 7663`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 52`
+    - `raf.meanMs: 115.27`
+    - `raf.p95Ms: 233.4`
+    - `longTasks.totalMs: 18504`
+  - Interpretation:
+    - this closes the date/time pair at the same resting-text ownership boundary as the earlier text/value clusters
+    - the section-scoped ownership proof is authoritative
+    - the dense rerun still carries non-target workspace-chrome noise, so treat `7663 / 4 / 52` as a smoke checkpoint rather than a new best clean benchmark
+    - the next frontier remains the broader dense section-body/value hotspot, not another section-local resting-text follow-up
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-date-time-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-date-time-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)` on the live worktree runtime with `documentNodeCount: 7663`, `inputCount: 4`, and `buttonCount: 52`
+- CDP visual check is done:
+  - fresh page at `http://127.0.0.1:3070/settings`
+  - `All Settings` was active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash/error overlay was visible
+  - `settings-section__dateParamCodeObjDefault` and `settings-section__timeParamCodeObjDefault` were present
+  - the canonical `Date Display Format` and `Time Display Format` rows looked intact at rest on the canvas path
+  - focusing each canonical `ParamInput` root mounted a single inline CodeMirror editor inside the same section with no detached/floating editor and no scroll jump
+  - caveat: the inline editors were visually short in the fitted headless view, so rely on the deterministic Playwright pair probe for the ownership counts
+- Next action:
+  - start the next iteration from a fresh whole-scene ranking and pick a broader shared resting-body/value primitive or ownership seam instead of another section-local resting-text/date-time follow-up
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 055
 
 - Item: Move the gen-python settings pair onto the shared canvas-owned resting-text lane.
@@ -2387,4 +2442,34 @@ LOOP_TERMINAL_MARKER: none
   - focusing each canonical `ParamInput` root surfaced an inline editor in place with no blank or detached jump
 - Next action:
   - start the next iteration by deciding whether `settings-section__dateParamCodeObjDefault` / `settings-section__timeParamCodeObjDefault` justify a dedicated date/time-specific ownership lane, unless a broader shared primitive now shows a clearer dense-scene payoff
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 061
+
+- Item: Replan the worktree docs around the real remaining `All Settings` hotspot instead of another section-local resting-text lane.
+- Status: `done`
+- Details:
+  - Reviewed the latest clean dense checkpoint at `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md` and the recovered-runtime chat-windowing/dropzone/plugin report together before changing direction.
+  - Reconfirmed the current best clean branch checkpoint:
+    - `documentNodeCount: 7670`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 102.6`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16510`
+  - Reconfirmed the interpretation boundary for the later recovered-runtime triple report:
+    - its section-scoped ownership proof is valid
+    - its global `7701 / 4 / 53` DOM/button counts are smoke-only because extra non-target workspace chrome reopened during recovery
+  - Updated `docs/worktrees/go-rewrite-pixijs/plan.md`, `handoff.md`, and `checklist.md` so the next default Ralph frontier is explicit:
+    - closed micro-lanes stay closed by default
+    - the remaining dominant cost is the dense resting section-body / row-value DOM that still moves under viewport transforms across `All Settings`
+    - the next default slice must start from a fresh whole-scene ranking of that remaining mounted surface
+    - prefer a broader shared resting-body/value primitive or ownership seam over another section-local resting-text/date-time cleanup hop
+    - inspect date/time only if a fresh whole-scene inventory proves it is the single highest-payoff remaining dense family
+  - This replan intentionally tightens the threshold for default automation:
+    - if a proposed slice cannot plausibly move the dense `All Settings` numbers or the mounted section-body/value surface before code is written, Ralph should stop and replan instead of taking another tidy local reduction
+- Focused verification:
+  - docs-only change; no code tests run
+- Next action:
+  - restart the next Ralph iteration from the updated docs and require a whole-scene structural frontier choice instead of another small resting-text harvest
 LOOP_TERMINAL_MARKER: none
