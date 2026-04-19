@@ -72,6 +72,11 @@ beforeEach(() => {
   getContextSpy = vi
     .spyOn(HTMLCanvasElement.prototype, "getContext")
     .mockImplementation(function () {
+      const existingContext = contextByCanvas.get(this);
+      if (existingContext) {
+        return existingContext;
+      }
+
       const context = createMockCanvasContext();
       contextByCanvas.set(this, context);
       return context;
@@ -599,6 +604,116 @@ describe("SectionShellBackdropCanvas", () => {
     expect(context.roundRect).toHaveBeenNthCalledWith(3, 24, 24, 100, 60, 16);
     expect(context.fill).toHaveBeenCalledTimes(2);
     expect(context.stroke).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores same-scene node map churn but repaints on scene-relevant geometry changes", async () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          createNode({
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            style: { background: "rgb(240, 249, 255)" },
+            tempZIndex: 15,
+            width: 100,
+          }),
+        ],
+        [
+          "section-b",
+          createNode({
+            height: 40,
+            id: "section-b",
+            position: { x: 200, y: 90 },
+            tempZIndex: 3,
+            width: 30,
+          }),
+        ],
+      ]),
+    });
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(createElement(SectionShellBackdropCanvas));
+    });
+
+    const canvas = host.querySelector(
+      '[data-testid="react-flow__section-shell-backdrop-canvas"]',
+    );
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("Expected the section shell backdrop canvas to render.");
+    }
+
+    const context = contextByCanvas.get(canvas);
+    if (!context) {
+      throw new Error("Expected a mock 2d canvas context.");
+    }
+
+    const baselineClearRectCount = context.clearRect.mock.calls.length;
+    expect(baselineClearRectCount).toBeGreaterThan(0);
+
+    await act(async () => {
+      useNodeInternals.setState({
+        x: new Map([
+          [
+            "section-a",
+            createNode({
+              id: "section-a",
+              position: { x: 10, y: 20 },
+              style: { background: "rgb(240, 249, 255)" },
+              tempZIndex: 15,
+              type: "ignored-churn",
+              width: 100,
+            }),
+          ],
+          [
+            "section-b",
+            createNode({
+              height: 40,
+              id: "section-b",
+              position: { x: 200, y: 90 },
+              tempZIndex: 3,
+              type: "ignored-churn",
+              width: 30,
+            }),
+          ],
+        ]),
+      });
+    });
+
+    expect(context.clearRect).toHaveBeenCalledTimes(baselineClearRectCount);
+
+    await act(async () => {
+      useNodeInternals.setState({
+        x: new Map([
+          [
+            "section-a",
+            createNode({
+              id: "section-a",
+              position: { x: 10, y: 20 },
+              style: { background: "rgb(240, 249, 255)" },
+              tempZIndex: 15,
+              width: 140,
+            }),
+          ],
+          [
+            "section-b",
+            createNode({
+              height: 40,
+              id: "section-b",
+              position: { x: 200, y: 90 },
+              tempZIndex: 3,
+              width: 30,
+            }),
+          ],
+        ]),
+      });
+    });
+
+    expect(context.clearRect).toHaveBeenCalledTimes(baselineClearRectCount + 1);
   });
 
   it("renders nothing when there are no measurable section nodes", async () => {

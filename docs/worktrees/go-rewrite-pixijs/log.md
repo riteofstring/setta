@@ -5819,3 +5819,27 @@ LOOP_TERMINAL_MARKER: none
     - the graph surface was rendered and not blank/transparent, and there was no obvious detached shell/body artifact on that lane
 - Next frontier: stay on the canonical browser lane and isolate another retained-scene redraw / paint / snapshot invalidation source now that observer churn, subtree churn, and the unconditional settle flush are all closed.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 040
+
+- Landed the backdrop scene-map equality slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now subscribes to `useNodeInternals` through a backdrop-specific scene comparator, so same-scene node-map replacement no longer forces the retained canvas to rebuild and repaint unless scene-relevant node fields actually change.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now reuses the same mock canvas context and proves selected-only same-scene map churn does not trigger another retained-canvas paint while a real width change still does.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-scene-map-equality-rerun.md` with the current evidence: `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 47.62`, `longTasks.totalMs 3902`, `motionHiddenBodies.totalMotionBodyRootCount 45`, and `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`.
+- Interpretation:
+  - this closes the raw `useNodeInternals` map-identity invalidation sub-lane on the retained backdrop path
+  - the dense rerun stayed mixed in headless mode, so keep `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the clean whole-scene checkpoint
+  - the next pass should stay on retained-scene redraw / paint / snapshot reuse, but it should not spend another iteration on more backdrop node-map equality micropolish unless a fresh hotspot isolates another scene-authority miss
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.5s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - page mounted with `All Settings` active and `browserSectionDefault` visible on the graph surface
+    - no obvious blank/transparent canvas or detached shell/body artifact appeared on that lane
+- Next frontier: stay on the canonical browser lane and isolate another retained-scene redraw / paint / snapshot invalidation source now that same-scene node-map churn is also closed.
+LOOP_TERMINAL_MARKER: none

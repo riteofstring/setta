@@ -7,6 +7,7 @@ import {
   useTemporaryMiscState,
   type ZustandNodeInternalsState,
 } from "state/definitions";
+import type { Node as FlowNode } from "../types";
 import {
   getKwargsControlsHeightKey,
   getPinnedParamsAreaHeightKey,
@@ -184,6 +185,42 @@ function normalizeStoredHeight(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(value, 0)
     : 0;
+}
+
+function getBackdropNodeFill(node: FlowNode) {
+  return typeof node.style?.background === "string" ? node.style.background : null;
+}
+
+function areBackdropNodeMapsEqual(
+  left: Map<string, FlowNode>,
+  right: Map<string, FlowNode>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const [sectionId, leftNode] of left) {
+    const rightNode = right.get(sectionId);
+    if (!rightNode) {
+      return false;
+    }
+    if (
+      leftNode.position.x !== rightNode.position.x ||
+      leftNode.position.y !== rightNode.position.y ||
+      leftNode.width !== rightNode.width ||
+      leftNode.height !== rightNode.height ||
+      leftNode.tempZIndex !== rightNode.tempZIndex ||
+      leftNode.zIndex !== rightNode.zIndex ||
+      getBackdropNodeFill(leftNode) !== getBackdropNodeFill(rightNode)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function resolveCanvasOwnedSectionBackdropMeasurementPlan(
@@ -1515,7 +1552,10 @@ function useCanvasOwnedSectionBackdropMeasurements({
 }
 
 export default function SectionShellBackdropCanvas() {
-  const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
+  const nodes = useNodeInternals(
+    (state: ZustandNodeInternalsState) => state.x,
+    areBackdropNodeMapsEqual,
+  );
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
