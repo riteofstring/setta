@@ -17,8 +17,6 @@ import {
 } from "./actions/nodeInternals";
 import {
   debouncedDispatchViewportUpdate,
-  areViewportTransformsEqual,
-  dispatchViewportUpdateWhileInteracting,
   dispatchViewportUpdateImmediately,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
@@ -64,20 +62,13 @@ export function subscribe() {
           dispatchViewportUpdateImmediately();
         }
       } else {
-        if (newState.viewportInteractionActive) {
-          dispatchViewportUpdateWhileInteracting();
-        } else if (
-          prevState.viewportInteractionActive ||
-          !areViewportTransformsEqual(newState.transform, prevState.transform)
-        ) {
-          debouncedDispatchViewportUpdate();
-        }
+        debouncedDispatchViewportUpdate();
       }
 
       // used by forked xterm to make text appear correctly
       window.reactFlowZoom = newState.transform[2];
     },
-    { equalityFn: areReactFlowTransformSubscriptionStatesEqual },
+    { equalityFn: _.isEqual },
   );
 
   useMisc.subscribe(
@@ -138,20 +129,7 @@ function reactFlowTransformSubscriptionFn(state) {
     transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,
     fitViewOnInitDone: state.fitViewOnInitDone,
-    viewportInteractionActive: state.viewportInteractionActive,
   };
-}
-
-function areReactFlowTransformSubscriptionStatesEqual(
-  left: ReturnType<typeof reactFlowTransformSubscriptionFn>,
-  right: ReturnType<typeof reactFlowTransformSubscriptionFn>,
-) {
-  return (
-    left.fitViewOnInit === right.fitViewOnInit &&
-    left.fitViewOnInitDone === right.fitViewOnInitDone &&
-    left.viewportInteractionActive === right.viewportInteractionActive &&
-    areViewportTransformsEqual(left.transform, right.transform)
-  );
 }
 
 function updateNodeDimensionsSubscriptionFn(state) {

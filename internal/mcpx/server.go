@@ -72,6 +72,8 @@ type ServerOptions struct {
 	Registry                       *tools.Registry
 	WorkspaceRoot                  string
 	ProjectState                   projectStateProvider
+	SkipDefaultAppSubsystemTools   bool
+	ContributedToolRegistrations   []ToolRegistration
 	AfterProjectStateMutation      func(context.Context, string) error
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
@@ -117,11 +119,6 @@ type InvokeToolSummary struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	SetProjectName(ctx context.Context, projectID string, name string) (projectstate.Snapshot, error)
-	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
-	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
-	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-	StreamAppDefinition(ctx context.Context, input projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
 	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settings projectstate.StructuralMutationSettings, margin int) (projectstate.Snapshot, error)
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
@@ -363,7 +360,20 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		}
 		instance.temporaryIDs = temporaryIDs
 	}
+	if err := registerServerToolDefinitions(instance, workspaceRoot, registry, opts); err != nil {
+		return nil, err
+	}
 
+	instance.handler = newHTTPHandler(instance.server)
+	return instance, nil
+}
+
+func registerServerToolDefinitions(
+	instance *Server,
+	workspaceRoot string,
+	registry *tools.Registry,
+	opts ServerOptions,
+) error {
 	searchEntries := []tools.SearchEntry{}
 	for _, definition := range defaultToolDefinitions(
 		instance,
@@ -381,7 +391,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		instance.addTool(registered, definition.InputSchema, definition.OutputSchema)
 		if registered.Metadata.Kind == tools.KindDiscoverable {
@@ -394,10 +404,13 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		}
 	}
 	instance.searchEntries = append([]tools.SearchEntry(nil), searchEntries...)
-	instance.toolSearch = tools.BuildSearchIndex(searchEntries)
-
-	instance.handler = newHTTPHandler(instance.server)
-	return instance, nil
+	instance.toolSearch = tools.BuildSearchIndex(instance.searchEntries)
+	for _, registration := range opts.ContributedToolRegistrations {
+		if _, err := instance.RegisterTool(registration); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) Handler() http.Handler {
@@ -1645,137 +1658,6 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 	}
 }
 
-func newGetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		result, err := projectState.GetAppDefinition(ctx)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
-	}
-}
-
-func newValidateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
-		if err != nil {
-			return nil, err
-		}
-		if err := requireProjectStateRuntime(projectState, "Project-state app-definition runtime is unavailable."); err != nil {
-			return nil, err
-		}
-		return executeScopedProjectStateOperation(
-			ctx,
-			projectConfigID,
-			"Structural app-definition invocation context is unavailable.",
-			func() (any, error) {
-				return projectState.ValidateAppDefinition(ctx, input)
-			},
-		)
-	}
-}
-
-func newSetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
-		if err != nil {
-			return nil, err
-		}
-		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
-			return nil, err
-		}
-		return executeScopedProjectStateOperation(
-			ctx,
-			projectConfigID,
-			"Structural app-definition invocation context is unavailable.",
-			func() (any, error) {
-				_, result, err := projectState.SetAppDefinition(ctx, input)
-				return result, err
-			},
-		)
-	}
-}
-
-func newStreamAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
-		if err != nil {
-			return nil, err
-		}
-		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
-			return nil, err
-		}
-		return executeScopedProjectStateOperation(
-			ctx,
-			projectConfigID,
-			"Structural app-definition invocation context is unavailable.",
-			func() (any, error) {
-				_, result, err := projectState.StreamAppDefinition(ctx, input)
-				if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
-					return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
-				}
-				return result, err
-			},
-		)
-	}
-}
-
-func newUpdateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-		if err != nil {
-			return nil, err
-		}
-		patch, err := readRequiredPresentArgument(arguments, "patch")
-		if err != nil {
-			return nil, err
-		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		_, result, err := projectState.UpdateAppDefinition(ctx, patch)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
-	}
-}
-
 func newCompareAndSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -3002,61 +2884,6 @@ func defaultToolDefinitions(
 		},
 		{
 			Spec: tools.Spec{
-				Name:        "get_app_catalog",
-				Description: "Return the JSON render catalog used for app generation.",
-				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
-					SearchCategory: "project",
-					SearchTags:     []string{"app", "catalog", "components", "generation"},
-				},
-				Handler: newGetAppCatalogHandler(),
-			},
-			InputSchema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"catalog": map[string]any{
-						"type": "object",
-					},
-				},
-				"required": []string{"catalog"},
-			},
-		},
-		{
-			Spec: tools.Spec{
-				Name:        "list_app_components",
-				Description: "List the allowed component types for app generation.",
-				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
-					SearchCategory: "project",
-					SearchTags:     []string{"app", "components", "catalog", "generation"},
-				},
-				Handler: newListAppComponentsHandler(),
-			},
-			InputSchema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"components": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "string",
-						},
-					},
-				},
-				"required": []string{"components"},
-			},
-		},
-		{
-			Spec: tools.Spec{
 				Name:        "get_setta_docs",
 				Description: "Return docs from the Setta docs directory.",
 				Metadata: tools.Metadata{
@@ -3457,7 +3284,6 @@ func defaultToolDefinitions(
 			OutputSchema: pluginRollbackResponseSchema(),
 		},
 	}
-
 	if projectState != nil {
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
@@ -4510,287 +4336,6 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"status"},
-			},
-		})
-
-		definitions = append(definitions, toolDefinition{
-			Spec: tools.Spec{
-				Name:        "get_app_definition",
-				Description: "Fetch the stored app UI spec and document-level app-definition metadata for the active project.",
-				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
-					SearchCategory: "app",
-					SearchTags:     []string{"app", "definition", "spec", "ui", "read", "structural"},
-				},
-				Handler: newGetAppDefinitionHandler(projectState),
-			},
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"projectConfigId": map[string]any{
-						"type":        "string",
-						"description": "Project config id whose document-level app definition should be read.",
-					},
-				},
-				"required": []string{"projectConfigId"},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"appSpec": map[string]any{
-						"description": "Stored JSON Render app spec, or null when no spec is configured or stored.",
-					},
-					"appDefinition": map[string]any{
-						"type":        "object",
-						"description": "Current document-level app-definition metadata, or null when none is configured.",
-					},
-				},
-				"required": []string{"appSpec"},
-			},
-		})
-
-		definitions = append(definitions, toolDefinition{
-			Spec: tools.Spec{
-				Name:        "validate_app_definition",
-				Description: "Validate an app spec and optional app-definition metadata overrides without persisting them.",
-				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
-					SearchCategory: "app",
-					SearchTags:     []string{"app", "definition", "spec", "validate", "diagnostics", "structural"},
-				},
-				Handler: newValidateAppDefinitionHandler(projectState),
-			},
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"projectConfigId": map[string]any{
-						"type":        "string",
-						"description": "Project config id whose app definition should be validated.",
-					},
-					"appSpec": map[string]any{
-						"type":        "object",
-						"description": "Full JSON Render app spec to validate.",
-					},
-					"appSpecVersion": map[string]any{
-						"type":        "string",
-						"description": "Optional app-spec version override used only for validation and capabilities.",
-					},
-					"catalogId": map[string]any{
-						"type":        "string",
-						"description": "Optional app catalog id override used only for validation and capabilities.",
-					},
-					"routes": map[string]any{
-						"type":        "array",
-						"description": "Optional app routes metadata to validate alongside the app definition.",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"path": map[string]any{
-									"type": "string",
-								},
-								"name": map[string]any{
-									"type": "string",
-								},
-								"rootKey": map[string]any{
-									"type": "string",
-								},
-							},
-							"required": []string{"path"},
-						},
-					},
-					"dataBindings": map[string]any{
-						"type":        "object",
-						"description": "Optional app data-binding overrides to validate.",
-					},
-					"actions": map[string]any{
-						"type":        "object",
-						"description": "Optional app action-definition overrides to validate.",
-					},
-					"theme": map[string]any{
-						"type":        "object",
-						"description": "Optional app theme overrides to validate.",
-					},
-					"assets": map[string]any{
-						"type":        "array",
-						"description": "Optional asset list overrides to validate.",
-					},
-				},
-				"required": []string{"projectConfigId", "appSpec"},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"errors": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-						},
-					},
-					"warnings": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-						},
-					},
-					"capabilities": map[string]any{
-						"type": "object",
-					},
-				},
-				"required": []string{"errors", "warnings", "capabilities"},
-			},
-		})
-
-		definitions = append(definitions, toolDefinition{
-			Spec: tools.Spec{
-				Name:        "set_app_definition",
-				Description: "Replace the stored app UI spec and optionally update persisted app-definition metadata.",
-				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
-					SearchCategory: "app",
-					SearchTags:     []string{"app", "definition", "spec", "ui", "structural"},
-				},
-				Handler: newSetAppDefinitionHandler(projectState),
-			},
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"projectConfigId": map[string]any{
-						"type":        "string",
-						"description": "Project config id whose document-level app definition should be replaced.",
-					},
-					"appSpec": map[string]any{
-						"type":        "object",
-						"description": "Full JSON Render app spec to persist.",
-					},
-					"appSpecPath": map[string]any{
-						"type":        "string",
-						"description": "Optional app-spec file path. Defaults to the existing configured path or app_specs/app.json.",
-					},
-					"appSpecVersion": map[string]any{
-						"type":        "string",
-						"description": "Optional app-spec version metadata to persist alongside the spec.",
-					},
-					"catalogId": map[string]any{
-						"type":        "string",
-						"description": "Optional app catalog id to persist alongside the spec.",
-					},
-					"routes": map[string]any{
-						"type":        "array",
-						"description": "Optional app routes metadata to persist with the definition.",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"path": map[string]any{
-									"type": "string",
-								},
-								"name": map[string]any{
-									"type": "string",
-								},
-								"rootKey": map[string]any{
-									"type": "string",
-								},
-							},
-							"required": []string{"path"},
-						},
-					},
-					"dataBindings": map[string]any{
-						"type":        "object",
-						"description": "Optional app data-binding metadata to persist.",
-					},
-					"actions": map[string]any{
-						"type":        "object",
-						"description": "Optional app action-definition metadata to persist.",
-					},
-					"theme": map[string]any{
-						"type":        "object",
-						"description": "Optional app theme metadata to persist.",
-					},
-					"assets": map[string]any{
-						"type":        "array",
-						"description": "Optional app asset metadata to persist.",
-					},
-				},
-				"required": []string{"projectConfigId", "appSpec"},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-			},
-		})
-
-		definitions = append(definitions, toolDefinition{
-			Spec: tools.Spec{
-				Name:        "stream_app_definition",
-				Description: "Persist an app spec by applying newline-delimited JSON Pointer patch operations to a base or stored app definition.",
-				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeStructural,
-					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
-						TargetIDPathsByType: map[tools.IDType][]string{},
-						PreviewValuePath:    "patches",
-						PreviewKind:         tools.PreviewKindAppSpecPatch,
-					},
-					SearchCategory: "app",
-					SearchTags:     []string{"app", "definition", "spec", "stream", "patch", "structural"},
-				},
-				Handler: newStreamAppDefinitionHandler(projectState),
-			},
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"projectConfigId": map[string]any{
-						"type":        "string",
-						"description": "Project config id whose app definition should be streamed and persisted.",
-					},
-					"patches": map[string]any{
-						"type":        "string",
-						"description": "Newline-delimited JSON patch operations using the bounded /root and /elements/... pointer format.",
-					},
-					"appSpecPath": map[string]any{
-						"type":        "string",
-						"description": "Optional app-spec file path override. Defaults to the existing configured path or app_specs/app.json.",
-					},
-					"baseAppSpec": map[string]any{
-						"type":        "object",
-						"description": "Optional base app spec object to patch instead of the currently stored spec.",
-					},
-				},
-				"required": []string{"projectConfigId", "patches"},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
-			},
-		})
-
-		definitions = append(definitions, toolDefinition{
-			Spec: tools.Spec{
-				Name:        "update_app_definition",
-				Description: "Apply a JSON merge patch to the stored app UI spec for the active project.",
-				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
-					AccessType:     tools.AccessTypeStructural,
-					SearchCategory: "app",
-					SearchTags:     []string{"app", "definition", "spec", "patch", "structural"},
-				},
-				Handler: newUpdateAppDefinitionHandler(projectState),
-			},
-			InputSchema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"projectConfigId": map[string]any{
-						"type":        "string",
-						"description": "Project config id whose stored app spec should be patched.",
-					},
-					"patch": map[string]any{
-						"description": "JSON merge patch to apply to the stored app spec. May be any JSON value.",
-					},
-				},
-				"required": []string{"projectConfigId", "patch"},
-			},
-			OutputSchema: map[string]any{
-				"type": "object",
 			},
 		})
 
@@ -6687,17 +6232,6 @@ type autoLayoutTopLevelSectionsArgs struct {
 	margin          int
 }
 
-type appDefinitionMutationFields struct {
-	appSpec        map[string]any
-	appSpecVersion *string
-	catalogID      *string
-	routes         *[]projectstate.AppRoute
-	dataBindings   *map[string]any
-	actions        *map[string]any
-	theme          *map[string]any
-	assets         *[]any
-}
-
 func readCreateTopLevelSectionArgs(arguments map[string]any) (createTopLevelSectionArgs, error) {
 	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 	if err != nil {
@@ -6914,121 +6448,6 @@ func readAutoLayoutTopLevelSectionsArgs(arguments map[string]any) (autoLayoutTop
 	return autoLayoutTopLevelSectionsArgs{
 		projectConfigID: projectConfigID,
 		margin:          margin,
-	}, nil
-}
-
-func readAppDefinitionMutationFields(arguments map[string]any) (string, appDefinitionMutationFields, error) {
-	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	routes, err := readOptionalAppRoutesArgument(arguments, "routes")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	actions, err := readOptionalObjectPointerArgument(arguments, "actions")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	theme, err := readOptionalObjectPointerArgument(arguments, "theme")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	assets, err := readOptionalArrayPointerArgument(arguments, "assets")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	return projectConfigID, appDefinitionMutationFields{
-		appSpec:        appSpec,
-		appSpecVersion: appSpecVersion,
-		catalogID:      catalogID,
-		routes:         routes,
-		dataBindings:   dataBindings,
-		actions:        actions,
-		theme:          theme,
-		assets:         assets,
-	}, nil
-}
-
-func readValidateAppDefinitionArgs(arguments map[string]any) (string, projectstate.ValidateAppDefinitionInput, error) {
-	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
-	if err != nil {
-		return "", projectstate.ValidateAppDefinitionInput{}, err
-	}
-	return projectConfigID, projectstate.ValidateAppDefinitionInput{
-		AppSpec:        fields.appSpec,
-		AppSpecVersion: fields.appSpecVersion,
-		CatalogID:      fields.catalogID,
-		Routes:         fields.routes,
-		DataBindings:   fields.dataBindings,
-		Actions:        fields.actions,
-		Theme:          fields.theme,
-		Assets:         fields.assets,
-	}, nil
-}
-
-func readSetAppDefinitionArgs(arguments map[string]any) (string, projectstate.SetAppDefinitionInput, error) {
-	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
-	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
-	}
-	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
-	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
-	}
-	return projectConfigID, projectstate.SetAppDefinitionInput{
-		AppSpec:        fields.appSpec,
-		AppSpecPath:    appSpecPath,
-		AppSpecVersion: fields.appSpecVersion,
-		CatalogID:      fields.catalogID,
-		Routes:         fields.routes,
-		DataBindings:   fields.dataBindings,
-		Actions:        fields.actions,
-		Theme:          fields.theme,
-		Assets:         fields.assets,
-	}, nil
-}
-
-func readStreamAppDefinitionArgs(arguments map[string]any) (string, projectstate.StreamAppDefinitionInput, error) {
-	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	patches, err := readRequiredRawStringArgument(arguments, "patches")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	if strings.TrimSpace(patches) == "" {
-		return "", projectstate.StreamAppDefinitionInput{}, newToolError("invalid_arguments", "patches must be non-empty.")
-	}
-	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	return projectConfigID, projectstate.StreamAppDefinitionInput{
-		Patches:     patches,
-		AppSpecPath: appSpecPath,
-		BaseAppSpec: baseAppSpec,
 	}, nil
 }
 
@@ -7650,7 +7069,7 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 	}
 }
 
-func requireProjectStateRuntime(projectState projectStateProvider, unavailableMessage string) error {
+func requireProjectStateRuntime(projectState any, unavailableMessage string) error {
 	if projectState != nil {
 		return nil
 	}
@@ -8061,6 +7480,15 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 
 func NewToolError(code string, format string, args ...any) error {
 	return newToolError(code, format, args...)
+}
+
+func ExecuteScopedProjectStateOperation(
+	ctx context.Context,
+	projectConfigID string,
+	missingContextMessage string,
+	run func() (any, error),
+) (any, error) {
+	return executeScopedProjectStateOperation(ctx, projectConfigID, missingContextMessage, run)
 }
 
 func boolPtr(value bool) *bool {
