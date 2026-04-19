@@ -285,6 +285,83 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	}
 }
 
+func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefaultPolicy(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	appSpecPath := appspec.DefaultPath()
+	appSpecPayload := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+		AppSpecPath: appSpecPath,
+	}))
+	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
+		t.Fatalf("write app spec: %v", err)
+	}
+	absoluteAppSpecPath := filepath.Join(fixture.SettaFilesRoot, filepath.FromSlash(appSpecPath))
+	if _, err := fixture.ProjectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.AppDefinition = &projectstate.AppDefinition{
+			AppSpecPath: absoluteAppSpecPath,
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("set absolute app spec path: %v", err)
+	}
+
+	handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+httpapi.RouteAppDeployments,
+		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected app publish 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload httpapi.DeploymentMetadataResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode app publish payload: %v", err)
+	}
+
+	policy, err := deployments.LoadPolicy(payload.DeploymentRoot)
+	if err != nil {
+		t.Fatalf("load app policy: %v", err)
+	}
+	if !policy.AllowRun {
+		t.Fatalf("expected default app policy allowRun true, got %#v", policy)
+	}
+	if policy.AllowVariantChanges {
+		t.Fatalf("expected default app policy to disable variant changes, got %#v", policy)
+	}
+	if policy.AllowLayoutChanges {
+		t.Fatalf("expected default app policy to disable layout changes, got %#v", policy)
+	}
+
+	store, err := projectstate.NewStore(filepath.Join(payload.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open published app store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load published app document: %v", err)
+	}
+	if document.AppDefinition == nil {
+		t.Fatal("expected published app definition")
+	}
+	if document.AppDefinition.AppSpecPath != appSpecPath {
+		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, document.AppDefinition.AppSpecPath)
+	}
+}
+
 func TestRegisterAppDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *testing.T) {
 	t.Parallel()
 
@@ -494,6 +571,37 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 		}
 		appDeploymentIDERouteErrorCode(t, response, "invalid_app_spec")
 	})
+}
+
+func TestRegisterAppDeploymentIDERoutesRejectInvalidAppPublishPolicy(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+		AppSpecPath: appspec.DefaultPath(),
+	}))
+	if err := appspec.Write(fixture.SettaFilesRoot, appspec.DefaultPath(), map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}); err != nil {
+		t.Fatalf("write app spec: %v", err)
+	}
+
+	handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+httpapi.RouteAppDeployments,
+		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha","appPolicyOverrides":{"runSnapshotMode":"never"}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid policy 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	appDeploymentIDERouteErrorCode(t, response, "invalid_deployment_policy")
 }
 
 func TestRegisterAppDeploymentIDERoutesMapCatalogReadErrors(t *testing.T) {

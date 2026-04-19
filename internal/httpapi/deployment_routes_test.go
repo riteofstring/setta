@@ -19,7 +19,6 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
@@ -563,9 +562,6 @@ func newHTTPTestDeploymentRuntimeWithOptions(t *testing.T, opts httpTestDeployme
 	if err != nil {
 		t.Fatalf("open deployment runtime: %v", err)
 	}
-	if opts.Mode == config.ModeApp {
-		deploymentRuntime.SetAppDeploymentRuntimeContent(httpTestAppDeploymentRuntimeContent{})
-	}
 	t.Cleanup(func() {
 		if err := deploymentRuntime.Close(); err != nil {
 			t.Fatalf("close deployment runtime: %v", err)
@@ -616,18 +612,6 @@ func writeHTTPDeploymentFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write deployment file: %v", err)
 	}
-}
-
-type httpTestAppDeploymentRuntimeContent struct{}
-
-func (httpTestAppDeploymentRuntimeContent) LoadPublishedAppSpec(
-	deploymentRoot string,
-	appDefinition *projectstate.AppDefinition,
-) (any, error) {
-	if appDefinition == nil {
-		return nil, nil
-	}
-	return appspec.Read(deploymentRoot, appDefinition.AppSpecPath)
 }
 
 func waitForHTTPDeploymentListenerHandleCount(t *testing.T, runtime *deployments.Runtime, expected int) {
