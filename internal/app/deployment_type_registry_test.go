@@ -73,12 +73,7 @@ func TestNewDeploymentTypeRegistryRejectsUnregisteredProvider(t *testing.T) {
 	t.Parallel()
 
 	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
-	enableAppDeploymentRuntimePluginWithID(
-		t,
-		cfg.Paths.DeploymentRoot,
-		firstpartyplugin.AppSubsystemPluginID,
-		"setta-fixture-unregistered-app-provider",
-	)
+	enableInvalidAppDeploymentRuntimePlugin(t, cfg.Paths.DeploymentRoot, "setta-fixture-unregistered-app-provider")
 
 	_, err := NewDeploymentTypeRegistry(cfg)
 	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
@@ -132,12 +127,7 @@ func TestNewDeploymentTypeRegistryRejectsMixedRegisteredAndUnregisteredActivePro
 		firstpartyplugin.AppSubsystemPluginID,
 		firstpartyplugin.AppSubsystemPluginID,
 	)
-	enableAppDeploymentRuntimePluginWithID(
-		t,
-		cfg.Paths.DeploymentRoot,
-		firstpartyplugin.AppSubsystemPluginID,
-		"setta-fixture-unregistered-app-provider",
-	)
+	enableInvalidAppDeploymentRuntimePlugin(t, cfg.Paths.DeploymentRoot, "setta-fixture-unregistered-app-provider")
 	writeAppJSON(t, filepath.Join(cfg.Paths.DeploymentRoot, "plugins_state.json"), map[string]any{
 		"enabledPluginIds": []string{
 			firstpartyplugin.AppSubsystemPluginID,
