@@ -1,3 +1,4 @@
+import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import { type ComponentType } from "react";
 import { PluginRuntimeResponse } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -22,9 +23,11 @@ type AppSubsystemAppModeRouteRegistration = {
 };
 
 type AppSubsystemFrontendRegistration = {
-  overviewTab: AppSubsystemOverviewTabRegistration;
-  previewSurface: AppSubsystemPreviewSurfaceRegistration;
-  appModeRoute: AppSubsystemAppModeRouteRegistration;
+  overviewTab?: AppSubsystemOverviewTabRegistration;
+  previewSurface?: AppSubsystemPreviewSurfaceRegistration;
+  appModeRoute?: AppSubsystemAppModeRouteRegistration;
+  slashCommands?: ChatSlashCommandDefinition[];
+  initializeProjectState?: () => void;
   resetProjectState?: () => void;
 };
 
@@ -50,6 +53,7 @@ const INITIAL_APP_SUBSYSTEM_FRONTEND_STORE: AppSubsystemFrontendStore = {
   capabilitySignature: null,
   registration: null,
 };
+const EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] = [];
 
 let appSubsystemFrontendLoadSequence = 0;
 
@@ -83,6 +87,7 @@ function hasFrontendSurfaceAvailability(
   return (
     capabilities.appAuthoringUi ||
     capabilities.appPreviewUi ||
+    capabilities.appGenerationChatModes ||
     capabilities.appDeploymentRuntime
   );
 }
@@ -125,6 +130,46 @@ function isAppModeRouteRegistration(
   return isRecord(value) && isComponent(value.component);
 }
 
+function isSlashCommandRegistration(
+  value: unknown,
+): value is ChatSlashCommandDefinition[] {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  return value.every(
+    (entry) =>
+      isRecord(entry) &&
+      typeof entry.command === "string" &&
+      typeof entry.action === "string" &&
+      typeof entry.summary === "string" &&
+      (entry.promptTemplate === undefined ||
+        typeof entry.promptTemplate === "string"),
+  );
+}
+
+function hasOptionalRegistration<T>(
+  value: Record<string, unknown>,
+  key: string,
+  validator: (entry: unknown) => entry is T,
+): boolean {
+  const entry = value[key];
+  if (entry === undefined) {
+    return true;
+  }
+  return validator(entry);
+}
+
+function hasOptionalFunction(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const entry = value[key];
+  if (entry === undefined) {
+    return true;
+  }
+  return isFunction(entry);
+}
+
 function isFrontendRegistration(
   value: unknown,
 ): value is AppSubsystemFrontendRegistration {
@@ -132,11 +177,24 @@ function isFrontendRegistration(
     return false;
   }
   return (
-    isOverviewTabRegistration(value.overviewTab) &&
-    isPreviewSurfaceRegistration(value.previewSurface) &&
-    isAppModeRouteRegistration(value.appModeRoute) &&
-    (value.resetProjectState === undefined ||
-      isFunction(value.resetProjectState))
+    hasOptionalRegistration(value, "overviewTab", isOverviewTabRegistration) &&
+    hasOptionalRegistration(
+      value,
+      "previewSurface",
+      isPreviewSurfaceRegistration,
+    ) &&
+    hasOptionalRegistration(
+      value,
+      "appModeRoute",
+      isAppModeRouteRegistration,
+    ) &&
+    hasOptionalRegistration(
+      value,
+      "slashCommands",
+      isSlashCommandRegistration,
+    ) &&
+    hasOptionalFunction(value, "initializeProjectState") &&
+    hasOptionalFunction(value, "resetProjectState")
   );
 }
 
@@ -181,7 +239,7 @@ function shouldReuseLoadedRegistration(
   return true;
 }
 
-function resolveFrontendRegistrationFromModule(module: {
+function requireFrontendRegistration(module: {
   default?: unknown;
   appSubsystemFrontendRegistration?: unknown;
 }): AppSubsystemFrontendRegistration {
@@ -193,6 +251,54 @@ function resolveFrontendRegistrationFromModule(module: {
     );
   }
   return candidate;
+}
+
+function requireCapabilityRegistration(
+  required: boolean | undefined,
+  present: boolean,
+  message: string,
+): void {
+  if (required && !present) {
+    throw new Error(message);
+  }
+}
+
+function validateFrontendRegistrationCapabilities(
+  registration: AppSubsystemFrontendRegistration,
+  capabilities: AppSubsystemCapabilities | null,
+): void {
+  requireCapabilityRegistration(
+    capabilities?.appAuthoringUi,
+    Boolean(registration.overviewTab),
+    "App subsystem frontend adapter is missing the authoring overview registration.",
+  );
+  requireCapabilityRegistration(
+    capabilities?.appPreviewUi,
+    Boolean(registration.previewSurface),
+    "App subsystem frontend adapter is missing the preview surface registration.",
+  );
+  requireCapabilityRegistration(
+    capabilities?.appGenerationChatModes,
+    (registration.slashCommands?.length ?? 0) > 0,
+    "App subsystem frontend adapter is missing slash command registrations.",
+  );
+  requireCapabilityRegistration(
+    capabilities?.appDeploymentRuntime,
+    Boolean(registration.appModeRoute),
+    "App subsystem frontend adapter is missing the app mode route registration.",
+  );
+}
+
+function resolveFrontendRegistrationFromModule(
+  module: {
+    default?: unknown;
+    appSubsystemFrontendRegistration?: unknown;
+  },
+  capabilities: AppSubsystemCapabilities | null,
+): AppSubsystemFrontendRegistration {
+  const registration = requireFrontendRegistration(module);
+  validateFrontendRegistrationCapabilities(registration, capabilities);
+  return registration;
 }
 
 export async function syncAppSubsystemFrontendRegistration(
@@ -228,7 +334,11 @@ export async function syncAppSubsystemFrontendRegistration(
     if (loadSequence !== appSubsystemFrontendLoadSequence) {
       return;
     }
-    const registration = resolveFrontendRegistrationFromModule(module);
+    const registration = resolveFrontendRegistrationFromModule(
+      module,
+      capabilities,
+    );
+    registration.initializeProjectState?.();
     useAppSubsystemFrontendStore.setState({
       capabilities,
       status: "loaded",
@@ -302,6 +412,20 @@ export function useAppSubsystemAppModeRoute(): AppSubsystemAppModeRouteRegistrat
       return null;
     }
     return state.registration?.appModeRoute ?? null;
+  });
+}
+
+export function useAppSubsystemSlashCommands(): ChatSlashCommandDefinition[] {
+  return useAppSubsystemFrontendStore((state) => {
+    if (
+      !state.capabilities?.pluginEnabled ||
+      !state.capabilities.appGenerationChatModes
+    ) {
+      return EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS;
+    }
+    return (
+      state.registration?.slashCommands ?? EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS
+    );
   });
 }
 

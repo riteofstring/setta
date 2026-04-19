@@ -6,6 +6,7 @@ import {
   syncAppSubsystemFrontendRegistration,
   useAppSubsystemFrontendStore,
   useAppSubsystemOverviewTab,
+  useAppSubsystemSlashCommands,
 } from "plugins/appSubsystemRuntime";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +26,15 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   appModeRoute: {
     component: () => null,
   },
+  slashCommands: [
+    {
+      command: "/app-json",
+      action: "app_json_render",
+      summary: "Generate an app spec.",
+      promptTemplate: "Generate an app spec.",
+      appGenerationMode: "json_render",
+    },
+  ],
   resetProjectState: () => {
     resetProjectStateMock();
   },
@@ -40,13 +50,18 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginEnabled: true,
   appAuthoringUi: true,
   appPreviewUi: true,
-  appGenerationChatModes: false,
+  appGenerationChatModes: true,
   appDeploymentRuntime: true,
 } as const;
 
 function AppSubsystemOverviewProbe() {
   const overviewTab = useAppSubsystemOverviewTab();
   return <span>{overviewTab?.moreMenuLabel ?? "missing"}</span>;
+}
+
+function AppSubsystemSlashCommandProbe() {
+  const slashCommands = useAppSubsystemSlashCommands();
+  return <span>{slashCommands.map((entry) => entry.command).join(",")}</span>;
 }
 
 describe("appSubsystemRuntime", () => {
@@ -109,5 +124,25 @@ describe("appSubsystemRuntime", () => {
     expect(renderToStaticMarkup(<AppSubsystemOverviewProbe />)).toContain(
       "JSON Render",
     );
+  });
+
+  it("exposes app slash commands through capability-gated hooks", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
+      "/app-json",
+    );
+  });
+
+  it("hides app slash commands when the subsystem is unavailable", async () => {
+    await syncAppSubsystemFrontendRegistration(null);
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(
+      renderToStaticMarkup(<AppSubsystemSlashCommandProbe />),
+    ).not.toContain("/app-json");
   });
 });
