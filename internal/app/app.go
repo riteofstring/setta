@@ -2149,7 +2149,6 @@ type appRuntimeServices struct {
 type appPlatformServices struct {
 	deploymentCatalog        *deployments.Catalog
 	sharePublisher           deployments.SharePublishService
-	appPublisher             deployments.AppPublishService
 	pluginRuntime            *pluginBackendRuntimeRefresher
 	pluginRouteService       httpapi.PluginRouteService
 	appSubsystemCapabilities *appSubsystemCapabilityState
@@ -2457,8 +2456,6 @@ func initializeAppRuntimeServices(
 func initializeAppDeploymentPublishers(
 	cfg config.Config,
 	modePolicy modes.Policy,
-	projectRuntime *projectstate.Runtime,
-	appSubsystemCapabilities *appSubsystemCapabilityState,
 	services *appPlatformServices,
 ) error {
 	if !modePolicy.IsIDE() {
@@ -2482,16 +2479,7 @@ func initializeAppDeploymentPublishers(
 	if err != nil {
 		return err
 	}
-	capabilities := plugins.PluginAppSubsystemCapabilities{}
-	if appSubsystemCapabilities != nil {
-		capabilities = appSubsystemCapabilities.AppSubsystemCapabilities()
-	}
-	services.appPublisher, err = appsubsystem.NewAppPublishService(capabilities, deployments.AppPublisherOptions{
-		Catalog:        services.deploymentCatalog,
-		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-	}, projectRuntime)
-	return err
+	return nil
 }
 
 func configureAppPluginRuntime(
@@ -2627,8 +2615,6 @@ func initializeAppPlatformServices(
 	if err := initializeAppDeploymentPublishers(
 		cfg,
 		modePolicy,
-		projectServices.projectRuntime,
-		appSubsystemCapabilities,
 		&services,
 	); err != nil {
 		return appPlatformServices{}, err
@@ -2675,7 +2661,7 @@ func initializeAppHandlerAndWatchServices(
 	if err != nil {
 		return appHandlerServices{}, err
 	}
-	services.handler, err = newAppHandler(appHandlerDeps{
+	handlerDeps := appHandlerDeps{
 		cfg:                      cfg,
 		logger:                   logger,
 		authService:              base.authService,
@@ -2703,7 +2689,6 @@ func initializeAppHandlerAndWatchServices(
 		statusReadyAt:            statusReadyAt,
 		deploymentCatalog:        platformServices.deploymentCatalog,
 		sharePublisher:           platformServices.sharePublisher,
-		appPublisher:             platformServices.appPublisher,
 		launcherHome:             launchServices.launcherHome,
 		launcherManagement:       launchServices.launcherManagement,
 		launcherOpenWorkspace:    launchServices.launcherOpenWorkspace,
@@ -2751,11 +2736,15 @@ func initializeAppHandlerAndWatchServices(
 		lspCompletion:            projectServices.lspCompletion,
 		projectLSPSyncer:         projectServices.projectLSPSyncer,
 		pluginRuntime:            platformServices.pluginRuntime,
-	})
+	}
+	var refreshAppHandler func() error
+	services.handler, refreshAppHandler, err = newRefreshableAppHandler(handlerDeps)
 	if err != nil {
 		return appHandlerServices{}, err
 	}
-	listenerBuiltInInvoker.SetHandler(services.handler)
+	if platformServices.pluginRuntime != nil {
+		platformServices.pluginRuntime.SetAppHandlerRefresh(refreshAppHandler)
+	}
 	if modePolicy.IsIDE() {
 		services.jsonSourceWatchService, err = newJSONSourceWatchService(jsonSourceWatchServiceOptions{
 			ProjectState:  projectServices.projectRuntime,
