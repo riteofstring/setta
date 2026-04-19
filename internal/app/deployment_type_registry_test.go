@@ -119,3 +119,38 @@ func TestNewDeploymentTypeRegistryRejectsConflictingActiveProviders(t *testing.T
 		t.Fatalf("expected exact provider-conflict error %q, got %v", expectedErr, err)
 	}
 }
+
+func TestNewDeploymentTypeRegistryRejectsMixedRegisteredAndUnregisteredActiveProviders(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
+	enableAppDeploymentRuntimePluginWithID(
+		t,
+		cfg.Paths.DeploymentRoot,
+		plugins.AppSubsystemPluginID,
+		plugins.AppSubsystemPluginID,
+	)
+	enableAppDeploymentRuntimePluginWithID(
+		t,
+		cfg.Paths.DeploymentRoot,
+		plugins.AppSubsystemPluginID,
+		"setta-fixture-unregistered-app-provider",
+	)
+	writeAppJSON(t, filepath.Join(cfg.Paths.DeploymentRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds": []string{
+			plugins.AppSubsystemPluginID,
+			"setta-fixture-unregistered-app-provider",
+		},
+	})
+
+	_, err := NewDeploymentTypeRegistry(cfg)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected app mode provider-required error, got %v", err)
+	}
+	expectedErr := `app mode requires a single active app subsystem provider with app deployment runtime support: installed app subsystem providers are invalid ("setta-fixture-unregistered-app-provider")`
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("expected exact invalid-provider error %q, got %v", expectedErr, err)
+	}
+}

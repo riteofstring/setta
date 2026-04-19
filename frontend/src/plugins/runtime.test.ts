@@ -4,6 +4,7 @@ import * as openAPI from "openapi/http";
 import {
   applyAppDefinitionStructuredContentToStore,
   appSubsystemModeRequiresImageAttachment,
+  processAppProjectStateUpdateFromBackend,
   resetAppSubsystemFrontendRuntimeState,
   useAppSubsystemAppDeploymentModal,
   useAppSubsystemFrontendStore,
@@ -286,6 +287,7 @@ function buildActiveAppSubsystemCapabilities(
 function buildAppSubsystemRegistrationDelta(
   pluginId: string,
   applyStructuredContent: (structured: Record<string, unknown>) => boolean,
+  processProjectStateUpdate?: (payload: unknown) => void,
 ) {
   return {
     appSubsystemRegistrationsByPluginId: {
@@ -298,6 +300,7 @@ function buildAppSubsystemRegistrationDelta(
           moreMenuLabel: pluginId,
         },
         applyAppDefinitionStructuredContentToStore: applyStructuredContent,
+        processAppProjectStateUpdateFromBackend: processProjectStateUpdate,
       },
     },
     sectionKinds: {},
@@ -1604,6 +1607,137 @@ describe("plugin runtime helpers", () => {
       status: "loaded",
       registration: {
         pluginId: secondProviderPluginId,
+      },
+    });
+  });
+
+  it("buffers app-subsystem updates during same-provider frontend reloads keyed by refresh signature", async () => {
+    const providerPluginId = "acme.reloadable-app-provider";
+    const firstApplyStructuredContent = vi.fn(() => true);
+    const firstProcessProjectStateUpdate = vi.fn();
+    const secondApplyStructuredContent = vi.fn(() => true);
+    const secondProcessProjectStateUpdate = vi.fn();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+            },
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-b") {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              secondApplyStructuredContent,
+              secondProcessProjectStateUpdate,
+            ),
+          };
+        }
+        return {
+          error: null,
+          registryDelta: buildAppSubsystemRegistrationDelta(
+            providerPluginId,
+            firstApplyStructuredContent,
+            firstProcessProjectStateUpdate,
+          ),
+        };
+      },
+    );
+
+    await receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+            sourceDigestSha256: "digest-a",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    expect(useAppSubsystemFrontendStore.getState().status).toBe("loaded");
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+            sourceDigestSha256: "digest-b",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    await secondLoadStarted.promise;
+    expect(useAppSubsystemFrontendStore.getState().status).toBe("loading");
+
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Buffered during reload" },
+      }),
+    ).toBe(true);
+    processAppProjectStateUpdateFromBackend(
+      {} as Parameters<typeof processAppProjectStateUpdateFromBackend>[0],
+    );
+    expect(firstApplyStructuredContent).not.toHaveBeenCalled();
+    expect(firstProcessProjectStateUpdate).not.toHaveBeenCalled();
+
+    releaseSecondLoad.resolve();
+    await secondUpdatePromise;
+
+    expect(secondApplyStructuredContent).toHaveBeenCalledWith({
+      appSpec: { title: "Buffered during reload" },
+    });
+    expect(secondProcessProjectStateUpdate).toHaveBeenCalledTimes(1);
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: providerPluginId,
       },
     });
   });

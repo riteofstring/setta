@@ -8,6 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUseAppSubsystemSlashCommands = vi.fn();
 const mockUseAppSubsystemFrontendStatus = vi.fn();
+const mockUseAppSubsystemSupportedAppGenerationModes = vi.fn();
+const capturedChatInputProps: {
+  current: {
+    onSubmit?: (
+      message: string,
+      attachments: Array<{ id: string; mimeType?: string; name?: string }>,
+      options?: unknown,
+    ) => Promise<unknown>;
+  } | null;
+} = { current: null };
 const capturedChatMessageListProps: {
   current: {
     onEditMessage?: (
@@ -20,7 +30,11 @@ const capturedChatMessageListProps: {
 } = { current: null };
 
 vi.mock("components/Chat/ChatInput", () => ({
-  ChatInput: () => <div data-testid="mock-chat-input" />,
+  ChatInput: (props: unknown) => {
+    capturedChatInputProps.current =
+      props as typeof capturedChatInputProps.current;
+    return <div data-testid="mock-chat-input" />;
+  },
 }));
 
 vi.mock("components/Chat/ChatMessages", () => ({
@@ -39,6 +53,8 @@ vi.mock("plugins/appSubsystem", async () => {
     ...actual,
     useAppSubsystemSlashCommands: () => mockUseAppSubsystemSlashCommands(),
     useAppSubsystemFrontendStatus: () => mockUseAppSubsystemFrontendStatus(),
+    useAppSubsystemSupportedAppGenerationModes: () =>
+      mockUseAppSubsystemSupportedAppGenerationModes(),
   };
 });
 
@@ -50,6 +66,7 @@ vi.mock("state/actions/ai", async () => {
   return {
     ...actual,
     getLLMChatHydrationOutcome: vi.fn(),
+    submitMessage: vi.fn(),
     submitEditedMessage: vi.fn(),
   };
 });
@@ -57,6 +74,7 @@ vi.mock("state/actions/ai", async () => {
 import {
   getLLMChatHydrationOutcome,
   submitEditedMessage,
+  submitMessage,
 } from "state/actions/ai";
 import {
   useAIStore,
@@ -83,9 +101,11 @@ describe("ProjectChatCore historical app-generation compatibility", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
+    capturedChatInputProps.current = null;
     capturedChatMessageListProps.current = null;
     mockUseAppSubsystemSlashCommands.mockReturnValue([]);
     mockUseAppSubsystemFrontendStatus.mockReturnValue("unavailable");
+    mockUseAppSubsystemSupportedAppGenerationModes.mockReturnValue([]);
     vi.mocked(getLLMChatHydrationOutcome).mockResolvedValue({
       outcome: "success",
       status: 200,
@@ -272,5 +292,64 @@ describe("ProjectChatCore historical app-generation compatibility", () => {
     expect(submitEditedMessage).toHaveBeenCalledTimes(1);
     expect(setChatId).toHaveBeenCalledWith("chat-next");
     expect(useNotifications.getState().notifications).toEqual([]);
+  });
+
+  it("blocks continue, edit, and redo when the historical mode is missing from the current provider registry", async () => {
+    vi.mocked(submitMessage).mockResolvedValue("chat-next");
+    vi.mocked(submitEditedMessage).mockResolvedValue("chat-next");
+    mockUseAppSubsystemFrontendStatus.mockReturnValue("loaded");
+    mockUseAppSubsystemSlashCommands.mockReturnValue([
+      {
+        command: "/wireframe",
+        action: "custom_prompt",
+        summary: "Draft a wireframe.",
+        promptTemplate: "Draft a wireframe.",
+        appGenerationMode: "wireframe_mode",
+      },
+    ]);
+    mockUseAppSubsystemSupportedAppGenerationModes.mockReturnValue([
+      "wireframe_mode",
+    ]);
+    renderProjectChatCore();
+
+    let submitResult: unknown;
+    await act(async () => {
+      submitResult = await capturedChatInputProps.current?.onSubmit?.(
+        "Continue the thread.",
+        [],
+      );
+    });
+
+    let editResult: boolean | undefined;
+    await act(async () => {
+      editResult = await capturedChatMessageListProps.current?.onEditMessage?.(
+        "user-1",
+        "Rewrite the app thread.",
+        [],
+      );
+    });
+
+    let redoResult: boolean | undefined;
+    await act(async () => {
+      redoResult =
+        await capturedChatMessageListProps.current?.onRedoMessage?.(
+          "assistant-1",
+        );
+    });
+
+    expect(submitResult).toBe("retry_later");
+    expect(editResult).toBe(false);
+    expect(redoResult).toBe(false);
+    expect(submitMessage).not.toHaveBeenCalled();
+    expect(submitEditedMessage).not.toHaveBeenCalled();
+    expect(
+      useNotifications
+        .getState()
+        .notifications.map((notification) => notification.message),
+    ).toEqual([
+      HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE,
+      HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE,
+      HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE,
+    ]);
   });
 });
