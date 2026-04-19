@@ -1,6 +1,9 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionMotionHiddenBody } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
@@ -12,6 +15,7 @@ import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
@@ -494,6 +498,16 @@ function CanvasSectionBody({
       )?.instanceId ?? null
     );
   });
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const isSectionUIActive = useIsSectionUIActive(sectionId);
+  const motionHiddenBodyRoot =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionMotionHiddenBody(sectionId);
+  const motionHiddenBody =
+    motionHiddenBodyRoot && viewportInteractionActive && !isSectionUIActive;
 
   if (externalizedWindowId) {
     return (
@@ -509,13 +523,25 @@ function CanvasSectionBody({
   }
 
   return (
-    <AreaSwitch
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      bgColor={bgColor}
-      isMinimized={isMinimized}
-      isUserView={isUserView}
-    />
+    <div
+      data-canvas-owned-motion-body-hidden={
+        motionHiddenBody ? "true" : undefined
+      }
+      data-canvas-owned-motion-body-root={
+        motionHiddenBodyRoot ? "true" : undefined
+      }
+      style={motionHiddenBody ? { display: "none" } : undefined}
+    >
+      {motionHiddenBody ? null : (
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      )}
+    </div>
   );
 }
 
