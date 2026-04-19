@@ -2035,7 +2035,11 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		WebsocketHub:  deps.websocketHub,
 		PluginRuntime: deps.pluginRouteService,
 	}
-	return httpapi.RegisterFrontendAPIRoutes(r, apiDeps)
+	return httpapi.RegisterFrontendAPIRoutes(
+		r,
+		apiDeps,
+		httpapi.BuildAppSubsystemFrontendAPIRouteRegistrations(apiDeps),
+	)
 }
 
 func newAppHandler(deps appHandlerDeps) (http.Handler, error) {
