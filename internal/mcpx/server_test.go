@@ -4150,7 +4150,10 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(t, projectRuntime.Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(
+		t,
+		appdefinition.StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
+	)
 	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
 		t.Fatalf("expected runtime app definition after mutation, got %#v", storedAppDefinition)
 	}
@@ -4236,11 +4239,11 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.AppDefinition = mustMarshalStoredAppDefinition(t, projectstate.AppDefinition{
+		document = appdefinition.WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, projectstate.AppDefinition{
 			AppSpecPath:    appspec.DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,
-		})
+		}))
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed missing app definition metadata: %v", err)

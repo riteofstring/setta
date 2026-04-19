@@ -25,7 +25,7 @@ var (
 type Document struct {
 	SchemaVersion    int                `json:"schemaVersion"`
 	DefaultProjectID string             `json:"defaultProjectId,omitempty"`
-	AppDefinition    RawJSON            `json:"appDefinition,omitempty"`
+	PluginData       map[string]RawJSON `json:"pluginData,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
 	passwordSecrets       PasswordSecretStore
@@ -83,7 +83,12 @@ func (d Document) Clone() Document {
 	cloned := d
 	cloned.passwordSecrets = d.passwordSecrets
 	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
-	cloned.AppDefinition = cloneRawJSON(d.AppDefinition)
+	if d.PluginData != nil {
+		cloned.PluginData = make(map[string]RawJSON, len(d.PluginData))
+		for pluginID, payload := range d.PluginData {
+			cloned.PluginData[pluginID] = cloneRawJSON(payload)
+		}
+	}
 	if d.Projects == nil {
 		return cloned
 	}
@@ -121,11 +126,11 @@ func (d Document) Normalized() (Document, error) {
 	}
 
 	normalized.Projects = normalizeDocumentProjectMap(normalized.Projects)
-	appDefinition, err := normalizeRawJSON(normalized.AppDefinition, "appDefinition")
+	pluginData, err := normalizeDocumentPluginData(normalized.PluginData)
 	if err != nil {
 		return Document{}, err
 	}
-	normalized.AppDefinition = appDefinition
+	normalized.PluginData = pluginData
 	if err := normalizeDocumentProjects(normalized.Projects); err != nil {
 		return Document{}, err
 	}
@@ -148,6 +153,31 @@ func normalizeDocumentProjectMap(projects map[string]Project) map[string]Project
 		return map[string]Project{}
 	}
 	return projects
+}
+
+func normalizeDocumentPluginData(pluginData map[string]RawJSON) (map[string]RawJSON, error) {
+	if pluginData == nil {
+		return nil, nil
+	}
+
+	normalized := make(map[string]RawJSON, len(pluginData))
+	for pluginID, payload := range pluginData {
+		if strings.TrimSpace(pluginID) == "" {
+			return nil, fmt.Errorf("pluginData key is required")
+		}
+		normalizedPayload, err := normalizeRawJSON(payload, fmt.Sprintf("pluginData.%s", pluginID))
+		if err != nil {
+			return nil, err
+		}
+		if len(normalizedPayload) == 0 {
+			continue
+		}
+		normalized[pluginID] = normalizedPayload
+	}
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+	return normalized, nil
 }
 
 func normalizeDocumentProjects(projects map[string]Project) error {

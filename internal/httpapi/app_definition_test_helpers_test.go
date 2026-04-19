@@ -26,7 +26,7 @@ func setTestAppDefinition(
 	if err != nil {
 		t.Fatalf("project root: %v", err)
 	}
-	current := runtime.Snapshot().Document.AppDefinition
+	current := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document)
 	metadata := projectstate.AppDefinition{}
 	if len(current) != 0 {
 		metadata = mustDecodeStoredAppDefinition(t, current)
@@ -77,8 +77,10 @@ func setTestAppDefinition(
 		t.Fatalf("read previous app spec: %v", err)
 	}
 	_, err = runtime.MutatePersistedWithContext(context.Background(), func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		next := document.Clone()
-		next.AppDefinition = mustMarshalStoredAppDefinition(t, metadata)
+		next := appdefinition.WithStoredDocumentAppDefinition(
+			document,
+			mustMarshalStoredAppDefinition(t, metadata),
+		)
 		appSpec := input.AppSpec
 		return projectstate.PersistedMutationPlan{
 			NextDocument: next,
