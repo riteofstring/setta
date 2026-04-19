@@ -87,4 +87,67 @@ def test_pre_iteration_helper_returns_completion_code_for_clean_stop(
     assert (
         state_dir / "status.txt"
     ).read_text(encoding="utf-8").strip() == f"complete:{sentinel}"
-    assert "Stop sentinel detected with a clean repo and no new commit" in result.stdout
+    assert "Stop sentinel detected with a clean repo" in result.stdout
+
+
+def test_pre_iteration_helper_accepts_clean_stop_after_final_commit(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "loop-output"
+    state_dir = output_dir / "state"
+    run_dir = output_dir / "run-001"
+    script_path = (
+        repo_root()
+        / "scripts"
+        / "codex-app-subsystem-extraction-loop-pre-iteration.sh"
+    )
+    sentinel = "CODEX_LOOP_STOP: APP_SUBSYSTEM_EXTRACTION_COMPLETE"
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    initial_head = _current_head(repo_dir)
+    (state_dir / "last-observed-head.txt").write_text(
+        initial_head,
+        encoding="utf-8",
+    )
+
+    (repo_dir / "README.md").write_text("sandbox updated\n", encoding="utf-8")
+    _run(["git", "add", "README.md"], cwd=repo_dir)
+    commit = _run(["git", "commit", "-m", "advance"], cwd=repo_dir)
+    assert commit.returncode == 0, commit.stderr
+    current_head = _current_head(repo_dir)
+
+    (run_dir / "status.txt").write_text("success\n", encoding="utf-8")
+    (run_dir / "last-message.txt").write_text(
+        f"{sentinel}\n",
+        encoding="utf-8",
+    )
+
+    result = _run(
+        [
+            "bash",
+            str(script_path),
+            "--root-dir",
+            str(repo_dir),
+            "--output-dir",
+            str(output_dir),
+            "--state-dir",
+            str(state_dir),
+            "--complete-exit-code",
+            "42",
+            "--sentinel",
+            sentinel,
+            "--allow-clean-failures",
+            "3",
+        ],
+        cwd=repo_dir,
+    )
+
+    assert result.returncode == 42, result.stderr
+    assert (
+        state_dir / "status.txt"
+    ).read_text(encoding="utf-8").strip() == f"complete:{sentinel}"
+    assert (state_dir / "last-observed-head.txt").read_text(
+        encoding="utf-8",
+    ).strip() == current_head
