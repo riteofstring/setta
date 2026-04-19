@@ -12,6 +12,10 @@ import {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
+import {
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "./appSubsystemRuntime";
 import { type PluginPaneIconName } from "./paneIcons";
 import type {
   PluginFrontendError,
@@ -388,10 +392,15 @@ async function applyPluginRuntimeResponse(
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
     frontendErrorsByPluginId,
   }));
+
+  await syncAppSubsystemFrontendRegistration(
+    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+  );
 }
 
 function setPluginRuntimeLoadError(message: string): void {
   clearPluginRuntimeSideEffects();
+  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState((state) =>
     buildClearedRuntimeState(state, {
       status: "error",
