@@ -27,10 +27,10 @@ vi.mock("state/actions/project/loadProject", async () => {
   };
 });
 
-vi.mock("plugins/appSubsystemRuntime", async () => {
-  const actual = await vi.importActual<
-    typeof import("plugins/appSubsystemRuntime")
-  >("plugins/appSubsystemRuntime");
+vi.mock("plugins/appSubsystem", async () => {
+  const actual = await vi.importActual<typeof import("plugins/appSubsystem")>(
+    "plugins/appSubsystem",
+  );
   return {
     ...actual,
     useAppSubsystemAppDeploymentModal: useAppSubsystemAppDeploymentModalMock,

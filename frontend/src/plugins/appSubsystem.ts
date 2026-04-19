@@ -46,7 +46,7 @@ type AppSubsystemSessionInitializationOptions = {
   forceNewSession?: boolean;
 };
 
-type AppSubsystemFrontendRegistration = {
+export type AppSubsystemFrontendRegistration = {
   overviewTab?: AppSubsystemOverviewTabRegistration;
   previewSurface?: AppSubsystemPreviewSurfaceRegistration;
   appModeRoute?: AppSubsystemAppModeRouteRegistration;
@@ -77,10 +77,15 @@ type AppSubsystemFrontendRegistration = {
   resetProjectState?: () => void;
 };
 
-type AppSubsystemFrontendAdapterModule = {
-  default?: AppSubsystemFrontendRegistration;
-  appSubsystemFrontendRegistration?: AppSubsystemFrontendRegistration;
-};
+export type RegisteredAppSubsystemFrontendRegistration =
+  AppSubsystemFrontendRegistration & {
+    pluginId: string;
+  };
+
+export type AppSubsystemFrontendRegistrationsByPluginId = Record<
+  string,
+  RegisteredAppSubsystemFrontendRegistration
+>;
 
 type AppSubsystemFrontendStatus =
   | "idle"
@@ -95,7 +100,7 @@ type AppSubsystemFrontendStore = {
   statusMessage: string | null;
   capabilitySignature: string | null;
   previewEnabled: boolean;
-  registration: AppSubsystemFrontendRegistration | null;
+  registration: RegisteredAppSubsystemFrontendRegistration | null;
 };
 
 const INITIAL_APP_SUBSYSTEM_FRONTEND_STORE: AppSubsystemFrontendStore = {
@@ -111,7 +116,6 @@ const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE = "plain_chat";
 const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustomSlashCommandModeOption[] =
   [{ id: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE, name: "Plain chat" }];
 
-let appSubsystemFrontendLoadSequence = 0;
 let appSubsystemPreviewEnabledUnsubscribe: (() => void) | null = null;
 
 type AppSubsystemPendingOperation =
@@ -339,7 +343,7 @@ function hasValidOptionalFrontendFunctions(
   );
 }
 
-function isFrontendRegistration(
+export function isAppSubsystemFrontendRegistration(
   value: unknown,
 ): value is AppSubsystemFrontendRegistration {
   if (!isRecord(value)) {
@@ -360,7 +364,7 @@ function formatAppSubsystemFrontendLoadError(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
-  return "Failed to load app subsystem frontend registration.";
+  return "Failed to resolve app subsystem frontend registration.";
 }
 
 function bindPreviewEnabledRegistration(
@@ -465,7 +469,6 @@ function setUnavailableAppSubsystemFrontendState(
   clearPreviewEnabledSubscription();
   clearPendingAppSubsystemOperations();
   useAppSubsystemFrontendStore.getState().registration?.resetProjectState?.();
-  appSubsystemFrontendLoadSequence += 1;
   useAppSubsystemFrontendStore.setState({
     capabilities,
     status: "unavailable",
@@ -479,12 +482,14 @@ function setUnavailableAppSubsystemFrontendState(
 function shouldReuseLoadedRegistration(
   capabilities: AppSubsystemCapabilities | null,
   capabilitySignature: string,
+  registration: RegisteredAppSubsystemFrontendRegistration | null,
 ): boolean {
   const currentState = useAppSubsystemFrontendStore.getState();
   if (
     currentState.status !== "loaded" ||
     currentState.registration === null ||
-    currentState.capabilitySignature !== capabilitySignature
+    currentState.capabilitySignature !== capabilitySignature ||
+    currentState.registration !== registration
   ) {
     return false;
   }
@@ -493,20 +498,6 @@ function shouldReuseLoadedRegistration(
     capabilities,
   }));
   return true;
-}
-
-function requireFrontendRegistration(module: {
-  default?: unknown;
-  appSubsystemFrontendRegistration?: unknown;
-}): AppSubsystemFrontendRegistration {
-  const candidate =
-    module.default ?? module.appSubsystemFrontendRegistration ?? null;
-  if (!isFrontendRegistration(candidate)) {
-    throw new Error(
-      "App subsystem frontend adapter did not export a valid registration.",
-    );
-  }
-  return candidate;
 }
 
 function requireCapabilityRegistration(
@@ -555,20 +546,38 @@ function validateFrontendRegistrationCapabilities(
   );
 }
 
-function resolveFrontendRegistrationFromModule(
-  module: {
-    default?: unknown;
-    appSubsystemFrontendRegistration?: unknown;
-  },
+function buildMissingFrontendRegistrationMessage(
   capabilities: AppSubsystemCapabilities | null,
-): AppSubsystemFrontendRegistration {
-  const registration = requireFrontendRegistration(module);
-  validateFrontendRegistrationCapabilities(registration, capabilities);
-  return registration;
+): string {
+  if (!capabilities?.pluginId) {
+    return "The active app subsystem provider did not register frontend surfaces through the plugin host.";
+  }
+  return `App subsystem provider ${capabilities.pluginId} did not register frontend surfaces through the plugin host.`;
+}
+
+function selectAppSubsystemFrontendRegistration(
+  capabilities: AppSubsystemCapabilities | null,
+  registrationsByPluginId: AppSubsystemFrontendRegistrationsByPluginId,
+): RegisteredAppSubsystemFrontendRegistration | null {
+  if (capabilities?.pluginId?.trim() === "") {
+    return null;
+  }
+  return registrationsByPluginId[capabilities.pluginId] ?? null;
+}
+
+function requireAppSubsystemFrontendRegistration(
+  capabilities: AppSubsystemCapabilities | null,
+  registration: RegisteredAppSubsystemFrontendRegistration | null,
+): RegisteredAppSubsystemFrontendRegistration {
+  if (registration !== null) {
+    return registration;
+  }
+  throw new Error(buildMissingFrontendRegistrationMessage(capabilities));
 }
 
 export async function syncAppSubsystemFrontendRegistration(
   capabilities: AppSubsystemCapabilities | null,
+  registrationsByPluginId: AppSubsystemFrontendRegistrationsByPluginId,
 ): Promise<void> {
   const capabilitySignature =
     buildAppSubsystemCapabilitySignature(capabilities);
@@ -577,12 +586,20 @@ export async function syncAppSubsystemFrontendRegistration(
     return;
   }
 
-  if (shouldReuseLoadedRegistration(capabilities, capabilitySignature)) {
+  const registration = selectAppSubsystemFrontendRegistration(
+    capabilities,
+    registrationsByPluginId,
+  );
+
+  if (
+    shouldReuseLoadedRegistration(
+      capabilities,
+      capabilitySignature,
+      registration,
+    )
+  ) {
     return;
   }
-
-  const loadSequence = appSubsystemFrontendLoadSequence + 1;
-  appSubsystemFrontendLoadSequence = loadSequence;
 
   useAppSubsystemFrontendStore.setState({
     capabilities,
@@ -594,31 +611,26 @@ export async function syncAppSubsystemFrontendRegistration(
   });
 
   try {
-    const module = (await import(
-      "../../../plugins/setta-json-render-app-gen/frontend/src/index"
-    )) as AppSubsystemFrontendAdapterModule;
-    if (loadSequence !== appSubsystemFrontendLoadSequence) {
-      return;
-    }
-    const registration = resolveFrontendRegistrationFromModule(
-      module,
+    const resolvedRegistration = requireAppSubsystemFrontendRegistration(
+      capabilities,
+      registration,
+    );
+    validateFrontendRegistrationCapabilities(
+      resolvedRegistration,
       capabilities,
     );
-    registration.initializeProjectState?.();
-    const previewEnabled = bindPreviewEnabledRegistration(registration);
-    flushPendingAppSubsystemOperations(registration);
+    resolvedRegistration.initializeProjectState?.();
+    const previewEnabled = bindPreviewEnabledRegistration(resolvedRegistration);
+    flushPendingAppSubsystemOperations(resolvedRegistration);
     useAppSubsystemFrontendStore.setState({
       capabilities,
       status: "loaded",
       statusMessage: null,
       capabilitySignature,
       previewEnabled,
-      registration,
+      registration: resolvedRegistration,
     });
   } catch (error) {
-    if (loadSequence !== appSubsystemFrontendLoadSequence) {
-      return;
-    }
     clearPreviewEnabledSubscription();
     clearPendingAppSubsystemOperations();
     useAppSubsystemFrontendStore.setState({
@@ -635,7 +647,6 @@ export async function syncAppSubsystemFrontendRegistration(
 export function resetAppSubsystemFrontendRuntimeState(): void {
   clearPreviewEnabledSubscription();
   clearPendingAppSubsystemOperations();
-  appSubsystemFrontendLoadSequence += 1;
   useAppSubsystemFrontendStore.setState({
     ...INITIAL_APP_SUBSYSTEM_FRONTEND_STORE,
   });
@@ -769,7 +780,7 @@ export function useAppSubsystemPreviewEnabled(): boolean {
   return useAppSubsystemFrontendStore((state) => state.previewEnabled);
 }
 
-function getAppSubsystemLoadedRegistration(): AppSubsystemFrontendRegistration | null {
+function getAppSubsystemLoadedRegistration(): RegisteredAppSubsystemFrontendRegistration | null {
   const state = useAppSubsystemFrontendStore.getState();
   if (state.status !== "loaded") {
     return null;
@@ -785,7 +796,7 @@ function shouldQueueAppSubsystemOperation(): boolean {
   );
 }
 
-async function waitForLoadedAppSubsystemRegistration(): Promise<AppSubsystemFrontendRegistration | null> {
+async function waitForLoadedAppSubsystemRegistration(): Promise<RegisteredAppSubsystemFrontendRegistration | null> {
   const loadedRegistration = getAppSubsystemLoadedRegistration();
   if (loadedRegistration) {
     return loadedRegistration;

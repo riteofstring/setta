@@ -2,7 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
-import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystemRuntime";
+import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystem";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   openFileMenuLoadProjectConfigModal,

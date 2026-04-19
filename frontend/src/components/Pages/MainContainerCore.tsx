@@ -9,7 +9,7 @@ import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocati
 import {
   useAppSubsystemPreviewEnabled,
   useAppSubsystemPreviewSurface,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import {
   useAIFollowViewport,
