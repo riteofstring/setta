@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import {
   useLocalStorage,
   useProjectState,
@@ -17,6 +16,7 @@ import {
   createSectionCapabilities,
   createSettingsState,
 } from "utils/generatedTypes";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import {
   useAppActionHandlers,
