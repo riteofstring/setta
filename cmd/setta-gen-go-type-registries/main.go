@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -706,7 +707,7 @@ func writeFrontendValueExportRegistry(write bool) error {
 }
 
 func discoverFrontendValueExportEntries() ([]frontendValueExportEntry, error) {
-	packages, err := internalPackagePaths()
+	packages, err := frontendValueExportPackagePaths()
 	if err != nil {
 		return nil, err
 	}
@@ -966,27 +967,52 @@ func sanitizeAlias(value string) string {
 	return strings.ReplaceAll(value, "-", "_")
 }
 
+func frontendValueExportPackagePaths() ([]string, error) {
+	repoRoot, err := generatorRepoRoot()
+	if err != nil {
+		return nil, err
+	}
+	return walkPackagePaths(
+		repoRoot,
+		filepath.Join(repoRoot, "internal"),
+		filepath.Join(repoRoot, "plugins"),
+	)
+}
+
 func internalPackagePaths() ([]string, error) {
 	repoRoot, err := generatorRepoRoot()
 	if err != nil {
 		return nil, err
 	}
-	internalRoot := filepath.Join(repoRoot, "internal")
-	return walkInternalPackagePaths(repoRoot, internalRoot)
+	return walkInternalPackagePaths(repoRoot, filepath.Join(repoRoot, "internal"))
 }
 
 func walkInternalPackagePaths(repoRoot string, internalRoot string) ([]string, error) {
+	return walkPackagePaths(repoRoot, internalRoot)
+}
+
+func walkPackagePaths(repoRoot string, roots ...string) ([]string, error) {
 	packages := []string{}
-	if err := filepath.WalkDir(internalRoot, func(current string, entry fs.DirEntry, err error) error {
-		return collectInternalPackagePath(repoRoot, current, entry, err, &packages)
-	}); err != nil {
-		return nil, err
+	for _, root := range roots {
+		if strings.TrimSpace(root) == "" {
+			continue
+		}
+		if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		if err := filepath.WalkDir(root, func(current string, entry fs.DirEntry, err error) error {
+			return collectPackagePath(repoRoot, current, entry, err, &packages)
+		}); err != nil {
+			return nil, err
+		}
 	}
 	sort.Strings(packages)
 	return packages, nil
 }
 
-func collectInternalPackagePath(
+func collectPackagePath(
 	repoRoot string,
 	current string,
 	entry fs.DirEntry,

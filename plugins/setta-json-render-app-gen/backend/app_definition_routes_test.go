@@ -17,6 +17,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -38,7 +39,7 @@ func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload httpapi.AppCatalogResponse
+	var payload appdefinitionhttp.AppCatalogResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode app catalog payload: %v", err)
 	}

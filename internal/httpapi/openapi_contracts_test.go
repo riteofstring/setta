@@ -15,6 +15,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/runs"
 	"setta/internal/terminals"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -801,6 +802,8 @@ func TestSettaOpenAPISchemaNameKeepsLegacyAppspecPrefixAfterPluginMove(t *testin
 		typ  reflect.Type
 		want string
 	}{
+		{typ: reflect.TypeOf(appdefinitionhttp.SetAppDefinitionRequest{}), want: "HttpapiSetAppDefinitionRequest"},
+		{typ: reflect.TypeOf(appdefinitionhttp.ValidateAppDefinitionRequest{}), want: "HttpapiValidateAppDefinitionRequest"},
 		{typ: reflect.TypeOf(appspec.AppCapabilities{}), want: "AppspecAppCapabilities"},
 		{typ: reflect.TypeOf(appspec.AppValidationIssue{}), want: "AppspecAppValidationIssue"},
 	}
