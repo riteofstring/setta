@@ -1,6 +1,4 @@
 import { useDndMode } from "forks/dnd-kit/dndState";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import { setSectionSizes } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
@@ -397,12 +395,8 @@ function CustomResizableSuperCore({
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const canvasOwnedShell =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionShell(sectionId);
   const inputClasses = getSectionSurfaceClassName({
-    bgColor: canvasOwnedShell ? "bg-transparent" : bgColor,
+    bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
     shouldDisablePointerEvents,
@@ -410,7 +404,6 @@ function CustomResizableSuperCore({
     frameClassName,
     layoutClassName: layoutClassNameToUse,
     metaHoverZIndexClassName: metaHoverZIndexClass,
-    hideFrameBorder: canvasOwnedShell,
   });
   const { handleStyles, handleClasses, handleWrapperClassName } =
     getResizableHandleConfig({
@@ -468,7 +461,6 @@ function CustomResizableSuperCore({
       handleWrapperClass={handleWrapperClassName}
       enable={enable}
       className={inputClasses}
-      data-canvas-owned-shell={canvasOwnedShell ? "true" : undefined}
       handleStyles={handleStyles}
       handleClasses={handleClasses}
       grid={snapToGrid ? snapGrid : null}

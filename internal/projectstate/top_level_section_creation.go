@@ -750,11 +750,20 @@ func createdSectionSizeDefaults(implType string) map[string]any {
 
 func createdBaseSectionWithParamsDefaults(implType string) map[string]any {
 	defaults := createdBaseSectionDefaults(implType)
+	return applySectionWithParamsDefaults(defaults, true)
+}
+
+func applySectionWithParamsDefaults(
+	defaults map[string]any,
+	includeConfigLanguage bool,
+) map[string]any {
 	defaults["codeObjVariantMap"] = map[string]any{}
 	defaults["hideUnpinnedParams"] = false
 	defaults["paramFilter"] = ""
 	defaults["columnWidth"] = nil
-	defaults["configLanguage"] = "python"
+	if includeConfigLanguage {
+		defaults["configLanguage"] = "python"
+	}
 	defaults["pinnedParams"] = []any{}
 	defaults["selectedParams"] = []any{}
 	defaults["ignoreTypeErrors"] = map[string]any{
@@ -851,10 +860,15 @@ func createdGroupSectionDefaults() map[string]any {
 }
 
 func createdMetaControlSectionDefaults(paramID string, paramVariantID string) map[string]any {
-	defaults := createdBaseSectionDefaults("MetaControl")
+	defaults := applySectionWithParamsDefaults(
+		createdBaseSectionDefaults("MetaControl"),
+		false,
+	)
 	defaults["metaControlParamId"] = paramID
-	defaults["codeObjVariantMap"] = map[string]any{
-		paramID: paramVariantID,
+	if paramID != "" && paramVariantID != "" {
+		defaults["codeObjVariantMap"] = map[string]any{
+			paramID: paramVariantID,
+		}
 	}
 	defaults["showSectionTitle"] = false
 	return defaults
@@ -934,7 +948,9 @@ func createdSocialSectionDefaults() map[string]any {
 }
 
 func createdIFrameSectionDefaults() map[string]any {
-	return createdBaseSectionDefaults("IFrame")
+	defaults := createdBaseSectionDefaults("IFrame")
+	defaults["code"] = ""
+	return defaults
 }
 
 func createdBrowserSectionDefaults() map[string]any {
