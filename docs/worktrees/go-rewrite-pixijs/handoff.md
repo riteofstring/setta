@@ -9,6 +9,62 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shared lightweight resize-handle generalization is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-lightweight-resize-handle-rerun.md`.
+  - canonical target section: `settings-section__chatSectionDefault`
+  - sibling proof sections:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats every settings section as part of the shared lightweight resize-handle lane instead of keeping the single-node handle scoped only to `sectionSizingPolicy`
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightResizeHandleCount: 681`
+    - `settingsLegacyResizeHandleCount: 0`
+    - `sectionsWithLegacyResizeHandles: []`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `lightweightResizeHandleCount 21`, `legacyResizeHandleCount 0`
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `legacyResizeHandleCount 0`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `legacyResizeHandleCount 0`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 1764`
+    - `totalRemainingVisibleChromeElementCount: 1543`
+    - `totalRemainingVisibleLabelElementCount: 215`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the old nested resize stack kinds dropped out of the common ranking entirely; the new strongest kinds are:
+      - `div.section-center.group-hover/arg-group:before...after...` (`755`)
+      - `p.section-key` (`203`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `p` (`12`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 76.81`
+    - `raf.p95Ms: 133.4`
+    - `longTasks.totalMs: 11807`
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingVisibleElementCount: 2934 -> 1764`
+    - `totalRemainingVisibleChromeElementCount: 2713 -> 1543`
+    - `documentNodeCount: 6679 -> 5658`
+    - `raf.meanMs: 101.3 -> 76.81`
+    - `raf.p95Ms: 183.4 -> 133.4`
+    - `longTasks.totalMs: 16263 -> 11807`
+  - interpretation:
+    - this is a real shared row-chrome primitive rather than another section-local resting-text/value harvest
+    - the old nested `group/resize` handle stack is gone across the mounted settings surface, and the dense baseline improved materially on the same runtime family
+    - keep the shared resize-handle lane closed at its current single-node boundary unless a stronger overlay/canvas move can remove the remaining interactive `section-center` root itself
+    - the next default frontier should target the broader label/article structure or a stronger inactive-row overlay/body primitive rather than another handle-only follow-up by inertia
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `http://127.0.0.1:3068/settings` loaded through the bootstrap flow with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__chatSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__browserSectionDefault` were visible and looked intact after the resize-handle rollout
 - The whole-scene row-body surface ranking is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`.
   - canonical target section: `settings-section__sectionSizingPolicy`
   - sibling proof sections:

@@ -3413,3 +3413,61 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the shared lightweight switch resting-visual lane closed and escalate the next pass to a larger inactive-row body/overlay decision for the remaining nested-param text/value surface and broader section-body motion cost
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 071
+
+- Item: Generalize the shared lightweight resize-handle primitive across the settings surface.
+- Status: `done`
+- Details:
+  - Chose the row-chrome frontier from the latest whole-scene ranking instead of reopening another resting-text/value survivor lane.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so every settings section now uses the existing single-node lightweight resize-handle primitive on the `canvas-shell-underlay` path instead of keeping it scoped to `settings-section__sectionSizingPolicy`.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - Live canary result on the worktree runtime:
+    - `settingsLightweightResizeHandleCount: 681`
+    - `settingsLegacyResizeHandleCount: 0`
+    - `sectionsWithLegacyResizeHandles: []`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `lightweightResizeHandleCount 21`, `legacyResizeHandleCount 0`
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `legacyResizeHandleCount 0`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `legacyResizeHandleCount 0`
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 1764`
+    - `totalRemainingVisibleChromeElementCount: 1543`
+    - `totalRemainingVisibleLabelElementCount: 215`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the old `div.group/resize` (`544`) and nested bare `div` (`543`) kinds dropped out of the common ranking entirely
+    - the surviving repeated cost is now the single lightweight `section-center` root plus DOM-visible label/article structure
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 76.81`
+    - `raf.p95Ms: 133.4`
+    - `longTasks.totalMs: 11807`
+  - Interpretation:
+    - this is a real shared row-chrome primitive and it materially improved the dense baseline on the same runtime family
+    - row-body visible descendants dropped from `2934` to `1764`, and chrome descendants dropped from `2713` to `1543`
+    - keep the resize-handle lane closed at the current single-node boundary unless a future shared overlay/canvas move can remove the remaining interactive root itself
+    - the next default frontier should target broader label/article structure or a stronger inactive-row overlay/body primitive rather than another handle-only follow-up
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-005/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.1s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-005/worktree-ai.log -- tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.6s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-005/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (37.7s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `http://127.0.0.1:3068/settings` loaded through the bootstrap flow with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one retained canvas was mounted under the graph surface
+  - `settings-section__chatSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__browserSectionDefault` were visible and looked intact after the resize-handle rollout
+- Next action:
+  - keep the shared resize-handle lane closed and choose the next shared row-body slice from the updated ranking, likely DOM-visible label/article structure or a stronger inactive-row overlay/body primitive
+LOOP_TERMINAL_MARKER: none

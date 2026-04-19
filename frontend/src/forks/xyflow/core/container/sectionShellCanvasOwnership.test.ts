@@ -768,7 +768,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the section sizing policy dense lane for lightweight resize handles", () => {
+  it("targets settings sections for lightweight resize handles", () => {
     expect(
       isCanvasOwnedSectionLightweightResizeHandle(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -777,6 +777,21 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightResizeHandle(
         CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightResizeHandle(
+        CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightResizeHandle(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightResizeHandle(
+        "round_lime__callableSectionDefault",
       ),
     ).toBe(false);
   });

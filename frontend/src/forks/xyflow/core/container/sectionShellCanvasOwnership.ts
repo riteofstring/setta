@@ -308,7 +308,7 @@ export function isCanvasOwnedSectionLightweightColorInput(sectionId: string) {
 }
 
 export function isCanvasOwnedSectionLightweightResizeHandle(sectionId: string) {
-  return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+  return isSettingsSectionId(sectionId);
 }
 
 export function isCanvasOwnedSectionLightweightParamLabel(sectionId: string) {
