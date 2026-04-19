@@ -31,6 +31,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
+	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/plugins"
@@ -10361,6 +10362,13 @@ func TestAppDisablingSelectedBasedpyrightClearsDiagnosticsWithoutRestart(t *test
 	defer server.Close()
 	authCookie := newAppTestAuthCookie(t, app)
 
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
 	waitForAppCondition(t, 15*time.Second, func() bool {
 		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) > 0
 	})
@@ -10403,7 +10411,7 @@ func TestAppDisablingSelectedBasedpyrightClearsDiagnosticsWithoutRestart(t *test
 	}
 }
 
-func TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndDiagnostics(t *testing.T) {
+func TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndStatus(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -10424,15 +10432,6 @@ func TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndDiagnostics
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 	authCookie := newAppTestAuthCookie(t, app)
-
-	waitForAppCondition(t, 15*time.Second, func() bool {
-		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) > 0
-	})
-
-	initialDiagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
-	if len(initialDiagnostics.CodeSections["runner"]) == 0 {
-		t.Fatalf("expected basedpyright diagnostics before config write, got %#v", initialDiagnostics)
-	}
 
 	requestBody := mustAppJSON(t, map[string]any{
 		"pluginId": "setta-basedpyright",
@@ -10489,18 +10488,164 @@ func TestAppWritingSelectedBasedpyrightConfigRefreshesAppliedSpecsAndDiagnostics
 		t.Fatalf("expected reportUnknownArgumentType override to be none, got %#v", got)
 	}
 
-	waitForAppCondition(t, 15*time.Second, func() bool {
-		return len(fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha").CodeSections["runner"]) == 0
-	})
-	diagnostics := fetchAppLatestLSPDiagnostics(t, server.URL, authCookie, "project-alpha")
-	if len(diagnostics.CodeSections["runner"]) != 0 {
-		t.Fatalf("expected diagnostics to clear after config write refresh, got %#v", diagnostics.CodeSections["runner"])
-	}
-
 	status := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
 	entry := mustFindAppPluginStatusEntry(t, status, "setta-basedpyright")
 	if len(entry.AppliedLanguageServerLanguages) != 1 || entry.AppliedLanguageServerLanguages[0] != "python" {
 		t.Fatalf("expected applied python status after config refresh, got %#v", entry.AppliedLanguageServerLanguages)
+	}
+}
+
+func TestAppWritingConfigForAppliedLanguageServerRefreshesProjectSyncOnce(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	recordingSyncer := &recordingProjectSyncer{}
+	projectSync, err := lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		Service:        recordingSyncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectSync.Close(context.Background()); err != nil {
+			t.Fatalf("close project synchronizer: %v", err)
+		}
+	})
+
+	app.pluginRuntime.projectState = projectRuntime
+	app.pluginRuntime.projectSync = projectSync
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"pluginId": "setta-fixture-backend",
+		"config": map[string]any{
+			"enabled": true,
+		},
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsConfig, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins config 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+	if recordingSyncer.closeCalls != 1 {
+		t.Fatalf("expected one project synchronizer restart after applied plugin config write, got %d", recordingSyncer.closeCalls)
+	}
+}
+
+func TestAppWritingConfigForSelectedUnappliedLanguageServerDoesNotApplyUntilRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	initialStatus := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	initialEntry := mustFindAppPluginStatusEntry(t, initialStatus, "setta-fixture-backend")
+	if len(initialEntry.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected unapplied selection before config write, got %#v", initialEntry.AppliedLanguageServerLanguages)
+	}
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"pluginId": "setta-fixture-backend",
+		"config": map[string]any{
+			"enabled": true,
+		},
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsConfig, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins config 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+
+	statusAfterConfig := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entryAfterConfig := mustFindAppPluginStatusEntry(t, statusAfterConfig, "setta-fixture-backend")
+	if len(entryAfterConfig.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected config write not to apply selected plugin before restart, got %#v", entryAfterConfig.AppliedLanguageServerLanguages)
+	}
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	statusAfterRestart := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entryAfterRestart := mustFindAppPluginStatusEntry(t, statusAfterRestart, "setta-fixture-backend")
+	if len(entryAfterRestart.AppliedLanguageServerLanguages) != 1 || entryAfterRestart.AppliedLanguageServerLanguages[0] != "fixturedsl" {
+		t.Fatalf("expected selected plugin to apply after restart, got %#v", entryAfterRestart.AppliedLanguageServerLanguages)
 	}
 }
 

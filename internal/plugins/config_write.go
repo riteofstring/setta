@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -173,12 +174,9 @@ func pluginConfigSchemaLoader() jsonschema.Loader {
 		}
 		resolvedURI := *uri
 		resolvedURI.Fragment = ""
-		if resolvedURI.Scheme != "" && resolvedURI.Scheme != "file" {
-			return nil, fmt.Errorf("plugin config schema refs must use local files: %s", resolvedURI.String())
-		}
-		schemaPath := resolvedURI.Path
-		if strings.TrimSpace(schemaPath) == "" {
-			return nil, fmt.Errorf("plugin config schema path is empty")
+		schemaPath, err := pluginConfigSchemaPathFromFileURI(&resolvedURI)
+		if err != nil {
+			return nil, err
 		}
 		return loadPluginConfigSchema(schemaPath)
 	}
@@ -189,4 +187,48 @@ func schemaFileURI(schemaPath string) string {
 		Scheme: "file",
 		Path:   filepath.ToSlash(schemaPath),
 	}).String()
+}
+
+func pluginConfigSchemaPathFromFileURI(uri *url.URL) (string, error) {
+	return pluginConfigSchemaPathFromFileURIForOS(uri, runtime.GOOS)
+}
+
+func pluginConfigSchemaPathFromFileURIForOS(uri *url.URL, goos string) (string, error) {
+	if uri == nil {
+		return "", fmt.Errorf("plugin config schema URI is required")
+	}
+	if uri.Scheme != "" && uri.Scheme != "file" {
+		return "", fmt.Errorf("plugin config schema refs must use local files: %s", uri.String())
+	}
+
+	host := strings.TrimSpace(uri.Host)
+	if strings.EqualFold(host, "localhost") {
+		host = ""
+	}
+	path := uri.Path
+
+	if goos == "windows" {
+		switch {
+		case host != "":
+			path = `\\` + host + windowsPathFromSlash(path)
+		case len(path) >= 3 && path[0] == '/' && path[2] == ':':
+			path = windowsPathFromSlash(path[1:])
+		default:
+			path = windowsPathFromSlash(path)
+		}
+	} else {
+		if host != "" {
+			path = "//" + host + path
+		}
+		path = filepath.FromSlash(path)
+	}
+
+	if strings.TrimSpace(path) == "" {
+		return "", fmt.Errorf("plugin config schema path is empty")
+	}
+	return filepath.Clean(path), nil
+}
+
+func windowsPathFromSlash(path string) string {
+	return strings.ReplaceAll(path, "/", `\`)
 }

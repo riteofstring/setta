@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -257,17 +256,9 @@ func pluginConfigSchemaDefaultValueForRef(schemaPath string, ref string, seen ma
 	if trimmedRef == "" {
 		return nil, false, nil
 	}
-	baseURI, err := url.Parse(schemaFileURI(schemaPath))
+	resolvedURI, err := resolvePluginConfigSchemaRefURI(schemaPath, trimmedRef)
 	if err != nil {
 		return nil, false, err
-	}
-	refURI, err := url.Parse(trimmedRef)
-	if err != nil {
-		return nil, false, err
-	}
-	resolvedURI := baseURI.ResolveReference(refURI)
-	if resolvedURI.Scheme != "" && resolvedURI.Scheme != "file" {
-		return nil, false, fmt.Errorf("plugin config schema refs must use local files: %s", resolvedURI.String())
 	}
 
 	key := resolvedURI.String()
@@ -277,14 +268,11 @@ func pluginConfigSchemaDefaultValueForRef(schemaPath string, ref string, seen ma
 	seen[key] = struct{}{}
 	defer delete(seen, key)
 
-	targetPath := resolvedURI.Path
-	if strings.TrimSpace(targetPath) == "" {
-		targetPath = baseURI.Path
+	targetPath, err := pluginConfigSchemaPathFromFileURI(resolvedURI)
+	if err != nil {
+		return nil, false, err
 	}
-	if strings.TrimSpace(targetPath) == "" {
-		return nil, false, fmt.Errorf("plugin config schema path is empty")
-	}
-	schemaJSON, err := loadPluginConfigSchemaJSON(filepath.Clean(filepath.FromSlash(targetPath)))
+	schemaJSON, err := loadPluginConfigSchemaJSON(targetPath)
 	if err != nil {
 		return nil, false, err
 	}
@@ -296,7 +284,23 @@ func pluginConfigSchemaDefaultValueForRef(schemaPath string, ref string, seen ma
 	if !ok {
 		return nil, false, nil
 	}
-	return pluginConfigSchemaDefaultValue(targetSchema, filepath.Clean(filepath.FromSlash(targetPath)), seen)
+	return pluginConfigSchemaDefaultValue(targetSchema, targetPath, seen)
+}
+
+func resolvePluginConfigSchemaRefURI(schemaPath string, ref string) (*url.URL, error) {
+	baseURI, err := url.Parse(schemaFileURI(schemaPath))
+	if err != nil {
+		return nil, err
+	}
+	refURI, err := url.Parse(ref)
+	if err != nil {
+		return nil, err
+	}
+	resolvedURI := baseURI.ResolveReference(refURI)
+	if resolvedURI.Scheme != "" && resolvedURI.Scheme != "file" {
+		return nil, fmt.Errorf("plugin config schema refs must use local files: %s", resolvedURI.String())
+	}
+	return resolvedURI, nil
 }
 
 func resolvePluginConfigSchemaJSONPointer(root any, fragment string) (any, error) {

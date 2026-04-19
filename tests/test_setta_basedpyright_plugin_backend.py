@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import subprocess
@@ -13,6 +14,16 @@ def _backend_script() -> Path:
         / "backend"
         / "main.py"
     )
+
+
+def _backend_module():
+    spec = importlib.util.spec_from_file_location(
+        "setta_basedpyright_backend_main", _backend_script()
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _run_probe_process(extra_env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -31,6 +42,26 @@ def _run_probe(extra_env: dict[str, str]) -> dict[str, object]:
     result = _run_probe_process(extra_env)
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}".strip()
     return json.loads(result.stdout)
+
+
+def test_split_language_server_args_preserves_windows_backslash_paths() -> None:
+    backend = _backend_module()
+
+    args = backend.split_language_server_args(
+        r"--config C:\tmp\cfg.json", platform="nt"
+    )
+
+    assert args == ["--config", r"C:\tmp\cfg.json"]
+
+
+def test_split_language_server_args_preserves_quoted_windows_paths() -> None:
+    backend = _backend_module()
+
+    args = backend.split_language_server_args(
+        r'--config "C:\Program Files\cfg.json"', platform="nt"
+    )
+
+    assert args == ["--config", r"C:\Program Files\cfg.json"]
 
 
 def test_basedpyright_plugin_backend_probe_honors_explicit_command_override(
