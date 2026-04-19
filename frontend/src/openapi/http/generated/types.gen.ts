@@ -154,83 +154,75 @@ export type AppsubsystemAppdefinitionValidationResult = {
   warnings: Array<AppsubsystemAppdefinitionValidationIssue> | null;
 };
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogActionResponse =
-  {
-    name: string;
-  };
+export type AppsubsystemAppdefinitionhttpAppCatalogActionResponse = {
+  name: string;
+};
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogComponentResponse =
-  {
-    children: boolean;
-    props?: {
-      [
-        key: string
-      ]: AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogPropResponse;
-    };
-    type: string;
+export type AppsubsystemAppdefinitionhttpAppCatalogComponentResponse = {
+  children: boolean;
+  props?: {
+    [key: string]: AppsubsystemAppdefinitionhttpAppCatalogPropResponse;
   };
+  type: string;
+};
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogPropResponse =
-  {
-    default?: unknown;
-    enum?: Array<unknown> | null;
-    max?: number;
-    min?: number;
-    required?: boolean;
-    responsive?: boolean;
-    type: string;
-  };
+export type AppsubsystemAppdefinitionhttpAppCatalogPropResponse = {
+  default?: unknown;
+  enum?: Array<unknown> | null;
+  max?: number;
+  min?: number;
+  required?: boolean;
+  responsive?: boolean;
+  type: string;
+};
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogResponse = {
-  actions: Array<AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogActionResponse> | null;
-  components: Array<AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogComponentResponse> | null;
+export type AppsubsystemAppdefinitionhttpAppCatalogResponse = {
+  actions: Array<AppsubsystemAppdefinitionhttpAppCatalogActionResponse> | null;
+  components: Array<AppsubsystemAppdefinitionhttpAppCatalogComponentResponse> | null;
   id: string;
   version: string;
 };
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpGetAppDefinitionRequest =
-  {
-    frontendOpId?: string;
-  };
+export type AppsubsystemAppdefinitionhttpGetAppDefinitionRequest = {
+  frontendOpId?: string;
+};
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest =
-  {
-    actions?: {
-      [key: string]: unknown;
-    };
-    appSpec: unknown;
-    appSpecPath?: string;
-    appSpecVersion?: string;
-    assets?: Array<unknown>;
-    catalogId?: string;
-    dataBindings?: {
-      [key: string]: unknown;
-    };
-    frontendOpId?: string;
-    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
-    theme?: {
-      [key: string]: unknown;
-    };
+export type AppsubsystemAppdefinitionhttpSetAppDefinitionRequest = {
+  actions?: {
+    [key: string]: unknown;
   };
+  appSpec: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: Array<unknown>;
+  catalogId?: string;
+  dataBindings?: {
+    [key: string]: unknown;
+  };
+  frontendOpId?: string;
+  routes?: Array<AppsubsystemAppdefinitionAppRoute>;
+  theme?: {
+    [key: string]: unknown;
+  };
+};
 
-export type AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest =
-  {
-    actions?: {
-      [key: string]: unknown;
-    };
-    appSpec: unknown;
-    appSpecVersion?: string;
-    assets?: Array<unknown>;
-    catalogId?: string;
-    dataBindings?: {
-      [key: string]: unknown;
-    };
-    frontendOpId?: string;
-    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
-    theme?: {
-      [key: string]: unknown;
-    };
+export type AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest = {
+  actions?: {
+    [key: string]: unknown;
   };
+  appSpec: unknown;
+  appSpecVersion?: string;
+  assets?: Array<unknown>;
+  catalogId?: string;
+  dataBindings?: {
+    [key: string]: unknown;
+  };
+  frontendOpId?: string;
+  routes?: Array<AppsubsystemAppdefinitionAppRoute>;
+  theme?: {
+    [key: string]: unknown;
+  };
+};
 
 export type AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse =
   {
@@ -5981,14 +5973,14 @@ export type GetAppCatalogResponses = {
   /**
    * OK
    */
-  200: AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogResponse;
+  200: AppsubsystemAppdefinitionhttpAppCatalogResponse;
 };
 
 export type GetAppCatalogResponse =
   GetAppCatalogResponses[keyof GetAppCatalogResponses];
 
 export type GetAppDefinitionData = {
-  body: AppsubsystemprovidersBuiltinAppdefinitionhttpGetAppDefinitionRequest;
+  body: AppsubsystemAppdefinitionhttpGetAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/getAppDefinition";
@@ -8629,7 +8621,7 @@ export type SetAgenticEdgesResponse =
   SetAgenticEdgesResponses[keyof SetAgenticEdgesResponses];
 
 export type SetAppDefinitionData = {
-  body: AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest;
+  body: AppsubsystemAppdefinitionhttpSetAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/setAppDefinition";
@@ -11966,7 +11958,7 @@ export type UpsertAppGenCustomSkillResponse =
   UpsertAppGenCustomSkillResponses[keyof UpsertAppGenCustomSkillResponses];
 
 export type ValidateAppDefinitionData = {
-  body: AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest;
+  body: AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/validateAppDefinition";

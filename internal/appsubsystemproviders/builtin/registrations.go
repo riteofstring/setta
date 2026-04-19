@@ -16,38 +16,8 @@ func BuildFrontendAPIRouteRegistrations(
 		return httpapi.FrontendAPIRouteRegistrations{}
 	}
 	return httpapi.FrontendAPIRouteRegistrations{
-		Project:    buildProjectFrontendRouteContributions(options, pluginID, capabilities),
 		Deployment: buildDeploymentFrontendRouteContributions(options, pluginID, capabilities),
 	}
-}
-
-func buildProjectFrontendRouteContributions(
-	options appsubsystem.FrontendRouteRegistrationOptions,
-	pluginID string,
-	capabilities plugins.PluginAppSubsystemCapabilities,
-) []httpapi.FrontendAPIRouteContribution {
-	contributions := []httpapi.FrontendAPIRouteContribution{}
-	if capabilities.AppAuthoringUI {
-		contributions = append(contributions, httpapi.FrontendAPIRouteContribution{
-			Family: "app definition",
-			Register: func(router chi.Router) error {
-				return RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
-					ModePolicy:   options.ModePolicy,
-					ProjectState: options.ProjectState,
-					PluginID:     pluginID,
-				})
-			},
-		})
-	}
-	if capabilities.AppGenerationChatModes {
-		contributions = append(contributions, httpapi.FrontendAPIRouteContribution{
-			Family: "app generation skill",
-			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppGenSkillRoutes(router, options.AppGenSkill)
-			},
-		})
-	}
-	return contributions
 }
 
 func buildDeploymentFrontendRouteContributions(
