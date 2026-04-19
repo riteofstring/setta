@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -71,8 +72,8 @@ func TestAppDefinitionServiceCompareAndSetMetadataNoopsAreSideEffectFreeOnFreshP
 		}
 	}
 
-	if runtime.Snapshot().Document.AppDefinition != nil {
-		t.Fatalf("expected app definition to remain nil, got %#v", runtime.Snapshot().Document.AppDefinition)
+	if raw := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
+		t.Fatalf("expected app definition to remain nil, got %#v", raw)
 	}
 	if _, err := os.Stat(filepath.Join(root, defaultSpecPath)); !os.IsNotExist(err) {
 		t.Fatalf("expected default app spec path to remain absent, got err=%v", err)
@@ -114,7 +115,7 @@ func TestAppDefinitionServiceCompareAndSetSpecVersionMaterializesMinimalSpec(t *
 		t.Fatalf("expected stored minimal app spec type Stack, got %#v", storedRoot["type"])
 	}
 
-	storedDefinition := mustDecodeStoredAppDefinition(t, snapshot.Document.AppDefinition)
+	storedDefinition := storedDocumentAppDefinition(t, snapshot.Document)
 	if storedDefinition == nil {
 		t.Fatal("expected saved app definition metadata")
 	}
@@ -144,8 +145,8 @@ func TestAppDefinitionServiceCompareAndSetCatalogIDRejectsUnknownCatalog(t *test
 	if err == nil || !strings.Contains(err.Error(), "unknown catalog id") {
 		t.Fatalf("expected unknown app catalog id error, got %v", err)
 	}
-	if runtime.Snapshot().Document.AppDefinition != nil {
-		t.Fatalf("expected app definition to remain nil after rejected catalog write, got %#v", runtime.Snapshot().Document.AppDefinition)
+	if raw := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
+		t.Fatalf("expected app definition to remain nil after rejected catalog write, got %#v", raw)
 	}
 }
 
@@ -216,7 +217,7 @@ func TestAppDefinitionServiceCompareAndSetThemeModePreservesThemePayload(t *test
 	}
 
 	var themePayload map[string]any
-	storedDefinition := mustDecodeStoredAppDefinition(t, runtime.Snapshot().Document.AppDefinition)
+	storedDefinition := storedDocumentAppDefinition(t, runtime.Snapshot().Document)
 	if err := json.Unmarshal(storedDefinition.Theme, &themePayload); err != nil {
 		t.Fatalf("decode saved theme payload: %v", err)
 	}
@@ -250,7 +251,7 @@ func TestAppDefinitionServiceCompareAndSetMetadataRejectsStaleExpectedOldValue(t
 	if snapshot.Revision != initialSnapshot.Revision {
 		t.Fatalf("expected revision %d after stale compare-and-set, got %d", initialSnapshot.Revision, snapshot.Revision)
 	}
-	if runtime.Snapshot().Document.AppDefinition != nil {
-		t.Fatalf("expected app definition to remain nil after stale compare-and-set, got %#v", runtime.Snapshot().Document.AppDefinition)
+	if raw := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
+		t.Fatalf("expected app definition to remain nil after stale compare-and-set, got %#v", raw)
 	}
 }
