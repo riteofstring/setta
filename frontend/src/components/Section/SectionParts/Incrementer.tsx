@@ -86,7 +86,6 @@ export function Incrementer({
   return (
     <div
       className={`section-key-value section-row-main -mx-2 flex items-center gap-1 rounded-lg  bg-setta-100 pl-2 pr-1 dark:bg-setta-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-setta-800" : ""}`}
-      data-section-incrementer-root="true"
     >
       {isRoot ? (
         <>

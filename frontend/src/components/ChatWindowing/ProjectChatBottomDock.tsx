@@ -10,6 +10,7 @@ import {
   resolveSingleDockResizeMetrics,
 } from "components/ChatWindowing/projectChatBottomDockInteractions";
 import {
+  DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX,
   resolveDockStripReservedWidthPx,
   resolveDockWindowWidthsToFit,
   resolveMaxVisibleDockWindowCount,
@@ -220,7 +221,6 @@ const DOCK_BAR_HEIGHT_PX = 40;
 const DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX = 0;
 const DOCK_SURFACE_MAX_WIDTH_PX = 1160;
 const DOCK_SURFACE_HORIZONTAL_MARGIN_PX = 20;
-const DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX = 4;
 const DOCK_WINDOW_DEFAULT_WIDTH_PX = 460;
 const DOCK_WINDOW_DEFAULT_HEIGHT_PX = 520;
 const DOCK_WINDOW_GAP_PX = 12;

@@ -10,11 +10,6 @@ import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextParamDateTimeInput } from "components/Params/ParamUIs/TextParamInput";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import {
-  isCanvasOwnedSectionLightweightColorInput,
-  isCanvasOwnedSectionMetaControlDropdown,
-} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import type { ReactNode } from "react";
 import {
@@ -550,11 +545,6 @@ function ColorControl({
   showSectionTitle: boolean;
   onValueChange: ParamValueChange;
 }) {
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const lightweightActivator =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionLightweightColorInput(sectionId);
-
   return (
     <MetaControlTitleStack
       showSectionTitle={showSectionTitle}
@@ -562,7 +552,6 @@ function ColorControl({
       contentClassName="items-stretch"
     >
       <ConfiguredColorPickerInput
-        lightweightActivator={lightweightActivator}
         sectionId={sectionId}
         paramInfoId={controlParamId}
         value={value}
@@ -596,10 +585,6 @@ function DropdownControl({
       contentClassName="items-center"
     >
       <ConfiguredDropdownInput
-        canvasOwnedRestingInput={isCanvasOwnedSectionMetaControlDropdown({
-          paramInfoId: controlParamId,
-          sectionId,
-        })}
         sectionId={sectionId}
         paramInfoId={controlParamId}
         value={value}
