@@ -32,6 +32,7 @@ import (
 	"setta/internal/settingsstate"
 	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
+	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/wsapi"
 )
 
@@ -690,8 +691,8 @@ func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string) {
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		deploymentRoot,
-		plugins.AppSubsystemPluginID,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 }
 
