@@ -20,6 +20,78 @@ def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     return env
 
 
+def test_activate_requires_sourcing(tmp_path: Path) -> None:
+    sandbox_root = tmp_path / "activate_requires_sourcing_sandbox"
+    sandbox_root.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="activate.sh")
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "activate.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "must be sourced" in result.stderr
+
+
+def test_activate_reports_missing_repo_venv_when_sourced(tmp_path: Path) -> None:
+    sandbox_root = tmp_path / "activate_missing_venv_sandbox"
+    sandbox_root.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="activate.sh")
+
+    result = subprocess.run(
+        ["bash", "-lc", ". ./activate.sh"],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "Python environment not found at:" in result.stderr
+    assert ". ./init_env.sh" in result.stderr
+    assert ". ./dev_install_python.sh" in result.stderr
+
+
+def test_activate_sources_repo_venv_when_present(tmp_path: Path) -> None:
+    sandbox_root = tmp_path / "activate_sources_venv_sandbox"
+    venv_bin_dir = sandbox_root / ".venv" / "bin"
+    activation_log = sandbox_root / "activation-log.txt"
+    sandbox_root.mkdir(parents=True, exist_ok=True)
+    venv_bin_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="activate.sh")
+    (venv_bin_dir / "activate").write_text(
+        f'echo repo-venv-activated > "{activation_log}"\nexport SETTA_ACTIVATE_TEST_VALUE="ready"\n',
+        encoding="utf-8",
+    )
+    (venv_bin_dir / "activate").chmod(0o755)
+
+    result = subprocess.run(
+        [
+            "bash",
+            "-lc",
+            'if . ./activate.sh; then printf "%s" "${SETTA_ACTIVATE_TEST_VALUE:-}"; fi',
+        ],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "ready"
+    assert activation_log.read_text(encoding="utf-8").strip() == "repo-venv-activated"
+
+
 def test_init_env_installs_explicit_source_and_dev_extras(
     tmp_path: Path,
 ) -> None:
