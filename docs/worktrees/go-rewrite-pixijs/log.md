@@ -6065,3 +6065,32 @@ LOOP_TERMINAL_MARKER: none
   - not rerun because this iteration changed only the focused regression/evidence layer and did not change live renderer behavior
 - Next frontier: human replan to choose a new attribution/product frontier outside the now-closed immediate `SectionContainerCoreResizable` prop-fanout lane.
 LOOP_TERMINAL_MARKER: replan_required
+
+## 2026-04-20 run 049
+
+- Completed the required post-run-`048` chat-normalized attribution pass on the canonical `settings-section__browserSectionDefault` lane.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-chat-normalized-attribution-trace-report.md` plus one fresh local trace artifact at `perf/artifacts/frontend/settings-all-settings/chat-normalized-attribution-trace-2026-04-20.json`.
+- Fresh dense rerun on the current `3068/8068` runtime recorded `projectChatChromeCount 0`, `documentNodeCount 5494`, `buttonCount 47`, `canvasCount 1`, `raf.meanMs 47.48`, `raf.p95Ms 66.7`, `longTasks.totalMs 3458`, and `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`.
+- Fresh headless DevTools trace on the same runtime:
+  - bootstrap and `/settings` load succeeded
+  - `All Settings` stayed active and project chat chrome count normalized to `0`
+  - the graph surface stayed visibly mounted and nonblank with `canvasCount 1`
+  - saved successfully to `perf/artifacts/frontend/settings-all-settings/chat-normalized-attribution-trace-2026-04-20.json`
+  - post-trace viewport transform was `matrix(0.1, 0, 0, 0.1, 717.4, -41.8)`
+- Local parsing showed:
+  - no credible new shared renderer-main app-JS hotspot was named outside the already-closed `SectionContainerCore` / `SectionContainerCoreResizable` lane
+  - the checked trace window was dominated by whole-scene compositor/browser totals instead: `Layerize 2528.941ms`, `Paint 2131.466ms`, `Commit 1772.251ms`, `HitTest 117.681ms`, and sampled GC `152.967ms`
+  - the CPU profile stayed concentrated in browser `(program)` / `(idle)` buckets plus the injected trace motion loop itself, so this trace should not be used to reopen another app-JS micro-lane by inertia
+- Interpretation:
+  - this closes the post-run-`048` attribution / replan question without reopening another spent section-container or backdrop micro-lane
+  - because the cleaned evidence still does not name a better shared JS hotspot, the next frontier should default to the broader Pixi-owned graph-surface ownership step on shared row/article/resize chrome
+  - treat this saved trace as normalized whole-scene evidence only, not as target-anchored parity proof, because the final post-trace DOM check no longer found `browserSectionDefault` even though the graph stayed visibly mounted and nonblank
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-001/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (39.3s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - `/settings` loaded with `All Settings` active, project chat chrome cleared, and the graph surface visibly mounted and nonblank with `canvasCount 1`
+    - final post-trace DOM check did not keep `browserSectionDefault`, so treat the trace as whole-scene attribution evidence rather than named-section proof
+- Next frontier: stay on the canonical browser lane and land one broader Pixi-owned graph-surface ownership slice that moves shared row/article/resize chrome off the moving DOM surface.
+LOOP_TERMINAL_MARKER: none

@@ -8,8 +8,9 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `048`: `chat_normalized_attribution_or_broader_graph_surface_replan`.
+- Decision for the 2026-04-20 checkpoint after run `049`: `chat_normalized_attribution_closed_default_broader_graph_surface_ownership`.
 - Recent progress is real:
+  - run `049` completed the required post-run-`048` chat-normalized attribution pass on the canonical `settings-section__browserSectionDefault` lane without reopening the closed section-container micro-lane: the fresh dense rerun kept the same stable DOM/canvas shape (`projectChatChromeCount 0`, `documentNodeCount 5494`, `buttonCount 47`, `canvasCount 1`, `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`) while the fresh headless DevTools trace saved to `perf/artifacts/frontend/settings-all-settings/chat-normalized-attribution-trace-2026-04-20.json` no longer named a credible new shared renderer-main JS hotspot outside the already-closed `SectionContainerCore` / `SectionContainerCoreResizable` lane and instead surfaced normalized whole-scene compositor work (`Layerize 2528.941ms`, `Paint 2131.466ms`, `Commit 1772.251ms`) plus secondary sampled GC (`152.967ms`)
   - run `048` landed the bounded evidence slice requested by the run-`047` handoff on the traced `SectionContainerCoreResizable` frontier: `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now proves that a remaining surface-only snapshot change (`hasEmbeddedTerminal`) rerenders `SectionContainerCoreResizable` plus `CustomResizable` without fanning out into the section header or code body, `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-local-prop-fanout-evidence.md` records the paired code inspection showing that the remaining immediate local inputs are already split between the memoized resizable surface, chrome, and body paths, and the only obvious cross-path left (`positionAndSizeLocked`) is not part of the measured dense pan/zoom hotspot
   - run `047` landed one bounded correctness slice on the traced `SectionContainerCoreResizable` frontier by removing the remaining inline `display: none` hide from `CanvasSectionBody`; the newer motion-hidden DOM-sync path now relies entirely on the existing `data-canvas-owned-motion-body-hidden` attribute contract, so a body that mounted hidden during viewport motion can restore when its section becomes active without needing a React rerender, the paired rerun on the canonical `settings-section__browserSectionDefault` lane recorded `documentNodeCount 5494`, `raf.meanMs 43.42`, `longTasks.totalMs 3068`, `peakMotion.graphSurfaceMenuTriggerCount 1`, and `peakMotion.graphSurfaceSectionResizeHandleCount 3`, and the fresh headless CDP check kept the graph surface visibly nonblank with `browserSectionDefault` present
   - run `046` landed the next bounded product slice on the traced `SectionContainerCoreResizable` frontier by removing the remaining active-section React render subscription from the section container itself; no-op active-section flips now stay off the React render path while the motion-hidden shell/body/header/menu/resize-handle DOM attrs still restore imperatively when the section becomes active during viewport motion, the paired rerun on the canonical `settings-section__browserSectionDefault` lane recorded `documentNodeCount 5494`, `raf.meanMs 42.71`, `longTasks.totalMs 2994`, `peakMotion.graphSurfaceMenuTriggerCount 1`, and `peakMotion.graphSurfaceSectionResizeHandleCount 3`, and the fresh headless CDP check kept the graph surface visibly nonblank with `browserSectionDefault` present
@@ -52,24 +53,36 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `047` closes the `SectionContainerCoreResizable` motion-body inline-style restore sub-lane here; do not spend the next pass on more `display: none` micropolish or another pass that only re-proves the same attribute-only motion-body hide contract again
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
-  - use `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-local-prop-fanout-evidence.md` as the closing evidence for the current `SectionContainerCoreResizable` lane
+  - use `perf/reports/frontend/2026-04-20_settings-all-settings-chat-normalized-attribution-trace-report.md` as the closing evidence for the post-run-`048` attribution question and `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-local-prop-fanout-evidence.md` as the closing evidence for the spent `SectionContainerCoreResizable` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
-  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, another backdrop node-map equality micro-pass, another generic backdrop invalidation pass on the same measurement families, or another pass that only re-proves the `SectionContainerCoreResizable` viewport or active-section motion-hidden DOM sync
+  - do not spend the next pass on another chat-normalized attribution rerun, viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, another backdrop node-map equality micro-pass, another generic backdrop invalidation pass on the same measurement families, or another pass that only re-proves the `SectionContainerCoreResizable` viewport or active-section motion-hidden DOM sync
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - run `048` completed the last allowed evidence pass on the immediate section-container local-fanout lane and still did not name a credible next `SectionContainerCoreResizable` product slice
-  - the next restart must begin with one chat-normalized attribution pass on the same runtime:
-    - one fresh dense rerun on `settings` -> `All Settings`
-    - one saved trace or equivalent instrumentation artifact on that same runtime after normalizing project chat/workspace-chat noise off the measurement path
-    - one trustworthy visual confirmation path for the retained graph on that same runtime
-  - that attribution pass must end by choosing exactly one new frontier:
-    - one broader Pixi-owned graph-surface ownership step that changes a shared dense family or retained primitive rather than another local container memo/subscription cleanup
-    - or one fresh shared renderer-main JS hotspot outside the already-closed `SectionContainerCore` / `SectionContainerCoreResizable` micro-lane, if the cleaned trace names it credibly
-  - if the cleaned attribution still does not name a better shared JS hotspot, default to the broader graph-surface ownership step rather than reopening `SectionContainerCoreResizable`, `SectionShellBackdropCanvas`, `ZoomPane`, or motion-hidden DOM-sync micro-lanes by inertia
-  - the only acceptable single-section fallback is the next non-shell-owned dense outlier that can move from resting-text-only to full shell ownership without opening a new renderer branch; do not choose that fallback unless no stronger shared family or primitive is credible on the cleaned attribution
-  - treat `SectionShellBackdropCanvas` and `ZoomPane` as secondary suspects from the saved attribution trace, not the default primary target for the next pass; they only reopen if the chat-normalized trace upgrades them
+  - run `049` completed the required chat-normalized attribution pass and still did not name a credible new shared renderer-main JS hotspot outside the already-closed section-container lane
+  - the next restart must land one broader Pixi-owned graph-surface ownership step that changes a shared dense primitive rather than another local container memo/subscription cleanup
+  - the preferred target is the shared row/article/resize chrome primitive identified by the earlier row-body ranking; do not reopen `SectionContainerCoreResizable`, `SectionShellBackdropCanvas`, `ZoomPane`, or motion-hidden DOM-sync micro-lanes by inertia
+  - the only acceptable single-section fallback is the next non-shell-owned dense outlier that can move from resting-text-only to full shell ownership without opening a new renderer branch; do not choose that fallback unless no stronger shared family or primitive is credible
+  - treat the saved trace at `perf/artifacts/frontend/settings-all-settings/chat-normalized-attribution-trace-2026-04-20.json` as normalized whole-scene evidence only, not as a targeted named-section parity proof, because the final post-trace DOM check lost the `browserSectionDefault` anchor even though the graph stayed visibly mounted and nonblank
   - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
+
+- The post-run-`048` chat-normalized attribution pass is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-chat-normalized-attribution-trace-report.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - implementation shape:
+    - this was a bounded evidence-only pass: one fresh dense rerun on the live runtime plus one fresh headless DevTools trace after clearing project chat chrome on `/settings` -> `All Settings`
+    - the saved trace now lives at `perf/artifacts/frontend/settings-all-settings/chat-normalized-attribution-trace-2026-04-20.json`
+    - local parsing shows no credible new shared renderer-main app-JS hotspot outside the already-closed `SectionContainerCore` / `SectionContainerCoreResizable` lane; the checked window was dominated by whole-scene `Layerize`, `Paint`, and `Commit` totals instead
+  - interpretation:
+    - this closes the post-run-`048` attribution / replan question without reopening a spent section-container micro-lane
+    - because the cleaned evidence still does not name a better shared JS hotspot, the next frontier should default to the broader Pixi-owned graph-surface ownership step on shared row/article/resize chrome rather than another memo/subscription cleanup
+    - treat the saved trace as whole-scene evidence only, not as targeted named-section proof, because the final post-trace DOM check no longer found `browserSectionDefault` even though the graph surface stayed mounted and nonblank
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-001/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (39.3s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+    - `/settings` loaded with `All Settings` active, project chat chrome cleared, and the graph surface visibly mounted and nonblank with `canvasCount: 1`
+    - the final post-trace DOM check no longer found `browserSectionDefault`, so keep this as whole-scene attribution evidence rather than target-anchored parity proof
 
 - The section-container resizable local prop-fanout evidence pass is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-local-prop-fanout-evidence.md`.
   - canonical target section: `settings-section__browserSectionDefault`
@@ -79,7 +92,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - interpretation:
     - the requested bounded evidence slice is complete and it does not identify another credible immediate `SectionContainerCoreResizable` product slice beyond the already-closed viewport and active-section motion lanes
     - this closes the immediate local prop-fanout lane on `SectionContainerCoreResizable`; another memo-only or prop-plumbing pass in this file would now be churn without fresh attribution evidence
-    - per the active handoff rule, automation should stop here for a human replan instead of reopening older backdrop, `ZoomPane`, or DOM-sync micro-lanes by inertia
+    - keep this report as closing evidence for the spent local-fanout lane; the next frontier now comes from the newer chat-normalized attribution pass, not from another section-container follow-up
   - focused verification passed:
     - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
       - result: passed
