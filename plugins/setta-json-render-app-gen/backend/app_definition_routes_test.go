@@ -1,7 +1,6 @@
 package settajsonrenderappgenbackend
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -78,22 +77,17 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
-	if _, _, err := runtime.SetAppDefinition(
-		context.Background(),
-		projectstate.SetAppDefinitionInput{
-			AppSpec: map[string]any{
-				"root": "root",
-				"elements": map[string]any{
-					"root": map[string]any{
-						"key":  "root",
-						"type": "Stack",
-					},
+	setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root": "root",
+			"elements": map[string]any{
+				"root": map[string]any{
+					"key":  "root",
+					"type": "Stack",
 				},
 			},
 		},
-	); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, runtime)
 	response := httptest.NewRecorder()
@@ -128,22 +122,17 @@ func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testi
 	t.Parallel()
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
-	if _, _, err := runtime.SetAppDefinition(
-		t.Context(),
-		projectstate.SetAppDefinitionInput{
-			AppSpec: map[string]any{
-				"root": "root",
-				"elements": map[string]any{
-					"root": map[string]any{
-						"key":  "root",
-						"type": "Stack",
-					},
+	setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root": "root",
+			"elements": map[string]any{
+				"root": map[string]any{
+					"key":  "root",
+					"type": "Stack",
 				},
 			},
 		},
-	); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 	if err := os.Remove(filepath.Join(root, appspec.DefaultPath())); err != nil {
 		t.Fatalf("remove stored app spec: %v", err)
 	}
@@ -464,7 +453,7 @@ func newAppDefinitionRouteTestHandler(
 		Register: func(r chi.Router) {
 			var service projectstate.AppDefinitionRuntime
 			if projectRuntime != nil {
-				service = projectRuntime
+				service = appDefinitionServiceForTest(projectRuntime)
 			}
 			if err := RegisterAppDefinitionRoutes(r, httpapi.AppDefinitionRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
