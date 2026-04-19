@@ -5619,3 +5619,19 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after one `fit view`; `gui` and `backend` were mounted on the graph surface with no obvious blank or detached shell/body artifact. Notable noise was the persistent `Chat Window 1` panel on the right plus compact left workspace chrome.
 - Next frontier: return to a broader trace-backed renderer-main JS / GC reducer or a stronger shared ownership primitive; do not reopen GUI/backend dropdown-family follow-ups or a state-machine-gate shell promotion by inertia.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 031
+
+- Refreshed the canonical dense hotspot on the current post-run-030 runtime instead of guessing another reducer from the stale earlier trace.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-030-hotspot-refresh-report.md` with the current dense evidence: `projectChatChromeCount 0`, `documentNodeCount 5493`, `inputCount 3`, `textareaCount 1`, `buttonCount 46`, `raf.meanMs 43.14`, `raf.p95Ms 50`, and `longTasks.totalMs 6678`.
+- Fresh headless CDP preflight verified `/settings` with `All Settings` active, one retained graph canvas mounted, `browserSectionDefault` visible after `fit view`, and no obvious blank or detached shell/body artifact.
+- Saved a fresh trace artifact to `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json`.
+- Local parsing of that saved trace did not reproduce the older `EventDispatch` / `v8.callFunction` / GC hotspot; the refreshed capture only surfaced short `RunTask` activity with a `25.521ms` maximum, so the older hotspot report is now stale as the default guide for another selector-cache or viewport micro-pass.
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-031/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (51.4s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL and applying `fit view`
+    - `browserSectionDefault` remained visible with one retained graph canvas mounted and no obvious blank or detached shell/body artifact
+- Next frontier: prefer a stronger shared graph-surface ownership step on the canonical `settings-section__browserSectionDefault` lane, or retake a longer trace only when that trace is directly needed to scope one concrete product lane; do not reopen the stale selector-cache / viewport micro-lane by inertia.
+LOOP_TERMINAL_MARKER: none

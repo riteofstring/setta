@@ -20,6 +20,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `028` removed another shared `GroupContainer` selector / label rebuild path by memoizing pinned, unpinned, and edge-strip derived state per section while the dense canary stayed in the same `~43ms` / `~5.8-5.9s` band after one bounded rerun
   - run `029` removed another shared param-row project-state rebuild path by memoizing `ParamSwitch` row state per section/param while the dense canary stayed in the same `~42-43ms` / `~5.8s` band
   - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior, and the dense canary stayed in the same `~43ms` / `~5.7s` band
+  - run `031` refreshed the canonical dense hotspot on the current post-run-030 runtime: Playwright stayed in the same `~43ms` band (`documentNodeCount 5493`, `buttonCount 46`, `raf.meanMs 43.14`, `longTasks.totalMs 6678`), while a fresh DevTools trace saved to `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json` no longer reproduced the older `EventDispatch` / `v8.callFunction` / GC spike and only surfaced short `RunTask` activity
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
   - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
@@ -27,16 +28,53 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `028` stayed in the same dense band too, so close the `GroupContainer` selector micro-lane here instead of iterating on another similar cache-only follow-up
   - run `029` stayed in the same dense band too, so close the `ParamSwitch` selector micro-lane here instead of chaining another row-selector follow-up by inertia
   - run `030` stayed in the same dense band too, so close the GUI/backend shell-ownership cluster here instead of reopening that family with state-machine-gate or other dropdown-sibling shell follow-ups by inertia
+  - run `031` closes the old `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport micro-pass, because the refreshed trace on the current runtime no longer reproduces that hotspot
   - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - choose exactly one bounded frontier for the next default pass:
-    - a trace-backed whole-scene reducer tied to the remaining renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`, preferably one shared param-family, transform subscriber, or measurement fanout beyond the now-closed `ParamDndList`, `GroupContainer`, and `ParamSwitch` selector micro-lanes
-    - or a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
-  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, `GroupContainer` selector-cache follow-ups, `ParamSwitch` selector follow-ups, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
+    - a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
+    - or, only if a concrete product lane truly needs it, one longer or differently driven trace that can reproduce the current long-task debt on the post-run-030 surface instead of reusing the stale pre-cache hotspot
+  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, `GroupContainer` selector-cache follow-ups, `ParamSwitch` selector follow-ups, or another guessed selector-cache micro-pass justified only by the stale older hotspot report
   - do not spend the next default pass on GUI/backend dropdown-family follow-ups or a state-machine-gate shell promotion unless a fresh trace or visual blocker makes that family the concrete frontier again
 
 ## Current status
+
+- The post-run-030 hotspot refresh slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-030-hotspot-refresh-report.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - implementation shape:
+    - no product code changed in this iteration; this slice refreshed the dense canary and CDP hotspot evidence after the recent selector-cache and GUI/backend shell-ownership passes
+    - fresh dense evidence now lives in `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-030-hotspot-refresh-report.md`
+    - fresh trace artifact now lives at `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5493`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 46`
+    - `raf.meanMs: 43.14`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1083.2`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6678`
+    - `longTasks.maxMs: 4254`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - the dense canary remains in the same `~43ms` band, so the recent selector-cache and GUI/backend shell slices did not unlock a new whole-scene breakthrough on their own
+    - the refreshed trace no longer reproduces the earlier `EventDispatch` / `v8.callFunction` / GC hotspot and only surfaced short `RunTask` activity, so stop using the older hotspot report as the default justification for another selector-cache or viewport micro-pass
+    - the next default pass should prefer a stronger shared graph-surface ownership step, or a newly targeted longer trace only when that trace is directly needed to scope one concrete product lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-031/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (51.4s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized to `/settings` with `All Settings` active and `fit view`
+    - `browserSectionDefault` was visible on the graph surface with one retained graph canvas mounted
+    - no obvious blank graph or detached shell/body artifact was visible
+    - `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json` saved successfully
 
 - The GUI/backend shell-ownership cluster slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-gui-backend-shell-ownership-cluster-rerun.md`.
   - canonical target section for this slice: `settings-section__gui`
