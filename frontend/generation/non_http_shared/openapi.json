@@ -839,13 +839,22 @@
           "projectConfigId": {
             "type": "string"
           },
+          "runtimeRoot": {
+            "type": "string"
+          },
           "serverMode": {
             "$ref": "#/components/schemas/Mode"
           },
           "sessionId": {
             "type": "string"
           },
+          "settaFilesRoot": {
+            "type": "string"
+          },
           "shareSessionId": {
+            "type": "string"
+          },
+          "workspaceRoot": {
             "type": "string"
           }
         },

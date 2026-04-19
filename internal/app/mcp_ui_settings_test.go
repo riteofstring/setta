@@ -142,12 +142,78 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *tes
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	installAppRepoPluginAsID(
-		t,
-		cfg,
-		firstpartyplugin.AppSubsystemPluginID,
-		appsubsystemprovider.PluginID,
-	)
+	installAppFixturePlugin(t, cfg, "app-subsystem-unknown-id")
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.app.spec_path",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
+	if getPayload["value"] != appspec.MustForPlugin(appsubsystemprovider.PluginID).DefaultPath() {
+		t.Fatalf("expected default app spec path, got %#v", getPayload["value"])
+	}
+}
+
+func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppPackageManagerProviderEnabled(
+	t *testing.T,
+) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerFixturePlugin(t, sitePackages, "app-subsystem-unknown-id")
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
 	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))

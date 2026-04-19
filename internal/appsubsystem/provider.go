@@ -1,10 +1,8 @@
 package appsubsystem
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appdefinition"
@@ -25,72 +23,19 @@ import (
 	"setta/internal/uisettings"
 )
 
-var ErrBackendProviderUnregistered = errors.New(
-	"app subsystem backend provider is not registered",
-)
-
 type CapabilityProvider interface {
 	AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities
 }
 
 type FrontendRouteRegistrationOptions struct {
 	Capabilities              CapabilityProvider
+	BackendListenerInvoker    appdefinition.BackendListenerInvoker
 	ProjectState              *projectstate.Runtime
 	ModePolicy                modes.Policy
 	AppGenSkill               httpapi.AppGenSkillRouteDependencies
 	ShareDeploymentIDE        httpapi.ShareDeploymentIDERouteDependencies
 	AppDeployment             httpapi.DeploymentRouteDependencies
 	AppDeploymentIDEPublisher deployments.AppPublishService
-}
-
-type BackendProvider interface {
-	BuildFrontendAPIRouteRegistrations(
-		options FrontendRouteRegistrationOptions,
-	) httpapi.FrontendAPIRouteRegistrations
-	BuildMCPToolRegistrations(
-		projectRuntime *projectstate.Runtime,
-	) []mcpx.ToolRegistration
-	BuildScopedUISettingEntries(
-		projectRuntime *projectstate.Runtime,
-	) ([]uisettings.RuntimeEntry, error)
-	AppGenerationModeContributions() []chatmodes.AppGenerationModeContribution
-	NewAppPublishService(
-		options deployments.AppPublisherOptions,
-		projectRuntime *projectstate.Runtime,
-	) (deployments.AppPublishService, error)
-	DeploymentTypeRegistration() deployments.TypeRegistration
-}
-
-var (
-	backendProvidersMu         sync.RWMutex
-	backendProvidersByPluginID = map[string]BackendProvider{}
-)
-
-func RegisterBackendProvider(pluginID string, provider BackendProvider) {
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	switch {
-	case trimmedPluginID == "":
-		panic("app subsystem backend provider plugin id is required")
-	case provider == nil:
-		panic("app subsystem backend provider is required")
-	}
-
-	backendProvidersMu.Lock()
-	defer backendProvidersMu.Unlock()
-
-	if _, exists := backendProvidersByPluginID[trimmedPluginID]; exists {
-		panic(fmt.Sprintf("app subsystem backend provider already registered for %q", trimmedPluginID))
-	}
-	backendProvidersByPluginID[trimmedPluginID] = provider
-}
-
-func BackendProviderForCapabilities(
-	capabilities plugins.PluginAppSubsystemCapabilities,
-) (BackendProvider, error) {
-	if !capabilities.PluginEnabled {
-		return nil, nil
-	}
-	return backendProviderByPluginID(capabilities.PluginID)
 }
 
 func BuildFrontendAPIRouteRegistrations(
@@ -131,18 +76,21 @@ func buildProjectFrontendRouteRegistrations(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 ) ([]httpapi.FrontendAPIRouteContribution, error) {
 	contributions := []httpapi.FrontendAPIRouteContribution{}
-	pluginID := strings.TrimSpace(capabilities.PluginID)
 	if capabilities.AppAuthoringUI {
-		if pluginID == "" {
-			return nil, appdefinition.ErrPluginIDRequired
+		service, err := appDefinitionRuntimeForCapabilities(
+			capabilities,
+			options.ProjectState,
+			options.BackendListenerInvoker,
+		)
+		if err != nil {
+			return nil, err
 		}
 		contributions = append(contributions, httpapi.FrontendAPIRouteContribution{
 			Family: "app definition",
 			Register: func(router chi.Router) error {
 				return appdefinitionhttp.RegisterRoutes(router, appdefinitionhttp.RouteDependencies{
-					ModePolicy:   options.ModePolicy,
-					ProjectState: options.ProjectState,
-					PluginID:     pluginID,
+					ModePolicy: options.ModePolicy,
+					Service:    service,
 				})
 			},
 		})
@@ -196,6 +144,7 @@ func buildDeploymentFrontendRouteRegistrations(
 func BuildMCPToolRegistrations(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	projectRuntime *projectstate.Runtime,
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) ([]mcpx.ToolRegistration, error) {
 	if projectRuntime == nil {
 		return nil, nil
@@ -203,6 +152,7 @@ func BuildMCPToolRegistrations(
 	service, defaultAppSpecPath, ok := appDefinitionToolRuntime(
 		capabilities,
 		projectRuntime,
+		backendListenerInvoker,
 	)
 	if !ok {
 		return nil, nil
@@ -213,12 +163,20 @@ func BuildMCPToolRegistrations(
 func BuildScopedUISettingEntries(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	projectRuntime *projectstate.Runtime,
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) ([]uisettings.RuntimeEntry, error) {
 	if projectRuntime == nil {
 		return nil, nil
 	}
-	service, ok := appDefinitionRuntimeForCapabilities(capabilities, projectRuntime)
-	if !ok {
+	service, err := appDefinitionRuntimeForCapabilities(
+		capabilities,
+		projectRuntime,
+		backendListenerInvoker,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if service == nil {
 		return nil, nil
 	}
 	return neutralappuisettings.BuildEntries(service, strings.TrimSpace(capabilities.PluginID))
@@ -237,6 +195,7 @@ func NewAppPublishService(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	options deployments.AppPublisherOptions,
 	projectRuntime *projectstate.Runtime,
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) (deployments.AppPublishService, error) {
 	if !capabilities.PluginEnabled || !capabilities.AppDeploymentRuntime {
 		return nil, nil
@@ -245,7 +204,15 @@ func NewAppPublishService(
 	if pluginID == "" {
 		return nil, appdefinition.ErrPluginIDRequired
 	}
-	return apppublish.NewService(options, projectRuntime, pluginID)
+	service, err := appDefinitionRuntimeForCapabilities(
+		capabilities,
+		projectRuntime,
+		backendListenerInvoker,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return apppublish.NewService(options, service, pluginID)
 }
 
 func DeploymentTypeRegistration(
@@ -257,41 +224,43 @@ func DeploymentTypeRegistration(
 	return AppDeploymentTypeRegistration(), nil
 }
 
-func backendProviderByPluginID(pluginID string) (BackendProvider, error) {
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return nil, nil
-	}
-
-	backendProvidersMu.RLock()
-	provider, ok := backendProvidersByPluginID[trimmedPluginID]
-	backendProvidersMu.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrBackendProviderUnregistered, trimmedPluginID)
-	}
-	return provider, nil
-}
-
 func appDefinitionRuntimeForCapabilities(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	projectRuntime *projectstate.Runtime,
-) (appdefinition.Runtime, bool) {
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
+) (appdefinition.Runtime, error) {
 	if projectRuntime == nil || !capabilities.PluginEnabled {
-		return nil, false
+		return nil, nil
 	}
 	pluginID := strings.TrimSpace(capabilities.PluginID)
 	if pluginID == "" {
-		return nil, false
+		return nil, nil
 	}
-	return appdefinition.NewAppDefinitionService(projectRuntime, pluginID), true
+	service := appdefinition.NewBackendRuntime(
+		projectRuntime,
+		pluginID,
+		backendListenerInvoker,
+	)
+	if service == nil {
+		return nil, fmt.Errorf(
+			"app subsystem backend listener invoker is required for plugin %q",
+			pluginID,
+		)
+	}
+	return service, nil
 }
 
 func appDefinitionToolRuntime(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	projectRuntime *projectstate.Runtime,
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) (appdefinition.Runtime, string, bool) {
-	service, ok := appDefinitionRuntimeForCapabilities(capabilities, projectRuntime)
-	if !ok {
+	service, err := appDefinitionRuntimeForCapabilities(
+		capabilities,
+		projectRuntime,
+		backendListenerInvoker,
+	)
+	if err != nil || service == nil {
 		return nil, "", false
 	}
 	pluginID := strings.TrimSpace(capabilities.PluginID)

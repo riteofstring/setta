@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -167,6 +168,28 @@ def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
     wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
     assert len(wheel_paths) == 1
     return wheel_paths[0]
+
+
+def _write_minimal_host_sdk_for_plugin_runtime(site_packages: Path) -> None:
+    setta_root = site_packages / "setta"
+    types_root = setta_root / "types" / "generated"
+    types_root.mkdir(parents=True, exist_ok=True)
+
+    for relative_path in (
+        Path("__init__.py"),
+        Path("entrypoint.py"),
+        Path("types") / "__init__.py",
+        Path("types") / "generated" / "__init__.py",
+        Path("types") / "generated" / "go_shared_constants.py",
+    ):
+        source_path = _repo_root() / "backend" / "setta" / relative_path
+        if source_path.exists():
+            content = source_path.read_text(encoding="utf-8")
+        else:
+            content = ""
+        target_path = setta_root / relative_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(content, encoding="utf-8")
 
 
 def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
@@ -348,6 +371,123 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert "setta-json-render-app-gen/runtime_backend/main.py" in record_text
     assert "setta-json-render-app-gen/frontend/dist/index.js" in record_text
     assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
+
+
+def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            str(wheel_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    _write_minimal_host_sdk_for_plugin_runtime(site_packages)
+
+    go_stub = tmp_path / "setta-go-stub.py"
+    go_stub.write_text(
+        """#!/usr/bin/env python3
+import json
+import sys
+
+if len(sys.argv) != 2 or sys.argv[1] != "sdk-local-core":
+    raise SystemExit(1)
+
+print(json.dumps({"protocolVersion": 1}))
+sys.stdout.flush()
+
+request = json.loads(sys.stdin.readline())
+command_name = request.get("commandName")
+result = None
+if command_name == "get_effective_app_spec_path":
+    result = "plugins/setta-json-render-app-gen/app_specs/app.json"
+elif command_name == "get_effective_app_theme_mode":
+    result = "auto"
+elif command_name == "get_effective_app_definition":
+    result = {
+        "catalogId": "default",
+        "appSpecVersion": "v1",
+        "appSpecPath": "plugins/setta-json-render-app-gen/app_specs/app.json",
+    }
+elif command_name == "validate_app_definition":
+    result = {"errors": [], "warnings": [], "capabilities": {}}
+else:
+    result = {"appSpec": None, "appDefinition": None}
+
+print(json.dumps({"callId": request.get("callId"), "ok": True, "result": result}))
+sys.stdout.flush()
+""",
+        encoding="utf-8",
+    )
+    go_stub.chmod(0o755)
+
+    installed_plugin_root = site_packages / "setta-json-render-app-gen"
+    plugin_backend = installed_plugin_root / "runtime_backend" / "main.py"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(site_packages)
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    probe_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-probe"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert probe_result.returncode == 0, (
+        f"{probe_result.stdout}\n{probe_result.stderr}"
+    ).strip()
+    probe_payload = json.loads(probe_result.stdout)
+    assert probe_payload["appSubsystemBackend"]["contractVersion"] == 1
+    assert {
+        endpoint["name"] for endpoint in probe_payload["listenerEndpoints"]
+    } >= {
+        "appsubsystem_get_effective_app_spec_path",
+        "appsubsystem_validate_app_definition",
+    }
+
+    runtime_request = {
+        "schemaVersion": 1,
+        "kind": "listener_endpoint",
+        "listenerEndpoint": {
+            "endpointName": "appsubsystem_get_effective_app_spec_path",
+            "context": {"settaFilesRoot": str(tmp_path / "setta_files")},
+            "payload": {},
+        },
+    }
+    runtime_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-runtime"],
+        cwd=tmp_path,
+        input=json.dumps(runtime_request),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert runtime_result.returncode == 0, (
+        f"{runtime_result.stdout}\n{runtime_result.stderr}"
+    ).strip()
+    runtime_payload = json.loads(runtime_result.stdout)
+    assert runtime_payload["listenerEndpoint"]["result"] == (
+        "plugins/setta-json-render-app-gen/app_specs/app.json"
+    )
+    assert runtime_payload["listenerEndpoint"].get("error") is None
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

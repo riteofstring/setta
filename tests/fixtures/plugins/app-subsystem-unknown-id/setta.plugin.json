@@ -5,6 +5,9 @@
   "version": "0.1.0",
   "settaVersionRange": ">=0.0.0",
   "enabledByDefault": true,
+  "backend": {
+    "entrypoint": "runtime_backend/main.py"
+  },
   "frontend": {
     "entrypoint": "frontend/dist/index.js",
     "style": "frontend/dist/index.css"
@@ -17,5 +20,8 @@
       "appDeploymentRuntime": true
     }
   },
-  "capabilities": []
+  "capabilities": [
+    "registerAppSubsystemBackend",
+    "registerListenerEndpoint"
+  ]
 }

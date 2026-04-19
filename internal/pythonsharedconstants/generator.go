@@ -79,6 +79,54 @@ func Build() (GeneratedConstants, error) {
 			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandListenerRenderRealtimeDependencyValues),
 		},
 		{
+			Name:       "LOCAL_CORE_COMMAND_GET_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppSpecPath),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppThemeMode),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandValidateAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_SET_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandSetAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandStreamAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandUpdateAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionCatalogID),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionSpecVersion),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionSpecPath),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
+		},
+		{
 			Name:       "DEPLOYMENT_LISTENER_READY_SENTINEL",
 			PythonExpr: pythonStringLiteral(deployments.DeploymentListenerReadySentinel),
 		},
