@@ -3895,3 +3895,38 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the shared resize-handle lane closed and choose the next shared row-body slice from the updated ranking, likely DOM-visible label/article structure or a stronger inactive-row overlay/body primitive
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 078
+
+- Item: Add a motion-aware dense `All Settings` probe that exercises the real viewport wheel path.
+- Status: `done`
+- Details:
+  - Chose the measurement blocker from the latest motion-body overlay handoff instead of continuing another row-body seam lift.
+  - Added `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts` as a companion probe that normalizes `/settings` to `All Settings`, finds one blank pane point, and drives repeated real `wheel` events on `.react-flow__renderer` rather than mutating `.react-flow__viewport.style.transform`.
+  - The new probe preserves the existing dense metrics surface and now also records `[data-canvas-owned-motion-body-hidden="true"]` counts so the shared param-codeobj overlay can be measured on the real `viewportInteractionActive` path.
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 124.92`
+    - `raf.p95Ms: 150.1`
+    - `longTasks.totalMs: 15188`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 10`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 10`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - the dense measurement blocker from the prior motion-body overlay slice is now removed
+    - the shared param-codeobj hidden-body primitive is confirmed active throughout the checked motion loop instead of only in a focused one-off probe
+    - this closes a bounded support lane; the next default frontier should return to product code on a broader inactive-row body-overlay decision for the whole `All Settings` surface
+    - keep treating this as a companion motion-aware series, not a silent replacement for the older scripted-transform baseline
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (45.0s)`
+- CDP visual check: not run (`probe-only measurement harness change; no runtime UI change`)
+- Next action:
+  - use the new motion-aware dense probe on the next broader inactive-row body-overlay product slice instead of reopening another at-rest text/value cleanup lane
+LOOP_TERMINAL_MARKER: none

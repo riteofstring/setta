@@ -8,6 +8,34 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The dense `settings` -> `All Settings` motion-aware probe is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-motion-aware-dense-probe.md`.
+  - focused probe: `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+  - implementation shape:
+    - the new companion Playwright probe normalizes `/settings` to `All Settings`, uses one blank `.react-flow__pane` point, and drives repeated real `wheel` events on `.react-flow__renderer` instead of mutating `.react-flow__viewport.style.transform`
+    - the probe preserves the existing dense metrics surface (`documentNodeCount`, `inputCount`, `buttonCount`, RAF deltas, long-task totals) and now also records motion-body counts from `[data-canvas-owned-motion-body-hidden="true"]`
+  - focused runtime proof on the live worktree surface:
+    - blank pane point: `x=24`, `y=60`
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 124.92`
+    - `raf.p95Ms: 150.1`
+    - `longTasks.totalMs: 15188`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 10`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 10`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - the measurement blocker from the prior motion-body overlay slice is now removed; the dense probe finally exercises the real `viewportInteractionActive` path instead of only the transform-only surrogate
+    - the current shared param-codeobj motion-body overlay is confirmed active throughout the checked motion loop, so future overlay-family product slices can now be measured on the path they actually target
+    - this was intentionally a support slice, not another product cleanup lane; the next default frontier should return to product code on a broader inactive-row body-overlay decision for the whole `All Settings` surface
+    - treat these numbers as the motion-aware companion series, not as a silent replacement for the older scripted-transform baseline
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (45.0s)`
+  - CDP visual check: not run (`probe-only measurement harness change; no runtime UI change`)
 - The shared param-codeobj motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-param-codeobj-motion-body-overlay-rerun.md`.
   - canonical target section: `settings-section__rotaryParamCodeObjDefault`
   - sibling proof section: `settings-section__sliderParamCodeObjDefault`
