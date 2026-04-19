@@ -265,11 +265,6 @@ func TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders(t *te
 			},
 		},
 	)
-	writeGeneratorPackageFile(
-		t,
-		filepath.Join(repoRoot, "plugins", "acme-first-provider", "backend"),
-		"provider.go",
-	)
 	writeGeneratorPluginManifest(
 		t,
 		filepath.Join(repoRoot, "plugins", "acme-second-provider"),
@@ -289,11 +284,6 @@ func TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders(t *te
 			},
 		},
 	)
-	writeGeneratorPackageFile(
-		t,
-		filepath.Join(repoRoot, "plugins", "acme-second-provider", "backend"),
-		"provider.go",
-	)
 	writeGeneratorPluginManifest(
 		t,
 		filepath.Join(repoRoot, "plugins", "acme-ignored-provider"),
@@ -307,11 +297,6 @@ func TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders(t *te
 				Entrypoint: "runtime_backend/main.py",
 			},
 		},
-	)
-	writeGeneratorPackageFile(
-		t,
-		filepath.Join(repoRoot, "plugins", "acme-ignored-provider", "backend"),
-		"provider.go",
 	)
 
 	entries, err := appSubsystemProvidersFromRepoRoot(repoRoot)
@@ -356,8 +341,14 @@ func TestRenderAppSubsystemProviderRegistryOmitsProviderImportsAndIncludesCapabi
 	if strings.Contains(rendered, `setta/plugins/acme-test-provider/backend`) {
 		t.Fatalf("rendered provider registry should not import provider backends:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, `PluginID: "acme.test-provider"`) {
-		t.Fatalf("rendered provider registry missing provider id:\n%s", rendered)
+	if strings.Contains(rendered, "PluginID:") {
+		t.Fatalf("rendered provider registry should omit provider ids:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "acme.test-provider") {
+		t.Fatalf("rendered provider registry should not bake in provider ids:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "func DiscoveredProviderCapabilities() []plugins.PluginAppSubsystemFeatureManifest") {
+		t.Fatalf("rendered provider registry missing capability accessor:\n%s", rendered)
 	}
 	if !strings.Contains(rendered, "AppPreviewUI: true") {
 		t.Fatalf("rendered provider registry missing capability literal:\n%s", rendered)

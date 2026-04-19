@@ -12,7 +12,10 @@ import (
 func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
 	t *testing.T,
 ) {
-	document := buildOpenAPIDocumentForProviders(t, appsubsystemproviders.DiscoveredProviders())
+	document := buildOpenAPIDocumentForCapabilities(
+		t,
+		appsubsystemproviders.DiscoveredProviderCapabilities(),
+	)
 
 	for _, routePath := range []string{
 		httpapi.RouteGetAppDefinition,
@@ -23,8 +26,7 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
 	} {
 		if document.Paths[routePath] == nil {
 			t.Fatalf(
-				"expected discovered app subsystem provider %q to contribute %s",
-				"setta-json-render-app-gen",
+				"expected discovered app subsystem capabilities to contribute %s",
 				routePath,
 			)
 		}
@@ -34,23 +36,17 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
 func TestBuildOpenAPIDocumentAppSubsystemRegistrationsMergesSharedRoutesAcrossProviders(t *testing.T) {
 	t.Parallel()
 
-	document := buildOpenAPIDocumentForProviders(
+	document := buildOpenAPIDocumentForCapabilities(
 		t,
-		[]appsubsystemproviders.DiscoveredProvider{
+		[]plugins.PluginAppSubsystemFeatureManifest{
 			{
-				PluginID: "setta-json-render-app-gen",
-				Capabilities: plugins.PluginAppSubsystemFeatureManifest{
-					AppAuthoringUI:         true,
-					AppPreviewUI:           true,
-					AppGenerationChatModes: true,
-					AppDeploymentRuntime:   true,
-				},
+				AppAuthoringUI:         true,
+				AppPreviewUI:           true,
+				AppGenerationChatModes: true,
+				AppDeploymentRuntime:   true,
 			},
 			{
-				PluginID: "acme.additional-provider",
-				Capabilities: plugins.PluginAppSubsystemFeatureManifest{
-					AppAuthoringUI: true,
-				},
+				AppAuthoringUI: true,
 			},
 		},
 	)
@@ -68,9 +64,9 @@ func TestBuildOpenAPIDocumentAppSubsystemRegistrationsMergesSharedRoutesAcrossPr
 	}
 }
 
-func buildOpenAPIDocumentForProviders(
+func buildOpenAPIDocumentForCapabilities(
 	t *testing.T,
-	providers []appsubsystemproviders.DiscoveredProvider,
+	providers []plugins.PluginAppSubsystemFeatureManifest,
 ) *huma.OpenAPI {
 	t.Helper()
 
