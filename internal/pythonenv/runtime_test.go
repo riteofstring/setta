@@ -196,6 +196,33 @@ func TestRuntimePluginDistributionsReturnsManifestBearingDistributions(t *testin
 	}
 }
 
+func TestRuntimePluginDistributionsFallsBackToDistributionRootWhenMetadataFilesOmitManifest(t *testing.T) {
+	t.Parallel()
+
+	pythonRuntime, err := NewRuntime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+
+	sitePackages := writePluginDistributionFallbackFixture(t, "setta-json-render-app-gen", "0.1.0")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	distributions, err := pythonRuntime.PluginDistributions(ctx, []string{sitePackages})
+	if err != nil {
+		t.Fatalf("inspect plugin distributions: %v", err)
+	}
+	if len(distributions) != 1 {
+		t.Fatalf("expected one plugin distribution, got %#v", distributions)
+	}
+	if len(distributions[0].ManifestPaths) != 1 {
+		t.Fatalf("expected one manifest path, got %#v", distributions[0].ManifestPaths)
+	}
+	if !strings.HasSuffix(distributions[0].ManifestPaths[0], filepath.Join("setta-json-render-app-gen", "setta.plugin.json")) {
+		t.Fatalf("unexpected manifest path %#v", distributions[0].ManifestPaths[0])
+	}
+}
+
 func writePluginDistributionFixture(t *testing.T, packageName string, version string) string {
 	t.Helper()
 
@@ -230,6 +257,47 @@ func writePluginDistributionFixture(t *testing.T, packageName string, version st
 		filepath.ToSlash(filepath.Join(packageName, "setta.plugin.json")) + ",,",
 		filepath.ToSlash(filepath.Join(distInfoRoot[strings.LastIndex(distInfoRoot, string(filepath.Separator))+1:], "METADATA")) + ",,",
 		filepath.ToSlash(filepath.Join(distInfoRoot[strings.LastIndex(distInfoRoot, string(filepath.Separator))+1:], "RECORD")) + ",,",
+		"",
+	}, "\n"))
+	return sitePackages
+}
+
+func writePluginDistributionFallbackFixture(t *testing.T, packageName string, version string) string {
+	t.Helper()
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	pluginRoot := filepath.Join(sitePackages, packageName)
+	manifest := map[string]any{
+		"schemaVersion":     1,
+		"id":                packageName,
+		"name":              "Runtime Fallback Fixture",
+		"version":           version,
+		"settaVersionRange": ">=0.0.0",
+		"enabledByDefault":  true,
+		"frontend": map[string]any{
+			"entrypoint": "frontend/dist/index.js",
+			"style":      "frontend/dist/index.css",
+		},
+		"capabilities": []string{"registerPane"},
+	}
+	writeRuntimeTestFile(t, filepath.Join(pluginRoot, "frontend", "dist", "index.js"), "console.log('runtime fallback fixture')\n")
+	writeRuntimeTestFile(t, filepath.Join(pluginRoot, "frontend", "dist", "index.css"), "body {}\n")
+	writeRuntimeTestJSON(t, filepath.Join(pluginRoot, "setta.plugin.json"), manifest)
+
+	distInfoName := strings.ReplaceAll(packageName, "-", "_") + "-" + version + ".dist-info"
+	distInfoRoot := filepath.Join(sitePackages, distInfoName)
+	writeRuntimeTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: " + packageName,
+		"Version: " + version,
+		"Summary: runtime fallback fixture",
+		"",
+	}, "\n"))
+	writeRuntimeTestFile(t, filepath.Join(distInfoRoot, "top_level.txt"), "")
+	writeRuntimeTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join([]string{
+		filepath.ToSlash(filepath.Join(distInfoName, "METADATA")) + ",,",
+		filepath.ToSlash(filepath.Join(distInfoName, "RECORD")) + ",,",
+		filepath.ToSlash(filepath.Join(distInfoName, "top_level.txt")) + ",,",
 		"",
 	}, "\n"))
 	return sitePackages

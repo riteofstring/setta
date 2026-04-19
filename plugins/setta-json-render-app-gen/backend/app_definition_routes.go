@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/httpapi"
@@ -24,6 +25,9 @@ type AppDefinitionRouteDependencies struct {
 func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
+	}
+	if strings.TrimSpace(deps.PluginID) == "" {
+		return appdefinition.ErrPluginIDRequired
 	}
 	service := NewAppDefinitionService(deps.ProjectState, deps.PluginID)
 

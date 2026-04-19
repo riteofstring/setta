@@ -204,7 +204,7 @@ func publishShareDeploymentHandler(
 			DeploymentName:     payload.DeploymentName,
 			PolicyOverrides:    payload.SharePolicyOverrides,
 			ListenerEntrypoint: strings.TrimSpace(payload.ListenerEntrypoint),
-			ListenerEnabled:    listenerEnabledOrDefault(payload.ListenerEnabled),
+			ListenerEnabled:    ListenerEnabledOrDefault(payload.ListenerEnabled),
 		})
 		if err != nil {
 			handleDeploymentPublishError(w, r, err)
@@ -223,6 +223,27 @@ func deploymentMetadataResponses(entries []deployments.Metadata) []DeploymentMet
 	return responses
 }
 
+func ListDeploymentMetadataHandler(
+	catalog *deployments.Catalog,
+	deploymentType deployments.Type,
+) http.HandlerFunc {
+	return listDeploymentMetadataHandler(catalog, deploymentType)
+}
+
+func ListDeploymentVersionMetadataHandler(
+	catalog *deployments.Catalog,
+	deploymentType deployments.Type,
+) http.HandlerFunc {
+	return listDeploymentVersionMetadataHandler(catalog, deploymentType)
+}
+
+func LatestDeploymentMetadataHandler(
+	catalog *deployments.Catalog,
+	deploymentType deployments.Type,
+) http.HandlerFunc {
+	return latestDeploymentMetadataHandler(catalog, deploymentType)
+}
+
 func deploymentMetadataResponseFromMetadata(metadata deployments.Metadata) DeploymentMetadataResponse {
 	return DeploymentMetadataResponse{
 		DeploymentName:     metadata.DeploymentName,
@@ -235,7 +256,13 @@ func deploymentMetadataResponseFromMetadata(metadata deployments.Metadata) Deplo
 	}
 }
 
-func listenerEnabledOrDefault(value *bool) bool {
+func DeploymentMetadataResponseFromMetadata(
+	metadata deployments.Metadata,
+) DeploymentMetadataResponse {
+	return deploymentMetadataResponseFromMetadata(metadata)
+}
+
+func ListenerEnabledOrDefault(value *bool) bool {
 	if value == nil {
 		return true
 	}
@@ -272,6 +299,10 @@ func handleDeploymentPublishError(w http.ResponseWriter, r *http.Request, err er
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
+}
+
+func HandleDeploymentPublishError(w http.ResponseWriter, r *http.Request, err error) {
+	handleDeploymentPublishError(w, r, err)
 }
 
 func isInvalidDeploymentNameError(err error) bool {

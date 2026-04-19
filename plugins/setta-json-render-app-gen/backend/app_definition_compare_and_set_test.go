@@ -22,7 +22,7 @@ func TestAppDefinitionServiceCompareAndSetMetadataNoopsAreSideEffectFreeOnFreshP
 
 	defaultCatalogID := appspec.DefaultCatalogID
 	defaultSpecVersion := "v1"
-	defaultSpecPath := appspec.DefaultPath()
+	defaultSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 	defaultThemeMode, err := service.GetEffectiveAppThemeMode(context.Background())
 	if err != nil {
 		t.Fatalf("get effective app theme mode: %v", err)
@@ -72,7 +72,7 @@ func TestAppDefinitionServiceCompareAndSetMetadataNoopsAreSideEffectFreeOnFreshP
 		}
 	}
 
-	if raw := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
+	if raw := appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
 		t.Fatalf("expected app definition to remain nil, got %#v", raw)
 	}
 	if _, err := os.Stat(filepath.Join(root, defaultSpecPath)); !os.IsNotExist(err) {
@@ -103,7 +103,7 @@ func TestAppDefinitionServiceCompareAndSetSpecVersionMaterializesMinimalSpec(t *
 		t.Fatalf("unexpected app spec version result %#v", result)
 	}
 
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -119,8 +119,8 @@ func TestAppDefinitionServiceCompareAndSetSpecVersionMaterializesMinimalSpec(t *
 	if storedDefinition == nil {
 		t.Fatal("expected saved app definition metadata")
 	}
-	if storedDefinition.AppSpecPath != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %q", appspec.DefaultPath(), storedDefinition.AppSpecPath)
+	if storedDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %q", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), storedDefinition.AppSpecPath)
 	}
 	if storedDefinition.CatalogID != appspec.DefaultCatalogID {
 		t.Fatalf("expected saved catalog id %q, got %q", appspec.DefaultCatalogID, storedDefinition.CatalogID)
@@ -145,7 +145,7 @@ func TestAppDefinitionServiceCompareAndSetCatalogIDRejectsUnknownCatalog(t *test
 	if err == nil || !strings.Contains(err.Error(), "unknown catalog id") {
 		t.Fatalf("expected unknown app catalog id error, got %v", err)
 	}
-	if raw := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
+	if raw := appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
 		t.Fatalf("expected app definition to remain nil after rejected catalog write, got %#v", raw)
 	}
 }
@@ -155,9 +155,9 @@ func TestAppDefinitionServiceCompareAndSetSpecPathNormalizesAndPersistsMinimalSp
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	service := appDefinitionServiceForTest(runtime)
-	customPath := appspec.JoinPath("custom.json")
+	customPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")
 	targetPath := filepath.Join(root, filepath.FromSlash(customPath))
-	expectedOldValue := appspec.DefaultPath()
+	expectedOldValue := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 
 	_, result, err := service.CompareAndSetAppDefinitionSpecPath(
 		context.Background(),
@@ -167,8 +167,8 @@ func TestAppDefinitionServiceCompareAndSetSpecPathNormalizesAndPersistsMinimalSp
 	if err != nil {
 		t.Fatalf("compare-and-set app spec path: %v", err)
 	}
-	if result.OldValue != appspec.DefaultPath() {
-		t.Fatalf("expected old app spec path %q, got %q", appspec.DefaultPath(), result.OldValue)
+	if result.OldValue != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected old app spec path %q, got %q", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), result.OldValue)
 	}
 	if result.NewValue != customPath {
 		t.Fatalf("expected normalized app spec path %q, got %q", customPath, result.NewValue)
@@ -177,7 +177,7 @@ func TestAppDefinitionServiceCompareAndSetSpecPathNormalizesAndPersistsMinimalSp
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(customPath))); err != nil {
 		t.Fatalf("expected normalized app spec file to exist: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(root, appspec.DefaultPath())); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())); !os.IsNotExist(err) {
 		t.Fatalf("expected default app spec path to remain absent, got err=%v", err)
 	}
 }
@@ -251,7 +251,7 @@ func TestAppDefinitionServiceCompareAndSetMetadataRejectsStaleExpectedOldValue(t
 	if snapshot.Revision != initialSnapshot.Revision {
 		t.Fatalf("expected revision %d after stale compare-and-set, got %d", initialSnapshot.Revision, snapshot.Revision)
 	}
-	if raw := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
+	if raw := appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); raw != nil {
 		t.Fatalf("expected app definition to remain nil after stale compare-and-set, got %#v", raw)
 	}
 }

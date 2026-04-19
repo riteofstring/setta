@@ -543,7 +543,7 @@ func deploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecord
 }
 
 func deploymentIDERouteDocument(appDefinition *appdefinition.AppDefinition) projectstate.Document {
-	return appdefinition.WithStoredDocumentAppDefinition(projectstate.Document{
+	return appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{

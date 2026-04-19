@@ -131,6 +131,36 @@ func TestRecordDefaultProviderEntryRejectsConflictingProviders(t *testing.T) {
 	}
 }
 
+func TestFrontendValueExportNameNamespacesPluginExportsByPluginID(t *testing.T) {
+	t.Parallel()
+
+	name, err := frontendValueExportName(
+		"setta/plugins/acme-second-provider/backend",
+		"FrontendValueAppSubsystemChatUIConfig",
+	)
+	if err != nil {
+		t.Fatalf("frontendValueExportName(...) error = %v", err)
+	}
+	if name != "acme-second-provider/AppSubsystemChatUIConfig" {
+		t.Fatalf("unexpected namespaced export name %q", name)
+	}
+}
+
+func TestFrontendValueExportNameKeepsInternalExportsGlobal(t *testing.T) {
+	t.Parallel()
+
+	name, err := frontendValueExportName(
+		"setta/internal/httpapi",
+		"FrontendValueBootstrapProtocol",
+	)
+	if err != nil {
+		t.Fatalf("frontendValueExportName(...) error = %v", err)
+	}
+	if name != "BootstrapProtocol" {
+		t.Fatalf("unexpected internal export name %q", name)
+	}
+}
+
 func TestWalkInternalPackagePathsSkipsHiddenAndTestdata(t *testing.T) {
 	t.Parallel()
 

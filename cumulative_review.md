@@ -14,10 +14,10 @@
 - Still unverified: No Playwright or CDP run covered provider switching, app authoring, or published deployment startup after these fixes. Same-provider frontend reload buffering remains proven through owner tests only; the full project-shell route was still blocked by the unrelated local `loadProjectConfig` / file-browser proxy issue.
 
 ### Frontend App-Generation Replay Validation
-- Invariant: historical app-generation continue/edit/redo and queued `current_registry` slash-command replay must revalidate against the live provider slash-command and app-generation-mode registry before submit; missing commands, missing modes, or tightened image requirements must block locally instead of replaying stale mode or command state.
-- Last finding commit: 2f6ab41b98183d8d6eb917916deb2afeb6d8a30d
-- Proof tests: `blocks continue, edit, and redo when the historical mode is missing from the current provider registry`, `replays queued custom slash commands against the refreshed registry definition`, `replays queued custom slash commands with refreshed image requirements`, `project-ai-chat-queued-current-registry-replay.spec.ts`
-- Still unverified: Historical replay was covered by integration tests plus a browser harness run of `ChatInput`, but not by the full project-shell route because the unrelated local `loadProjectConfig` / file-browser proxy issue still blocked that shell.
+- Invariant: historical app-generation continue/edit/redo and queued `current_registry` slash-command replay must revalidate against the live provider slash-command, default-mode, and image-requirement metadata exported through `AppSubsystemChatUIConfig`; project reset must also clear buffered streamed app-spec preview state before a new project can reuse tool-call ids.
+- Last finding commit: 493dd7592c407876024b552f098097e251c1431d
+- Proof tests: `blocks continue, edit, and redo when the historical mode is missing from the current provider registry`, `replays queued custom slash commands against the refreshed registry definition`, `replays queued custom slash commands with refreshed image requirements`, `switches slash commands and default mode with the selected provider`, `clears partial streamed patch state on project reset`, `TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMetadata`, `TestBuildChatModeContributionsExposeReferenceImageMode`
+- Still unverified: Browser verification was attempted via `./aireset.sh` and Playwright, but browser-side POSTs failed with `net::ERR_ALPN_NEGOTIATION_FAILED` on `/api/createProjectConfig` and `/api/loadProjectConfig`, so no successful end-to-end UI run covered replay or reset behavior.
 
 ### App Deployment Packaging Self-Containment
 - Invariant: published app deployments must package the selected app-subsystem provider plus deployment-normalized enabled/config state so app mode can boot from the deployment without manual provider seeding or missing provider config.
@@ -25,17 +25,29 @@
 - Proof tests: `TestRegisterAppDeploymentIDERoutesPublishesAppDeployment`, `TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScope`
 - Still unverified: No end-to-end browser or standalone deployment startup run was completed after publish; packaging is covered by backend publish assertions only.
 
+### Plugin Package Runtime Discovery
+- Invariant: runtime-managed plugin distributions must remain self-contained and discoverable from the installed distribution root; manifest-backed providers should activate only when the installed artifact contains every manifest-declared runtime backend and frontend asset.
+- Last finding commit: 493dd7592c407876024b552f098097e251c1431d
+- Proof tests: `TestRuntimePluginDistributionsFallsBackToDistributionRootWhenMetadataFilesOmitManifest`, `TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `tests/start/test_packaged_distribution.py`
+- Still unverified: No out-of-tree third-party distribution install or successful browser app-authoring flow was completed after install; runtime activation remains proven through owner tests plus the packaged-distribution pytest.
+
 ### Provider-Scoped App Persistence
-- Invariant: app-definition persistence, app-spec storage/default paths, and provider-facing app metadata must derive from the selected provider id rather than a first-party plugin constant; `pluginData` namespaces must be canonicalized at normalization time, and provider-scoped helpers must not silently synthesize first-party default paths.
-- Last finding commit: 4da45919cd990e996cb5beab49219067844937b2
-- Proof tests: `TestAppDefinitionServiceUsesSelectedProviderNamespace`, `TestAppDefinitionServiceReadsCanonicalizedWhitespacePluginDataKey`, `TestDocumentNormalizedCanonicalizesPluginDataKeys`, `TestDocumentNormalizedRejectsPluginDataCanonicalKeyCollisions`, `TestBuildMCPToolRegistrationsRequiresExplicitDefaultPath`
-- Still unverified: No browser authoring flow was completed against an unknown provider id; persistence and provider scoping remain proven through owner tests only.
+- Invariant: app-definition persistence, app-spec storage/default paths, route registration, and provider-facing app metadata must derive from an explicit selected provider id rather than a first-party plugin constant; `pluginData` namespaces must be canonicalized at normalization time, and blank provider ids must fail loudly instead of synthesizing first-party defaults.
+- Last finding commit: 493dd7592c407876024b552f098097e251c1431d
+- Proof tests: `TestAppDefinitionServiceUsesSelectedProviderNamespace`, `TestAppDefinitionServiceReadsCanonicalizedWhitespacePluginDataKey`, `TestDocumentNormalizedCanonicalizesPluginDataKeys`, `TestDocumentNormalizedRejectsPluginDataCanonicalKeyCollisions`, `TestForPluginRejectsBlankPluginID`, `TestStorageForPluginRejectsBlankPluginID`, `TestBuildMCPToolRegistrationsRequiresExplicitDefaultPath`
+- Still unverified: No successful browser authoring flow or unknown-provider authoring run was completed after the explicit-provider checks; persistence remains proven through owner tests only.
+
+### Projectstate Persisted Mutation Commit Semantics
+- Invariant: plugin-owned persisted mutations must use the same commit and undo-history rules as `MutateAndSave`: pre-commit failures roll back runtime and external changes, while post-commit `AfterSave` failures leave the committed document, undo history, and external side effects intact.
+- Last finding commit: 493dd7592c407876024b552f098097e251c1431d
+- Proof tests: `TestRuntimeMutatePersistedWithContextKeepsCommittedStateOnAfterSaveError`, `TestRuntimeMutatePersistedWithContextPreservesUndoHistory`
+- Still unverified: No MCP or browser app-definition edit flow was rerun end-to-end after the persisted-mutation owner fix.
 
 ### Provider Discovery And Contract Ownership
-- Invariant: app-subsystem provider discovery, generated route/contract registration, and MCP tool registration must flow from provider-owned discovery paths and owner contract types; production and generator wiring must use discovered provider imports and capability metadata instead of repeated hard-coded first-party imports or shadow bridge structs.
-- Last finding commit: 4da45919cd990e996cb5beab49219067844937b2
-- Proof tests: `TestPluginAppDefinitionPackagePathsDiscoversPluginProviders`, `TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders`, `TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities`, `TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes`, `TestBuildOpenAPIDocumentAppSubsystemRegistrationsIncludesAdditionalProviders`, `TestNewPluginBackendMCPRuntimeIncludesUnknownProviderTools`
-- Still unverified: Discovery and generation were exercised against in-repo providers only; no out-of-tree third-party provider package was run end-to-end in this iteration.
+- Invariant: app-subsystem provider discovery, generated exported values, and shared route/helper surfaces must stay owner-defined: provider-scoped runtime export keys may be namespaced by plugin id, but frontend bindings must emit unique TypeScript-safe declarations; installed providers and their routes/tools must be discovered from owner paths without hard-coded first-party shims or forwarder bridge layers.
+- Last finding commit: 493dd7592c407876024b552f098097e251c1431d
+- Proof tests: `TestPluginAppDefinitionPackagePathsDiscoversPluginProviders`, `TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders`, `TestFrontendValueExportNameNamespacesPluginExportsByPluginID`, `TestExportedValueDeclarationNameSanitizesNamespacedRuntimeKeys`, `TestBuildToolPayloadsMatchesServerList`, `TestMCPToolCallRouteSupportsGetAppDefinition`, `TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes`
+- Still unverified: Discovery and generation were still exercised only against in-repo providers, and no successful end-to-end browser route flow completed after the route-helper ownership cleanup.
 
 ## 2026-04-21 00:31:44 PDT
 Fixes applied:
@@ -137,3 +149,27 @@ Verification run:
 Residual risks / verification gaps:
 - The full project-shell route still hit an unrelated local `loadProjectConfig` / file-browser proxy issue, so browser verification covered the `ChatInput` owner surface rather than the full project page.
 - No end-to-end browser run in this iteration covered provider switching, app authoring, or published deployment startup.
+
+## 2026-04-21 07:40:15 PDT
+Fixes applied:
+- Removed first-party fallback paths from provider-scoped app-definition and app-spec storage, and required explicit provider ids at the owner helpers and route-registration boundary.
+- Routed plugin-owned persisted mutations through the committed runtime/history path so post-save failures keep committed state and undo history intact while pre-commit failures still roll back.
+- Made app chat UI metadata authoritative from provider exports, cleared buffered app-spec preview streams on project reset, namespaced plugin runtime exported-value keys, and deleted dead HTTP route-helper bridge files.
+- Required installed runtime-managed plugin distributions to include manifest-declared runtime assets and added distribution-root manifest discovery when package metadata omits `setta.plugin.json`.
+Tests added or upgraded:
+- Added `TestForPluginRejectsBlankPluginID`, `TestStorageForPluginRejectsBlankPluginID`, `TestRuntimeMutatePersistedWithContextKeepsCommittedStateOnAfterSaveError`, `TestRuntimeMutatePersistedWithContextPreservesUndoHistory`, `TestFrontendValueExportNameNamespacesPluginExportsByPluginID`, `TestExportedValueDeclarationNameSanitizesNamespacedRuntimeKeys`, and `TestRuntimePluginDistributionsFallsBackToDistributionRootWhenMetadataFilesOmitManifest`.
+- Upgraded coverage for authoritative app chat UI metadata, provider-scoped slash-command/default-mode switching, preview reset stream clearing, package-manager activation from the built wheel, app-definition MCP routes, and packaged-distribution asset completeness.
+Verification run:
+- `pnpm -C frontend gcf`
+- `./scripts/go.sh test ./cmd/setta-gen-go-type-registries -count=1`
+- `./scripts/go.sh test ./internal/pythonenv -run 'TestRuntimePluginDistributionsFallsBackToDistributionRootWhenMetadataFilesOmitManifest' -count=1`
+- `./scripts/go.sh test ./internal/projectstate ./internal/plugins ./internal/httpapi ./internal/mcpx ./plugins/setta-json-render-app-gen/backend -run 'TestRuntimeMutatePersistedWithContextKeepsCommittedStateOnAfterSaveError|TestRuntimeMutatePersistedWithContextPreservesUndoHistory|TestRuntimeEnsureCodeSectionAttachedTerminalCreatesEmbeddedTerminal|TestRuntimeEnsureCodeSectionAttachedTerminalCreatesConcreteSizedEmbeddedTerminal|TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicPlacement|TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin|TestServiceStatusIncludesAppSubsystemProviderSelection|TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets|TestMCPToolCallRouteSupportsGetAppDefinition|TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs|TestMCPToolCallRouteSupportsValidateAppDefinition|TestMCPToolCallRouteValidateAppDefinitionAcceptsTemporaryIDs|TestMCPToolCallRouteSupportsUpdateAppDefinition|TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs|TestMCPToolCallRouteSupportsAppCatalogReadTools|TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing|TestBuildToolPayloadsMatchesServerList|TestRegisterAppDefinitionRoutesValidatesDefinition|TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes|TestBuildChatModeContributionsExposeReferenceImageMode|TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMetadata|TestForPluginRejectsBlankPluginID|TestStorageForPluginRejectsBlankPluginID' -count=1`
+- `./scripts/go.sh test ./internal/frontendbindings -count=1`
+- `./scripts/go.sh test ./internal/sharedtypes -run 'TestExportedValueDeclarationNameSanitizesNamespacedRuntimeKeys|TestNormalizeSemanticSidecarForJSONNormalizesAllValueSections' -count=1`
+- `pnpm -C frontend exec vitest run src/plugins/appSubsystem.test.tsx src/plugins/appSubsystemPreviewController.test.ts`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py`
+- `./check_quality.sh`
+- Browser verification: attempted via `./aireset.sh`, Chrome DevTools, and `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/app-config/app-config-generate-streaming.spec.ts`, but browser-side POSTs to `/api/createProjectConfig` and `/api/loadProjectConfig` failed with `net::ERR_ALPN_NEGOTIATION_FAILED`; `./kill.sh` ran afterward and no listeners remained on `3019`, `8019`, or `9241`.
+Residual risks / verification gaps:
+- No successful Playwright or CDP end-to-end run covered app authoring, preview reset, provider switching, or deployment startup because browser POSTs were blocked by `net::ERR_ALPN_NEGOTIATION_FAILED`.
+- Discovery and activation were exercised against in-repo providers and the built first-party wheel only; no out-of-tree provider package was run end-to-end in this iteration.

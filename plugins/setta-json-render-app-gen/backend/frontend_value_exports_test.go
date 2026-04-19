@@ -70,7 +70,11 @@ func TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMeta
 	wantModes := []AppSubsystemCustomSlashCommandModeOptionValue{
 		{Value: string(agentruns.ChatAppGenerationMessageModePlainChat), Label: "Plain chat"},
 		{Value: string(agentruns.AppGenerationModeJSONRender), Label: "JSON Render"},
-		{Value: string(agentruns.AppGenerationModeJSONRenderWithImage), Label: "Image to JSON Render"},
+		{
+			Value:                   string(agentruns.AppGenerationModeJSONRenderWithImage),
+			Label:                   "Image to JSON Render",
+			RequiresImageAttachment: true,
+		},
 		{Value: string(agentruns.AppGenerationModePromptBuilder), Label: "Prompt Builder"},
 		{Value: string(agentruns.AppGenerationModeMCPServer), Label: "MCP Server"},
 	}

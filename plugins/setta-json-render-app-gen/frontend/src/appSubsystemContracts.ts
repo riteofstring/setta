@@ -6,6 +6,8 @@ type SidecarExportedValueEntry = {
   value: unknown;
 };
 
+const APP_SUBSYSTEM_EXPORT_NAMESPACE = "setta-json-render-app-gen";
+
 type SidecarEnumEntry = {
   kind: string;
   name: string;
@@ -69,11 +71,12 @@ export const AppSpecPatchPolicyConfig = readGeneratedExportedValue<{
   rootPath: string;
   rootResetValue: string;
   valueOptionalOps: string[];
-}>("AppSpecPatchPolicyConfig");
+}>(`${APP_SUBSYSTEM_EXPORT_NAMESPACE}/AppSpecPatchPolicyConfig`);
 
 export const AppSubsystemChatUIConfig = readGeneratedExportedValue<{
   customSlashCommandModeOptions: Array<{
     label: string;
+    requiresImageAttachment: boolean;
     value: string;
   }>;
   defaultCustomSlashCommandMode: string;
@@ -84,4 +87,4 @@ export const AppSubsystemChatUIConfig = readGeneratedExportedValue<{
     promptTemplate: string;
     summary: string;
   }>;
-}>("AppSubsystemChatUIConfig");
+}>(`${APP_SUBSYSTEM_EXPORT_NAMESPACE}/AppSubsystemChatUIConfig`);

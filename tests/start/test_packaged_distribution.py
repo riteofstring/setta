@@ -281,7 +281,7 @@ def test_first_party_basedpyright_plugin_wheel_installs_under_plugin_specific_ro
     assert "setta-basedpyright/backend/main.py" in record_text
 
 
-def test_first_party_app_subsystem_plugin_wheel_packages_manifest_only(
+def test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets(
     tmp_path: Path,
 ) -> None:
     wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
@@ -294,8 +294,18 @@ def test_first_party_app_subsystem_plugin_wheel_packages_manifest_only(
         for name in names
     )
     assert any(name.endswith("setta-json-render-app-gen/README.md") for name in names)
-    assert not any("/backend/" in name for name in names)
-    assert not any("/frontend/" in name for name in names)
+    assert any(
+        name.endswith("setta-json-render-app-gen/runtime_backend/main.py")
+        for name in names
+    )
+    assert any(
+        name.endswith("setta-json-render-app-gen/frontend/dist/index.js")
+        for name in names
+    )
+    assert any(
+        name.endswith("setta-json-render-app-gen/frontend/dist/index.css")
+        for name in names
+    )
 
 
 def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root(
@@ -325,8 +335,9 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     installed_plugin_root = site_packages / "setta-json-render-app-gen"
     assert (installed_plugin_root / "setta.plugin.json").is_file()
     assert (installed_plugin_root / "README.md").is_file()
-    assert not (installed_plugin_root / "backend").exists()
-    assert not (installed_plugin_root / "frontend").exists()
+    assert (installed_plugin_root / "runtime_backend" / "main.py").is_file()
+    assert (installed_plugin_root / "frontend" / "dist" / "index.js").is_file()
+    assert (installed_plugin_root / "frontend" / "dist" / "index.css").is_file()
 
     record_path = (
         site_packages / "setta_json_render_app_gen-0.1.0.dist-info" / "RECORD"
@@ -334,6 +345,9 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     record_text = record_path.read_text(encoding="utf-8")
     assert "setta-json-render-app-gen/setta.plugin.json" in record_text
     assert "setta-json-render-app-gen/README.md" in record_text
+    assert "setta-json-render-app-gen/runtime_backend/main.py" in record_text
+    assert "setta-json-render-app-gen/frontend/dist/index.js" in record_text
+    assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
