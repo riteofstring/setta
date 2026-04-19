@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -397,21 +398,61 @@ func runAppCommandWithDeps(t *testing.T, args []string, global globalFlags, cwd 
 func enableSettacmdAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string, pluginID string, pluginName string) {
 	t.Helper()
 
-	writeJSONFileForSettacmdTest(t, filepath.Join(deploymentRoot, ".setta_plugins", pluginID, "setta.plugin.json"), map[string]any{
-		"schemaVersion":     1,
-		"id":                pluginID,
-		"name":              pluginName,
-		"version":           "0.1.0",
-		"settaVersionRange": ">=0.0.0",
-		"enabledByDefault":  false,
-		"featureCapabilities": map[string]any{
-			"appSubsystem": map[string]any{
-				"appDeploymentRuntime": true,
-			},
-		},
-		"capabilities": []string{},
-	})
+	targetRoot := filepath.Join(deploymentRoot, ".setta_plugins", pluginID)
+	copySettacmdPluginFixtureRoot(t, settacmdAppPluginSourceRoot(t, pluginID), targetRoot)
 	writeJSONFileForSettacmdTest(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
 		"enabledPluginIds": []string{pluginID},
 	})
+}
+
+func settacmdAppPluginSourceRoot(t *testing.T, pluginID string) string {
+	t.Helper()
+
+	repoRoot := settacmdRepoRoot(t)
+	switch pluginID {
+	case firstpartyplugin.AppSubsystemPluginID:
+		return filepath.Join(repoRoot, "plugins", pluginID)
+	case appsubsystemprovider.PluginID:
+		return filepath.Join(repoRoot, "tests", "fixtures", "plugins", "app-subsystem-unknown-id")
+	default:
+		t.Fatalf("unsupported app deployment runtime plugin fixture %q", pluginID)
+		return ""
+	}
+}
+
+func settacmdRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve settacmd test repo root")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
+}
+
+func copySettacmdPluginFixtureRoot(t *testing.T, sourceRoot string, targetRoot string) {
+	t.Helper()
+
+	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
+		t.Fatalf("mkdir plugin target root %s: %v", targetRoot, err)
+	}
+	entries, err := os.ReadDir(sourceRoot)
+	if err != nil {
+		t.Fatalf("read plugin source root %s: %v", sourceRoot, err)
+	}
+	for _, entry := range entries {
+		sourcePath := filepath.Join(sourceRoot, entry.Name())
+		targetPath := filepath.Join(targetRoot, entry.Name())
+		if entry.IsDir() {
+			copySettacmdPluginFixtureRoot(t, sourcePath, targetPath)
+			continue
+		}
+		content, err := os.ReadFile(sourcePath)
+		if err != nil {
+			t.Fatalf("read plugin fixture file %s: %v", sourcePath, err)
+		}
+		if err := os.WriteFile(targetPath, content, 0o644); err != nil {
+			t.Fatalf("write plugin fixture file %s: %v", targetPath, err)
+		}
+	}
 }

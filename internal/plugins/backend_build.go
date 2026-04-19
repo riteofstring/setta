@@ -203,6 +203,10 @@ func pythonBackendImportRoots(pluginRoot string) ([]string, error) {
 		roots = append(roots, vendoredSitePackages)
 	}
 
+	if sourceCheckoutBackendRoot := resolveSourceCheckoutPythonBackendRoot(); sourceCheckoutBackendRoot != "" {
+		roots = append(roots, sourceCheckoutBackendRoot)
+	}
+
 	parentRoot := filepath.Dir(pluginRoot)
 	if parentRoot != "" && parentRoot != pluginRoot {
 		hasDistInfo, err := directoryContainsDistInfo(parentRoot)
@@ -215,6 +219,19 @@ func pythonBackendImportRoots(pluginRoot string) ([]string, error) {
 	}
 
 	return dedupeNonEmptyPaths(roots), nil
+}
+
+func resolveSourceCheckoutPythonBackendRoot() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	backendRoot := filepath.Join(repoRoot, "backend")
+	if _, err := os.Stat(filepath.Join(backendRoot, "setta", "__init__.py")); err != nil {
+		return ""
+	}
+	return backendRoot
 }
 
 func directoryContainsDistInfo(root string) (bool, error) {

@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"testing"
 
@@ -96,7 +95,7 @@ func TestPluginBackendMCPRuntimeErrorTrimsMessage(t *testing.T) {
 	}
 }
 
-func TestNewPluginBackendMCPRuntimeIncludesUnknownProviderTools(t *testing.T) {
+func TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutBackendInvoker(t *testing.T) {
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
 	if err != nil {
 		t.Fatalf("open overlay project runtime: %v", err)
@@ -113,109 +112,11 @@ func TestNewPluginBackendMCPRuntimeIncludesUnknownProviderTools(t *testing.T) {
 		ProjectRuntime: projectRuntime,
 	})
 	if err != nil {
-		t.Fatalf("newPluginBackendMCPRuntime returned error: %v", err)
-	}
-	defer func() {
-		if closeErr := runtime.Close(context.Background()); closeErr != nil {
-			t.Fatalf("close plugin backend MCP runtime: %v", closeErr)
-		}
-	}()
-
-	if runtime.client != nil {
-		t.Fatal("expected no external plugin backend client for app-subsystem-only snapshot")
-	}
-	for _, want := range []string{
-		"get_app_catalog",
-		"list_app_components",
-		"get_app_definition",
-		"validate_app_definition",
-		"set_app_definition",
-		"stream_app_definition",
-		"update_app_definition",
-	} {
-		if !slices.Contains(runtime.toolNames, want) {
-			t.Fatalf("expected tool %q in runtime toolNames %v", want, runtime.toolNames)
-		}
-	}
-}
-
-func TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider(t *testing.T) {
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
-	if err != nil {
-		t.Fatalf("open overlay project runtime: %v", err)
-	}
-	defer func() {
-		if closeErr := projectRuntime.Close(); closeErr != nil {
-			t.Fatalf("close overlay project runtime: %v", closeErr)
-		}
-	}()
-
-	runtime, err := newPluginBackendMCPRuntime(context.Background(), pluginBackendMCPRuntimeOptions{
-		RuntimeRoot:    t.TempDir(),
-		Snapshot:       appSubsystemDiscoverySnapshotForTest("setta-unregistered-app-provider"),
-		ProjectRuntime: projectRuntime,
-	})
-	if err != nil {
 		t.Fatalf("new plugin backend MCP runtime: %v", err)
 	}
 	for _, toolName := range runtime.toolNames {
 		if strings.Contains(toolName, "app") {
-			t.Fatalf("expected unregistered provider app tools to stay unavailable, got %#v", runtime.toolNames)
-		}
-	}
-}
-
-func TestNewPluginBackendMCPRuntimeSkipsMixedRegisteredAndUnregisteredProviders(
-	t *testing.T,
-) {
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
-	if err != nil {
-		t.Fatalf("open overlay project runtime: %v", err)
-	}
-	defer func() {
-		if closeErr := projectRuntime.Close(); closeErr != nil {
-			t.Fatalf("close overlay project runtime: %v", closeErr)
-		}
-	}()
-
-	runtime, err := newPluginBackendMCPRuntime(context.Background(), pluginBackendMCPRuntimeOptions{
-		RuntimeRoot: t.TempDir(),
-		Snapshot: plugins.DiscoverySnapshot{
-			Plugins: []plugins.DiscoveredPlugin{
-				{
-					PluginID: appsubsystemprovider.PluginID,
-					State:    plugins.PluginRuntimeStateActive,
-					Manifest: &plugins.PluginManifest{
-						ID: appsubsystemprovider.PluginID,
-						FeatureCapabilities: &plugins.PluginFeatureCapabilitiesManifest{
-							AppSubsystem: &plugins.PluginAppSubsystemFeatureManifest{
-								AppGenerationChatModes: true,
-							},
-						},
-					},
-				},
-				{
-					PluginID: "setta-unregistered-app-provider",
-					State:    plugins.PluginRuntimeStateActive,
-					Manifest: &plugins.PluginManifest{
-						ID: "setta-unregistered-app-provider",
-						FeatureCapabilities: &plugins.PluginFeatureCapabilitiesManifest{
-							AppSubsystem: &plugins.PluginAppSubsystemFeatureManifest{
-								AppGenerationChatModes: true,
-							},
-						},
-					},
-				},
-			},
-		},
-		ProjectRuntime: projectRuntime,
-	})
-	if err != nil {
-		t.Fatalf("new plugin backend MCP runtime: %v", err)
-	}
-	for _, toolName := range runtime.toolNames {
-		if strings.Contains(toolName, "app") {
-			t.Fatalf("expected mixed registered and unregistered providers to skip app tools, got %#v", runtime.toolNames)
+			t.Fatalf("expected app tools to stay unavailable without backend invoker, got %#v", runtime.toolNames)
 		}
 	}
 }
@@ -251,7 +152,8 @@ func TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes(t *tes
 				},
 			},
 		},
-		ProjectRuntime: projectRuntime,
+		ProjectRuntime:         projectRuntime,
+		BackendListenerInvoker: pluginBackendMCPRuntimeListenerInvokerStub{},
 	})
 	if err != nil {
 		t.Fatalf("new plugin backend MCP runtime: %v", err)
@@ -290,4 +192,13 @@ func appSubsystemDiscoverySnapshotForTest(pluginID string) plugins.DiscoverySnap
 			},
 		},
 	}
+}
+
+type pluginBackendMCPRuntimeListenerInvokerStub struct{}
+
+func (pluginBackendMCPRuntimeListenerInvokerStub) InvokeRegisteredListenerEndpoint(
+	context.Context,
+	plugins.BackendListenerEndpointRequest,
+) (any, bool, error) {
+	return nil, true, nil
 }

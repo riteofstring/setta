@@ -30,6 +30,9 @@ type BackendRequestContext struct {
 	SessionID       string      `json:"sessionId,omitempty"`
 	ShareSessionID  string      `json:"shareSessionId,omitempty"`
 	ProjectConfigID string      `json:"projectConfigId,omitempty"`
+	WorkspaceRoot   string      `json:"workspaceRoot,omitempty"`
+	SettaFilesRoot  string      `json:"settaFilesRoot,omitempty"`
+	RuntimeRoot     string      `json:"runtimeRoot,omitempty"`
 }
 
 type BackendHTTPRequest struct {
@@ -131,8 +134,31 @@ type backendRuntimeUISettingResponse struct {
 }
 
 type backendRuntimeResponseError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Details map[string]any `json:"details,omitempty"`
+}
+
+type BackendRuntimeError struct {
+	Code    string
+	Message string
+	Details map[string]any
+}
+
+func (e *BackendRuntimeError) Error() string {
+	if e == nil {
+		return ""
+	}
+	code := strings.TrimSpace(e.Code)
+	message := strings.TrimSpace(e.Message)
+	switch {
+	case code == "":
+		return message
+	case message == "":
+		return code
+	default:
+		return code + ": " + message
+	}
 }
 
 type backendRouteMatch struct {
@@ -206,7 +232,7 @@ func (s *Service) DispatchRegisteredBackendRoute(
 		*match.Entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		BackendHTTPRequest{
-			Context:  request.Context,
+			Context:  s.enrichBackendRequestContext(request.Context),
 			Method:   match.Method,
 			Path:     request.Path,
 			RawQuery: request.RawQuery,
@@ -249,7 +275,11 @@ func (s *Service) InvokeRegisteredListenerEndpoint(
 		match.Entry.SourcePath,
 		*match.Entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
-		request,
+		BackendListenerEndpointRequest{
+			Context:      s.enrichBackendRequestContext(request.Context),
+			EndpointName: request.EndpointName,
+			Payload:      cloneBackendPayload(request.Payload),
+		},
 	)
 	if err != nil {
 		return nil, true, err
@@ -595,9 +625,25 @@ func invokeGoBackendListenerEndpoint(
 		if code == "" {
 			return nil, fmt.Errorf("%s", message)
 		}
-		return nil, fmt.Errorf("%s: %s", code, message)
+		return nil, &BackendRuntimeError{
+			Code:    code,
+			Message: message,
+			Details: cloneBackendPayload(response.Listener.Error.Details),
+		}
 	}
 	return response.Listener.Result, nil
+}
+
+func (s *Service) enrichBackendRequestContext(
+	requestContext BackendRequestContext,
+) BackendRequestContext {
+	if s == nil || s.store == nil {
+		return requestContext
+	}
+	requestContext.WorkspaceRoot = s.store.workspaceRoot
+	requestContext.SettaFilesRoot = s.store.settaFilesRoot
+	requestContext.RuntimeRoot = s.store.settaHome
+	return requestContext
 }
 
 func invokeGoBackendCodegenTarget(
