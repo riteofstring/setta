@@ -842,9 +842,7 @@ function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
   return [];
 }
 
-export function extractUserPromptText(
-  message: BaseChatMessageUnion,
-): string | null {
+function extractUserPromptText(message: BaseChatMessageUnion): string | null {
   if (message.role !== ChatRoleEnum.user) {
     return null;
   }
@@ -875,7 +873,7 @@ export function extractUserPromptText(
   return textParts.join("\n");
 }
 
-export function getMessageAttachments(
+function getMessageAttachments(
   message: BaseChatMessageUnion,
 ): Array<ChatFileAttachment> {
   if ("attachments" in message && Array.isArray(message.attachments)) {

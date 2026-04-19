@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -134,12 +135,18 @@ func pluginConfigWriteResponse(pluginID string, config map[string]any) PluginCon
 }
 
 func validatePluginConfig(entry DiscoveredPlugin, config map[string]any) error {
-	schemaPath, ok, err := resolvePluginConfigSchemaPath(entry)
-	if err != nil {
-		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema path for %s", entry.PluginID)
+	if entry.Manifest == nil {
+		return newServiceError(ServiceErrorCodeConfigInvalid, "Plugin manifest missing for plugin: %s", entry.PluginID)
 	}
-	if !ok {
+
+	trimmedSchemaPath := strings.TrimSpace(entry.Manifest.ConfigSchemaPath)
+	if trimmedSchemaPath == "" {
 		return nil
+	}
+
+	schemaPath, err := resolveManifestRegularFile(entry.SourcePath, trimmedSchemaPath, "plugin config schema")
+	if err != nil {
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema path: %s", trimmedSchemaPath)
 	}
 
 	schema, err := loadPluginConfigSchema(schemaPath)
@@ -161,12 +168,7 @@ func validatePluginConfig(entry DiscoveredPlugin, config map[string]any) error {
 }
 
 func loadPluginConfigSchema(schemaPath string) (*jsonschema.Schema, error) {
-	schemaJSON, err := loadPluginConfigSchemaJSON(schemaPath)
-	if err != nil {
-		return nil, err
-	}
-
-	payload, err := json.Marshal(schemaJSON)
+	payload, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return nil, err
 	}
