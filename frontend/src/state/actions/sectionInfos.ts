@@ -50,6 +50,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  IFrameSectionImpl,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
@@ -71,6 +72,17 @@ const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
+// Keep this in sync with internal/projectstate/unshared_defaults.go so optimistic
+// frontend writes follow the same ownership routing as the Go owner.
+const DEFAULT_UNSHARED_PROJECT_FIELDS = new Set([
+  "callable",
+  "codeObjVariantMap",
+  "edgeInputParams",
+  "edgeOutputPorts",
+  "layers",
+  "topLevelParamId",
+  "value",
+]);
 type GeneratedImplUpdateValue<T> = T | ((prev: T) => T);
 type ImplUpdateArgs<T extends object> = {
   [K in keyof T]?: GeneratedImplUpdateValue<T[K]>;
@@ -671,6 +683,23 @@ export function getCurrEffectiveSectionImplWithTypeGuardIfPresent<T>(
   }
   return effective;
 }
+function isIFrameSectionImpl(
+  impl: BaseSectionImplUnion,
+): impl is IFrameSectionImpl {
+  return impl.type === SectionTypeEnum.IFrame && "code" in impl;
+}
+export function getCurrIFrameSectionImpl(
+  p: ZustandProjectState,
+  sectionId: string,
+  preview = false,
+): IFrameSectionImpl {
+  return getCurrEffectiveSectionImplWithTypeGuard(
+    p,
+    sectionId,
+    isIFrameSectionImpl,
+    preview,
+  );
+}
 export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   p: ZustandProjectState,
   sectionId: string,
@@ -837,6 +866,11 @@ function resolveGeneratedImplUpdateValue<T>(
   }
   return value;
 }
+function generatedImplFieldUsesDefaultUnsharedOwnership(
+  fieldName: string,
+): boolean {
+  return DEFAULT_UNSHARED_PROJECT_FIELDS.has(fieldName);
+}
 function setEffectiveImplValue<T extends MutableGeneratedImpl>(
   impl: T,
   core: Core,
@@ -850,11 +884,16 @@ function setEffectiveImplValue<T extends MutableGeneratedImpl>(
     const currV = curr[k];
     const nextValue = resolveGeneratedImplUpdateValue(v, currV);
     const key = k as string;
-    if (!core.unsharedKeys.includes(k)) {
+    const isUnsharedField =
+      core.unsharedKeys.includes(key) ||
+      generatedImplFieldUsesDefaultUnsharedOwnership(key);
+    if (!isUnsharedField) {
       core.sharedModifier[key] = nextValue;
     } else if (!impl.isPreset) {
+      delete core.sharedModifier[key];
       (impl as Record<string, unknown>)[key] = nextValue;
     } else {
+      delete core.sharedModifier[key];
       variant.modifier[key] = nextValue;
     }
   }
@@ -1836,26 +1875,6 @@ function buildTopLevelSectionLayout(
   return nextLayout;
 }
 type PendingViewportState = Viewport | null;
-function areViewportsEqual(
-  left: PendingViewportState,
-  right: PendingViewportState,
-) {
-  if (left === right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
-}
-
-export function areViewportTransformsEqual(
-  left: [number, number, number],
-  right: [number, number, number],
-) {
-  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
-}
-
 const pendingViewportRef: {
   opId: string | null;
   snapshot: PendingViewportState;
@@ -2399,18 +2418,18 @@ export function unselectAllParams() {
   return true;
 }
 export function updateAllProjectMetadata(x: AllProjectMetadata) {
-  useAllProjectMetadata.setState(x);
+  useAllProjectMetadata.setState({
+    ...x,
+    projectMetadata: x.projectMetadata ?? [],
+  });
 }
 function shouldSkipViewportDispatch(
   viewport: PendingViewportState,
   currentProjectState: ZustandProjectState,
 ): boolean {
-  const snapshotUnchanged = areViewportsEqual(
-    pendingViewportRef.snapshot,
-    viewport,
-  );
+  const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
   const currentMatches =
-    areViewportsEqual(currentProjectState.projectConfig.viewport, viewport) &&
+    _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
     currentProjectState.projectConfig.viewportInitialized ===
       (viewport !== null);
   return (
@@ -2420,18 +2439,7 @@ function shouldSkipViewportDispatch(
     currentMatches
   );
 }
-type DispatchViewportUpdateOptions = {
-  immediate?: boolean;
-  scheduleSend?: boolean;
-};
-
-function dispatchViewportUpdate(
-  viewport: Viewport | null,
-  {
-    immediate = false,
-    scheduleSend = true,
-  }: DispatchViewportUpdateOptions = {},
-) {
+function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
@@ -2443,11 +2451,11 @@ function dispatchViewportUpdate(
   }
   pendingViewportRef.snapshot = viewport;
   pendingViewportRef.hasQueuedSend = true;
+  useProjectState.setState((state) => {
+    applyViewportSnapshotToProjectState(state, viewport);
+  });
   if (!pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
-  }
-  if (!scheduleSend) {
-    return;
   }
   sendViewportToBackend();
   if (immediate) {
@@ -2467,50 +2475,5 @@ export const debouncedDispatchViewportUpdate = Object.assign(
 );
 export function dispatchViewportUpdateImmediately() {
   debouncedDispatchViewportUpdate.cancel();
-  dispatchViewportUpdate(getCurrProjectConfigViewport(), { immediate: true });
-}
-
-export function dispatchViewportUpdateWhileInteracting() {
-  const projectConfigId = getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-
-  // Active pan/zoom only needs to retain the latest optimistic viewport.
-  // Once that queue exists, avoid rescanning project state or pending ops on
-  // every transform tick.
-  if (pendingViewportRef.opId && !pendingViewportRef.hasQueuedSend) {
-    clearCompletedPendingOpId(pendingViewportRef);
-  }
-
-  const viewport = getCurrProjectConfigViewport();
-  const snapshotUnchanged = areViewportsEqual(
-    pendingViewportRef.snapshot,
-    viewport,
-  );
-
-  if (pendingViewportRef.hasQueuedSend || pendingViewportRef.opId) {
-    if (snapshotUnchanged) {
-      return;
-    }
-    pendingViewportRef.snapshot = viewport;
-    pendingViewportRef.hasQueuedSend = true;
-    if (!pendingViewportRef.opId) {
-      pendingViewportRef.opId = addPendingOp(applyPendingViewport);
-    }
-    return;
-  }
-
-  const currentProjectState = useProjectState.getState();
-  if (
-    areViewportsEqual(currentProjectState.projectConfig.viewport, viewport) &&
-    currentProjectState.projectConfig.viewportInitialized ===
-      (viewport !== null)
-  ) {
-    return;
-  }
-
-  pendingViewportRef.snapshot = viewport;
-  pendingViewportRef.hasQueuedSend = true;
-  pendingViewportRef.opId = addPendingOp(applyPendingViewport);
+  dispatchViewportUpdate(getCurrProjectConfigViewport(), true);
 }
