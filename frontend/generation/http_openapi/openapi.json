@@ -640,7 +640,7 @@
         "required": ["appSpec"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse": {
+      "AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse": {
         "additionalProperties": false,
         "properties": {
           "appPolicy": {
@@ -683,7 +683,7 @@
         ],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse": {
+      "AppsubsystemAppdeploymenthttpAppDeploymentStateResponse": {
         "additionalProperties": false,
         "properties": {
           "appDefinition": {
@@ -700,7 +700,7 @@
         "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdeploymenthttpPublishAppDeploymentRequest": {
+      "AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest": {
         "additionalProperties": false,
         "properties": {
           "appPolicyOverrides": {
@@ -12183,7 +12183,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdeploymenthttpPublishAppDeploymentRequest"
+                "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest"
               }
             }
           },
@@ -12225,7 +12225,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse"
+                  "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse"
                 }
               }
             },
@@ -12369,7 +12369,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse"
+                  "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpAppDeploymentStateResponse"
                 }
               }
             },
@@ -12418,7 +12418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse"
+                  "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpAppDeploymentStateResponse"
                 }
               }
             },
