@@ -7,6 +7,9 @@ const READY_SELECTOR = ".react-flow__pane";
 const TARGET_SECTION_ID = "settings-section__chatSectionDefault";
 const TARGET_ROW_ID =
   "ParamContainer-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__aspectRatio";
+const SIBLING_SECTION_ID = "settings-section__spreadsheetSectionDefault";
+const SIBLING_ROW_ID =
+  "ParamContainer-settings-section__spreadsheetSectionDefault-settings-codeobj__spreadsheetSectionDefault__spreadsheetSectionDefault__aspectRatio";
 const CALLABLE_CANARY_SECTION_ID = "settings-section__callableSectionDefault";
 
 test("canvas shell path uses lightweight switch activators across settings sections", async ({
@@ -24,10 +27,13 @@ test("canvas shell path uses lightweight switch activators across settings secti
   await allSettingsTab.click();
 
   await page.waitForFunction(
-    ({ rowId, targetSectionId, callableSectionId }) =>
-      document.getElementById(rowId) instanceof HTMLElement &&
-      document.querySelector(`section[data-section-id="${targetSectionId}"]`) instanceof
-        HTMLElement &&
+    ({ callableSectionId, rowIds, sectionIds }) =>
+      rowIds.every((rowId) => document.getElementById(rowId) instanceof HTMLElement) &&
+      sectionIds.every(
+        (sectionId) =>
+          document.querySelector(`section[data-section-id="${sectionId}"]`) instanceof
+          HTMLElement,
+      ) &&
       document.querySelector(
         `section[data-section-id="${callableSectionId}"]`,
       ) instanceof HTMLElement &&
@@ -35,14 +41,14 @@ test("canvas shell path uses lightweight switch activators across settings secti
         HTMLCanvasElement,
     {
       callableSectionId: CALLABLE_CANARY_SECTION_ID,
-      rowId: TARGET_ROW_ID,
-      targetSectionId: TARGET_SECTION_ID,
+      rowIds: [TARGET_ROW_ID, SIBLING_ROW_ID],
+      sectionIds: [TARGET_SECTION_ID, SIBLING_SECTION_ID],
     },
     { timeout: 15000 },
   );
 
   const restingState = await page.evaluate(
-    ({ callableSectionId, rowId, targetSectionId }) => {
+    ({ callableSectionId, siblingRowId, siblingSectionId, targetRowId, targetSectionId }) => {
       const targetSection = document.querySelector<HTMLElement>(
         `section[data-section-id="${targetSectionId}"]`,
       );
@@ -50,16 +56,35 @@ test("canvas shell path uses lightweight switch activators across settings secti
         throw new Error(`Missing section ${targetSectionId}`);
       }
 
-      const targetRow = document.getElementById(rowId);
+      const siblingSection = document.querySelector<HTMLElement>(
+        `section[data-section-id="${siblingSectionId}"]`,
+      );
+      if (!(siblingSection instanceof HTMLElement)) {
+        throw new Error(`Missing section ${siblingSectionId}`);
+      }
+
+      const targetRow = document.getElementById(targetRowId);
       if (!(targetRow instanceof HTMLElement)) {
-        throw new Error(`Missing row ${rowId}`);
+        throw new Error(`Missing row ${targetRowId}`);
       }
 
       const targetSwitch = targetRow.querySelector<HTMLElement>(
         '[data-canvas-owned-lightweight-switch="true"]',
       );
       if (!(targetSwitch instanceof HTMLElement)) {
-        throw new Error(`Missing lightweight switch for ${rowId}`);
+        throw new Error(`Missing lightweight switch for ${targetRowId}`);
+      }
+
+      const siblingRow = document.getElementById(siblingRowId);
+      if (!(siblingRow instanceof HTMLElement)) {
+        throw new Error(`Missing row ${siblingRowId}`);
+      }
+
+      const siblingSwitch = siblingRow.querySelector<HTMLElement>(
+        '[data-canvas-owned-lightweight-switch="true"]',
+      );
+      if (!(siblingSwitch instanceof HTMLElement)) {
+        throw new Error(`Missing lightweight switch for ${siblingRowId}`);
       }
 
       const callableSection = document.querySelector<HTMLElement>(
@@ -79,6 +104,17 @@ test("canvas shell path uses lightweight switch activators across settings secti
         callableCanvasTrackSwitchCount: callableSection.querySelectorAll(
           '[data-canvas-owned-lightweight-switch="true"][data-canvas-owned-switch-track="true"]',
         ).length,
+        siblingRootIsValueShell: siblingSwitch.matches(".section-value"),
+        siblingSectionButtonSwitchCount:
+          siblingSection.querySelectorAll('button[role="switch"]').length,
+        siblingSectionLightweightSwitchCount: siblingSection.querySelectorAll(
+          '[data-canvas-owned-lightweight-switch="true"]',
+        ).length,
+        siblingSectionRoleSwitchCount:
+          siblingSection.querySelectorAll('[role="switch"]').length,
+        siblingValueShellWrapperCount: siblingRow.querySelectorAll(
+          '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
+        ).length,
         settingsButtonSwitchCount: settingsSections.reduce(
           (count, section) => count + section.querySelectorAll('button[role="switch"]').length,
           0,
@@ -97,25 +133,45 @@ test("canvas shell path uses lightweight switch activators across settings secti
         targetLabel:
           targetRow.querySelector(".section-key")?.textContent?.replace(/\s+/g, " ").trim() ??
           null,
+        targetRootIsValueShell: targetSwitch.matches(".section-value"),
         targetSectionButtonSwitchCount:
           targetSection.querySelectorAll('button[role="switch"]').length,
         targetSectionLightweightSwitchCount: targetSection.querySelectorAll(
           '[data-canvas-owned-lightweight-switch="true"]',
+        ).length,
+        targetSectionRoleSwitchCount:
+          targetSection.querySelectorAll('[role="switch"]').length,
+        targetValueShellWrapperCount: targetRow.querySelectorAll(
+          '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
         ).length,
         targetTagName: targetSwitch.tagName,
       };
     },
     {
       callableSectionId: CALLABLE_CANARY_SECTION_ID,
-      rowId: TARGET_ROW_ID,
+      siblingRowId: SIBLING_ROW_ID,
+      siblingSectionId: SIBLING_SECTION_ID,
+      targetRowId: TARGET_ROW_ID,
       targetSectionId: TARGET_SECTION_ID,
     },
   );
 
   expect(restingState.targetLabel).toBe("Aspect Ratio");
+  expect(restingState.targetRootIsValueShell).toBe(true);
+  expect(restingState.siblingRootIsValueShell).toBe(true);
   expect(restingState.targetTagName).toBe("DIV");
   expect(restingState.targetSectionButtonSwitchCount).toBe(0);
   expect(restingState.targetSectionLightweightSwitchCount).toBeGreaterThan(0);
+  expect(restingState.targetSectionRoleSwitchCount).toBe(
+    restingState.targetSectionLightweightSwitchCount,
+  );
+  expect(restingState.targetValueShellWrapperCount).toBe(0);
+  expect(restingState.siblingSectionButtonSwitchCount).toBe(0);
+  expect(restingState.siblingSectionLightweightSwitchCount).toBeGreaterThan(0);
+  expect(restingState.siblingSectionRoleSwitchCount).toBe(
+    restingState.siblingSectionLightweightSwitchCount,
+  );
+  expect(restingState.siblingValueShellWrapperCount).toBe(0);
   expect(restingState.settingsButtonSwitchCount).toBe(0);
   expect(restingState.settingsLightweightSwitchCount).toBeGreaterThan(100);
   expect(restingState.settingsRoleSwitchCount).toBe(

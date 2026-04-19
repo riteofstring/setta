@@ -3,6 +3,7 @@ import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graph
 import {
   isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightSwitch,
+  isCanvasOwnedSectionLightweightSwitchValueShell,
   isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionRestingDropdown,
   isCanvasOwnedSectionRestingText,
@@ -102,6 +103,7 @@ type ParamUIState = {
 type ParamUIRenderContext = ParamUIProps & {
   canvasOwnedLightweightColorInput: boolean;
   canvasOwnedLightweightSwitch: boolean;
+  canvasOwnedLightweightSwitchValueShell: boolean;
   canvasOwnedRestingDropdown: boolean;
   canvasOwnedSectionChrome: boolean;
   canvasOwnedRestingText: boolean;
@@ -395,6 +397,7 @@ function renderRotaryParam({
 
 function renderSwitchParam({
   canvasOwnedLightweightSwitch,
+  canvasOwnedLightweightSwitchValueShell,
   canvasOwnedSectionChrome,
   value,
   onChange,
@@ -405,6 +408,7 @@ function renderSwitchParam({
   return (
     <SwitchParamConfigured
       lightweightActivator={canvasOwnedLightweightSwitch}
+      canvasOwnedValueShell={canvasOwnedLightweightSwitchValueShell}
       canvasOwnedTrack={canvasOwnedSectionChrome}
       value={value}
       defaultVal={paramUiState.defaultVal}
@@ -647,6 +651,9 @@ export function ParamUI({
         codeObjType: paramUiState.codeObjType,
         sectionId,
       }),
+    canvasOwnedLightweightSwitchValueShell:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      isCanvasOwnedSectionLightweightSwitchValueShell(sectionId),
     canvasOwnedRestingDropdown:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionRestingDropdown({
@@ -911,6 +918,7 @@ function DropzoneParamConfigured({
 
 function SwitchParamConfigured({
   lightweightActivator,
+  canvasOwnedValueShell,
   canvasOwnedTrack,
   value,
   defaultVal,
@@ -919,6 +927,7 @@ function SwitchParamConfigured({
   isDisabled,
 }: {
   lightweightActivator: boolean;
+  canvasOwnedValueShell: boolean;
   canvasOwnedTrack: boolean;
   value: boolean | string;
   defaultVal?: boolean | string;
@@ -939,7 +948,16 @@ function SwitchParamConfigured({
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
-      outerDivClassName="section-value flex justify-self-start self-center"
+      lightweightRootClassName={
+        canvasOwnedValueShell
+          ? "section-value justify-self-start self-center"
+          : undefined
+      }
+      outerDivClassName={
+        canvasOwnedValueShell
+          ? undefined
+          : "section-value flex justify-self-start self-center"
+      }
       rootThemeClassName={rootThemeClassName}
     />
   );

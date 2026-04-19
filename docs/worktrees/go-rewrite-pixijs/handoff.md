@@ -68,12 +68,62 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
     - `settings-section__stateMachineGateSectionDefault`
     - `settings-section__groupSectionDefault`
   - inference from the ranking: those repeated survivors are already `lightweightSwitch` rows whose only remaining visible DOM is `div.section-value`, so the next broad lane should target a shared switch-shell/value-shell primitive rather than another resting-text pass
-  - next default lane: prefer a shared switch-shell/value-shell primitive with canonical target `settings-section__chatSectionDefault` and first sibling proof `settings-section__spreadsheetSectionDefault`; only fall back to `settings-section__languageServer` if that broader shared primitive is blocked
+  - that shared switch-shell/value-shell lane is now landed in the next status entry below; do not reopen this same chat/spreadsheet family unless a fresh defect appears
   - CDP visual check is done:
     - `/settings` loaded cleanly with `All Settings` active
     - no crash/error boundary overlay was visible
     - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
     - the exact section ids were not present in the final headless DOM snapshot, but the nearest trustworthy visible evidence still showed overview entries for `languageServer`, `backend`, `gui`, and `chatSectionDefault`, plus the rendered `backend` editor panel on the main graph surface
+- The shared lightweight-switch value-shell family is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-switch-value-shell-flattening-rerun.md`.
+  - canonical target section: `settings-section__chatSectionDefault`
+  - sibling proof section: `settings-section__spreadsheetSectionDefault`
+  - the broader shared value-shell set landed in the same bounded pass:
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+    - `settings-section__callableSectionDefault`
+    - `settings-section__codeSectionDefault`
+    - `settings-section__textBlockSectionDefault`
+    - `settings-section__stateMachineGateSectionDefault`
+    - `settings-section__groupSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now names the shared switch value-shell family explicitly
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now flattens only that family onto the lightweight switch root on the `canvas-shell-underlay` path
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now supports the opt-in lightweight-root class path so the redundant wrapper disappears only for the targeted family
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__chatSectionDefault` `Aspect Ratio`: one lightweight switch root, zero non-lightweight `.section-value` wrappers, first-click toggle still works
+    - `settings-section__spreadsheetSectionDefault` `Aspect Ratio`: one lightweight switch root, zero non-lightweight `.section-value` wrappers, row still looks intact
+    - callable shell-owned switch rows still retain canvas-owned track rendering on the same path
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 119`
+    - `totalRemainingValueElementCount: 178`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6819`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.97`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 15265`
+  - compared against the prior post-param-codeobj ranking report:
+    - `totalRemainingValueRowCount: 176 -> 119`
+    - `totalRemainingValueElementCount: 235 -> 178`
+    - `documentNodeCount: 6874 -> 6819`
+  - interpretation:
+    - this is a real shared-family DOM reduction slice, not another ranking-only pass
+    - the named chat/spreadsheet switch-shell lane is now closed at this ownership boundary and its broader family also dropped out of the rerun top-12 ranking
+    - the remaining top whole-scene survivors are now led by `settings-section__languageServer` (`48`), `settings-section__backend` (`21`), `settings-section__gui` (`15`), then smaller repeated switch-wrapper families such as `drawSectionDefault`, `browserSectionDefault`, `metaControlSectionDefault`, `promptSectionDefault`, `pluginSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, and `stateMachineStartSectionDefault`
+  - next default lane:
+    - keep the shared chat/spreadsheet switch-shell family closed
+    - prefer the next repeated lightweight-switch value-shell family from the fresh `6819 / 119 / 178` checkpoint, with canonical target `settings-section__browserSectionDefault` and first sibling proof `settings-section__promptSectionDefault`
+    - only fall back to the `settings-section__languageServer` outlier if that broader repeated primitive is blocked on the current ownership boundary
+  - CDP visual check is done:
+    - `/settings` loaded cleanly with `All Settings` active
+    - no crash/error overlay was visible
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - both `settings-section__chatSectionDefault` and `settings-section__spreadsheetSectionDefault` were present
+    - the `Aspect Ratio` switch row looked intact in both sections after the switch-shell flattening
+    - the retained canvas path still looked healthy overall
 - The tracking model is now explicit:
   - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
   - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
@@ -1973,7 +2023,7 @@ The first product frontier is:
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
 - with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
-- next: keep the callable, dict, and GlobalVariables lanes closed as section-specific lanes, and use the new post-param-codeobj ranking to land one shared switch-shell/value-shell slice led by `settings-section__chatSectionDefault` plus `settings-section__spreadsheetSectionDefault`; only fall back to the `languageServer` outlier if that broader primitive is blocked
+- next: keep the shared chat/spreadsheet switch-shell family closed, then use the new `6819 / 119 / 178` rerank to land the next repeated lightweight-switch value-shell slice led by `settings-section__browserSectionDefault` plus `settings-section__promptSectionDefault`; only fall back to the `languageServer` outlier if that broader primitive is blocked
 
 ## Hard rules
 

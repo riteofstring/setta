@@ -155,6 +155,77 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 067
+
+- Item: Flatten the shared lightweight-switch value shell so the targeted switch family stops paying one extra `div.section-value` wrapper per visible row.
+- Status: `done`
+- Details:
+  - Started from the current anti-inertia checkpoint and picked the named shared switch-shell/value-shell family from the latest whole-scene ranking instead of reopening another resting-text lane.
+  - Kept the slice bounded to the current highest-payoff repeated family:
+    - canonical target section: `settings-section__chatSectionDefault`
+    - sibling proof section: `settings-section__spreadsheetSectionDefault`
+    - broader family landed in the same pass:
+      - `settings-section__dictSectionDefault`
+      - `settings-section__globalVariablesSectionDefault`
+      - `settings-section__callableSectionDefault`
+      - `settings-section__codeSectionDefault`
+      - `settings-section__textBlockSectionDefault`
+      - `settings-section__stateMachineGateSectionDefault`
+      - `settings-section__groupSectionDefault`
+  - Landed the product slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now names the shared switch value-shell family explicitly
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now flattens only that family onto the lightweight switch root on the `canvas-shell-underlay` path
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now supports an opt-in lightweight-root class path so the redundant wrapper disappears only for the targeted family
+    - updated focused proof files:
+      - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+    - recorded durable slice report:
+      - `perf/reports/frontend/2026-04-19_settings-all-settings-shared-switch-value-shell-flattening-rerun.md`
+  - Focused runtime proof on the live surface:
+    - `settings-section__chatSectionDefault` `Aspect Ratio`: one lightweight switch root, zero non-lightweight `.section-value` wrappers, first-click toggle still works
+    - `settings-section__spreadsheetSectionDefault` `Aspect Ratio`: one lightweight switch root, zero non-lightweight `.section-value` wrappers, row still looks intact
+    - callable shell-owned switch rows still retain canvas-owned track rendering on the retained path
+  - Fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 119`
+    - `totalRemainingValueElementCount: 178`
+  - Fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6819`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.97`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 15265`
+  - Compared against the prior post-param-codeobj ranking rerun:
+    - `totalRemainingValueRowCount: 176 -> 119`
+    - `totalRemainingValueElementCount: 235 -> 178`
+    - `documentNodeCount: 6874 -> 6819`
+    - `raf.meanMs: 96.55 -> 94.97`
+    - `raf.p95Ms: 183.4 -> 166.8`
+  - Interpretation:
+    - this is a real product slice, not another harness-only rerank
+    - the named chat/spreadsheet switch-shell family is now closed at this ownership boundary and its broader family dropped out of the rerun top-12 ranking
+    - the remaining top whole-scene survivors are now led by `settings-section__languageServer` (`48`), `settings-section__backend` (`21`), `settings-section__gui` (`15`), then smaller repeated switch-wrapper families such as `drawSectionDefault`, `browserSectionDefault`, `metaControlSectionDefault`, `promptSectionDefault`, `pluginSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, and `stateMachineStartSectionDefault`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-011/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.2m)` on the live worktree runtime with the totals recorded above
+- CDP visual check is done:
+  - `/settings` loaded cleanly with `All Settings` active
+  - no crash/error overlay was visible
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - both `settings-section__chatSectionDefault` and `settings-section__spreadsheetSectionDefault` were present
+  - the `Aspect Ratio` switch row looked intact in both sections after the switch-shell flattening
+  - the retained canvas path still looked healthy overall
+- Next action:
+  - keep the shared chat/spreadsheet switch-shell family closed and pick the next repeated lightweight-switch value-shell family from the fresh `6819 / 119 / 178` checkpoint, with canonical target `settings-section__browserSectionDefault` and first sibling proof `settings-section__promptSectionDefault`
+  - only fall back to the `settings-section__languageServer` outlier if that broader primitive proves blocked
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 065
 
 - Item: Move the shared param-codeobj text/value family onto the retained resting-text lane.

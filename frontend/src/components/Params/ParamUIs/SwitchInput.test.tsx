@@ -55,4 +55,19 @@ describe("SwitchInput theme overrides", () => {
     expect(markup).toContain('aria-checked="true"');
     expect(markup).not.toContain('type="button"');
   });
+
+  it("can flatten the lightweight value shell onto the switch root", () => {
+    const markup = renderToStaticMarkup(
+      <SwitchInput
+        lightweightActivator={true}
+        lightweightRootClassName="section-value justify-self-start self-center"
+        value={false}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-lightweight-switch="true"');
+    expect(markup).toContain("section-value");
+    expect(markup.match(/<div/g)?.length ?? 0).toBe(1);
+  });
 });

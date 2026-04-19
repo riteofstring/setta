@@ -155,6 +155,7 @@ vi.mock("./SwitchInput", () => ({
   SwitchInput: (props: {
     canvasOwnedTrack?: boolean;
     lightweightActivator?: boolean;
+    lightweightRootClassName?: string;
   }) => {
     mocks.switchProps(props);
     return <div data-testid="switch-input" />;
@@ -957,24 +958,34 @@ describe("ParamUI canvas-owned resting text", () => {
   it.each([
     {
       expectedCanvasOwnedTrack: false,
+      expectedLightweightRootClassName: undefined,
       paramInfoId: "settings-codeobj__backend__backend__autosave",
       sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
     },
     {
       expectedCanvasOwnedTrack: false,
+      expectedLightweightRootClassName:
+        "section-value justify-self-start self-center",
       paramInfoId:
         "settings-codeobj__chatSectionDefault__chatSectionDefault__aspectRatio",
       sectionId: "settings-section__chatSectionDefault",
     },
     {
       expectedCanvasOwnedTrack: true,
+      expectedLightweightRootClassName:
+        "section-value justify-self-start self-center",
       paramInfoId:
         "settings-codeobj__callableSectionDefault__callableSectionDefault__aspectRatio",
       sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
     },
   ])(
     "uses the lightweight switch activator path for switch params on the canvas path in $sectionId",
-    ({ expectedCanvasOwnedTrack, paramInfoId, sectionId }) => {
+    ({
+      expectedCanvasOwnedTrack,
+      expectedLightweightRootClassName,
+      paramInfoId,
+      sectionId,
+    }) => {
     mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
     mocks.state.codeObjImpl = {
       type: CodeObjTypeEnum.SwitchParam,
@@ -994,6 +1005,9 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(mocks.switchProps.mock.calls[0][0].lightweightActivator).toBe(true);
     expect(mocks.switchProps.mock.calls[0][0].canvasOwnedTrack).toBe(
       expectedCanvasOwnedTrack,
+    );
+    expect(mocks.switchProps.mock.calls[0][0].lightweightRootClassName).toBe(
+      expectedLightweightRootClassName,
     );
     },
   );

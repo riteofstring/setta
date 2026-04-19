@@ -24,6 +24,7 @@ import {
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
+  SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -36,6 +37,7 @@ import {
   isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightMenuTrigger,
   isCanvasOwnedSectionLightweightParamFilter,
+  isCanvasOwnedSectionLightweightSwitchValueShell,
   isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
@@ -680,6 +682,38 @@ describe("sectionShellCanvasOwnership", () => {
         codeObjType: CodeObjTypeEnum.SwitchParam,
         sectionId: "round_lime__callableSectionDefault",
       }),
+    ).toBe(false);
+  });
+
+  it("targets the shared switch value-shell cleanup family without widening backend", () => {
+    expect(
+      SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
+    ).toContain("settings-section__chatSectionDefault");
+    expect(
+      SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
+    ).toContain(SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+    expect(
+      SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
+    ).toContain(CANVAS_OWNED_SECTION_SHELL_ID);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        "settings-section__chatSectionDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        "round_lime__callableSectionDefault",
+      ),
     ).toBe(false);
   });
 

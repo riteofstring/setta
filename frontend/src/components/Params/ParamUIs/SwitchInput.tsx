@@ -3,6 +3,7 @@ import * as Switch from "@radix-ui/react-switch";
 type SwitchInputProps = {
   canvasOwnedTrack?: boolean;
   lightweightActivator?: boolean;
+  lightweightRootClassName?: string;
   value: boolean | string;
   defaultVal?: boolean | string;
   onChange: (value: boolean) => void;
@@ -16,6 +17,7 @@ type SwitchInputProps = {
 export function SwitchInput({
   canvasOwnedTrack,
   lightweightActivator,
+  lightweightRootClassName,
   value,
   onChange,
   onEscape,
@@ -46,46 +48,54 @@ export function SwitchInput({
       onChange(!checked);
     };
 
-    return (
-      <div className={outerDivClassName}>
-        <div
-          aria-checked={checked}
-          className={rootClassName}
-          data-canvas-owned-lightweight-switch="true"
-          data-canvas-owned-switch-track={canvasOwnedTrack ? "true" : undefined}
-          data-state={switchState}
-          role="switch"
-          tabIndex={isDisabled ? -1 : 0}
-          onClick={(e) => {
+    const lightweightRoot = (
+      <div
+        aria-checked={checked}
+        className={
+          lightweightRootClassName
+            ? `${lightweightRootClassName} ${rootClassName}`.trim()
+            : rootClassName
+        }
+        data-canvas-owned-lightweight-switch="true"
+        data-canvas-owned-switch-track={canvasOwnedTrack ? "true" : undefined}
+        data-state={switchState}
+        role="switch"
+        tabIndex={isDisabled ? -1 : 0}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleValue();
+        }}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            e.stopPropagation();
+            onEscape?.();
+            return;
+          }
+          if (e.code === "Enter" || e.code === "Space") {
             e.preventDefault();
             e.stopPropagation();
             toggleValue();
-          }}
-          onKeyDown={(e) => {
-            if (e.code === "Escape") {
-              e.stopPropagation();
-              onEscape?.();
-              return;
-            }
-            if (e.code === "Enter" || e.code === "Space") {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleValue();
-            }
-          }}
-          onMouseDown={(e) => {
-            if (e.button === 0) {
-              e.stopPropagation();
-            }
-          }}
-        >
-          <span
-            className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
-            data-state={switchState}
-          />
-        </div>
+          }
+        }}
+        onMouseDown={(e) => {
+          if (e.button === 0) {
+            e.stopPropagation();
+          }
+        }}
+      >
+        <span
+          className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
+          data-state={switchState}
+        />
       </div>
     );
+
+    if (lightweightRootClassName) {
+      return lightweightRoot;
+    }
+
+    return <div className={outerDivClassName}>{lightweightRoot}</div>;
   }
 
   return (
