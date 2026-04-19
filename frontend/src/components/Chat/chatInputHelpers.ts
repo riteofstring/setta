@@ -95,6 +95,9 @@ type QueuedDraftReplaySnapshot =
       command: ChatSlashCommand;
     };
 
+const APP_SUBSYSTEM_PLUGIN_REQUIRED_FEEDBACK =
+  'requires the first-party plugin "setta-json-render-app-gen" to be enabled.';
+
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
   next: CSSProperties | null,
@@ -219,6 +222,9 @@ export function resolveCustomPromptSlashCommandSubmission({
 export function buildUnavailableSlashCommandFeedback(
   command: ChatSlashCommand,
 ): string {
+  if (command.appGenerationMode) {
+    return `${command.command} ${APP_SUBSYSTEM_PLUGIN_REQUIRED_FEEDBACK}`;
+  }
   return (
     command.unavailableFeedback ??
     `${command.command} is unavailable in the current context. Use /help.`
@@ -353,9 +359,13 @@ function cloneSlashCommand(command: ChatSlashCommand): ChatSlashCommand {
 }
 
 function shouldUseCurrentRegistryForQueuedSlashCommand(
-  action: ChatSlashCommandAction,
+  command: ChatSlashCommand,
 ): boolean {
-  return action === "custom_prompt" || action === "native_prompt";
+  return (
+    command.appGenerationMode !== undefined ||
+    command.action === "custom_prompt" ||
+    command.action === "native_prompt"
+  );
 }
 
 export function buildQueuedDraftReplaySnapshot({
@@ -378,7 +388,7 @@ export function buildQueuedDraftReplaySnapshot({
   return {
     kind: "slash_command",
     availabilityPolicy: shouldUseCurrentRegistryForQueuedSlashCommand(
-      resolvedRequest.parsed.action,
+      resolvedRequest.parsed,
     )
       ? "current_registry"
       : "fixed",
