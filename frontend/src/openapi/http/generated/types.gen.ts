@@ -2587,6 +2587,16 @@ export type PluginsPluginAppSubsystemCapabilities = {
   appPreviewUi: boolean;
   pluginEnabled: boolean;
   pluginId: string;
+  providerSelection?: PluginsPluginAppSubsystemProviderSelection;
+};
+
+export type PluginsPluginAppSubsystemProviderSelection = {
+  activePluginIds: Array<string> | null;
+  conflictingPluginIds: Array<string> | null;
+  disabledPluginIds: Array<string> | null;
+  invalidPluginIds: Array<string> | null;
+  selectedPluginId?: string;
+  status: string;
 };
 
 export type PluginsPluginBlockedCapability = {
@@ -2785,6 +2795,7 @@ export type PluginsPluginStatusEntry = {
 };
 
 export type PluginsPluginStatusResponse = {
+  appSubsystemSelection?: PluginsPluginAppSubsystemProviderSelection;
   languageServerSelections: Array<PluginsLanguageServerSelectionStatus> | null;
   plugins: Array<PluginsPluginStatusEntry> | null;
   restartCapability: PluginsPluginRestartCapability;

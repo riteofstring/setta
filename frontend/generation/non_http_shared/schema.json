@@ -10563,6 +10563,16 @@
     "PluginAppSubsystemCapabilities": {
       "type": "object",
       "properties": {
+        "providerSelection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PluginAppSubsystemProviderSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "pluginId": {
           "type": "string"
         },
@@ -10617,6 +10627,76 @@
         "appDeploymentRuntime"
       ],
       "additionalProperties": false
+    },
+    "PluginAppSubsystemProviderSelection": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/PluginAppSubsystemProviderSelectionStatusKind"
+        },
+        "selectedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "activePluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "disabledPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "invalidPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "conflictingPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "PluginAppSubsystemProviderSelection",
+      "required": [
+        "status",
+        "activePluginIds",
+        "disabledPluginIds",
+        "invalidPluginIds",
+        "conflictingPluginIds"
+      ],
+      "additionalProperties": false
+    },
+    "PluginAppSubsystemProviderSelectionStatusKind": {
+      "type": "string",
+      "title": "PluginAppSubsystemProviderSelectionStatusKind",
+      "enum": [
+        "no_provider",
+        "disabled_provider",
+        "invalid_provider",
+        "active",
+        "provider_conflict"
+      ]
     },
     "PluginBackendManifest": {
       "type": "object",
@@ -11960,6 +12040,16 @@
         },
         "restartCapability": {
           "$ref": "#/$defs/PluginRestartCapability"
+        },
+        "appSubsystemSelection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PluginAppSubsystemProviderSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "plugins": {
           "type": [
