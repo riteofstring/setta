@@ -1215,12 +1215,14 @@ function resolveSlashCommandAvailability({
 
 function buildSlashCommandsForEngine({
   engineConfig,
+  appGenerationSlashCommands,
   defaultConfigId,
   availableConfigIds,
   externalAgentHealthByConfigId,
   externalAgentHealthInitialLoadComplete,
 }: {
   engineConfig: EngineConfig;
+  appGenerationSlashCommands: ChatSlashCommandDefinition[];
   defaultConfigId: string | null;
   availableConfigIds: Set<string>;
   externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
@@ -1243,19 +1245,21 @@ function buildSlashCommandsForEngine({
       model: true,
       permissions: permissionsEnabled,
       search: searchEnabled,
-      appGenerationModes: true,
+      appGenerationCommands: appGenerationSlashCommands,
     }),
   };
 }
 
 export function buildSlashCommandsByEngine({
   engineConfigs,
+  appGenerationSlashCommands = [],
   allLLMConfigs,
   apiKeys,
   externalAgentHealth,
   externalAgentHealthInitialLoadComplete,
 }: {
   engineConfigs: EngineConfig[];
+  appGenerationSlashCommands?: ChatSlashCommandDefinition[];
   allLLMConfigs: AllConfigs | null;
   apiKeys: APIKeys;
   externalAgentHealth: ExternalAgentHealthStatus[];
@@ -1268,6 +1272,7 @@ export function buildSlashCommandsByEngine({
   return engineConfigs.map((engineConfig) =>
     buildSlashCommandsForEngine({
       engineConfig,
+      appGenerationSlashCommands,
       defaultConfigId,
       availableConfigIds,
       externalAgentHealthByConfigId,
