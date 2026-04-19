@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"setta/internal/agentprofiles"
-	"setta/internal/agentruns"
+	"setta/internal/chatmodes"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 )
@@ -22,8 +22,14 @@ var (
 	ErrAppGenerationReferenceImageNotesTooLarge = errors.New("appGenerationReferenceImageNotes is too large. Reduce it or omit it.")
 )
 
-func normalizeAppGenerationMode(value *string) (*string, error) {
-	normalized, ok := agentruns.NormalizeOptionalAppGenerationMode(value)
+func normalizeAppGenerationModeWithResolver(
+	resolver chatmodes.AppGenerationModeResolver,
+	value *string,
+) (*string, error) {
+	if resolver == nil {
+		resolver = (*chatmodes.AppGenerationModeRegistry)(nil)
+	}
+	normalized, ok := resolver.NormalizeOptionalMode(value)
 	if !ok {
 		return nil, ErrAppGenerationModeInvalid
 	}
@@ -50,121 +56,21 @@ func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNote
 	return resolvedURL, resolvedNotes, nil
 }
 
-func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, referenceImageURL *string, referenceImageNotes *string) string {
-	resolvedMode := strings.TrimSpace(derefOptionalString(mode))
-	if resolvedMode == "" {
+func buildAppGenerationModePromptWithResolver(
+	resolver chatmodes.AppGenerationModeResolver,
+	mode *string,
+	appSpecStreamingEnabled bool,
+	referenceImageURL *string,
+	referenceImageNotes *string,
+) string {
+	if resolver == nil {
 		return ""
 	}
-
-	lines := appGenerationModePromptHeader(resolvedMode, appSpecStreamingEnabled)
-	lines = append(lines, appGenerationAppSpecPromptLines(resolvedMode, appSpecStreamingEnabled)...)
-	lines = append(lines, appGenerationModeSpecificPromptLines(
-		resolvedMode,
-		appSpecStreamingEnabled,
-		strings.TrimSpace(derefOptionalString(referenceImageURL)),
-		strings.TrimSpace(derefOptionalString(referenceImageNotes)),
-	)...)
-	return strings.Join(lines, "\n")
-}
-
-func appGenerationModePromptHeader(mode string, appSpecStreamingEnabled bool) []string {
-	return []string{
-		"## App spec generation mode",
-		fmt.Sprintf("- mode: %s", mode),
-		fmt.Sprintf("- streamingPreview: %s", enabledDisabledLabel(appSpecStreamingEnabled)),
-	}
-}
-
-func appGenerationAppSpecPromptLines(mode string, appSpecStreamingEnabled bool) []string {
-	if !modeUsesAppSpecTools(mode) {
-		return nil
-	}
-
-	lines := []string{
-		"- If you are generating/updating the App spec (json-render):",
-		"  - Use catalog-compatible components only.",
-		"  - Persist via Setta app tools.",
-	}
-	if appSpecStreamingEnabled {
-		return append(lines,
-			"  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
-			"  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
-		)
-	}
-	return append(lines,
-		"  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
-		"  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
-	)
-}
-
-func modeUsesAppSpecTools(mode string) bool {
-	switch mode {
-	case string(agentruns.AppGenerationModeJSONRender),
-		string(agentruns.AppGenerationModeJSONRenderWithImage),
-		string(agentruns.AppGenerationModePromptBuilder):
-		return true
-	default:
-		return false
-	}
-}
-
-func appGenerationModeSpecificPromptLines(
-	mode string,
-	appSpecStreamingEnabled bool,
-	referenceImageURL string,
-	referenceImageNotes string,
-) []string {
-	switch mode {
-	case string(agentruns.AppGenerationModeJSONRenderWithImage):
-		return appendReferenceImagePromptLines(referenceImageURL, referenceImageNotes)
-	case string(agentruns.AppGenerationModePromptBuilder):
-		return []string{
-			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
-		}
-	case string(agentruns.AppGenerationModeMCPServer):
-		return mcpServerModePromptLines(appSpecStreamingEnabled)
-	default:
-		return nil
-	}
-}
-
-func appendReferenceImagePromptLines(referenceImageURL string, referenceImageNotes string) []string {
-	lines := []string{
-		"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
-		"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
-	}
-	if referenceImageURL == "" {
-		return lines
-	}
-
-	lines = append(lines,
-		fmt.Sprintf("- Reference image URL: %s", referenceImageURL),
-		"- Use this image as layout/style guidance when composing the app spec.",
-	)
-	if referenceImageNotes == "" {
-		return lines
-	}
-	return append(lines, fmt.Sprintf("- Reference image notes: %s", referenceImageNotes))
-}
-
-func mcpServerModePromptLines(appSpecStreamingEnabled bool) []string {
-	lines := []string{
-		"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
-		"- For Figma-oriented requests, support both paths:",
-		"  - Pull an existing Figma design into a JSON-render appSpec.",
-		"  - Generate/update in Figma first, then pull the resulting design back into Setta.",
-	}
-	if appSpecStreamingEnabled {
-		return append(lines, "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`.")
-	}
-	return append(lines, "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.")
-}
-
-func enabledDisabledLabel(enabled bool) string {
-	if enabled {
-		return "enabled"
-	}
-	return "disabled"
+	return resolver.BuildPrompt(mode, chatmodes.AppGenerationPromptOptions{
+		AppSpecStreamingEnabled: appSpecStreamingEnabled,
+		ReferenceImageURL:       referenceImageURL,
+		ReferenceImageNotes:     referenceImageNotes,
+	})
 }
 
 func buildExternalProfilePrompt(profile *agentprofiles.Profile) string {

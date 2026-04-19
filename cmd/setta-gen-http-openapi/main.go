@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"setta/internal/httpapi"
+	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 func main() {
@@ -21,7 +22,15 @@ func main() {
 		os.Exit(2)
 	}
 
-	document, err := httpapi.BuildFrontendHTTPOpenAPIDocument()
+	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
+			return appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
+				appsubsystemplugin.FrontendRouteRegistrationOptions{
+					API: deps,
+				},
+			)
+		},
+	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-http-openapi: %v\n", err)
 		os.Exit(1)

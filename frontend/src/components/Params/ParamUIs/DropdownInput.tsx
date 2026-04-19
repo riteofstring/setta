@@ -130,7 +130,6 @@ function DropdownInputConfig({
   );
 }
 export function DropdownInput({
-  canvasOwnedRestingInput,
   choices,
   value,
   onChange,
@@ -146,7 +145,6 @@ export function DropdownInput({
   placeholder,
   small = true,
 }: {
-  canvasOwnedRestingInput?: boolean;
   choices: Array<string>;
   value: string | null;
   onChange: OnSelectedItemChangeFnType<string>;
@@ -172,7 +170,6 @@ export function DropdownInput({
     <IdNameCombobox
       outerDivClasses={outerDivClasses}
       allItems={allItems}
-      canvasOwnedRestingInput={canvasOwnedRestingInput}
       value={value ? value : null}
       onSelectedItemChange={onChange}
       small={small}

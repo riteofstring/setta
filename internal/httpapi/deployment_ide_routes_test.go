@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type deploymentIDERouteFixture struct {
@@ -26,8 +26,8 @@ type deploymentIDERouteFixture struct {
 	WorkspaceRoot    string
 	ProjectRuntime   *projectstate.Runtime
 	Catalog          *deployments.Catalog
-	SharePublisher   *deployments.SharePublisher
-	AppPublisher     *deployments.AppPublisher
+	SharePublisher   deployments.SharePublishService
+	AppPublisher     deployments.AppPublishService
 	setPublishedAtFn func(time.Time)
 }
 
@@ -868,14 +868,21 @@ func newDeploymentIDERouteTestHandler(t *testing.T, mode config.Mode, fixture de
 		},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentIDERoutes(r, DeploymentIDERouteDependencies{
+			if err := RegisterShareDeploymentIDERoutes(r, ShareDeploymentIDERouteDependencies{
 				ModePolicy:     modes.NewPolicy(mode),
 				ProjectState:   fixture.ProjectRuntime,
 				Catalog:        fixture.Catalog,
 				SharePublisher: fixture.SharePublisher,
-				AppPublisher:   fixture.AppPublisher,
 			}); err != nil {
-				t.Fatalf("register deployment ide routes: %v", err)
+				t.Fatalf("register share deployment ide routes: %v", err)
+			}
+			if err := RegisterAppDeploymentIDERoutes(r, AppDeploymentIDERouteDependencies{
+				ModePolicy:   modes.NewPolicy(mode),
+				ProjectState: fixture.ProjectRuntime,
+				Catalog:      fixture.Catalog,
+				AppPublisher: fixture.AppPublisher,
+			}); err != nil {
+				t.Fatalf("register app deployment ide routes: %v", err)
 			}
 		},
 	})
@@ -926,9 +933,10 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 		t.Fatalf("new share publisher: %v", err)
 	}
 	appPublisher, err := deployments.NewAppPublisher(deployments.AppPublisherOptions{
-		Catalog:        catalog,
-		SettaFilesRoot: settaFilesRoot,
-		WorkspaceRoot:  workspaceRoot,
+		Catalog:              catalog,
+		SettaFilesRoot:       settaFilesRoot,
+		WorkspaceRoot:        workspaceRoot,
+		AppDefinitionService: deploymentIDETestAppDefinitionService{runtime: projectRuntime},
 		Now: func() time.Time {
 			return publishedAt
 		},
@@ -948,6 +956,138 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 			publishedAt = next
 		},
 	}
+}
+
+type deploymentIDETestAppDefinitionService struct {
+	runtime *projectstate.Runtime
+}
+
+func (s deploymentIDETestAppDefinitionService) GetAppDefinition(_ context.Context) (projectstate.AppDefinitionReadResult, error) {
+	return projectstate.AppDefinitionReadResult{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) ValidateAppDefinition(
+	_ context.Context,
+	input projectstate.ValidateAppDefinitionInput,
+) (projectstate.AppDefinitionValidationResult, error) {
+	current := projectstate.AppDefinition{}
+	if s.runtime != nil && s.runtime.Snapshot().Document.AppDefinition != nil {
+		current = s.runtime.Snapshot().Document.AppDefinition.Clone()
+	}
+	if strings.TrimSpace(current.AppSpecVersion) == "" {
+		current.AppSpecVersion = "v1"
+	}
+	if strings.TrimSpace(current.CatalogID) == "" {
+		current.CatalogID = appspec.DefaultCatalogID
+	}
+
+	definition, err := deploymentIDETestAppspecDefinition(current)
+	if err != nil {
+		return projectstate.AppDefinitionValidationResult{}, err
+	}
+	validationErrors, warnings := appspec.ValidateDefinitionPayload(input.AppSpec, definition)
+	if validationErrors == nil {
+		validationErrors = []appspec.AppValidationIssue{}
+	}
+	if warnings == nil {
+		warnings = []appspec.AppValidationIssue{}
+	}
+	return projectstate.AppDefinitionValidationResult{
+		Errors:       validationErrors,
+		Warnings:     warnings,
+		Capabilities: appspec.BuildCapabilities(definition),
+	}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) SetAppDefinition(_ context.Context, _ projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
+	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) StreamAppDefinition(_ context.Context, _ projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
+	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) UpdateAppDefinition(_ context.Context, _ any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
+	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionCatalogID(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecVersion(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecPath(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func deploymentIDETestAppspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {
+	dataBindings, err := deploymentIDETestDecodeJSONObject(definition.DataBindings, "appDefinition.dataBindings")
+	if err != nil {
+		return appspec.Definition{}, err
+	}
+	actions, err := deploymentIDETestDecodeJSONObject(definition.Actions, "appDefinition.actions")
+	if err != nil {
+		return appspec.Definition{}, err
+	}
+	theme, err := deploymentIDETestDecodeJSONObject(definition.Theme, "appDefinition.theme")
+	if err != nil {
+		return appspec.Definition{}, err
+	}
+	assets, err := deploymentIDETestDecodeJSONArray(definition.Assets, "appDefinition.assets")
+	if err != nil {
+		return appspec.Definition{}, err
+	}
+	return appspec.Definition{
+		AppSpecVersion: definition.AppSpecVersion,
+		CatalogID:      definition.CatalogID,
+		ActionMap:      actions,
+		DataBindings:   dataBindings,
+		Theme:          theme,
+		Assets:         assets,
+	}, nil
+}
+
+func deploymentIDETestDecodeJSONObject(raw projectstate.RawJSON, field string) (map[string]any, error) {
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return nil, nil
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, nil
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, nil
+	}
+	return object, nil
+}
+
+func deploymentIDETestDecodeJSONArray(raw projectstate.RawJSON, field string) ([]any, error) {
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return nil, nil
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, nil
+	}
+	array, ok := value.([]any)
+	if !ok {
+		return nil, nil
+	}
+	return array, nil
 }
 
 func (f deploymentIDERouteFixture) setPublishedAt(next time.Time) {
