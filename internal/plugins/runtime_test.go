@@ -1809,6 +1809,82 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 	}
 }
 
+func TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin(t *testing.T) {
+	const unknownAppSubsystemPluginID = "setta-fixture-app-subsystem-provider"
+
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	registerRuntimeAppSubsystemProvider(t, unknownAppSubsystemPluginID)
+
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installFirstPartyPackageManagerPluginAsIDInSearchPath(
+		t,
+		sitePackages,
+		AppSubsystemPluginID,
+		unknownAppSubsystemPluginID,
+		"Unknown-id app subsystem fixture",
+	)
+
+	service := mustNewPluginMutationServiceWithPackageManager(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		[]string{sitePackages},
+	)
+	if err := service.store.SavePluginsState(PluginsStateFile{
+		EnabledPluginIDs: []string{unknownAppSubsystemPluginID},
+	}); err != nil {
+		t.Fatalf("save unknown-id app subsystem plugin state: %v", err)
+	}
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf(
+			"expected one unknown-id app subsystem package-manager plugin, got list=%#v status=%#v",
+			runtimeResponse.List.Plugins,
+			runtimeResponse.Status.Plugins,
+		)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if appSubsystem.PluginID != unknownAppSubsystemPluginID || !appSubsystem.PluginEnabled {
+		t.Fatalf("expected enabled unknown-id app subsystem runtime capability, got %#v", appSubsystem)
+	}
+	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI || !appSubsystem.AppGenerationChatModes || !appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected full unknown-id app subsystem capability surface, got %#v", appSubsystem)
+	}
+
+	entry := runtimeResponse.List.Plugins[0]
+	if entry.PluginID != unknownAppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
+		t.Fatalf("expected package-manager unknown-id app subsystem plugin list entry, got %#v", entry)
+	}
+	if len(entry.Components) != 2 || entry.Components[0] != "backend" || entry.Components[1] != "frontend" {
+		t.Fatalf("expected backend/frontend unknown-id app subsystem components, got %#v", entry.Components)
+	}
+	if entry.Frontend.EntrypointURL == nil || !strings.Contains(*entry.Frontend.EntrypointURL, "/plugins/"+unknownAppSubsystemPluginID+"/frontend/dist/index.js?v=") {
+		t.Fatalf("expected unknown-id package-manager app subsystem frontend entrypoint URL, got %#v", entry.Frontend.EntrypointURL)
+	}
+	if entry.Frontend.StyleURL == nil || !strings.Contains(*entry.Frontend.StyleURL, "/plugins/"+unknownAppSubsystemPluginID+"/frontend/dist/index.css?v=") {
+		t.Fatalf("expected unknown-id package-manager app subsystem frontend style URL, got %#v", entry.Frontend.StyleURL)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.PluginID != unknownAppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active unknown-id app subsystem package-manager plugin, got %#v", statusEntry)
+	}
+	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
+		t.Fatalf("expected backend/frontend unknown-id app subsystem status components, got %#v", statusEntry.Components)
+	}
+}
+
 func TestServiceRuntimeKeepsCurrentConfigAcrossUsableDuplicatePromotion(t *testing.T) {
 	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
