@@ -34,6 +34,7 @@ let mockProjectState: MockProjectState = {
   },
   projectChatWindowing: createProjectChatWindowingState(),
 };
+let mockSectionHeaderMotionHiddenInteractionActive = false;
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -122,7 +123,21 @@ vi.mock("state/definitions", () => ({
 }));
 
 vi.mock("../Header/SectionHeader", () => ({
-  SectionHeader: () => <header data-testid="mock-section-header" />,
+  SectionHeader: ({
+    motionHiddenInteractionActive,
+  }: {
+    motionHiddenInteractionActive?: boolean;
+  }) => {
+    mockSectionHeaderMotionHiddenInteractionActive = !!motionHiddenInteractionActive;
+    return (
+      <header
+        data-testid="mock-section-header"
+        data-motion-hidden-interaction-active={
+          motionHiddenInteractionActive ? "true" : "false"
+        }
+      />
+    );
+  },
 }));
 
 vi.mock("../Header/SectionWindowToggleButton", () => ({
@@ -234,6 +249,7 @@ describe("SectionContainerCoreResizable", () => {
     mockCanvasState.activeSectionId = null;
     mockCanvasState.graphSurfaceImplementation = "legacy-dom";
     mockCanvasState.viewportInteractionActive = false;
+    mockSectionHeaderMotionHiddenInteractionActive = false;
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
@@ -381,6 +397,10 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-shell-hidden="true"');
     expect(markup).toContain('style="display:none"');
+    expect(markup).toContain(
+      'data-motion-hidden-interaction-active="true"',
+    );
+    expect(mockSectionHeaderMotionHiddenInteractionActive).toBe(true);
     expect(markup).toContain('data-testid="mock-browser-area"');
   });
 
@@ -427,6 +447,10 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-shell-hidden="true"');
     expect(markup).not.toContain('style="display:none"');
+    expect(markup).toContain(
+      'data-motion-hidden-interaction-active="false"',
+    );
+    expect(mockSectionHeaderMotionHiddenInteractionActive).toBe(false);
     expect(markup).toContain('data-testid="mock-browser-area"');
   });
 

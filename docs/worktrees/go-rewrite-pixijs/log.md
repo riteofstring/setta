@@ -155,6 +155,27 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 039
+
+- Landed the motion-hidden header chrome state-hoist slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now computes the motion-hidden chrome state once and passes it into section header chrome as `motionHiddenInteractionActive`, and `frontend/src/components/Section/Header/SectionHeader.tsx` plus `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx` now consume that container-owned decision instead of subscribing to React Flow viewport interaction state and section-active state independently.
+- Focused integration coverage now lives in `frontend/src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx` and `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-motion-hidden-header-chrome-state-hoist-rerun.md` with the current live evidence:
+  - dense rerun on the current `3068/8068` runtime recorded `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 45.52`, `raf.p95Ms 50.1`, `longTasks.totalMs 3667`, and zero motion-hidden subtree add/remove churn
+  - focused motion inventory collapsed peak tracked menu triggers from `46` to `1`, with `hiddenMenuTriggerCount 45`, `hiddenHeaderControlsCount 45`, and the canonical `browserSectionDefault`, `promptSectionDefault`, and `languageServer` sections all reaching `menuTriggerCount 0` at peak motion
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/MenuButton/MenuButton.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: `15 passed`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-006/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `/settings` loaded with `All Settings` active, `fit view` was applied once, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were present, and there was no obvious blank/transparent canvas or detached shell/body artifact on that lane
+- Next frontier: stay on the canonical browser lane and move to another retained-scene redraw / paint / snapshot invalidation candidate; do not spend the next automated pass on more header/menu state hoisting or another header-menu micro-pass on the same lane.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 037
 
 - Landed the motion-hidden body retention slice on the canonical `settings-section__browserSectionDefault` lane instead of reopening the attribution or observer-only lanes.

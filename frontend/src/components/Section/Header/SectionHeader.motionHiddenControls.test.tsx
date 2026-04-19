@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { GraphSurfaceImplementationProvider } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import { CANVAS_OWNED_SECTION_SHELL_ID } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -108,14 +107,9 @@ describe("SectionHeader motion-hidden trailing controls", () => {
       scheduledBackendSync: null,
       selectionGeneration: 0,
     });
-    useReactFlow.setState({
-      ...useReactFlow.getState(),
-      viewportInteractionActive: false,
-    });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useActiveSectionUI);
-    syncStoreInitialState(useReactFlow);
   });
 
   afterEach(() => {
@@ -129,13 +123,13 @@ describe("SectionHeader motion-hidden trailing controls", () => {
       scheduledBackendSync: null,
       selectionGeneration: 0,
     });
-    useReactFlow.setState({
-      ...useReactFlow.getState(),
-      viewportInteractionActive: false,
-    });
   });
 
-  function renderHeader() {
+  function renderHeader({
+    motionHiddenInteractionActive = false,
+  }: {
+    motionHiddenInteractionActive?: boolean;
+  } = {}) {
     return renderToStaticMarkup(
       <GraphSurfaceImplementationProvider value="canvas-shell-underlay">
         <SectionHeader
@@ -145,19 +139,14 @@ describe("SectionHeader motion-hidden trailing controls", () => {
           isUserView={false}
           isRoot={false}
           hasSectionStyleTheme={false}
+          motionHiddenInteractionActive={motionHiddenInteractionActive}
         />
       </GraphSurfaceImplementationProvider>,
     );
   }
 
-  it("hides trailing controls for inactive motion-hidden sections during viewport interaction", () => {
-    useReactFlow.setState({
-      ...useReactFlow.getState(),
-      viewportInteractionActive: true,
-    });
-    syncStoreInitialState(useReactFlow);
-
-    const markup = renderHeader();
+  it("hides trailing controls when the motion-hidden interaction state is active", () => {
+    const markup = renderHeader({ motionHiddenInteractionActive: true });
 
     expect(markup).toContain(
       'data-canvas-owned-motion-header-controls-root="true"',
@@ -169,14 +158,8 @@ describe("SectionHeader motion-hidden trailing controls", () => {
     expect(markup).toContain("invisible");
   });
 
-  it("hides the lightweight menu trigger for inactive motion-hidden sections during viewport interaction", () => {
-    useReactFlow.setState({
-      ...useReactFlow.getState(),
-      viewportInteractionActive: true,
-    });
-    syncStoreInitialState(useReactFlow);
-
-    const markup = renderHeader();
+  it("hides the lightweight menu trigger when the motion-hidden interaction state is active", () => {
+    const markup = renderHeader({ motionHiddenInteractionActive: true });
 
     expect(markup).toContain(
       'data-canvas-owned-lightweight-menu-trigger="true"',
@@ -186,18 +169,7 @@ describe("SectionHeader motion-hidden trailing controls", () => {
     );
   });
 
-  it("keeps trailing controls visible for the active section during viewport interaction", () => {
-    useActiveSectionUI.setState({
-      ...useActiveSectionUI.getState(),
-      activeIds: [sectionId],
-    });
-    syncStoreInitialState(useActiveSectionUI);
-    useReactFlow.setState({
-      ...useReactFlow.getState(),
-      viewportInteractionActive: true,
-    });
-    syncStoreInitialState(useReactFlow);
-
+  it("keeps trailing controls visible when the motion-hidden interaction state is inactive", () => {
     const markup = renderHeader();
 
     expect(markup).toContain(
@@ -210,18 +182,7 @@ describe("SectionHeader motion-hidden trailing controls", () => {
     expect(markup).not.toContain(" invisible");
   });
 
-  it("keeps the lightweight menu trigger visible for the active section during viewport interaction", () => {
-    useActiveSectionUI.setState({
-      ...useActiveSectionUI.getState(),
-      activeIds: [sectionId],
-    });
-    syncStoreInitialState(useActiveSectionUI);
-    useReactFlow.setState({
-      ...useReactFlow.getState(),
-      viewportInteractionActive: true,
-    });
-    syncStoreInitialState(useReactFlow);
-
+  it("keeps the lightweight menu trigger visible when the motion-hidden interaction state is inactive", () => {
     const markup = renderHeader();
 
     expect(markup).toContain(

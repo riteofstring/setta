@@ -8,8 +8,9 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `038`: `post_motion_measure_flush_guard_landed_continue`.
+- Decision for the 2026-04-20 checkpoint after run `039`: `motion_hidden_header_chrome_state_hoist_landed_continue`.
 - Recent progress is real:
+  - run `039` landed one more real product slice on the canonical `settings-section__browserSectionDefault` lane by computing the motion-hidden chrome state once in `SectionContainerCoreResizable` and reusing it in `SectionHeader` plus `MenuButton`; the focused motion inventory on the live canary collapsed peak tracked menu triggers from `46` to `1`, hid `45` menu triggers on the motion-hidden sections, and left only one non-motion-hidden survivor section at peak motion while the paired dense rerun recorded `documentNodeCount 5494`, `raf.meanMs 45.52`, and `longTasks.totalMs 3667`
   - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
   - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior
@@ -29,18 +30,69 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `036` closes the current attribution question about whether the remaining band is still paying real motion-hidden subtree churn: it is, so do not spend the next automated pass on another observer-only or harness-only re-measurement of the same lane
   - run `037` closes the motion-hidden body detach / restore lane itself on the live canary; do not spend the next automated pass on another keep-mounted refactor, another subtree-churn attribution rerun, or another hidden-body mount/unmount micro-pass on the same path
   - run `038` closes the unconditional post-motion retained-detail remeasure flush sub-lane here; the focused behavior is now guarded in `SectionShellBackdropCanvas.test.tsx`, but the dense rerun stayed noisy (`raf.meanMs 57.98`, `longTasks.totalMs 5196`), so do not spend the next pass on more `useCanvasOwnedMeasuredArray(...)` suspend/resume bookkeeping by inertia
+  - run `039` closes the motion-hidden header/menu prop-plumbing lane here; the live canary now hides those `45` lightweight menu triggers at peak motion, so do not spend the next automated pass on more `SectionHeader` / `MenuButton` motion-state hoisting or another header-menu micro-pass on the same lane
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
-  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, or another motion-hidden body detach/reattach rerun on the same measurement families
+  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, or another header-menu state-hoist micro-pass on the same measurement families
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - the next real step should attribute or remove the remaining frame-time cost after motion-hidden subtree churn and the unconditional post-motion measure flush are both gone, instead of reopening those now-closed invalidation lanes
+  - the next real step should attribute or remove the remaining frame-time cost after motion-hidden subtree churn, the unconditional post-motion measure flush, and the repeated motion-hidden header/menu subscription fanout are all gone, instead of reopening those now-closed invalidation lanes
   - current concrete candidate:
     - isolate remaining retained-scene redraw / paint / snapshot invalidation cost on the canonical browser lane now that observer churn, subtree churn, and settle-flush churn are all closed
   - keep retained-scene redraw/paint invalidation or snapshot invalidation/reuse as the primary candidates from here; the motion-hidden product slice is already landed
   - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
+
+- The motion-hidden header chrome state-hoist slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-hidden-header-chrome-state-hoist-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now computes the motion-hidden chrome state once and passes it into section header chrome as `motionHiddenInteractionActive`
+    - `frontend/src/components/Section/Header/SectionHeader.tsx` and `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx` now consume that container-owned decision instead of subscribing to React Flow viewport interaction state and section-active state independently
+    - the focused container/header tests now lock both the prop handoff and the motion-hidden header/menu visibility behavior
+  - fresh focused motion inventory on the current runtime recorded:
+    - before motion: `graphSurfaceMenuTriggerCount 46`, `graphSurfaceRoleSwitchCount 156`, `graphSurfaceSectionResizeHandleCount 138`, `totalTrackedChromeElementCount 202`
+    - peak motion: `graphSurfaceMenuTriggerCount 1`, `graphSurfaceRoleSwitchCount 0`, `graphSurfaceSectionResizeHandleCount 3`, `hiddenBodyCount 45`, `hiddenHeaderControlsCount 45`, `hiddenMenuTriggerCount 45`, `hiddenResizeHandleRootCount 45`, `totalTrackedChromeElementCount 1`
+    - canonical `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each now report `motionBodyHidden true`, `motionHeaderControlsHidden true`, `motionMenuTriggerHidden true`, and `menuTriggerCount 0` at peak motion
+  - fresh dense rerun on the same runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `canvasCount: 1`
+    - `raf.meanMs: 45.52`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50.1`
+    - `raf.maxMs: 816.58`
+    - `longTasks.count: 12`
+    - `longTasks.totalMs: 3667`
+    - `longTasks.maxMs: 821`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+    - `motionHiddenSubtreeChurn.childListMutationCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeRemovedElementCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeAddedElementCount: 0`
+  - interpretation:
+    - this is a real product slice on the renderer-main motion path, not another harness-only rerun; the motion-hidden chrome decision now comes from one container computation instead of multiple per-header subscriptions
+    - the live canary now removes `45` lightweight menu triggers from the tracked peak-motion surface and leaves only one non-motion-hidden survivor section at peak motion
+    - the next pass should move to another retained-scene redraw / paint / snapshot candidate instead of reopening header/menu plumbing on the same lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/MenuButton/MenuButton.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: `15 passed`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-006/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+    - `/settings` loaded with `All Settings` active and `fit view` was applied once
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were present in the graph surface
+    - no obvious blank/transparent canvas or detached shell/body artifact appeared on that lane
 
 - The post-motion retained-detail measure-flush guard slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-post-motion-measure-flush-guard-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

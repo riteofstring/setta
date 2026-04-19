@@ -188,6 +188,7 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme,
   chromeMode,
   hideHeader,
+  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -197,6 +198,7 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme: boolean;
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
+  motionHiddenInteractionActive: boolean;
 }) {
   if (chromeMode === "meta-control" && !isUserView) {
     return (
@@ -232,6 +234,7 @@ function SectionPrimaryChrome({
       isUserView={isUserView}
       isRoot={isRoot}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      motionHiddenInteractionActive={motionHiddenInteractionActive}
       extraControls={
         <SectionHeaderExtraControls
           sectionId={sectionId}
@@ -263,6 +266,7 @@ function SectionContainerChrome({
   chromeMode,
   hideHeader,
   positionAndSizeLocked,
+  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -273,6 +277,7 @@ function SectionContainerChrome({
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
   positionAndSizeLocked: boolean;
+  motionHiddenInteractionActive: boolean;
 }) {
   const showMetaControlDragHandle = shouldShowMetaControlDragHandle(
     chromeMode,
@@ -296,6 +301,7 @@ function SectionContainerChrome({
         hasSectionStyleTheme={hasSectionStyleTheme}
         chromeMode={chromeMode}
         hideHeader={hideHeader}
+        motionHiddenInteractionActive={motionHiddenInteractionActive}
       />
       {isRoot ? <Incrementer sectionId={sectionId} isRoot={isRoot} /> : null}
     </>
@@ -462,6 +468,7 @@ function _SectionContainerCoreResizable({
         chromeMode={chromeMode}
         hideHeader={hideHeader}
         positionAndSizeLocked={positionAndSizeLocked}
+        motionHiddenInteractionActive={motionHidden}
       />
       <CanvasSectionBody
         sectionId={sectionId}
