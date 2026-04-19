@@ -151,6 +151,66 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 	}
 }
 
+func TestPluginMutationRuntimeServiceRescanKeepsCommittedSnapshotOnHandlerRefreshError(t *testing.T) {
+	service, workspaceRoot, _ := newPluginRuntimeRefreshTestServiceWithRoots(t)
+	seedAppPluginFixture(t, workspaceRoot, "app-subsystem-unknown-id")
+
+	refresher := &pluginBackendRuntimeRefresher{
+		service: service,
+		refreshAppHandler: func() error {
+			return context.Canceled
+		},
+	}
+	runtimeService := newPluginMutationRuntimeService(service, refresher, newAppSubsystemCapabilityState())
+
+	initial, err := runtimeService.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load initial runtime: %v", err)
+	}
+	if got := initial.FeatureCapabilities.AppSubsystem.PluginID; got != "acme-app-subsystem-fixture" {
+		t.Fatalf("expected initial app subsystem provider acme-app-subsystem-fixture, got %q", got)
+	}
+	if initial.Status.AppSubsystemSelection == nil || initial.Status.AppSubsystemSelection.SelectedPluginID == nil || *initial.Status.AppSubsystemSelection.SelectedPluginID != "acme-app-subsystem-fixture" {
+		t.Fatalf("expected initial selected provider, got %#v", initial.Status.AppSubsystemSelection)
+	}
+
+	seedAppPluginFixture(t, workspaceRoot, "backend")
+
+	if _, err := runtimeService.Rescan(); err == nil {
+		t.Fatal("expected handler refresh failure")
+	}
+
+	runtimeAfterFailure, err := runtimeService.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime after failed rescan: %v", err)
+	}
+	if got := runtimeAfterFailure.FeatureCapabilities.AppSubsystem.PluginID; got != "acme-app-subsystem-fixture" {
+		t.Fatalf("expected committed app subsystem provider after failed rescan, got %q", got)
+	}
+	if runtimeAfterFailure.Status.AppSubsystemSelection == nil || runtimeAfterFailure.Status.AppSubsystemSelection.SelectedPluginID == nil || *runtimeAfterFailure.Status.AppSubsystemSelection.SelectedPluginID != "acme-app-subsystem-fixture" {
+		t.Fatalf("expected committed selected provider after failed rescan, got %#v", runtimeAfterFailure.Status.AppSubsystemSelection)
+	}
+
+	lookup, err := runtimeService.LookupRegisteredBackendRoute("POST", "/items")
+	if err != nil {
+		t.Fatalf("lookup backend route after failed rescan: %v", err)
+	}
+	if lookup.Matched {
+		t.Fatalf("did not expect failed rescan route to become visible, got %#v", lookup)
+	}
+
+	_, handled, err := runtimeService.InvokeRegisteredListenerEndpoint(
+		context.Background(),
+		plugins.BackendListenerEndpointRequest{EndpointName: "route_backend_fixture_ping"},
+	)
+	if err != nil {
+		t.Fatalf("invoke listener endpoint after failed rescan: %v", err)
+	}
+	if handled {
+		t.Fatal("did not expect failed rescan listener endpoint to become visible")
+	}
+}
+
 func TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError(
 	t *testing.T,
 ) {
@@ -218,6 +278,47 @@ func TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefres
 	}
 }
 
+func TestPluginMutationRuntimeServiceApplyLockfileRestoresOnHandlerRefreshError(t *testing.T) {
+	service, workspaceRoot, _ := newPluginRuntimeRefreshTestServiceWithRoots(t)
+	seedAppPluginFixture(t, workspaceRoot, "frontend")
+	writePluginRuntimeRefreshTestJSON(
+		t,
+		filepath.Join(workspaceRoot, ".setta_plugins", "plugins.lock.json"),
+		map[string]any{
+			"schemaVersion": 1,
+			"plugins":       []any{},
+		},
+	)
+
+	runtimeService := newPluginMutationRuntimeService(
+		service,
+		&pluginBackendRuntimeRefresher{
+			service: service,
+			refreshAppHandler: func() error {
+				return context.Canceled
+			},
+		},
+		nil,
+	)
+
+	if _, err := runtimeService.ApplyLockfile(context.Background(), false); err == nil {
+		t.Fatal("expected handler refresh failure")
+	}
+
+	runtimeAfterFailure, err := runtimeService.Runtime(plugins.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime after failed lockfile apply: %v", err)
+	}
+	if len(runtimeAfterFailure.List.Plugins) != 1 || runtimeAfterFailure.List.Plugins[0].PluginID != "setta-fixture-frontend" {
+		t.Fatalf("expected committed frontend plugin after failed lockfile apply, got %#v", runtimeAfterFailure.List.Plugins)
+	}
+
+	manifestPath := filepath.Join(workspaceRoot, ".setta_plugins", "setta-fixture-frontend", "setta.plugin.json")
+	if _, err := os.Stat(manifestPath); err != nil {
+		t.Fatalf("expected frontend plugin manifest to be restored, got %v", err)
+	}
+}
+
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) {
 	refresher := &pluginBackendRuntimeRefresher{
 		appliedLSPSpecs: []lsp.LanguageServerSpec{
@@ -249,6 +350,11 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 }
 
 func newPluginRuntimeRefreshTestService(t *testing.T) (*plugins.Service, string) {
+	service, _, settaFilesRoot := newPluginRuntimeRefreshTestServiceWithRoots(t)
+	return service, settaFilesRoot
+}
+
+func newPluginRuntimeRefreshTestServiceWithRoots(t *testing.T) (*plugins.Service, string, string) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -270,7 +376,22 @@ func newPluginRuntimeRefreshTestService(t *testing.T) (*plugins.Service, string)
 	if err != nil {
 		t.Fatalf("new plugin service: %v", err)
 	}
-	return service, settaFilesRoot
+	return service, workspaceRoot, settaFilesRoot
+}
+
+func writePluginRuntimeRefreshTestJSON(t *testing.T, path string, payload any) {
+	t.Helper()
+
+	content, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal json %s: %v", path, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, append(content, '\n'), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
 }
 
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusForInvalidEntry(t *testing.T) {
