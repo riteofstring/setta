@@ -849,6 +849,62 @@ func TestStoreLoadCreatesMissingClaimedTargetWithFullDefaultsBeforeRead(t *testi
 	}
 }
 
+func TestStoreLoadWithSettingsProjectAcceptsLanguageServerSelections(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	sharedSettingsPath := filepath.Join(root, DefaultFileName)
+	settingsProjectPath := filepath.Join(root, projectstate.SettingsFileName)
+
+	defaults, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+
+	sharedDocument := defaults.Clone()
+	sharedDocument["languageServer"] = map[string]any{
+		"selectedByLanguage": map[string]any{
+			"python": "setta-ty",
+		},
+	}
+	if err := writeSettingsObject(sharedSettingsPath, sharedDocument); err != nil {
+		t.Fatalf("write shared settings document: %v", err)
+	}
+
+	settingsProjectDocument, err := buildProjectDocumentWithSharedSettingsPath(defaults, sharedSettingsPath)
+	if err != nil {
+		t.Fatalf("build settings project document: %v", err)
+	}
+	settingsProjectStore, err := projectstate.NewStore(settingsProjectPath, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new settings project store: %v", err)
+	}
+	if err := settingsProjectStore.Save(context.Background(), settingsProjectDocument); err != nil {
+		t.Fatalf("save settings project document: %v", err)
+	}
+
+	store, err := NewStore(sharedSettingsPath, StoreOptions{SettingsProjectPath: settingsProjectPath})
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	languageServer, ok := document["languageServer"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected languageServer branch, got %#v", document["languageServer"])
+	}
+	selectedByLanguage, ok := languageServer["selectedByLanguage"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected selectedByLanguage branch, got %#v", languageServer["selectedByLanguage"])
+	}
+	if got := selectedByLanguage["python"]; got != "setta-ty" {
+		t.Fatalf("expected python language-server selection to persist, got %#v", got)
+	}
+}
+
 func TestStoreFindPathForSettingsSliceResolvesDedicatedJSONSourcePath(t *testing.T) {
 	t.Parallel()
 
