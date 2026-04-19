@@ -88,6 +88,7 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	if err := os.MkdirAll(cfg.Paths.WorkspaceRoot, 0o755); err != nil {
 		t.Fatalf("mkdir workspace root: %v", err)
@@ -620,6 +621,7 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -3568,6 +3570,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3624,8 +3627,9 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"]), storedSpec)
 	}
-	if app.ProjectStates().Main().Snapshot().Document.AppDefinition == nil || app.ProjectStates().Main().Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", app.ProjectStates().Main().Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(t, app.ProjectStates().Main().Snapshot().Document.AppDefinition)
+	if storedAppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", storedAppDefinition)
 	}
 }
 
@@ -3635,6 +3639,7 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3702,6 +3707,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3766,6 +3772,7 @@ func TestAppIDEMCPServerSupportsValidateAppDefinitionOverAuthenticatedSSE(t *tes
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3853,6 +3860,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenti
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3913,6 +3921,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticated
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3976,6 +3985,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -4061,6 +4071,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -7998,6 +8009,7 @@ func TestAppIDEMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9688,6 +9700,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9761,6 +9774,7 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9831,6 +9845,7 @@ func TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9911,6 +9926,7 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {

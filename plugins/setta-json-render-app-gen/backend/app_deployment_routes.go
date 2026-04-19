@@ -10,6 +10,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectview"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appdeploymenthttp"
 )
 
@@ -112,10 +113,15 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		appDefinitionPayload, err := appdefinition.DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+		if err != nil {
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		httpapi.WriteJSON(w, http.StatusOK, appdeploymenthttp.AppDeploymentStateResponse{
 			ProjectState:  projectState,
-			AppDefinition: httpapi.CloneAppDefinition(snapshot.Document.AppDefinition),
+			AppDefinition: appDefinitionPayload,
 			AppSpec:       appSpec,
 			AppPolicy:     runtime.Policy(),
 		})
@@ -161,10 +167,15 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		appDefinitionPayload, err := appdefinition.DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+		if err != nil {
+			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		httpapi.WriteJSON(w, http.StatusOK, appdeploymenthttp.AppDeploymentStateResponse{
 			ProjectState:  projectState,
-			AppDefinition: httpapi.CloneAppDefinition(snapshot.Document.AppDefinition),
+			AppDefinition: appDefinitionPayload,
 			AppSpec:       appSpec,
 			AppPolicy:     runtime.Policy(),
 		})

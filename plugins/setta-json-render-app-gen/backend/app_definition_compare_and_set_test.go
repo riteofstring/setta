@@ -114,17 +114,18 @@ func TestAppDefinitionServiceCompareAndSetSpecVersionMaterializesMinimalSpec(t *
 		t.Fatalf("expected stored minimal app spec type Stack, got %#v", storedRoot["type"])
 	}
 
-	if snapshot.Document.AppDefinition == nil {
+	storedDefinition := mustDecodeStoredAppDefinition(t, snapshot.Document.AppDefinition)
+	if storedDefinition == nil {
 		t.Fatal("expected saved app definition metadata")
 	}
-	if snapshot.Document.AppDefinition.AppSpecPath != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %q", appspec.DefaultPath(), snapshot.Document.AppDefinition.AppSpecPath)
+	if storedDefinition.AppSpecPath != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %q", appspec.DefaultPath(), storedDefinition.AppSpecPath)
 	}
-	if snapshot.Document.AppDefinition.CatalogID != appspec.DefaultCatalogID {
-		t.Fatalf("expected saved catalog id %q, got %q", appspec.DefaultCatalogID, snapshot.Document.AppDefinition.CatalogID)
+	if storedDefinition.CatalogID != appspec.DefaultCatalogID {
+		t.Fatalf("expected saved catalog id %q, got %q", appspec.DefaultCatalogID, storedDefinition.CatalogID)
 	}
-	if snapshot.Document.AppDefinition.AppSpecVersion != "v2" {
-		t.Fatalf("expected saved app spec version v2, got %q", snapshot.Document.AppDefinition.AppSpecVersion)
+	if storedDefinition.AppSpecVersion != "v2" {
+		t.Fatalf("expected saved app spec version v2, got %q", storedDefinition.AppSpecVersion)
 	}
 }
 
@@ -214,7 +215,8 @@ func TestAppDefinitionServiceCompareAndSetThemeModePreservesThemePayload(t *test
 	}
 
 	var themePayload map[string]any
-	if err := json.Unmarshal(runtime.Snapshot().Document.AppDefinition.Theme, &themePayload); err != nil {
+	storedDefinition := mustDecodeStoredAppDefinition(t, runtime.Snapshot().Document.AppDefinition)
+	if err := json.Unmarshal(storedDefinition.Theme, &themePayload); err != nil {
 		t.Fatalf("decode saved theme payload: %v", err)
 	}
 	if themePayload["className"] != "app-shell" {

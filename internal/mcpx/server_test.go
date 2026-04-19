@@ -4150,8 +4150,9 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
 	}
-	if projectRuntime.Snapshot().Document.AppDefinition == nil || projectRuntime.Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected runtime app definition after mutation, got %#v", projectRuntime.Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(t, projectRuntime.Snapshot().Document.AppDefinition)
+	if storedAppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected runtime app definition after mutation, got %#v", storedAppDefinition)
 	}
 }
 
@@ -4235,11 +4236,11 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.AppDefinition = &projectstate.AppDefinition{
+		document.AppDefinition = mustMarshalStoredAppDefinition(t, projectstate.AppDefinition{
 			AppSpecPath:    appspec.DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,
-		}
+		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed missing app definition metadata: %v", err)
@@ -9303,6 +9304,11 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.AppDefinitionService == nil && projectRuntime != nil {
 		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
+	}
+	if !options.SkipDefaultAppSubsystemTools &&
+		options.AppDefinitionService != nil &&
+		len(options.ContributedToolRegistrations) == 0 {
+		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(options.AppDefinitionService)
 	}
 	if options.LSPDiagnostics == nil {
 		options.LSPDiagnostics = openScopedTestLSPDiagnosticsRegistry()
