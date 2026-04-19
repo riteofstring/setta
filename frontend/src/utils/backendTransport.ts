@@ -8,6 +8,7 @@ function buildBackendURL(
   return buildBackendURLInternal(address, addressParams);
 }
 
+/** @lintignore Consumed by the app subsystem plugin frontend. */
 export function buildBinaryDownloadUrl(
   contentId: string,
   shareSessionId: string | null,
