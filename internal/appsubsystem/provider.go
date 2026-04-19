@@ -9,10 +9,10 @@ import (
 	"setta/internal/chatmodes"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	"setta/internal/tools"
 	"setta/internal/uisettings"
 )
 
@@ -34,19 +34,13 @@ type FrontendRouteRegistrationOptions struct {
 	AppDeploymentIDEPublisher deployments.AppPublishService
 }
 
-type MCPToolRegistration struct {
-	Spec         tools.Spec
-	InputSchema  map[string]any
-	OutputSchema map[string]any
-}
-
 type BackendProvider interface {
 	BuildFrontendAPIRouteRegistrations(
 		options FrontendRouteRegistrationOptions,
 	) httpapi.FrontendAPIRouteRegistrations
 	BuildMCPToolRegistrations(
 		projectRuntime *projectstate.Runtime,
-	) []MCPToolRegistration
+	) []mcpx.ToolRegistration
 	BuildScopedUISettingEntries(
 		projectRuntime *projectstate.Runtime,
 	) ([]uisettings.RuntimeEntry, error)
@@ -111,7 +105,7 @@ func BuildFrontendAPIRouteRegistrations(
 func BuildMCPToolRegistrations(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	projectRuntime *projectstate.Runtime,
-) ([]MCPToolRegistration, error) {
+) ([]mcpx.ToolRegistration, error) {
 	if projectRuntime == nil {
 		return nil, nil
 	}

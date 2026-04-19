@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -212,6 +213,30 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	}
 	if string(encodedPublished) != string(encodedExpected) {
 		t.Fatalf("expected published app spec %s, got %s", string(encodedExpected), string(encodedPublished))
+	}
+	if _, err := os.Stat(filepath.Join(
+		payload.DeploymentRoot,
+		".setta_plugins",
+		ProviderPluginID,
+		"setta.plugin.json",
+	)); err != nil {
+		t.Fatalf("expected published deployment to package provider plugin, got %v", err)
+	}
+	var pluginsState struct {
+		EnabledPluginIDs []string `json:"enabledPluginIds"`
+	}
+	pluginsStatePayload, err := os.ReadFile(
+		filepath.Join(payload.DeploymentRoot, "plugins_state.json"),
+	)
+	if err != nil {
+		t.Fatalf("read published deployment plugins state: %v", err)
+	}
+	if err := json.Unmarshal(pluginsStatePayload, &pluginsState); err != nil {
+		t.Fatalf("decode published deployment plugins state: %v", err)
+	}
+	if len(pluginsState.EnabledPluginIDs) != 1 ||
+		pluginsState.EnabledPluginIDs[0] != ProviderPluginID {
+		t.Fatalf("expected published deployment plugins state to enable %q, got %#v", ProviderPluginID, pluginsState)
 	}
 
 	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
@@ -703,6 +728,7 @@ func buildAppDeploymentIDERouteRegistrationsForTest(
 						ModePolicy:   deps.ShareDeploymentIDE.ModePolicy,
 						ProjectState: deps.ShareDeploymentIDE.ProjectState,
 						Catalog:      deps.ShareDeploymentIDE.Catalog,
+						PluginID:     ProviderPluginID,
 					})
 				},
 			},
@@ -735,6 +761,7 @@ func newAppDeploymentIDERouteTestHandler(
 				ProjectState: fixture.ProjectRuntime,
 				Catalog:      fixture.Catalog,
 				AppPublisher: fixture.AppPublisher,
+				PluginID:     ProviderPluginID,
 			}); err != nil {
 				t.Fatalf("register app deployment ide routes: %v", err)
 			}
@@ -790,13 +817,14 @@ func newAppDeploymentIDERouteFixture(
 		t.Fatalf("new share publisher: %v", err)
 	}
 	appPublisher, err := NewAppPublishService(deployments.AppPublisherOptions{
-		Catalog:        catalog,
-		SettaFilesRoot: settaFilesRoot,
-		WorkspaceRoot:  workspaceRoot,
+		Catalog:          catalog,
+		SettaFilesRoot:   settaFilesRoot,
+		WorkspaceRoot:    workspaceRoot,
+		PluginSourcePath: appDeploymentIDEProviderSourcePath(t),
 		Now: func() time.Time {
 			return publishedAt
 		},
-	}, NewAppDefinitionService(projectRuntime))
+	}, NewAppDefinitionService(projectRuntime, ProviderPluginID), ProviderPluginID)
 	if err != nil {
 		t.Fatalf("new app publisher: %v", err)
 	}
@@ -816,6 +844,16 @@ func newAppDeploymentIDERouteFixture(
 
 func (f appDeploymentIDERouteFixture) setPublishedAt(next time.Time) {
 	f.setPublishedAtFn(next)
+}
+
+func appDeploymentIDEProviderSourcePath(t *testing.T) string {
+	t.Helper()
+
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve app deployment IDE test path")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), ".."))
 }
 
 func appDeploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecorder, code string) {

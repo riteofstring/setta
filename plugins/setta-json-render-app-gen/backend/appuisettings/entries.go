@@ -3,14 +3,12 @@ package appuisettings
 import (
 	"context"
 	"fmt"
-
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
-func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, error) {
+func BuildEntries(service appdefinition.Runtime, pluginID string) ([]uisettings.RuntimeEntry, error) {
 	if service == nil {
 		return nil, fmt.Errorf("app subsystem UI settings require an app definition runtime")
 	}
@@ -28,6 +26,7 @@ func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, err
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
 				"core.app.catalog_id",
+				pluginID,
 				"App Catalog ID",
 				[]string{"app catalog", "catalog id"},
 				"Catalog id for the app definition.",
@@ -50,6 +49,7 @@ func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, err
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
 				"core.app.spec_version",
+				pluginID,
 				"App Spec Version",
 				[]string{"app version", "spec version"},
 				"Version marker for the app definition schema payload.",
@@ -72,6 +72,7 @@ func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, err
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
 				"core.app.spec_path",
+				pluginID,
 				"App Spec Path",
 				[]string{"app path", "spec path"},
 				"Filesystem path where app spec JSON is saved.",
@@ -90,6 +91,7 @@ func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, err
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
 				"core.app.theme_mode",
+				pluginID,
 				"App Theme Mode",
 				[]string{"theme mode", "app theme", "light mode", "dark mode"},
 				"Theme mode for the app definition.",
@@ -110,6 +112,7 @@ func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, err
 
 func entryMetadata(
 	settingID string,
+	pluginID string,
 	title string,
 	synonyms []string,
 	description string,
@@ -129,7 +132,7 @@ func entryMetadata(
 			AnchorID: settingID,
 		},
 		Source:      uisettings.SourcePlugin,
-		PluginID:    plugins.AppSubsystemPluginID,
+		PluginID:    pluginID,
 		Mutability:  uisettings.MutabilityWritable,
 		ValueSchema: valueSchema,
 	}

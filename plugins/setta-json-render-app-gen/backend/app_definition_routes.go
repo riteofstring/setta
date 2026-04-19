@@ -18,13 +18,14 @@ import (
 type AppDefinitionRouteDependencies struct {
 	ModePolicy   modes.Policy
 	ProjectState *projectstate.Runtime
+	PluginID     string
 }
 
 func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	service := NewAppDefinitionService(deps.ProjectState)
+	service := NewAppDefinitionService(deps.ProjectState, deps.PluginID)
 
 	httpapi.RegisterOpenAPIGet[appdefinitionhttp.AppCatalogResponse](
 		router,

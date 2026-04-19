@@ -65,6 +65,54 @@ func TestAppDefinitionServiceGetEffectiveMetadataDefaults(t *testing.T) {
 	}
 }
 
+func TestAppDefinitionServiceUsesSelectedProviderNamespace(t *testing.T) {
+	t.Parallel()
+
+	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
+	providerPluginID := "acme.third-party-app-provider"
+	service := NewAppDefinitionService(runtime, providerPluginID)
+	defaultAppSpecPath := appspec.ForPlugin(providerPluginID).DefaultPath()
+	appSpec := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+
+	snapshot, result, err := service.SetAppDefinition(
+		context.Background(),
+		appdefinition.SetInput{
+			AppSpec: appSpec,
+		},
+	)
+	if err != nil {
+		t.Fatalf("set app definition: %v", err)
+	}
+	if result.AppDefinition == nil {
+		t.Fatal("expected app definition result")
+	}
+	if result.AppDefinition.AppSpecPath != defaultAppSpecPath {
+		t.Fatalf("expected provider-scoped app spec path %q, got %#v", defaultAppSpecPath, result.AppDefinition.AppSpecPath)
+	}
+	if len(snapshot.Document.PluginData[providerPluginID]) == 0 {
+		t.Fatalf("expected provider-scoped plugin data entry for %q", providerPluginID)
+	}
+	if len(snapshot.Document.PluginData[ProviderPluginID]) != 0 {
+		t.Fatalf("did not expect first-party plugin data entry for %q, got %#v", ProviderPluginID, snapshot.Document.PluginData[ProviderPluginID])
+	}
+	storedSpec, err := appspec.ForPlugin(providerPluginID).Read(
+		root,
+		defaultAppSpecPath,
+	)
+	if err != nil {
+		t.Fatalf("read provider-scoped app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, appSpec) {
+		t.Fatalf("expected provider-scoped app spec %#v, got %#v", appSpec, storedSpec)
+	}
+}
+
 func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *testing.T) {
 	t.Parallel()
 

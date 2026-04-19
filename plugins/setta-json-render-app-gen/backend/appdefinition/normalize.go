@@ -53,8 +53,11 @@ func EncodeStoredAppDefinition(
 	return cloneAppDefinitionRawJSON(encoded), nil
 }
 
-func effectiveAppDefinition(document projectstate.Document) (AppDefinition, error) {
-	current, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(document))
+func effectiveAppDefinitionWithStorage(
+	document projectstate.Document,
+	storage DocumentStorage,
+) (AppDefinition, error) {
+	current, err := DecodeStoredAppDefinition(storage.StoredDocumentAppDefinitionRaw(document))
 	if err != nil {
 		return AppDefinition{}, err
 	}
@@ -74,19 +77,26 @@ func effectiveAppDefinition(document projectstate.Document) (AppDefinition, erro
 	return current.Clone(), nil
 }
 
-func effectiveAppSpecPath(document projectstate.Document) (string, error) {
-	current, err := effectiveAppDefinition(document)
+func effectiveAppSpecPathWithStore(
+	document projectstate.Document,
+	storage DocumentStorage,
+	appSpecStore appspec.Store,
+) (string, error) {
+	current, err := effectiveAppDefinitionWithStorage(document, storage)
 	if err != nil {
 		return "", err
 	}
 	if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
 		return trimmed, nil
 	}
-	return appspec.DefaultPath(), nil
+	return appSpecStore.DefaultPath(), nil
 }
 
-func effectiveAppThemeMode(document projectstate.Document) (string, error) {
-	current, err := effectiveAppDefinition(document)
+func effectiveAppThemeModeWithStorage(
+	document projectstate.Document,
+	storage DocumentStorage,
+) (string, error) {
+	current, err := effectiveAppDefinitionWithStorage(document, storage)
 	if err != nil {
 		return "", err
 	}
@@ -98,6 +108,22 @@ func effectiveAppThemeMode(document projectstate.Document) (string, error) {
 		return mode, nil
 	}
 	return defaultAppThemeMode, nil
+}
+
+func effectiveAppDefinition(document projectstate.Document) (AppDefinition, error) {
+	return effectiveAppDefinitionWithStorage(document, StorageForPlugin(""))
+}
+
+func effectiveAppSpecPath(document projectstate.Document) (string, error) {
+	return effectiveAppSpecPathWithStore(
+		document,
+		StorageForPlugin(""),
+		appspec.ForPlugin(""),
+	)
+}
+
+func effectiveAppThemeMode(document projectstate.Document) (string, error) {
+	return effectiveAppThemeModeWithStorage(document, StorageForPlugin(""))
 }
 
 func normalizeAppDefinition(definition AppDefinition) (AppDefinition, error) {

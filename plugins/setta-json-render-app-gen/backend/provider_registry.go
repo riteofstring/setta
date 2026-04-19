@@ -5,53 +5,62 @@ import (
 	"setta/internal/chatmodes"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
-	settamcpx "setta/internal/mcpx"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 	settajsonrenderappgenbackendappuisettings "setta/plugins/setta-json-render-app-gen/backend/appuisettings"
 	settajsonrenderappgenbackendchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
-const backendProviderPluginID = "setta-json-render-app-gen"
+const ProviderPluginID = "setta-json-render-app-gen"
 
-type backendProvider struct{}
+type backendProvider struct {
+	pluginID string
+}
 
 func init() {
+	RegisterBackendProvider(ProviderPluginID)
+}
+
+func RegisterBackendProvider(pluginID string) {
 	appsubsystem.RegisterBackendProvider(
-		backendProviderPluginID,
-		NewBackendProvider(),
+		pluginID,
+		NewBackendProvider(pluginID),
 	)
 }
 
-func NewBackendProvider() appsubsystem.BackendProvider {
-	return backendProvider{}
+func NewBackendProvider(pluginID string) appsubsystem.BackendProvider {
+	return backendProvider{pluginID: pluginID}
 }
 
-func (backendProvider) BuildFrontendAPIRouteRegistrations(
+func (p backendProvider) BuildFrontendAPIRouteRegistrations(
 	options appsubsystem.FrontendRouteRegistrationOptions,
 ) httpapi.FrontendAPIRouteRegistrations {
-	return BuildFrontendAPIRouteRegistrations(options)
+	return BuildFrontendAPIRouteRegistrations(options, p.pluginID)
 }
 
-func (backendProvider) BuildMCPToolRegistrations(
+func (p backendProvider) BuildMCPToolRegistrations(
 	projectRuntime *projectstate.Runtime,
-) []appsubsystem.MCPToolRegistration {
+) []mcpx.ToolRegistration {
 	if projectRuntime == nil {
 		return nil
 	}
-	return convertAppSubsystemMCPToolRegistrations(
-		BuildMCPToolRegistrations(NewAppDefinitionService(projectRuntime)),
+	return BuildMCPToolRegistrations(
+		NewAppDefinitionService(projectRuntime, p.pluginID),
+		p.defaultAppSpecPath(),
 	)
 }
 
-func (backendProvider) BuildScopedUISettingEntries(
+func (p backendProvider) BuildScopedUISettingEntries(
 	projectRuntime *projectstate.Runtime,
 ) ([]uisettings.RuntimeEntry, error) {
 	if projectRuntime == nil {
 		return nil, nil
 	}
 	return settajsonrenderappgenbackendappuisettings.BuildEntries(
-		NewAppDefinitionService(projectRuntime),
+		NewAppDefinitionService(projectRuntime, p.pluginID),
+		p.pluginID,
 	)
 }
 
@@ -59,30 +68,21 @@ func (backendProvider) AppGenerationModeContributions() []chatmodes.AppGeneratio
 	return settajsonrenderappgenbackendchatmodes.BuildChatModeContributions()
 }
 
-func (backendProvider) NewAppPublishService(
+func (p backendProvider) NewAppPublishService(
 	options deployments.AppPublisherOptions,
 	projectRuntime *projectstate.Runtime,
 ) (deployments.AppPublishService, error) {
-	return NewAppPublishService(options, NewAppDefinitionService(projectRuntime))
+	return NewAppPublishService(
+		options,
+		NewAppDefinitionService(projectRuntime, p.pluginID),
+		p.pluginID,
+	)
 }
 
 func (backendProvider) DeploymentTypeRegistration() deployments.TypeRegistration {
 	return AppDeploymentTypeRegistration()
 }
 
-func convertAppSubsystemMCPToolRegistrations(
-	registrations []settamcpx.ToolRegistration,
-) []appsubsystem.MCPToolRegistration {
-	if len(registrations) == 0 {
-		return nil
-	}
-	converted := make([]appsubsystem.MCPToolRegistration, 0, len(registrations))
-	for _, registration := range registrations {
-		converted = append(converted, appsubsystem.MCPToolRegistration{
-			Spec:         registration.Spec,
-			InputSchema:  registration.InputSchema,
-			OutputSchema: registration.OutputSchema,
-		})
-	}
-	return converted
+func (p backendProvider) defaultAppSpecPath() string {
+	return appspec.ForPlugin(p.pluginID).DefaultPath()
 }

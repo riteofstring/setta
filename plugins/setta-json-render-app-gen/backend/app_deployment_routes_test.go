@@ -416,7 +416,7 @@ func buildAppDeploymentRouteRegistrationsForTest(
 				Register: func(router chi.Router) error {
 					return RegisterAppDeploymentRoutes(router, httpapi.DeploymentRouteDependencies{
 						ModePolicy: modes.NewPolicy(config.ModeApp),
-					})
+					}, ProviderPluginID)
 				},
 			},
 		},
@@ -459,7 +459,7 @@ func newAppDeploymentRouteTestHandler(t *testing.T, deploymentRuntime *deploymen
 			if err := RegisterAppDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeApp),
 				Deployment: deploymentRuntime,
-			}); err != nil {
+			}, ProviderPluginID); err != nil {
 				t.Fatalf("register app deployment routes: %v", err)
 			}
 		},

@@ -34,9 +34,13 @@ type appDefinitionMutationFields struct {
 
 func BuildMCPToolRegistrations(
 	service appdefinition.Runtime,
+	defaultAppSpecPath string,
 ) []mcpx.ToolRegistration {
 	registrations := buildAppCatalogToolRegistrations()
-	registrations = append(registrations, buildAppDefinitionToolRegistrations(service)...)
+	registrations = append(
+		registrations,
+		buildAppDefinitionToolRegistrations(service, defaultAppSpecPath)...,
+	)
 	return registrations
 }
 
@@ -102,9 +106,13 @@ func buildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
 
 func buildAppDefinitionToolRegistrations(
 	service appdefinition.Runtime,
+	defaultAppSpecPath string,
 ) []mcpx.ToolRegistration {
 	if service == nil {
 		return nil
+	}
+	if strings.TrimSpace(defaultAppSpecPath) == "" {
+		defaultAppSpecPath = appspec.DefaultPath()
 	}
 
 	return []mcpx.ToolRegistration{
@@ -262,7 +270,7 @@ func buildAppDefinitionToolRegistrations(
 						"type": "string",
 						"description": fmt.Sprintf(
 							"Optional app-spec file path. Defaults to the existing configured path or %s.",
-							appspec.DefaultPath(),
+							defaultAppSpecPath,
 						),
 					},
 					"appSpecVersion": map[string]any{
@@ -347,7 +355,7 @@ func buildAppDefinitionToolRegistrations(
 						"type": "string",
 						"description": fmt.Sprintf(
 							"Optional app-spec file path override. Defaults to the existing configured path or %s.",
-							appspec.DefaultPath(),
+							defaultAppSpecPath,
 						),
 					},
 					"baseAppSpec": map[string]any{

@@ -2,6 +2,7 @@ import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
 import {
+  applyAppDefinitionStructuredContentToStore,
   appSubsystemModeRequiresImageAttachment,
   resetAppSubsystemFrontendRuntimeState,
   useAppSubsystemAppDeploymentModal,
@@ -23,6 +24,7 @@ import {
   usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
+import * as runtimeInternal from "plugins/runtimeInternal";
 import {
   clearPluginRuntimeSideEffects,
   indexSectionKindKeysByPluginId,
@@ -248,6 +250,61 @@ function buildRuntimeRequestFailure(
   return {
     response: new Response(null, { status }),
   } as Awaited<ReturnType<typeof openAPI.getPluginsRuntime>>;
+}
+
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+function buildActiveAppSubsystemCapabilities(
+  pluginId: string,
+): NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"] {
+  return {
+    providerSelection: {
+      status: "active",
+      selectedPluginId: pluginId,
+      activePluginIds: [pluginId],
+      disabledPluginIds: [],
+      invalidPluginIds: [],
+      conflictingPluginIds: [],
+    },
+    pluginId,
+    pluginEnabled: true,
+    appAuthoringUi: true,
+    appPreviewUi: false,
+    appGenerationChatModes: false,
+    appDeploymentRuntime: false,
+  };
+}
+
+function buildAppSubsystemRegistrationDelta(
+  pluginId: string,
+  applyStructuredContent: (structured: Record<string, unknown>) => boolean,
+) {
+  return {
+    appSubsystemRegistrationsByPluginId: {
+      [pluginId]: {
+        pluginId,
+        overviewTab: {
+          component: () => null,
+          titleQuickInfo: `${pluginId} overview`,
+          moreMenuQuickInfo: `${pluginId} quick info`,
+          moreMenuLabel: pluginId,
+        },
+        applyAppDefinitionStructuredContentToStore: applyStructuredContent,
+      },
+    },
+    sectionKinds: {},
+    panes: {},
+    commands: {},
+    topNavBarItems: {},
+  };
 }
 type CapturedPluginHost = {
   createStore: <TState extends object>(
@@ -1334,6 +1391,221 @@ describe("plugin runtime helpers", () => {
       readAppSubsystemHookValue(() => useAppSubsystemAppDeploymentModal()),
     ).not.toBeNull();
     expect(appSubsystemModeRequiresImageAttachment("image_mode")).toBe(true);
+  });
+  it("buffers app-subsystem updates while the selected provider frontend is still importing", async () => {
+    const providerPluginId = "acme.loading-app-provider";
+    const applyStructuredContent = vi.fn(() => true);
+    const loadStarted = deferred();
+    const releaseLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+            },
+          };
+        }
+        loadStarted.resolve();
+        await releaseLoad.promise;
+        return {
+          error: null,
+          registryDelta: buildAppSubsystemRegistrationDelta(
+            providerPluginId,
+            applyStructuredContent,
+          ),
+        };
+      },
+    );
+
+    const updatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Loading App Provider",
+            frontend: {
+              entrypointUrl: "/plugins/acme.loading/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Loading App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    await loadStarted.promise;
+    expect(useAppSubsystemFrontendStore.getState().status).toBe("loading");
+
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Buffered update" },
+      }),
+    ).toBe(true);
+    expect(applyStructuredContent).not.toHaveBeenCalled();
+
+    releaseLoad.resolve();
+    await updatePromise;
+
+    expect(applyStructuredContent).toHaveBeenCalledWith({
+      appSpec: { title: "Buffered update" },
+    });
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: providerPluginId,
+      },
+    });
+  });
+  it("drops queued app-subsystem updates when the provider changes before the first frontend load finishes", async () => {
+    const firstProviderPluginId = "acme.loading-app-provider-a";
+    const secondProviderPluginId = "acme.loading-app-provider-b";
+    const applyStructuredContentA = vi.fn(() => true);
+    const applyStructuredContentB = vi.fn(() => true);
+    const firstLoadStarted = deferred();
+    const releaseFirstLoad = deferred();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId === firstProviderPluginId) {
+          firstLoadStarted.resolve();
+          await releaseFirstLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              firstProviderPluginId,
+              applyStructuredContentA,
+            ),
+          };
+        }
+        if (plugin.pluginId === secondProviderPluginId) {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              secondProviderPluginId,
+              applyStructuredContentB,
+            ),
+          };
+        }
+        return {
+          error: null,
+          registryDelta: {
+            appSubsystemRegistrationsByPluginId: {},
+            sectionKinds: {},
+            panes: {},
+            commands: {},
+            topNavBarItems: {},
+          },
+        };
+      },
+    );
+
+    const firstUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: firstProviderPluginId,
+            name: "First Loading App Provider",
+            frontend: {
+              entrypointUrl: "/plugins/acme.loading-a/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: firstProviderPluginId,
+            name: "First Loading App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(
+              firstProviderPluginId,
+            ),
+          },
+        },
+      ),
+    );
+
+    await firstLoadStarted.promise;
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Stale update" },
+      }),
+    ).toBe(true);
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: secondProviderPluginId,
+            name: "Second Loading App Provider",
+            frontend: {
+              entrypointUrl: "/plugins/acme.loading-b/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: secondProviderPluginId,
+            name: "Second Loading App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(
+              secondProviderPluginId,
+            ),
+          },
+        },
+      ),
+    );
+
+    releaseFirstLoad.resolve();
+    await secondLoadStarted.promise;
+
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loading",
+      registration: null,
+      capabilities: {
+        pluginId: secondProviderPluginId,
+      },
+    });
+
+    releaseSecondLoad.resolve();
+    await firstUpdatePromise;
+    await secondUpdatePromise;
+
+    expect(applyStructuredContentA).not.toHaveBeenCalled();
+    expect(applyStructuredContentB).not.toHaveBeenCalled();
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: secondProviderPluginId,
+      },
+    });
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {

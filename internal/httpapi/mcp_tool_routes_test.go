@@ -2648,7 +2648,10 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	appDefinitionService := appdefinition.NewAppDefinitionService(projectRuntime)
+	appDefinitionService := appdefinition.NewAppDefinitionService(
+		projectRuntime,
+		plugins.AppSubsystemPluginID,
+	)
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:                t.TempDir(),
 		ProjectState:                 projectRuntime,
@@ -3017,7 +3020,10 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	appDefinitionService := appdefinition.NewAppDefinitionService(projectRuntime)
+	appDefinitionService := appdefinition.NewAppDefinitionService(
+		projectRuntime,
+		plugins.AppSubsystemPluginID,
+	)
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
