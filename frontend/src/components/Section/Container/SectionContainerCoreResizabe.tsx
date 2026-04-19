@@ -1,9 +1,6 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionMotionHiddenBody } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
@@ -15,7 +12,6 @@ import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
-import { useIsSectionUIActive } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
@@ -90,28 +86,6 @@ type AreaSwitchProps = {
 type SectionChromeMode = "header" | "meta-control" | "text-block-meta";
 
 type SectionAreaRenderer = (props: AreaSwitchProps) => React.ReactNode;
-
-function resolveMotionHiddenCanvasState({
-  graphSurfaceImplementation,
-  isSectionUIActive,
-  sectionId,
-  viewportInteractionActive,
-}: {
-  graphSurfaceImplementation: "legacy-dom" | "canvas-shell-underlay";
-  isSectionUIActive: boolean;
-  sectionId: string;
-  viewportInteractionActive: boolean;
-}) {
-  const motionHiddenRoot =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionMotionHiddenBody(sectionId);
-  const motionHidden =
-    motionHiddenRoot && viewportInteractionActive && !isSectionUIActive;
-  return {
-    motionHidden,
-    motionHiddenRoot,
-  };
-}
 
 function getSectionContainerResizableSnapshot(
   state: ZustandProjectState,
@@ -188,7 +162,6 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme,
   chromeMode,
   hideHeader,
-  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -198,7 +171,6 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme: boolean;
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
-  motionHiddenInteractionActive: boolean;
 }) {
   if (chromeMode === "meta-control" && !isUserView) {
     return (
@@ -234,7 +206,6 @@ function SectionPrimaryChrome({
       isUserView={isUserView}
       isRoot={isRoot}
       hasSectionStyleTheme={hasSectionStyleTheme}
-      motionHiddenInteractionActive={motionHiddenInteractionActive}
       extraControls={
         <SectionHeaderExtraControls
           sectionId={sectionId}
@@ -266,7 +237,6 @@ function SectionContainerChrome({
   chromeMode,
   hideHeader,
   positionAndSizeLocked,
-  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -277,7 +247,6 @@ function SectionContainerChrome({
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
   positionAndSizeLocked: boolean;
-  motionHiddenInteractionActive: boolean;
 }) {
   const showMetaControlDragHandle = shouldShowMetaControlDragHandle(
     chromeMode,
@@ -301,7 +270,6 @@ function SectionContainerChrome({
         hasSectionStyleTheme={hasSectionStyleTheme}
         chromeMode={chromeMode}
         hideHeader={hideHeader}
-        motionHiddenInteractionActive={motionHiddenInteractionActive}
       />
       {isRoot ? <Incrementer sectionId={sectionId} isRoot={isRoot} /> : null}
     </>
@@ -431,17 +399,6 @@ function _SectionContainerCoreResizable({
     : undefined;
   const metaControlLayoutClassName =
     chromeMode === "meta-control" ? "grid-cols-1 grid-rows-1" : undefined;
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
-  const isSectionUIActive = useIsSectionUIActive(sectionId);
-  const { motionHidden, motionHiddenRoot } = resolveMotionHiddenCanvasState({
-    graphSurfaceImplementation,
-    isSectionUIActive,
-    sectionId,
-    viewportInteractionActive,
-  });
 
   return (
     <CustomResizable
@@ -455,8 +412,6 @@ function _SectionContainerCoreResizable({
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
-      motionCanvasOwnedShell={motionHidden}
-      motionCanvasOwnedShellRoot={motionHiddenRoot}
     >
       <SectionContainerChrome
         sectionId={sectionId}
@@ -468,7 +423,6 @@ function _SectionContainerCoreResizable({
         chromeMode={chromeMode}
         hideHeader={hideHeader}
         positionAndSizeLocked={positionAndSizeLocked}
-        motionHiddenInteractionActive={motionHidden}
       />
       <CanvasSectionBody
         sectionId={sectionId}
@@ -476,8 +430,6 @@ function _SectionContainerCoreResizable({
         bgColor={bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
-        motionHiddenBody={motionHidden}
-        motionHiddenBodyRoot={motionHiddenRoot}
       />
     </CustomResizable>
   );
@@ -524,16 +476,12 @@ function CanvasSectionBody({
   bgColor,
   isMinimized,
   isUserView,
-  motionHiddenBody,
-  motionHiddenBodyRoot,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
-  motionHiddenBody: boolean;
-  motionHiddenBodyRoot: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -561,23 +509,13 @@ function CanvasSectionBody({
   }
 
   return (
-    <div
-      data-canvas-owned-motion-body-hidden={
-        motionHiddenBody ? "true" : undefined
-      }
-      data-canvas-owned-motion-body-root={
-        motionHiddenBodyRoot ? "true" : undefined
-      }
-      style={motionHiddenBody ? { display: "none" } : undefined}
-    >
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
-    </div>
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
   );
 }
 
