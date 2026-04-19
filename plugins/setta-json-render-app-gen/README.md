@@ -1,14 +1,33 @@
 # Setta JSON Render App Generation Plugin
 
-This first-party plugin is the extraction target for the app subsystem.
+This first-party plugin gates the extracted app subsystem.
 
-Current state:
-- `enabledByDefault` remains `false`
-- the manifest is discoverable through the plugin runtime
-- when enabled, the host now restores the current app HTTP routes, MCP tools,
-  chat-mode prompt contributions, and capability-gated frontend surfaces
-  through this plugin boundary
-- app ownership still lives in core packages for now; later phases move those
-  implementations under this plugin package
+## Packaging Model
 
-Later phases will move app routes, MCP tools, deployment/runtime ownership, and frontend/runtime UI behind this package.
+- `enabledByDefault` remains `false`.
+- The package-manager wheel for this plugin ships discovery metadata only:
+  `setta.plugin.json` and this README under
+  `setta-json-render-app-gen/`.
+- The host Setta distribution owns the compiled backend registrars, generated
+  contracts, and lazy frontend chunk for the app subsystem.
+- That split is intentional: the app frontend registers host-rendered React
+  components, so it must stay in the host frontend build and share the host
+  runtime instead of loading a separate bundled React copy from the plugin
+  wheel.
+
+Installing this package makes the app subsystem available to the plugin system,
+but the feature still stays off until the plugin is enabled.
+
+## Build And Install
+
+Build the plugin wheel from this folder:
+
+```bash
+python -m build
+```
+
+Install it into the active environment:
+
+```bash
+uv pip install ./plugins/setta-json-render-app-gen
+```
