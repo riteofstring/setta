@@ -3474,6 +3474,66 @@ LOOP_TERMINAL_MARKER: none
   - keep the shared resting param-label lane closed and choose the next product slice from the remaining row/article body structure, with `settings-section__sectionSizingPolicy` still the clearest canonical outlier and a stronger article/body primitive preferred over another survivor-family cleanup
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 073
+
+- Item: Hide the shared lightweight resize-handle root at rest while keeping hover reveal intact.
+- Status: `done`
+- Details:
+  - Chose the repeated `section-center` root from the latest row-body rerank instead of opening another family-local survivor cleanup.
+  - Updated `frontend/src/components/Params/ResizeHandle.tsx` so the shared lightweight settings resize-handle root now stays at `opacity: 0` at rest and only reveals on row hover, direct hover, or active press.
+  - Added focused proof in:
+    - `frontend/src/components/Params/ResizeHandle.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - Live canary result on the worktree runtime:
+    - `settingsLightweightResizeHandleCount: 681`
+    - `settingsLegacyResizeHandleCount: 0`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `lightweightResizeHandleCount 21`, `sampleHandleOpacity "0"`
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `sampleHandleOpacity "0"`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `sampleHandleOpacity "0"`
+    - hovering one chat-section row still flipped the sampled lightweight handle opacity to `"1"`
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 77`
+    - `totalRemainingVisibleElementCount: 457`
+    - `totalRemainingVisibleChromeElementCount: 448`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the old repeated `div.section-center...` kind dropped out of the common ranking entirely
+    - the surviving shared hotspot is now article/body structure:
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `p.section-key` (`3`)
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 75.6`
+    - `raf.p95Ms: 133.3`
+    - `longTasks.totalMs: 11495`
+  - Interpretation:
+    - this closes the remaining shared lightweight handle-root lane as product code, not another probe-only pass
+    - the rerank moved sharply even though DOM node count stayed flat, so the next real frontier is article/body structure rather than resize-handle chrome
+    - keep the handle lane closed and move the next pass to a stronger article/body primitive centered on `settings-section__sectionSizingPolicy`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ResizeHandle.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ResizeHandle.tsx src/components/Params/ResizeHandle.test.tsx tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.6s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (54.0s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one retained canvas was mounted under the graph surface
+  - `settings-section__chatSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__browserSectionDefault` looked intact after the opacity change
+  - hovering one chat row showed no obvious blank or detached artifact when the handle became visible
+- Next action:
+  - keep the shared lightweight handle lane closed and choose the next product slice from the remaining article/body structure, with `settings-section__sectionSizingPolicy` as the canonical target and a stronger inactive-row primitive preferred over more survivor-family cleanup
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 071
 
 - Item: Generalize the shared lightweight resize-handle primitive across the settings surface.

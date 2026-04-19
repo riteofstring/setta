@@ -11,6 +11,7 @@ const TERTIARY_SECTION_ID = "settings-section__browserSectionDefault";
 type SectionResizeHandleSummary = {
   legacyResizeHandleCount: number;
   lightweightResizeHandleCount: number;
+  sampleHandleOpacity: string | null;
   rowCount: number;
   sectionId: string;
 };
@@ -66,6 +67,10 @@ test("canvas shell path generalizes lightweight resize handles across the shared
           throw new Error(`Missing section ${sectionId}`);
         }
 
+        const sampleHandle = section.querySelector<HTMLElement>(
+          '[data-param-resize-handle-lightweight="true"]',
+        );
+
         return {
           legacyResizeHandleCount: section.querySelectorAll(
             '[data-param-resize-handle="true"]:not([data-param-resize-handle-lightweight="true"])',
@@ -73,6 +78,10 @@ test("canvas shell path generalizes lightweight resize handles across the shared
           lightweightResizeHandleCount: section.querySelectorAll(
             '[data-param-resize-handle-lightweight="true"]',
           ).length,
+          sampleHandleOpacity:
+            sampleHandle instanceof HTMLElement
+              ? window.getComputedStyle(sampleHandle).opacity
+              : null,
           rowCount: section.querySelectorAll('article[id^="ParamContainer-"]').length,
           sectionId,
         };
@@ -132,17 +141,30 @@ test("canvas shell path generalizes lightweight resize handles across the shared
     `ALL_SETTINGS_LIGHTWEIGHT_RESIZE_HANDLE_GENERALIZATION ${JSON.stringify(summary, null, 2)}`,
   );
 
+  const targetSection = page.locator(
+    `section[data-section-id="${TARGET_SECTION_ID}"]`,
+  );
+  const targetHandle = targetSection
+    .locator('[data-param-resize-handle-lightweight="true"]')
+    .first();
+  const targetHandleRow = targetHandle.locator(
+    'xpath=ancestor::article[@data-param-row="true"][1]',
+  );
+
   expect(summary.target.rowCount).toBeGreaterThan(10);
   expect(summary.target.lightweightResizeHandleCount).toBeGreaterThan(10);
   expect(summary.target.legacyResizeHandleCount).toBe(0);
+  expect(summary.target.sampleHandleOpacity).toBe("0");
 
   expect(summary.sibling.rowCount).toBeGreaterThan(10);
   expect(summary.sibling.lightweightResizeHandleCount).toBeGreaterThan(10);
   expect(summary.sibling.legacyResizeHandleCount).toBe(0);
+  expect(summary.sibling.sampleHandleOpacity).toBe("0");
 
   expect(summary.tertiary.rowCount).toBeGreaterThan(10);
   expect(summary.tertiary.lightweightResizeHandleCount).toBeGreaterThan(10);
   expect(summary.tertiary.legacyResizeHandleCount).toBe(0);
+  expect(summary.tertiary.sampleHandleOpacity).toBe("0");
 
   expect(summary.settingsLightweightResizeHandleCount).toBeGreaterThan(500);
   expect(summary.settingsLegacyResizeHandleCount).toBe(0);
@@ -157,4 +179,11 @@ test("canvas shell path generalizes lightweight resize handles across the shared
     TERTIARY_SECTION_ID,
   );
   expect(summary.sectionsWithLightweightResizeHandles.length).toBeGreaterThan(20);
+
+  await targetHandleRow.hover();
+  await expect
+    .poll(async () =>
+      targetHandle.evaluate((handle) => window.getComputedStyle(handle).opacity),
+    )
+    .toBe("1");
 });

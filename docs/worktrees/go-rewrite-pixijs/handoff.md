@@ -9,6 +9,66 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The lightweight resize-handle rest-opacity slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-resize-handle-rest-opacity-rerun.md`.
+  - canonical target section: `settings-section__chatSectionDefault`
+  - sibling proof sections:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Params/ResizeHandle.tsx` now keeps the shared lightweight settings resize-handle root at `opacity: 0` at rest and only reveals it on row hover / direct hover / active press
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ResizeHandle.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightResizeHandleCount: 681`
+    - `settingsLegacyResizeHandleCount: 0`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `lightweightResizeHandleCount 21`, `sampleHandleOpacity "0"`
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `sampleHandleOpacity "0"`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `sampleHandleOpacity "0"`
+    - hovering one chat-section param row still flipped the sampled lightweight handle opacity to `"1"`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 77`
+    - `totalRemainingVisibleElementCount: 457`
+    - `totalRemainingVisibleChromeElementCount: 448`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the prior repeated `div.section-center...` kind dropped out of the common ranking entirely; the new strongest kinds are:
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+  - compared against the prior shared resting param-label checkpoint:
+    - `totalRemainingRowCount: 755 -> 77`
+    - `totalRemainingVisibleElementCount: 1540 -> 457`
+    - `totalRemainingVisibleChromeElementCount: 1531 -> 448`
+    - `totalRemainingVisibleLabelElementCount: 3 -> 3`
+    - `totalRemainingVisibleValueElementCount: 6 -> 6`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 75.6`
+    - `raf.p95Ms: 133.3`
+    - `longTasks.totalMs: 11495`
+  - compared against the prior shared resting param-label checkpoint:
+    - `documentNodeCount: 5658 -> 5658`
+    - `raf.meanMs: 74.58 -> 75.6`
+    - `raf.p95Ms: 150 -> 133.3`
+    - `longTasks.totalMs: 11230 -> 11495`
+  - interpretation:
+    - this closes the remaining shared lightweight `section-center` root lane as product code rather than reopening another support probe
+    - the rerank moved sharply even though DOM node count stayed flat, so the remaining hotspot is now article/body structure rather than handle chrome
+    - the next default frontier should target a stronger article/body primitive centered on `settings-section__sectionSizingPolicy` instead of revisiting resize handles
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__chatSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__browserSectionDefault` looked intact after the opacity change
+    - hovering one chat row showed no obvious blank or detached artifact when the handle became visible
 - The shared resting param-label ownership slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-resting-param-label-ownership-rerun.md`.
   - canonical target section: `settings-section__stateMachineStartSectionDefault`
   - sibling proof sections:
