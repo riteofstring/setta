@@ -34,9 +34,7 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{
-		AssetURLBuilder: testRuntimeAssetURLBuilder,
-	})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -96,7 +94,9 @@ func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -152,7 +152,9 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -1547,10 +1549,16 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 	if entry.PluginID != AppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
 		t.Fatalf("expected package-manager app subsystem plugin list entry, got %#v", entry)
 	}
+	if len(entry.Components) != 2 || entry.Components[0] != "backend" || entry.Components[1] != "frontend" {
+		t.Fatalf("expected backend/frontend app subsystem components, got %#v", entry.Components)
+	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
 	if statusEntry.PluginID != AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active app subsystem package-manager plugin, got %#v", statusEntry)
+	}
+	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
+		t.Fatalf("expected backend/frontend app subsystem status components, got %#v", statusEntry.Components)
 	}
 }
 

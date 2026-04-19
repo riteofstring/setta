@@ -35,6 +35,9 @@ __pycache__/
 .nfs*
 build/
 dist/
+!plugins/setta-json-render-app-gen/frontend/dist/
+!plugins/setta-json-render-app-gen/frontend/dist/index.css
+!plugins/setta-json-render-app-gen/frontend/dist/index.js
 # Local workspace plugin fixture links from scripts/plugin-fixtures/*.sh
 .setta_plugins/setta-fixture-*
 *.egg-info/
