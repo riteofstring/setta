@@ -224,34 +224,31 @@ export type AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest = {
   };
 };
 
-export type AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse =
-  {
-    appPolicy: DeploymentsPolicy;
-    defaultProjectConfigId: string;
-    deploymentName: string;
-    deploymentVersion: string;
-    manifest?: DeploymentsManifest;
-    projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
-    sessionRunCount: number;
-    shareSessionId: string;
-  };
+export type AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse = {
+  appPolicy: DeploymentsPolicy;
+  defaultProjectConfigId: string;
+  deploymentName: string;
+  deploymentVersion: string;
+  manifest?: DeploymentsManifest;
+  projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
+  sessionRunCount: number;
+  shareSessionId: string;
+};
 
-export type AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse =
-  {
-    appDefinition: AppsubsystemAppdefinitionAppDefinition;
-    appPolicy: DeploymentsPolicy;
-    appSpec: unknown;
-    projectState: ProjectviewSingleConfig;
-  };
+export type AppsubsystemAppdeploymenthttpAppDeploymentStateResponse = {
+  appDefinition: AppsubsystemAppdefinitionAppDefinition;
+  appPolicy: DeploymentsPolicy;
+  appSpec: unknown;
+  projectState: ProjectviewSingleConfig;
+};
 
-export type AppsubsystemprovidersBuiltinAppdeploymenthttpPublishAppDeploymentRequest =
-  {
-    appPolicyOverrides: DeploymentsSharePolicyOverrides;
-    deploymentName: string;
-    listenerEnabled: boolean | null;
-    listenerEntrypoint: string;
-    projectConfigId: string;
-  };
+export type AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest = {
+  appPolicyOverrides: DeploymentsSharePolicyOverrides;
+  deploymentName: string;
+  listenerEnabled: boolean | null;
+  listenerEntrypoint: string;
+  projectConfigId: string;
+};
 
 export type ArtifactsArtifactSaveResult = {
   backupPath?: string;
@@ -4034,7 +4031,7 @@ export type ListAppDeploymentsResponse =
   ListAppDeploymentsResponses[keyof ListAppDeploymentsResponses];
 
 export type PublishAppDeploymentData = {
-  body: AppsubsystemprovidersBuiltinAppdeploymenthttpPublishAppDeploymentRequest;
+  body: AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest;
   path?: never;
   query?: never;
   url: "/app/deployments";
@@ -4081,7 +4078,7 @@ export type GetAppDeploymentCurrentSessionResponses = {
   /**
    * OK
    */
-  200: AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse;
+  200: AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse;
 };
 
 export type GetAppDeploymentCurrentSessionResponse =
@@ -4169,7 +4166,7 @@ export type GetAppDeploymentProjectConfigResponses = {
   /**
    * OK
    */
-  200: AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse;
+  200: AppsubsystemAppdeploymenthttpAppDeploymentStateResponse;
 };
 
 export type GetAppDeploymentProjectConfigResponse =
@@ -4199,7 +4196,7 @@ export type GetAppDeploymentStateResponses = {
   /**
    * OK
    */
-  200: AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse;
+  200: AppsubsystemAppdeploymenthttpAppDeploymentStateResponse;
 };
 
 export type GetAppDeploymentStateResponse =
