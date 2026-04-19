@@ -31,6 +31,7 @@ import (
 	"setta/internal/statefs"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const (
@@ -43,7 +44,7 @@ type Server struct {
 	logger               *slog.Logger
 	registry             *tools.Registry
 	projectState         projectStateProvider
-	appDefinitionService projectstate.AppDefinitionRuntime
+	appDefinitionService appdefinition.Runtime
 	afterProjectMutation func(context.Context, string) error
 	pluginMutations      pluginMutationProvider
 	pythonPackages       pythonPackageProvider
@@ -73,7 +74,7 @@ type ServerOptions struct {
 	Registry                       *tools.Registry
 	WorkspaceRoot                  string
 	ProjectState                   projectStateProvider
-	AppDefinitionService           projectstate.AppDefinitionRuntime
+	AppDefinitionService           appdefinition.Runtime
 	SkipDefaultAppSubsystemTools   bool
 	ContributedToolRegistrations   []ToolRegistration
 	AfterProjectStateMutation      func(context.Context, string) error
@@ -6142,7 +6143,7 @@ func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]
 	return &copied, nil
 }
 
-func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]projectstate.AppRoute, error) {
+func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]appdefinition.AppRoute, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
 		return nil, nil
@@ -6155,7 +6156,7 @@ func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]pro
 	if err != nil {
 		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
-	var routes []projectstate.AppRoute
+	var routes []appdefinition.AppRoute
 	if err := json.Unmarshal(encoded, &routes); err != nil {
 		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
@@ -7172,9 +7173,9 @@ func projectStateMutationErrorCode(err error) string {
 		return projectNotFoundErrorCode
 	case projectstate.IsExpectedOldValueMismatchError(err):
 		return "mutation_failed"
-	case errors.Is(err, projectstate.ErrAppSpecNotFound):
+	case errors.Is(err, appdefinition.ErrAppSpecNotFound):
 		return "file_not_found"
-	case errors.Is(err, projectstate.ErrAppSpecStoreUnsupported):
+	case errors.Is(err, projectstate.ErrPersistedStoreUnsupported):
 		return "internal_error"
 	case isInvalidProjectStateMutationError(err):
 		return "invalid_arguments"
@@ -7229,7 +7230,7 @@ func isStructureMutationError(err error) bool {
 }
 
 func isAppSpecMutationError(err error) bool {
-	return errors.Is(err, projectstate.ErrAppSpecPathUnconfigured)
+	return errors.Is(err, appdefinition.ErrAppSpecPathUnconfigured)
 }
 
 func isCodegenMutationError(err error) bool {

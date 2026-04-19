@@ -21,6 +21,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appdeploymenthttp"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
@@ -247,10 +248,10 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 					Name: "Beta",
 				},
 			},
-		}, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+		}, mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
 			CatalogID:   "catalog-demo",
 			AppSpecPath: appSpecPath,
-			Routes: []projectstate.AppRoute{
+			Routes: []appdefinition.AppRoute{
 				{Path: "/", Name: "Home"},
 			},
 		})),
@@ -321,9 +322,9 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 					Name: "Beta",
 				},
 			},
-		}, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+		}, mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
 			AppSpecPath: appSpecPath,
-			Routes: []projectstate.AppRoute{
+			Routes: []appdefinition.AppRoute{
 				{Path: "/"},
 			},
 		})),

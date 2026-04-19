@@ -680,17 +680,19 @@ func TestDiscoveredTypesPreferPluginOwnedAppDefinitionContracts(t *testing.T) {
 		}
 	}
 
-	for _, blocked := range []reflect.Type{
-		reflect.TypeOf(projectstate.AppRoute{}),
-		reflect.TypeOf(projectstate.AppDefinition{}),
-		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationIssue{}),
-		reflect.TypeOf(projectstate.AppDefinitionCapabilities{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
+	for _, blockedName := range []string{
+		"AppRoute",
+		"AppDefinition",
+		"ReadResult",
+		"MutationResult",
+		"ValidationIssue",
+		"Capabilities",
+		"ValidationResult",
 	} {
-		if sharedTypesContain(discovered, blocked) {
-			t.Fatalf("unexpected host-owned app contract discovered: %v", blocked)
+		for _, candidate := range discovered {
+			if candidate.PkgPath() == "setta/internal/projectstate" && candidate.Name() == blockedName {
+				t.Fatalf("unexpected host-owned app contract discovered: %v", candidate)
+			}
 		}
 	}
 }

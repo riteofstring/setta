@@ -116,14 +116,6 @@ export function createAllConfigs(
 
 export type AllProjectMetadata = gt.AllProjectMetadata;
 
-type AppDefinition = gt.AppDefinition;
-
-export function createAppDefinition(
-  options: Partial<AppDefinition> = {},
-): AppDefinition {
-  return options as AppDefinition;
-}
-
 export type AssistantChatMessage = gt.AssistantChatMessage;
 
 export function createAssistantChatMessage(

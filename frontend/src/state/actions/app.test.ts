@@ -5,7 +5,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import {
-  createAppDefinition,
   createPolicy,
   createProjectConfig,
   createSingleConfig,
@@ -21,6 +20,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { createAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
 import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
 import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
