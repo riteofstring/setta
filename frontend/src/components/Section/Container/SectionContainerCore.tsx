@@ -1,4 +1,5 @@
-import { useReactFlow } from "forks/xyflow/core/store";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -161,18 +162,15 @@ function resolveSectionStyleVars(
 
 function getSectionShellStyle(
   sectionStyleVars: React.CSSProperties | undefined,
-  viewportInteractionActive: boolean,
+  canvasOwnedShell: boolean,
 ) {
-  if (!viewportInteractionActive) {
-    return sectionStyleVars;
-  }
-  return {
-    ...sectionStyleVars,
-    willChange: "transform",
-    transform: "translateZ(0)",
-    backfaceVisibility: "hidden",
-    isolation: "isolate",
-  } satisfies React.CSSProperties;
+  return canvasOwnedShell
+    ? {
+        ...sectionStyleVars,
+        backgroundColor: "transparent",
+        borderColor: "transparent",
+      }
+    : sectionStyleVars;
 }
 
 function getSectionEdgeHandleMode({
@@ -267,9 +265,10 @@ function _SectionContainerCore({
     useMetaControlStyle,
   });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedShell =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionShell(sectionId);
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
@@ -287,7 +286,7 @@ function _SectionContainerCore({
   });
   const sectionShellStyle = getSectionShellStyle(
     sectionStyleVars,
-    viewportInteractionActive,
+    canvasOwnedShell,
   );
   const edgeHandleMode = getSectionEdgeHandleMode({
     hideAgenticEdgeHandles,
@@ -297,12 +296,13 @@ function _SectionContainerCore({
 
   return (
     <section
-      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      className={`${sectionShellClassName} setta-viewport-interaction-shell ${isActiveSection ? "z-[150]" : "z-10"}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
+      data-canvas-owned-shell={canvasOwnedShell ? "true" : undefined}
       style={sectionShellStyle}
     >
       <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
