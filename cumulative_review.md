@@ -8,15 +8,15 @@
 - Still unverified: No browser verification needed for this backend-only invariant; no live plugin-backed replay was run outside package tests.
 
 ### App-Subsystem Live Capability Dispatch
-- Invariant: app-generation mode resolution, app HTTP routes, MCP tools, app publish wiring, and queued frontend app-subsystem operations must follow the current active provider without restart; `pending_restart` entries must not participate in live provider selection, and fail-closed behavior still applies when no eligible provider is active.
-- Last finding commit: e4a6499edf0ecb97318cd24505fc380b3fbf9cca
-- Proof tests: `TestNewAppGenerationModeResolverTracksCapabilityChangesAfterConstruction`, `TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch`, `TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders`, `buffers app-subsystem updates while the selected provider frontend is still importing`, `drops queued app-subsystem updates when the provider changes before the first frontend load finishes`
-- Still unverified: No successful browser verification. A CDP run was attempted via `./aireset.sh`, but the affected flow did not complete because backend POSTs in devtools Chrome failed with `net::ERR_ALPN_NEGOTIATION_FAILED`.
+- Invariant: app-generation mode resolution, app HTTP routes, MCP tools, app publish wiring, and queued frontend app-subsystem operations must follow the current active registered provider without restart; unregistered provider ids and `pending_restart` entries must fail closed, and handler-refresh failures must leave runtime capabilities, tools, and pending-restart state unchanged.
+- Last finding commit: ea9eb19552054e2bcef9626ef38c83004dda5459
+- Proof tests: `TestNewAppGenerationModeResolverTracksCapabilityChangesAfterConstruction`, `TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch`, `TestNewAppGenerationModeResolverTreatsUnavailableProviderAsNoop`, `TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider`, `TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools`, `TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders`, `TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError`, `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError`, `buffers app-subsystem updates while the selected provider frontend is still importing`, `drops queued app-subsystem updates when the provider changes before the first frontend load finishes`
+- Still unverified: No successful Playwright or CDP run covered an affected app-subsystem flow; the earlier CDP attempt failed with `net::ERR_ALPN_NEGOTIATION_FAILED`, and this iteration did not rerun browser verification because the changes stayed in backend owners/tests.
 
 ### App Deployment Packaging Self-Containment
-- Invariant: published app deployments must package the selected app-subsystem provider and enabled plugin state so app mode can boot from the deployment without manual provider seeding.
-- Last finding commit: e4a6499edf0ecb97318cd24505fc380b3fbf9cca
-- Proof tests: `TestRegisterAppDeploymentIDERoutesPublishesAppDeployment`
+- Invariant: published app deployments must package the selected app-subsystem provider plus deployment-normalized enabled/config state so app mode can boot from the deployment without manual provider seeding or missing provider config.
+- Last finding commit: ea9eb19552054e2bcef9626ef38c83004dda5459
+- Proof tests: `TestRegisterAppDeploymentIDERoutesPublishesAppDeployment`, `TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScope`
 - Still unverified: No end-to-end browser or standalone deployment startup run was completed after publish; packaging is covered by backend publish assertions only.
 
 ### Provider-Scoped App Persistence
@@ -68,3 +68,23 @@ Verification run:
 Residual risks / verification gaps:
 - No successful Playwright or CDP end-to-end run covered the affected UI flow.
 - Published deployment startup and unknown-provider authoring behavior were verified through owner tests, not an end-to-end browser or standalone runtime launch.
+
+## 2026-04-21 03:05:26 PDT
+Fixes applied:
+- Live app-subsystem provider selection now filters through the registered backend-owner set before surfacing capabilities, so unregistered provider advertisers fail closed as `invalid_provider` instead of crashing startup, MCP runtime construction, or app-mode registration.
+- Runtime refresh rollback now restores app-subsystem capability/runtime state and pending-restart plugin state when app-handler rebuild fails during either rescan or committed refresh.
+- App deployment publish now carries deployment-normalized provider plugin state from `plugins.Service`, including workspace-scoped provider config for the packaged plugin.
+Tests added or upgraded:
+- Added `TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid`, `TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScope`, `TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup`, `TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError`, and `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError`.
+- Replaced old unregistered-provider crash assertions with fail-closed coverage in `TestNewAppGenerationModeResolverTreatsUnavailableProviderAsNoop` and `TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider`, and extended `TestRegisterAppDeploymentIDERoutesPublishesAppDeployment` to assert packaged provider config.
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceRuntimeAppSubsystemCapabilities|TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScope|TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin|TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeManagedComponents'`
+- `./scripts/go.sh test ./internal/app -run 'Test(NewAppGenerationModeResolverTreatsUnavailableProviderAsNoop|NewPluginBackendMCPRuntime(SkipsUnregisteredProvider|IncludesUnknownProviderTools)|NewDeploymentTypeRegistry(RejectsUnregisteredProvider|IncludesUnknownProviderAppRegistration)|AppSubsystem(UnregisteredPluginFailsClosedWithoutCrashingStartup|UnknownIDPluginEnabledRestoresBackendRoutesAndTools)|Plugin(MutationRuntimeServiceRescanRollsBackOnHandlerRefreshError|BackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError))'`
+- `./scripts/go.sh test ./plugins/setta-json-render-app-gen/backend -run 'TestRegisterAppDeploymentIDERoutesPublishesAppDeployment'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- Browser verification: not run; no UI behavior changed in this iteration.
+- `./kill.sh` to confirm no earlier `./aireset.sh` session remained active.
+Residual risks / verification gaps:
+- No Playwright or CDP end-to-end run covered app-subsystem authoring, provider switching, or published deployment startup after these fixes.
+- Published deployment startup and unknown-provider flows remain proven through owner tests rather than browser or standalone runtime launch.
