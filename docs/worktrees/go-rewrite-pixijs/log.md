@@ -155,6 +155,33 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 051
+
+- Closed `settings-section__chatSectionDefault` as the immediate shell-ownership fallback on the current runtime and recorded the blocker in `perf/reports/frontend/2026-04-20_settings-all-settings-chat-shell-fallback-blocker-report.md`.
+- This iteration intentionally did not land a renderer diff:
+  - a local shell-ownership experiment was tried, inspected, and reverted in the same pass
+  - the final repo diff is only the new blocker report plus the refreshed handoff/history
+- Concrete blocker evidence on the canonical `settings-section__chatSectionDefault` lane:
+  - dense reruns stayed healthy with `projectChatChromeCount 0`, `documentNodeCount 5498`, `buttonCount 47`, `canvasCount 1`, `raf.meanMs 41.17ms / 45.38ms / 46.78ms`, and `longTasks.totalMs 2703ms / 3142ms / 3299ms`
+  - headless DevTools confirmed the experimental shell attrs would wire through visually on the section root and `CustomResizable`
+  - the visible `permissionMode` value still did not open inline CodeMirror
+  - the hidden `ParamInput` anchor collapsed to `width=0` and `height≈12.3`
+  - `document.elementFromPoint(...)` at that anchor center resolved to `DIV.section-args-nested...`, not the input root
+  - visible clicks also surfaced the current `POST /api/setActiveIds -> 404` runtime gap
+- Interpretation:
+  - do not spend the next pass on another `chatSectionDefault` shell-id promotion attempt by itself
+  - keep `settings-section__chatSectionDefault` only as the blocker reproduction target for the shared canvas-owned resting-text activator geometry / first-click editing handoff fix
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - result: `2 passed (73 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: dense probe passed; chat proof reproduced the blocker (`POST /api/setActiveIds -> 404`, no inline CodeMirror on the visible `permissionMode` value)
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - the graph surface was visible, the local shell attrs did wire through during the experiment, and the hidden anchor remained zero-width while the visible value still failed to open CodeMirror
+- Next frontier: land a shared canvas-owned resting-text activator geometry / first-click handoff fix before reopening `settings-section__chatSectionDefault` as a shell-owned family candidate.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 047
 
 - Landed the `SectionContainerCoreResizable` motion-body inline-style removal slice on the canonical `settings-section__browserSectionDefault` lane.
