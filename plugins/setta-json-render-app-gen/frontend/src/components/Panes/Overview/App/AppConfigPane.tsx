@@ -18,8 +18,8 @@ import {
   useAppSubsystemProjectContext,
 } from "../../../../appSubsystemFrontendHostContext";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type AppDefinition } from "../../../appSubsystemContracts";
-import { getRegisteredAppSubsystemPluginId } from "../../../appSubsystemPluginHost";
+import { type AppDefinition } from "../../../../appSubsystemContracts";
+import { getRegisteredAppSubsystemPluginId } from "../../../../appSubsystemPluginHost";
 import {
   parseDraftAppAssets,
   parseDraftAppSpec,

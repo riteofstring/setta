@@ -22,7 +22,10 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { useAppConfigs } from "../../appSubsystemProjectState";
+import {
+  useAppConfigs,
+  type AppConfigState,
+} from "../../appSubsystemProjectState";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -39,7 +42,6 @@ import {
   useImages,
   useProjectState,
   useServerMode,
-  type ZustandProjectState,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -110,7 +112,6 @@ type AppComponentProps = {
   children?: React.ReactNode;
   onAction?: (action: Action) => void;
 };
-type AppConfigState = ZustandProjectState;
 type TabChildElement = React.ReactElement<AppComponentProps>;
 type NumberishStyleKey =
   | "padding"

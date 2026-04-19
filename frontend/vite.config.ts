@@ -81,6 +81,7 @@ export default defineConfig({
       ),
       state: path.resolve(srcRoot, "state"),
       utils: path.resolve(srcRoot, "utils"),
+      zustand: path.resolve(__dirname, "node_modules/zustand"),
     },
     dedupe: [
       "@codemirror/state",
