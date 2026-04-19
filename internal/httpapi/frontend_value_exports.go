@@ -8,7 +8,6 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/scriptablechat"
 	"setta/internal/wsapi"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type FrontendEndpointOrigin string
@@ -209,10 +208,6 @@ func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 		ApprovalToolName:         externalagents.ApprovalToolName,
 		TodoWriteToolName:        externalagents.TodoWriteToolName,
 	}
-}
-
-func FrontendValueAppSpecPatchPolicyConfig() appspec.PatchPolicy {
-	return appspec.DefaultPatchPolicy()
 }
 
 func FrontendValueLocalHostnamePolicyConfig() FrontendLocalHostnamePolicy {
