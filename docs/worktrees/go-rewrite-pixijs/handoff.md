@@ -8,29 +8,81 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `033`: `row_body_lane_closed_replan_required`.
+- Decision for the 2026-04-20 checkpoint after run `034`: `observer_churn_slice_done_continue_retained_graph_attribution`.
 - Recent progress is real:
   - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
   - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior
   - run `031` refreshed the canonical dense hotspot on the current post-run-030 runtime: Playwright stayed in the same `~43ms` band (`documentNodeCount 5493`, `buttonCount 46`, `raf.meanMs 43.14`, `longTasks.totalMs 6678`), while a fresh DevTools trace saved to `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json` no longer reproduced the older `EventDispatch` / `v8.callFunction` / GC spike and only surfaced short `RunTask` activity
   - run `033` refreshed the stale row-body/article-chrome frontier on the live run-033 runtime: the rerank recorded `totalRemainingRowCount 0`, `totalRemainingVisibleElementCount 0`, and `commonRemainingKinds []` while the paired dense probe stayed in the same `~43ms` band (`documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 42.99`, `longTasks.totalMs 6094`)
+  - run `034` removed one concrete retained-canvas redraw/re-measure path on the canonical `settings-section__browserSectionDefault` lane by keeping enabled backdrop measurement observers wired through `viewportInteractionActive` instead of tearing them down and recreating them on every motion toggle
 - Diminishing returns are now visible:
   - runs `023`, `025`, `026`, `027`, `028`, and `029` all landed safe reducer work yet settled back into the same dense `~43ms` / `~5.8-6.0s` band, so the default micro-reducer lane is closed
   - run `031` closes `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport / guessed trace pass
   - run `033` closes the queued row-body/article-chrome survivor lane as stale on the current runtime, so another shell/body cleanup pass from the April 19 ranking would also be churn
+  - run `034` closes the specific backdrop observer-churn lane here; the live motion proof stayed green, but the restarted dense rerun (`raf.meanMs 44.82`, `longTasks.totalMs 6544`) did not unlock a new whole-scene win, so do not spend the next pass on more `SectionShellBackdropCanvas` observer polish by inertia
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
-  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, or another isolated shell-id promotion
+  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, or another backdrop-observer micro-pass on the same measurement families
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
   - the next real step must either:
     - attribute the remaining `~43ms` / `~6s` band to one concrete retained-graph / renderer-side path on the live canary
     - or land one broader canvas-side structural slice only if existing evidence already points to that path
-  - default retained-graph candidates are snapshot invalidation/reuse, redraw/re-measure fanout while `viewportInteractionActive`, or motion-hidden-body orchestration that still fires even with the visible row-body frontier at zero
+  - default retained-graph candidates are snapshot invalidation/reuse beyond the now-closed observer-churn path, retained-scene redraw/paint invalidation, or motion-hidden-body orchestration that still fires even with the visible row-body frontier at zero
   - treat the run-033 transparent headless canvas sample as verification ambiguity unless a more trustworthy visual path reproduces it; do not let that one sample force a rollback by itself
 
 ## Current status
+
+- The backdrop observer-suspension slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-observer-suspension-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now routes retained detail-family measurement through one shared helper that keeps enabled `ResizeObserver` / `MutationObserver` wiring stable while `viewportInteractionActive` is true
+    - measurement plans still disable inapplicable detail families entirely, but active families now suspend only the RAF measurement work during motion instead of disconnecting and rebuilding the observer graph on every interaction toggle
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now locks that suspension behavior so toggling `viewportInteractionActive` does not recreate backdrop observers for the browser retained-text lane
+  - verification environment:
+    - the current worktree runtime needed one bounded self-recovery with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, which restarted the canary on frontend `http://127.0.0.1:3069/` and backend `http://127.0.0.1:8069`
+    - `./scripts/run-playwright-against-runtime.sh` still reported `frontendUrl: null` after that restart, so the focused Playwright rerun used a fresh bootstrap token from `./scripts/dev-runtime-info.sh` with the restarted `3069/8069` runtime values instead of the stale helper output
+  - fresh dense rerun on the restarted runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `canvasCount: 1`
+    - `raf.meanMs: 44.82`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 33.4`
+    - `raf.maxMs: 1183.3`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6544`
+    - `longTasks.maxMs: 4025`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion proof on the same restarted runtime recorded:
+    - before motion: `hiddenHeaderControlsCount 0`, `hiddenBodyCount 0`, and each checked section kept `childElementCount 2` with `display: block`
+    - during one checked zoom interaction: `hiddenHeaderControlsCount 45`, `hiddenBodyCount 45`, and `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each flipped to `childElementCount 0` with `display: none`
+    - after settle: `hiddenHeaderControlsCount 0`, `hiddenBodyCount 0`, and each checked section restored `childElementCount 2` with `display: block`
+  - interpretation:
+    - this is a real retained-graph structural cleanup on the redraw/re-measure lane the handoff called out, because the enabled backdrop measurement families no longer churn observer instances at every motion toggle
+    - the live canary stayed visually intact, but the restarted dense rerun came back noisier than the current clean checkpoint, so treat this as structural closure of one concrete path rather than a new whole-scene performance checkpoint
+    - close the backdrop observer-churn lane here and move the next pass to a different retained-graph candidate instead of polishing the same `SectionShellBackdropCanvas` suspension path again
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+    - Playwright rerun on the restarted `3069/8069` runtime with a fresh bootstrap token from `./scripts/dev-runtime-info.sh`:
+      - result: `2 passed (1.6m)` for `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts` and `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent on the restarted runtime
+    - consumed a fresh bootstrap URL, normalized to `/settings` with `All Settings` active, and confirmed `browserSectionDefault`, `promptSectionDefault`, and `languageServer`
+    - the graph surface was visibly rendered with no obvious blank/transparent canvas or detached shell/body artifact
+    - expected noise: the chat window remained visible on the right during the check
 
 - The post-run-032 row-body frontier refresh slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-032-row-body-frontier-refresh-report.md`.
   - canonical target section: `settings-section__browserSectionDefault`

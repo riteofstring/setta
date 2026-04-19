@@ -5680,3 +5680,16 @@ LOOP_TERMINAL_MARKER: none
   - notable noise: the minimized chat window remained docked at the bottom and DevTools emitted heavy live-region/status chatter
 - Next frontier: stop for a real replan to choose the next broader renderer-side structural or hotspot-investigation slice; do not keep iterating automatically on the stale row-body/article-chrome lane.
 LOOP_TERMINAL_MARKER: replan_required
+
+## 2026-04-20 run 034
+
+- Landed the backdrop observer-suspension slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now keeps enabled retained-detail measurement observers wired through `viewportInteractionActive` and suspends only the RAF measurement work during motion, while `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now locks that observer-stability behavior for the browser retained-text lane.
+- Verification:
+  - eslint passed for `SectionShellBackdropCanvas.tsx` and `SectionShellBackdropCanvas.test.tsx`
+  - `vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` still hit the pre-existing repo `html-encoding-sniffer` ESM failure before collection
+  - the current worktree runtime needed one bounded self-recovery with headless `./aireset.sh`; after restart the helper still reported `frontendUrl: null`, so the focused Playwright rerun used a fresh bootstrap token from `./scripts/dev-runtime-info.sh` against the restarted `3069/8069` runtime
+  - Playwright `settings-all-settings-resting-text-motion-body-overlay.spec.ts` plus `settings-all-settings-motion-aware-dense.spec.ts` passed with dense metrics `documentNodeCount 5494`, `raf.meanMs 44.82`, `raf.p95Ms 33.4`, `longTasks.totalMs 6544`, and `motionHiddenBodies.peakHiddenBodyCount 45`
+- CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL; `/settings` mounted with `All Settings` active, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on a rendered graph surface, and there was no obvious blank/transparent canvas or detached shell/body artifact.
+- Next frontier: close the backdrop observer-churn lane here and move to a different retained-graph candidate such as retained-scene paint invalidation, snapshot invalidation/reuse beyond observer lifecycle, or motion-hidden-body orchestration that still fires even with the visible row-body frontier already at zero.
+LOOP_TERMINAL_MARKER: none

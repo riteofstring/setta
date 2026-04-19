@@ -945,618 +945,373 @@ function measureCanvasOwnedRestingTextLines(
   );
 }
 
-function useCanvasOwnedSwitchTrackBoxes(
-  sectionId: string,
-  layoutRefreshKey: string,
-  viewportScale: number,
-  suspendMeasurements: boolean,
-) {
-  const [switchTrackBoxes, setSwitchTrackBoxes] = useState<
-    Array<CanvasOwnedSwitchTrackBox>
-  >([]);
+type CanvasOwnedMeasuredArrayHookOptions<T extends Array<unknown>> = {
+  areEqual: (left: T, right: T) => boolean;
+  createEmptyValue: () => T;
+  getObservedElements?: (section: HTMLElement) => Iterable<HTMLElement>;
+  layoutRefreshKey: string;
+  measure: () => T;
+  measurementsEnabled: boolean;
+  mutationObserverInit: MutationObserverInit;
+  sectionId: string;
+  suspendMeasurements: boolean;
+};
+
+function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
+  areEqual,
+  createEmptyValue,
+  getObservedElements = () => [],
+  layoutRefreshKey,
+  measure,
+  measurementsEnabled,
+  mutationObserverInit,
+  sectionId,
+  suspendMeasurements,
+}: CanvasOwnedMeasuredArrayHookOptions<T>) {
+  const [measuredValue, setMeasuredValue] = useState<T>(() =>
+    createEmptyValue(),
+  );
+  const animationFrameIdRef = useRef(0);
+  const areEqualRef = useRef(areEqual);
+  const createEmptyValueRef = useRef(createEmptyValue);
+  const getObservedElementsRef = useRef(getObservedElements);
+  const measureRef = useRef(measure);
+  const mutationObserverInitRef = useRef(mutationObserverInit);
+  const pendingMeasurementRef = useRef(false);
+  const scheduleMeasurementRef = useRef<(() => void) | null>(null);
+  const suspendMeasurementsRef = useRef(suspendMeasurements);
+
+  areEqualRef.current = areEqual;
+  createEmptyValueRef.current = createEmptyValue;
+  getObservedElementsRef.current = getObservedElements;
+  measureRef.current = measure;
+  mutationObserverInitRef.current = mutationObserverInit;
+
+  useLayoutEffect(() => {
+    suspendMeasurementsRef.current = suspendMeasurements;
+    if (!measurementsEnabled) {
+      pendingMeasurementRef.current = false;
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = 0;
+      }
+      return;
+    }
+
+    if (suspendMeasurements) {
+      pendingMeasurementRef.current = true;
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = 0;
+      }
+      return;
+    }
+
+    if (pendingMeasurementRef.current) {
+      pendingMeasurementRef.current = false;
+      scheduleMeasurementRef.current?.();
+    }
+  }, [measurementsEnabled, suspendMeasurements]);
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
     }
-    if (suspendMeasurements) {
+
+    if (!measurementsEnabled) {
+      setMeasuredValue((previousValue) =>
+        previousValue.length === 0 ? previousValue : createEmptyValueRef.current(),
+      );
+      scheduleMeasurementRef.current = null;
+      pendingMeasurementRef.current = false;
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = 0;
+      }
       return;
     }
 
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
+    const clearScheduledMeasurement = () => {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = 0;
+      }
+    };
+
+    const runMeasure = () => {
+      animationFrameIdRef.current = 0;
+      if (suspendMeasurementsRef.current) {
+        pendingMeasurementRef.current = true;
+        return;
+      }
+
+      const nextValue = measureRef.current();
+      pendingMeasurementRef.current = false;
+      setMeasuredValue((previousValue) =>
+        areEqualRef.current(previousValue, nextValue)
+          ? previousValue
+          : nextValue,
+      );
+    };
+
+    const scheduleMeasure = () => {
+      clearScheduledMeasurement();
+      if (suspendMeasurementsRef.current) {
+        pendingMeasurementRef.current = true;
+        return;
+      }
+      animationFrameIdRef.current = requestAnimationFrame(runMeasure);
+    };
+
+    scheduleMeasurementRef.current = scheduleMeasure;
+
     const section = document.querySelector<HTMLElement>(
       `section[data-section-id="${sectionId}"]`,
     );
-
-    const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedSwitchTrackBoxes(
-        sectionId,
-        viewportScale,
-      );
-      setSwitchTrackBoxes((previousBoxes) =>
-        areSwitchTrackBoxesEqual(previousBoxes, nextBoxes)
-          ? previousBoxes
-          : nextBoxes,
-      );
-    };
-
     if (!(section instanceof HTMLElement)) {
-      setSwitchTrackBoxes((previousBoxes) =>
-        previousBoxes.length === 0 ? previousBoxes : [],
+      setMeasuredValue((previousValue) =>
+        previousValue.length === 0 ? previousValue : createEmptyValueRef.current(),
       );
-      return;
+      return () => {
+        if (scheduleMeasurementRef.current === scheduleMeasure) {
+          scheduleMeasurementRef.current = null;
+        }
+        clearScheduledMeasurement();
+      };
     }
 
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredBoxes);
-    };
-
+    let resizeObserver: ResizeObserver | null = null;
     const observeMeasuredElements = () => {
       resizeObserver?.disconnect();
       resizeObserver = new ResizeObserver(scheduleMeasure);
       resizeObserver.observe(section);
-      for (const switchRoot of section.querySelectorAll<HTMLElement>(
-        `[${SWITCH_TRACK_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(switchRoot);
+      for (const measuredElement of getObservedElementsRef.current(section)) {
+        resizeObserver.observe(measuredElement);
       }
     };
 
     observeMeasuredElements();
-    scheduleMeasure();
+    if (suspendMeasurementsRef.current) {
+      pendingMeasurementRef.current = true;
+    } else {
+      scheduleMeasure();
+    }
 
     const mutationObserver = new MutationObserver(() => {
       observeMeasuredElements();
       scheduleMeasure();
     });
-    mutationObserver.observe(section, {
+    mutationObserver.observe(section, mutationObserverInitRef.current);
+
+    return () => {
+      if (scheduleMeasurementRef.current === scheduleMeasure) {
+        scheduleMeasurementRef.current = null;
+      }
+      clearScheduledMeasurement();
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, measurementsEnabled, sectionId]);
+
+  return measuredValue;
+}
+
+function useCanvasOwnedSwitchTrackBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+  viewportScale: number,
+  measurementsEnabled: boolean,
+  suspendMeasurements: boolean,
+) {
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areSwitchTrackBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(`[${SWITCH_TRACK_ATTRIBUTE}="true"]`),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedSwitchTrackBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["aria-checked", "class", "data-state", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
-
-  return switchTrackBoxes;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 function useCanvasOwnedSwitchThumbBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  measurementsEnabled: boolean,
   suspendMeasurements: boolean,
 ) {
-  const [switchThumbBoxes, setSwitchThumbBoxes] = useState<
-    Array<CanvasOwnedSwitchThumbBox>
-  >([]);
-
-  useLayoutEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
-      return;
-    }
-    if (suspendMeasurements) {
-      return;
-    }
-
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-
-    const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedSwitchThumbBoxes(
-        sectionId,
-        viewportScale,
-      );
-      setSwitchThumbBoxes((previousBoxes) =>
-        areSwitchThumbBoxesEqual(previousBoxes, nextBoxes)
-          ? previousBoxes
-          : nextBoxes,
-      );
-    };
-
-    if (!(section instanceof HTMLElement)) {
-      setSwitchThumbBoxes((previousBoxes) =>
-        previousBoxes.length === 0 ? previousBoxes : [],
-      );
-      return;
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredBoxes);
-    };
-
-    const observeMeasuredElements = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(scheduleMeasure);
-      resizeObserver.observe(section);
-      for (const switchThumb of section.querySelectorAll<HTMLElement>(
-        `[${SWITCH_THUMB_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(switchThumb);
-      }
-    };
-
-    observeMeasuredElements();
-    scheduleMeasure();
-
-    const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
-      scheduleMeasure();
-    });
-    mutationObserver.observe(section, {
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areSwitchThumbBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(`[${SWITCH_THUMB_ATTRIBUTE}="true"]`),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedSwitchThumbBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["aria-checked", "class", "data-state", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements, viewportScale]);
-
-  return switchThumbBoxes;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 function useCanvasOwnedUnderlineBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  measurementsEnabled: boolean,
   suspendMeasurements: boolean,
 ) {
-  const [underlineBoxes, setUnderlineBoxes] = useState<
-    Array<CanvasOwnedUnderlineBox>
-  >([]);
-
-  useLayoutEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
-      return;
-    }
-    if (suspendMeasurements) {
-      return;
-    }
-
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-
-    const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedUnderlineBoxes(
-        sectionId,
-        viewportScale,
-      );
-      setUnderlineBoxes((previousBoxes) =>
-        areCanvasOwnedUnderlineBoxesEqual(previousBoxes, nextBoxes)
-          ? previousBoxes
-          : nextBoxes,
-      );
-    };
-
-    if (!(section instanceof HTMLElement)) {
-      setUnderlineBoxes((previousBoxes) =>
-        previousBoxes.length === 0 ? previousBoxes : [],
-      );
-      return;
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredBoxes);
-    };
-
-    const observeMeasuredElements = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(scheduleMeasure);
-      resizeObserver.observe(section);
-      for (const underlineElement of section.querySelectorAll<HTMLElement>(
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areCanvasOwnedUnderlineBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(
         `[${CANVAS_OWNED_UNDERLINE_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(underlineElement);
-      }
-    };
-
-    observeMeasuredElements();
-    scheduleMeasure();
-
-    const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
-      scheduleMeasure();
-    });
-    mutationObserver.observe(section, {
+      ),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedUnderlineBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["class", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
-
-  return underlineBoxes;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 function useCanvasOwnedRestingDropdownBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  measurementsEnabled: boolean,
   suspendMeasurements: boolean,
 ) {
-  const [restingDropdownBoxes, setRestingDropdownBoxes] = useState<
-    Array<CanvasOwnedRestingDropdownBox>
-  >([]);
-
-  useLayoutEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
-      return;
-    }
-    if (suspendMeasurements) {
-      return;
-    }
-
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-
-    const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedRestingDropdownBoxes(
-        sectionId,
-        viewportScale,
-      );
-      setRestingDropdownBoxes((previousBoxes) =>
-        areCanvasOwnedRestingDropdownBoxesEqual(previousBoxes, nextBoxes)
-          ? previousBoxes
-          : nextBoxes,
-      );
-    };
-
-    if (!(section instanceof HTMLElement)) {
-      setRestingDropdownBoxes((previousBoxes) =>
-        previousBoxes.length === 0 ? previousBoxes : [],
-      );
-      return;
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredBoxes);
-    };
-
-    const observeMeasuredElements = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(scheduleMeasure);
-      resizeObserver.observe(section);
-      for (const dropdownBox of section.querySelectorAll<HTMLElement>(
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areCanvasOwnedRestingDropdownBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(
         `[${CANVAS_OWNED_RESTING_DROPDOWN_BOX_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(dropdownBox);
-      }
-    };
-
-    observeMeasuredElements();
-    scheduleMeasure();
-
-    const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
-      scheduleMeasure();
-    });
-    mutationObserver.observe(section, {
+      ),
+    layoutRefreshKey,
+    measure: () =>
+      measureCanvasOwnedRestingDropdownBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["class", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
-
-  return restingDropdownBoxes;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 function useCanvasOwnedNestedGuideBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  measurementsEnabled: boolean,
   suspendMeasurements: boolean,
 ) {
-  const [nestedGuideBoxes, setNestedGuideBoxes] = useState<
-    Array<CanvasOwnedNestedGuideBox>
-  >([]);
-
-  useLayoutEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
-      return;
-    }
-    if (suspendMeasurements) {
-      return;
-    }
-
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-
-    const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedNestedGuideBoxes(
-        sectionId,
-        viewportScale,
-      );
-      setNestedGuideBoxes((previousBoxes) =>
-        areCanvasOwnedNestedGuideBoxesEqual(previousBoxes, nextBoxes)
-          ? previousBoxes
-          : nextBoxes,
-      );
-    };
-
-    if (!(section instanceof HTMLElement)) {
-      setNestedGuideBoxes((previousBoxes) =>
-        previousBoxes.length === 0 ? previousBoxes : [],
-      );
-      return;
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredBoxes);
-    };
-
-    const observeMeasuredElements = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(scheduleMeasure);
-      resizeObserver.observe(section);
-      for (const guideElement of section.querySelectorAll<HTMLElement>(
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areCanvasOwnedNestedGuideBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(
         `[${CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(guideElement);
-      }
-    };
-
-    observeMeasuredElements();
-    scheduleMeasure();
-
-    const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
-      scheduleMeasure();
-    });
-    mutationObserver.observe(section, {
+      ),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedNestedGuideBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["class", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
-
-  return nestedGuideBoxes;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 function useCanvasOwnedFilterIconBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  measurementsEnabled: boolean,
   suspendMeasurements: boolean,
 ) {
-  const [filterIconBoxes, setFilterIconBoxes] = useState<
-    Array<CanvasOwnedFilterIconBox>
-  >([]);
-
-  useLayoutEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
-      return;
-    }
-    if (suspendMeasurements) {
-      return;
-    }
-
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-
-    const updateMeasuredBoxes = () => {
-      const nextBoxes = measureCanvasOwnedFilterIconBoxes(
-        sectionId,
-        viewportScale,
-      );
-      setFilterIconBoxes((previousBoxes) =>
-        areCanvasOwnedFilterIconBoxesEqual(previousBoxes, nextBoxes)
-          ? previousBoxes
-          : nextBoxes,
-      );
-    };
-
-    if (!(section instanceof HTMLElement)) {
-      setFilterIconBoxes((previousBoxes) =>
-        previousBoxes.length === 0 ? previousBoxes : [],
-      );
-      return;
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredBoxes);
-    };
-
-    const observeMeasuredElements = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(scheduleMeasure);
-      resizeObserver.observe(section);
-      for (const iconElement of section.querySelectorAll<HTMLElement>(
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areCanvasOwnedFilterIconBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(
         `[${CANVAS_OWNED_FILTER_ICON_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(iconElement);
-      }
-    };
-
-    observeMeasuredElements();
-    scheduleMeasure();
-
-    const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
-      scheduleMeasure();
-    });
-    mutationObserver.observe(section, {
+      ),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedFilterIconBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["class", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
-
-  return filterIconBoxes;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 function useCanvasOwnedRestingTextLines(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  measurementsEnabled: boolean,
   suspendMeasurements: boolean,
 ) {
-  const [restingTextLines, setRestingTextLines] = useState<
-    Array<CanvasOwnedRestingTextLine>
-  >([]);
-
-  useLayoutEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
-      return;
-    }
-    if (suspendMeasurements) {
-      return;
-    }
-
-    let frameId = 0;
-    let resizeObserver: ResizeObserver | null = null;
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-
-    const updateMeasuredLines = () => {
-      const nextLines = measureCanvasOwnedRestingTextLines(
-        sectionId,
-        viewportScale,
-      );
-      setRestingTextLines((previousLines) =>
-        areCanvasOwnedRestingTextLinesEqual(previousLines, nextLines)
-          ? previousLines
-          : nextLines,
-      );
-    };
-
-    if (!(section instanceof HTMLElement)) {
-      setRestingTextLines((previousLines) =>
-        previousLines.length === 0 ? previousLines : [],
-      );
-      return;
-    }
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredLines);
-    };
-
-    const observeMeasuredElements = () => {
-      resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(scheduleMeasure);
-      resizeObserver.observe(section);
-      for (const textRoot of section.querySelectorAll<HTMLElement>(
-        `[${CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE}="true"]`,
-      )) {
-        resizeObserver.observe(textRoot);
-        for (const lineElement of textRoot.querySelectorAll<HTMLElement>(
-          ".cm-line",
-        )) {
-          resizeObserver.observe(lineElement);
-        }
-      }
-    };
-
-    observeMeasuredElements();
-    scheduleMeasure();
-
-    const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
-      scheduleMeasure();
-    });
-    mutationObserver.observe(section, {
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areCanvasOwnedRestingTextLinesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      Array.from(
+        section.querySelectorAll<HTMLElement>(
+          `[${CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE}="true"]`,
+        ),
+      ).flatMap((textRoot) => [
+        textRoot,
+        ...Array.from(textRoot.querySelectorAll<HTMLElement>(".cm-line")),
+      ]),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedRestingTextLines(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
       attributeFilter: ["class", "style"],
       attributes: true,
       childList: true,
       subtree: true,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      mutationObserver.disconnect();
-      resizeObserver?.disconnect();
-    };
-  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
-
-  return restingTextLines;
+    },
+    sectionId,
+    suspendMeasurements,
+  });
 }
 
 export function useBackdropMeasurementViewportScale(
@@ -1659,43 +1414,50 @@ function useCanvasOwnedSectionBackdropMeasurements({
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresSwitchBoxes,
+    measurementPlan.measuresSwitchBoxes,
+    viewportInteractionActive,
   );
   const switchThumbBoxes = useCanvasOwnedSwitchThumbBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresSwitchBoxes,
+    measurementPlan.measuresSwitchBoxes,
+    viewportInteractionActive,
   );
   const underlineBoxes = useCanvasOwnedUnderlineBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresUnderlineBoxes,
+    measurementPlan.measuresUnderlineBoxes,
+    viewportInteractionActive,
   );
   const restingDropdownBoxes = useCanvasOwnedRestingDropdownBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresRestingDropdownBoxes,
+    measurementPlan.measuresRestingDropdownBoxes,
+    viewportInteractionActive,
   );
   const filterIconBoxes = useCanvasOwnedFilterIconBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresFilterIconBoxes,
+    measurementPlan.measuresFilterIconBoxes,
+    viewportInteractionActive,
   );
   const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresNestedGuideBoxes,
+    measurementPlan.measuresNestedGuideBoxes,
+    viewportInteractionActive,
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive || !measurementPlan.measuresRestingTextLines,
+    measurementPlan.measuresRestingTextLines,
+    viewportInteractionActive,
   );
 
   return useMemo(
