@@ -1544,11 +1544,13 @@ ROOT_DIR="{main_worktree}"
 
 python3 -m http.server {frontend_port} --bind 127.0.0.1 >/dev/null 2>&1 &
 DEV_PID="$!"
+printf '%s\\n' "$$" > "${{ROOT_DIR}}/.fake-ai.pid"
 printf '%s\\n' "${{DEV_PID}}" > "${{ROOT_DIR}}/.fake-dev.pid"
 
 cleanup() {{
   kill "${{DEV_PID}}" 2>/dev/null || true
   wait "${{DEV_PID}}" 2>/dev/null || true
+  rm -f "${{ROOT_DIR}}/.fake-ai.pid"
   rm -f "${{ROOT_DIR}}/.fake-dev.pid"
 }}
 trap cleanup EXIT INT TERM
@@ -1565,9 +1567,17 @@ exit 0
 set -euo pipefail
 ROOT_DIR="{main_worktree}"
 
-if [[ -f "${{ROOT_DIR}}/.fake-dev.pid" ]]; then
+ai_pid=""
+if [[ -f "${{ROOT_DIR}}/.fake-ai.pid" ]]; then
+  ai_pid="$(cat "${{ROOT_DIR}}/.fake-ai.pid")"
+  kill "${{ai_pid}}" 2>/dev/null || true
+  sleep 0.1
+  kill -KILL "${{ai_pid}}" 2>/dev/null || true
+fi
+if [[ -f "${{ROOT_DIR}}/.fake-ai.pid" ]]; then
   kill "$(cat "${{ROOT_DIR}}/.fake-dev.pid")" 2>/dev/null || true
 fi
+rm -f "${{ROOT_DIR}}/.fake-ai.pid"
 rm -f "${{ROOT_DIR}}/.fake-dev.pid"
 """,
     )
@@ -1673,3 +1683,438 @@ EOF
     assert "status=success" in second_status
     assert "loop_status=TASK_DONE" in second_status
     assert calls_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_run_codex_loop_runs_progress_review_before_iteration_cleanup(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    main_worktree = tmp_path / "main-worktree"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    config_file = tmp_path / "RALPH.md"
+    plan_file = tmp_path / "plan.md"
+    handoff_file = tmp_path / "handoff.md"
+    history_file = tmp_path / "history.md"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "codex-calls.txt"
+    frontend_port = _free_tcp_port()
+
+    workdir.mkdir()
+    main_worktree.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+    plan_file.write_text("plan\n", encoding="utf-8")
+    handoff_file.write_text("handoff\n", encoding="utf-8")
+    history_file.write_text("history\n", encoding="utf-8")
+    config_file.write_text(
+        f"""---
+plan_path: {plan_file}
+handoff_path: {handoff_file}
+history_path: {history_file}
+prompt_file: {prompt_file}
+workdir: {workdir}
+main_worktree_root: {main_worktree}
+main_lifecycle: ai
+progress_review_every: 1
+terminal_mode: background
+repo_adapter: generic
+---
+test loop config
+""",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        main_worktree / "ai.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+
+python3 -m http.server {frontend_port} --bind 127.0.0.1 >/dev/null 2>&1 &
+DEV_PID="$!"
+printf '%s\\n' "$$" > "${{ROOT_DIR}}/.fake-ai.pid"
+printf '%s\\n' "${{DEV_PID}}" > "${{ROOT_DIR}}/.fake-dev.pid"
+
+cleanup() {{
+  kill "${{DEV_PID}}" 2>/dev/null || true
+  wait "${{DEV_PID}}" 2>/dev/null || true
+  rm -f "${{ROOT_DIR}}/.fake-ai.pid"
+  rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+}}
+trap cleanup EXIT INT TERM
+
+echo "[0]   VITE v6.4.2  ready in 10 ms"
+echo "[0]   ➜  Local:   http://127.0.0.1:{frontend_port}/"
+
+while true; do
+  sleep 1
+done
+""",
+    )
+    _write_executable(
+        main_worktree / "kill.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+
+ai_pid=""
+if [[ -f "${{ROOT_DIR}}/.fake-ai.pid" ]]; then
+  ai_pid="$(cat "${{ROOT_DIR}}/.fake-ai.pid")"
+  kill "${{ai_pid}}" 2>/dev/null || true
+  sleep 0.1
+  kill -KILL "${{ai_pid}}" 2>/dev/null || true
+fi
+if [[ -f "${{ROOT_DIR}}/.fake-dev.pid" ]]; then
+  kill "$(cat "${{ROOT_DIR}}/.fake-dev.pid")" 2>/dev/null || true
+fi
+rm -f "${{ROOT_DIR}}/.fake-ai.pid"
+rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+""",
+    )
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="{calls_file}"
+count="0"
+if [[ -f "${{calls_file}}" ]]; then
+  count="$(cat "${{calls_file}}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "${{calls_file}}"
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+if [[ "${{count}}" == "1" ]]; then
+  printf 'updated handoff\\n' > "{handoff_file}"
+  cat >> "{history_file}" <<'EOF'
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: first pass
+LOOP_NEXT_ACTION: run progress review
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+
+  if [[ -n "${{response_file}}" ]]; then
+    cat > "${{response_file}}" <<'EOF'
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: first pass
+LOOP_NEXT_ACTION: run progress review
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+  fi
+  cat <<'EOF'
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: first pass
+LOOP_NEXT_ACTION: run progress review
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+  exit 0
+fi
+
+sleep 2
+if [[ -n "${{response_file}}" ]]; then
+  cat > "${{response_file}}" <<'EOF'
+PROGRESS_REVIEW_DECISION: continue
+PROGRESS_REVIEW_SUMMARY: trajectory still looks worthwhile
+PROGRESS_REVIEW_NEXT_ACTION: keep going
+EOF
+fi
+cat <<'EOF'
+PROGRESS_REVIEW_DECISION: continue
+PROGRESS_REVIEW_SUMMARY: trajectory still looks worthwhile
+PROGRESS_REVIEW_NEXT_ACTION: keep going
+EOF
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--config-file",
+            str(config_file),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--codex-inactivity-timeout-seconds",
+            "6",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    first_status = _read_status_map(output_dir / "run-001" / "status.txt")
+    assert first_status["status"] == "success"
+    review_status = _read_status_map(output_dir / "progress-review-001" / "status.txt")
+    assert review_status["status"] == "success"
+    assert "Progress review continue: trajectory still looks worthwhile" in result.stdout
+    assert calls_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_run_codex_loop_continues_after_main_runtime_exits_during_progress_review(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    main_worktree = tmp_path / "main-worktree"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    config_file = tmp_path / "RALPH.md"
+    plan_file = tmp_path / "plan.md"
+    handoff_file = tmp_path / "handoff.md"
+    history_file = tmp_path / "history.md"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "codex-calls.txt"
+    main_calls_file = tmp_path / "main-calls.txt"
+    frontend_port = _free_tcp_port()
+
+    workdir.mkdir()
+    main_worktree.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+    plan_file.write_text("plan\n", encoding="utf-8")
+    handoff_file.write_text("handoff\n", encoding="utf-8")
+    history_file.write_text("history\n", encoding="utf-8")
+    config_file.write_text(
+        f"""---
+plan_path: {plan_file}
+handoff_path: {handoff_file}
+history_path: {history_file}
+prompt_file: {prompt_file}
+workdir: {workdir}
+main_worktree_root: {main_worktree}
+main_lifecycle: ai
+progress_review_every: 1
+terminal_mode: background
+repo_adapter: generic
+---
+test loop config
+""",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        main_worktree / "ai.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+CALLS_FILE="{main_calls_file}"
+
+count="0"
+if [[ -f "${{CALLS_FILE}}" ]]; then
+  count="$(cat "${{CALLS_FILE}}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "${{CALLS_FILE}}"
+
+python3 -m http.server {frontend_port} --bind 127.0.0.1 >/dev/null 2>&1 &
+DEV_PID="$!"
+printf '%s\\n' "$$" > "${{ROOT_DIR}}/.fake-ai.pid"
+printf '%s\\n' "${{DEV_PID}}" > "${{ROOT_DIR}}/.fake-dev.pid"
+
+cleanup() {{
+  kill "${{DEV_PID}}" 2>/dev/null || true
+  wait "${{DEV_PID}}" 2>/dev/null || true
+  rm -f "${{ROOT_DIR}}/.fake-ai.pid"
+  rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+}}
+trap cleanup EXIT INT TERM
+
+echo "[0]   VITE v6.4.2  ready in 10 ms"
+echo "[0]   ➜  Local:   http://127.0.0.1:{frontend_port}/"
+
+if [[ "${{count}}" == "1" ]]; then
+  sleep 6
+  exit 0
+fi
+
+while true; do
+  sleep 1
+done
+""",
+    )
+    _write_executable(
+        main_worktree / "kill.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+
+ai_pid=""
+if [[ -f "${{ROOT_DIR}}/.fake-ai.pid" ]]; then
+  ai_pid="$(cat "${{ROOT_DIR}}/.fake-ai.pid")"
+  kill "${{ai_pid}}" 2>/dev/null || true
+  sleep 0.1
+  kill -KILL "${{ai_pid}}" 2>/dev/null || true
+fi
+if [[ -f "${{ROOT_DIR}}/.fake-dev.pid" ]]; then
+  kill "$(cat "${{ROOT_DIR}}/.fake-dev.pid")" 2>/dev/null || true
+fi
+rm -f "${{ROOT_DIR}}/.fake-ai.pid"
+rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+""",
+    )
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="{calls_file}"
+count="0"
+if [[ -f "${{calls_file}}" ]]; then
+  count="$(cat "${{calls_file}}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "${{calls_file}}"
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+if [[ "${{count}}" == "1" ]]; then
+  printf 'updated handoff\\n' > "{handoff_file}"
+  cat >> "{history_file}" <<'EOF'
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: first pass
+LOOP_NEXT_ACTION: retry after review watchdog
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+
+  if [[ -n "${{response_file}}" ]]; then
+    cat > "${{response_file}}" <<'EOF'
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: first pass
+LOOP_NEXT_ACTION: retry after review watchdog
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+  fi
+  cat <<'EOF'
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: first pass
+LOOP_NEXT_ACTION: retry after review watchdog
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+  exit 0
+fi
+
+if [[ "${{count}}" == "2" ]]; then
+  sleep 4
+  exit 0
+fi
+
+printf 'updated handoff again\\n' > "{handoff_file}"
+cat >> "{history_file}" <<'EOF'
+LOOP_STATUS: TASK_DONE
+LOOP_SUMMARY: second pass
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: task_done
+EOF
+
+if [[ -n "${{response_file}}" ]]; then
+  cat > "${{response_file}}" <<'EOF'
+LOOP_STATUS: TASK_DONE
+LOOP_SUMMARY: second pass
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: task_done
+EOF
+fi
+cat <<'EOF'
+LOOP_STATUS: TASK_DONE
+LOOP_SUMMARY: second pass
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: task_done
+EOF
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--config-file",
+            str(config_file),
+            "--iterations",
+            "2",
+            "--output-dir",
+            str(output_dir),
+            "--codex-inactivity-timeout-seconds",
+            "6",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    first_status = _read_status_map(output_dir / "run-001" / "status.txt")
+    assert first_status["status"] == "success"
+    review_status = _read_status_map(output_dir / "progress-review-001" / "status.txt")
+    assert review_status["status"] == "runtime-lifecycle-failure"
+    assert (
+        "Progress review interrupted because main runtime failed. "
+        "Continuing with a fresh bootstrap."
+    ) in result.stderr
+    second_status = _read_status_map(output_dir / "run-002" / "status.txt")
+    assert second_status["status"] == "success"
+    assert second_status["loop_status"] == "TASK_DONE"
+    assert calls_file.read_text(encoding="utf-8").strip() == "3"
+    assert main_calls_file.read_text(encoding="utf-8").strip() == "2"

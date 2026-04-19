@@ -2442,6 +2442,15 @@ run_progress_review() {
     set -e
   fi
 
+  if [[ "${review_exit_code}" -eq 125 ]] && [[ "${CODEX_RUNTIME_WATCHDOG_FAILED}" == "1" ]]; then
+    write_status_file "${review_status_file}" \
+      "status=runtime-lifecycle-failure" \
+      "exit_code=${review_exit_code}" \
+      "target=${CODEX_RUNTIME_WATCHDOG_TARGET}" \
+      "reason=${CODEX_RUNTIME_WATCHDOG_REASON}"
+    return 125
+  fi
+
   if [[ "${review_exit_code}" -ne 0 ]]; then
     write_status_file "${review_status_file}" \
       "status=failure" \
@@ -2507,6 +2516,62 @@ run_progress_review() {
 
   if [[ "${PROGRESS_REVIEW_DECISION}" == "stop" ]]; then
     return 2
+  fi
+
+  return 0
+}
+
+progress_review_due() {
+  local continue_flag="$1"
+  local skip_flag="$2"
+  local successful_count="$3"
+
+  [[ "${continue_flag}" == "1" ]] || return 1
+  [[ "${skip_flag}" != "1" ]] || return 1
+  [[ "${progress_review_every}" -gt 0 ]] || return 1
+  [[ $((successful_count % progress_review_every)) -eq 0 ]] || return 1
+}
+
+run_due_progress_review() {
+  local current_iteration="$1"
+  local current_iterations="$2"
+  local successful_count="$3"
+  local progress_review_dir=""
+  local progress_review_exit_code="0"
+
+  if ! progress_review_due "${continue_loop_after_iteration}" "${skip_progress_review}" "${successful_count}"; then
+    return 0
+  fi
+
+  progress_review_count="$((progress_review_count + 1))"
+  progress_review_dir="$(printf '%s/progress-review-%03d' "${output_dir}" "${progress_review_count}")"
+  echo "[${current_iteration}/${current_iterations}] Running progress review after ${successful_count} successful iterations."
+
+  run_progress_review "${progress_review_dir}" "${current_iteration}" "${successful_count}" "${progress_review_every}"
+  progress_review_exit_code="$?"
+
+  if [[ "${progress_review_exit_code}" -eq 125 ]]; then
+    echo "[${current_iteration}/${current_iterations}] Progress review interrupted because ${CODEX_RUNTIME_WATCHDOG_TARGET} runtime failed. Continuing with a fresh bootstrap." >&2
+    cleanup_completed_iteration
+    return 125
+  fi
+
+  if [[ "${progress_review_exit_code}" -eq 1 ]]; then
+    cleanup_completed_iteration
+    echo "[${current_iteration}/${current_iterations}] Progress review failed; refusing to continue blindly." >&2
+    return 1
+  fi
+
+  echo "[${current_iteration}/${current_iterations}] Progress review ${PROGRESS_REVIEW_DECISION}: ${PROGRESS_REVIEW_SUMMARY}"
+
+  if [[ "${progress_review_exit_code}" -eq 2 ]]; then
+    stop_message="[${current_iteration}/${current_iterations}] Progress review stopped the loop. ${PROGRESS_REVIEW_NEXT_ACTION}"
+    continue_loop_after_iteration="0"
+    return 2
+  fi
+
+  if [[ "${PROGRESS_REVIEW_DECISION}" == "replan_and_continue" ]]; then
+    echo "[${current_iteration}/${current_iterations}] Progress review updated the durable plan and will continue. ${PROGRESS_REVIEW_NEXT_ACTION}"
   fi
 
   return 0
@@ -3788,11 +3853,11 @@ for ((iteration = 1; ; iteration += 1)); do
   fi
 
   successful_iteration_count="$((successful_iteration_count + 1))"
-  cleanup_completed_iteration
 
   continue_loop_after_iteration="0"
   continue_message=""
   stop_message=""
+  skip_progress_review="0"
 
   if [[ "${loop_status}" == "TASK_DONE" ]]; then
     stop_message="[$iteration/$iterations] Task complete. Stop here and start the next fresh conversation from the updated docs."
@@ -3813,38 +3878,25 @@ for ((iteration = 1; ; iteration += 1)); do
   fi
 
   if [[ "${continue_loop_after_iteration}" == "1" ]] && stop_after_iteration_requested; then
-    echo "[$iteration/$iterations] Stop requested. Current iteration completed; exiting before the next iteration."
-    break
+    stop_message="[$iteration/$iterations] Stop requested. Current iteration completed; exiting before the next iteration."
+    continue_loop_after_iteration="0"
+    skip_progress_review="1"
   fi
 
-  if [[ "${continue_loop_after_iteration}" == "1" ]] \
-    && [[ "${progress_review_every}" -gt 0 ]] \
-    && [[ $((successful_iteration_count % progress_review_every)) -eq 0 ]]; then
-    progress_review_count="$((progress_review_count + 1))"
-    progress_review_dir="$(printf '%s/progress-review-%03d' "${output_dir}" "${progress_review_count}")"
-    echo "[$iteration/$iterations] Running progress review after ${successful_iteration_count} successful iterations."
+  set +e
+  run_due_progress_review "${iteration}" "${iterations}" "${successful_iteration_count}"
+  progress_review_exit_code="$?"
+  set -e
 
-    set +e
-    run_progress_review "${progress_review_dir}" "${iteration}" "${successful_iteration_count}" "${progress_review_every}"
-    progress_review_exit_code="$?"
-    set -e
-
-    if [[ "${progress_review_exit_code}" -eq 1 ]]; then
-      echo "[$iteration/$iterations] Progress review failed; refusing to continue blindly." >&2
-      exit 1
-    fi
-
-    echo "[$iteration/$iterations] Progress review ${PROGRESS_REVIEW_DECISION}: ${PROGRESS_REVIEW_SUMMARY}"
-
-    if [[ "${progress_review_exit_code}" -eq 2 ]]; then
-      echo "[$iteration/$iterations] Progress review stopped the loop. ${PROGRESS_REVIEW_NEXT_ACTION}"
-      break
-    fi
-
-    if [[ "${PROGRESS_REVIEW_DECISION}" == "replan_and_continue" ]]; then
-      echo "[$iteration/$iterations] Progress review updated the durable plan and will continue. ${PROGRESS_REVIEW_NEXT_ACTION}"
-    fi
+  if [[ "${progress_review_exit_code}" -eq 125 ]]; then
+    continue
   fi
+
+  if [[ "${progress_review_exit_code}" -eq 1 ]]; then
+    exit 1
+  fi
+
+  cleanup_completed_iteration
 
   if [[ "${continue_loop_after_iteration}" == "1" ]]; then
     if [[ -n "${continue_message}" ]]; then
