@@ -4,15 +4,21 @@ import { ensureAppReady } from "../helpers";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
-const TARGET_SECTION_ID = "settings-section__chatSectionDefault";
+const TARGET_SECTION_ID = "settings-section__browserSectionDefault";
 const TARGET_ROW_ID =
-  "ParamContainer-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__aspectRatio";
-const SIBLING_SECTION_ID = "settings-section__spreadsheetSectionDefault";
+  "ParamContainer-settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__aspectRatio";
+const SIBLING_SECTION_ID = "settings-section__promptSectionDefault";
 const SIBLING_ROW_ID =
-  "ParamContainer-settings-section__spreadsheetSectionDefault-settings-codeobj__spreadsheetSectionDefault__spreadsheetSectionDefault__aspectRatio";
+  "ParamContainer-settings-section__promptSectionDefault-settings-codeobj__promptSectionDefault__promptSectionDefault__aspectRatio";
+const GUI_SECTION_ID = "settings-section__gui";
+const GUI_ROW_ID =
+  "ParamContainer-settings-section__gui-settings-codeobj__gui__gui__leftSidePaneShiftsMap";
+const BACKEND_SECTION_ID = "settings-section__backend";
+const BACKEND_ROW_ID =
+  "ParamContainer-settings-section__backend-settings-codeobj__backend__backend__autobackup";
 const CALLABLE_CANARY_SECTION_ID = "settings-section__callableSectionDefault";
 
-test("canvas shell path uses lightweight switch activators across settings sections", async ({
+test("canvas shell path flattens lightweight switch value shells across retained resting-text settings sections", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -41,14 +47,29 @@ test("canvas shell path uses lightweight switch activators across settings secti
         HTMLCanvasElement,
     {
       callableSectionId: CALLABLE_CANARY_SECTION_ID,
-      rowIds: [TARGET_ROW_ID, SIBLING_ROW_ID],
-      sectionIds: [TARGET_SECTION_ID, SIBLING_SECTION_ID],
+      rowIds: [TARGET_ROW_ID, SIBLING_ROW_ID, GUI_ROW_ID, BACKEND_ROW_ID],
+      sectionIds: [
+        TARGET_SECTION_ID,
+        SIBLING_SECTION_ID,
+        GUI_SECTION_ID,
+        BACKEND_SECTION_ID,
+      ],
     },
     { timeout: 15000 },
   );
 
   const restingState = await page.evaluate(
-    ({ callableSectionId, siblingRowId, siblingSectionId, targetRowId, targetSectionId }) => {
+    ({
+      backendRowId,
+      backendSectionId,
+      callableSectionId,
+      guiRowId,
+      guiSectionId,
+      siblingRowId,
+      siblingSectionId,
+      targetRowId,
+      targetSectionId,
+    }) => {
       const targetSection = document.querySelector<HTMLElement>(
         `section[data-section-id="${targetSectionId}"]`,
       );
@@ -87,6 +108,44 @@ test("canvas shell path uses lightweight switch activators across settings secti
         throw new Error(`Missing lightweight switch for ${siblingRowId}`);
       }
 
+      const guiSection = document.querySelector<HTMLElement>(
+        `section[data-section-id="${guiSectionId}"]`,
+      );
+      if (!(guiSection instanceof HTMLElement)) {
+        throw new Error(`Missing section ${guiSectionId}`);
+      }
+
+      const guiRow = document.getElementById(guiRowId);
+      if (!(guiRow instanceof HTMLElement)) {
+        throw new Error(`Missing row ${guiRowId}`);
+      }
+
+      const guiSwitch = guiRow.querySelector<HTMLElement>(
+        '[data-canvas-owned-lightweight-switch="true"]',
+      );
+      if (!(guiSwitch instanceof HTMLElement)) {
+        throw new Error(`Missing lightweight switch for ${guiRowId}`);
+      }
+
+      const backendSection = document.querySelector<HTMLElement>(
+        `section[data-section-id="${backendSectionId}"]`,
+      );
+      if (!(backendSection instanceof HTMLElement)) {
+        throw new Error(`Missing section ${backendSectionId}`);
+      }
+
+      const backendRow = document.getElementById(backendRowId);
+      if (!(backendRow instanceof HTMLElement)) {
+        throw new Error(`Missing row ${backendRowId}`);
+      }
+
+      const backendSwitch = backendRow.querySelector<HTMLElement>(
+        '[data-canvas-owned-lightweight-switch="true"]',
+      );
+      if (!(backendSwitch instanceof HTMLElement)) {
+        throw new Error(`Missing lightweight switch for ${backendRowId}`);
+      }
+
       const callableSection = document.querySelector<HTMLElement>(
         `section[data-section-id="${callableSectionId}"]`,
       );
@@ -101,8 +160,26 @@ test("canvas shell path uses lightweight switch activators across settings secti
       );
 
       return {
+        backendRootIsValueShell: backendSwitch.matches(".section-value"),
+        backendSectionButtonSwitchCount:
+          backendSection.querySelectorAll('button[role="switch"]').length,
+        backendSectionLightweightSwitchCount: backendSection.querySelectorAll(
+          '[data-canvas-owned-lightweight-switch="true"]',
+        ).length,
+        backendValueShellWrapperCount: backendRow.querySelectorAll(
+          '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
+        ).length,
         callableCanvasTrackSwitchCount: callableSection.querySelectorAll(
           '[data-canvas-owned-lightweight-switch="true"][data-canvas-owned-switch-track="true"]',
+        ).length,
+        guiRootIsValueShell: guiSwitch.matches(".section-value"),
+        guiSectionButtonSwitchCount:
+          guiSection.querySelectorAll('button[role="switch"]').length,
+        guiSectionLightweightSwitchCount: guiSection.querySelectorAll(
+          '[data-canvas-owned-lightweight-switch="true"]',
+        ).length,
+        guiValueShellWrapperCount: guiRow.querySelectorAll(
+          '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
         ).length,
         siblingRootIsValueShell: siblingSwitch.matches(".section-value"),
         siblingSectionButtonSwitchCount:
@@ -148,7 +225,11 @@ test("canvas shell path uses lightweight switch activators across settings secti
       };
     },
     {
+      backendRowId: BACKEND_ROW_ID,
+      backendSectionId: BACKEND_SECTION_ID,
       callableSectionId: CALLABLE_CANARY_SECTION_ID,
+      guiRowId: GUI_ROW_ID,
+      guiSectionId: GUI_SECTION_ID,
       siblingRowId: SIBLING_ROW_ID,
       siblingSectionId: SIBLING_SECTION_ID,
       targetRowId: TARGET_ROW_ID,
@@ -159,6 +240,8 @@ test("canvas shell path uses lightweight switch activators across settings secti
   expect(restingState.targetLabel).toBe("Aspect Ratio");
   expect(restingState.targetRootIsValueShell).toBe(true);
   expect(restingState.siblingRootIsValueShell).toBe(true);
+  expect(restingState.guiRootIsValueShell).toBe(true);
+  expect(restingState.backendRootIsValueShell).toBe(false);
   expect(restingState.targetTagName).toBe("DIV");
   expect(restingState.targetSectionButtonSwitchCount).toBe(0);
   expect(restingState.targetSectionLightweightSwitchCount).toBeGreaterThan(0);
@@ -172,6 +255,12 @@ test("canvas shell path uses lightweight switch activators across settings secti
     restingState.siblingSectionLightweightSwitchCount,
   );
   expect(restingState.siblingValueShellWrapperCount).toBe(0);
+  expect(restingState.guiSectionButtonSwitchCount).toBe(0);
+  expect(restingState.guiSectionLightweightSwitchCount).toBeGreaterThan(0);
+  expect(restingState.guiValueShellWrapperCount).toBe(0);
+  expect(restingState.backendSectionButtonSwitchCount).toBe(0);
+  expect(restingState.backendSectionLightweightSwitchCount).toBeGreaterThan(0);
+  expect(restingState.backendValueShellWrapperCount).toBe(1);
   expect(restingState.settingsButtonSwitchCount).toBe(0);
   expect(restingState.settingsLightweightSwitchCount).toBeGreaterThan(100);
   expect(restingState.settingsRoleSwitchCount).toBe(

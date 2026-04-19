@@ -9,6 +9,54 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The retained resting-text switch value-shell boundary is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-resting-text-switch-value-shell-boundary-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof section: `settings-section__promptSectionDefault`
+  - expanded proof section on the same boundary:
+    - `settings-section__gui`
+  - negative control that stayed outside the boundary:
+    - `settings-section__backend`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `isCanvasOwnedSectionLightweightSwitchValueShell(...)` from the retained resting-text ownership boundary instead of a hand-maintained shared-family list
+    - the existing `frontend/src/components/Params/ParamUIs/ParamUI.tsx` switch path now picks up that broader boundary without another renderer branch
+    - focused ownership/unit proof now covers `browser`, `gui`, and `backend` in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts` now verifies the live browser/prompt/gui boundary and keeps `backend` as the negative control
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__browserSectionDefault` `Aspect Ratio`: lightweight switch root is the `.section-value` shell with zero extra non-lightweight wrapper
+    - `settings-section__promptSectionDefault` `Aspect Ratio`: same flattened lightweight switch root with zero extra wrapper
+    - `settings-section__gui` `Left Side Pane Shifts Map`: same flattened lightweight switch root with zero extra wrapper
+    - `settings-section__backend` `Auto Backup`: still retains one non-lightweight `.section-value` wrapper around the lightweight switch
+    - callable canvas-track switch rows still remain present on the retained path
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 28`
+    - `totalRemainingValueElementCount: 87`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6728`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.6`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 15117`
+  - compared against the prior shared switch-family rerun:
+    - `totalRemainingValueRowCount: 119 -> 28`
+    - `totalRemainingValueElementCount: 178 -> 87`
+    - `documentNodeCount: 6819 -> 6728`
+  - interpretation:
+    - this closes the repeated switch value-shell lane at the retained resting-text ownership boundary instead of continuing another section-by-section expansion
+    - `settings-section__gui` and `settings-section__drawSectionDefault` now only show color-input wrapper/icon survivors in the rerank
+    - the next default frontier is now the single-section nested text-value outlier at `settings-section__languageServer`
+    - if that outlier proves blocked on the current ownership boundary, fall back to the `settings-section__backend` plain text-value rows instead of reopening switch-shell work
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active
+    - no crash/error overlay was visible
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, `settings-section__gui`, and `settings-section__backend` were present
+    - the Browser `Aspect Ratio`, Prompt `Aspect Ratio`, GUI `Left Side Pane Shifts Map`, and Backend `Auto Backup` rows all looked intact
+    - the Browser `Aspect Ratio` switch was disabled in this runtime, so the optional manual toggle was not meaningful; it still remained stable with no obvious blank or detached jump
 - The shared param-codeobj resting-text/value cluster is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-param-codeobj-resting-text-cluster-rerun.md`.
   - canonical target section: `settings-section__rotaryParamCodeObjDefault`
   - first sibling proof section: `settings-section__sliderParamCodeObjDefault`

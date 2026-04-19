@@ -24,7 +24,6 @@ import {
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
-  SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -685,19 +684,10 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the shared switch value-shell cleanup family without widening backend", () => {
-    expect(
-      SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
-    ).toContain("settings-section__chatSectionDefault");
-    expect(
-      SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
-    ).toContain(SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
-    expect(
-      SHARED_LIGHTWEIGHT_SWITCH_VALUE_SHELL_SECTION_IDS,
-    ).toContain(CANVAS_OWNED_SECTION_SHELL_ID);
+  it("targets the retained resting-text section boundary for switch value-shell flattening without widening backend", () => {
     expect(
       isCanvasOwnedSectionLightweightSwitchValueShell(
-        "settings-section__chatSectionDefault",
+        CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(
@@ -710,6 +700,21 @@ describe("sectionShellCanvasOwnership", () => {
         BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
       ),
     ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
+        PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightSwitchValueShell(
         "round_lime__callableSectionDefault",

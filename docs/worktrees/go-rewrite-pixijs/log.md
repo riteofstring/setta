@@ -157,6 +157,64 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-19 067
 
+- Item: Move lightweight switch value-shell flattening to the retained resting-text ownership boundary.
+- Status: `done`
+- Details:
+  - Re-checked the current iteration pattern before coding and rejected another hand-maintained switch-family expansion. The fresh live ranking still showed the next repeated switch survivors on sections that already shared retained resting-text ownership, while `backend` stayed outside that seam.
+  - Chose one bounded ownership-boundary slice:
+    - canonical target section: `settings-section__browserSectionDefault`
+    - sibling proof section: `settings-section__promptSectionDefault`
+    - expanded proof section on the same boundary:
+      - `settings-section__gui`
+    - negative control that had to stay outside the boundary:
+      - `settings-section__backend`
+  - Landed the boundary move:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `isCanvasOwnedSectionLightweightSwitchValueShell(...)` from `isCanvasOwnedSectionRestingTextSection(...)` instead of a narrow shared-family list
+    - the existing `ParamUI` switch path picked up that broader boundary without another renderer branch
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated focused probe `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+    - recorded durable rerun `perf/reports/frontend/2026-04-19_settings-all-settings-resting-text-switch-value-shell-boundary-rerun.md`
+  - The focused probe proved the real ownership boundary on the live surface:
+    - `settings-section__browserSectionDefault` `Aspect Ratio`: lightweight switch root is the `.section-value` shell with zero extra non-lightweight wrapper
+    - `settings-section__promptSectionDefault` `Aspect Ratio`: same flattened lightweight switch root with zero extra wrapper
+    - `settings-section__gui` `Left Side Pane Shifts Map`: same flattened lightweight switch root with zero extra wrapper
+    - `settings-section__backend` `Auto Backup`: still retains one non-lightweight `.section-value` wrapper around the lightweight switch
+    - callable canvas-track switch rows still remain present on the retained path
+  - Fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 28`
+    - `totalRemainingValueElementCount: 87`
+  - Fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6728`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.6`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 15117`
+  - Interpretation:
+    - this is a real ownership-boundary closure, not another section-list follow-up
+    - the repeated switch value-shell lane is now closed at the retained resting-text seam
+    - the next visible product frontier is now the single-section nested text-value outlier at `settings-section__languageServer`; fall back to `settings-section__backend` plain text-value rows only if the language-server lane is blocked on the current ownership boundary
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-012/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.2m)` on the live worktree runtime with `documentNodeCount: 6728`, `totalRemainingValueElementCount: 87`, and `raf.p95Ms: 166.8`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active
+  - no crash/error overlay was visible
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, `settings-section__gui`, and `settings-section__backend` were present
+  - the Browser `Aspect Ratio`, Prompt `Aspect Ratio`, GUI `Left Side Pane Shifts Map`, and Backend `Auto Backup` rows all looked intact
+  - the Browser `Aspect Ratio` switch was disabled in this runtime, so the optional manual toggle was not meaningful; it still remained stable with no obvious blank or detached jump
+- Next action:
+  - keep the switch value-shell lane closed and target the `settings-section__languageServer` nested text-value outlier next; only fall back to `settings-section__backend` plain text-value rows if the language-server lane is blocked on the current ownership boundary
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 067
+
 - Item: Flatten the shared lightweight-switch value shell so the targeted switch family stops paying one extra `div.section-value` wrapper per visible row.
 - Status: `done`
 - Details:

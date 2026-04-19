@@ -967,6 +967,21 @@ describe("ParamUI canvas-owned resting text", () => {
       expectedLightweightRootClassName:
         "section-value justify-self-start self-center",
       paramInfoId:
+        "settings-codeobj__browserSectionDefault__browserSectionDefault__aspectRatio",
+      sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    },
+    {
+      expectedCanvasOwnedTrack: false,
+      expectedLightweightRootClassName:
+        "section-value justify-self-start self-center",
+      paramInfoId: "settings-codeobj__gui__gui__leftSidePaneShiftsMap",
+      sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+    },
+    {
+      expectedCanvasOwnedTrack: false,
+      expectedLightweightRootClassName:
+        "section-value justify-self-start self-center",
+      paramInfoId:
         "settings-codeobj__chatSectionDefault__chatSectionDefault__aspectRatio",
       sectionId: "settings-section__chatSectionDefault",
     },
