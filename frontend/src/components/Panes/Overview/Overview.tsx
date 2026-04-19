@@ -33,7 +33,6 @@ import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   APP_MENU_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
-  OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
   PAGE_LOAD_TYPES,
@@ -42,6 +41,7 @@ import {
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
+import { type OverviewTabName } from "utils/generatedTypes";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,

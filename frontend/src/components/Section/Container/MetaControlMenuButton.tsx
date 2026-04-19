@@ -1,6 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionLightweightMenuTrigger } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { setMetaControlShowSectionTitle } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
@@ -30,7 +28,6 @@ export function MetaControlMenuButton({
   isInOtherProjectConfigs,
 }: MetaControlMenuButtonProps) {
   const isListElement = useIsListElement(sectionId);
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const showSectionTitle = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -39,9 +36,6 @@ export function MetaControlMenuButton({
     );
     return impl.showSectionTitle ?? false;
   });
-  const lightweightMenuTrigger =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionLightweightMenuTrigger(sectionId);
   const triggerClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto`;
   const titleBaseClasses =
     "block w-full min-w-0 max-w-full box-border rounded-md border border-solid border-transparent px-2 py-1 text-xs font-semibold leading-5 text-setta-700 focus-visible:border-blue-500 focus-visible:outline-none dark:text-setta-100";
@@ -78,27 +72,14 @@ export function MetaControlMenuButton({
   }
   return (
     <DropdownMenu.Root modal={false}>
-      {lightweightMenuTrigger ? (
-        <DropdownMenu.Trigger asChild className={triggerClassName}>
-          <div data-canvas-owned-lightweight-menu-trigger="true">
-            <HeaderIcon
-              sectionId={sectionId}
-              sectionTypeName={sectionTypeName}
-              isInOtherProjectConfigs={isInOtherProjectConfigs}
-              isListElement={isListElement}
-            />
-          </div>
-        </DropdownMenu.Trigger>
-      ) : (
-        <DropdownMenu.Trigger className={triggerClassName} type="button">
-          <HeaderIcon
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            isInOtherProjectConfigs={isInOtherProjectConfigs}
-            isListElement={isListElement}
-          />
-        </DropdownMenu.Trigger>
-      )}
+      <DropdownMenu.Trigger className={triggerClassName} type="button">
+        <HeaderIcon
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          isListElement={isListElement}
+        />
+      </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           className="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"

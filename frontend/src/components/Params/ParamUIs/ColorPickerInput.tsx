@@ -2,8 +2,7 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import _ from "lodash";
 import { updateParamImplConfig } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useRef, useState, type RefObject } from "react";
-import { flushSync } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -185,7 +184,6 @@ export const AvailableColors = ({
 };
 export function ColorPickerInput({
   colorChoices,
-  lightweightActivator = false,
   value,
   onChange,
   onCommit,
@@ -196,7 +194,6 @@ export function ColorPickerInput({
   theme,
 }: {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
-  lightweightActivator?: boolean;
   value: string;
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
@@ -211,7 +208,6 @@ export function ColorPickerInput({
     <div className={wrapperClassName}>
       <ColorPicker
         colorChoices={colorChoices}
-        lightweightActivator={lightweightActivator}
         value={_value}
         onChange={onChange}
         onCommit={onCommit}
@@ -243,7 +239,6 @@ const DEFAULT_COLOR_PICKER_THEME: ResolvedColorPickerInputTheme = {
 };
 type ColorPickerProps = {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
-  lightweightActivator: boolean;
   value: string;
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
@@ -296,170 +291,6 @@ function resolveSelectedColorChoice(
   );
 }
 
-type NativeColorInputProps = {
-  inputBorderClassName: string;
-  inputRef: RefObject<HTMLInputElement | null>;
-  isDisabled: boolean;
-  onBlur?: () => void;
-  onChange: (newColor: string) => void;
-  onCommit?: (newColor: string) => void;
-  onEscape?: () => void;
-  value: string;
-};
-
-function NativeColorInput({
-  inputBorderClassName,
-  inputRef,
-  isDisabled,
-  onBlur,
-  onChange,
-  onCommit,
-  onEscape,
-  value,
-}: NativeColorInputProps) {
-  return (
-    <input
-      ref={inputRef}
-      id="colorPicker"
-      type="color"
-      value={value}
-      onBlur={onBlur}
-      onInput={(e) => onChange((e.target as HTMLInputElement).value)}
-      onChange={(e) => {
-        const nextColor = (e.target as HTMLInputElement).value;
-        if (onCommit) {
-          onCommit(nextColor);
-          return;
-        }
-        if (nextColor !== value) {
-          onChange(nextColor);
-        }
-      }}
-      className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
-      disabled={isDisabled}
-      onKeyDown={(e) => {
-        if (e.code === "Escape") {
-          onEscape?.();
-        }
-      }}
-    />
-  );
-}
-
-type CanvasOwnedColorInputActivatorProps = {
-  inputBorderClassName: string;
-  inputRef: RefObject<HTMLInputElement | null>;
-  isDisabled: boolean;
-  onChange: (newColor: string) => void;
-  onCommit?: (newColor: string) => void;
-  onEscape?: () => void;
-  value: string;
-};
-
-function tryOpenNativeColorInput(input: HTMLInputElement | null) {
-  if (!(input instanceof HTMLInputElement)) {
-    return;
-  }
-  input.focus({ preventScroll: true });
-  const pickerInput = input as HTMLInputElement & {
-    showPicker?: () => void;
-  };
-  try {
-    if (typeof pickerInput.showPicker === "function") {
-      pickerInput.showPicker();
-      return;
-    }
-  } catch {
-    // `showPicker()` can fail when the browser rejects programmatic picker opens.
-  }
-  try {
-    input.click();
-  } catch {
-    // Keep the live input focused even when the browser refuses to reopen the picker.
-  }
-}
-
-function CanvasOwnedColorInputActivator({
-  inputBorderClassName,
-  inputRef,
-  isDisabled,
-  onChange,
-  onCommit,
-  onEscape,
-  value,
-}: CanvasOwnedColorInputActivatorProps) {
-  const [editing, setEditing] = useState(false);
-
-  const activateInput = (openPicker: boolean) => {
-    if (isDisabled) {
-      return;
-    }
-    flushSync(() => {
-      setEditing(true);
-    });
-    if (openPicker) {
-      tryOpenNativeColorInput(inputRef.current);
-      return;
-    }
-    inputRef.current?.focus({ preventScroll: true });
-  };
-
-  if (editing) {
-    return (
-      <NativeColorInput
-        inputBorderClassName={inputBorderClassName}
-        inputRef={inputRef}
-        isDisabled={isDisabled}
-        onBlur={() => {
-          setEditing(false);
-        }}
-        onChange={onChange}
-        onCommit={onCommit}
-        onEscape={() => {
-          inputRef.current?.blur();
-          onEscape?.();
-        }}
-        value={value}
-      />
-    );
-  }
-
-  return (
-    <div
-      aria-disabled={isDisabled}
-      aria-label="Edit color"
-      className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
-      data-canvas-owned-lightweight-color-input="true"
-      role="button"
-      style={{ backgroundColor: value }}
-      tabIndex={isDisabled ? -1 : 0}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        activateInput(true);
-      }}
-      onKeyDown={(event) => {
-        if (event.code === "Escape") {
-          event.stopPropagation();
-          onEscape?.();
-          return;
-        }
-        if (event.code !== "Enter" && event.code !== "Space") {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        activateInput(true);
-      }}
-      onMouseDown={(event) => {
-        if (event.button === 0) {
-          event.stopPropagation();
-        }
-      }}
-    />
-  );
-}
-
 function ColorPickerChoiceOption({
   item,
   isSelected,
@@ -492,7 +323,6 @@ function ColorPickerChoiceOption({
 
 function ColorPicker({
   colorChoices,
-  lightweightActivator,
   value,
   onChange,
   onCommit,
@@ -502,6 +332,26 @@ function ColorPicker({
   theme,
 }: ColorPickerProps) {
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (!onCommit) {
+      return;
+    }
+    const input = nativeInputRef.current;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    const handleNativeChange = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+      onCommit(target.value);
+    };
+    input.addEventListener("change", handleNativeChange);
+    return () => {
+      input.removeEventListener("change", handleNativeChange);
+    };
+  }, [onCommit]);
   const resolvedTheme = resolveColorPickerTheme(theme);
   const style = {
     // from https://codepen.io/devongovett/pen/QwLbRrW
@@ -517,7 +367,6 @@ function ColorPicker({
       colorChoices={colorChoices}
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
-      lightweightActivator={lightweightActivator}
       onEscape={onEscape}
       theme={resolvedTheme}
     />
@@ -531,28 +380,33 @@ function ColorPicker({
             Keep layout/interaction classes stable and make only the styling pieces overridable.
             App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
           */}
-      {lightweightActivator ? (
-        <CanvasOwnedColorInputActivator
-          inputBorderClassName={resolvedTheme.inputBorderClassName}
-          inputRef={nativeInputRef}
-          isDisabled={isDisabled}
-          onChange={onChange}
-          onCommit={onCommit}
-          onEscape={onEscape}
-          value={value}
-        />
-      ) : (
-        <NativeColorInput
-          inputBorderClassName={resolvedTheme.inputBorderClassName}
-          inputRef={nativeInputRef}
-          isDisabled={isDisabled}
-          onBlur={undefined}
-          onChange={onChange}
-          onCommit={onCommit}
-          onEscape={onEscape}
-          value={value}
-        />
-      )}
+      {(() => {
+        return (
+          <input
+            ref={nativeInputRef}
+            id="colorPicker"
+            type="color"
+            value={value}
+            onInput={(e) => onChange((e.target as HTMLInputElement).value)}
+            onChange={(e) => {
+              const nextColor = (e.target as HTMLInputElement).value;
+              if (onCommit) {
+                return;
+              }
+              if (nextColor !== value) {
+                onChange(nextColor);
+              }
+            }}
+            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${resolvedTheme.inputBorderClassName}`}
+            disabled={isDisabled}
+            onKeyDown={(e) => {
+              if (e.code === "Escape") {
+                onEscape?.();
+              }
+            }}
+          />
+        );
+      })()}
     </>
   );
 }

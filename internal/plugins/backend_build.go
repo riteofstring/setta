@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"setta/internal/pythonenv"
 )
 
 const (
@@ -17,17 +19,14 @@ const (
 	backendExecutableFileName = "plugin-backend"
 )
 
+type PluginBackendLaunch struct {
+	Command string
+	Args    []string
+}
+
 func ValidateGoBackendBuild(pluginRoot string, manifest PluginManifest) error {
 	if manifest.Backend == nil {
 		return nil
-	}
-
-	entrypointPath, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest)
-	if err != nil {
-		return newServiceError(ServiceErrorCodeBackendBuildFailed, "%s", err.Error())
-	}
-	if err := validateGoBackendEntrypoint(entrypointPath); err != nil {
-		return err
 	}
 
 	buildRoot, err := os.MkdirTemp("", "setta-plugin-backend-build-*")
@@ -36,33 +35,69 @@ func ValidateGoBackendBuild(pluginRoot string, manifest PluginManifest) error {
 	}
 	defer os.RemoveAll(buildRoot)
 
-	outputPath := filepath.Join(buildRoot, backendExecutableFileName)
-	if err := buildGoBackendBinary(entrypointPath, outputPath, manifest.ID); err != nil {
+	launch, err := ResolvePluginBackendLaunch(pluginRoot, manifest, buildRoot)
+	if err != nil {
 		return err
 	}
 	if !backendProbeRequired(manifest.Capabilities) {
 		return nil
 	}
-	_, err = probeGoBackendExecutable(pluginRoot, manifest, outputPath)
+	_, err = probePluginBackendRegistrations(pluginRoot, manifest, launch)
 	return err
 }
 
-func BuildGoBackendExecutable(pluginRoot string, manifest PluginManifest, outputRoot string) (string, error) {
+func ResolvePluginBackendLaunch(pluginRoot string, manifest PluginManifest, outputRoot string) (PluginBackendLaunch, error) {
 	if manifest.Backend == nil {
-		return "", fmt.Errorf("plugins: backend manifest is required")
-	}
-	if strings.TrimSpace(outputRoot) == "" {
-		return "", fmt.Errorf("plugins: backend build output root is required")
+		return PluginBackendLaunch{}, fmt.Errorf("plugins: backend manifest is required")
 	}
 
 	entrypointPath, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest)
 	if err != nil {
-		return "", err
+		return PluginBackendLaunch{}, newServiceError(ServiceErrorCodeBackendBuildFailed, "%s", err.Error())
+	}
+
+	switch strings.ToLower(filepath.Ext(entrypointPath)) {
+	case ".go":
+		executablePath, err := buildPluginGoBackendExecutable(pluginRoot, manifest, entrypointPath, outputRoot)
+		if err != nil {
+			return PluginBackendLaunch{}, err
+		}
+		return PluginBackendLaunch{Command: executablePath}, nil
+	case ".py":
+		pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
+		if err != nil {
+			return PluginBackendLaunch{}, newServiceError(
+				ServiceErrorCodeBackendBuildFailed,
+				"Python interpreter is required to launch backend plugin %s: %s",
+				manifest.ID,
+				err.Error(),
+			)
+		}
+		return PluginBackendLaunch{
+			Command: pythonBinary,
+			Args:    []string{entrypointPath},
+		}, nil
+	default:
+		return PluginBackendLaunch{}, newServiceError(
+			ServiceErrorCodeBackendBuildFailed,
+			"Plugin backend entrypoint must be a Go or Python source file: %s",
+			entrypointPath,
+		)
+	}
+}
+
+func buildPluginGoBackendExecutable(
+	pluginRoot string,
+	manifest PluginManifest,
+	entrypointPath string,
+	outputRoot string,
+) (string, error) {
+	if strings.TrimSpace(outputRoot) == "" {
+		return "", fmt.Errorf("plugins: backend build output root is required")
 	}
 	if err := validateGoBackendEntrypoint(entrypointPath); err != nil {
 		return "", err
 	}
-
 	digest, err := computeDirectoryDigest(pluginRoot)
 	if err != nil {
 		return "", err
