@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -933,10 +934,10 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 		t.Fatalf("new share publisher: %v", err)
 	}
 	appPublisher, err := deployments.NewAppPublisher(deployments.AppPublisherOptions{
-		Catalog:              catalog,
-		SettaFilesRoot:       settaFilesRoot,
-		WorkspaceRoot:        workspaceRoot,
-		AppDefinitionService: deploymentIDETestAppDefinitionService{runtime: projectRuntime},
+		Catalog:        catalog,
+		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
+		ContentService: deploymentIDETestAppPublishContent{runtime: projectRuntime},
 		Now: func() time.Time {
 			return publishedAt
 		},
@@ -958,29 +959,61 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 	}
 }
 
-type deploymentIDETestAppDefinitionService struct {
+type deploymentIDETestAppPublishContent struct {
 	runtime *projectstate.Runtime
 }
 
-func (s deploymentIDETestAppDefinitionService) GetAppDefinition(_ context.Context) (projectstate.AppDefinitionReadResult, error) {
-	return projectstate.AppDefinitionReadResult{}, nil
+func (s deploymentIDETestAppPublishContent) PreparePublishedAppDefinition(
+	ctx context.Context,
+	projectRoot string,
+	appDefinition *projectstate.AppDefinition,
+) (*projectstate.AppDefinition, any, string, error) {
+	if appDefinition == nil {
+		return nil, nil, "", deployments.ErrAppPublishAppDefinitionMissing
+	}
+
+	current := appDefinition.Clone()
+	if strings.TrimSpace(current.AppSpecPath) == "" {
+		return nil, nil, "", deployments.ErrAppPublishAppSpecPathRequired
+	}
+
+	targetAppSpecPath, err := appspec.NormalizePath(projectRoot, current.AppSpecPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("%w: %v", deployments.ErrAppPublishAppSpecInvalid, err)
+	}
+	appSpec, err := appspec.Read(projectRoot, current.AppSpecPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("%w: %v", deployments.ErrAppPublishAppSpecInvalid, err)
+	}
+	if appSpec == nil {
+		return nil, nil, "", deployments.ErrAppPublishAppSpecNotFound
+	}
+
+	validationResult, err := s.validateAppDefinition(ctx, appSpec)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if len(validationResult.Errors) != 0 {
+		return nil, nil, "", &deployments.AppPublishValidationError{
+			Issues: append([]projectstate.AppDefinitionValidationIssue(nil), validationResult.Errors...),
+		}
+	}
+
+	current.AppSpecPath = targetAppSpecPath
+	return &current, appSpec, targetAppSpecPath, nil
 }
 
-func (s deploymentIDETestAppDefinitionService) GetEffectiveAppDefinition(_ context.Context) (projectstate.AppDefinition, error) {
-	return projectstate.AppDefinition{}, nil
+func (deploymentIDETestAppPublishContent) WritePublishedAppSpec(
+	deploymentRoot string,
+	targetAppSpecPath string,
+	appSpec any,
+) error {
+	return appspec.Write(deploymentRoot, targetAppSpecPath, appSpec)
 }
 
-func (s deploymentIDETestAppDefinitionService) GetEffectiveAppSpecPath(_ context.Context) (string, error) {
-	return "", nil
-}
-
-func (s deploymentIDETestAppDefinitionService) GetEffectiveAppThemeMode(_ context.Context) (string, error) {
-	return "", nil
-}
-
-func (s deploymentIDETestAppDefinitionService) ValidateAppDefinition(
+func (s deploymentIDETestAppPublishContent) validateAppDefinition(
 	_ context.Context,
-	input projectstate.ValidateAppDefinitionInput,
+	appSpec any,
 ) (projectstate.AppDefinitionValidationResult, error) {
 	current := projectstate.AppDefinition{}
 	if s.runtime != nil && s.runtime.Snapshot().Document.AppDefinition != nil {
@@ -997,7 +1030,7 @@ func (s deploymentIDETestAppDefinitionService) ValidateAppDefinition(
 	if err != nil {
 		return projectstate.AppDefinitionValidationResult{}, err
 	}
-	validationErrors, warnings := appspec.ValidateDefinitionPayload(input.AppSpec, definition)
+	validationErrors, warnings := appspec.ValidateDefinitionPayload(appSpec, definition)
 	if validationErrors == nil {
 		validationErrors = []appspec.AppValidationIssue{}
 	}
@@ -1009,34 +1042,6 @@ func (s deploymentIDETestAppDefinitionService) ValidateAppDefinition(
 		Warnings:     deploymentIDETestValidationIssues(warnings),
 		Capabilities: deploymentIDETestValidationCapabilities(appspec.BuildCapabilities(definition)),
 	}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) SetAppDefinition(_ context.Context, _ projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) StreamAppDefinition(_ context.Context, _ projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) UpdateAppDefinition(_ context.Context, _ any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionCatalogID(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecVersion(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecPath(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
-}
-
-func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
 }
 
 func deploymentIDETestValidationIssues(
