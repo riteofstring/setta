@@ -49,7 +49,42 @@ func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContribution
 	}
 }
 
-func TestBuildAppSubsystemFrontendAPIRouteRegistrationsRestoresFrozenRoutes(t *testing.T) {
+func buildAppSubsystemRegistrationsForTest(
+	deps FrontendAPIRouteDependencies,
+) FrontendAPIRouteRegistrations {
+	return FrontendAPIRouteRegistrations{
+		Project: []FrontendAPIRouteContribution{
+			{
+				Family: "app definition",
+				Register: func(router chi.Router) error {
+					return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
+				},
+			},
+			{
+				Family: "app generation skill",
+				Register: func(router chi.Router) error {
+					return RegisterAppGenSkillRoutes(router, deps.AppGenSkill)
+				},
+			},
+		},
+		Deployment: []FrontendAPIRouteContribution{
+			{
+				Family: "app deployment",
+				Register: func(router chi.Router) error {
+					return RegisterAppDeploymentRoutes(router, deps.AppDeployment)
+				},
+			},
+			{
+				Family: "app deployment ide",
+				Register: func(router chi.Router) error {
+					return RegisterAppDeploymentIDERoutes(router, deps.DeploymentIDE)
+				},
+			},
+		},
+	}
+}
+
+func TestAppSubsystemFrontendRouteRegistrationsRestoreFrozenRoutes(t *testing.T) {
 	deps, err := newOpenAPIDocumentRouteDependencies[FrontendAPIRouteDependencies](frontendOpenAPIDocumentModeOverrides)
 	if err != nil {
 		t.Fatalf("build openapi deps: %v", err)
@@ -58,7 +93,7 @@ func TestBuildAppSubsystemFrontendAPIRouteRegistrationsRestoresFrozenRoutes(t *t
 
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
-	registrations := BuildAppSubsystemFrontendAPIRouteRegistrations(deps)
+	registrations := buildAppSubsystemRegistrationsForTest(deps)
 	if len(registrations.Project) != 2 {
 		t.Fatalf("expected two project contributions, got %#v", registrations.Project)
 	}
@@ -105,8 +140,36 @@ func TestBuildAppSubsystemFrontendAPIRouteRegistrationsRestoresFrozenRoutes(t *t
 	}
 }
 
-func TestBuildFrontendHTTPOpenAPIDocumentIncludesAppSubsystemRouteContributions(t *testing.T) {
+func TestBuildFrontendHTTPOpenAPIDocumentLeavesAppSubsystemRoutesOutWithoutRegistrations(t *testing.T) {
 	document, err := BuildFrontendHTTPOpenAPIDocument()
+	if err != nil {
+		t.Fatalf("build frontend openapi document: %v", err)
+	}
+
+	for _, routePath := range []string{
+		RouteGetAppDefinition,
+		RouteSetAppDefinition,
+		RouteValidateAppDefinition,
+		RouteGetAppGenSkills,
+		RouteGetAppGenSkillContent,
+		RouteUpsertAppGenCustomSkill,
+		RouteAppDeployments,
+		RouteAppDeploymentVersions,
+		RouteAppDeploymentLatest,
+		RouteAppDeploymentCurrentSession,
+		RouteAppDeploymentProjectConfig,
+		RouteAppDeploymentState,
+	} {
+		if document.Paths[routePath] != nil {
+			t.Fatalf("expected %s to stay absent without app subsystem registration builder", routePath)
+		}
+	}
+}
+
+func TestBuildFrontendHTTPOpenAPIDocumentIncludesAppSubsystemRouteContributions(t *testing.T) {
+	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+		buildAppSubsystemRegistrationsForTest,
+	)
 	if err != nil {
 		t.Fatalf("build frontend openapi document: %v", err)
 	}
