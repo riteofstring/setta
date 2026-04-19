@@ -1,8 +1,9 @@
 package app
 
 import (
+	"setta/internal/appsubsystem"
 	"setta/internal/chatmodes"
-	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
+	"setta/internal/plugins"
 )
 
 func initializeAppSubsystemCapabilities(
@@ -23,6 +24,14 @@ func initializeAppSubsystemCapabilities(
 func newAppGenerationModeResolver(
 	capabilities *appSubsystemCapabilityState,
 ) (chatmodes.AppGenerationModeResolver, error) {
+	currentCapabilities := plugins.PluginAppSubsystemCapabilities{}
+	if capabilities != nil {
+		currentCapabilities = capabilities.AppSubsystemCapabilities()
+	}
+	contributions, err := appsubsystem.AppGenerationModeContributions(currentCapabilities)
+	if err != nil {
+		return nil, err
+	}
 	return chatmodes.NewAppGenerationModeRegistry(chatmodes.AppGenerationModeRegistryOptions{
 		Available: func() bool {
 			if capabilities == nil {
@@ -31,6 +40,6 @@ func newAppGenerationModeResolver(
 			current := capabilities.AppSubsystemCapabilities()
 			return current.PluginEnabled && current.AppGenerationChatModes
 		},
-		Contributions: appsubsystemchatmodes.BuildChatModeContributions(),
+		Contributions: contributions,
 	})
 }
