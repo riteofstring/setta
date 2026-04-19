@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/appspec"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestRuntimeCompareAndSetAppDefinitionMetadataNoopsAreSideEffectFreeOnFreshProject(t *testing.T) {

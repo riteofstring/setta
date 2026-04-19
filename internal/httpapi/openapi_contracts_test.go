@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -14,6 +15,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/runs"
 	"setta/internal/terminals"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func discardLogger() *slog.Logger {
@@ -790,6 +792,28 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
 			"yAxisLog",
 		},
 	)
+}
+
+func TestSettaOpenAPISchemaNameKeepsLegacyAppspecPrefixAfterPluginMove(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		typ  reflect.Type
+		want string
+	}{
+		{typ: reflect.TypeOf(appspec.AppCapabilities{}), want: "AppspecAppCapabilities"},
+		{typ: reflect.TypeOf(appspec.AppValidationIssue{}), want: "AppspecAppValidationIssue"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.want, func(t *testing.T) {
+			t.Parallel()
+			if got := settaOpenAPISchemaName(tc.typ, ""); got != tc.want {
+				t.Fatalf("settaOpenAPISchemaName(%v) = %q, want %q", tc.typ, got, tc.want)
+			}
+		})
+	}
 }
 
 func TestDocumentOnlyOpenAPIRouterRegistersProjectRoutesWithoutRuntimeDependencies(t *testing.T) {

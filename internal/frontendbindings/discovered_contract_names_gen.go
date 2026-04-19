@@ -7,7 +7,6 @@ import (
 	agenticsummarycache "setta/internal/agenticsummarycache"
 	agentprofiles "setta/internal/agentprofiles"
 	agentruns "setta/internal/agentruns"
-	appspec "setta/internal/appspec"
 	artifacts "setta/internal/artifacts"
 	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
@@ -31,6 +30,7 @@ import (
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 	uisettings "setta/internal/uisettings"
 	wsapi "setta/internal/wsapi"
+	appspec "setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{

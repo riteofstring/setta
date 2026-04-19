@@ -7,10 +7,10 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/appspec"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRouteDependencies) error {

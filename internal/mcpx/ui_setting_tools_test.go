@@ -12,7 +12,6 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
-	"setta/internal/appspec"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/plugins"
@@ -21,6 +20,7 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type uiSettingDriftProjectState struct {
