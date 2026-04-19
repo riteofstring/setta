@@ -25,8 +25,8 @@ func setTestAppDefinition(
 	}
 	current := runtime.Snapshot().Document.AppDefinition
 	metadata := AppDefinition{}
-	if current != nil {
-		metadata = current.Clone()
+	if len(current) != 0 {
+		metadata = mustDecodeStoredAppDefinition(t, current)
 	}
 	if strings.TrimSpace(metadata.AppSpecVersion) == "" {
 		metadata.AppSpecVersion = "v1"
@@ -75,7 +75,7 @@ func setTestAppDefinition(
 	}
 	_, err = runtime.MutatePersistedWithContext(context.Background(), func(document Document) (PersistedMutationPlan, error) {
 		next := document.Clone()
-		next.AppDefinition = &metadata
+		next.AppDefinition = mustMarshalStoredAppDefinition(t, metadata)
 		appSpec := input.AppSpec
 		return PersistedMutationPlan{
 			NextDocument: next,
@@ -100,6 +100,22 @@ func mustMarshalTestRawJSON(t *testing.T, value any, field string) RawJSON {
 		t.Fatalf("marshal %s: %v", field, err)
 	}
 	return RawJSON(encoded)
+}
+
+func mustMarshalStoredAppDefinition(t *testing.T, definition AppDefinition) RawJSON {
+	t.Helper()
+
+	return mustMarshalTestRawJSON(t, definition, "appDefinition")
+}
+
+func mustDecodeStoredAppDefinition(t *testing.T, raw RawJSON) AppDefinition {
+	t.Helper()
+
+	var definition AppDefinition
+	if err := json.Unmarshal(raw, &definition); err != nil {
+		t.Fatalf("decode stored app definition: %v", err)
+	}
+	return definition
 }
 
 func rollbackTestAppSpecWrite(projectRoot string, appSpecPath string, previousAppSpec any) error {
