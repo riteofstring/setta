@@ -8,7 +8,6 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
@@ -41,7 +40,6 @@ const (
 	MessageTypeTranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
 	MessageTypeUpdateFrontendProjectState   = "UpdateFrontendProjectState"
 	MessageTypeUpdateSettings               = "UpdateSettings"
-	MessageTypeUpdatePluginRuntime          = "UpdatePluginRuntime"
 	MessageTypeReturnRenameRefactorResults  = "ReturnRenameRefactorResults"
 	MessageTypeRealtimeUIChange             = "RealtimeUIChange"
 	MessageTypeRealtimeDependencyEvent      = "RealtimeDependencyEvent"
@@ -72,7 +70,6 @@ const (
 	WebsocketMessageTypeTranscriptionProfilesUpdated WebsocketMessageType = MessageTypeTranscriptionProfilesUpdated
 	WebsocketMessageTypeUpdateFrontendProjectState   WebsocketMessageType = MessageTypeUpdateFrontendProjectState
 	WebsocketMessageTypeUpdateSettings               WebsocketMessageType = MessageTypeUpdateSettings
-	WebsocketMessageTypeUpdatePluginRuntime          WebsocketMessageType = MessageTypeUpdatePluginRuntime
 	WebsocketMessageTypeReturnRenameRefactorResults  WebsocketMessageType = MessageTypeReturnRenameRefactorResults
 	WebsocketMessageTypeBackendLogEvent              WebsocketMessageType = "BackendLogEvent"
 )
@@ -425,11 +422,6 @@ type SettingsUpdateMessage struct {
 	Content     settingsstate.Document `json:"content"`
 }
 
-type PluginRuntimeUpdateMessage struct {
-	MessageType WebsocketMessageType          `json:"messageType"`
-	Content     plugins.PluginRuntimeResponse `json:"content"`
-}
-
 type RenameReferenceDependencyKey struct {
 	Type      string `json:"type"`
 	SectionID string `json:"sectionId"`
@@ -679,13 +671,6 @@ func NewSettingsUpdateMessage(content settingsstate.Document) SettingsUpdateMess
 	return SettingsUpdateMessage{
 		MessageType: WebsocketMessageTypeUpdateSettings,
 		Content:     content.Clone(),
-	}
-}
-
-func NewPluginRuntimeUpdateMessage(content plugins.PluginRuntimeResponse) PluginRuntimeUpdateMessage {
-	return PluginRuntimeUpdateMessage{
-		MessageType: WebsocketMessageTypeUpdatePluginRuntime,
-		Content:     content,
 	}
 }
 

@@ -9,9 +9,9 @@ Report the highest-complexity code hotspots across the repo.
 
 Options:
   --top N            Show up to N hotspots per language section (default: 20).
-  --python-min N     Only show Python hotspots with complexity >= N (default: 10).
-  --frontend-min N   Only show frontend hotspots with complexity >= N (default: 10).
-  --go-min N         Only show Go hotspots with complexity >= N (default: 12).
+  --python-min N     Only show Python hotspots with complexity >= N (default: 1).
+  --frontend-min N   Only show frontend hotspots with complexity >= N (default: 1).
+  --go-min N         Only show Go hotspots with complexity >= N (default: 1).
   -h, --help         Show this help text.
 
 Notes:
@@ -23,12 +23,9 @@ EOF
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
 top_n="20"
-# shellcheck source=scripts/lib/quality_paths.sh
-. "${repo_root}/scripts/lib/quality_paths.sh"
-
-python_min="$(quality_default_python_complexity_threshold)"
-frontend_min="$(quality_default_frontend_complexity_threshold)"
-go_min="$(quality_default_go_complexity_threshold)"
+python_min="1"
+frontend_min="1"
+go_min="1"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -80,6 +77,48 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+validate_positive_integer() {
+  local value="$1"
+  local label="$2"
+  if ! [[ "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
+    echo "${label} must be a positive integer: ${value}" >&2
+    exit 1
+  fi
+}
+
+collect_python_files() {
+  rg --files . \
+    -g '*.py' \
+    -g '!tests/**' \
+    -g '!**/tests/**' \
+    -g '!backend/setta/types/generated/**' \
+    -g '!backend/setta/sdk_contracts/generated.py' \
+    -g '!backend/setta/api/listener_endpoint_client.py'
+}
+
+collect_frontend_files() {
+  rg --files frontend/src \
+    -g '*.js' \
+    -g '*.jsx' \
+    -g '*.ts' \
+    -g '*.tsx' \
+    -g '!**/*.test.*' \
+    -g '!**/*.spec.*' \
+    -g '!**/*.stories.*' \
+    -g '!**/*.d.ts' \
+    -g '!frontend/src/openapi/*/generated/**' \
+    -g '!frontend/src/utils/generatedEndpoints.ts' \
+    -g '!frontend/src/utils/generatedRoutes.ts' \
+    -g '!frontend/src/utils/generatedTypes.ts'
+}
+
+collect_go_files() {
+  rg --files cmd internal \
+    -g '*.go' \
+    -g '!**/*_test.go' \
+    -g '!**/*_gen.go'
+}
+
 run_ruff_complexity_report() {
   local output_path="$1"
   shift
@@ -119,10 +158,10 @@ run_eslint_complexity_report() {
   return 0
 }
 
-quality_validate_positive_integer "${top_n}" "--top"
-quality_validate_positive_integer "${python_min}" "--python-min"
-quality_validate_positive_integer "${frontend_min}" "--frontend-min"
-quality_validate_positive_integer "${go_min}" "--go-min"
+validate_positive_integer "${top_n}" "--top"
+validate_positive_integer "${python_min}" "--python-min"
+validate_positive_integer "${frontend_min}" "--frontend-min"
+validate_positive_integer "${go_min}" "--go-min"
 
 if ! command -v rg >/dev/null 2>&1; then
   echo "rg is required to build the hotspot report." >&2
@@ -146,15 +185,15 @@ declare -a go_files=()
 
 while IFS= read -r path; do
   [[ -n "${path}" ]] && python_files+=("${path}")
-done < <(quality_collect_python_files)
+done < <(collect_python_files)
 
 while IFS= read -r path; do
-  [[ -n "${path}" ]] && frontend_relative_files+=("$(quality_frontend_cli_path "${path}")")
-done < <(quality_collect_frontend_files)
+  [[ -n "${path}" ]] && frontend_relative_files+=("${path#frontend/}")
+done < <(collect_frontend_files)
 
 while IFS= read -r path; do
   [[ -n "${path}" ]] && go_files+=("${path}")
-done < <(quality_collect_go_files)
+done < <(collect_go_files)
 
 echo "Quality hotspots (top ${top_n} per language)"
 echo "Scores are language-specific and should not be compared across sections."
