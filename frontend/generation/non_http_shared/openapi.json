@@ -520,116 +520,6 @@
         "title": "AppDefinition",
         "type": "object"
       },
-      "AppDefinitionCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "catalogVersion": {
-            "type": "string"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object"
-          },
-          "themeSchemaVersion": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "catalogId",
-          "catalogVersion",
-          "appSpecVersion",
-          "themeSchemaVersion",
-          "features"
-        ],
-        "title": "AppDefinitionCapabilities",
-        "type": "object"
-      },
-      "AppDefinitionMutationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AppDefinition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "appSpec": true
-        },
-        "required": ["appSpec"],
-        "title": "AppDefinitionMutationResult",
-        "type": "object"
-      },
-      "AppDefinitionReadResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AppDefinition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "appSpec": true
-        },
-        "required": ["appSpec"],
-        "title": "AppDefinitionReadResult",
-        "type": "object"
-      },
-      "AppDefinitionValidationIssue": {
-        "additionalProperties": false,
-        "properties": {
-          "elementKey": {
-            "type": "string"
-          },
-          "elementType": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": ["message"],
-        "title": "AppDefinitionValidationIssue",
-        "type": "object"
-      },
-      "AppDefinitionValidationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "capabilities": {
-            "$ref": "#/components/schemas/AppDefinitionCapabilities"
-          },
-          "errors": {
-            "items": {
-              "$ref": "#/components/schemas/AppDefinitionValidationIssue"
-            },
-            "type": ["null", "array"]
-          },
-          "warnings": {
-            "items": {
-              "$ref": "#/components/schemas/AppDefinitionValidationIssue"
-            },
-            "type": ["null", "array"]
-          }
-        },
-        "required": ["errors", "warnings", "capabilities"],
-        "title": "AppDefinitionValidationResult",
-        "type": "object"
-      },
       "AppGenerationMode": {
         "enum": [
           "json_render",
@@ -2104,6 +1994,38 @@
         "minItems": 2,
         "title": "CanvasPoint",
         "type": "array"
+      },
+      "Capabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "themeSchemaVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogId",
+          "catalogVersion",
+          "appSpecVersion",
+          "themeSchemaVersion",
+          "features"
+        ],
+        "title": "Capabilities",
+        "type": "object"
       },
       "ChangeParamImplUIConfigValue": {
         "additionalProperties": false,
@@ -8400,6 +8322,25 @@
         "title": "MoveSectionsInput",
         "type": "object"
       },
+      "MutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appSpec": true
+        },
+        "required": ["appSpec"],
+        "title": "MutationResult",
+        "type": "object"
+      },
       "NameValidationContract": {
         "additionalProperties": false,
         "properties": {
@@ -11295,6 +11236,25 @@
           }
         ],
         "title": "RawMessage"
+      },
+      "ReadResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appSpec": true
+        },
+        "required": ["appSpec"],
+        "title": "ReadResult",
+        "type": "object"
       },
       "RealtimeDependencyEventContent": {
         "additionalProperties": false,
@@ -17685,6 +17645,46 @@
         },
         "required": ["id", "role", "createdAt", "content", "attachments"],
         "title": "UserChatMessage",
+        "type": "object"
+      },
+      "ValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "elementKey": {
+            "type": "string"
+          },
+          "elementType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "title": "ValidationIssue",
+        "type": "object"
+      },
+      "ValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": ["null", "array"]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["errors", "warnings", "capabilities"],
+        "title": "ValidationResult",
         "type": "object"
       },
       "Variant": {
