@@ -155,6 +155,57 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 081
+
+- Item: Strengthen the canonical resting-text motion lane from `visibility: hidden` to `display: none`.
+- Status: `done`
+- Details:
+  - Chose the explicit "go beyond `visibility: hidden`" blocker from the latest handoff instead of reopening another motion-body family expansion.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so motion-hidden section bodies now switch to `display: none` while `viewportInteractionActive` is true.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so retained-canvas measurement observers freeze during viewport interaction and keep the last pre-motion scene while the hidden DOM subtree is removed from layout.
+  - Updated focused proof in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - resting-text motion-body overlay probe:
+      - initial `hiddenBodyCount: 0`
+      - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `display: block`
+      - during one renderer wheel interaction, `hiddenBodyCount: 45`
+      - those three wrappers each reported `data-canvas-owned-motion-body-hidden="true"` with computed `display: none`
+      - settled `hiddenBodyCount: 0`
+      - all three wrappers returned to `display: block`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5515`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 114.28`
+      - `raf.p95Ms: 133.4`
+      - `longTasks.totalMs: 15303`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this closes the wrapper-level suppression escalation on the canonical `settings-section__browserSectionDefault` lane
+    - frame timing improved versus the prior resting-text overlay pass (`raf.mean 121.7 -> 114.28`, `raf.p95 150.0 -> 133.4`), but the long-task total stayed bad-to-slightly-worse (`14818 -> 15303`), so the dense-scene blocker remains open
+    - do not reopen another section-family broadening pass from here; the next real frontier should target the remaining hidden-section subtree work that still dominates motion after `display: none`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-009/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent at `1600x1200`
+  - had to recover from an offscreen graph state by using `fit view`, one `zoom in`, and then shifting the React Flow viewport left so the canonical target sections were actually visible
+  - exactly one retained graph canvas remained mounted before and after the interaction
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were on-screen and visually intact at rest
+  - no obvious blank or detached artifact appeared around the canonical targets after the interaction
+- Next action:
+  - keep the named `browserSectionDefault` lane and identify which hidden-section subtree work still dominates motion after `display: none`, rather than reopening another section-ID expansion or another wrapper-only hop
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 079
 
 - Item: Widen the motion-hidden body overlay to the shared settings dropdown family.

@@ -530,7 +530,7 @@ function CanvasSectionBody({
       data-canvas-owned-motion-body-root={
         motionHiddenBodyRoot ? "true" : undefined
       }
-      style={motionHiddenBody ? { visibility: "hidden" } : undefined}
+      style={motionHiddenBody ? { display: "none" } : undefined}
     >
       <AreaSwitch
         sectionId={sectionId}

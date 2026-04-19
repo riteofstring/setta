@@ -318,7 +318,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="visibility:hidden"');
+    expect(markup).toContain('style="display:none"');
   });
 
   it("hides shared shell bodies during viewport interaction on the canvas path", () => {
@@ -338,7 +338,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="visibility:hidden"');
+    expect(markup).toContain('style="display:none"');
   });
 
   it("hides shared resting-text bodies during viewport interaction on the canvas path", () => {
@@ -358,7 +358,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="visibility:hidden"');
+    expect(markup).toContain('style="display:none"');
   });
 
   it("keeps the active shared shell body visible during viewport interaction", () => {
@@ -379,7 +379,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="visibility:hidden"');
+    expect(markup).not.toContain('style="display:none"');
   });
 
   it("keeps the active shared resting-text body visible during viewport interaction", () => {
@@ -400,7 +400,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="visibility:hidden"');
+    expect(markup).not.toContain('style="display:none"');
   });
 
   it("keeps the active shared param-codeobj body visible during viewport interaction", () => {
@@ -421,7 +421,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="visibility:hidden"');
+    expect(markup).not.toContain('style="display:none"');
   });
 
   it("hides shared settings dropdown bodies during viewport interaction on the canvas path", () => {
@@ -441,7 +441,7 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="visibility:hidden"');
+    expect(markup).toContain('style="display:none"');
   });
 
   it("keeps the active shared settings dropdown body visible during viewport interaction", () => {
@@ -462,6 +462,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="visibility:hidden"');
+    expect(markup).not.toContain('style="display:none"');
   });
 });

@@ -20,10 +20,10 @@ const RESTING_TEXT_TARGETS = [
 type MotionBodyState = {
   hiddenBodyCount: number;
   sections: Array<{
+    display: string;
     hidden: boolean;
     root: boolean;
     sectionId: string;
-    visibility: string;
   }>;
 };
 
@@ -100,7 +100,7 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
   );
   for (const section of motionState.sections) {
     expect(section.hidden).toBe(true);
-    expect(section.visibility).toBe("hidden");
+    expect(section.display).toBe("none");
   }
 
   const restoredState = zoomStates.after;
@@ -184,10 +184,10 @@ async function readMotionBodyState(
         throw new Error(`Missing motion body root for ${sectionId}`);
       }
       return {
+        display: window.getComputedStyle(body).display,
         hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
         root: body.dataset.canvasOwnedMotionBodyRoot === "true",
         sectionId,
-        visibility: window.getComputedStyle(body).visibility,
       };
     });
 
@@ -232,10 +232,10 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
             throw new Error(`Missing motion body root for ${sectionId}`);
           }
           return {
+            display: window.getComputedStyle(body).display,
             hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
             root: body.dataset.canvasOwnedMotionBodyRoot === "true",
             sectionId,
-            visibility: window.getComputedStyle(body).visibility,
           };
         });
 

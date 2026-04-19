@@ -915,6 +915,7 @@ function useCanvasOwnedSwitchTrackBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [switchTrackBoxes, setSwitchTrackBoxes] = useState<
     Array<CanvasOwnedSwitchTrackBox>
@@ -922,6 +923,9 @@ function useCanvasOwnedSwitchTrackBoxes(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -989,7 +993,7 @@ function useCanvasOwnedSwitchTrackBoxes(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
 
   return switchTrackBoxes;
 }
@@ -998,6 +1002,7 @@ function useCanvasOwnedSwitchThumbBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [switchThumbBoxes, setSwitchThumbBoxes] = useState<
     Array<CanvasOwnedSwitchThumbBox>
@@ -1005,6 +1010,9 @@ function useCanvasOwnedSwitchThumbBoxes(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -1072,7 +1080,7 @@ function useCanvasOwnedSwitchThumbBoxes(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId, viewportScale]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements, viewportScale]);
 
   return switchThumbBoxes;
 }
@@ -1081,6 +1089,7 @@ function useCanvasOwnedUnderlineBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [underlineBoxes, setUnderlineBoxes] = useState<
     Array<CanvasOwnedUnderlineBox>
@@ -1088,6 +1097,9 @@ function useCanvasOwnedUnderlineBoxes(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -1155,7 +1167,7 @@ function useCanvasOwnedUnderlineBoxes(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
 
   return underlineBoxes;
 }
@@ -1164,6 +1176,7 @@ function useCanvasOwnedRestingDropdownBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [restingDropdownBoxes, setRestingDropdownBoxes] = useState<
     Array<CanvasOwnedRestingDropdownBox>
@@ -1171,6 +1184,9 @@ function useCanvasOwnedRestingDropdownBoxes(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -1238,7 +1254,7 @@ function useCanvasOwnedRestingDropdownBoxes(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
 
   return restingDropdownBoxes;
 }
@@ -1247,6 +1263,7 @@ function useCanvasOwnedNestedGuideBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [nestedGuideBoxes, setNestedGuideBoxes] = useState<
     Array<CanvasOwnedNestedGuideBox>
@@ -1254,6 +1271,9 @@ function useCanvasOwnedNestedGuideBoxes(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -1321,7 +1341,7 @@ function useCanvasOwnedNestedGuideBoxes(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
 
   return nestedGuideBoxes;
 }
@@ -1330,6 +1350,7 @@ function useCanvasOwnedFilterIconBoxes(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [filterIconBoxes, setFilterIconBoxes] = useState<
     Array<CanvasOwnedFilterIconBox>
@@ -1337,6 +1358,9 @@ function useCanvasOwnedFilterIconBoxes(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -1404,7 +1428,7 @@ function useCanvasOwnedFilterIconBoxes(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
 
   return filterIconBoxes;
 }
@@ -1413,6 +1437,7 @@ function useCanvasOwnedRestingTextLines(
   sectionId: string,
   layoutRefreshKey: string,
   viewportScale: number,
+  suspendMeasurements: boolean,
 ) {
   const [restingTextLines, setRestingTextLines] = useState<
     Array<CanvasOwnedRestingTextLine>
@@ -1420,6 +1445,9 @@ function useCanvasOwnedRestingTextLines(
 
   useLayoutEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    if (suspendMeasurements) {
       return;
     }
 
@@ -1492,7 +1520,7 @@ function useCanvasOwnedRestingTextLines(
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
     };
-  }, [layoutRefreshKey, sectionId]);
+  }, [layoutRefreshKey, sectionId, suspendMeasurements]);
 
   return restingTextLines;
 }
@@ -1508,6 +1536,9 @@ function useCanvasOwnedSectionBackdropMeasurements({
   sectionId: string;
   viewportScale: number;
 }): CanvasOwnedSectionBackdropMeasurements {
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
   const styleColor = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
     return typeof impl?.styleColor === "string" ? impl.styleColor : null;
@@ -1540,36 +1571,43 @@ function useCanvasOwnedSectionBackdropMeasurements({
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
   const switchThumbBoxes = useCanvasOwnedSwitchThumbBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
   const underlineBoxes = useCanvasOwnedUnderlineBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
   const restingDropdownBoxes = useCanvasOwnedRestingDropdownBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
   const filterIconBoxes = useCanvasOwnedFilterIconBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
   const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
+    viewportInteractionActive,
   );
 
   return useMemo(
