@@ -402,7 +402,22 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
-        "settings-section__textBlockSectionDefault",
+        SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__spreadsheetSectionDefault",
       ),
     ).toBe(false);
   });
@@ -599,7 +614,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the section sizing policy dense lane for lightweight param labels", () => {
+  it("targets the measured resting-text sections for lightweight param labels", () => {
     expect(
       isCanvasOwnedSectionLightweightParamLabel(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -608,6 +623,21 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightParamLabel(
         CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel(
+        SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel(
+        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
     ).toBe(false);
   });

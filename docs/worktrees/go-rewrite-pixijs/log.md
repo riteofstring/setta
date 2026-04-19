@@ -2473,3 +2473,61 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - restart the next Ralph iteration from the updated docs and require a whole-scene structural frontier choice instead of another small resting-text harvest
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 062
+
+- Item: Collapse the legacy leading label wrapper across the already measured retained-canvas sections.
+- Status: `done`
+- Details:
+  - Checked the current iteration pattern before coding and rejected another section-local text/date-time follow-up. A fresh whole-scene inventory on the live `All Settings` surface showed the next defensible shared primitive was the leading label wrapper on already owned sections:
+    - `settings-section__shortcuts`: `legacyLeadingContentWrapperCount 62`
+    - `settings-section__gui`: `legacyLeadingContentWrapperCount 22`
+    - `settings-section__chatSectionDefault`: `legacyLeadingContentWrapperCount 21`
+  - Chose one bounded shared primitive slice rather than a new family lane:
+    - canonical target section: `settings-section__shortcuts`
+    - sibling proof sections in the same slice:
+      - `settings-section__gui`
+      - `settings-section__chatSectionDefault`
+    - canonical target row/input:
+      - `ParamContainer-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut`
+      - `#settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput`
+  - Landed the shared ownership move:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats param-label resting text and lightweight leading-content ownership as a shared measured-section rule via `isCanvasOwnedSectionRestingTextSection(...)` instead of the old section-sizing-policy-only wrapper rule
+    - `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx` now covers both the expanded owned-section rule and the non-owned fallback path
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx` now covers the expanded shared label path for both retained-text and retained-dropdown sections while keeping a truly non-owned section visible
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves the broader measured-section label rule while keeping backend/non-owned sections out of scope
+    - added focused probe `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-cluster.spec.ts`
+    - recorded dense rerun `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-cluster-rerun.md`
+  - The focused probe proved the shared wrapper collapse on the live surface:
+    - `settings-section__shortcuts`: `rowCount 62`, `labelCount 62`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 62`
+    - `settings-section__gui`: `rowCount 22`, `labelCount 22`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 22`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `labelCount 21`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 21`
+    - the canonical hidden label root still handed off correctly: forcing a pointer click on the `Advanced Search Shortcut` label surfaced the inline editor in the same section with no blank or detached jump
+  - Dense rerun outcome on the current runtime:
+    - `documentNodeCount: 7350`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 99.07`
+    - `raf.p95Ms: 216.7`
+    - `longTasks.totalMs: 15896`
+  - Interpretation:
+    - this is a real shared row-shell primitive move, not another section-local resting-text hop
+    - the dense surface moved materially again: `documentNodeCount` dropped below the prior best clean `7670` checkpoint
+    - the global `input` / `button` counts on this runtime still carry non-target workspace-chrome noise, so the authoritative proof for this slice is the focused cluster summary plus the dense `documentNodeCount` drop rather than the full interactive-core totals
+    - this closes the shared lightweight param-label primitive at its useful boundary for the currently measured retained-canvas sections; the next frontier remains the broader dense resting row/body DOM, not another label-wrapper follow-up
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-label-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-003/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-param-label-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.5s)` on the live worktree runtime with `documentNodeCount: 7350`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done:
+  - `All Settings` was active on `/settings`
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - no crash overlay was visible
+  - `settings-section__shortcuts` was present and the `Advanced Search Shortcut` row looked intact at rest on the canvas path with visible `Mod + P` text
+  - focusing `#settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput` surfaced the inline CodeMirror editor in the same section with no obvious blank or detached jump
+  - caveat: the page also showed an unrelated existing `Claude Code (SDK) unavailable` warning banner during the headless CDP pass
+- Next action:
+  - start the next iteration from a fresh whole-scene ranking of the remaining mounted row/body DOM and choose the next broader shared primitive or ownership seam; do not spend the next default pass on another label-wrapper or section-local cleanup hop
+LOOP_TERMINAL_MARKER: none

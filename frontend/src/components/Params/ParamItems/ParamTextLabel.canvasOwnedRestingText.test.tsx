@@ -2,7 +2,9 @@ import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -76,7 +78,7 @@ describe("ParamTextLabel canvas-owned resting text", () => {
       <ParamTextLabel
         bg="bg-white"
         paramInfoId={PARAM_INFO_ID}
-        sectionId="settings-section__textBlockSectionDefault"
+        sectionId="settings-section__spreadsheetSectionDefault"
       />,
     );
 
@@ -136,5 +138,35 @@ describe("ParamTextLabel canvas-owned resting text", () => {
     );
     expect(markup).toContain("section-key overflow-hidden");
     expect(markup).toContain('style="width:200px"');
+  });
+
+  it("hides shared shortcuts param labels on the canvas path", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+
+    const markup = renderToStaticMarkup(
+      <ParamTextLabel
+        bg="bg-white"
+        paramInfoId={PARAM_INFO_ID}
+        sectionId={SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-resting-text="true"');
+    expect(markup).toContain("opacity-0");
+  });
+
+  it("hides shared dropdown-lane param labels on the canvas path", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+
+    const markup = renderToStaticMarkup(
+      <ParamTextLabel
+        bg="bg-white"
+        paramInfoId={PARAM_INFO_ID}
+        sectionId={GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-resting-text="true"');
+    expect(markup).toContain("opacity-0");
   });
 });

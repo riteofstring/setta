@@ -213,7 +213,7 @@ export function isCanvasOwnedSectionLightweightResizeHandle(sectionId: string) {
 }
 
 export function isCanvasOwnedSectionLightweightParamLabel(sectionId: string) {
-  return sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+  return isCanvasOwnedSectionRestingTextSection(sectionId);
 }
 
 export function isCanvasOwnedSectionLightweightNestedChildren(
@@ -269,10 +269,7 @@ export function isCanvasOwnedSectionRestingText({
 }
 
 export function isCanvasOwnedSectionParamLabelRestingText(sectionId: string) {
-  return (
-    isCanvasOwnedSectionShell(sectionId) ||
-    isCanvasOwnedSectionLightweightParamLabel(sectionId)
-  );
+  return isCanvasOwnedSectionRestingTextSection(sectionId);
 }
 
 export function isCanvasOwnedSectionArgsLabelRestingText(sectionId: string) {

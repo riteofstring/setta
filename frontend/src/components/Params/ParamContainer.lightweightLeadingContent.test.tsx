@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   graphSurfaceImplementation: "legacy-dom" as
     | "canvas-shell-underlay"
     | "legacy-dom",
-  lightweightParamLabelSectionId: null as string | null,
+  lightweightParamLabelSectionIds: new Set<string>(),
 }));
 
 vi.mock("components/Utils/FloatingBox", () => ({
@@ -31,7 +31,7 @@ vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
 
 vi.mock("forks/xyflow/core/container/sectionShellCanvasOwnership", () => ({
   isCanvasOwnedSectionLightweightParamLabel: (candidateSectionId: string) =>
-    candidateSectionId === mocks.lightweightParamLabelSectionId,
+    mocks.lightweightParamLabelSectionIds.has(candidateSectionId),
   isCanvasOwnedSectionLightweightNestedChildren: () => false,
   isCanvasOwnedSectionNestedGuide: () => false,
   isCanvasOwnedSectionLightweightResizeHandle: () => false,
@@ -65,9 +65,12 @@ vi.mock("./ParamDndContext", () => ({
 import { ParamContainer } from "./ParamContainer";
 
 describe("ParamContainer lightweight leading content", () => {
-  it("uses the param label element itself as the key column root on the active canvas lane", () => {
+  it("uses the param label element itself as the key column root on the shared owned canvas lanes", () => {
     mocks.graphSurfaceImplementation = "canvas-shell-underlay";
-    mocks.lightweightParamLabelSectionId = "section-sizing-policy";
+    mocks.lightweightParamLabelSectionIds = new Set([
+      "section-sizing-policy",
+      "settings-section__shortcuts",
+    ]);
 
     function LightweightLabel(props: {
       className?: string;
@@ -113,5 +116,52 @@ describe("ParamContainer lightweight leading content", () => {
     expect(markup).toContain(
       'style="width:var(--param-column-width, 200px)"',
     );
+  });
+
+  it("keeps the legacy wrapper for non-owned sections", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.lightweightParamLabelSectionIds = new Set([
+      "settings-section__shortcuts",
+    ]);
+
+    function LightweightLabel(props: {
+      className?: string;
+      lightweightCanvasRoot?: boolean;
+      style?: CSSProperties;
+    }) {
+      const { className, lightweightCanvasRoot, style } = props;
+      return (
+        <p
+          className={className}
+          data-lightweight-canvas-root={
+            lightweightCanvasRoot ? "true" : undefined
+          }
+          style={style}
+        >
+          Param
+        </p>
+      );
+    }
+
+    const markup = renderToStaticMarkup(
+      <ParamContainer
+        sectionId="settings-section__spreadsheetSectionDefault"
+        paramInfoId="param-current"
+        requiredParamIdsToPaths={{}}
+        onResizeStart={() => undefined}
+        listKey="unpinned"
+        isKwarg={false}
+        isNestedParam={false}
+        hasSectionStyleTheme={false}
+        paramChildren={[]}
+        border=""
+        bg=""
+      >
+        <LightweightLabel />
+      </ParamContainer>,
+    );
+
+    expect(markup).toContain("<div class=\"section-key overflow-hidden\"");
+    expect(markup).not.toContain("data-lightweight-canvas-root=\"true\"");
   });
 });
