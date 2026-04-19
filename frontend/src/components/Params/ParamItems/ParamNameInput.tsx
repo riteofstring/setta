@@ -28,10 +28,10 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
-  isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
 type ParamNameInputProps = {
@@ -150,10 +150,9 @@ function useParamNameState(
     );
     return {
       configLanguage: impl.configLanguage,
-      isDictSection: isBaseDictSectionImpl(impl),
-      topLevelParamId: isBaseDictSectionImpl(impl)
-        ? impl.topLevelParamId
-        : null,
+      isDictSection: impl.type === SectionTypeEnum.Dict,
+      topLevelParamId:
+        impl.type === SectionTypeEnum.Dict ? impl.topLevelParamId : null,
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
       isKwarg: codeObjImpl.coreNameEditable,

@@ -1,11 +1,11 @@
 import { useNotifications } from "state/definitions";
 import { C } from "utils/c";
 import {
-  createNotification,
   Notification,
   NotificationType,
   NotificationTypeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
@@ -66,7 +66,8 @@ function createClientNotification({
   type: NotificationType;
   temporary: boolean;
 }): Notification {
-  return createNotification({
+  return {
+    id: createNewId(),
     projectConfigId,
     timestamp: new Date().toISOString(),
     type,
@@ -74,7 +75,7 @@ function createClientNotification({
     read_status: false,
     temporary,
     metadata: {},
-  });
+  };
 }
 
 export const addTemporaryNotification = (

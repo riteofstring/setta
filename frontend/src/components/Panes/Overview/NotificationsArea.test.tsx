@@ -12,7 +12,6 @@ import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import {
-  createNotification,
   createProjectConfig,
   NotificationTypeEnum,
 } from "utils/generatedTypes";
@@ -108,15 +107,16 @@ describe("NotificationsArea", () => {
   it("loads notifications through the Go route for the active project", async () => {
     openAPI.getNotifications.mockResolvedValue({
       data: [
-        createNotification({
+        {
           id: "notif-1",
+          projectConfigId: "project-1",
           type: NotificationTypeEnum.warning,
           message: "Save needed",
           timestamp: "2026-03-12T10:00:00Z",
           read_status: false,
           temporary: false,
           metadata: { details: "Project has unsaved changes." },
-        }),
+        },
       ],
       status: 200,
       hasResponse: true,

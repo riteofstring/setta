@@ -41,9 +41,9 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  BaseDictSectionImplUnion,
-  isBaseDictSectionImpl,
+  type BaseSectionImplUnion,
   isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
@@ -79,6 +79,14 @@ type JsonSourcePathUpdateArgs = {
   setJsonSourcePath: JsonSourcePathSetter;
   setJsonSourceError: JsonSourceErrorSetter;
 };
+type DictSectionImpl = Extract<
+  BaseSectionImplUnion,
+  { type: typeof SectionTypeEnum.Dict }
+>;
+
+function isDictSectionImpl(impl: BaseSectionImplUnion): impl is DictSectionImpl {
+  return impl.type === SectionTypeEnum.Dict;
+}
 
 function formatJsonSourcePath(keys: string[]) {
   return keys.join(".");
@@ -111,7 +119,7 @@ function shouldRollbackJsonSourceKeys(
     core,
     variantId,
   );
-  if (!isBaseDictSectionImpl(impl)) {
+  if (!isDictSectionImpl(impl)) {
     return false;
   }
   return _.isEqual(impl.jsonSourceKeys, expectedKeys);
@@ -166,7 +174,7 @@ function rollbackJsonSourceKeysUpdate({
   setJsonSourceError,
 }: Omit<JsonSourcePathFailureArgs, "frontendOpId" | "nextKeys">) {
   useProjectState.setState((state) => {
-    setSectionVariantImplValue<BaseDictSectionImplUnion>(
+    setSectionVariantImplValue<DictSectionImpl>(
       state,
       sectionId,
       targetVariantId,
@@ -268,7 +276,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
       );
       let jsonSourceKeys: string[] = [];
       let isJsonSource = false;
-      if (isBaseDictSectionImpl(impl)) {
+      if (isDictSectionImpl(impl)) {
         jsonSourceKeys = impl.jsonSourceKeys;
         isJsonSource = impl.isJsonSource;
       }
@@ -444,7 +452,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setJsonSourcePath(formatJsonSourcePath(nextKeys));
     const opId = dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setSectionVariantImplValue<BaseDictSectionImplUnion>(
+        setSectionVariantImplValue<DictSectionImpl>(
           state,
           sectionId,
           targetVariantId,
