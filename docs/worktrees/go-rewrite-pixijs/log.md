@@ -155,6 +155,48 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 056
+
+- Item: Convert the remaining `settings-section__stateMachineGateSectionDefault` `Gate Type` combobox/search row to the generic canvas-owned resting dropdown path.
+- Status: `done`
+- Details:
+  - Extended the real generic owner boundary instead of reopening the dead-end inspector path:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__stateMachineGateSectionDefault` in the generic resting-dropdown ownership rule for `DropdownParam`
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that section directly so the retained scene can paint the resting dropdown box/text for the lightweight path
+  - Added focused regression coverage for the exact lane:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts`
+    - tightened `frontend/tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`
+  - The exact `Gate Type` row now behaves as intended on dense `All Settings`:
+    - row id: `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`
+    - at rest it mounts `data-canvas-owned-resting-dropdown-lightweight="true"`
+    - at rest it mounts no live `search input` or `search button`
+    - one click swaps back to the inline live Downshift search input plus toggle button with `AND` selected
+  - Fresh live inventory on the current worktree runtime now closes the last graph-surface input/button survivor lane:
+    - `mountedSectionCount`: `46`
+    - `documentInputCount`: `2`
+    - `documentButtonCount`: `39`
+    - `documentTextareaCount`: `0`
+    - `graphSurfaceInputEntries`: `0`
+    - `graphSurfaceButtonEntries`: `0`
+    - `stateMachineGateEntries`: `0`
+    - remaining inputs/buttons are workspace chrome only
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (45.9s)` on the live worktree runtime
+- CDP visual check is done:
+  - fresh bootstrap URL authenticated the page, then `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__stateMachineGateSectionDefault` was present on the live surface
+  - at rest the `Gate Type` row showed lightweight `AND` with no live search input/button
+  - after one activation the inline live search input plus toggle button appeared in the same row
+- Next action:
+  - start the next iteration from a fresh dense rerun or hotspot capture on the post-`Gate Type` surface so the next product lane comes from current evidence now that graph-surface live `input` / `button` survivors are gone at rest
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 055
 
 - Item: Refresh the post-color graph-surface inventory to close the stale last-input assumption before opening another product lane.

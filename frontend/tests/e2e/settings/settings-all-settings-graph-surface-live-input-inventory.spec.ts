@@ -30,6 +30,8 @@ type LiveInputInventory = {
   outsideGraphButtonEntries: LiveControlEntry[];
   outsideGraphInputEntries: LiveControlEntry[];
   outsideGraphTextareaEntries: LiveControlEntry[];
+  stateMachineGateRowPresent: boolean;
+  stateMachineGateSectionPresent: boolean;
   stateMachineGateEntries: LiveControlEntry[];
 };
 
@@ -75,6 +77,8 @@ test("settings All Settings graph-surface live input inventory identifies remain
   const inventory = await page.evaluate((): LiveInputInventory => {
     const SETTINGS_SECTION_SELECTOR = 'section[data-section-id^="settings-section__"]';
     const stateMachineGateSectionId = "settings-section__stateMachineGateSectionDefault";
+    const stateMachineGateRowId =
+      "ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType";
     const mountedSections = Array.from(
       document.querySelectorAll<HTMLElement>(SETTINGS_SECTION_SELECTOR),
     );
@@ -137,6 +141,11 @@ test("settings All Settings graph-surface live input inventory identifies remain
       outsideGraphTextareaEntries: outsideGraphEntries.filter(
         (entry) => entry.tagName === "textarea",
       ),
+      stateMachineGateRowPresent:
+        document.getElementById(stateMachineGateRowId) instanceof HTMLElement,
+      stateMachineGateSectionPresent: mountedSections.some(
+        (section) => section.dataset.sectionId === stateMachineGateSectionId,
+      ),
       stateMachineGateEntries: graphSurfaceEntries.filter(
         (entry) => entry.ownerSectionId === stateMachineGateSectionId,
       ),
@@ -168,6 +177,11 @@ test("settings All Settings graph-surface live input inventory identifies remain
     inventory.graphSurfaceButtonEntries.length +
       inventory.outsideGraphButtonEntries.length,
   );
+  expect(inventory.stateMachineGateSectionPresent).toBe(true);
+  expect(inventory.stateMachineGateRowPresent).toBe(true);
+  expect(inventory.graphSurfaceInputEntries).toHaveLength(0);
+  expect(inventory.graphSurfaceButtonEntries).toHaveLength(0);
+  expect(inventory.stateMachineGateEntries).toHaveLength(0);
 });
 
 async function clickFitViewIfVisible(page: Page): Promise<void> {

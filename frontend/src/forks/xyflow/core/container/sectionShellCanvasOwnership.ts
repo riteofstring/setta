@@ -9,6 +9,8 @@ export const GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__globalVariablesSectionDefault";
 export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__sectionSizingPolicy";
+export const STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
+  "settings-section__stateMachineGateSectionDefault";
 export const GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__gui";
 export const BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
@@ -24,6 +26,7 @@ export const CANVAS_OWNED_SECTION_SHELL_IDS = [
 export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
   ...CANVAS_OWNED_SECTION_SHELL_IDS,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
 ] as const;
 const SECTION_SIZING_POLICY_META_CONTROL_DROPDOWN_PARAM_INFO_ID_PATTERN =
   /^settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__.+__sizeMode(?:Height|Width)$/;
@@ -122,9 +125,16 @@ export function isCanvasOwnedSectionRestingDropdown({
       sectionId,
     }) ||
     ((sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
-      sectionId === BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID) &&
+      sectionId === BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
+      sectionId === STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID) &&
       codeObjType === CodeObjTypeEnum.DropdownParam)
   );
+}
+
+export function isCanvasOwnedSectionStateMachineGateDropdown(
+  sectionId: string,
+) {
+  return sectionId === STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID;
 }
 
 export function isCanvasOwnedSectionLightweightSwitch({

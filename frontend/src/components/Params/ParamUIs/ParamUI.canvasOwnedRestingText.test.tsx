@@ -5,6 +5,7 @@ import {
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
@@ -372,6 +373,12 @@ describe("ParamUI canvas-owned resting text", () => {
       paramInfoId: "settings-codeobj__backend__backend__runSnapshotMode",
       sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       value: "ephemeral",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType",
+      sectionId: STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      value: "AND",
     },
   ])(
     "uses the canvas-owned resting dropdown path for shared dropdown params in $sectionId",

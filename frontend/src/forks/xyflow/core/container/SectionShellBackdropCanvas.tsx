@@ -30,6 +30,7 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -1421,6 +1422,9 @@ export default function SectionShellBackdropCanvas() {
   const sectionSizingPolicyNode = nodes.get(
     SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
+  const stateMachineGateNode = nodes.get(
+    STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  );
   const callableMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: callableNode?.height,
     nodeWidth: callableNode?.width,
@@ -1448,6 +1452,13 @@ export default function SectionShellBackdropCanvas() {
       sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       viewportScale,
     });
+  const stateMachineGateMeasurements =
+    useCanvasOwnedSectionBackdropMeasurements({
+      nodeHeight: stateMachineGateNode?.height,
+      nodeWidth: stateMachineGateNode?.width,
+      sectionId: STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      viewportScale,
+    });
   const backdropMeasurementsBySectionId = useMemo(
     () => ({
       [CANVAS_OWNED_SECTION_SHELL_ID]: callableMeasurements,
@@ -1456,12 +1467,15 @@ export default function SectionShellBackdropCanvas() {
         globalVariablesMeasurements,
       [SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         sectionSizingPolicyMeasurements,
+      [STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]:
+        stateMachineGateMeasurements,
     }),
     [
       callableMeasurements,
       dictMeasurements,
       globalVariablesMeasurements,
       sectionSizingPolicyMeasurements,
+      stateMachineGateMeasurements,
     ],
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);

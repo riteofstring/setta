@@ -11,6 +11,7 @@ import {
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
   isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightMenuTrigger,
@@ -27,6 +28,7 @@ import {
   isCanvasOwnedSectionRestingText,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
+  isCanvasOwnedSectionStateMachineGateDropdown,
   resolveCanvasOwnedSectionShellChrome,
 } from "./sectionShellCanvasOwnership";
 
@@ -151,6 +153,11 @@ describe("sectionShellCanvasOwnership", () => {
       ),
     ).toBe(true);
     expect(
+      isCanvasOwnedSectionRestingTextSection(
+        STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -167,6 +174,24 @@ describe("sectionShellCanvasOwnership", () => {
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: "settings-section__textBlockSectionDefault",
       }),
+    ).toBe(false);
+  });
+
+  it("targets the state-machine gate section for the lightweight gate-type dropdown lane", () => {
+    expect(
+      isCanvasOwnedSectionStateMachineGateDropdown(
+        STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionStateMachineGateDropdown(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionStateMachineGateDropdown(
+        "settings-section__stateMachineStartSectionDefault",
+      ),
     ).toBe(false);
   });
 
@@ -275,7 +300,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets gui and backend dropdown params for canvas-owned resting dropdowns", () => {
+  it("targets gui, backend, and state-machine gate dropdown params for canvas-owned resting dropdowns", () => {
     expect(
       isCanvasOwnedSectionRestingDropdown({
         codeObjType: CodeObjTypeEnum.DropdownParam,
@@ -316,6 +341,22 @@ describe("sectionShellCanvasOwnership", () => {
         codeObjType: CodeObjTypeEnum.TextParam,
         paramInfoId: "settings-codeobj__backend__backend__defaultTerminalShell",
         sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.DropdownParam,
+        paramInfoId:
+          "settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType",
+        sectionId: STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingDropdown({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        paramInfoId:
+          "settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__displayName",
+        sectionId: STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       }),
     ).toBe(false);
   });

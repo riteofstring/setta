@@ -1169,6 +1169,42 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - `settings-section__stateMachineGateSectionDefault` was present on the live surface
   - the `Gate Type` row still rendered as a live search-style combobox/input plus button at rest (`AND` shown), not a lightweight canvas-owned activator
   - caveat: this was a headless fitted-view confirmation, so treat the focused Playwright inventory probe as the deterministic owner/row evidence
+- The `settings-section__stateMachineGateSectionDefault` `Gate Type` generic dropdown slice is now landed at the real owner boundary:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__stateMachineGateSectionDefault` in the generic resting-dropdown ownership rule instead of reopening a section-specific renderer branch
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that section directly so the retained scene can paint the dropdown box/text for the new lightweight resting path
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx` now proves the generic `ParamUI -> ConfiguredDropdownInput -> IdNameCombobox` path hands this row to `canvasOwnedRestingInput`
+  - new `frontend/tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts` now verifies the exact `Gate Type` row at rest and after one activation:
+    - at rest it mounts `data-canvas-owned-resting-dropdown-lightweight="true"`
+    - it mounts no live `search input` / `search button` inside that row
+    - one click swaps back to the inline Downshift `search input` plus toggle button with `AND` still selected
+  - `frontend/tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts` is now tightened for this lane:
+    - it asserts the state-machine gate section and row are still mounted
+    - it asserts zero graph-surface live `input` survivors
+    - it asserts zero graph-surface live `button` survivors
+    - it asserts zero remaining entries owned by `settings-section__stateMachineGateSectionDefault`
+  - fresh live inventory rerun on 2026-04-19 now records the closed survivor lane:
+    - `mountedSectionCount: 46`
+    - `documentInputCount: 2`
+    - `documentButtonCount: 39`
+    - `documentTextareaCount: 0`
+    - `graphSurfaceInputEntries: 0`
+    - `graphSurfaceButtonEntries: 0`
+    - remaining inputs/buttons are workspace chrome only
+- focused verification passed for the state-machine gate dropdown slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (45.9s)` on the live worktree runtime
+- CDP visual check is done for the state-machine gate dropdown slice:
+  - fresh bootstrap URL used: `http://127.0.0.1:8068/__setta__/bootstrap#token=...`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__stateMachineGateSectionDefault` was present on the live surface
+  - at rest the `Gate Type` row showed the lightweight canvas-owned dropdown path with `AND` visible and no live search input/button
+  - after one activation, the inline live search input plus toggle button appeared in the same row
+- The at-rest graph-surface input/button survivor lane is now closed at its useful ownership boundary:
+  - do not reopen the `settings-section__stateMachineGateSectionDefault` `Gate Type` lane unless a fresh inventory or visible defect says it regressed
+  - do not continue the dead-end `StateMachineSectionSettings.tsx` inspector path for this lane unless a fresh inventory proves the generic owner boundary changed
 
 ## Preservation rule
 
@@ -1210,11 +1246,11 @@ That leaves one primary architectural move:
 12. Treat the new `settings-section__backend` switch-family lane as closed at its current ownership boundary; do not reopen it for another backend-only switch micro-slice unless a fresh visible defect appears there.
 13. Treat the shared kwargs action-button lane, the shared section-menu-trigger lane, the shared lightweight param-filter lane, and the shared lightweight color-input lane as closed at their current ownership boundaries; do not reopen another kwargs/menu-trigger/filter/color-input micro-slice unless a fresh visible defect appears there.
 14. Treat the current best checkpoint as proof of direction, not proof of success: `settings` -> `All Settings` still performs poorly in absolute terms even after the shared lightweight color-input slice at `raf.meanMs 102.88`, `raf.p95Ms 200`, and `longTasks.totalMs 16522`, so the branch still owes a major pan/zoom win.
-15. The next automated pass must target the next real dense frontier from the fresh post-color surface, not another `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, or color-input cleanup hop.
+15. The next automated pass must target the next real dense frontier from the fresh post-`Gate Type` surface, not another `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, or state-machine-gate dropdown cleanup hop.
 16. Current priority order is:
-    - the bounded `settings-section__stateMachineGateSectionDefault` `Gate Type` combobox/search core, routed through the generic settings-row dropdown owner at `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`
-    - do not continue the dead-end `StateMachineSectionSettings.tsx` inspector path for this survivor unless a fresh inventory proves the ownership moved
-    - after that `Gate Type` row is converted, rerun the same graph-surface inventory probe before opening another support lane so the next frontier comes from fresh evidence instead of document-wide chrome counts
+    - capture a fresh dense rerun or hotspot report on the post-`Gate Type` surface so the next product slice is chosen from current evidence instead of stale plateau assumptions
+    - use that rerun to identify the next highest-payoff shared interactive-core primitive or dense family now that graph-surface live `input` / `button` survivors are gone at rest
+    - keep the `StateMachineSectionSettings.tsx` inspector path and the `settings-section__stateMachineGateSectionDefault` dropdown lane closed unless fresh evidence proves a regression or ownership move
 17. If the next candidate slice does not plausibly move the global dense-scene numbers before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
 
 ## First product frontier
