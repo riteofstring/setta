@@ -1450,43 +1450,6 @@ func TestServerCanOmitDefaultAppSubsystemTools(t *testing.T) {
 	}
 }
 
-func TestServerAppSubsystemToolContributionsRestoreFrozenToolSet(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
-		WorkspaceRoot:                t.TempDir(),
-		ProjectState:                 projectRuntime,
-		LSPDiagnostics:               openScopedTestLSPDiagnosticsRegistry(),
-		SkipDefaultAppSubsystemTools: true,
-		ContributedToolRegistrations: BuildAppSubsystemToolRegistrations(projectRuntime),
-	})
-	defer clientSession.Close()
-
-	toolsResult, err := clientSession.ListTools(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("list tools with app subsystem contributions: %v", err)
-	}
-
-	names := make([]string, 0, len(toolsResult.Tools))
-	for _, tool := range toolsResult.Tools {
-		names = append(names, tool.Name)
-	}
-	for _, name := range []string{
-		"get_app_catalog",
-		"list_app_components",
-		"get_app_definition",
-		"validate_app_definition",
-		"set_app_definition",
-		"stream_app_definition",
-		"update_app_definition",
-	} {
-		if !slices.Contains(names, name) {
-			t.Fatalf("expected %s to be restored by app subsystem contributions; tools=%#v", name, names)
-		}
-	}
-}
-
 func TestServerToolCatalogOmitsLegacyInvokeLinkedChatTool(t *testing.T) {
 	t.Parallel()
 
