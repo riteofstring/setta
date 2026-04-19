@@ -256,37 +256,34 @@ Use this order unless a fresh measurement disproves it:
 
 ## Current sequencing checkpoint
 
-As of the 2026-04-20 progress review after run `048`:
+As of the 2026-04-20 progress review after run `060`:
 
-- The recent stretch is still worthwhile, but the default frontier changed again. The canonical lane still sits above the real `33.3ms` goal, and runs `042` through `048` spent the immediate `_SectionContainerCore` / `_SectionContainerCoreResizable` rerender-fanout lane without naming another credible local product slice inside that file family.
-- Runs `034` through `040` were not wasted, but they closed the current retained-backdrop invalidation family as a default target. Observer churn, mutation-refresh churn, motion-hidden subtree detach / restore, unconditional settle-flush churn, header/menu viewport fanout, and same-scene backdrop node-map repaint are all either removed or demoted behind stronger evidence.
-- Run `041` remains the durable attribution pivot: the saved trace on the canonical `settings-section__browserSectionDefault` lane pointed more strongly at section-container / graph-surface JS work than at another `SectionShellBackdropCanvas` paint/layout pass. The follow-up runs then spent the immediate section-container micro-lane that trace had named.
-- Runs `042` through `047` were real hotspot reductions and correctness fixes, not churn. They removed direct viewport and active-section render subscriptions, stabilized the motion-hidden DOM-sync contract, and proved the immediate child-boundary fanout is now cold. Run `048` then confirmed the remaining local inputs are already split cleanly enough that another memo / prop-plumbing pass would likely be churn.
-- The repeated headless transparent-canvas samples are still verification ambiguity, not proved product regressions. Keep them explicit, but do not let them force a rollback unless a more trustworthy visual path reproduces the blank graph.
+- The recent stretch is still worthwhile, and the browser-lane consumer attachment slice is now green. The active frontier stays in Phase 3 first-click editing handoff for canvas-owned resting text, but it moves from `browser.columnWidth` onto the canonical chat blocker.
+- Runs `056` through `060` were not churn: they closed the pane-level fallback, proved `browser.columnWidth` is the best on-screen control lane, landed a real graph-space `canvasOwnedTextActivatorRegistry` publication path, hardened registry reads against module-instance ambiguity, and then landed one kept pane-capture consumer that opens the inline editor from a real visible retained-text click.
+- The six failed supervisor attempts in this window (`loop-001` runs `010` through `015`) were control-plane failures only (`Reconnecting...` plus `high demand`) and must not be treated as renderer evidence, product regressions, or lane outcomes.
+- `settings-section__browserSectionDefault` / `browser.columnWidth` is now the trustworthy control lane for this frontier: the retained-text point stays on-screen, lands on `.react-flow__pane`, and now mounts the inline editor through the kept pane-capture consumer path instead of only through a synthetic hidden-input dispatch.
+- `settings-section__chatSectionDefault` / `chat.permissionMode` remains the canonical blocker reproduction lane and is now the next default pass because the browser lane has already proved one real visible retained-text click can reach a live consumer path.
 
 Required order from here:
 
-1. Start each default pass from the chat-normalized dense `settings` -> `All Settings` probe on the named `settings-section__browserSectionDefault` lane, not from a previously closed section-local cleanup lane.
-2. Keep using `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`). Treat later reruns as hotspot-evidence slices unless they are clearly cleaner on the same normalized runtime.
-3. Treat these default lanes as closed unless a visible regression or fresh evidence explicitly reopens one:
-   - shared row-body/article-chrome cleanup from the April 19 ranking
-   - selector-cache / viewport-persistence / `ZoomPane` wheel-event micro-passes
-   - another browser/code/prompt lightweight nested-children widening for the same family
-   - another shell-only sibling promotion derived only from the old DOM ranking
-   - another `SectionShellBackdropCanvas` observer / snapshot / map-equality micro-pass by inertia
-   - another pass that only re-proves the `SectionContainerCore` or `SectionContainerCoreResizable` viewport/active-section motion-hidden DOM-sync path
-4. The next restart must begin with exactly one bounded attribution slice on the canonical lane:
-   - one fresh dense rerun on the same runtime
-   - one saved trace or equivalent instrumentation artifact on that same runtime after normalizing project chat/workspace-chat noise off the measurement path
-   - one trustworthy visual confirmation path for the retained graph on that same runtime
-5. That attribution slice is only successful if it ends by choosing exactly one new frontier:
-   - one broader Pixi-owned graph-surface ownership step that changes a shared dense family or retained primitive rather than another local section-container memo/subscription cleanup
-   - or one fresh shared renderer-main JS hotspot outside the already-closed immediate `_SectionContainerCore` / `_SectionContainerCoreResizable` micro-lane, if the cleaned trace names it credibly
-6. If the cleaned attribution does not name a stronger shared JS hotspot, default to the broader graph-surface ownership step instead of reopening section-container, backdrop, `ZoomPane`, or motion-hidden DOM-sync micro-lanes by inertia.
-7. The only acceptable single-section fallback is the next non-shell-owned dense outlier that can move from resting-text-only to full shell ownership without opening a new renderer branch; do not choose that fallback unless no stronger shared family or primitive is credible on the cleaned attribution.
-8. Do not treat a headless transparent-canvas sample by itself as proof of product breakage. If the blank retained graph reproduces on a trustworthy visual path, then treat that as a blocker and stop for a deeper renderer replan before landing more ownership work.
+1. Start the next default pass from the named `settings-section__chatSectionDefault` lane and keep `settings-section__browserSectionDefault` only as the control fallback, not as the first proof point.
+2. Treat `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts`, `frontend/src/forks/xyflow/core/container/Pane.tsx`, and `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts` as the current trustworthy baseline: publication plus one real pane consumer is no longer the missing step.
+3. The next automated pass must be exactly one bounded chat-lane retry through that same pane / scene consumer path.
+4. That slice counts only if it lands one durable proof on `chat.permissionMode` beyond the now-green browser control:
+   - a forwarded target `mousedown`
+   - focus moving onto the intended editor core
+   - or a real inline editor mount from a visible retained-text click
+5. Treat these lanes as closed unless fresh evidence reopens them:
+   - hidden-input width or hit-test retries
+   - DOM row / row-label click proxies
+   - `Pane.tsx` event-ordering or synthetic focus / `mousedown` variants
+   - `shortcuts.advancedSearchShortcut` same-path visible-click retries under the current normalized `fit view`
+   - publication-only registry reshaping, extra global mirroring, or browser-lane proofs that only restate the same published boxes now that the consumer lane is green there
+   - another `_SectionContainerCore` / `_SectionContainerCoreResizable` micro-pass by inertia
+6. If the chat-lane retry succeeds, move to the next representative heavy control through that same consumer path before opening any new activator lane family.
+7. If one bounded chat-lane retry still cannot produce a forwarded target event, focus change, or real editor mount through the same proven consumer path, stop the autonomous loop for a human architectural decision instead of reopening any of the already-closed fallbacks.
 
-Do not let Ralph treat the current `~43ms` band as success just because it is better than the earlier triple-digit frame times. The loop is still worthwhile only if the next pass either identifies a new shared hotspot cleanly or moves a broader retained-surface ownership primitive with whole-scene reach.
+Do not let Ralph treat the green browser control lane as equivalent to overall first-click editing parity. The loop is still worthwhile only if the next kept pass proves that the canonical `chat.permissionMode` blocker can use the same consumer path or cleanly stops for replan.
 
 ## Testing discipline
 

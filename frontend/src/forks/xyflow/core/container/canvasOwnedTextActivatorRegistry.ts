@@ -16,6 +16,17 @@ declare global {
 
 let currentActivators: Array<CanvasOwnedTextActivator> = [];
 
+type CanvasOwnedTextActivatorGraphPoint = {
+  sectionId?: string;
+  x: number;
+  y: number;
+};
+
+type CanvasOwnedTextActivatorHitSlopOptions = {
+  minimumScreenHitSizePx?: number;
+  viewportScale?: number;
+};
+
 function compareCanvasOwnedTextActivators(
   left: CanvasOwnedTextActivator,
   right: CanvasOwnedTextActivator,
@@ -54,6 +65,47 @@ function getCanvasOwnedTextActivatorSource() {
   return Array.isArray(globalActivators) ? globalActivators : currentActivators;
 }
 
+function expandCanvasOwnedTextActivatorBounds({
+  activator,
+  minimumScreenHitSizePx,
+  viewportScale,
+}: {
+  activator: CanvasOwnedTextActivator;
+} & CanvasOwnedTextActivatorHitSlopOptions) {
+  if (
+    !Number.isFinite(minimumScreenHitSizePx) ||
+    minimumScreenHitSizePx === undefined ||
+    minimumScreenHitSizePx <= 0 ||
+    !Number.isFinite(viewportScale) ||
+    viewportScale === undefined ||
+    viewportScale <= 0
+  ) {
+    return {
+      maxX: activator.x + activator.width,
+      maxY: activator.y + activator.height,
+      minX: activator.x,
+      minY: activator.y,
+    };
+  }
+
+  const minimumGraphHitSize = minimumScreenHitSizePx / viewportScale;
+  const horizontalPadding = Math.max(
+    0,
+    (minimumGraphHitSize - activator.width) * 0.5,
+  );
+  const verticalPadding = Math.max(
+    0,
+    (minimumGraphHitSize - activator.height) * 0.5,
+  );
+
+  return {
+    maxX: activator.x + activator.width + horizontalPadding,
+    maxY: activator.y + activator.height + verticalPadding,
+    minX: activator.x - horizontalPadding,
+    minY: activator.y - verticalPadding,
+  };
+}
+
 export function replaceCanvasOwnedTextActivators(
   nextActivators: Array<CanvasOwnedTextActivator>,
 ) {
@@ -78,22 +130,25 @@ export function getCanvasOwnedTextActivatorSnapshot({
 
 export function resolveCanvasOwnedTextActivatorAtGraphPoint({
   sectionId,
+  minimumScreenHitSizePx,
+  viewportScale,
   x,
   y,
-}: {
-  sectionId?: string;
-  x: number;
-  y: number;
-}) {
+}: CanvasOwnedTextActivatorGraphPoint & CanvasOwnedTextActivatorHitSlopOptions) {
   for (const activator of getCanvasOwnedTextActivatorSource()) {
     if (sectionId !== undefined && activator.sectionId !== sectionId) {
       continue;
     }
+    const bounds = expandCanvasOwnedTextActivatorBounds({
+      activator,
+      minimumScreenHitSizePx,
+      viewportScale,
+    });
     if (
-      x >= activator.x &&
-      x <= activator.x + activator.width &&
-      y >= activator.y &&
-      y <= activator.y + activator.height
+      x >= bounds.minX &&
+      x <= bounds.maxX &&
+      y >= bounds.minY &&
+      y <= bounds.maxY
     ) {
       return copyCanvasOwnedTextActivator(activator);
     }

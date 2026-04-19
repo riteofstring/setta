@@ -129,4 +129,36 @@ describe("canvasOwnedTextActivatorRegistry", () => {
       targetId: "target-a",
     });
   });
+
+  it("expands tiny activators to a minimum screen-space hit size when requested", () => {
+    replaceCanvasOwnedTextActivators([
+      {
+        height: 69,
+        sectionId: "section-a",
+        targetId: "tiny-target",
+        width: 3.2,
+        x: 93,
+        y: 1338,
+        zIndex: 6,
+      },
+    ]);
+
+    expect(
+      resolveCanvasOwnedTextActivatorAtGraphPoint({
+        minimumScreenHitSizePx: 1,
+        viewportScale: 0.1,
+        x: 91,
+        y: 1368,
+      }),
+    ).toMatchObject({
+      sectionId: "section-a",
+      targetId: "tiny-target",
+    });
+    expect(
+      resolveCanvasOwnedTextActivatorAtGraphPoint({
+        x: 91,
+        y: 1368,
+      }),
+    ).toBeNull();
+  });
 });

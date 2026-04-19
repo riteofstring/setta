@@ -155,6 +155,24 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 progress review after loop-001 run 017
+
+- Reviewed `RALPH.md`, the current durable `plan.md` and `handoff.md`, and supervisor runs `008` through `017`.
+- Decision: keep the loop going, but only under a sharper plan boundary.
+- Real forward progress is present in the latest kept product runs:
+  - run `058` published a live graph-space `canvasOwnedTextActivatorRegistry` on the trusted `settings-section__browserSectionDefault` / `browser.columnWidth` lane
+  - run `059` hardened registry reads against module-instance ambiguity and kept the browser control lane green while confirming the remaining gap is consumer attachment, not hit-box publication
+- The failed supervisor attempts in this window (`run-010` through `run-015`) were infrastructure-only `Reconnecting...` / `high demand` failures with no landed product work; they are not renderer evidence and should not influence lane choice.
+- Repeated rabbit holes are now explicitly closed for the next automated pass:
+  - hidden-input hit-test retries
+  - DOM row / row-label click proxies
+  - pane-level `Pane.tsx` timing or synthetic focus / `mousedown` variants
+  - publication-only registry reshaping or extra global mirroring
+  - `shortcuts.advancedSearchShortcut` same-path visible-click retries under the current normalized `fit view`
+- Sharpened next action:
+  - spend exactly one bounded pass on the browser control lane consumer path and prove one of: forwarded target event, focus change, or real editor mount from the visible retained-text click
+  - if that bounded pass still cannot produce any of those signals, stop for a human architectural decision instead of reopening another fallback
+
 ## 2026-04-20 run 059
 
 - Landed one narrower blocker-resolution slice on the canonical `settings-section__browserSectionDefault` control lane instead of forcing through another unverified pane consumer.
@@ -6408,4 +6426,31 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check:
   - not run because no product source changes from this attempt were kept
 - Next frontier: keep `settings-section__chatSectionDefault` as the blocker reproduction target, use `settings-section__browserSectionDefault` / `columnWidth` as the current on-screen control lane, and instrument or simplify the live hit-box publication / consumption path itself instead of reopening another pane-level timing tweak.
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 060
+
+- Item: Land one kept browser-lane pane consumer so a real retained-text click opens the inline editor on `settings-section__browserSectionDefault` / `browser.columnWidth`.
+- Status: `done`
+- Details:
+  - `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts` now supports a minimum screen-space hit size during graph-point resolution, so subpixel activator boxes stay consumable from real pane clicks at fit-view zoom.
+  - `frontend/src/forks/xyflow/core/container/Pane.tsx` now installs one native pane-capture listener that resolves pane-owned `mousedown` events through the published activator registry and forwards the real pointer event to the hidden target root before the blank-pane click path clears the interaction.
+  - `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts` now proves the minimum-hit-size resolver behavior directly.
+  - `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts` now clicks the real visible `browser.columnWidth` point instead of directly dispatching on the hidden input, so the browser lane proves actual consumer attachment and editor mount.
+  - One direct live probe before the kept patch explained the dark path precisely:
+    - the real visible click reached pane capture cleanly
+    - the published browser activator was only about `3.2` graph units wide at fit-view scale, so the integer-rounded pane click landed just outside the exact box even though the subpixel center point still matched geometrically
+    - the kept fix was therefore consumer-side minimum hit sizing plus pane capture forwarding, not another publication-only reshape
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts src/forks/xyflow/core/container/Pane.tsx tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts src/forks/xyflow/core/container/Pane.test.tsx`
+    - result: `canvasOwnedTextActivatorRegistry.test.ts` passed with `4 tests`, while the combined run still hit the pre-existing repo `html-encoding-sniffer` ESM error before `Pane.test.tsx` collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-018/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (26.4s)` on the current `3068/8068` runtime, with the known `POST /api/setActiveIds -> 404` still appearing as existing noise
+- CDP visual check:
+  - done in a fresh DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+  - `/settings` loaded with `All Settings` active, the graph surface stayed nonblank, `settings-section__browserSectionDefault` remained visible, and a real click on `Browser -> Column Width` opened the inline editor while chat chrome stayed minimized to a docked button
+- Next action:
+  - retry the canonical `settings-section__chatSectionDefault` / `chat.permissionMode` blocker through the same pane-capture consumer path now that the browser control lane is proven
 LOOP_TERMINAL_MARKER: none

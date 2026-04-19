@@ -248,6 +248,8 @@ test("canvas shell path owns the browser section shell frame and resting text", 
           inputHeight * canvasScaleY,
           "0,0,0,0",
         ),
+        inputCenterClientX,
+        inputCenterClientY,
         inputHighlightSpanCount: input.querySelectorAll(".cm-line span").length,
         inputOpacity: inputStyle.opacity,
         lightweightOwnershipFlag:
@@ -287,22 +289,10 @@ test("canvas shell path owns the browser section shell frame and resting text", 
   expect(restingTextState.paneOwnsInputCenterClick).toBe(true);
   expect(restingTextState.textActivatorContainsInputCenter).toBe(true);
 
-  await page.evaluate(({ targetInputId }) => {
-    const targetInput = document.getElementById(targetInputId);
-    if (!(targetInput instanceof HTMLElement)) {
-      throw new Error(`Missing target input ${targetInputId}`);
-    }
-
-    targetInput.dispatchEvent(
-      new MouseEvent("mousedown", {
-        bubbles: true,
-        button: 0,
-        cancelable: true,
-      }),
-    );
-  }, {
-    targetInputId: TARGET_INPUT_ID,
-  });
+  await page.mouse.click(
+    restingTextState.inputCenterClientX,
+    restingTextState.inputCenterClientY,
+  );
 
   await page.waitForFunction(
     ({ editorId, sectionId, targetInputId }) => {
