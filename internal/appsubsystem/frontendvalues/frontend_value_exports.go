@@ -1,9 +1,9 @@
-package settajsonrenderappgenbackend
+package frontendvalues
 
 import (
 	"setta/internal/agentruns"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
-	settajsonrenderappgenbackendchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
+	"setta/internal/appsubsystem/appspec"
+	settajsonrenderappgenbackendchatmodes "setta/internal/appsubsystem/chatmodes"
 )
 
 type AppSubsystemChatSlashCommandValue struct {

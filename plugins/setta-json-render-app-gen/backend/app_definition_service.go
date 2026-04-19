@@ -1,8 +1,8 @@
 package settajsonrenderappgenbackend
 
 import (
+	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func NewAppDefinitionService(

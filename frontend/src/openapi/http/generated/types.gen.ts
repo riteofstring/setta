@@ -105,6 +105,55 @@ export type AppgenskillsUpsertCustomSkillResponse = {
   skillId: string;
 };
 
+export type AppsubsystemAppdefinitionAppDefinition = {
+  actions?: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: unknown;
+  catalogId?: string;
+  dataBindings?: unknown;
+  routes?: Array<AppsubsystemAppdefinitionAppRoute> | null;
+  theme?: unknown;
+};
+
+export type AppsubsystemAppdefinitionAppRoute = {
+  name?: string;
+  path: string;
+  rootKey?: string;
+};
+
+export type AppsubsystemAppdefinitionCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
+export type AppsubsystemAppdefinitionMutationResult = {
+  appDefinition?: AppsubsystemAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+
+export type AppsubsystemAppdefinitionReadResult = {
+  appDefinition?: AppsubsystemAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+
+export type AppsubsystemAppdefinitionValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+export type AppsubsystemAppdefinitionValidationResult = {
+  capabilities: AppsubsystemAppdefinitionCapabilities;
+  errors: Array<AppsubsystemAppdefinitionValidationIssue> | null;
+  warnings: Array<AppsubsystemAppdefinitionValidationIssue> | null;
+};
+
 export type ArtifactsArtifactSaveResult = {
   backupPath?: string;
   id: string;
@@ -2818,55 +2867,6 @@ export type PluginsPluginUpdateResponse = {
   toVersion: string;
 };
 
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition = {
-  actions?: unknown;
-  appSpecPath?: string;
-  appSpecVersion?: string;
-  assets?: unknown;
-  catalogId?: string;
-  dataBindings?: unknown;
-  routes?: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute> | null;
-  theme?: unknown;
-};
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute = {
-  name?: string;
-  path: string;
-  rootKey?: string;
-};
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionCapabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult = {
-  appDefinition?: PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition;
-  appSpec: unknown;
-};
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult = {
-  appDefinition?: PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition;
-  appSpec: unknown;
-};
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
-};
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult = {
-  capabilities: PluginsSettaJsonRenderAppGenBackendAppdefinitionCapabilities;
-  errors: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue> | null;
-  warnings: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue> | null;
-};
-
 export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse =
   {
     name: string;
@@ -2921,7 +2921,7 @@ export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinition
       [key: string]: unknown;
     };
     frontendOpId?: string;
-    routes?: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute>;
+    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
     theme?: {
       [key: string]: unknown;
     };
@@ -2940,7 +2940,7 @@ export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefin
       [key: string]: unknown;
     };
     frontendOpId?: string;
-    routes?: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute>;
+    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
     theme?: {
       [key: string]: unknown;
     };
@@ -2960,7 +2960,7 @@ export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentSes
 
 export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse =
   {
-    appDefinition: PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition;
+    appDefinition: AppsubsystemAppdefinitionAppDefinition;
     appPolicy: DeploymentsPolicy;
     appSpec: unknown;
     projectState: ProjectviewSingleConfig;
@@ -6009,7 +6009,7 @@ export type GetAppDefinitionResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult;
+  200: AppsubsystemAppdefinitionReadResult;
 };
 
 export type GetAppDefinitionResponse =
@@ -8650,7 +8650,7 @@ export type SetAppDefinitionResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult;
+  200: AppsubsystemAppdefinitionMutationResult;
 };
 
 export type SetAppDefinitionResponse =
@@ -11987,7 +11987,7 @@ export type ValidateAppDefinitionResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult;
+  200: AppsubsystemAppdefinitionValidationResult;
 };
 
 export type ValidateAppDefinitionResponse =

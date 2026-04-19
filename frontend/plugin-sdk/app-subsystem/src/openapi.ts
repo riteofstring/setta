@@ -29,13 +29,13 @@ export {
   validateAppDefinition,
 } from "openapi/http/generated/sdk.gen";
 export type {
+  AppsubsystemAppdefinitionAppDefinition,
   GetAppDeploymentCurrentSessionResponses,
   GetAppDeploymentStateResponses,
   GetLatestProjectStateResponse,
   HttpapiDeploymentMetadataResponse,
   HttpapiServerModeResponse,
   HttpapiPublishAppDeploymentRequest,
-  PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition,
 } from "openapi/http/generated/types.gen";
 export { callOpenAPI } from "openapi/http/result";
 export {

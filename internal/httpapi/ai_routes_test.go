@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
 	"setta/internal/auth"
 	"setta/internal/chatmodes"
 	"setta/internal/config"
@@ -34,7 +35,6 @@ import (
 	"setta/internal/tools"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
-	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type aiRouteStubController struct {

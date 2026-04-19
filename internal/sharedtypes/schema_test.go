@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -15,7 +16,6 @@ import (
 	"setta/internal/stringenumvalues"
 	"setta/internal/tools"
 	"setta/internal/wsapi"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func TestBuildSchemaDocumentIncludesAuthoritativeEnumValues(t *testing.T) {

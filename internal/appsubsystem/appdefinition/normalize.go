@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 var errAppRoutePathRequired = errors.New("app route path is required")

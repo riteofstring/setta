@@ -20,6 +20,7 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/plugins"
@@ -31,7 +32,6 @@ import (
 	"setta/internal/statefs"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const (

@@ -20,14 +20,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type routePythonPackageProvider struct {
