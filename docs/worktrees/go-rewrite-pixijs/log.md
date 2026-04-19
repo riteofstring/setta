@@ -157,6 +157,56 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-19 055
 
+- Item: Move the gen-python settings pair onto the shared canvas-owned resting-text lane.
+- Status: `done`
+- Details:
+  - Checked the recent iteration pattern before coding: the last two completed passes were shared resting-text cluster moves, so this pass only continued that family because a fresh live inventory still showed one real untouched shared pair with the same `7`-row text surface.
+  - Used one live inventory probe first to avoid another blind section hop:
+    - canonical target section: `settings-section__genPythonCodeSectionDefault`
+    - sibling section in the same bounded slice: `settings-section__genPythonMetadataSectionDefault`
+    - canonical target inputs:
+      - `#settings-section__genPythonCodeSectionDefault-settings-codeobj__genPythonCodeSectionDefault__genPythonCodeSectionDefault__size__width-ParamInput`
+      - `#settings-section__genPythonMetadataSectionDefault-settings-codeobj__genPythonMetadataSectionDefault__genPythonMetadataSectionDefault__size__width-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes both gen-python sections in the shared resting-text ownership lane and gives both sections lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures both sections so the retained scene can paint their resting text and underline primitives without opening a new renderer branch.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-gen-python-resting-text-cluster.spec.ts`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md`.
+  - Fresh section-scoped pair inventory after the product change:
+    - `settings-section__genPythonCodeSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__genPythonMetadataSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+  - Dense rerun outcome versus the prior gui/text-block pair report:
+    - `documentNodeCount`: `7708 -> 7670`
+    - `inputCount`: `2 -> 2`
+    - `buttonCount`: `39 -> 39`
+    - `raf.meanMs`: `105.12 -> 102.6`
+    - `raf.p95Ms`: `216.7 -> 183.4`
+    - `longTasks.totalMs`: `16889 -> 16510`
+  - Interpretation:
+    - this was another real mounted row-value reduction, not a reopened kwargs/menu/filter/dropdown/color/browser/code-like follow-up
+    - the gen-python pair lane is now closed at its useful ownership boundary unless a fresh defect appears
+    - the fresh untouched shared-text ranking now starts with:
+      - `settings-section__chatWindowing`: `7`
+      - `settings-section__dropzoneParamCodeObjDefault`: `7`
+      - `settings-section__pluginSectionDefault`: `7`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-gen-python-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-010/worktree-ai.log -- tests/e2e/settings/settings-all-settings-gen-python-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.9s)` on the live worktree runtime with `documentNodeCount: 7670`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done:
+  - the live authenticated `/settings` session stayed healthy with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - both gen-python sections were visible and their `Size > Width` rows looked intact at rest with value `500`
+  - caveat: the CDP scripted focus path was flaky for the metadata width row because the fitted viewport was sensitive during the manual check, so editor-focus acceptance for both rows still comes from the trusted Playwright probe rather than this CDP-only replay
+- Next action:
+  - start the next iteration from the fresh post-gen-python ranking and target the remaining shared `7`-row pure-text cluster (`settings-section__chatWindowing`, `settings-section__dropzoneParamCodeObjDefault`, `settings-section__pluginSectionDefault`) unless a broader shared resting-value primitive now shows a clearer payoff
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 055
+
 - Item: Move the remaining pure-text gui/text-block pair onto the shared canvas-owned resting-text lane.
 - Status: `done`
 - Details:
