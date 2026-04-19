@@ -12,6 +12,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/chatattachments"
+	"setta/internal/chatmodes"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
@@ -50,7 +51,7 @@ var (
 	ErrChatProjectConfigMismatch             = errors.New("Chat project config mismatch; start a new chat.")
 	ErrContinueFromChatSourceNotFound        = errors.New("continuation source chat not found")
 	ErrFrontendAffinityTokenInvalid          = errors.New("frontendAffinityToken must not be blank")
-	ErrAppGenerationImageAttachmentRequired  = errors.New("json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.")
+	ErrAppGenerationImageAttachmentRequired  = chatmodes.ErrAppGenerationImageAttachmentRequired
 )
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
@@ -75,31 +76,33 @@ type StartResponse struct {
 }
 
 type SendServiceOptions struct {
-	ProjectState   *projectstate.Runtime
-	Engines        *agentruns.EngineStore
-	Runs           *agentruns.RunStore
-	Profiles       *agentprofiles.Store
-	Configs        *externalagentconfigs.Store
-	Runtime        *Runtime
-	Preflight      externalagentconfigs.Checker
-	Attachments    *chatattachments.Service
-	Executor       Executor
-	SettaFilesRoot string
-	TimeNow        func() time.Time
+	ProjectState       *projectstate.Runtime
+	Engines            *agentruns.EngineStore
+	Runs               *agentruns.RunStore
+	Profiles           *agentprofiles.Store
+	Configs            *externalagentconfigs.Store
+	Runtime            *Runtime
+	Preflight          externalagentconfigs.Checker
+	Attachments        *chatattachments.Service
+	Executor           Executor
+	SettaFilesRoot     string
+	AppGenerationModes chatmodes.AppGenerationModeResolver
+	TimeNow            func() time.Time
 }
 
 type SendService struct {
-	projectState   *projectstate.Runtime
-	engines        *agentruns.EngineStore
-	runs           *agentruns.RunStore
-	profiles       *agentprofiles.Store
-	configs        *externalagentconfigs.Store
-	runtime        *Runtime
-	preflight      externalagentconfigs.Checker
-	attachments    *chatattachments.Service
-	executor       Executor
-	settaFilesRoot string
-	timeNow        func() time.Time
+	projectState       *projectstate.Runtime
+	engines            *agentruns.EngineStore
+	runs               *agentruns.RunStore
+	profiles           *agentprofiles.Store
+	configs            *externalagentconfigs.Store
+	runtime            *Runtime
+	preflight          externalagentconfigs.Checker
+	attachments        *chatattachments.Service
+	executor           Executor
+	settaFilesRoot     string
+	appGenerationModes chatmodes.AppGenerationModeResolver
+	timeNow            func() time.Time
 }
 
 type runtimeReadyController interface {
@@ -197,17 +200,18 @@ func NewSendService(options SendServiceOptions) (*SendService, error) {
 		}
 	}
 	return &SendService{
-		projectState:   options.ProjectState,
-		engines:        options.Engines,
-		runs:           options.Runs,
-		profiles:       options.Profiles,
-		configs:        options.Configs,
-		runtime:        options.Runtime,
-		preflight:      options.Preflight,
-		attachments:    options.Attachments,
-		executor:       options.Executor,
-		settaFilesRoot: strings.TrimSpace(options.SettaFilesRoot),
-		timeNow:        timeNow,
+		projectState:       options.ProjectState,
+		engines:            options.Engines,
+		runs:               options.Runs,
+		profiles:           options.Profiles,
+		configs:            options.Configs,
+		runtime:            options.Runtime,
+		preflight:          options.Preflight,
+		attachments:        options.Attachments,
+		executor:           options.Executor,
+		settaFilesRoot:     strings.TrimSpace(options.SettaFilesRoot),
+		appGenerationModes: options.AppGenerationModes,
+		timeNow:            timeNow,
 	}, nil
 }
 
@@ -285,6 +289,7 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		return StartChatResult{}, err
 	}
 	if err := validateStartChatImageRequirements(
+		s.appGenerationModes,
 		normalized,
 		conversation.PriorMessages,
 		appGenerationByMessageID,
@@ -329,7 +334,10 @@ func (s *SendService) normalizeStartChatRequest(
 	if err != nil {
 		return normalizedStartChatRequest{}, err
 	}
-	appGenerationMode, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(request)
+	appGenerationMode, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(
+		request,
+		s.appGenerationModes,
+	)
 	if err != nil {
 		return normalizedStartChatRequest{}, err
 	}
@@ -407,8 +415,12 @@ func normalizeStartChatConversationIDs(
 
 func normalizeStartChatGenerationOptions(
 	request StartChatRequest,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 ) (*string, string, error) {
-	appGenerationMode, err := normalizeAppGenerationMode(request.AppGenerationMode)
+	appGenerationMode, err := normalizeAppGenerationModeWithResolver(
+		appGenerationModes,
+		request.AppGenerationMode,
+	)
 	if err != nil {
 		return nil, "", err
 	}
@@ -419,11 +431,12 @@ func normalizeStartChatGenerationOptions(
 	if err != nil {
 		return nil, "", err
 	}
-	if appGenerationMode == nil || *appGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
+	if !appGenerationModeAllowsReferenceImage(appGenerationModes, appGenerationMode) {
 		referenceImageURL = nil
 		referenceImageNotes = nil
 	}
-	return appGenerationMode, buildAppGenerationModePrompt(
+	return appGenerationMode, buildAppGenerationModePromptWithResolver(
+		appGenerationModes,
 		appGenerationMode,
 		request.AppSpecStreamingEnabled,
 		referenceImageURL,
@@ -616,20 +629,22 @@ func resolveSubmittedTurnAppGenerationByMessageID(
 }
 
 func validateStartChatImageRequirements(
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	request normalizedStartChatRequest,
 	priorMessages []map[string]any,
 	appGenerationByMessageID map[string]string,
 ) error {
-	if request.AppGenerationMode == nil || *request.AppGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
+	if appGenerationModes == nil {
 		return nil
 	}
-	if agentruns.MessageHasImageAttachment(request.Message) {
-		return nil
-	}
-	if agentruns.HasRetainedImageAttachmentFromImageModeThread(priorMessages, appGenerationByMessageID) {
-		return nil
-	}
-	return ErrAppGenerationImageAttachmentRequired
+	return appGenerationModes.ValidateCurrentTurn(
+		request.AppGenerationMode,
+		chatmodes.AppGenerationTurnValidationOptions{
+			Message:                  request.Message,
+			PriorMessages:            priorMessages,
+			AppGenerationByMessageID: appGenerationByMessageID,
+		},
+	)
 }
 
 func (s *SendService) prepareStartChatRun(

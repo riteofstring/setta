@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"setta/internal/agentruns"
 	"setta/internal/projectstate"
 )
 
@@ -48,19 +47,5 @@ func TestFrontendValueProjectChatUIConfigUsesGoOwnedChatMetadata(t *testing.T) {
 		{Value: projectstate.ChatPermissionModeConfigTomlCustom, Label: "config.toml custom"},
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected permission mode options: %#v", got)
-	}
-
-	if got, want := config.CustomSlashCommandModeOptions, []ProjectChatAppGenerationModeOption{
-		{Value: string(agentruns.ChatAppGenerationMessageModePlainChat), Label: "Plain chat"},
-		{Value: string(agentruns.AppGenerationModeJSONRender), Label: "JSON Render"},
-		{Value: string(agentruns.AppGenerationModeJSONRenderWithImage), Label: "Image to JSON Render"},
-		{Value: string(agentruns.AppGenerationModePromptBuilder), Label: "Prompt Builder"},
-		{Value: string(agentruns.AppGenerationModeMCPServer), Label: "MCP Server"},
-	}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected custom slash command mode options: %#v", got)
-	}
-
-	if got, want := config.DefaultCustomSlashCommandMode, string(agentruns.ChatAppGenerationMessageModePlainChat); got != want {
-		t.Fatalf("unexpected default custom slash command mode: %q", got)
 	}
 }

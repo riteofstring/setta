@@ -9,7 +9,7 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 
-import { AppPage } from "./AppPage";
+import { AppPage } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/App/AppPage";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
