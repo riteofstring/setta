@@ -130,6 +130,7 @@ def test_pre_iteration_recovery_resets_invalid_repo_state(tmp_path: Path) -> Non
     assert "count=1" in recovery_state
     assert "last_phase=pre-iteration" in recovery_state
     assert "last_failure=error:clean-failure-dirty-worktree" in recovery_state
+    assert "last_outcome=recovered" in recovery_state
 
 
 def test_post_iteration_recovery_sanitizes_stop_sentinel_for_next_iteration(
@@ -229,3 +230,125 @@ def test_post_iteration_recovery_sanitizes_stop_sentinel_for_next_iteration(
 
     assert next_pre.returncode == 0, next_pre.stderr
     assert "Stop sentinel detected" not in next_pre.stdout
+
+
+def test_pre_iteration_recovery_failure_is_warning_and_does_not_block(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "loop-output"
+    state_dir = output_dir / "state"
+    checklist_file = state_dir / "checklist.md"
+    phase_review_file = state_dir / "phase-review.md"
+    output_dir.mkdir()
+    state_dir.mkdir()
+    checklist_file.write_text("checklist\n", encoding="utf-8")
+    phase_review_file.write_text("phase review\n", encoding="utf-8")
+
+    sentinel = "CODEX_LOOP_STOP: APP_SUBSYSTEM_EXTRACTION_COMPLETE"
+
+    initial = _run(
+        [
+            "bash",
+            str(_pre_iteration_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--output-dir",
+            str(output_dir),
+            "--state-dir",
+            str(state_dir),
+            "--complete-exit-code",
+            "42",
+            "--sentinel",
+            sentinel,
+            "--progress-file",
+            str(checklist_file),
+            "--progress-file",
+            str(phase_review_file),
+            "--allow-clean-failures",
+            "3",
+        ],
+        cwd=tmp_path,
+    )
+    assert initial.returncode == 0, initial.stderr
+
+    run_dir = output_dir / "run-001"
+    run_dir.mkdir()
+    (run_dir / "status.txt").write_text("failure:1\n", encoding="utf-8")
+    (run_dir / "last-message.txt").write_text("iteration failed\n", encoding="utf-8")
+    (repo_dir / "README.md").write_text("dirty\n", encoding="utf-8")
+    (state_dir / "last-observed-head.txt").write_text("not-a-real-ref\n", encoding="utf-8")
+
+    result = _run(
+        [
+            "bash",
+            str(_pre_iteration_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--output-dir",
+            str(output_dir),
+            "--state-dir",
+            str(state_dir),
+            "--complete-exit-code",
+            "42",
+            "--sentinel",
+            sentinel,
+            "--progress-file",
+            str(checklist_file),
+            "--progress-file",
+            str(phase_review_file),
+            "--allow-clean-failures",
+            "0",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0
+    assert "Automatic recovery failed; continuing anyway" in result.stderr
+    assert (state_dir / "status.txt").read_text(encoding="utf-8").strip().startswith(
+        "warning:error:",
+    )
+    recovery_state = (state_dir / "recovery-state.txt").read_text(encoding="utf-8")
+    assert "last_phase=pre-iteration" in recovery_state
+    assert "last_outcome=recovery_failed" in recovery_state
+    assert (repo_dir / "README.md").read_text(encoding="utf-8") == "dirty\n"
+
+
+def test_post_iteration_recovery_failure_is_warning_and_does_not_block(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "loop-output"
+    state_dir = output_dir / "state"
+    output_dir.mkdir()
+    state_dir.mkdir()
+
+    run_dir = output_dir / "run-001"
+    run_dir.mkdir()
+    (run_dir / "last-message.txt").write_text("work in progress\n", encoding="utf-8")
+    (state_dir / "last-observed-head.txt").write_text("not-a-real-ref\n", encoding="utf-8")
+    (repo_dir / "README.md").write_text("dirty\n", encoding="utf-8")
+
+    post_result = _run(
+        [
+            "bash",
+            str(_post_iteration_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--state-dir",
+            str(state_dir),
+            "--settle-seconds",
+            "0",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert post_result.returncode == 0
+    assert "Automatic recovery failed; continuing anyway" in post_result.stderr
+    assert (state_dir / "status.txt").read_text(encoding="utf-8").strip().startswith(
+        "warning:post-iteration-check-failed:1",
+    )
+    recovery_state = (state_dir / "recovery-state.txt").read_text(encoding="utf-8")
+    assert "last_phase=post-iteration" in recovery_state
+    assert "last_outcome=recovery_failed" in recovery_state
+    assert (repo_dir / "README.md").read_text(encoding="utf-8") == "dirty\n"

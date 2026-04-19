@@ -8,8 +8,10 @@ usage() {
 Usage: ./scripts/codex-app-subsystem-extraction-loop-post-iteration.sh --root-dir PATH --state-dir PATH [options]
 
 Run the standard post-iteration settle check for the app-subsystem extraction
-loop. If the completed iteration leaves the repo in an invalid state, reset the
-repo to the last known clean HEAD and allow the loop to continue.
+loop. If the completed iteration leaves the repo in an invalid state, try to
+reset the repo to the last known clean HEAD and allow the loop to continue.
+Runtime validation and recovery failures are treated as warnings so the next
+Codex iteration is not blocked.
 
 Options:
   --settle-seconds N  Seconds to wait before the final clean-worktree recheck.
@@ -102,6 +104,7 @@ reset_repo_to_ref_state() {
 update_recovery_file() {
   local failure_status="$1"
   local reset_ref="$2"
+  local outcome="$3"
   local count="0"
 
   if [[ -f "${recovery_file}" ]]; then
@@ -121,6 +124,7 @@ count=${count}
 last_phase=post-iteration
 last_failure=${failure_status}
 last_reset_ref=${reset_ref}
+last_outcome=${outcome}
 last_recovered_at=$(timestamp_now)
 EOF
 }
@@ -175,11 +179,13 @@ reset_ref="$(resolve_reset_ref)"
 echo "Recovering from ${failure_status}; resetting repo to ${reset_ref}."
 
 if ! reset_repo_to_ref_state "${reset_ref}"; then
-  echo "Automatic recovery failed; repository could not be reset to ${reset_ref}." >&2
-  exit 1
+  update_recovery_file "${failure_status}" "${reset_ref}" "recovery_failed"
+  printf 'warning:%s\n' "${failure_status}" > "${status_file}"
+  echo "Automatic recovery failed; continuing anyway so the next Codex iteration can attempt to repair the repo." >&2
+  exit 0
 fi
 
 sanitize_current_run_message
-update_recovery_file "${failure_status}" "${reset_ref}"
+update_recovery_file "${failure_status}" "${reset_ref}" "recovered"
 printf 'recovered:%s\n' "${failure_status}" > "${status_file}"
 echo "Recovered cleanly after post-iteration validation failure."

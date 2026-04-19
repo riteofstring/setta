@@ -8,8 +8,10 @@ usage() {
 Usage: ./scripts/codex-app-subsystem-extraction-loop-pre-iteration.sh --root-dir PATH --output-dir PATH --state-dir PATH [options]
 
 Run the standard cleanup-loop validation before an app-subsystem extraction
-iteration. If the previous iteration left the loop in an invalid state, reset the
-repo to the last known clean HEAD and continue instead of stopping the loop.
+iteration. If the previous iteration left the loop in an invalid state, try to
+reset the repo to the last known clean HEAD and continue instead of stopping the
+loop. Runtime validation and recovery failures are treated as warnings so Codex
+still gets a chance to run.
 
 Options:
   --complete-exit-code N    Exit code used when the stop sentinel is observed.
@@ -135,6 +137,7 @@ update_recovery_file() {
   local phase="$1"
   local failure_status="$2"
   local reset_ref="$3"
+  local outcome="$4"
   local count="0"
 
   if [[ -f "${recovery_file}" ]]; then
@@ -154,6 +157,7 @@ count=${count}
 last_phase=${phase}
 last_failure=${failure_status}
 last_reset_ref=${reset_ref}
+last_outcome=${outcome}
 last_recovered_at=$(timestamp_now)
 EOF
 }
@@ -171,9 +175,11 @@ if [[ -n "${sentinel}" ]]; then
   checker_args+=(--sentinel "${sentinel}")
 fi
 
-for progress_file in "${progress_files[@]}"; do
-  checker_args+=(--progress-file "${progress_file}")
-done
+if [[ "${#progress_files[@]}" -gt 0 ]]; then
+  for progress_file in "${progress_files[@]}"; do
+    checker_args+=(--progress-file "${progress_file}")
+  done
+fi
 checker_args+=(--progress-file "${recovery_file}")
 
 set +e
@@ -194,10 +200,12 @@ reset_ref="$(resolve_reset_ref)"
 echo "Recovering from ${failure_status}; resetting repo to ${reset_ref}."
 
 if ! reset_repo_to_ref_state "${reset_ref}"; then
-  echo "Automatic recovery failed; repository could not be reset to ${reset_ref}." >&2
-  exit 1
+  update_recovery_file "pre-iteration" "${failure_status}" "${reset_ref}" "recovery_failed"
+  printf 'warning:%s\n' "${failure_status}" > "${status_file}"
+  echo "Automatic recovery failed; continuing anyway so the next Codex iteration can attempt to repair the repo." >&2
+  exit 0
 fi
 
-update_recovery_file "pre-iteration" "${failure_status}" "${reset_ref}"
+update_recovery_file "pre-iteration" "${failure_status}" "${reset_ref}" "recovered"
 printf 'recovered:%s\n' "${failure_status}" > "${status_file}"
 echo "Recovered cleanly after retry gate failure."

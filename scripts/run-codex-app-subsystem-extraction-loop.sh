@@ -19,6 +19,8 @@ Defaults:
 - Quiet progress log interval: 60 seconds
 - Retry sleep after retryable Codex failures: 60 seconds
 - Stop only when Codex explicitly reports the app-subsystem extraction plan is fully executed
+- After the final allowed iteration, run one last completion check so last-iteration completion is detected cleanly
+- Pre/post validation and recovery failures are warnings; they do not block the next Codex run
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the checklist/review state
 - If an iteration leaves the repo in an invalid state, reset back to the last clean HEAD and continue
 - Before every non-stop commit, run focused verification, `./gcf.sh`, and `./check_quality.sh`, then fix any failures before committing
@@ -455,27 +457,29 @@ if [[ ! -f "${head_file}" ]]; then
   git -C "${ROOT_DIR}" rev-parse HEAD > "${head_file}"
 fi
 
-pre_iteration_command="$(
-  shell_join \
-    "${ROOT_DIR}/scripts/codex-app-subsystem-extraction-loop-pre-iteration.sh" \
-    --root-dir "${ROOT_DIR}" \
-    --output-dir "${output_dir}" \
-    --state-dir "${state_dir}" \
-    --complete-exit-code "${complete_exit_code}" \
-    --sentinel "${stop_sentinel}" \
-    --progress-file "${checklist_file}" \
-    --progress-file "${phase_review_file}" \
-    --recovery-file "${recovery_state_file}" \
-    --allow-clean-failures "${iterations}"
-)"
+pre_iteration_args=(
+  "${ROOT_DIR}/scripts/codex-app-subsystem-extraction-loop-pre-iteration.sh"
+  --root-dir "${ROOT_DIR}"
+  --output-dir "${output_dir}"
+  --state-dir "${state_dir}"
+  --complete-exit-code "${complete_exit_code}"
+  --sentinel "${stop_sentinel}"
+  --progress-file "${checklist_file}"
+  --progress-file "${phase_review_file}"
+  --recovery-file "${recovery_state_file}"
+  --allow-clean-failures "${iterations}"
+)
 
-post_iteration_command="$(
-  shell_join \
-    "${ROOT_DIR}/scripts/codex-app-subsystem-extraction-loop-post-iteration.sh" \
-    --root-dir "${ROOT_DIR}" \
-    --state-dir "${state_dir}" \
-    --settle-seconds "${post_commit_settle_seconds}"
-)"
+pre_iteration_command="$(shell_join "${pre_iteration_args[@]}")"
+
+post_iteration_args=(
+  "${ROOT_DIR}/scripts/codex-app-subsystem-extraction-loop-post-iteration.sh"
+  --root-dir "${ROOT_DIR}"
+  --state-dir "${state_dir}"
+  --settle-seconds "${post_commit_settle_seconds}"
+)
+
+post_iteration_command="$(shell_join "${post_iteration_args[@]}")"
 
 loop_args=(
   "${ROOT_DIR}/scripts/run-codex-loop.sh"
@@ -495,7 +499,6 @@ loop_args=(
   --pre-iteration-command "${pre_iteration_command}"
   --post-iteration-command "${post_iteration_command}"
   --stop-on-pre-iteration-exit-code "${complete_exit_code}"
-  --stop-on-error
 )
 
 if [[ -n "${model}" ]]; then
@@ -536,4 +539,31 @@ else
   echo "Yolo mode: disabled"
 fi
 
-exec "${loop_args[@]}"
+set +e
+"${loop_args[@]}"
+loop_exit_code="$?"
+set -e
+
+if [[ "${loop_exit_code}" -ne 0 ]]; then
+  exit "${loop_exit_code}"
+fi
+
+echo "Running final completion check after loop exit."
+
+set +e
+"${pre_iteration_args[@]}"
+final_check_exit_code="$?"
+set -e
+
+if [[ "${final_check_exit_code}" -eq "${complete_exit_code}" ]]; then
+  echo "Final completion check detected app-subsystem extraction completion."
+  exit 0
+fi
+
+if [[ "${final_check_exit_code}" -ne 0 ]]; then
+  echo "Final completion check failed with exit code ${final_check_exit_code}; treating the loop as exhausted." >&2
+else
+  echo "Final completion check did not detect completion; iteration budget exhausted."
+fi
+
+exit 0
