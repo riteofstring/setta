@@ -1,4 +1,5 @@
 import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
+import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
   useAllProjectMetadata,
   useServerMode,
@@ -61,6 +62,7 @@ import {
 } from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
+const frontendHost = createRuntimeAppSubsystemFrontendHost();
 
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -161,7 +163,7 @@ describe("app deployment actions", () => {
   });
 
   beforeEach(() => {
-    resetAppSessionState();
+    resetAppSessionState(frontendHost);
     useServerMode.setState({
       mode: null,
       modeResolved: false,
@@ -176,7 +178,7 @@ describe("app deployment actions", () => {
   });
 
   afterEach(() => {
-    resetAppSessionState();
+    resetAppSessionState(frontendHost);
     useServerMode.setState({
       mode: null,
       modeResolved: false,
@@ -212,8 +214,8 @@ describe("app deployment actions", () => {
       data: session,
     });
 
-    const first = await ensureAppSessionFromCurrentDeployment();
-    const second = await ensureAppSessionFromCurrentDeployment();
+    const first = await ensureAppSessionFromCurrentDeployment(frontendHost);
+    const second = await ensureAppSessionFromCurrentDeployment(frontendHost);
 
     expect(first).toEqual(session);
     expect(second).toEqual(session);
@@ -256,7 +258,7 @@ describe("app deployment actions", () => {
       },
     });
 
-    const loaded = await loadAppDeploymentState();
+    const loaded = await loadAppDeploymentState({ frontendHost });
 
     expect(loaded).toBe(true);
     expect(routeGetAppDeploymentStateMock).toHaveBeenCalledWith({
@@ -311,7 +313,10 @@ describe("app deployment actions", () => {
       data: refreshedSession,
     });
 
-    const loaded = await ensureAppProjectConfigLoaded("project-beta");
+    const loaded = await ensureAppProjectConfigLoaded(
+      frontendHost,
+      "project-beta",
+    );
 
     expect(loaded).toBe(true);
     expect(routeLoadAppProjectConfigMock).toHaveBeenCalledTimes(2);
@@ -348,6 +353,7 @@ describe("app deployment actions", () => {
     });
 
     const loaded = await loadAppDeploymentState({
+      frontendHost,
       projectConfigId: "missing-project",
     });
 

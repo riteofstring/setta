@@ -1,9 +1,11 @@
 import {
   createAppSubsystemFrontendHost,
+  type AppSubsystemDeploymentSession,
   type AppSubsystemFrontendHost,
   type AppSubsystemNotification,
   type AppSubsystemProjectContext,
   type AppSubsystemRuntimeContext,
+  type AppSubsystemServerModeState,
 } from "@setta/app-subsystem-frontend-sdk";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -11,7 +13,9 @@ import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
   useLocalStorage,
+  useProjectLoading,
   useProjectState,
+  useServerMode,
   useSettings,
   useShareSession,
 } from "state/definitions";
@@ -74,6 +78,74 @@ function buildAppSubsystemRuntimeContext(): AppSubsystemRuntimeContext {
     runSnapshotModeByProjectConfigId: {
       ...localStorageState.runSnapshotModeByProjectConfigId,
     },
+  };
+}
+
+function buildAppSubsystemDeploymentSession(): AppSubsystemDeploymentSession | null {
+  const shareSession = useShareSession.getState();
+  const projectMetadataState = useAllProjectMetadata.getState();
+  if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
+    return null;
+  }
+  if (
+    !shareSession.shareSessionId ||
+    !shareSession.shareDeploymentName ||
+    !shareSession.shareDeploymentVersion ||
+    !projectMetadataState.defaultProjectConfigId
+  ) {
+    return null;
+  }
+  return {
+    deploymentName: shareSession.shareDeploymentName,
+    deploymentVersion: shareSession.shareDeploymentVersion,
+    shareSessionId: shareSession.shareSessionId,
+    sessionRunCount: shareSession.sessionRunCount,
+    defaultProjectConfigId: projectMetadataState.defaultProjectConfigId,
+    projectMetadata: projectMetadataState.projectMetadata,
+    appPolicy: shareSession.sharePolicy,
+    manifest: null,
+  };
+}
+
+function setAppSubsystemDeploymentSession(
+  session: AppSubsystemDeploymentSession | null,
+): void {
+  if (session === null) {
+    useShareSession.getState().reset?.();
+    useAllProjectMetadata.getState().reset?.();
+    return;
+  }
+  useShareSession.setState({
+    isDeploymentMode: true,
+    shareSessionId: session.shareSessionId,
+    sessionRunCount: session.sessionRunCount,
+    sharePolicy: session.appPolicy,
+    shareDeploymentName: session.deploymentName,
+    shareDeploymentVersion: session.deploymentVersion,
+    deploymentMode: "app",
+  });
+  useAllProjectMetadata.setState({
+    defaultProjectConfigId: session.defaultProjectConfigId,
+    projectMetadata: session.projectMetadata ?? [],
+  });
+}
+
+function incrementAppSubsystemDeploymentSessionRunCount(): void {
+  const session = buildAppSubsystemDeploymentSession();
+  if (session === null) {
+    return;
+  }
+  useShareSession.setState({
+    sessionRunCount: session.sessionRunCount + 1,
+  });
+}
+
+function buildAppSubsystemServerModeState(): AppSubsystemServerModeState {
+  const serverMode = useServerMode.getState();
+  return {
+    mode: serverMode.mode,
+    modeResolved: serverMode.modeResolved,
+    modeError: serverMode.modeError,
   };
 }
 
@@ -186,6 +258,17 @@ export function createRuntimeAppSubsystemFrontendHost(
       return () => {
         appSubsystemRuntimeContextListeners.delete(listener);
       };
+    },
+    getAppDeploymentSession: buildAppSubsystemDeploymentSession,
+    setAppDeploymentSession: setAppSubsystemDeploymentSession,
+    incrementAppDeploymentSessionRunCount:
+      incrementAppSubsystemDeploymentSessionRunCount,
+    getServerModeState: buildAppSubsystemServerModeState,
+    setServerModeState: (serverMode) => {
+      useServerMode.setState(serverMode);
+    },
+    setProjectLoadState: (loadState) => {
+      useProjectLoading.setState(loadState);
     },
     ...overrides,
   });
