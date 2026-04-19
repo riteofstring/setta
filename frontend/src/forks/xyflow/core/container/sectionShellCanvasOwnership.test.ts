@@ -26,6 +26,7 @@ import {
   LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS,
   SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -498,13 +499,14 @@ describe("sectionShellCanvasOwnership", () => {
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
+    for (const sectionId of SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS) {
+      expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
+    }
     for (const sectionId of SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS) {
       expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
     }
     expect(
-      isCanvasOwnedSectionMotionHiddenBody(
-        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
-      ),
+      isCanvasOwnedSectionMotionHiddenBody("settings-section__spreadsheetSectionDefault"),
     ).toBe(false);
   });
 

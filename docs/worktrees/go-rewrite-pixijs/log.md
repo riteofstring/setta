@@ -157,6 +157,59 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-20 079
 
+- Item: Widen the motion-hidden body overlay to the shared settings dropdown family.
+- Status: `done`
+- Details:
+  - Chose a shared-family product slice on the active motion blocker instead of another section-local `sectionSizingPolicy` add or another harness-only pass.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS` and adds `settings-section__backend`, `settings-section__gui`, and `settings-section__stateMachineGateSectionDefault` to `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS`.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-dropdown-motion-body-overlay.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - before motion: all three target sections exposed `data-canvas-owned-motion-body-root="true"` wrappers and `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction: all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"` with computed `visibility: hidden`, and the global hidden-body count rose to `14`
+    - after the interaction settled: all three wrappers returned to visible and `hiddenBodyCount: 0`
+  - Motion-aware dense rerun on the same runtime family:
+    - `documentNodeCount: 5520`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 48`
+    - `raf.meanMs: 133.61`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 15853`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 14`
+    - `motionHiddenBodies.framesWithHiddenBodies: 117 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 14`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Compared against the prior `sectionSizingPolicy` checkpoint:
+    - `motionHiddenBodies.totalMotionBodyRootCount: 11 -> 14`
+    - `motionHiddenBodies.peakHiddenBodyCount: 11 -> 14`
+    - `raf.meanMs: 126.89 -> 133.61`
+    - `raf.p95Ms: 150.0 -> 216.6`
+    - `longTasks.totalMs: 15394 -> 15853`
+  - Interpretation:
+    - this is the first shared-family motion-body broadening on the real `viewportInteractionActive` path after the section-local outlier add
+    - the lane definitely widened, but the same noisy runtime still did not show a motion win, so the next frontier must be a higher-cost family or a stronger row-body/chrome reduction primitive, not another low-payoff family add by inertia
+    - a one-off attempt to include `frontend/tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts` in the runtime verify set failed on an existing at-rest `sectionSearchInputCount` expectation (`0` vs `1`); that expectation is outside this motion-only slice and should be treated as ambient runtime/test noise unless it reproduces as a dedicated product issue
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-dropdown-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-006/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-dropdown-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (55.4s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - the provided bootstrap URL was rejected, so the sub-agent verified against the live `http://127.0.0.1:3068/settings` surface directly instead; treat that rejected bootstrap as tooling noise, not product evidence
+  - `/settings` loaded with `All Settings` active
+  - exactly one retained graph canvas was mounted
+  - `settings-section__backend`, `settings-section__gui`, and `settings-section__stateMachineGateSectionDefault` were present and visually intact before and after a simple `zoom in` + `fit view`
+- Next action:
+  - choose the next motion-lane product slice from a higher-cost shared family or a stronger row-body/chrome reduction primitive rather than another low-payoff motion-body family add
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 079
+
 - Item: Extend the motion-hidden-body overlay lane to `settings-section__sectionSizingPolicy`.
 - Status: `done`
 - Details:
