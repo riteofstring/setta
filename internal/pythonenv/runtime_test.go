@@ -191,7 +191,7 @@ func TestRuntimePluginDistributionsReturnsManifestBearingDistributions(t *testin
 	if len(distributions[0].ManifestPaths) != 1 {
 		t.Fatalf("expected one manifest path, got %#v", distributions[0].ManifestPaths)
 	}
-	if !strings.HasSuffix(distributions[0].ManifestPaths[0], filepath.Join("setta-fixture-runtime", "setta.plugin.json")) {
+	if !strings.HasSuffix(distributions[0].ManifestPaths[0], filepath.Join("setta_fixture_runtime", "setta.plugin.json")) {
 		t.Fatalf("unexpected manifest path %#v", distributions[0].ManifestPaths[0])
 	}
 }
@@ -200,7 +200,7 @@ func writePluginDistributionFixture(t *testing.T, packageName string, version st
 	t.Helper()
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	pluginRoot := filepath.Join(sitePackages, packageName)
+	pluginRoot := filepath.Join(sitePackages, strings.ReplaceAll(packageName, "-", "_"))
 	manifest := map[string]any{
 		"schemaVersion":     1,
 		"id":                packageName,
@@ -227,7 +227,7 @@ func writePluginDistributionFixture(t *testing.T, packageName string, version st
 		"",
 	}, "\n"))
 	writeRuntimeTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join([]string{
-		filepath.ToSlash(filepath.Join(packageName, "setta.plugin.json")) + ",,",
+		filepath.ToSlash(filepath.Join(strings.ReplaceAll(packageName, "-", "_"), "setta.plugin.json")) + ",,",
 		filepath.ToSlash(filepath.Join(distInfoRoot[strings.LastIndex(distInfoRoot, string(filepath.Separator))+1:], "METADATA")) + ",,",
 		filepath.ToSlash(filepath.Join(distInfoRoot[strings.LastIndex(distInfoRoot, string(filepath.Separator))+1:], "RECORD")) + ",,",
 		"",

@@ -41,9 +41,9 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
+  BaseDictSectionImplUnion,
+  isBaseDictSectionImpl,
   isBaseSectionWithParamsImpl,
-  SectionTypeEnum,
-  type DictSectionImpl,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
@@ -111,11 +111,10 @@ function shouldRollbackJsonSourceKeys(
     core,
     variantId,
   );
-  if (impl.type !== SectionTypeEnum.Dict) {
+  if (!isBaseDictSectionImpl(impl)) {
     return false;
   }
-  const dictImpl = impl as DictSectionImpl;
-  return _.isEqual(dictImpl.jsonSourceKeys ?? [], expectedKeys);
+  return _.isEqual(impl.jsonSourceKeys, expectedKeys);
 }
 function buildParamLabels(
   state: ZustandProjectState,
@@ -167,7 +166,7 @@ function rollbackJsonSourceKeysUpdate({
   setJsonSourceError,
 }: Omit<JsonSourcePathFailureArgs, "frontendOpId" | "nextKeys">) {
   useProjectState.setState((state) => {
-    setSectionVariantImplValue<DictSectionImpl>(
+    setSectionVariantImplValue<BaseDictSectionImplUnion>(
       state,
       sectionId,
       targetVariantId,
@@ -267,13 +266,17 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         sectionId,
         isBaseSectionWithParamsImpl,
       );
-      const dictImpl =
-        impl.type === SectionTypeEnum.Dict ? (impl as DictSectionImpl) : null;
+      let jsonSourceKeys: string[] = [];
+      let isJsonSource = false;
+      if (isBaseDictSectionImpl(impl)) {
+        jsonSourceKeys = impl.jsonSourceKeys;
+        isJsonSource = impl.isJsonSource;
+      }
       return {
         edgeInputParams: impl.edgeInputParams,
         edgeOutputPorts: impl.edgeOutputPorts,
-        jsonSourceKeys: dictImpl?.jsonSourceKeys ?? [],
-        isJsonSource: dictImpl?.isJsonSource ?? false,
+        jsonSourceKeys,
+        isJsonSource,
       };
     }, shallow);
   const variantId = useProjectState((state) =>
@@ -441,7 +444,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setJsonSourcePath(formatJsonSourcePath(nextKeys));
     const opId = dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setSectionVariantImplValue<DictSectionImpl>(
+        setSectionVariantImplValue<BaseDictSectionImplUnion>(
           state,
           sectionId,
           targetVariantId,

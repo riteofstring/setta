@@ -26,7 +26,7 @@ type BrushStroke struct {
 	StrokeStyle              string             `json:"strokeStyle"`
 	LineWidth                float64            `json:"lineWidth"`
 	LineCap                  DrawAreaBrushShape `json:"lineCap"`
-	Points                   []any              `json:"points" ts_type:"Array<CanvasPoint | \"BREAK\">" py_default:"factory:list" shared_schema_non_null:"true"`
+	Points                   []any              `json:"points" ts_type:"Array<CanvasPoint | \"BREAK\">"`
 	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
 }
 
@@ -34,19 +34,19 @@ type BrushStrokeWithTransform struct {
 	StrokeStyle              string             `json:"strokeStyle"`
 	LineWidth                float64            `json:"lineWidth"`
 	LineCap                  DrawAreaBrushShape `json:"lineCap"`
-	Points                   []any              `json:"points" ts_type:"Array<CanvasPoint | \"BREAK\">" py_default:"factory:list" shared_schema_non_null:"true"`
+	Points                   []any              `json:"points" ts_type:"Array<CanvasPoint | \"BREAK\">"`
 	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
 	Transform                DrawAreaTransform  `json:"transform"`
 }
 
 type DrawAreaLayerItemTransform struct {
 	Transform     DrawAreaTransform          `json:"transform"`
-	EraserStrokes []BrushStrokeWithTransform `json:"eraserStrokes" py_default:"factory:list" shared_schema_non_null:"true"`
+	EraserStrokes []BrushStrokeWithTransform `json:"eraserStrokes"`
 }
 
 type DrawAreaLayer struct {
 	Name         string                           `json:"name" ts_create_expr:"createRandomName()"`
-	Elements     []projectstate.DrawAreaLayerItem `json:"elements" py_default:"factory:list" shared_schema_non_null:"true"`
+	Elements     []projectstate.DrawAreaLayerItem `json:"elements"`
 	Visible      bool                             `json:"visible"`
 	LayerOpacity float64                          `json:"layerOpacity"`
 }

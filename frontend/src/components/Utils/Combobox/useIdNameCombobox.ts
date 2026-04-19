@@ -56,6 +56,7 @@ export function useIdNameCombobox<T>({
     getInputProps,
     highlightedIndex,
     getItemProps,
+    openMenu,
   } = useCombobox<ComboboxItemType<T>>({
     stateReducer,
     selectedItem: selection,
@@ -74,5 +75,7 @@ export function useIdNameCombobox<T>({
     getItemProps,
     itemToString,
     onKeyDown,
+    openMenu,
+    selection,
   };
 }

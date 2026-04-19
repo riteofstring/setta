@@ -8,7 +8,6 @@ import {
   PluginListResponse,
   PluginRestartCapability,
   PluginRuntimeResponse,
-  PluginRuntimeStateEnum,
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -149,7 +148,6 @@ const pluginStatusEntryComparisonKeys = [
   "sourceDigestSha256",
   "shadowedBySourcePath",
   "enablementSource",
-  "appliedLanguageServerLanguages",
   "restartRequired",
 ] as const satisfies readonly (keyof PluginStatusEntry)[];
 
@@ -786,8 +784,13 @@ function mapPrimaryStatusByPluginId(
   const pluginStatusById: Record<string, PluginStatusEntry> = {};
   for (const entry of statusEntries) {
     const existing = pluginStatusById[entry.pluginId];
-    if (!existing || prefersPrimaryPluginStatusEntry(existing, entry)) {
+    if (!existing) {
       pluginStatusById[entry.pluginId] = entry;
+      continue;
+    }
+    if (existing.shadowedBySourcePath && !entry.shadowedBySourcePath) {
+      pluginStatusById[entry.pluginId] = entry;
+      continue;
     }
   }
   return hasSameRecordValueReferences(
@@ -796,28 +799,6 @@ function mapPrimaryStatusByPluginId(
   )
     ? previousPluginStatusById
     : pluginStatusById;
-}
-
-function prefersPrimaryPluginStatusEntry(
-  current: PluginStatusEntry,
-  candidate: PluginStatusEntry,
-): boolean {
-  const currentRank = pluginStatusPrimaryRank(current);
-  const candidateRank = pluginStatusPrimaryRank(candidate);
-  if (candidateRank !== currentRank) {
-    return candidateRank < currentRank;
-  }
-  return false;
-}
-
-function pluginStatusPrimaryRank(entry: PluginStatusEntry): number {
-  if (entry.shadowedBySourcePath) {
-    return 2;
-  }
-  if (entry.state === PluginRuntimeStateEnum.invalid) {
-    return 1;
-  }
-  return 0;
 }
 
 function deriveSortedRuntimeViews({

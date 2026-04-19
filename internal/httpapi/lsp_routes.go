@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -308,16 +307,6 @@ func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
 		}
 		snapshot := deps.ProjectState.Snapshot()
 		if err := deps.Admin.Restart(r.Context(), snapshot.Document); err != nil {
-			if errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
-				writeError(
-					w,
-					r,
-					http.StatusConflict,
-					"language_server_not_configured",
-					"Language server is not configured. Select a plugin and restart after it is available.",
-				)
-				return
-			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
