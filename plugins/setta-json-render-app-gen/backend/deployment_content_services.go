@@ -7,6 +7,7 @@ import (
 
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -16,7 +17,7 @@ type appDeploymentContentService struct {
 
 func LoadPublishedAppSpecFromRuntime(
 	runtime *deployments.Runtime,
-	appDefinition *projectstate.AppDefinition,
+	appDefinition projectstate.RawJSON,
 ) (any, error) {
 	if runtime == nil {
 		return nil, deployments.ErrRuntimeRequired
@@ -29,12 +30,16 @@ func LoadPublishedAppSpecFromRuntime(
 
 func (s appDeploymentContentService) LoadPublishedAppSpec(
 	deploymentRoot string,
-	appDefinition *projectstate.AppDefinition,
+	appDefinition projectstate.RawJSON,
 ) (any, error) {
-	if appDefinition == nil {
+	storedDefinition, err := appdefinition.DecodeStoredAppDefinition(appDefinition)
+	if err != nil {
+		return nil, err
+	}
+	if storedDefinition == nil {
 		return nil, nil
 	}
-	appSpecPath := strings.TrimSpace(appDefinition.AppSpecPath)
+	appSpecPath := strings.TrimSpace(storedDefinition.AppSpecPath)
 	if appSpecPath == "" {
 		return nil, nil
 	}
@@ -44,16 +49,20 @@ func (s appDeploymentContentService) LoadPublishedAppSpec(
 func (s appDeploymentContentService) PreparePublishedAppDefinition(
 	ctx context.Context,
 	projectRoot string,
-	appDefinition *projectstate.AppDefinition,
-) (*projectstate.AppDefinition, any, string, error) {
-	if appDefinition == nil {
+	appDefinition projectstate.RawJSON,
+) (projectstate.RawJSON, any, string, error) {
+	storedDefinition, err := appdefinition.DecodeStoredAppDefinition(appDefinition)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if storedDefinition == nil {
 		return nil, nil, "", deployments.ErrAppPublishAppDefinitionMissing
 	}
 	if s.appDefinitionService == nil {
 		return nil, nil, "", deployments.ErrAppPublishContentServiceRequired
 	}
 
-	current := appDefinition.Clone()
+	current := storedDefinition.Clone()
 	if strings.TrimSpace(current.AppSpecPath) == "" {
 		return nil, nil, "", deployments.ErrAppPublishAppSpecPathRequired
 	}
@@ -83,7 +92,11 @@ func (s appDeploymentContentService) PreparePublishedAppDefinition(
 	}
 
 	current.AppSpecPath = targetAppSpecPath
-	return &current, appSpec, targetAppSpecPath, nil
+	encodedDefinition, err := appdefinition.EncodeStoredAppDefinition(&current)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return encodedDefinition, appSpec, targetAppSpecPath, nil
 }
 
 func (appDeploymentContentService) WritePublishedAppSpec(

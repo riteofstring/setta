@@ -13,39 +13,65 @@ import (
 
 var errAppRoutePathRequired = errors.New("app route path is required")
 
-func normalizeStoredAppDefinition(
-	definition *projectstate.AppDefinition,
+func DecodeStoredAppDefinition(
+	raw projectstate.RawJSON,
 ) (*projectstate.AppDefinition, error) {
-	if definition == nil {
+	normalizedRaw, err := projectstate.NormalizeOpaqueAppDefinitionPayload(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(normalizedRaw) == 0 {
 		return nil, nil
 	}
 
-	normalized, err := normalizeAppDefinition(*definition)
+	var definition projectstate.AppDefinition
+	if err := json.Unmarshal(normalizedRaw, &definition); err != nil {
+		return nil, fmt.Errorf("%w: appDefinition", projectstate.ErrFrontendPayloadInvalid)
+	}
+
+	normalized, err := normalizeAppDefinition(definition)
 	if err != nil {
 		return nil, err
 	}
 	return &normalized, nil
 }
 
+func EncodeStoredAppDefinition(
+	definition *projectstate.AppDefinition,
+) (projectstate.RawJSON, error) {
+	if definition == nil {
+		return nil, nil
+	}
+	normalized, err := normalizeAppDefinition(definition.Clone())
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("marshal appDefinition: %w", err)
+	}
+	return cloneAppDefinitionRawJSON(encoded), nil
+}
+
 func effectiveAppDefinition(document projectstate.Document) (projectstate.AppDefinition, error) {
-	if document.AppDefinition == nil {
+	current, err := DecodeStoredAppDefinition(document.AppDefinition)
+	if err != nil {
+		return projectstate.AppDefinition{}, err
+	}
+	if current == nil {
 		return projectstate.AppDefinition{
 			AppSpecVersion: defaultAppSpecVersion,
 			CatalogID:      appspec.DefaultCatalogID,
 		}, nil
 	}
 
-	current, err := normalizeAppDefinition(document.AppDefinition.Clone())
-	if err != nil {
-		return projectstate.AppDefinition{}, err
-	}
 	if strings.TrimSpace(current.AppSpecVersion) == "" {
 		current.AppSpecVersion = defaultAppSpecVersion
 	}
 	if strings.TrimSpace(current.CatalogID) == "" {
 		current.CatalogID = appspec.DefaultCatalogID
 	}
-	return current, nil
+	return current.Clone(), nil
 }
 
 func effectiveAppSpecPath(document projectstate.Document) (string, error) {
