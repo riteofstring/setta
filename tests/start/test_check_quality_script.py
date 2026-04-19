@@ -71,6 +71,14 @@ printf '%s\\n' "$@" >> "{sandbox_root / 'pnpm_calls.txt'}"
 """,
     )
     write_stub_executable(
+        bin_dir / "node",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '__CALL__\\n' >> "{sandbox_root / 'node_calls.txt'}"
+printf '%s\\n' "$@" >> "{sandbox_root / 'node_calls.txt'}"
+""",
+    )
+    write_stub_executable(
         scripts_dir / "go.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -145,6 +153,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "frontend",
             "exec",
             "eslint",
+            "--no-warn-ignored",
             '--rule',
             'complexity:["error",9]',
             '--rule',
@@ -154,6 +163,16 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "--",
             "src/app.ts",
             "../plugins/demo/frontend/src/index.ts",
+        ]
+    ]
+
+    node_calls = _split_calls(sandbox_root / "node_calls.txt")
+    assert node_calls == [
+        [
+            "./frontend/scripts/check_import_boundaries.mjs",
+            "--",
+            "frontend/src/app.ts",
+            "plugins/demo/frontend/src/index.ts",
         ]
     ]
 
