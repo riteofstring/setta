@@ -3414,6 +3414,66 @@ LOOP_TERMINAL_MARKER: none
   - keep the shared lightweight switch resting-visual lane closed and escalate the next pass to a larger inactive-row body/overlay decision for the remaining nested-param text/value surface and broader section-body motion cost
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 072
+
+- Item: Widen shared resting param-label ownership across the current settings resting-text boundary.
+- Status: `done`
+- Details:
+  - Chose the remaining broad label/article frontier from the latest row-body ranking instead of reopening another closed section-local lane.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so `isCanvasOwnedSectionParamLabelRestingText(...)` now follows the full current resting-text settings boundary rather than the older smaller param-label allowlist.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - Live canary result on the worktree runtime:
+    - canonical `settings-section__stateMachineStartSectionDefault` `Label` row now reports:
+      - `canvasOwnedRestingTextFlag: "true"`
+      - `lightweightOwnershipFlag: "true"`
+      - `opacity: "0"`
+      - `distinctPixelCount: 5160`
+    - clicking that hidden label root still surfaced the inline CodeMirror editor in place on first interaction
+    - shared untouched-section proof now reports:
+      - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `labelCount 14`, `canvasOwnedRestingTextCount 14`, `legacyLeadingContentWrapperCount 0`
+      - `settings-section__taskBoardSectionDefault`: `rowCount 12`, `labelCount 11`, `canvasOwnedRestingTextCount 11`, `legacyLeadingContentWrapperCount 0`
+      - `settings-section__stateMachineStartSectionDefault`: `rowCount 12`, `labelCount 11`, `canvasOwnedRestingTextCount 11`, `legacyLeadingContentWrapperCount 0`
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 1540`
+    - `totalRemainingVisibleChromeElementCount: 1531`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - common remaining `p.section-key` surface collapsed from `203` rows to `3`
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 74.58`
+    - `raf.p95Ms: 150`
+    - `longTasks.totalMs: 11230`
+  - Interpretation:
+    - this is a real shared row-body paint reduction rather than another section-local survivor harvest
+    - the label roots stay mounted for interaction handoff, so document node count stayed flat, but the visible moving label surface dropped sharply (`215 -> 3`) and mean motion improved on the same runtime family
+    - keep the shared resting param-label lane closed; the remaining frontier is now the interactive `section-center` root plus the heavier article/body structure, especially around `settings-section__sectionSizingPolicy`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts --reporter=json --workers=1`
+    - result: `1 passed (23.9s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.3m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one retained canvas was mounted under the graph surface
+  - `settings-section__stateMachineStartSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__taskBoardSectionDefault` were present and looked intact
+  - no obvious blank or detached label artifact was visible after the shared resting label move
+- Next action:
+  - keep the shared resting param-label lane closed and choose the next product slice from the remaining row/article body structure, with `settings-section__sectionSizingPolicy` still the clearest canonical outlier and a stronger article/body primitive preferred over another survivor-family cleanup
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 071
 
 - Item: Generalize the shared lightweight resize-handle primitive across the settings surface.

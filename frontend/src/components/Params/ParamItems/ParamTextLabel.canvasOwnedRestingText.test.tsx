@@ -78,7 +78,7 @@ describe("ParamTextLabel canvas-owned resting text", () => {
       <ParamTextLabel
         bg="bg-white"
         paramInfoId={PARAM_INFO_ID}
-        sectionId="settings-section__spreadsheetSectionDefault"
+        sectionId="settings-section__nestedParamCodeObjDefault"
       />,
     );
 
@@ -163,6 +163,36 @@ describe("ParamTextLabel canvas-owned resting text", () => {
         bg="bg-white"
         paramInfoId={PARAM_INFO_ID}
         sectionId={GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-resting-text="true"');
+    expect(markup).toContain("opacity-0");
+  });
+
+  it("hides generalized spreadsheet param labels on the canvas path", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+
+    const markup = renderToStaticMarkup(
+      <ParamTextLabel
+        bg="bg-white"
+        paramInfoId={PARAM_INFO_ID}
+        sectionId="settings-section__spreadsheetSectionDefault"
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-resting-text="true"');
+    expect(markup).toContain("opacity-0");
+  });
+
+  it("hides generalized backend param labels on the canvas path", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+
+    const markup = renderToStaticMarkup(
+      <ParamTextLabel
+        bg="bg-white"
+        paramInfoId={PARAM_INFO_ID}
+        sectionId="settings-section__backend"
       />,
     );
 

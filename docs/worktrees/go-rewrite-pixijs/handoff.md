@@ -9,6 +9,65 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shared resting param-label ownership slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-resting-param-label-ownership-rerun.md`.
+  - canonical target section: `settings-section__stateMachineStartSectionDefault`
+  - sibling proof sections:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__taskBoardSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `isCanvasOwnedSectionParamLabelRestingText(...)` from the shared current resting-text settings boundary instead of the old smaller allowlist
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - canonical `Label` row in `settings-section__stateMachineStartSectionDefault` now reports:
+      - `canvasOwnedRestingTextFlag: "true"`
+      - `lightweightOwnershipFlag: "true"`
+      - `opacity: "0"`
+      - `distinctPixelCount: 5160`
+    - clicking that hidden label root still surfaced the inline CodeMirror editor in place on first interaction
+    - shared untouched-section proof now reports:
+      - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `labelCount 14`, `canvasOwnedRestingTextCount 14`, `legacyLeadingContentWrapperCount 0`
+      - `settings-section__taskBoardSectionDefault`: `rowCount 12`, `labelCount 11`, `canvasOwnedRestingTextCount 11`, `legacyLeadingContentWrapperCount 0`
+      - `settings-section__stateMachineStartSectionDefault`: `rowCount 12`, `labelCount 11`, `canvasOwnedRestingTextCount 11`, `legacyLeadingContentWrapperCount 0`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 1540`
+    - `totalRemainingVisibleChromeElementCount: 1531`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the strongest common remaining kinds are now almost entirely row chrome / article structure:
+      - `div.section-center.group-hover/arg-group:before...after...` (`755`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `p.section-key` (`3`)
+  - compared against the prior row-body checkpoint after the resize-handle generalization:
+    - `totalRemainingVisibleElementCount: 1764 -> 1540`
+    - `totalRemainingVisibleChromeElementCount: 1543 -> 1531`
+    - `totalRemainingVisibleLabelElementCount: 215 -> 3`
+    - `p.section-key` common-kind count: `203 -> 3`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 74.58`
+    - `raf.p95Ms: 150`
+    - `longTasks.totalMs: 11230`
+  - interpretation:
+    - this is a real shared row-body paint reduction rather than another section-local survivor harvest
+    - the label roots stay mounted for interaction handoff, so document node count stayed flat, but the visible moving label surface collapsed across the shared resting-text settings boundary and mean motion improved on the same runtime family
+    - the remaining frontier is no longer broad param-label text; it is the interactive `section-center` root plus the remaining article/body structure in heavy sections like `settings-section__sectionSizingPolicy`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__stateMachineStartSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__taskBoardSectionDefault` were present and looked intact
+    - no obvious blank or detached label artifact was visible after the shared resting label move
 - The shared lightweight resize-handle generalization is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-lightweight-resize-handle-rerun.md`.
   - canonical target section: `settings-section__chatSectionDefault`
   - sibling proof sections:

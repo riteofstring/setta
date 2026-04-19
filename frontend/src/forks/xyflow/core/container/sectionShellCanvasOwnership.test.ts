@@ -438,7 +438,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the shared size/style/tag cluster for lightweight resting text without widening label text", () => {
+  it("targets the shared size/style/tag cluster for lightweight resting text and label text", () => {
     for (const sectionId of SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS) {
       expect(isCanvasOwnedSectionRestingTextSection(sectionId)).toBe(true);
       expect(
@@ -450,11 +450,11 @@ describe("sectionShellCanvasOwnership", () => {
       expect(isCanvasOwnedSectionLightweightTextUnderline(sectionId)).toBe(
         true,
       );
-      expect(isCanvasOwnedSectionParamLabelRestingText(sectionId)).toBe(false);
+      expect(isCanvasOwnedSectionParamLabelRestingText(sectionId)).toBe(true);
     }
   });
 
-  it("targets the shared param-codeobj cluster for lightweight resting text without widening label text", () => {
+  it("targets the shared param-codeobj cluster for lightweight resting text and label text", () => {
     for (const sectionId of SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS) {
       expect(isCanvasOwnedSectionRestingTextSection(sectionId)).toBe(true);
       expect(
@@ -478,11 +478,11 @@ describe("sectionShellCanvasOwnership", () => {
       expect(isCanvasOwnedSectionLightweightTextUnderline(sectionId)).toBe(
         true,
       );
-      expect(isCanvasOwnedSectionParamLabelRestingText(sectionId)).toBe(false);
+      expect(isCanvasOwnedSectionParamLabelRestingText(sectionId)).toBe(true);
     }
   });
 
-  it("targets param-label resting text inside the owned canary sections", () => {
+  it("targets param-label resting text across the current settings resting-text boundary", () => {
     expect(
       isCanvasOwnedSectionParamLabelRestingText(CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
@@ -515,10 +515,25 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionParamLabelRestingText(
         BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionParamLabelRestingText(
         "settings-section__spreadsheetSectionDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionParamLabelRestingText(
+        "settings-section__nestedParamCodeObjDefault",
       ),
     ).toBe(false);
   });
