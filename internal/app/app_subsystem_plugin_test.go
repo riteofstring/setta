@@ -205,3 +205,10 @@ func writeEnabledAppPluginState(t *testing.T, cfg config.Config, pluginIDs ...st
 		t.Fatalf("write enabled plugin state: %v", err)
 	}
 }
+
+func enableAppSubsystemPluginForTest(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+}

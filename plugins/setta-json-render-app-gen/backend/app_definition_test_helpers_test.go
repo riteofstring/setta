@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"setta/internal/projectstate"
+	appdefinitionpkg "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func appDefinitionServiceForTest(
@@ -24,4 +25,30 @@ func setTestAppDefinition(
 	if _, _, err := service.SetAppDefinition(context.Background(), input); err != nil {
 		t.Fatalf("set app definition: %v", err)
 	}
+}
+
+func mustEncodeStoredAppDefinition(
+	t *testing.T,
+	definition *projectstate.AppDefinition,
+) projectstate.RawJSON {
+	t.Helper()
+
+	raw, err := appdefinitionpkg.EncodeStoredAppDefinition(definition)
+	if err != nil {
+		t.Fatalf("encode stored app definition: %v", err)
+	}
+	return raw
+}
+
+func mustDecodeStoredAppDefinition(
+	t *testing.T,
+	raw projectstate.RawJSON,
+) *projectstate.AppDefinition {
+	t.Helper()
+
+	definition, err := appdefinitionpkg.DecodeStoredAppDefinition(raw)
+	if err != nil {
+		t.Fatalf("decode stored app definition: %v", err)
+	}
+	return definition
 }

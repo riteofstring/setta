@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -26,8 +28,8 @@ func setTestAppDefinition(
 	}
 	current := runtime.Snapshot().Document.AppDefinition
 	metadata := projectstate.AppDefinition{}
-	if current != nil {
-		metadata = current.Clone()
+	if len(current) != 0 {
+		metadata = mustDecodeStoredAppDefinition(t, current)
 	}
 	if strings.TrimSpace(metadata.AppSpecVersion) == "" {
 		metadata.AppSpecVersion = "v1"
@@ -76,7 +78,7 @@ func setTestAppDefinition(
 	}
 	_, err = runtime.MutatePersistedWithContext(context.Background(), func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
 		next := document.Clone()
-		next.AppDefinition = &metadata
+		next.AppDefinition = mustMarshalStoredAppDefinition(t, metadata)
 		appSpec := input.AppSpec
 		return projectstate.PersistedMutationPlan{
 			NextDocument: next,
@@ -101,6 +103,57 @@ func mustMarshalTestRawJSON(t *testing.T, value any, field string) projectstate.
 		t.Fatalf("marshal %s: %v", field, err)
 	}
 	return projectstate.RawJSON(encoded)
+}
+
+func mustMarshalStoredAppDefinition(
+	t *testing.T,
+	definition projectstate.AppDefinition,
+) projectstate.RawJSON {
+	t.Helper()
+
+	return mustMarshalTestRawJSON(t, definition, "appDefinition")
+}
+
+func mustDecodeStoredAppDefinition(
+	t *testing.T,
+	raw projectstate.RawJSON,
+) projectstate.AppDefinition {
+	t.Helper()
+
+	var definition projectstate.AppDefinition
+	if err := json.Unmarshal(raw, &definition); err != nil {
+		t.Fatalf("decode stored app definition: %v", err)
+	}
+	return definition
+}
+
+func newAppDefinitionToolRouteServer(
+	t *testing.T,
+	projectRuntime *projectstate.Runtime,
+	options mcpx.ServerOptions,
+) *mcpx.Server {
+	t.Helper()
+
+	if strings.TrimSpace(options.WorkspaceRoot) == "" {
+		options.WorkspaceRoot = t.TempDir()
+	}
+	if options.ProjectState == nil {
+		options.ProjectState = projectRuntime
+	}
+	if options.SectionNames == nil && projectRuntime != nil {
+		options.SectionNames = routeSectionNameService{runtime: projectRuntime}
+	}
+	if options.AppDefinitionService == nil && projectRuntime != nil {
+		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
+	}
+	if len(options.ContributedToolRegistrations) == 0 && options.AppDefinitionService != nil {
+		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(options.AppDefinitionService)
+	}
+	server, err := mcpx.NewServer(options)
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+	return server
 }
 
 func rollbackTestAppSpecWrite(projectRoot string, appSpecPath string, previousAppSpec any) error {

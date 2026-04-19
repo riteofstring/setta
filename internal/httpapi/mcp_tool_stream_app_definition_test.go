@@ -36,15 +36,10 @@ func TestMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -117,16 +112,11 @@ func TestMCPToolCallRouteStreamAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),

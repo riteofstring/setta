@@ -235,13 +235,13 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 		Document: projectstate.Document{
 			SchemaVersion:    projectstate.CurrentSchemaVersion,
 			DefaultProjectID: "project-alpha",
-			AppDefinition: &projectstate.AppDefinition{
+			AppDefinition: mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 				CatalogID:   "catalog-demo",
 				AppSpecPath: "app_specs/spec.json",
 				Routes: []projectstate.AppRoute{
 					{Path: "/", Name: "Home"},
 				},
-			},
+			}),
 			Projects: map[string]projectstate.Project{
 				"project-alpha": {
 					ID:   "project-alpha",
@@ -309,12 +309,12 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 		Document: projectstate.Document{
 			SchemaVersion:    projectstate.CurrentSchemaVersion,
 			DefaultProjectID: "project-alpha",
-			AppDefinition: &projectstate.AppDefinition{
+			AppDefinition: mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 				AppSpecPath: "app_specs/spec.json",
 				Routes: []projectstate.AppRoute{
 					{Path: "/"},
 				},
-			},
+			}),
 			Projects: map[string]projectstate.Project{
 				"project-alpha": {
 					ID:   "project-alpha",
