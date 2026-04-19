@@ -1742,14 +1742,14 @@ func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *te
 
 func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *testing.T) {
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
-	registerRuntimeAppSubsystemProvider(t, AppSubsystemPluginID)
+	registerRuntimeAppSubsystemProvider(t, firstpartyplugin.AppSubsystemPluginID)
 
 	roots := newFilesystemResolverTestRoots(t)
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
 	installBuiltFirstPartyPackageManagerPluginInSearchPath(
 		t,
 		sitePackages,
-		AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 
 	service := mustNewPluginMutationServiceWithPackageManager(
@@ -1760,7 +1760,7 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 		[]string{sitePackages},
 	)
 	if err := service.store.SavePluginsState(PluginsStateFile{
-		EnabledPluginIDs: []string{AppSubsystemPluginID},
+		EnabledPluginIDs: []string{firstpartyplugin.AppSubsystemPluginID},
 	}); err != nil {
 		t.Fatalf("save app subsystem plugin state: %v", err)
 	}
@@ -1782,7 +1782,7 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 		t.Fatal("expected runtime feature capabilities")
 	}
 	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
-	if appSubsystem.PluginID != AppSubsystemPluginID || !appSubsystem.PluginEnabled {
+	if appSubsystem.PluginID != firstpartyplugin.AppSubsystemPluginID || !appSubsystem.PluginEnabled {
 		t.Fatalf("expected enabled app subsystem runtime capability, got %#v", appSubsystem)
 	}
 	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI || !appSubsystem.AppGenerationChatModes || !appSubsystem.AppDeploymentRuntime {
@@ -1790,7 +1790,7 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 	}
 
 	entry := runtimeResponse.List.Plugins[0]
-	if entry.PluginID != AppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
+	if entry.PluginID != firstpartyplugin.AppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
 		t.Fatalf("expected package-manager app subsystem plugin list entry, got %#v", entry)
 	}
 	if len(entry.Components) != 2 || entry.Components[0] != "backend" || entry.Components[1] != "frontend" {
@@ -1801,7 +1801,7 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.PluginID != AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
+	if statusEntry.PluginID != firstpartyplugin.AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active app subsystem package-manager plugin, got %#v", statusEntry)
 	}
 	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
@@ -1820,7 +1820,7 @@ func TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin(t *tes
 	installFirstPartyPackageManagerPluginAsIDInSearchPath(
 		t,
 		sitePackages,
-		AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		unknownAppSubsystemPluginID,
 		"Unknown-id app subsystem fixture",
 	)

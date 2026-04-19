@@ -12,6 +12,7 @@ import (
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
@@ -172,8 +173,8 @@ func TestScopedRegistryIncludesPluginOwnedAppUISettingsWhenAppPluginEnabled(t *t
 	if entry.Metadata.Source != SourcePlugin {
 		t.Fatalf("expected app spec path to be plugin-sourced, got %#v", entry.Metadata.Source)
 	}
-	if entry.Metadata.PluginID != plugins.AppSubsystemPluginID {
-		t.Fatalf("expected app spec path plugin id %q, got %#v", plugins.AppSubsystemPluginID, entry.Metadata.PluginID)
+	if entry.Metadata.PluginID != firstpartyplugin.AppSubsystemPluginID {
+		t.Fatalf("expected app spec path plugin id %q, got %#v", firstpartyplugin.AppSubsystemPluginID, entry.Metadata.PluginID)
 	}
 }
 
@@ -829,7 +830,7 @@ func mustNewAppScopedRegistry(t *testing.T, runtime *projectstate.Runtime, works
 
 	service := appdefinition.NewAppDefinitionService(
 		runtime,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 	return mustNewScopedRegistry(t, ScopedRegistryOptions{
 		Runtime:       runtime,
@@ -852,7 +853,7 @@ func newActiveAppSubsystemPluginRuntimeResponse() plugins.PluginRuntimeResponse 
 	return plugins.PluginRuntimeResponse{
 		FeatureCapabilities: &plugins.PluginFeatureCapabilities{
 			AppSubsystem: plugins.PluginAppSubsystemCapabilities{
-				PluginID:       plugins.AppSubsystemPluginID,
+				PluginID:       firstpartyplugin.AppSubsystemPluginID,
 				PluginEnabled:  true,
 				AppAuthoringUI: true,
 			},
@@ -860,14 +861,14 @@ func newActiveAppSubsystemPluginRuntimeResponse() plugins.PluginRuntimeResponse 
 		List: plugins.PluginListResponse{
 			Plugins: []plugins.PluginListEntry{
 				{
-					PluginID: plugins.AppSubsystemPluginID,
+					PluginID: firstpartyplugin.AppSubsystemPluginID,
 				},
 			},
 		},
 		Status: plugins.PluginStatusResponse{
 			Plugins: []plugins.PluginStatusEntry{
 				{
-					PluginID: plugins.AppSubsystemPluginID,
+					PluginID: firstpartyplugin.AppSubsystemPluginID,
 					State:    plugins.PluginRuntimeStateActive,
 				},
 			},
@@ -984,7 +985,7 @@ func buildTestAppEntryMetadata(
 			AnchorID: settingID,
 		},
 		Source:      SourcePlugin,
-		PluginID:    plugins.AppSubsystemPluginID,
+		PluginID:    firstpartyplugin.AppSubsystemPluginID,
 		Mutability:  MutabilityWritable,
 		ValueSchema: valueSchema,
 	}
@@ -1034,7 +1035,7 @@ func effectiveAppMetadata(
 
 	service := appdefinition.NewAppDefinitionService(
 		runtime,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 	definition, err := service.GetEffectiveAppDefinition(context.Background())
 	if err != nil {

@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeManagedComponents(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	registerRuntimeAppSubsystemProvider(t, AppSubsystemPluginID)
+	registerRuntimeAppSubsystemProvider(t, firstpartyplugin.AppSubsystemPluginID)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 
 	scope := PluginScopeWorkspace
@@ -19,7 +20,7 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 		LocalPluginRoot: filepath.Join(
 			workerRPCTestRepoRoot(t),
 			"plugins",
-			AppSubsystemPluginID,
+			firstpartyplugin.AppSubsystemPluginID,
 		),
 		Scope:  &scope,
 		Enable: true,
@@ -49,7 +50,7 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	}
 
 	listEntry := runtimeResponse.List.Plugins[0]
-	if listEntry.PluginID != AppSubsystemPluginID || listEntry.SourceScope != PluginScopeWorkspace {
+	if listEntry.PluginID != firstpartyplugin.AppSubsystemPluginID || listEntry.SourceScope != PluginScopeWorkspace {
 		t.Fatalf("expected linked workspace app subsystem plugin list entry, got %#v", listEntry)
 	}
 	if len(listEntry.Components) != 2 || listEntry.Components[0] != "backend" || listEntry.Components[1] != "frontend" {
@@ -63,23 +64,23 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.PluginID != AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
+	if statusEntry.PluginID != firstpartyplugin.AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active linked app subsystem plugin status entry, got %#v", statusEntry)
 	}
 	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
 		t.Fatalf("expected backend/frontend linked app subsystem status components, got %#v", statusEntry.Components)
 	}
-	if runtimeResponse.FeatureCapabilities == nil || runtimeResponse.FeatureCapabilities.AppSubsystem.PluginID != AppSubsystemPluginID {
+	if runtimeResponse.FeatureCapabilities == nil || runtimeResponse.FeatureCapabilities.AppSubsystem.PluginID != firstpartyplugin.AppSubsystemPluginID {
 		t.Fatalf("expected linked app subsystem provider capabilities, got %#v", runtimeResponse.FeatureCapabilities)
 	}
 }
 
 func TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets(t *testing.T) {
 	repoRoot := workerRPCTestRepoRoot(t)
-	stagingRoot := filepath.Join(t.TempDir(), AppSubsystemPluginID)
+	stagingRoot := filepath.Join(t.TempDir(), firstpartyplugin.AppSubsystemPluginID)
 	copyBackendCodegenFixtureDir(
 		t,
-		filepath.Join(repoRoot, "plugins", AppSubsystemPluginID),
+		filepath.Join(repoRoot, "plugins", firstpartyplugin.AppSubsystemPluginID),
 		stagingRoot,
 	)
 
