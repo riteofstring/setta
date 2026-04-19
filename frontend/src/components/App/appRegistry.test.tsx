@@ -45,8 +45,8 @@ vi.mock("state/hooks/artifacts", async () => {
   };
 });
 
-import { AppRuntimeContext } from "./appContext";
-import { appRegistry } from "./appRegistry";
+import { AppRuntimeContext } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
+import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
 
 type RenderedRegistryNode = {
   host: HTMLDivElement;

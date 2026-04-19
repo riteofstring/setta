@@ -5,12 +5,48 @@ type RunCapabilityState = Pick<
   "projectConfig" | "sectionCapabilities" | "singletonSections"
 >;
 
-type ResolvedRunRequest = {
-  canRun: boolean;
-  disabledReason: string | null;
-  executionSectionId: string | null;
+type RunnableRunRequest = {
+  canRun: true;
+  disabledReason: null;
+  executionSectionId: string;
+  effectiveSectionId: string;
+};
+
+type DisabledRunRequest = {
+  canRun: false;
+  disabledReason: string;
+  executionSectionId: null;
   effectiveSectionId: string | null;
 };
+
+type ResolvedRunRequest = RunnableRunRequest | DisabledRunRequest;
+
+function createRunnableRunRequest(
+  effectiveSectionId: string,
+  runRequestSectionId: string | null | undefined,
+): RunnableRunRequest {
+  const explicitExecutionSectionId = runRequestSectionId?.trim() ?? "";
+  return {
+    canRun: true,
+    disabledReason: null,
+    // Generated entry sections intentionally leave runRequestSectionId unset;
+    // running them still requires sending the concrete section id.
+    executionSectionId: explicitExecutionSectionId || effectiveSectionId,
+    effectiveSectionId,
+  };
+}
+
+function createDisabledRunRequest(
+  disabledReason: string,
+  effectiveSectionId: string | null,
+): DisabledRunRequest {
+  return {
+    canRun: false,
+    disabledReason,
+    executionSectionId: null,
+    effectiveSectionId,
+  };
+}
 
 const DEFAULT_RUN_DISABLED_REASON = "Run is unavailable.";
 const MANUAL_ENTRY_REQUIRED_REASON = "Select a manual entry code block to run.";
@@ -30,31 +66,21 @@ export function resolveMainRunRequest(
 ): ResolvedRunRequest {
   const effectiveSectionId = resolveEffectiveMainRunSectionId(state);
   if (!effectiveSectionId) {
-    return {
-      canRun: false,
-      disabledReason: MANUAL_ENTRY_REQUIRED_REASON,
-      executionSectionId: null,
-      effectiveSectionId: null,
-    };
+    return createDisabledRunRequest(MANUAL_ENTRY_REQUIRED_REASON, null);
   }
 
   const sectionCapabilities = state.sectionCapabilities[effectiveSectionId];
   if (!sectionCapabilities?.canRun) {
-    return {
-      canRun: false,
-      disabledReason:
-        sectionCapabilities?.runDisabledReason ?? DEFAULT_RUN_DISABLED_REASON,
-      executionSectionId: null,
+    return createDisabledRunRequest(
+      sectionCapabilities?.runDisabledReason ?? DEFAULT_RUN_DISABLED_REASON,
       effectiveSectionId,
-    };
+    );
   }
 
-  return {
-    canRun: true,
-    disabledReason: null,
-    executionSectionId: sectionCapabilities.runRequestSectionId ?? null,
+  return createRunnableRunRequest(
     effectiveSectionId,
-  };
+    sectionCapabilities.runRequestSectionId,
+  );
 }
 
 function resolveEffectiveMainRunSectionId(
@@ -80,21 +106,16 @@ function resolveSectionRunRequest(
 ): ResolvedRunRequest {
   const sectionCapabilities = state.sectionCapabilities[sectionId];
   if (!sectionCapabilities?.canRun) {
-    return {
-      canRun: false,
-      disabledReason:
-        sectionCapabilities?.runDisabledReason ?? DEFAULT_RUN_DISABLED_REASON,
-      executionSectionId: null,
-      effectiveSectionId: sectionId,
-    };
+    return createDisabledRunRequest(
+      sectionCapabilities?.runDisabledReason ?? DEFAULT_RUN_DISABLED_REASON,
+      sectionId,
+    );
   }
 
-  return {
-    canRun: true,
-    disabledReason: null,
-    executionSectionId: sectionCapabilities.runRequestSectionId ?? null,
-    effectiveSectionId: sectionId,
-  };
+  return createRunnableRunRequest(
+    sectionId,
+    sectionCapabilities.runRequestSectionId,
+  );
 }
 
 export function canSectionRun(

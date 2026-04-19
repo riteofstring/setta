@@ -1,6 +1,4 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { GraphSurfaceImplementationProvider } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { CANVAS_OWNED_SECTION_SHELL_ID } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { useProjectState, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -215,21 +213,14 @@ function seedParamGroupState({
 
 function renderParamGroupContainer(
   options: Parameters<typeof seedParamGroupState>[0] = {},
-  {
-    graphSurfaceImplementation = "legacy-dom",
-  }: {
-    graphSurfaceImplementation?: "legacy-dom" | "canvas-shell-underlay";
-  } = {},
 ) {
   const { sectionId, sectionTypeName } = seedParamGroupState(options);
   return renderToStaticMarkup(
-    <GraphSurfaceImplementationProvider value={graphSurfaceImplementation}>
-      <ParamGroupContainer
-        sectionId={sectionId}
-        bgColor="bg-transparent"
-        sectionTypeName={sectionTypeName}
-      />
-    </GraphSurfaceImplementationProvider>,
+    <ParamGroupContainer
+      sectionId={sectionId}
+      bgColor="bg-transparent"
+      sectionTypeName={sectionTypeName}
+    />,
   );
 }
 
@@ -285,30 +276,12 @@ describe("ParamGroupContainer layout", () => {
 
     const markup = renderParamGroupContainer();
     const match = markup.match(
-      /class="([^"]*section-args-nested[^"]*overflow-y-scroll[^"]*)"/,
+      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-scroll[^\"]*)\"/,
     );
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
-  });
-
-  it("makes the canary pinned params panel transparent on the canvas shell path", () => {
-    const markup = renderParamGroupContainer(
-      {
-        pinnedParamCount: 1,
-        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
-        sectionTypeName: SectionTypeEnum.Callable,
-      },
-      {
-        graphSurfaceImplementation: "canvas-shell-underlay",
-      },
-    );
-
-    expect(markup).toContain('data-canvas-owned-pinned-params="true"');
-    expect(markup).toContain(
-      'style="background-color:transparent;border-color:transparent;box-shadow:none"',
-    );
   });
 });

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 var (
@@ -26,7 +25,6 @@ var (
 	ErrViewModeIDKeyMismatch        = errors.New("view mode id must match its map key")
 	ErrViewModeNotFound             = errors.New("view mode was not found in project")
 	ErrFrontendPayloadInvalid       = errors.New("frontend payload JSON must be valid")
-	ErrAppRoutePathRequired         = errors.New("app route path is required")
 )
 
 type RawJSON = json.RawMessage
@@ -124,23 +122,6 @@ type CodeObjectImpl struct {
 	Payload RawJSON `json:"payload,omitempty"`
 }
 
-type AppRoute struct {
-	Path    string `json:"path"`
-	Name    string `json:"name,omitempty"`
-	RootKey string `json:"rootKey,omitempty"`
-}
-
-type AppDefinition struct {
-	AppSpecVersion string     `json:"appSpecVersion,omitempty"`
-	CatalogID      string     `json:"catalogId,omitempty"`
-	AppSpecPath    string     `json:"appSpecPath,omitempty"`
-	Routes         []AppRoute `json:"routes,omitempty"`
-	DataBindings   RawJSON    `json:"dataBindings,omitempty"`
-	Actions        RawJSON    `json:"actions,omitempty"`
-	Theme          RawJSON    `json:"theme,omitempty"`
-	Assets         RawJSON    `json:"assets,omitempty"`
-}
-
 func (v ViewMode) Clone() ViewMode {
 	cloned := v
 	cloned.VisibilityBySectionID = cloneBoolMap(v.VisibilityBySectionID)
@@ -196,63 +177,6 @@ func (i CodeObjectImpl) Clone() CodeObjectImpl {
 	return cloned
 }
 
-func (r AppRoute) Normalized() (AppRoute, error) {
-	normalized := AppRoute{
-		Path:    strings.TrimSpace(r.Path),
-		Name:    strings.TrimSpace(r.Name),
-		RootKey: strings.TrimSpace(r.RootKey),
-	}
-	if normalized.Path == "" {
-		return AppRoute{}, ErrAppRoutePathRequired
-	}
-	return normalized, nil
-}
-
-func (d AppDefinition) Clone() AppDefinition {
-	cloned := d
-	cloned.Routes = append([]AppRoute(nil), d.Routes...)
-	cloned.DataBindings = cloneRawJSON(d.DataBindings)
-	cloned.Actions = cloneRawJSON(d.Actions)
-	cloned.Theme = cloneRawJSON(d.Theme)
-	cloned.Assets = cloneRawJSON(d.Assets)
-	return cloned
-}
-
-func (d AppDefinition) Normalized() (AppDefinition, error) {
-	normalized := d.Clone()
-	normalized.AppSpecVersion = strings.TrimSpace(normalized.AppSpecVersion)
-	normalized.CatalogID = strings.TrimSpace(normalized.CatalogID)
-	normalized.AppSpecPath = strings.TrimSpace(normalized.AppSpecPath)
-
-	var err error
-	normalized.DataBindings, err = normalizeRawJSON(normalized.DataBindings, "appDefinition.dataBindings")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Actions, err = normalizeRawJSON(normalized.Actions, "appDefinition.actions")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Theme, err = normalizeRawJSON(normalized.Theme, "appDefinition.theme")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Assets, err = normalizeRawJSON(normalized.Assets, "appDefinition.assets")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-
-	for index, route := range normalized.Routes {
-		normalizedRoute, err := route.Normalized()
-		if err != nil {
-			return AppDefinition{}, fmt.Errorf("normalize app route %d: %w", index, err)
-		}
-		normalized.Routes[index] = normalizedRoute
-	}
-
-	return normalized, nil
-}
-
 func cloneViewport(viewport *Viewport) *Viewport {
 	if viewport == nil {
 		return nil
@@ -306,4 +230,15 @@ func normalizeRawJSON(raw RawJSON, field string) (RawJSON, error) {
 		return nil, fmt.Errorf("%w: %s", ErrFrontendPayloadInvalid, field)
 	}
 	return cloneRawJSON(trimmed), nil
+}
+
+func normalizeRawJSONObject(raw RawJSON, field string) (RawJSON, error) {
+	normalized, err := normalizeRawJSON(raw, field)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := decodeRawJSONObject(normalized, field); err != nil {
+		return nil, err
+	}
+	return normalized, nil
 }

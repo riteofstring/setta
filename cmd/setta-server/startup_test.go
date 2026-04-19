@@ -10,9 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/appsubsystem"
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/plugins"
 )
 
 func TestRenderLocalStartupMessageRemoteSession(t *testing.T) {
@@ -276,15 +278,18 @@ func TestEmitAppStartupOutputWarnsForPublicHostAndPrintsURL(t *testing.T) {
 	defer listener.Close()
 
 	deploymentRoot := writeDeploymentManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-app", "v2"), "demo-app", "v2", deployments.TypeApp)
+	enableAppDeploymentRuntimePlugin(t, deploymentRoot)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	err = emitAppStartupOutput(
 		config.Config{
 			Server: config.Server{
 				Host: "0.0.0.0",
+				Mode: config.ModeApp,
 			},
 			Paths: config.Paths{
 				DeploymentRoot: deploymentRoot,
+				RuntimeRoot:    filepath.Join(deploymentRoot, "runtime"),
 			},
 		},
 		listener,
@@ -318,15 +323,18 @@ func TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
 	defer listener.Close()
 
 	deploymentRoot := writeDeploymentManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-app", "v3"), "demo-app", "v3", deployments.TypeApp)
+	enableAppDeploymentRuntimePlugin(t, deploymentRoot)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	err = emitAppStartupOutput(
 		config.Config{
 			Server: config.Server{
 				Host: "127.0.0.1",
+				Mode: config.ModeApp,
 			},
 			Paths: config.Paths{
 				DeploymentRoot: deploymentRoot,
+				RuntimeRoot:    filepath.Join(deploymentRoot, "runtime"),
 			},
 		},
 		listener,
@@ -363,6 +371,41 @@ func TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
 	}
 }
 
+func TestEmitAppStartupOutputRequiresAppSubsystemPlugin(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	deploymentRoot := writeDeploymentManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-app", "v5"), "demo-app", "v5", deployments.TypeApp)
+	err = emitAppStartupOutput(
+		config.Config{
+			Server: config.Server{
+				Host: "127.0.0.1",
+				Mode: config.ModeApp,
+			},
+			Paths: config.Paths{
+				DeploymentRoot: deploymentRoot,
+				RuntimeRoot:    filepath.Join(deploymentRoot, "runtime"),
+			},
+		},
+		listener,
+		true,
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+		appStartupDependencies{},
+	)
+	if err == nil {
+		t.Fatal("expected app startup output to require app subsystem plugin")
+	}
+	if err.Error() != appsubsystem.ErrAppModePluginRequired.Error() {
+		t.Fatalf("expected exact plugin-required error %q, got %v", appsubsystem.ErrAppModePluginRequired.Error(), err)
+	}
+}
+
 func writeShareManifest(t *testing.T, deploymentRoot string, deploymentName string, deploymentVersion string) string {
 	t.Helper()
 
@@ -391,6 +434,46 @@ func writeDeploymentManifest(t *testing.T, deploymentRoot string, deploymentName
 		t.Fatalf("write manifest: %v", err)
 	}
 	return deploymentRoot
+}
+
+func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string) {
+	t.Helper()
+
+	payload, err := json.MarshalIndent(map[string]any{
+		"schemaVersion":     1,
+		"id":                plugins.AppSubsystemPluginID,
+		"name":              "Setta JSON Render App Generation",
+		"version":           "0.1.0",
+		"settaVersionRange": ">=0.0.0",
+		"enabledByDefault":  false,
+		"featureCapabilities": map[string]any{
+			"appSubsystem": map[string]any{
+				"appDeploymentRuntime": true,
+			},
+		},
+		"capabilities": []string{},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal app plugin manifest: %v", err)
+	}
+	payload = append(payload, '\n')
+	pluginRoot := filepath.Join(deploymentRoot, ".setta_plugins", plugins.AppSubsystemPluginID)
+	if err := os.MkdirAll(pluginRoot, 0o755); err != nil {
+		t.Fatalf("mkdir plugin root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pluginRoot, "setta.plugin.json"), payload, 0o644); err != nil {
+		t.Fatalf("write plugin manifest: %v", err)
+	}
+	statePayload, err := json.MarshalIndent(map[string]any{
+		"enabledPluginIds": []string{plugins.AppSubsystemPluginID},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal plugins state: %v", err)
+	}
+	statePayload = append(statePayload, '\n')
+	if err := os.WriteFile(filepath.Join(deploymentRoot, "plugins_state.json"), statePayload, 0o644); err != nil {
+		t.Fatalf("write plugins state: %v", err)
+	}
 }
 
 type startupAssertiveError string

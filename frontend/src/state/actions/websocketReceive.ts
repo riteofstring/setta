@@ -8,7 +8,12 @@ import {
   type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  processAppProjectStateUpdateFromBackend,
+  resetAppSessionState,
+} from "plugins/appSubsystemRuntime";
+import { receivePluginRuntimeUpdate } from "plugins/runtime";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
   buildFrontendAffinityCurrentAddress,
@@ -81,10 +86,6 @@ import {
   receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
-import {
-  initializeAppSessionFromCurrentDeployment,
-  resetAppSessionState,
-} from "./app";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -676,6 +677,11 @@ const websocketMessageHandlers = {
     Parameters<typeof updateSettings>[0]
   >((content) => {
     updateSettings(content);
+  }),
+  [WebsocketMessageTypeEnum.UpdatePluginRuntime]: createWebsocketMessageHandler<
+    Parameters<typeof receivePluginRuntimeUpdate>[0]
+  >((content) => {
+    void receivePluginRuntimeUpdate(content);
   }),
   [WebsocketMessageTypeEnum.AllProjectMetadata]: createWebsocketMessageHandler<
     Parameters<typeof updateAllProjectMetadata>[0]
