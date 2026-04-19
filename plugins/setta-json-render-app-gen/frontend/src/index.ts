@@ -1,6 +1,7 @@
 import { AppPreview } from "./components/Pages/Project/AppPreview";
 import { AppPage } from "./components/Pages/App/AppPage";
-import { AppConfigPane } from "components/Panes/Overview/App/AppConfigPane";
+import { PublishAppDeploymentModal } from "./components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
+import { AppConfigPane } from "./components/Panes/Overview/App/AppConfigPane";
 import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
@@ -21,6 +22,9 @@ export const appSubsystemFrontendRegistration = {
   },
   appModeRoute: {
     component: AppPage,
+  },
+  appDeploymentModal: {
+    component: PublishAppDeploymentModal,
   },
   slashCommands: buildAppGenerationSlashCommandDefinitions(),
   imageRequiredModes: APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS.filter(
