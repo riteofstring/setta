@@ -1,0 +1,33 @@
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const packageDir = dirname(fileURLToPath(import.meta.url));
+const frontendDir = resolve(packageDir, "../..");
+const frontendSrcDir = resolve(frontendDir, "src");
+
+export default {
+  root: packageDir,
+  publicDir: false,
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"),
+    "process.env": "{}",
+  },
+  resolve: {
+    alias: {
+      openapi: resolve(frontendSrcDir, "openapi"),
+      utils: resolve(frontendSrcDir, "utils"),
+    },
+  },
+  build: {
+    outDir: resolve(packageDir, "dist"),
+    emptyOutDir: true,
+    target: "es2020",
+    minify: false,
+    sourcemap: false,
+    lib: {
+      entry: resolve(packageDir, "src/index.ts"),
+      formats: ["es"],
+      fileName: () => "index.js",
+    },
+  },
+};
