@@ -13,6 +13,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `014` is the current best whole-scene dense checkpoint at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 42.58`, `raf.p95Ms 50`, `longTasks.totalMs 5844`
   - run `015` usefully falsified and closed the mounted-hidden motion-body idea after a clear dense-motion regression
   - runs `016`, `017`, and `021` advanced Phase 2 retained-canvas shell ownership while keeping first-click editor handoff intact
+  - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
   - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
@@ -21,9 +22,53 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - choose exactly one bounded frontier for the next default pass:
     - a trace-backed whole-scene reducer tied to the renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`
     - or a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
-  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary
+  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
 
 ## Current status
+
+- The section-sizing-policy shell-ownership slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-sizing-policy-shell-ownership-rerun.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - dense canary sibling proof sections:
+    - `settings-section__browserSectionDefault`
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now promotes `settings-section__sectionSizingPolicy` into `CANVAS_OWNED_SECTION_SHELL_IDS` through the new `SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID`
+    - the same file keeps `sectionSizingPolicy` on the lightweight nested-children lane even after shell ownership so the dense meta-control tree does not regress onto the heavier nested wrapper path
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now treats `sectionSizingPolicy` as a real shell canary while preserving the lightweight nested-child and lightweight nested-row-body expectations for that dense lane
+    - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts` now proves the outer shell and inner `CustomResizable` expose `data-canvas-owned-shell="true"` with transparent shell styling while the existing first-click size-mode dropdown activation still works
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 42.86`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1149.88`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5843`
+    - `longTasks.maxMs: 3443`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a real graph-surface ownership move on the measured dense outlier rather than another arbitrary shell sibling
+    - the dense canary stayed in the current improved runtime band, so the widened shell ownership looks safe to keep
+    - close this section-sizing-policy shell lane here; the next default pass should return to the canonical renderer-main JS / GC hotspot lane or a broader shared ownership primitive instead of promoting another isolated section shell
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - result: `1 passed`, `27` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-024/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `3 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - normalized to `/settings` with `All Settings` active and `fit view` applied
+    - `sectionSizingPolicy` was visible on the graph surface and the canvas shell/body looked intact with no obvious blank graph or detached shell/body artifact
+    - visible workspace chrome noise was limited to the expected Setta frame, including the left settings rail and a docked chat window
 
 - The viewport-persistence project-store fanout slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-project-store-fanout-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

@@ -15,8 +15,10 @@ export const CODE_SECTION_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__codeSectionDefault";
 export const PROMPT_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__promptSectionDefault";
-export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
+export const SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__sectionSizingPolicy";
+export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
+  SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID;
 export const DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__drawSectionDefault";
 export const CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
@@ -128,6 +130,7 @@ export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   BUTTON_PARAM_CANVAS_OWNED_SECTION_SHELL_ID,
   CODE_SECTION_CANVAS_OWNED_SECTION_SHELL_ID,
   PROMPT_CANVAS_OWNED_SECTION_SHELL_ID,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID,
 ] as const;
 export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
   ...CANVAS_OWNED_SECTION_SHELL_IDS,
@@ -340,7 +343,8 @@ export function isCanvasOwnedSectionLightweightNestedChildren(
 ) {
   return (
     isCanvasOwnedSectionRestingTextSection(sectionId) &&
-    !isCanvasOwnedSectionShell(sectionId)
+    (!isCanvasOwnedSectionShell(sectionId) ||
+      sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID)
   );
 }
 

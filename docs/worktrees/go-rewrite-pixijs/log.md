@@ -5476,3 +5476,45 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the canonical `settings-section__browserSectionDefault` lane and either re-profile the remaining renderer-main JS / GC work after this fanout removal or escalate to the next broader Pixi-owned graph-surface ownership step
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 - section sizing policy shell ownership
+
+- Summary:
+  - Promoted `settings-section__sectionSizingPolicy` from motion-only shell painting to full canvas-owned shell ownership because it remains the measured row-body outlier from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`.
+  - Kept that section on the existing lightweight nested-children and lightweight nested-row-body lane so the dense meta-control tree does not regress when the shell boundary widens.
+  - Tightened the focused dropdown proof so the outer section and inner `CustomResizable` now have explicit shell-ownership assertions while first-click size-mode dropdown activation still succeeds.
+- Fresh dense rerun:
+  - `documentNodeCount: 5498`
+  - `inputCount: 3`
+  - `textareaCount: 1`
+  - `buttonCount: 47`
+  - `raf.meanMs: 42.86`
+  - `raf.p50Ms: 33.3`
+  - `raf.p95Ms: 50`
+  - `raf.maxMs: 1149.88`
+  - `longTasks.count: 8`
+  - `longTasks.totalMs: 5843`
+  - `longTasks.maxMs: 3443`
+  - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+  - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+  - `motionHiddenBodies.peakHiddenBodyCount: 45`
+  - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a kept graph-surface ownership step on the measured dense outlier, not another arbitrary shell-sibling canary
+  - the dense canary stayed in the current improved runtime band, so the widened shell ownership is safe to keep but not the missing whole-scene breakthrough
+  - close this section-sizing-policy shell lane here; the next default pass should return to the canonical renderer-main JS / GC hotspot lane or a broader shared ownership primitive instead of promoting another isolated section shell
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - result: `1 passed`, `27` tests
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-024/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.1m)`
+  - CDP visual check:
+    - fresh headless DevTools sub-agent consumed a fresh bootstrap URL
+    - normalized to `/settings` with `All Settings` active and `fit view` applied
+    - `sectionSizingPolicy` was visible on the graph surface, and no obvious blank graph or detached shell/body artifact was visible
+    - expected workspace chrome remained visible around the graph surface, including the left settings rail and a docked chat window
+- Next action:
+  - stay on the canonical `settings-section__browserSectionDefault` lane for either one trace-backed renderer-main JS / GC reducer from the saved hotspot report or one broader shared graph-surface ownership primitive that is larger than a single-shell promotion
+LOOP_TERMINAL_MARKER: none

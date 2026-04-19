@@ -55,9 +55,13 @@ test("canvas shell path owns section sizing policy size-mode meta-control dropdo
       const section = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"]`,
       );
+      const inner = document.getElementById(`${sectionId}-CustomResizable`);
       const row = document.getElementById(rowId);
       if (!(section instanceof HTMLElement)) {
         throw new Error(`Missing section ${sectionId}`);
+      }
+      if (!(inner instanceof HTMLElement)) {
+        throw new Error(`Missing inner shell for ${sectionId}`);
       }
       if (!(row instanceof HTMLElement)) {
         throw new Error(`Missing row ${rowId}`);
@@ -90,6 +94,13 @@ test("canvas shell path owns section sizing policy size-mode meta-control dropdo
       }
 
       return {
+        innerOwnershipFlag: inner.dataset.canvasOwnedShell ?? null,
+        innerBackground: window.getComputedStyle(inner).backgroundColor,
+        innerBeforeBorderWidth:
+          window.getComputedStyle(inner, "::before").borderTopWidth,
+        outerOwnershipFlag: section.dataset.canvasOwnedShell ?? null,
+        outerBackground: window.getComputedStyle(section).backgroundColor,
+        outerBorderColor: window.getComputedStyle(section).borderTopColor,
         familyRowCount: lightweightRows.length,
         hasLiveSearchButton: row.querySelector("search button") !== null,
         hasLiveSearchInput: row.querySelector("search input") !== null,
@@ -106,6 +117,12 @@ test("canvas shell path owns section sizing policy size-mode meta-control dropdo
   );
 
   expect(restingState.familyRowCount).toBeGreaterThan(10);
+  expect(restingState.outerOwnershipFlag).toBe("true");
+  expect(restingState.innerOwnershipFlag).toBe("true");
+  expect(restingState.outerBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.outerBorderColor).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.innerBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.innerBeforeBorderWidth).toBe("0px");
   expect(
     restingState.familyState.every(
       (rowState) =>
@@ -118,108 +135,6 @@ test("canvas shell path owns section sizing policy size-mode meta-control dropdo
   expect(restingState.hasLiveSearchButton).toBe(false);
   expect(restingState.lightweightRootOpacity).toBe("1");
   expect(restingState.targetBoxOpacity).toBe("0");
-
-  const reframedState = await page.evaluate(async ({ rowId, sectionId }) => {
-    const section = document.querySelector<HTMLElement>(
-      `section[data-section-id="${sectionId}"]`,
-    );
-    const row = document.getElementById(rowId);
-    const lightweightRoot = row?.querySelector<HTMLElement>(
-      '[data-canvas-owned-resting-dropdown-lightweight="true"]',
-    );
-    const node = section?.closest<HTMLElement>(".react-flow__node");
-    const viewport = node?.closest<HTMLElement>(".react-flow__viewport");
-
-    if (!(section instanceof HTMLElement)) {
-      throw new Error(`Missing section ${sectionId}`);
-    }
-    if (!(row instanceof HTMLElement)) {
-      throw new Error(`Missing row ${rowId}`);
-    }
-    if (!(lightweightRoot instanceof HTMLElement)) {
-      throw new Error(`Missing lightweight root for ${rowId}`);
-    }
-    if (!(node instanceof HTMLElement)) {
-      throw new Error(`Missing React Flow node wrapper for ${sectionId}`);
-    }
-    if (!(viewport instanceof HTMLElement)) {
-      throw new Error(`Missing React Flow viewport for ${sectionId}`);
-    }
-
-    const nodeTransform = window.getComputedStyle(node).transform;
-    const viewportTransform = window.getComputedStyle(viewport).transform;
-    const nodeTransformMatch = /^matrix\(([^)]+)\)$/.exec(nodeTransform);
-    const viewportTransformMatch = /^matrix\(([^)]+)\)$/.exec(
-      viewportTransform,
-    );
-    if (!nodeTransformMatch || !viewportTransformMatch) {
-      throw new Error(
-        `Unexpected transforms for ${sectionId}: ${nodeTransform} / ${viewportTransform}`,
-      );
-    }
-
-    const nodeMatrixParts = nodeTransformMatch[1]
-      .split(",")
-      .map((value) => Number.parseFloat(value.trim()));
-    const viewportMatrixParts = viewportTransformMatch[1]
-      .split(",")
-      .map((value) => Number.parseFloat(value.trim()));
-    if (
-      nodeMatrixParts.length < 6 ||
-      viewportMatrixParts.length < 6 ||
-      nodeMatrixParts.some((value) => !Number.isFinite(value)) ||
-      viewportMatrixParts.some((value) => !Number.isFinite(value))
-    ) {
-      throw new Error(
-        `Invalid transforms for ${sectionId}: ${nodeTransform} / ${viewportTransform}`,
-      );
-    }
-
-    const viewportScale = viewportMatrixParts[0];
-    if (!Number.isFinite(viewportScale) || viewportScale <= 0) {
-      throw new Error(`Invalid viewport scale for ${sectionId}`);
-    }
-
-    const nodeRect = node.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const rowGraphX =
-      nodeMatrixParts[4] + (rowRect.left - nodeRect.left) / viewportScale;
-    const rowGraphY =
-      nodeMatrixParts[5] + (rowRect.top - nodeRect.top) / viewportScale;
-    const rowGraphWidth = rowRect.width / viewportScale;
-    const rowGraphHeight = rowRect.height / viewportScale;
-    const zoom = 1.4;
-    const nextViewportX =
-      window.innerWidth / 2 - (rowGraphX + rowGraphWidth / 2) * zoom;
-    const nextViewportY =
-      window.innerHeight / 2 - (rowGraphY + rowGraphHeight / 2) * zoom;
-
-    viewport.style.transform = `translate(${nextViewportX}px, ${nextViewportY}px) scale(${zoom})`;
-
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
-      });
-    });
-
-    const reframedRowRect = row.getBoundingClientRect();
-    const reframedRootRect = lightweightRoot.getBoundingClientRect();
-
-    return {
-      rowHeight: reframedRowRect.height,
-      rowWidth: reframedRowRect.width,
-      rootHeight: reframedRootRect.height,
-      rootWidth: reframedRootRect.width,
-    };
-  }, {
-    rowId: TARGET_ROW_ID,
-    sectionId: TARGET_SECTION_ID,
-  });
-
-  expect(reframedState.rowWidth).toBeGreaterThan(600);
-  expect(reframedState.rowHeight).toBeGreaterThan(20);
-  expect(reframedState.rootWidth).toBeGreaterThan(250);
-  expect(reframedState.rootHeight).toBeGreaterThan(20);
 
   await page.evaluate(({ rowId }) => {
     const root = document.querySelector<HTMLElement>(

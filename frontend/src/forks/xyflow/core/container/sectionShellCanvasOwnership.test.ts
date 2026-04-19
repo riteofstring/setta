@@ -32,6 +32,7 @@ import {
   SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -63,7 +64,7 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable, dict, global variables, browser, button/code, and prompt settings shell canaries", () => {
+  it("targets the callable, dict, global variables, browser, button/code, prompt, and section sizing policy shell canaries", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
@@ -85,9 +86,9 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(
-        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+        SECTION_SIZING_POLICY_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionShell("settings-section__textBlockSectionDefault"),
     ).toBe(false);
