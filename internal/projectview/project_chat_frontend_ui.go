@@ -1,6 +1,7 @@
 package projectview
 
 import (
+	"setta/internal/agentruns"
 	"setta/internal/projectstate"
 )
 
@@ -31,6 +32,13 @@ var (
 		{Value: projectstate.ChatPermissionModeYOLO, Label: "yolo"},
 		{Value: projectstate.ChatPermissionModeConfigTomlCustom, Label: "config.toml custom"},
 	}
+	frontendProjectChatCustomSlashCommandModeOptions = []ProjectChatAppGenerationModeOption{
+		{Value: string(agentruns.ChatAppGenerationMessageModePlainChat), Label: "Plain chat"},
+		{Value: string(agentruns.AppGenerationModeJSONRender), Label: "JSON Render"},
+		{Value: string(agentruns.AppGenerationModeJSONRenderWithImage), Label: "Image to JSON Render"},
+		{Value: string(agentruns.AppGenerationModePromptBuilder), Label: "Prompt Builder"},
+		{Value: string(agentruns.AppGenerationModeMCPServer), Label: "MCP Server"},
+	}
 )
 
 type ProjectChatWindowModeOption struct {
@@ -53,12 +61,19 @@ type ProjectChatPermissionModeOption struct {
 	Label string                          `json:"label"`
 }
 
+type ProjectChatAppGenerationModeOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
 type ProjectChatUIConfigValue struct {
 	SectionChatWindowModeOptions  []ProjectChatWindowModeOption             `json:"sectionChatWindowModeOptions"`
 	AgenticEdgeContextModeOptions []ProjectChatAgenticEdgeContextModeOption `json:"agenticEdgeContextModeOptions"`
 	SectionDictationModeOptions   []ProjectChatDictationModeOption          `json:"sectionDictationModeOptions"`
 	ProjectDictationModeOptions   []ProjectChatDictationModeOption          `json:"projectDictationModeOptions"`
 	PermissionModeOptions         []ProjectChatPermissionModeOption         `json:"permissionModeOptions"`
+	CustomSlashCommandModeOptions []ProjectChatAppGenerationModeOption      `json:"customSlashCommandModeOptions"`
+	DefaultCustomSlashCommandMode string                                    `json:"defaultCustomSlashCommandMode"`
 }
 
 func FrontendValueProjectChatUIConfig() ProjectChatUIConfigValue {
@@ -83,5 +98,10 @@ func FrontendValueProjectChatUIConfig() ProjectChatUIConfigValue {
 			[]ProjectChatPermissionModeOption(nil),
 			frontendProjectChatPermissionModeOptions...,
 		),
+		CustomSlashCommandModeOptions: append(
+			[]ProjectChatAppGenerationModeOption(nil),
+			frontendProjectChatCustomSlashCommandModeOptions...,
+		),
+		DefaultCustomSlashCommandMode: string(agentruns.ChatAppGenerationMessageModePlainChat),
 	}
 }

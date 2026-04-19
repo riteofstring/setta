@@ -1,7 +1,6 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
-import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystemRuntime";
 import {
   invokePluginSettingRevealHandler,
   receivePluginRuntimeUpdate,
@@ -65,13 +64,11 @@ import { type StateCreator, type StoreApi } from "zustand/vanilla";
 
 function resetPluginRuntimeStateForTests(): void {
   clearPluginRuntimeSideEffects();
-  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState({
     status: "idle",
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
-    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -1167,18 +1164,6 @@ describe("plugin runtime helpers", () => {
             },
           ],
         }),
-        {
-          featureCapabilities: {
-            appSubsystem: {
-              pluginId: "setta-json-render-app-gen",
-              pluginEnabled: true,
-              appAuthoringUi: true,
-              appPreviewUi: true,
-              appGenerationChatModes: false,
-              appDeploymentRuntime: false,
-            },
-          },
-        },
       ),
     );
 
@@ -1193,14 +1178,6 @@ describe("plugin runtime helpers", () => {
     expect(
       state.languageServerSelectionsByLanguage.python?.appliedPluginId,
     ).toBe("setta-basedpyright");
-    expect(state.appSubsystemCapabilities).toEqual({
-      pluginId: "setta-json-render-app-gen",
-      pluginEnabled: true,
-      appAuthoringUi: true,
-      appPreviewUi: true,
-      appGenerationChatModes: false,
-      appDeploymentRuntime: false,
-    });
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {

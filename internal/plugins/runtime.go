@@ -19,26 +19,12 @@ const (
 
 	redactedSourcePathPrefix         = "[redacted]"
 	redactedCanonicalSourceKeyPrefix = "redacted:"
-	AppSubsystemPluginID             = "setta-json-render-app-gen"
 )
 
 type AssetURLBuilder func(pluginID string, relativePath string, sourceDigestSHA256 *string) string
 
 type RuntimeOptions struct {
 	AssetURLBuilder AssetURLBuilder
-}
-
-type PluginAppSubsystemCapabilities struct {
-	PluginID               string `json:"pluginId"`
-	PluginEnabled          bool   `json:"pluginEnabled"`
-	AppAuthoringUI         bool   `json:"appAuthoringUi"`
-	AppPreviewUI           bool   `json:"appPreviewUi"`
-	AppGenerationChatModes bool   `json:"appGenerationChatModes"`
-	AppDeploymentRuntime   bool   `json:"appDeploymentRuntime"`
-}
-
-type PluginFeatureCapabilities struct {
-	AppSubsystem PluginAppSubsystemCapabilities `json:"appSubsystem"`
 }
 
 type PluginFrontendDescriptor struct {
@@ -87,10 +73,9 @@ type PluginListResponse struct {
 }
 
 type PluginRuntimeResponse struct {
-	SchemaVersion       int                        `json:"schemaVersion"`
-	FeatureCapabilities *PluginFeatureCapabilities `json:"featureCapabilities,omitempty"`
-	List                PluginListResponse         `json:"list"`
-	Status              PluginStatusResponse       `json:"status"`
+	SchemaVersion int                  `json:"schemaVersion"`
+	List          PluginListResponse   `json:"list"`
+	Status        PluginStatusResponse `json:"status"`
 }
 
 func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error) {
@@ -125,9 +110,6 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 	restartCapability := s.restartCapability()
 	return PluginRuntimeResponse{
 		SchemaVersion: pluginRuntimeSchemaVersion,
-		FeatureCapabilities: &PluginFeatureCapabilities{
-			AppSubsystem: buildRuntimeAppSubsystemCapabilities(snapshot.Plugins),
-		},
 		List: PluginListResponse{
 			SchemaVersion:     pluginListSchemaVersion,
 			ServerMode:        snapshot.ServerMode,
@@ -147,58 +129,6 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 			redactedSourcePathByPath,
 		),
 	}, nil
-}
-
-func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppSubsystemCapabilities {
-	capabilities := PluginAppSubsystemCapabilities{
-		PluginID: AppSubsystemPluginID,
-	}
-	for _, entry := range entries {
-		if !isRuntimeAppSubsystemEntry(entry) {
-			continue
-		}
-		capabilities.PluginEnabled = true
-		mergeRuntimeAppSubsystemCapabilities(
-			&capabilities,
-			runtimeAppSubsystemFeatureManifest(entry),
-		)
-	}
-	return capabilities
-}
-
-func isRuntimeAppSubsystemEntry(entry DiscoveredPlugin) bool {
-	if entry.PluginID != AppSubsystemPluginID {
-		return false
-	}
-	return entry.State == PluginRuntimeStateActive || entry.State == PluginRuntimeStatePendingRestart
-}
-
-func AppSubsystemCapabilitiesFromSnapshot(
-	snapshot DiscoverySnapshot,
-) PluginAppSubsystemCapabilities {
-	return buildRuntimeAppSubsystemCapabilities(snapshot.Plugins)
-}
-
-func runtimeAppSubsystemFeatureManifest(
-	entry DiscoveredPlugin,
-) *PluginAppSubsystemFeatureManifest {
-	if entry.Manifest == nil || entry.Manifest.FeatureCapabilities == nil {
-		return nil
-	}
-	return entry.Manifest.FeatureCapabilities.AppSubsystem
-}
-
-func mergeRuntimeAppSubsystemCapabilities(
-	capabilities *PluginAppSubsystemCapabilities,
-	feature *PluginAppSubsystemFeatureManifest,
-) {
-	if capabilities == nil || feature == nil {
-		return
-	}
-	capabilities.AppAuthoringUI = capabilities.AppAuthoringUI || feature.AppAuthoringUI
-	capabilities.AppPreviewUI = capabilities.AppPreviewUI || feature.AppPreviewUI
-	capabilities.AppGenerationChatModes = capabilities.AppGenerationChatModes || feature.AppGenerationChatModes
-	capabilities.AppDeploymentRuntime = capabilities.AppDeploymentRuntime || feature.AppDeploymentRuntime
 }
 
 func (s *Service) ResolveAssetPath(pluginID string, assetPath string) (string, error) {

@@ -603,6 +603,38 @@
       ],
       "additionalProperties": false
     },
+    "AppCapabilities": {
+      "type": "object",
+      "properties": {
+        "catalogId": {
+          "type": "string"
+        },
+        "catalogVersion": {
+          "type": "string"
+        },
+        "appSpecVersion": {
+          "type": "string"
+        },
+        "themeSchemaVersion": {
+          "type": "string"
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      },
+      "title": "AppCapabilities",
+      "required": [
+        "catalogId",
+        "catalogVersion",
+        "appSpecVersion",
+        "themeSchemaVersion",
+        "features"
+      ],
+      "additionalProperties": false
+    },
     "AppDefinition": {
       "type": "object",
       "properties": {
@@ -666,6 +698,81 @@
       "title": "AppDefinition",
       "additionalProperties": false
     },
+    "AppDefinitionMutationResult": {
+      "type": "object",
+      "properties": {
+        "appSpec": true,
+        "appDefinition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "AppDefinitionMutationResult",
+      "required": [
+        "appSpec"
+      ],
+      "additionalProperties": false
+    },
+    "AppDefinitionReadResult": {
+      "type": "object",
+      "properties": {
+        "appSpec": true,
+        "appDefinition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "AppDefinitionReadResult",
+      "required": [
+        "appSpec"
+      ],
+      "additionalProperties": false
+    },
+    "AppDefinitionValidationResult": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/AppValidationIssue"
+          }
+        },
+        "warnings": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/AppValidationIssue"
+          }
+        },
+        "capabilities": {
+          "$ref": "#/$defs/AppCapabilities"
+        }
+      },
+      "title": "AppDefinitionValidationResult",
+      "required": [
+        "errors",
+        "warnings",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
     "AppGenerationMode": {
       "type": "string",
       "title": "AppGenerationMode",
@@ -695,82 +802,22 @@
       ],
       "additionalProperties": false
     },
-    "AppSubsystemChatSlashCommandValue": {
+    "AppValidationIssue": {
       "type": "object",
       "properties": {
-        "command": {
+        "message": {
           "type": "string"
         },
-        "action": {
+        "elementKey": {
           "type": "string"
         },
-        "summary": {
-          "type": "string"
-        },
-        "promptTemplate": {
-          "type": "string"
-        },
-        "appGenerationMode": {
+        "elementType": {
           "type": "string"
         }
       },
-      "title": "AppSubsystemChatSlashCommandValue",
+      "title": "AppValidationIssue",
       "required": [
-        "command",
-        "action",
-        "summary",
-        "promptTemplate",
-        "appGenerationMode"
-      ],
-      "additionalProperties": false
-    },
-    "AppSubsystemChatUIConfigValue": {
-      "type": "object",
-      "properties": {
-        "slashCommands": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/AppSubsystemChatSlashCommandValue"
-          }
-        },
-        "customSlashCommandModeOptions": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/AppSubsystemCustomSlashCommandModeOptionValue"
-          }
-        },
-        "defaultCustomSlashCommandMode": {
-          "type": "string"
-        }
-      },
-      "title": "AppSubsystemChatUIConfigValue",
-      "required": [
-        "slashCommands",
-        "customSlashCommandModeOptions",
-        "defaultCustomSlashCommandMode"
-      ],
-      "additionalProperties": false
-    },
-    "AppSubsystemCustomSlashCommandModeOptionValue": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "title": "AppSubsystemCustomSlashCommandModeOptionValue",
-      "required": [
-        "value",
-        "label"
+        "message"
       ],
       "additionalProperties": false
     },
@@ -2298,38 +2345,6 @@
       "title": "CanvasPoint",
       "minItems": 2,
       "maxItems": 2
-    },
-    "Capabilities": {
-      "type": "object",
-      "properties": {
-        "catalogId": {
-          "type": "string"
-        },
-        "catalogVersion": {
-          "type": "string"
-        },
-        "appSpecVersion": {
-          "type": "string"
-        },
-        "themeSchemaVersion": {
-          "type": "string"
-        },
-        "features": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "boolean"
-          }
-        }
-      },
-      "title": "Capabilities",
-      "required": [
-        "catalogId",
-        "catalogVersion",
-        "appSpecVersion",
-        "themeSchemaVersion",
-        "features"
-      ],
-      "additionalProperties": false
     },
     "ChangeParamImplUIConfigValue": {
       "type": "object",
@@ -9933,27 +9948,6 @@
       ],
       "additionalProperties": false
     },
-    "MutationResult": {
-      "type": "object",
-      "properties": {
-        "appSpec": true,
-        "appDefinition": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AppDefinition"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "title": "MutationResult",
-      "required": [
-        "appSpec"
-      ],
-      "additionalProperties": false
-    },
     "NameValidationContract": {
       "type": "object",
       "properties": {
@@ -10560,64 +10554,6 @@
       ],
       "additionalProperties": false
     },
-    "PluginAppSubsystemCapabilities": {
-      "type": "object",
-      "properties": {
-        "pluginId": {
-          "type": "string"
-        },
-        "pluginEnabled": {
-          "type": "boolean"
-        },
-        "appAuthoringUi": {
-          "type": "boolean"
-        },
-        "appPreviewUi": {
-          "type": "boolean"
-        },
-        "appGenerationChatModes": {
-          "type": "boolean"
-        },
-        "appDeploymentRuntime": {
-          "type": "boolean"
-        }
-      },
-      "title": "PluginAppSubsystemCapabilities",
-      "required": [
-        "pluginId",
-        "pluginEnabled",
-        "appAuthoringUi",
-        "appPreviewUi",
-        "appGenerationChatModes",
-        "appDeploymentRuntime"
-      ],
-      "additionalProperties": false
-    },
-    "PluginAppSubsystemFeatureManifest": {
-      "type": "object",
-      "properties": {
-        "appAuthoringUi": {
-          "type": "boolean"
-        },
-        "appPreviewUi": {
-          "type": "boolean"
-        },
-        "appGenerationChatModes": {
-          "type": "boolean"
-        },
-        "appDeploymentRuntime": {
-          "type": "boolean"
-        }
-      },
-      "title": "PluginAppSubsystemFeatureManifest",
-      "required": [
-        "appAuthoringUi",
-        "appPreviewUi",
-        "appGenerationChatModes",
-        "appDeploymentRuntime"
-      ],
-      "additionalProperties": false
-    },
     "PluginBackendManifest": {
       "type": "object",
       "properties": {
@@ -10812,36 +10748,6 @@
         "code",
         "message"
       ],
-      "additionalProperties": false
-    },
-    "PluginFeatureCapabilities": {
-      "type": "object",
-      "properties": {
-        "appSubsystem": {
-          "$ref": "#/$defs/PluginAppSubsystemCapabilities"
-        }
-      },
-      "title": "PluginFeatureCapabilities",
-      "required": [
-        "appSubsystem"
-      ],
-      "additionalProperties": false
-    },
-    "PluginFeatureCapabilitiesManifest": {
-      "type": "object",
-      "properties": {
-        "appSubsystem": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginAppSubsystemFeatureManifest"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "title": "PluginFeatureCapabilitiesManifest",
       "additionalProperties": false
     },
     "PluginFrontendDescriptor": {
@@ -11346,16 +11252,6 @@
         "configSchemaPath": {
           "type": "string"
         },
-        "featureCapabilities": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginFeatureCapabilitiesManifest"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "capabilities": {
           "type": [
             "null",
@@ -11669,16 +11565,6 @@
       "properties": {
         "schemaVersion": {
           "type": "integer"
-        },
-        "featureCapabilities": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginFeatureCapabilities"
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "list": {
           "$ref": "#/$defs/PluginListResponse"
@@ -12228,6 +12114,23 @@
       ],
       "additionalProperties": false
     },
+    "ProjectChatAppGenerationModeOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "title": "ProjectChatAppGenerationModeOption",
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
     "ProjectChatDictationModeOption": {
       "type": "object",
       "properties": {
@@ -12309,6 +12212,18 @@
           "items": {
             "$ref": "#/$defs/ProjectChatPermissionModeOption"
           }
+        },
+        "customSlashCommandModeOptions": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ProjectChatAppGenerationModeOption"
+          }
+        },
+        "defaultCustomSlashCommandMode": {
+          "type": "string"
         }
       },
       "title": "ProjectChatUIConfigValue",
@@ -12317,7 +12232,9 @@
         "agenticEdgeContextModeOptions",
         "sectionDictationModeOptions",
         "projectDictationModeOptions",
-        "permissionModeOptions"
+        "permissionModeOptions",
+        "customSlashCommandModeOptions",
+        "defaultCustomSlashCommandMode"
       ],
       "additionalProperties": false
     },
@@ -13388,27 +13305,6 @@
           }
         }
       ]
-    },
-    "ReadResult": {
-      "type": "object",
-      "properties": {
-        "appSpec": true,
-        "appDefinition": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AppDefinition"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "title": "ReadResult",
-      "required": [
-        "appSpec"
-      ],
-      "additionalProperties": false
     },
     "RealtimeDependencyEventContent": {
       "type": "object",
@@ -20805,58 +20701,6 @@
         "createdAt",
         "content",
         "attachments"
-      ],
-      "additionalProperties": false
-    },
-    "ValidationIssue": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "type": "string"
-        },
-        "elementKey": {
-          "type": "string"
-        },
-        "elementType": {
-          "type": "string"
-        }
-      },
-      "title": "ValidationIssue",
-      "required": [
-        "message"
-      ],
-      "additionalProperties": false
-    },
-    "ValidationResult": {
-      "type": "object",
-      "properties": {
-        "errors": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/ValidationIssue"
-          }
-        },
-        "warnings": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/ValidationIssue"
-          }
-        },
-        "capabilities": {
-          "$ref": "#/$defs/Capabilities"
-        }
-      },
-      "title": "ValidationResult",
-      "required": [
-        "errors",
-        "warnings",
-        "capabilities"
       ],
       "additionalProperties": false
     },

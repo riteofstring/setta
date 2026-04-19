@@ -7,9 +7,8 @@ Usage: ./scripts/codex-authority-cleanup-loop-check.sh --root-dir PATH --output-
 
 Exit 0 while work remains.
 Exit the configured completion code only after the latest Codex response emits a
-configured stop sentinel and the worktree is clean. The stop iteration may be
-either a no-op audit-only completion pass or the final clean commit that
-finishes the plan.
+configured stop sentinel, the worktree is clean, and no new commit was created
+in that stop iteration.
 
 Any non-stop iteration must either advance HEAD or explicitly advance an
 allowed state/progress file while leaving the repo clean.
@@ -248,20 +247,22 @@ if [[ -f "${latest_run_status_file}" ]]; then
 fi
 
 if matched_sentinel="$(find_matching_sentinel "${response_file}")"; then
+  if [[ "${current_head}" != "${previous_head}" ]]; then
+    printf '%s\n' "error:stop-sentinel-after-commit" > "${status_file}"
+    echo "Latest iteration emitted the stop sentinel after advancing HEAD." >&2
+    exit 1
+  fi
+
   if ! repo_is_clean; then
     printf '%s\n' "error:stop-sentinel-dirty-worktree" > "${status_file}"
     echo "Latest iteration emitted the stop sentinel but left the repo dirty." >&2
     exit 1
   fi
 
-  if [[ "${current_head}" != "${previous_head}" ]]; then
-    printf '%s\n' "${current_head}" > "${head_file}"
-  fi
-
   printf '%s\n' "complete:${matched_sentinel}" > "${status_file}"
   update_progress_snapshots
   reset_failure_state
-  echo "Stop sentinel detected with a clean repo: ${matched_sentinel}"
+  echo "Stop sentinel detected with a clean repo and no new commit: ${matched_sentinel}"
   exit "${complete_exit_code}"
 fi
 

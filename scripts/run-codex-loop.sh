@@ -17,8 +17,6 @@ Runs `codex exec` in a loop.
 - `--pre-iteration-command` runs before every iteration.
 - `--inactivity-timeout-seconds N` aborts an iteration if Codex emits no new
   transcript output for N seconds.
-- Retryable Codex failures can optionally sleep before retrying the next
-  iteration.
 - The loop continues on error by default. Use `--stop-on-error` to fail fast.
 
 Options:
@@ -47,20 +45,6 @@ Options:
                              If an inactivity timeout occurs, record the
                              failure and continue to the next iteration even
                              when --stop-on-error is enabled.
-  --continue-on-codex-failure
-                             If the Codex command exits non-zero, record the
-                             failure and continue to the next iteration even
-                             when --stop-on-error is enabled.
-  --retry-sleep-seconds N    Sleep N seconds before the next retryable
-                             iteration after an inactivity timeout or retryable
-                             Codex failure. Default: 0
-  --quiet                    Do not stream Codex transcripts or hook command
-                             output to the terminal. Write them to per-run log
-                             files and print only status/progress logs.
-  --progress-log-interval-seconds N
-                             When --quiet is enabled, print a progress log at
-                             most once every N seconds while Codex is still
-                             running. Default: 60
   --stop-on-pre-iteration-exit-code N
                              Stop the loop cleanly if the pre-iteration
                              command exits with code N.
@@ -101,10 +85,6 @@ post_iteration_command=""
 inactivity_timeout_seconds="0"
 watchdog_interval_seconds="15"
 continue_on_inactivity_timeout="0"
-continue_on_codex_failure="0"
-retry_sleep_seconds="0"
-quiet_mode="0"
-progress_log_interval_seconds="60"
 iterations="100"
 new_session_every="1"
 output_dir=""
@@ -162,24 +142,6 @@ while [[ $# -gt 0 ]]; do
     --continue-on-inactivity-timeout)
       continue_on_inactivity_timeout="1"
       shift
-      ;;
-    --continue-on-codex-failure)
-      continue_on_codex_failure="1"
-      shift
-      ;;
-    --retry-sleep-seconds)
-      require_value "$1" "${2:-}"
-      retry_sleep_seconds="$2"
-      shift 2
-      ;;
-    --quiet)
-      quiet_mode="1"
-      shift
-      ;;
-    --progress-log-interval-seconds)
-      require_value "$1" "${2:-}"
-      progress_log_interval_seconds="$2"
-      shift 2
       ;;
     --stop-on-pre-session-exit-code)
       require_value "$1" "${2:-}"
@@ -286,16 +248,6 @@ if [[ ! "${watchdog_interval_seconds}" =~ ^[0-9]+$ ]] || [[ "${watchdog_interval
   exit 1
 fi
 
-if [[ ! "${retry_sleep_seconds}" =~ ^[0-9]+$ ]] || [[ "${retry_sleep_seconds}" -lt 0 ]]; then
-  echo "--retry-sleep-seconds must be a non-negative integer" >&2
-  exit 1
-fi
-
-if [[ ! "${progress_log_interval_seconds}" =~ ^[0-9]+$ ]] || [[ "${progress_log_interval_seconds}" -lt 0 ]]; then
-  echo "--progress-log-interval-seconds must be a non-negative integer" >&2
-  exit 1
-fi
-
 validate_stop_exit_code() {
   local flag_name="$1"
   local value="$2"
@@ -347,15 +299,8 @@ echo "Output directory: ${output_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: ${new_session_every}"
 echo "Workdir: ${workdir}"
-if [[ "${quiet_mode}" == "1" ]]; then
-  echo "Terminal output mode: quiet status logs"
-  echo "Quiet progress log interval: ${progress_log_interval_seconds}s"
-fi
 if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
   echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
-fi
-if [[ "${continue_on_codex_failure}" == "1" ]] || [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
-  echo "Retry sleep: ${retry_sleep_seconds}s"
 fi
 
 extract_thread_id() {
@@ -405,18 +350,6 @@ collect_descendant_pids() {
   done < <(ps -axo pid=,ppid= | awk -v target="${parent_pid}" '$2 == target { print $1 }')
 }
 
-timestamp_now() {
-  date '+%Y-%m-%d %H:%M:%S'
-}
-
-log_info() {
-  printf '[%s] %s\n' "$(timestamp_now)" "$*"
-}
-
-log_error() {
-  printf '[%s] ERROR: %s\n' "$(timestamp_now)" "$*" >&2
-}
-
 terminate_process_tree() {
   local root_pid="$1"
   local pid=""
@@ -459,17 +392,15 @@ run_codex_command() {
   local transcript_path="$2"
   local fifo_path=""
   local codex_pid=""
-  local transcript_writer_pid=""
+  local tee_pid=""
   local last_activity_epoch=""
   local current_epoch=""
   local transcript_epoch=""
-  local last_progress_log_epoch=""
-  local inactivity_age_seconds=""
 
   codex_exit_code="0"
   codex_timed_out="0"
 
-  if [[ "${inactivity_timeout_seconds}" -eq 0 ]] && [[ "${quiet_mode}" != "1" ]]; then
+  if [[ "${inactivity_timeout_seconds}" -eq 0 ]]; then
     set +e
     codex "${codex_args[@]}" < "${prompt_path}" 2>&1 | tee "${transcript_path}"
     codex_exit_code="${PIPESTATUS[0]}"
@@ -481,18 +412,13 @@ run_codex_command() {
   rm -f "${fifo_path}"
   mkfifo "${fifo_path}"
 
-  if [[ "${quiet_mode}" == "1" ]]; then
-    cat < "${fifo_path}" > "${transcript_path}" &
-  else
-    tee "${transcript_path}" < "${fifo_path}" &
-  fi
-  transcript_writer_pid="$!"
+  tee "${transcript_path}" < "${fifo_path}" &
+  tee_pid="$!"
 
   codex "${codex_args[@]}" < "${prompt_path}" > "${fifo_path}" 2>&1 &
   codex_pid="$!"
 
   last_activity_epoch="$(date +%s)"
-  last_progress_log_epoch="${last_activity_epoch}"
 
   while kill -0 "${codex_pid}" 2>/dev/null; do
     if [[ -f "${transcript_path}" ]]; then
@@ -503,25 +429,10 @@ run_codex_command() {
     fi
 
     current_epoch="$(date +%s)"
-    inactivity_age_seconds="$((current_epoch - last_activity_epoch))"
-
-    if (
-      [[ "${quiet_mode}" == "1" ]] \
-      && [[ "${progress_log_interval_seconds}" -gt 0 ]] \
-      && [[ "$((current_epoch - last_progress_log_epoch))" -ge "${progress_log_interval_seconds}" ]]
-    ); then
-      log_info "[$iteration/$iterations] Codex still running (${mode}); last transcript update ${inactivity_age_seconds}s ago. Transcript: ${transcript_path}"
-      last_progress_log_epoch="${current_epoch}"
-    fi
-
-    if [[ "${inactivity_timeout_seconds}" -gt 0 ]] && [[ "${inactivity_age_seconds}" -ge "${inactivity_timeout_seconds}" ]]; then
+    if [[ "$((current_epoch - last_activity_epoch))" -ge "${inactivity_timeout_seconds}" ]]; then
       codex_timed_out="1"
       codex_exit_code="124"
-      if [[ "${quiet_mode}" == "1" ]]; then
-        log_error "[$iteration/$iterations] Iteration timed out after ${inactivity_timeout_seconds}s without transcript updates. Transcript: ${transcript_path}"
-      else
-        echo "Iteration timed out after ${inactivity_timeout_seconds}s without transcript updates; terminating Codex process tree." >&2
-      fi
+      echo "Iteration timed out after ${inactivity_timeout_seconds}s without transcript updates; terminating Codex process tree." >&2
       terminate_process_tree "${codex_pid}"
       break
     fi
@@ -541,7 +452,7 @@ run_codex_command() {
   fi
 
   set +e
-  wait "${transcript_writer_pid}" >/dev/null 2>&1
+  wait "${tee_pid}" >/dev/null 2>&1
   set -e
   rm -f "${fifo_path}"
 }
@@ -551,29 +462,10 @@ run_hook_command() {
   local command="$2"
   local log_path="$3"
 
-  if [[ "${quiet_mode}" == "1" ]]; then
-    (
-      cd "${workdir}"
-      bash -lc "${command}"
-    ) > "${log_path}" 2>&1
-    return
-  fi
-
   (
     cd "${workdir}"
     bash -lc "${command}"
   ) 2>&1 | tee "${log_path}"
-}
-
-sleep_before_retry() {
-  local reason="$1"
-
-  if [[ "${retry_sleep_seconds}" -le 0 ]]; then
-    return
-  fi
-
-  echo "Sleeping ${retry_sleep_seconds}s before retry after ${reason}"
-  sleep "${retry_sleep_seconds}"
 }
 
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
@@ -598,11 +490,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   mkdir -p "${run_dir}"
   if [[ -n "${pre_iteration_command}" ]]; then
     pre_iteration_log="${run_dir}/pre-iteration.log"
-    if [[ "${quiet_mode}" == "1" ]]; then
-      log_info "[$iteration/$iterations] Running pre-iteration command. Log: ${pre_iteration_log}"
-    else
-      echo "[$iteration/$iterations] Running pre-iteration command"
-    fi
+    echo "[$iteration/$iterations] Running pre-iteration command"
     set +e
     run_hook_command "${workdir}" "${pre_iteration_command}" "${pre_iteration_log}"
     pre_iteration_exit_code="$?"
@@ -610,19 +498,11 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     if [[ "${pre_iteration_exit_code}" -ne 0 ]]; then
       if [[ -n "${stop_on_pre_iteration_exit_code}" ]] && [[ "${pre_iteration_exit_code}" == "${stop_on_pre_iteration_exit_code}" ]]; then
         echo "stopped:pre-iteration-exit:${pre_iteration_exit_code}" > "${status_file}"
-        if [[ "${quiet_mode}" == "1" ]]; then
-          log_info "[$iteration/$iterations] Stopping loop after pre-iteration command exit code ${pre_iteration_exit_code}. Log: ${pre_iteration_log}"
-        else
-          echo "[$iteration/$iterations] Stopping loop after pre-iteration command exit code ${pre_iteration_exit_code}"
-        fi
+        echo "[$iteration/$iterations] Stopping loop after pre-iteration command exit code ${pre_iteration_exit_code}"
         break
       fi
       echo "pre-iteration-failure:${pre_iteration_exit_code}" > "${status_file}"
-      if [[ "${quiet_mode}" == "1" ]]; then
-        log_error "[$iteration/$iterations] Pre-iteration command failed with exit code ${pre_iteration_exit_code}. Log: ${pre_iteration_log}"
-      else
-        echo "[$iteration/$iterations] Pre-iteration command failed with exit code ${pre_iteration_exit_code}" >&2
-      fi
+      echo "[$iteration/$iterations] Pre-iteration command failed with exit code ${pre_iteration_exit_code}" >&2
       if [[ "${stop_on_error}" == "1" ]]; then
         exit "${pre_iteration_exit_code}"
       fi
@@ -632,11 +512,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
 
   if [[ "${mode}" == "start" ]] && [[ -n "${pre_session_command}" ]]; then
     pre_session_log="${run_dir}/pre-session.log"
-    if [[ "${quiet_mode}" == "1" ]]; then
-      log_info "[$iteration/$iterations] Running pre-session command. Log: ${pre_session_log}"
-    else
-      echo "[$iteration/$iterations] Running pre-session command"
-    fi
+    echo "[$iteration/$iterations] Running pre-session command"
     set +e
     run_hook_command "${workdir}" "${pre_session_command}" "${pre_session_log}"
     pre_session_exit_code="$?"
@@ -644,19 +520,11 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     if [[ "${pre_session_exit_code}" -ne 0 ]]; then
       if [[ -n "${stop_on_pre_session_exit_code}" ]] && [[ "${pre_session_exit_code}" == "${stop_on_pre_session_exit_code}" ]]; then
         echo "stopped:pre-session-exit:${pre_session_exit_code}" > "${status_file}"
-        if [[ "${quiet_mode}" == "1" ]]; then
-          log_info "[$iteration/$iterations] Stopping loop after pre-session command exit code ${pre_session_exit_code}. Log: ${pre_session_log}"
-        else
-          echo "[$iteration/$iterations] Stopping loop after pre-session command exit code ${pre_session_exit_code}"
-        fi
+        echo "[$iteration/$iterations] Stopping loop after pre-session command exit code ${pre_session_exit_code}"
         break
       fi
       echo "pre-session-failure:${pre_session_exit_code}" > "${status_file}"
-      if [[ "${quiet_mode}" == "1" ]]; then
-        log_error "[$iteration/$iterations] Pre-session command failed with exit code ${pre_session_exit_code}. Log: ${pre_session_log}"
-      else
-        echo "[$iteration/$iterations] Pre-session command failed with exit code ${pre_session_exit_code}" >&2
-      fi
+      echo "[$iteration/$iterations] Pre-session command failed with exit code ${pre_session_exit_code}" >&2
       if [[ "${stop_on_error}" == "1" ]]; then
         exit "${pre_session_exit_code}"
       fi
@@ -664,11 +532,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     fi
   fi
 
-  if [[ "${quiet_mode}" == "1" ]]; then
-    log_info "[$iteration/$iterations] Starting Codex (${mode}). Transcript: ${transcript_file}. Last message: ${response_file}"
-  else
-    echo "[$iteration/$iterations] Starting Codex"
-  fi
+  echo "[$iteration/$iterations] Starting Codex"
 
   codex_args=()
   if [[ "${mode}" == "resume" ]]; then
@@ -722,11 +586,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   if [[ "${exit_code}" -eq 0 ]]; then
     if [[ -n "${post_iteration_command}" ]]; then
       post_iteration_log="${run_dir}/post-iteration.log"
-      if [[ "${quiet_mode}" == "1" ]]; then
-        log_info "[$iteration/$iterations] Running post-iteration command. Log: ${post_iteration_log}"
-      else
-        echo "[$iteration/$iterations] Running post-iteration command"
-      fi
+      echo "[$iteration/$iterations] Running post-iteration command"
       set +e
       run_hook_command "${workdir}" "${post_iteration_command}" "${post_iteration_log}"
       post_iteration_exit_code="$?"
@@ -734,19 +594,11 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       if [[ "${post_iteration_exit_code}" -ne 0 ]]; then
         if [[ -n "${stop_on_post_iteration_exit_code}" ]] && [[ "${post_iteration_exit_code}" == "${stop_on_post_iteration_exit_code}" ]]; then
           echo "stopped:post-iteration-exit:${post_iteration_exit_code}" > "${status_file}"
-          if [[ "${quiet_mode}" == "1" ]]; then
-            log_info "[$iteration/$iterations] Stopping loop after post-iteration command exit code ${post_iteration_exit_code}. Log: ${post_iteration_log}"
-          else
-            echo "[$iteration/$iterations] Stopping loop after post-iteration command exit code ${post_iteration_exit_code}"
-          fi
+          echo "[$iteration/$iterations] Stopping loop after post-iteration command exit code ${post_iteration_exit_code}"
           break
         fi
         echo "post-iteration-failure:${post_iteration_exit_code}" > "${status_file}"
-        if [[ "${quiet_mode}" == "1" ]]; then
-          log_error "[$iteration/$iterations] Post-iteration command failed with exit code ${post_iteration_exit_code}. Log: ${post_iteration_log}"
-        else
-          echo "[$iteration/$iterations] Post-iteration command failed with exit code ${post_iteration_exit_code}" >&2
-        fi
+        echo "[$iteration/$iterations] Post-iteration command failed with exit code ${post_iteration_exit_code}" >&2
         if [[ "${stop_on_error}" == "1" ]]; then
           exit "${post_iteration_exit_code}"
         fi
@@ -754,11 +606,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       fi
     fi
     echo "success" > "${status_file}"
-    if [[ "${quiet_mode}" == "1" ]]; then
-      log_info "[$iteration/$iterations] Codex iteration completed successfully."
-    else
-      echo "[$iteration/$iterations] Codex session ended"
-    fi
+    echo "[$iteration/$iterations] Codex session ended"
     continue
   fi
 
@@ -767,30 +615,12 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   else
     echo "failure:${exit_code}" > "${status_file}"
   fi
-  if [[ "${quiet_mode}" == "1" ]]; then
-    log_error "[$iteration/$iterations] Codex failed with exit code ${exit_code}. Transcript: ${transcript_file}. Last message: ${response_file}"
-  else
-    echo "[$iteration/$iterations] Codex failed with exit code ${exit_code}" >&2
-  fi
-  if [[ "${codex_timed_out}" == "1" ]] && [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
-    sleep_before_retry "inactivity timeout"
-    if [[ "${quiet_mode}" == "1" ]]; then
-      log_info "[$iteration/$iterations] Continuing after inactivity timeout."
-    else
-      echo "[$iteration/$iterations] Continuing after inactivity timeout"
-    fi
-    continue
-  fi
-  if [[ "${continue_on_codex_failure}" == "1" ]]; then
-    sleep_before_retry "Codex failure"
-    if [[ "${quiet_mode}" == "1" ]]; then
-      log_info "[$iteration/$iterations] Continuing after Codex failure."
-    else
-      echo "[$iteration/$iterations] Continuing after Codex failure"
-    fi
-    continue
-  fi
+  echo "[$iteration/$iterations] Codex failed with exit code ${exit_code}" >&2
   if [[ "${stop_on_error}" == "1" ]]; then
+    if [[ "${codex_timed_out}" == "1" ]] && [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
+      echo "[$iteration/$iterations] Continuing after inactivity timeout"
+      continue
+    fi
     exit "${exit_code}"
   fi
 done

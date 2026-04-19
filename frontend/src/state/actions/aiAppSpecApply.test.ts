@@ -1,37 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystemRuntime";
 import { receiveLLMResponseChunk } from "./ai";
 
-import { useProjectState } from "state/definitions";
+import {
+  useAppDefinition,
+  useAppPreview,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
   StreamingEventTypeEnum,
   createProjectConfig,
 } from "utils/generatedTypes";
-import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
-
-const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
-  pluginId: "setta-json-render-app-gen",
-  pluginEnabled: true,
-  appAuthoringUi: true,
-  appPreviewUi: true,
-  appGenerationChatModes: true,
-  appDeploymentRuntime: true,
-} as const;
 
 describe("ai app spec tool results", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.useFakeTimers();
     resetProjectStores();
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
@@ -40,7 +26,6 @@ describe("ai app spec tool results", () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
-    resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 
@@ -60,7 +45,7 @@ describe("ai app spec tool results", () => {
     const nextDefinition = {
       catalogId: "setta.app.default",
       appSpecVersion: "v1",
-      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/app.json",
+      appSpecPath: "app_specs/app.json",
       routes: [],
       dataBindings: {},
       actions: {},
@@ -137,8 +122,7 @@ describe("ai app spec tool results", () => {
               appDefinition: {
                 catalogId: "setta.app.default",
                 appSpecVersion: "v1",
-                appSpecPath:
-                  "plugins/setta-json-render-app-gen/app_specs/app.json",
+                appSpecPath: "app_specs/app.json",
                 routes: [],
                 dataBindings: {},
                 actions: {},

@@ -235,8 +235,6 @@ func TestAppServesAppDefinitionRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
-	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
-	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
