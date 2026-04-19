@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeAppSpec } from "./appSpec";
+import { normalizeAppSpec } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appSpec";
 
 describe("normalizeAppSpec", () => {
   it("normalizes the requested override root and reachable descendants", () => {

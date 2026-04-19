@@ -1,16 +1,5 @@
-import {
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type MouseEvent,
-} from "react";
-import {
-  CanvasOwnedRestingComboboxInput,
-  ComboboxInput,
-  ComboboxItems,
-  ComboboxList,
-} from "./ComboboxParts";
+import { useRef } from "react";
+import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import {
   AllItemsType,
   OnSelectedItemChangeFnType,
@@ -20,7 +9,6 @@ import { useIdNameCombobox } from "./useIdNameCombobox";
 // TODO: add "display groups" argument
 export function IdNameCombobox<T>({
   allItems,
-  canvasOwnedRestingInput = false,
   value,
   onSelectedItemChange,
   small,
@@ -41,7 +29,6 @@ export function IdNameCombobox<T>({
   clearInputAfterSelection = false,
 }: {
   allItems: AllItemsType<T>;
-  canvasOwnedRestingInput?: boolean;
   value: string | null;
   onSelectedItemChange: OnSelectedItemChangeFnType<T>;
   small?: boolean;
@@ -62,18 +49,6 @@ export function IdNameCombobox<T>({
   clearInputAfterSelection?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [canvasOwnedActivationMode, setCanvasOwnedActivationMode] = useState<
-    "keyboard" | "pointer" | null
-  >(null);
-  const handleSelectedItemChange = useCallback<OnSelectedItemChangeFnType<T>>(
-    (selectedValue) => {
-      onSelectedItemChange(selectedValue);
-      if (canvasOwnedRestingInput) {
-        setCanvasOwnedActivationMode(null);
-      }
-    },
-    [canvasOwnedRestingInput, onSelectedItemChange],
-  );
 
   const {
     isOpen,
@@ -85,84 +60,13 @@ export function IdNameCombobox<T>({
     getItemProps,
     itemToString,
     onKeyDown,
-    openMenu,
-    selection,
   } = useIdNameCombobox({
     allItems,
-    onSelectedItemChange: handleSelectedItemChange,
+    onSelectedItemChange,
     value,
     selectedItemCanBeNull,
     clearInputAfterSelection,
   });
-  const showCanvasOwnedRestingInput =
-    canvasOwnedRestingInput && canvasOwnedActivationMode === null;
-  const displayText = selection ? itemToString(selection) : value;
-
-  useLayoutEffect(() => {
-    if (!canvasOwnedRestingInput || canvasOwnedActivationMode === null) {
-      return;
-    }
-
-    const animationFrameId = window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      if (canvasOwnedActivationMode === "pointer") {
-        openMenu();
-      }
-    });
-
-    return () => window.cancelAnimationFrame(animationFrameId);
-  }, [canvasOwnedActivationMode, canvasOwnedRestingInput, openMenu]);
-
-  const activateCanvasOwnedPointerInput = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (isDisabled || event.button !== 0) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      setCanvasOwnedActivationMode("pointer");
-    },
-    [isDisabled],
-  );
-
-  const activateCanvasOwnedKeyboardInput = useCallback(() => {
-    if (isDisabled) {
-      return;
-    }
-    setCanvasOwnedActivationMode((currentMode) => currentMode ?? "keyboard");
-  }, [isDisabled]);
-
-  const handleCanvasOwnedBlur = useCallback(() => {
-    if (!canvasOwnedRestingInput) {
-      return;
-    }
-
-    window.setTimeout(() => {
-      if (!inputRef.current?.matches(":focus") && !isOpen) {
-        setCanvasOwnedActivationMode(null);
-      }
-    }, 0);
-  }, [canvasOwnedRestingInput, isOpen]);
-
-  if (showCanvasOwnedRestingInput) {
-    return (
-      <CanvasOwnedRestingComboboxInput
-        bg={bg}
-        displayText={displayText}
-        divId={inputDivId}
-        inputOuterClasses={inputOuterClasses}
-        inputThemeClassName={inputThemeClassName}
-        isDisabled={isDisabled}
-        onFocus={activateCanvasOwnedKeyboardInput}
-        onMouseDownCapture={activateCanvasOwnedPointerInput}
-        placeholder={placeholder}
-        rightButtonThemeClassName={rightButtonThemeClassName}
-        rootClassName={outerDivClasses}
-        small={small}
-        variant={variant}
-      />
-    );
-  }
 
   return (
     <div
@@ -176,7 +80,6 @@ export function IdNameCombobox<T>({
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isOpen}
         small={small}
-        onBlur={handleCanvasOwnedBlur}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         bg={bg}

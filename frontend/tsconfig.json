@@ -4,6 +4,14 @@
     "target": "ESNext",
     "jsx": "react-jsx",
     "baseUrl": "src",
+    "paths": {
+      "components/*": ["components/*"],
+      "forks/*": ["forks/*"],
+      "openapi/*": ["openapi/*"],
+      "plugins/*": ["plugins/*"],
+      "state/*": ["state/*"],
+      "utils/*": ["utils/*"]
+    },
     "lib": ["dom", "dom.iterable", "esnext"],
     "types": ["vite/client", "vite-plugin-svgr/client"],
     "allowJs": true,
