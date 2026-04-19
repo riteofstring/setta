@@ -76,3 +76,39 @@ test("python language-server banner warns when Python is still applied after sel
     'Python language server is still applied by "setta-basedpyright". Restart is still required before it is turned off.',
   );
 });
+
+test("python language-server banner stays hidden outside IDE runtime mode", async ({
+  page,
+}) => {
+  await page.route("**/api/plugins/runtime", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.list.serverMode = "launcher";
+    payload.status.serverMode = "launcher";
+    await route.fulfill({ response, json: payload });
+  });
+
+  await page.goto("/home", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".setta-titlebar-offset");
+  await expect(page.getByTestId("home-file-manager-layout")).toBeVisible();
+  await page.evaluate(async () => {
+    const runtime = await import("/src/plugins/runtime.ts");
+    await runtime.refreshPluginRuntime();
+  });
+
+  await page.evaluate(async () => {
+    const definitions = await import("/src/state/definitions.ts");
+    const current = definitions.useSettings.getState();
+    definitions.useSettings.setState({
+      ...current,
+      languageServer: {
+        ...current.languageServer,
+        selectedByLanguage: {},
+      },
+    });
+  });
+
+  await expect(
+    page.getByTestId("python-language-server-status-banner"),
+  ).toHaveCount(0);
+});

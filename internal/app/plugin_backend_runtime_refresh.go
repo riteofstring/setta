@@ -19,17 +19,18 @@ import (
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service         *plugins.Service
-	logger          *slog.Logger
-	runtimeRoot     string
-	mcpServer       *mcpx.Server
-	settings        *settingsstate.Runtime
-	runtime         *pluginBackendMCPRuntime
-	lspRouter       *lsp.Router
-	lspSpecs        []lsp.LanguageServerSpec
-	appliedLSPSpecs []lsp.LanguageServerSpec
-	projectState    *projectstate.Runtime
-	projectSync     *lsp.ProjectSynchronizer
+	service                                 *plugins.Service
+	logger                                  *slog.Logger
+	runtimeRoot                             string
+	mcpServer                               *mcpx.Server
+	settings                                *settingsstate.Runtime
+	runtime                                 *pluginBackendMCPRuntime
+	lspRouter                               *lsp.Router
+	lspSpecs                                []lsp.LanguageServerSpec
+	appliedLSPSpecs                         []lsp.LanguageServerSpec
+	pendingLanguageServerSelectionPluginIDs []string
+	projectState                            *projectstate.Runtime
+	projectSync                             *lsp.ProjectSynchronizer
 
 	mu sync.Mutex
 }
@@ -297,6 +298,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	r.runtime = nextRuntime
 	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	r.appliedLSPSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
+	r.pendingLanguageServerSelectionPluginIDs = nil
 	return nil
 }
 
@@ -353,10 +355,19 @@ func (r *pluginBackendRuntimeRefresher) refreshLanguageServers(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	nextLSPSpecs, err := r.nextRefreshedLanguageServerSpecsLocked(snapshot, trimmedPluginID)
+	selectedLSPSpecs, selectedPluginIDs, err := r.selectedLanguageServerRefreshLocked(snapshot)
 	if err != nil {
 		return err
 	}
+	nextLSPSpecs := selectedLSPSpecs
+	if trimmedPluginID != "" {
+		nextLSPSpecs = refreshedAppliedLanguageServerSpecs(
+			r.appliedLSPSpecs,
+			selectedLSPSpecs,
+			trimmedPluginID,
+		)
+	}
+
 	previousLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
 	if err := r.replaceLSPSpecsLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
 		return err
@@ -365,10 +376,26 @@ func (r *pluginBackendRuntimeRefresher) refreshLanguageServers(ctx context.Conte
 		return err
 	}
 	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
-	if trimmedPluginID != "" {
-		r.appliedLSPSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
+	if trimmedPluginID == "" {
+		r.pendingLanguageServerSelectionPluginIDs = selectedPluginIDs
+		return nil
 	}
+	r.appliedLSPSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	return nil
+}
+
+func (r *pluginBackendRuntimeRefresher) selectedLanguageServerRefreshLocked(
+	snapshot plugins.DiscoverySnapshot,
+) ([]lsp.LanguageServerSpec, []string, error) {
+	selections, err := r.selectedLanguageServerPlugins()
+	if err != nil {
+		return nil, nil, err
+	}
+	selectedLSPSpecs, err := r.languageServerSpecsForSelections(snapshot, selections, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	return selectedLSPSpecs, selectedLanguageServerPluginIDsFromSelections(selections), nil
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
@@ -426,6 +453,7 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 
 	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
 	r.appliedLSPSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
+	r.pendingLanguageServerSelectionPluginIDs = nil
 	closePluginBackendRuntime(transition.previousRuntime)
 	return committedSnapshot, nil
 }
@@ -444,6 +472,7 @@ func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	r.runtime = transition.previousRuntime
 	r.lspSpecs = transition.previousLSPSpecs
 	r.appliedLSPSpecs = cloneLanguageServerSpecs(transition.previousLSPSpecs)
+	r.pendingLanguageServerSelectionPluginIDs = nil
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend project reconciliation failed",
 		r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
@@ -501,17 +530,13 @@ func (r *pluginBackendRuntimeRefresher) RollbackLanguageServers(ctx context.Cont
 		return err
 	}
 	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
+	r.pendingLanguageServerSelectionPluginIDs = nil
 	return nil
 }
 
 func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ context.Context) error {
 	if r == nil {
 		return nil
-	}
-
-	selectedPluginIDs, err := r.selectedLanguageServerPluginIDs()
-	if err != nil {
-		return err
 	}
 
 	r.mu.Lock()
@@ -525,7 +550,7 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	allAppliedSpecs = append(allAppliedSpecs, nextAppliedLSPSpecs...)
 	pluginIDs := mergeUniqueSortedStrings(
 		appliedLanguageServerPluginIDs(allAppliedSpecs),
-		selectedPluginIDs,
+		r.pendingLanguageServerSelectionPluginIDs,
 	)
 	if len(pluginIDs) != 0 && service != nil {
 		if err := service.CommitAppliedLanguageServerPlugins(pluginIDs); err != nil {
@@ -534,6 +559,7 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	}
 
 	r.appliedLSPSpecs = nextAppliedLSPSpecs
+	r.pendingLanguageServerSelectionPluginIDs = nil
 	return nil
 }
 
@@ -574,24 +600,7 @@ func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(
 	if err != nil {
 		return nil, err
 	}
-	if includePendingLanguageServerOnly {
-		return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
-	}
-	return r.service.ActiveLanguageServerSpecsForSnapshot(snapshot, selections)
-}
-
-func (r *pluginBackendRuntimeRefresher) nextRefreshedLanguageServerSpecsLocked(
-	snapshot plugins.DiscoverySnapshot,
-	appliedPluginID string,
-) ([]lsp.LanguageServerSpec, error) {
-	if strings.TrimSpace(appliedPluginID) == "" {
-		return r.selectedLanguageServerSpecs(snapshot, true)
-	}
-	selectedLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot, true)
-	if err != nil {
-		return nil, err
-	}
-	return refreshedAppliedLanguageServerSpecs(r.appliedLSPSpecs, selectedLSPSpecs, appliedPluginID), nil
+	return r.languageServerSpecsForSelections(snapshot, selections, includePendingLanguageServerOnly)
 }
 
 func (r *pluginBackendRuntimeRefresher) reconcileAppliedPluginLanguageServerRefreshLocked(
@@ -624,19 +633,15 @@ func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[str
 	return settingsstate.LanguageServerSelectedByLanguage(r.settings.Snapshot().Document)
 }
 
-func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPluginIDs() ([]string, error) {
-	selections, err := r.selectedLanguageServerPlugins()
-	if err != nil {
-		return nil, err
+func (r *pluginBackendRuntimeRefresher) languageServerSpecsForSelections(
+	snapshot plugins.DiscoverySnapshot,
+	selections map[string]*string,
+	includePendingLanguageServerOnly bool,
+) ([]lsp.LanguageServerSpec, error) {
+	if includePendingLanguageServerOnly {
+		return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
 	}
-	selectedPluginIDs := make([]string, 0, len(selections))
-	for _, pluginID := range selections {
-		if pluginID == nil {
-			continue
-		}
-		selectedPluginIDs = append(selectedPluginIDs, *pluginID)
-	}
-	return uniqueSortedStrings(selectedPluginIDs), nil
+	return r.service.ActiveLanguageServerSpecsForSnapshot(snapshot, selections)
 }
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
@@ -814,6 +819,17 @@ func optionalStringPointersEqual(left *string, right *string) bool {
 	default:
 		return *left == *right
 	}
+}
+
+func selectedLanguageServerPluginIDsFromSelections(selections map[string]*string) []string {
+	selectedPluginIDs := make([]string, 0, len(selections))
+	for _, pluginID := range selections {
+		if pluginID == nil {
+			continue
+		}
+		selectedPluginIDs = append(selectedPluginIDs, *pluginID)
+	}
+	return uniqueSortedStrings(selectedPluginIDs)
 }
 
 func appliedLanguageServerLanguagesByPlugin(specs []lsp.LanguageServerSpec) map[string][]string {

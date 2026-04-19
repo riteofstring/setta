@@ -13,7 +13,7 @@ import { LanguageServerStatusBanner } from "./LanguageServerStatusBanner";
 
 let selectedPythonPlugin: string | null | undefined;
 let runtimeStatus: "idle" | "loading" | "loaded" | "error";
-let serverMode: "ide" | "share" | "app" | null;
+let serverMode: "ide" | "launcher" | "share" | "app" | null;
 let pluginStatusById: Record<string, PluginStatusEntry>;
 let statusEntries: PluginStatusEntry[];
 let isDeploymentMode: boolean;
@@ -28,7 +28,7 @@ vi.mock("plugins/runtime", () => ({
   usePluginRuntimeStore: (
     selector: (state: {
       status: "idle" | "loading" | "loaded" | "error";
-      serverMode: "ide" | "share" | "app" | null;
+      serverMode: "ide" | "launcher" | "share" | "app" | null;
       pluginStatusById: Record<string, PluginStatusEntry>;
       statusEntries: PluginStatusEntry[];
     }) => unknown,
@@ -143,6 +143,45 @@ describe("LanguageServerStatusBanner", () => {
           '[data-testid="python-language-server-status-banner"]',
         )?.textContent,
       ).toContain("Python language server is not selected");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("stays hidden while plugin runtime is unresolved", async () => {
+    runtimeStatus = "idle";
+    serverMode = null;
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        ),
+      ).toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("stays hidden in launcher mode", async () => {
+    serverMode = "launcher";
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        ),
+      ).toBeNull();
     } finally {
       await act(async () => {
         root.unmount();

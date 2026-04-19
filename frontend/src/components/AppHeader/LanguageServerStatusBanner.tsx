@@ -25,16 +25,15 @@ export function LanguageServerStatusBanner() {
       ? state.pluginStatusById[selectedPythonPlugin] ?? null
       : null,
   );
+
+  if (isDeploymentMode || runtimeStatus !== "loaded" || serverMode !== "ide") {
+    return null;
+  }
   const bannerMessage = buildPythonLanguageServerBanner(
     selectedPythonPlugin,
-    runtimeStatus,
     statusEntries,
     selectedPluginStatus,
   );
-
-  if (isDeploymentMode || serverMode === "app" || serverMode === "share") {
-    return null;
-  }
   if (bannerMessage == null) {
     return null;
   }
@@ -58,14 +57,13 @@ export function LanguageServerStatusBanner() {
 
 function buildPythonLanguageServerBanner(
   selectedPythonPlugin: string | null | undefined,
-  runtimeStatus: "idle" | "loading" | "loaded" | "error",
   statusEntries: PluginStatusEntry[],
   selectedPluginStatus: PluginStatusEntry | null,
 ): string | null {
-  const appliedPythonEntry =
-    runtimeStatus === "loaded"
-      ? findAppliedLanguageServerEntry(statusEntries, "python")
-      : null;
+  const appliedPythonEntry = findAppliedLanguageServerEntry(
+    statusEntries,
+    "python",
+  );
   const unselectedBanner = buildUnselectedPythonLanguageServerBanner(
     selectedPythonPlugin,
     appliedPythonEntry,
@@ -73,9 +71,6 @@ function buildPythonLanguageServerBanner(
 
   if (unselectedBanner != null) {
     return unselectedBanner;
-  }
-  if (runtimeStatus !== "loaded") {
-    return null;
   }
   if (selectedPluginStatus == null) {
     return `Selected Python language server plugin "${selectedPythonPlugin}" is not installed or active. Install or enable it, then restart the language server.`;

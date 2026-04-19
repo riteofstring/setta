@@ -198,6 +198,45 @@ func TestCommitAppliedLanguageServerPluginsDoesNotAdvanceAppliedSpecsOnCommitFai
 	}
 }
 
+func TestCommitAppliedLanguageServerPluginsPreservesPendingStateForSelectionChangedMidCommit(t *testing.T) {
+	app := newAppWithFixtureLanguageServer(t)
+
+	current := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp.py"},
+			Settings:   map[string]any{},
+		},
+	}
+
+	app.pluginRuntime.mu.Lock()
+	app.pluginRuntime.appliedLSPSpecs = cloneLanguageServerSpecs(current)
+	app.pluginRuntime.lspSpecs = cloneLanguageServerSpecs(current)
+	app.pluginRuntime.mu.Unlock()
+
+	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(
+		t,
+		app.config,
+		[]string{"setta-fixture-backend-alt"},
+		[]string{"setta-fixture-backend-alt"},
+	)
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend-alt")
+
+	if err := app.pluginRuntime.CommitAppliedLanguageServerPlugins(context.Background()); err != nil {
+		t.Fatalf("commit applied language server plugins: %v", err)
+	}
+
+	persistedState := readAppPluginsState(t, app.config)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 1 || persistedState.PendingRestartBackendPluginIDs[0] != "setta-fixture-backend-alt" {
+		t.Fatalf("expected switched selection to stay pending in backend ids, got %#v", persistedState.PendingRestartBackendPluginIDs)
+	}
+	if len(persistedState.PendingRestartLanguageServerOnlyPluginIDs) != 1 || persistedState.PendingRestartLanguageServerOnlyPluginIDs[0] != "setta-fixture-backend-alt" {
+		t.Fatalf("expected switched selection to stay pending in language-server-only ids, got %#v", persistedState.PendingRestartLanguageServerOnlyPluginIDs)
+	}
+}
+
 func TestCommitAppliedLanguageServerPluginsDoesNotOverwriteNewerAppliedSpecs(t *testing.T) {
 	app := newAppWithFixtureLanguageServer(t)
 

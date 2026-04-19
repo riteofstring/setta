@@ -26,7 +26,9 @@ def _backend_module():
     return module
 
 
-def _run_probe_process(extra_env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def _run_probe_process(
+    extra_env: dict[str, str], cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(extra_env)
     return subprocess.run(
@@ -35,11 +37,14 @@ def _run_probe_process(extra_env: dict[str, str]) -> subprocess.CompletedProcess
         text=True,
         check=False,
         env=env,
+        cwd=cwd,
     )
 
 
-def _run_probe(extra_env: dict[str, str]) -> dict[str, object]:
-    result = _run_probe_process(extra_env)
+def _run_probe(
+    extra_env: dict[str, str], cwd: Path | None = None
+) -> dict[str, object]:
+    result = _run_probe_process(extra_env, cwd=cwd)
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}".strip()
     return json.loads(result.stdout)
 
@@ -160,3 +165,30 @@ def test_basedpyright_plugin_backend_probe_rejects_missing_path_override(
         result = _run_probe_process({"SETTA_LSP_COMMAND": command})
         assert result.returncode != 0
         assert "not found" in result.stderr
+
+
+def test_basedpyright_plugin_backend_probe_preserves_relative_command_escape_for_go_validation(
+    tmp_path: Path,
+) -> None:
+    plugin_root = tmp_path / "plugin-root"
+    outside_dir = tmp_path / "outside"
+    plugin_root.mkdir()
+    outside_dir.mkdir()
+    escape_command = outside_dir / "basedpyright-langserver"
+    escape_command.write_text("", encoding="utf-8")
+    escape_command.chmod(0o755)
+
+    payload = _run_probe(
+        {"SETTA_LSP_COMMAND": "../outside/basedpyright-langserver"},
+        cwd=plugin_root,
+    )
+
+    assert payload["languageServers"] == [
+        {
+            "name": "basedpyright",
+            "language": "python",
+            "command": "../outside/basedpyright-langserver",
+            "args": [],
+            "settingsKey": "basedpyright",
+        }
+    ]

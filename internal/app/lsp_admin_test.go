@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"setta/internal/config"
@@ -18,11 +19,15 @@ type stubProjectLSPAdmin struct {
 	typeCheckCalls int
 	restartErr     error
 	restartErrs    []error
+	restartHook    func()
 	typeCheckErr   error
 }
 
 func (s *stubProjectLSPAdmin) Restart(_ context.Context, _ projectstate.Document) error {
 	s.restartCalls++
+	if s.restartHook != nil {
+		s.restartHook()
+	}
 	if len(s.restartErrs) != 0 {
 		err := s.restartErrs[0]
 		s.restartErrs = s.restartErrs[1:]
@@ -230,6 +235,64 @@ func TestWorkspaceLSPAdminRestartRollsBackRuntimeWhenProjectRestartFails(t *test
 	}
 	if projectAdmin.restartCalls != 2 {
 		t.Fatalf("expected failed restart to re-materialize project state once after rollback, got %d calls", projectAdmin.restartCalls)
+	}
+}
+
+func TestWorkspaceLSPAdminRestartKeepsSelectionChangedMidRestartPending(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend-alt")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend-alt"), func(payload map[string]any) {
+		payload["id"] = "setta-fixture-backend-alt"
+		payload["name"] = "setta-fixture-backend-alt"
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
+	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(
+		t,
+		cfg,
+		[]string{"setta-fixture-backend-alt"},
+		[]string{"setta-fixture-backend-alt"},
+	)
+
+	projectAdmin := &stubProjectLSPAdmin{
+		restartHook: func() {
+			setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend-alt")
+		},
+	}
+	admin := newWorkspaceLSPAdmin(projectAdmin, app.pluginRuntime)
+
+	if err := admin.Restart(context.Background(), projectstate.Document{}); err != nil {
+		t.Fatalf("restart language server: %v", err)
+	}
+
+	persistedState := readAppPluginsState(t, cfg)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 1 || persistedState.PendingRestartBackendPluginIDs[0] != "setta-fixture-backend-alt" {
+		t.Fatalf("expected switched selection to stay pending in backend ids, got %#v", persistedState.PendingRestartBackendPluginIDs)
+	}
+	if len(persistedState.PendingRestartLanguageServerOnlyPluginIDs) != 1 || persistedState.PendingRestartLanguageServerOnlyPluginIDs[0] != "setta-fixture-backend-alt" {
+		t.Fatalf("expected switched selection to stay pending in language-server-only ids, got %#v", persistedState.PendingRestartLanguageServerOnlyPluginIDs)
+	}
+
+	currentSpecs, appliedSpecs := cloneAppRuntimeLanguageServerSpecs(t, app)
+	if len(currentSpecs) != 1 || currentSpecs[0].PluginID != "setta-fixture-backend" {
+		t.Fatalf("expected current specs to keep the original plugin after first restart, got %#v", currentSpecs)
+	}
+	if len(appliedSpecs) != 1 || appliedSpecs[0].PluginID != "setta-fixture-backend" {
+		t.Fatalf("expected applied specs to keep the original plugin after first restart, got %#v", appliedSpecs)
 	}
 }
 

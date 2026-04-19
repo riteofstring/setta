@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,6 +95,110 @@ func TestFirstPartyBasedpyrightLanguageServerContract(t *testing.T) {
 			}
 		},
 	})
+}
+
+func TestFirstPartyBasedpyrightRejectsRelativeCommandEscape(t *testing.T) {
+	t.Setenv("SETTA_LSP_COMMAND", "../outside/basedpyright-langserver")
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	linkRootBase := filepath.Join(t.TempDir(), "linked")
+	linkRoot := filepath.Join(linkRootBase, "setta-basedpyright")
+	copyBackendCodegenFixtureDir(
+		t,
+		filepath.Join(workerRPCTestRepoRoot(t), "plugins", "setta-basedpyright"),
+		linkRoot,
+	)
+	outsideDir := filepath.Join(linkRootBase, "outside")
+	if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+		t.Fatalf("mkdir outside command dir: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(outsideDir, "basedpyright-langserver"),
+		[]byte("#!/bin/sh\nexit 0\n"),
+		0o755,
+	); err != nil {
+		t.Fatalf("write escaping language-server command: %v", err)
+	}
+
+	linkResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: linkRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+	})
+	if err != nil {
+		t.Fatalf("link plugin: %v", err)
+	}
+	if !linkResult.RestartRequired {
+		t.Fatalf("expected linked plugin to require refresh, got %#v", linkResult)
+	}
+
+	snapshot, err := service.CommitBackendRuntimeRefresh()
+	if err != nil {
+		t.Fatalf("commit backend runtime refresh: %v", err)
+	}
+
+	entry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-basedpyright", PluginScopeWorkspace)
+	if entry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid plugin state for escaping command override, got %#v", entry.State)
+	}
+	if len(entry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected escaping command override to contribute no language server registrations, got %#v", entry.RegisteredLanguageServers)
+	}
+
+	selectedByLanguage := map[string]*string{
+		"python": stringPointer("setta-basedpyright"),
+	}
+	specs, err := service.LanguageServerSpecs(context.Background(), selectedByLanguage)
+	if err != nil {
+		t.Fatalf("load language server specs: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Fatalf("expected invalid basedpyright plugin to contribute no language server specs, got %#v", specs)
+	}
+
+	router, err := lsp.NewRouter(lsp.RouterOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		AdditionalSpecs: specs,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	referencePath := filepath.Join(roots.workspaceRoot, "contract_reference.py")
+	if err := statefs.AtomicWriteFile(referencePath, []byte("value = 1\n"), 0o644); err != nil {
+		t.Fatalf("write reference file: %v", err)
+	}
+
+	_, err = router.CompleteSnapshot(ctx, lsp.SnapshotCompletionRequest{
+		ReferencePath: referencePath,
+		LanguageID:    "python",
+		Content:       "str.",
+		Line:          0,
+		Character:     len("str."),
+	})
+	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected completion to report unconfigured language server, got %v", err)
+	}
+
+	_, err = router.SignatureHelpSnapshot(ctx, lsp.SnapshotSignatureHelpRequest{
+		ReferencePath: referencePath,
+		LanguageID:    "python",
+		Content:       "value = sorted(",
+		Line:          0,
+		Character:     len("value = sorted("),
+	})
+	if !errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected signature help to report unconfigured language server, got %v", err)
+	}
 }
 
 func runLanguageServerPluginContractSuite(t *testing.T, target languageServerContractTarget) {
