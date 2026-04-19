@@ -1,6 +1,10 @@
 /* @vitest-environment jsdom */
 
-import { createAppSubsystemFrontendHost } from "@setta/app-subsystem-frontend-sdk";
+import {
+  createAppSubsystemFrontendHost,
+  createSingleConfig,
+  type AppSubsystemProjectStateSnapshot,
+} from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +12,9 @@ import {
   AppSubsystemFrontendHostProvider,
   useAppSubsystemFrontendHost,
   useAppSubsystemProjectContext,
+  useAppSubsystemProjectStateSnapshot,
   useAppSubsystemRuntimeContext,
+  useAppSubsystemServerModeState,
 } from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
 
 const originalReactActEnvironment = (
@@ -29,17 +35,26 @@ function setReactActEnvironment(value: boolean | undefined) {
 function HostContextProbe() {
   const frontendHost = useAppSubsystemFrontendHost();
   const { projectConfig } = useAppSubsystemProjectContext();
+  const projectState = useAppSubsystemProjectStateSnapshot();
   const runtimeContext = useAppSubsystemRuntimeContext();
+  const serverModeState = useAppSubsystemServerModeState();
 
   return (
     <div>
       <span data-testid="project-config-name">{projectConfig.name}</span>
+      <span data-testid="project-state-config-id">
+        {projectState.projectConfig.id}
+      </span>
+      <span data-testid="preview-variant-count">
+        {Object.keys(projectState.previewSectionVariantMap).length}
+      </span>
       <span data-testid="deployment-mode">
         {runtimeContext.isAppDeploymentMode ? "app" : "ide"}
       </span>
       <span data-testid="snapshot-mode">
         {runtimeContext.defaultRunSnapshotMode}
       </span>
+      <span data-testid="server-mode">{serverModeState.mode ?? "unset"}</span>
       <button
         type="button"
         onClick={() =>
@@ -95,18 +110,47 @@ describe("AppSubsystemFrontendHostContext", () => {
       defaultRunSnapshotMode: "ephemeral" as const,
       runSnapshotModeByProjectConfigId: {},
     };
+    let currentProjectState = {
+      projectConfig: {
+        id: "config-a",
+        name: "Alpha",
+        entryCodeBlockId: null,
+      },
+      previewSectionVariantMap: {
+        "section-a": "variant-a",
+      },
+    };
+    let currentServerModeState = {
+      mode: "ide" as const,
+      modeResolved: true,
+      modeError: null,
+    };
+    const buildProjectStateSnapshot = (): AppSubsystemProjectStateSnapshot => ({
+      ...createSingleConfig({
+        projectConfig: currentProjectState.projectConfig,
+      }),
+      previewSectionVariantMap: currentProjectState.previewSectionVariantMap,
+    });
     let listener:
       | ((projectContext: typeof currentProjectContext) => void)
       | null = null;
+    let projectStateListener:
+      | ((projectState: AppSubsystemProjectStateSnapshot) => void)
+      | null = null;
     let runtimeListener:
       | ((runtimeContext: typeof currentRuntimeContext) => void)
+      | null = null;
+    let serverModeListener:
+      | ((serverModeState: typeof currentServerModeState) => void)
       | null = null;
 
     const frontendHost = createAppSubsystemFrontendHost({
       closeModal,
       notify,
       getProjectContext: () => currentProjectContext,
+      getProjectStateSnapshot: buildProjectStateSnapshot,
       getRuntimeContext: () => currentRuntimeContext,
+      getServerModeState: () => currentServerModeState,
       subscribeProjectContext: (nextListener) => {
         listener = nextListener;
         return () => {
@@ -115,11 +159,27 @@ describe("AppSubsystemFrontendHostContext", () => {
           }
         };
       },
+      subscribeProjectStateSnapshot: (nextListener) => {
+        projectStateListener = nextListener;
+        return () => {
+          if (projectStateListener === nextListener) {
+            projectStateListener = null;
+          }
+        };
+      },
       subscribeRuntimeContext: (nextListener) => {
         runtimeListener = nextListener;
         return () => {
           if (runtimeListener === nextListener) {
             runtimeListener = null;
+          }
+        };
+      },
+      subscribeServerModeState: (nextListener) => {
+        serverModeListener = nextListener;
+        return () => {
+          if (serverModeListener === nextListener) {
+            serverModeListener = null;
           }
         };
       },
@@ -138,11 +198,22 @@ describe("AppSubsystemFrontendHostContext", () => {
         ?.textContent,
     ).toBe("Alpha");
     expect(
+      hostElement.querySelector('[data-testid="project-state-config-id"]')
+        ?.textContent,
+    ).toBe("config-a");
+    expect(
+      hostElement.querySelector('[data-testid="preview-variant-count"]')
+        ?.textContent,
+    ).toBe("1");
+    expect(
       hostElement.querySelector('[data-testid="deployment-mode"]')?.textContent,
     ).toBe("ide");
     expect(
       hostElement.querySelector('[data-testid="snapshot-mode"]')?.textContent,
     ).toBe("ephemeral");
+    expect(
+      hostElement.querySelector('[data-testid="server-mode"]')?.textContent,
+    ).toBe("ide");
 
     currentProjectContext = {
       defaultProjectConfigId: "config-b",
@@ -163,10 +234,25 @@ describe("AppSubsystemFrontendHostContext", () => {
         "config-b": "never",
       },
     };
+    currentProjectState = {
+      projectConfig: {
+        id: "config-b",
+        name: "Beta",
+        entryCodeBlockId: "entry-code-block",
+      },
+      previewSectionVariantMap: {},
+    };
+    currentServerModeState = {
+      mode: "app",
+      modeResolved: true,
+      modeError: null,
+    };
 
     await act(async () => {
       listener?.(currentProjectContext);
+      projectStateListener?.(buildProjectStateSnapshot());
       runtimeListener?.(currentRuntimeContext);
+      serverModeListener?.(currentServerModeState);
     });
 
     expect(
@@ -174,11 +260,22 @@ describe("AppSubsystemFrontendHostContext", () => {
         ?.textContent,
     ).toBe("Beta");
     expect(
+      hostElement.querySelector('[data-testid="project-state-config-id"]')
+        ?.textContent,
+    ).toBe("config-b");
+    expect(
+      hostElement.querySelector('[data-testid="preview-variant-count"]')
+        ?.textContent,
+    ).toBe("0");
+    expect(
       hostElement.querySelector('[data-testid="deployment-mode"]')?.textContent,
     ).toBe("app");
     expect(
       hostElement.querySelector('[data-testid="snapshot-mode"]')?.textContent,
     ).toBe("always");
+    expect(
+      hostElement.querySelector('[data-testid="server-mode"]')?.textContent,
+    ).toBe("app");
 
     await act(async () => {
       hostElement
