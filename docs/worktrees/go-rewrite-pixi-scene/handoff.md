@@ -20,6 +20,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixi-scene/checklist.md
 - Recognizable section layout is mandatory from the start.
 - Hybrid transparent DOM shells no longer count as progress toward the target renderer.
 - Chat is an explicit DOM exception for this restart and is not the blocker lane.
+- The workspace rewrite is the focus, not seam churn: one Pixi scene for the visible xyflow area, no hybrid DOM shells, no many-canvas composition.
 
 ## Immediate architecture rules
 
@@ -28,14 +29,17 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixi-scene/checklist.md
 - DOM is limited to active editors, menus/popups, chat, and other explicit exceptions.
 - Scene hit-testing must resolve against Pixi-owned geometry, not hidden DOM anchors.
 - Pixi is the current substrate choice, not a success condition by itself. If the scene stays visibly worse or cannot clear Gate 0, stop for replan instead of widening Pixi ownership by inertia.
+- The target is one workspace scene, not a collection of little canvases inside DOM shells.
+- Changes that only move seams, forwarding layers, or ownership labels without producing a visible full-scene canary do not count as progress.
 
 ## Immediate next action
 
 Build the Phase 0 and Phase 1 bootstrap on the clean branch:
 
 1. Capture a fresh dense `settings` -> `All Settings` baseline on `origin/go-rewrite`.
-2. Stand up a Pixi scene root that renders all visible sections from real section geometry.
-3. Prove direct Pixi-owned pan/zoom on that scene before any family rollout work.
+2. Stand up one Pixi scene root that renders all visible sections from real section geometry.
+3. Make `Callable` and `Dict` the first recognizable proving families on that scene.
+4. Prove direct Pixi-owned pan/zoom on that scene before any broader family rollout work.
 
 ## Gate 0 definition for this branch
 
@@ -53,6 +57,8 @@ While Gate 0 is red, do not spend time on:
 - support-only micro-optimizations
 - parity polish that does not improve scene viability
 - further Pixi rollout whose only justification is "we already picked Pixi"
+- seam-lift cleanup
+- many-canvas experiments
 
 ## Loop memory rules
 
@@ -70,6 +76,8 @@ Treat these as closed unless a later human replan explicitly reopens them:
 - chat activator retries
 - section-family harvesting as the main strategy
 - viewport and subscription micro-lanes that keep xyflow as the visible owner
+- seam-forwarding cleanup as a default frontier
+- many-small-canvas workspace composition
 
 ## Success interpretation
 
@@ -79,5 +87,6 @@ The new branch does not need immediate pixel parity, but it must feel like the s
 - same overall layout
 - premium pan/zoom
 - first-click editing via overlays on representative controls
+- one coherent workspace scene rather than DOM-hosted canvas fragments
 
 If performance looks good in a report but the scene is visually broken or unpleasant to use, the branch is not succeeding.

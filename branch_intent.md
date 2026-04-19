@@ -1,1 +1,1 @@
-Replace the visible xyflow graph surface with a Pixi-owned scene that preserves the existing section layout, delivers premium pan/zoom, and keeps DOM only for active editors, menus, chat, and other explicit exceptions.
+Keep the app chrome, but rebuild the entire visible workspace/xyflow area as one Pixi-owned scene: one infinite canvas, all visible sections, premium pan/zoom, no DOM section shells, no hybrid underlay, and `Callable`/`Dict` on `settings -> All Settings` as the first proving families.

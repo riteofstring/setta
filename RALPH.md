@@ -51,11 +51,14 @@ Reference worktree note:
 
 - Treat the prior `go-rewrite-pixijs` branch as research input only, not as the default code path to continue.
 - The visible xyflow area must be replaced by a Pixi-owned scene. Hybrid transparent-DOM-shell underlay work does not count as the target architecture.
+- The target is one Pixi-owned workspace scene, not many local canvases attached to DOM shells.
 - Pixi is the current substrate choice, not a reason to force rollout if Gate 0 stays red. If bounded scene/bootstrap/zoom/text passes still leave the canary visibly worse than DOM, stop for replan instead of widening Pixi ownership.
 - `origin/go-rewrite` is the product-architecture source of truth for this restart.
 - Do not revert broad `go-rewrite` refactors or transplant older branch structure wholesale; port proven ideas, instrumentation, and narrow code slices only.
 - Do not install, add, upgrade, or fetch new dependencies without explicit user permission.
 - Do not auto-upgrade dependencies or relax version pins without explicit user permission.
+- Do not treat seam-lift or forwarding-layer cleanup as the default frontier.
+- A change that only adds another local canvas, moves ownership labels, or preserves xyflow as the visible owner does not count as progress.
 
 ## Staged visual gates
 
@@ -77,6 +80,7 @@ Reference worktree note:
 - When selecting the next subtask, target the earliest failing gate first.
 - A slice that materially improves Gate 1 or Gate 2 without regressing behavior counts as real progress even if Gate 3 is still open.
 - If the current settings canary is blank, detached during movement, non-interactive, severely blurred/pixelated, or obviously slower than the DOM version, treat that as a Gate 0 failure and block all looks-parity work until it is fixed.
+- The first real proving families are `Callable` and `Dict` on `settings` -> `All Settings`. Default to that lane unless a handoff explicitly names a better blocker.
 
 ## Completion and handoff rules
 

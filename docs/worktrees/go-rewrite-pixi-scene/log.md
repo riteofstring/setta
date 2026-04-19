@@ -35,3 +35,12 @@ Log policy:
     - capture a clean dense `All Settings` baseline
     - stand up the Pixi scene root on real section geometry
     - prove direct Pixi-owned pan/zoom before broader rollout
+
+- Item: Tighten the plan so the workspace rewrite boundary is explicit.
+  - Clarified that this effort is a full rewrite of the visible workspace / xyflow area, while keeping the surrounding app chrome.
+  - Explicitly ruled out:
+    - hybrid DOM shell underlays
+    - many-small-canvas workspace composition
+    - seam-lift / forwarding cleanup as the main path
+  - Named `Callable` and `Dict` on `settings` -> `All Settings` as the first real proving families.
+  - Reinforced that progress does not count unless it produces one coherent visible-scene canary with premium pan/zoom and recognizable section structure.

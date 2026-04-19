@@ -13,6 +13,17 @@ Replace the visible xyflow graph area with a Pixi-owned scene that keeps the sam
 
 This is not a "small optimization" plan. It is a renderer-ownership reset.
 
+In concrete terms:
+
+- keep the surrounding app chrome:
+  - top navbar
+  - sidebars
+  - panes outside the workspace
+- rebuild the workspace / xyflow area from the ground up
+- render that workspace as one Pixi-owned scene
+- use `settings` -> `All Settings` as the primary proving surface
+- focus on `Callable` and `Dict` first
+
 ## Product requirements
 
 The finished path must satisfy all of these:
@@ -58,6 +69,7 @@ The real goal is:
 - a GPU-owned visible scene
 - our own scene ownership, geometry, and picking
 - premium pan/zoom and stable editing handoff
+- one scene for the workspace rather than many local canvases stitched into DOM
 
 Do not confuse "using Pixi" with success. If Pixi cannot clear the early scene-quality gates on text, zoom, or interaction, stop and reassess before rolling it out more broadly.
 
@@ -70,7 +82,16 @@ Do not continue from these shapes:
 - transparent DOM shells counting as real scene ownership
 - DOM-first viewport transform with canvas repaint following behind it
 - DOM harvesting micro-lanes as the main path
+- seam-lift or forwarding refactors as the main strategy
+- a collection of small canvases embedded in DOM section shells
 - section-family expansion before scene viability is proven
+
+The target is:
+
+- one visible workspace scene
+- one camera model
+- one picking model
+- one renderer ownership boundary
 
 ### 3. DOM becomes an overlay layer, not the resting surface
 
@@ -121,6 +142,17 @@ Primary proving surface:
 - `settings`
 - `All Settings`
 
+Primary first families:
+
+- `Callable`
+- `Dict`
+
+Secondary families only after the first canary is real:
+
+- other dense settings families
+- code-like sections
+- special-case sparse sections
+
 First-class exceptions:
 
 - chat stays DOM-backed for now
@@ -145,6 +177,15 @@ The intended runtime shape is:
 2. One scene graph owning section shells, rows, and resting content.
 3. One small DOM overlay layer synchronized to scene coordinates for active editors and exceptions.
 4. One input/picking model that resolves scene hits directly from Pixi-owned geometry rather than hidden DOM anchors.
+
+Implementation defaults for the first proving pass:
+
+- Pixi v8 as the rendering substrate
+- one scene spanning the whole visible workspace
+- `pixi-viewport` is acceptable as an early camera helper if it accelerates the first canary
+- MSDF/SDF/bitmap text is the default candidate for dense resting scene text
+- DOM overlays remain the default for active editors, menus/popups, chat, and other explicit exceptions
+- worker/offscreen rendering is a later optimization, not the first bootstrap requirement
 
 Key invariant:
 
@@ -180,13 +221,16 @@ Goal:
 
 Requirements:
 
+- one visible workspace scene, not many local canvases
 - same section positions and sizes as the DOM layout source
+- recognizable `Callable` and `Dict` sections first
 - visible section shells for all sections in `All Settings`
 - no blank scene
 
 Exit criteria:
 
 - a full-scene Pixi canary renders recognizable sections from real layout data
+- `Callable` and `Dict` read as real Setta sections on `All Settings`
 - panning and zooming move the Pixi scene directly
 - if this cannot be achieved cleanly, stop for replan instead of widening the old hybrid path
 
@@ -285,6 +329,13 @@ Required evidence types:
 
 Do not count progress if the scene is faster but still visually unusable.
 
+Do not count progress if a slice only:
+
+- moves seams or ownership labels around
+- adds another local canvas inside DOM
+- preserves xyflow as the visible owner
+- improves a narrow metric while the visible canary is still janky
+
 ## Acceptance gates
 
 ### Gate 0: Viable
@@ -330,3 +381,5 @@ Do not spend early iterations on:
 - transparent DOM shell experiments
 - DOM micro-optimizations that do not move the renderer ownership boundary
 - forcing more Pixi rollout after repeated Gate 0 failures just because Pixi was the initial substrate choice
+- seam-lift / forwarding cleanup that does not produce one real visible-scene canary
+- multi-canvas workspace experiments

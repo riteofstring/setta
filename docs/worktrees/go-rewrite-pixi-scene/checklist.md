@@ -21,10 +21,13 @@ Use `docs/worktrees/go-rewrite-pixi-scene/log.md` as the canonical append-only e
 - The visible xyflow graph area must be replaced by a Pixi-owned scene.
 - Pixi is a substrate choice, not the goal. The real goal is a GPU-owned visible scene with premium pan/zoom and stable editing handoff.
 - Hybrid transparent-DOM-shell underlay work does not count as the target architecture.
+- Many small canvases hosted inside DOM section shells do not count as the target architecture.
+- Seam-lift / forwarding refactors are not the main strategy and do not count as progress by themselves.
 - DOM is allowed only for active editors, menus/popups, chat, and other explicit exceptions.
 - Chat is a documented DOM exception for this restart and is not the primary blocker lane.
 - Do not widen section-family ownership before the scene passes Gate 0 viability.
 - If the Pixi scene cannot clear Gate 0 after bounded bootstrap/zoom/text passes, stop for replan instead of forcing more Pixi rollout.
+- Keep the surrounding app chrome, but treat the workspace itself as a full rewrite boundary.
 
 ## Scene-quality guardrails
 
@@ -55,6 +58,7 @@ Use `docs/worktrees/go-rewrite-pixi-scene/log.md` as the canonical append-only e
 
 - `All Settings` pan/zoom must be materially better than the durable DOM baseline.
 - The default visible graph surface must be Pixi-owned.
+- `Callable` and `Dict` must become recognizable, usable proving families on `settings` -> `All Settings` before broader rollout work counts.
 - The result must feel premium in normal use, not merely acceptable in a benchmark.
 - DOM must stay bounded to overlays and explicit exceptions.
 - At least one representative heavy control must prove first-click in-place DOM editing with stable outer chrome.
