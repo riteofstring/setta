@@ -6,6 +6,7 @@ import React, {
   DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode,
+  useLayoutEffect,
   useRef,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
@@ -23,6 +24,7 @@ import { NotificationTypeEnum, SelectionModeEnum } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
+import { resolveCanvasOwnedTextActivatorAtGraphPoint } from "./canvasOwnedTextActivatorRegistry";
 import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
 import { getEventPosition } from "../utils";
@@ -32,6 +34,34 @@ type PaneProps = {
   children: ReactNode;
   panOnDrag: boolean | number[];
 };
+
+const MINIMUM_CANVAS_OWNED_TEXT_ACTIVATOR_HIT_SIZE_PX = 1;
+
+function forwardCanvasOwnedTextActivatorMouseDown({
+  originalEvent,
+  target,
+}: {
+  originalEvent: MouseEvent;
+  target: HTMLElement;
+}) {
+  target.dispatchEvent(
+    new MouseEvent("mousedown", {
+      altKey: originalEvent.altKey,
+      bubbles: true,
+      button: originalEvent.button,
+      buttons: originalEvent.buttons,
+      cancelable: true,
+      clientX: originalEvent.clientX,
+      clientY: originalEvent.clientY,
+      ctrlKey: originalEvent.ctrlKey,
+      metaKey: originalEvent.metaKey,
+      screenX: originalEvent.screenX,
+      screenY: originalEvent.screenY,
+      shiftKey: originalEvent.shiftKey,
+      view: window,
+    }),
+  );
+}
 
 const wrapHandler = (
   handler: React.MouseEventHandler | undefined,
@@ -55,6 +85,50 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect>();
   const { userSelectionActive } = useReactFlow(selector, shallow);
+
+  useLayoutEffect(() => {
+    const pane = container.current;
+    if (!pane || isSelecting) {
+      return;
+    }
+
+    const handleMouseDownCapture = (event: MouseEvent) => {
+      if (event.button !== 0 || event.target !== pane) {
+        return;
+      }
+
+      const flowPosition = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      const activator = resolveCanvasOwnedTextActivatorAtGraphPoint({
+        minimumScreenHitSizePx: MINIMUM_CANVAS_OWNED_TEXT_ACTIVATOR_HIT_SIZE_PX,
+        viewportScale: useReactFlow.getState().transform[2],
+        x: flowPosition.x,
+        y: flowPosition.y,
+      });
+      if (!activator) {
+        return;
+      }
+
+      const target = document.getElementById(activator.targetId);
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      forwardCanvasOwnedTextActivatorMouseDown({
+        originalEvent: event,
+        target,
+      });
+    };
+
+    pane.addEventListener("mousedown", handleMouseDownCapture, true);
+    return () => {
+      pane.removeEventListener("mousedown", handleMouseDownCapture, true);
+    };
+  }, [isSelecting]);
 
   const syncSelectionRectActiveIds = () => {
     setActiveSectionIds(getActiveSectionUIIds(), {

@@ -140,6 +140,7 @@ export function ConfiguredRotaryInput({
 }
 
 type ConfiguredColorPickerInputProps = {
+  lightweightActivator?: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string;
@@ -151,6 +152,7 @@ type ConfiguredColorPickerInputProps = {
 };
 
 export function ConfiguredColorPickerInput({
+  lightweightActivator,
   sectionId,
   paramInfoId,
   value,
@@ -169,6 +171,7 @@ export function ConfiguredColorPickerInput({
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
+      lightweightActivator={lightweightActivator}
       value={value}
       onChange={onChange}
       onEscape={onEscape}
@@ -180,6 +183,7 @@ export function ConfiguredColorPickerInput({
 }
 
 type ConfiguredDropdownInputProps = {
+  canvasOwnedRestingInput?: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string | null;
@@ -192,6 +196,7 @@ type ConfiguredDropdownInputProps = {
 };
 
 export function ConfiguredDropdownInput({
+  canvasOwnedRestingInput,
   sectionId,
   paramInfoId,
   value,
@@ -210,6 +215,7 @@ export function ConfiguredDropdownInput({
 
   return (
     <DropdownInput
+      canvasOwnedRestingInput={canvasOwnedRestingInput}
       choices={choices}
       value={value}
       onChange={onChange}
