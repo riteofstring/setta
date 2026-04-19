@@ -17,6 +17,8 @@ Runs `codex exec` in a loop.
 - `--pre-iteration-command` runs before every iteration.
 - `--inactivity-timeout-seconds N` aborts an iteration if Codex emits no new
   transcript output for N seconds.
+- Retryable Codex failures can optionally sleep before retrying the next
+  iteration.
 - The loop continues on error by default. Use `--stop-on-error` to fail fast.
 
 Options:
@@ -45,6 +47,13 @@ Options:
                              If an inactivity timeout occurs, record the
                              failure and continue to the next iteration even
                              when --stop-on-error is enabled.
+  --continue-on-codex-failure
+                             If the Codex command exits non-zero, record the
+                             failure and continue to the next iteration even
+                             when --stop-on-error is enabled.
+  --retry-sleep-seconds N    Sleep N seconds before the next retryable
+                             iteration after an inactivity timeout or retryable
+                             Codex failure. Default: 0
   --stop-on-pre-iteration-exit-code N
                              Stop the loop cleanly if the pre-iteration
                              command exits with code N.
@@ -85,6 +94,8 @@ post_iteration_command=""
 inactivity_timeout_seconds="0"
 watchdog_interval_seconds="15"
 continue_on_inactivity_timeout="0"
+continue_on_codex_failure="0"
+retry_sleep_seconds="0"
 iterations="100"
 new_session_every="1"
 output_dir=""
@@ -142,6 +153,15 @@ while [[ $# -gt 0 ]]; do
     --continue-on-inactivity-timeout)
       continue_on_inactivity_timeout="1"
       shift
+      ;;
+    --continue-on-codex-failure)
+      continue_on_codex_failure="1"
+      shift
+      ;;
+    --retry-sleep-seconds)
+      require_value "$1" "${2:-}"
+      retry_sleep_seconds="$2"
+      shift 2
       ;;
     --stop-on-pre-session-exit-code)
       require_value "$1" "${2:-}"
@@ -248,6 +268,11 @@ if [[ ! "${watchdog_interval_seconds}" =~ ^[0-9]+$ ]] || [[ "${watchdog_interval
   exit 1
 fi
 
+if [[ ! "${retry_sleep_seconds}" =~ ^[0-9]+$ ]] || [[ "${retry_sleep_seconds}" -lt 0 ]]; then
+  echo "--retry-sleep-seconds must be a non-negative integer" >&2
+  exit 1
+fi
+
 validate_stop_exit_code() {
   local flag_name="$1"
   local value="$2"
@@ -301,6 +326,9 @@ echo "New session every: ${new_session_every}"
 echo "Workdir: ${workdir}"
 if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
   echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
+fi
+if [[ "${continue_on_codex_failure}" == "1" ]] || [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
+  echo "Retry sleep: ${retry_sleep_seconds}s"
 fi
 
 extract_thread_id() {
@@ -468,6 +496,17 @@ run_hook_command() {
   ) 2>&1 | tee "${log_path}"
 }
 
+sleep_before_retry() {
+  local reason="$1"
+
+  if [[ "${retry_sleep_seconds}" -le 0 ]]; then
+    return
+  fi
+
+  echo "Sleeping ${retry_sleep_seconds}s before retry after ${reason}"
+  sleep "${retry_sleep_seconds}"
+}
+
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   run_dir="$(printf '%s/run-%03d' "${output_dir}" "${iteration}")"
   response_file="${run_dir}/last-message.txt"
@@ -616,11 +655,17 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     echo "failure:${exit_code}" > "${status_file}"
   fi
   echo "[$iteration/$iterations] Codex failed with exit code ${exit_code}" >&2
+  if [[ "${codex_timed_out}" == "1" ]] && [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
+    sleep_before_retry "inactivity timeout"
+    echo "[$iteration/$iterations] Continuing after inactivity timeout"
+    continue
+  fi
+  if [[ "${continue_on_codex_failure}" == "1" ]]; then
+    sleep_before_retry "Codex failure"
+    echo "[$iteration/$iterations] Continuing after Codex failure"
+    continue
+  fi
   if [[ "${stop_on_error}" == "1" ]]; then
-    if [[ "${codex_timed_out}" == "1" ]] && [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
-      echo "[$iteration/$iterations] Continuing after inactivity timeout"
-      continue
-    fi
     exit "${exit_code}"
   fi
 done
