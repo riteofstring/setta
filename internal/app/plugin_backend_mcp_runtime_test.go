@@ -165,6 +165,61 @@ func TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider(t *testing.T) {
 	}
 }
 
+func TestNewPluginBackendMCPRuntimeSkipsMixedRegisteredAndUnregisteredProviders(
+	t *testing.T,
+) {
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay project runtime: %v", err)
+	}
+	defer func() {
+		if closeErr := projectRuntime.Close(); closeErr != nil {
+			t.Fatalf("close overlay project runtime: %v", closeErr)
+		}
+	}()
+
+	runtime, err := newPluginBackendMCPRuntime(context.Background(), pluginBackendMCPRuntimeOptions{
+		RuntimeRoot: t.TempDir(),
+		Snapshot: plugins.DiscoverySnapshot{
+			Plugins: []plugins.DiscoveredPlugin{
+				{
+					PluginID: appsubsystemprovider.PluginID,
+					State:    plugins.PluginRuntimeStateActive,
+					Manifest: &plugins.PluginManifest{
+						ID: appsubsystemprovider.PluginID,
+						FeatureCapabilities: &plugins.PluginFeatureCapabilitiesManifest{
+							AppSubsystem: &plugins.PluginAppSubsystemFeatureManifest{
+								AppGenerationChatModes: true,
+							},
+						},
+					},
+				},
+				{
+					PluginID: "setta-unregistered-app-provider",
+					State:    plugins.PluginRuntimeStateActive,
+					Manifest: &plugins.PluginManifest{
+						ID: "setta-unregistered-app-provider",
+						FeatureCapabilities: &plugins.PluginFeatureCapabilitiesManifest{
+							AppSubsystem: &plugins.PluginAppSubsystemFeatureManifest{
+								AppGenerationChatModes: true,
+							},
+						},
+					},
+				},
+			},
+		},
+		ProjectRuntime: projectRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new plugin backend MCP runtime: %v", err)
+	}
+	for _, toolName := range runtime.toolNames {
+		if strings.Contains(toolName, "app") {
+			t.Fatalf("expected mixed registered and unregistered providers to skip app tools, got %#v", runtime.toolNames)
+		}
+	}
+}
+
 func TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes(t *testing.T) {
 	t.Parallel()
 

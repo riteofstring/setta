@@ -629,7 +629,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      "Queued message failed. Edit it and retry.",
+      "Attach at least one image before using /app-image.",
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
@@ -773,7 +773,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      "Queued message failed. Edit it and retry.",
+      "Attach at least one image before using /wireframe.",
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
@@ -919,7 +919,7 @@ describe("ChatInput queued slash-command replay", () => {
     ).toContain("/wireframe support ops");
   });
 
-  it("replays queued custom slash commands with the original prompt snapshot", async () => {
+  it("replays queued custom slash commands against the refreshed registry definition", async () => {
     const onSubmit = vi.fn(async () => true);
     let setWaitingForResponse:
       | ((next: boolean | ((current: boolean) => boolean)) => void)
@@ -938,6 +938,7 @@ describe("ChatInput queued slash-command replay", () => {
     const editedCommand: ChatSlashCommandDefinition = {
       ...initialCommand,
       promptTemplate: "Draft the edited wireframe.",
+      appGenerationMode: "wireframe_v2",
     };
 
     const App = () => {
@@ -991,14 +992,93 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith(
-      "Draft the original wireframe.\n\nsupport ops",
+      "Draft the edited wireframe.\n\nsupport ops",
       [],
       {
         appGeneration: {
-          mode: "json_render",
+          mode: "wireframe_v2",
         },
       },
     );
+  });
+
+  it("replays queued custom slash commands with refreshed image requirements", async () => {
+    const onSubmit = vi.fn(async () => true);
+    let setWaitingForResponse:
+      | ((next: boolean | ((current: boolean) => boolean)) => void)
+      | null = null;
+    let setSlashCommands:
+      | ((next: ChatSlashCommandDefinition[]) => void)
+      | null = null;
+
+    const initialCommand: ChatSlashCommandDefinition = {
+      command: "/wireframe",
+      action: "custom_prompt",
+      summary: "Generate a layout proposal.",
+      promptTemplate: "Draft a wireframe.",
+      appGenerationMode: "json_render",
+    };
+    const editedCommand: ChatSlashCommandDefinition = {
+      ...initialCommand,
+      requiresImageAttachment: true,
+    };
+
+    const App = () => {
+      const [waitingForResponse, setLocalWaitingForResponse] = useState(true);
+      const [slashCommands, setLocalSlashCommands] = useState([initialCommand]);
+      setWaitingForResponse = setLocalWaitingForResponse;
+      setSlashCommands = setLocalSlashCommands;
+
+      return (
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={waitingForResponse}
+          slashCommands={slashCommands}
+          recognizedSlashCommands={slashCommands}
+          onSubmit={onSubmit}
+          onStop={() => {}}
+        />
+      );
+    };
+
+    await act(async () => {
+      root.render(<App />);
+    });
+
+    const { textarea, submitButton } = getComposerElements(host);
+
+    await act(async () => {
+      setTextareaValue(textarea, "/wireframe support ops");
+      submitButton.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    if (!setSlashCommands) {
+      throw new Error("Expected slash command setter.");
+    }
+    await act(async () => {
+      setSlashCommands([editedCommand]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    if (!setWaitingForResponse) {
+      throw new Error("Expected waiting state setter.");
+    }
+    await act(async () => {
+      setWaitingForResponse(false);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(host.textContent).toContain(
+      "Attach at least one image before using /wireframe.",
+    );
+    expect(
+      host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
+    ).toContain("/wireframe support ops");
   });
 
   it("replays queued unavailable slash commands when they become executable", async () => {
