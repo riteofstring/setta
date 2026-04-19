@@ -6,10 +6,10 @@ import (
 	"errors"
 	"strings"
 
-	"setta/internal/appspec"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/tools"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type appCatalogToolResult struct {
