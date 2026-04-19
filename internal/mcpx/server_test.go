@@ -22,9 +22,9 @@ import (
 	"setta/internal/agentprofiles"
 	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
+	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/tools"
 )
 
@@ -9312,7 +9312,7 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
 			appdefinition.NewAppDefinitionService(
 				projectRuntime,
-				plugins.AppSubsystemPluginID,
+				firstpartyplugin.AppSubsystemPluginID,
 			),
 		)
 	}

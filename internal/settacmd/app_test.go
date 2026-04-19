@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"setta/internal/deployments"
-	"setta/internal/plugins"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestRunRoutesAppSubcommandAndDelegatesLatestDeployment(t *testing.T) {
@@ -39,7 +39,7 @@ func TestRunRoutesAppSubcommandAndDelegatesLatestDeployment(t *testing.T) {
 	enableSettacmdAppDeploymentRuntimePlugin(
 		t,
 		latestRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"Setta JSON Render App Generation",
 	)
 
@@ -216,7 +216,7 @@ func TestRunAppDelegatesResolvedVersionWithExpectedArgs(t *testing.T) {
 	enableSettacmdAppDeploymentRuntimePlugin(
 		t,
 		expectedRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"Setta JSON Render App Generation",
 	)
 

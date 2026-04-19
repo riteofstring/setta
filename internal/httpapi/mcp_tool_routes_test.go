@@ -28,6 +28,7 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 type routePythonPackageProvider struct {
@@ -1896,7 +1897,7 @@ func TestMCPToolCallRouteSupportsSetSectionStyleColor(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -1971,7 +1972,7 @@ func TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs(t *testing.T) {
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2038,7 +2039,7 @@ func TestMCPToolCallRouteSupportsSetSectionParamFilter(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2113,7 +2114,7 @@ func TestMCPToolCallRouteSetSectionParamFilterAcceptsTemporaryIDs(t *testing.T) 
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2182,7 +2183,7 @@ func TestMCPToolCallRouteSupportsSetMetaControlShowSectionTitle(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2259,7 +2260,7 @@ func TestMCPToolCallRouteSetMetaControlShowSectionTitleAcceptsTemporaryIDs(t *te
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2668,7 +2669,7 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	appDefinitionService := appdefinition.NewAppDefinitionService(
 		projectRuntime,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:                t.TempDir(),
@@ -2760,7 +2761,7 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2840,7 +2841,7 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2904,7 +2905,7 @@ func TestMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -2994,7 +2995,7 @@ func TestMCPToolCallRouteValidateAppDefinitionAcceptsTemporaryIDs(t *testing.T) 
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -3052,7 +3053,7 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	appDefinitionService := appdefinition.NewAppDefinitionService(
 		projectRuntime,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
@@ -3145,7 +3146,7 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -3237,7 +3238,7 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -3310,7 +3311,7 @@ func TestMCPToolCallRouteCompareAndSetShowParamDisplayNames(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -3375,7 +3376,7 @@ func TestMCPToolCallRouteCompareAndSetWatchCodeEnabledReturnsMutationFailed(t *t
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
@@ -6142,7 +6143,7 @@ func TestMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
 		),
 	})
 	if err != nil {
