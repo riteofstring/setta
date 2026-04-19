@@ -23,6 +23,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "AppSubsystemChatUIConfig",
+			Type: reflect.TypeOf(backend.FrontendValueAppSubsystemChatUIConfig()),
+			Value: func() any {
+				return backend.FrontendValueAppSubsystemChatUIConfig()
+			},
+		},
+		{
 			Name: "BootstrapProtocol",
 			Type: reflect.TypeOf(httpapi.FrontendValueBootstrapProtocol()),
 			Value: func() any {

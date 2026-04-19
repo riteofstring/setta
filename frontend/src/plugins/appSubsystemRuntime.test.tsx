@@ -4,6 +4,8 @@ import {
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
   syncAppSubsystemFrontendRegistration,
+  useAppSubsystemCustomSlashCommandModeOptions,
+  useAppSubsystemDefaultCustomSlashCommandMode,
   useAppSubsystemFrontendStore,
   useAppSubsystemOverviewTab,
   useAppSubsystemSlashCommands,
@@ -35,6 +37,13 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
       appGenerationMode: "json_render",
     },
   ],
+  customSlashCommandModes: {
+    options: [
+      { id: "plain_chat", name: "Plain chat" },
+      { id: "json_render", name: "JSON Render" },
+    ],
+    defaultMode: "plain_chat",
+  },
   resetProjectState: () => {
     resetProjectStateMock();
   },
@@ -62,6 +71,17 @@ function AppSubsystemOverviewProbe() {
 function AppSubsystemSlashCommandProbe() {
   const slashCommands = useAppSubsystemSlashCommands();
   return <span>{slashCommands.map((entry) => entry.command).join(",")}</span>;
+}
+
+function AppSubsystemCustomSlashModeProbe() {
+  const options = useAppSubsystemCustomSlashCommandModeOptions();
+  const defaultMode = useAppSubsystemDefaultCustomSlashCommandMode();
+  return (
+    <span>
+      {defaultMode}:
+      {options.map((entry) => `${entry.id}=${entry.name}`).join(",")}
+    </span>
+  );
 }
 
 describe("appSubsystemRuntime", () => {
@@ -144,5 +164,25 @@ describe("appSubsystemRuntime", () => {
     expect(
       renderToStaticMarkup(<AppSubsystemSlashCommandProbe />),
     ).not.toContain("/app-json");
+  });
+
+  it("falls back to plain-chat-only custom slash modes when the subsystem is unavailable", async () => {
+    await syncAppSubsystemFrontendRegistration(null);
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(
+      renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
+    ).toContain("plain_chat:plain_chat=Plain chat");
+  });
+
+  it("exposes plugin-owned custom slash modes through capability-gated hooks", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(
+      renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
+    ).toContain("plain_chat:plain_chat=Plain chat,json_render=JSON Render");
   });
 });

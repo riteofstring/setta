@@ -16,7 +16,11 @@ import {
   upsertAppGenCustomSkill,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useAppSubsystemSlashCommands } from "plugins/appSubsystemRuntime";
+import {
+  useAppSubsystemCustomSlashCommandModeOptions,
+  useAppSubsystemDefaultCustomSlashCommandMode,
+  useAppSubsystemSlashCommands,
+} from "plugins/appSubsystemRuntime";
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -47,7 +51,6 @@ import {
   type BaseChatMessageUnion,
   type EngineConfig,
   EngineTypeEnum,
-  ProjectChatUIConfig,
   type SkillContent,
   type SkillEntry,
 } from "utils/generatedTypes";
@@ -116,24 +119,22 @@ type CustomSlashCommandDraft = {
   prompt: string;
   appGenerationMode: AppGenerationMode | null;
 };
+type CustomSlashCommandModeItem = {
+  id: string;
+  name: string;
+};
 const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   command: "",
   prompt: "",
   appGenerationMode: null,
 };
-const CUSTOM_SLASH_COMMAND_MODE_ITEMS =
-  ProjectChatUIConfig.customSlashCommandModeOptions.map((option) => ({
-    id: option.value,
-    name: option.label,
-  }));
 function getCustomSlashCommandModeLabel(
   mode: AppGenerationMode | null,
+  modeItems: CustomSlashCommandModeItem[],
+  defaultMode: string,
 ): string | null {
-  const resolvedId = mode ?? ProjectChatUIConfig.defaultCustomSlashCommandMode;
-  return (
-    CUSTOM_SLASH_COMMAND_MODE_ITEMS.find((item) => item.id === resolvedId)
-      ?.name ?? null
-  );
+  const resolvedId = mode ?? defaultMode;
+  return modeItems.find((item) => item.id === resolvedId)?.name ?? null;
 }
 function areCustomSlashCommandDraftsEqual(
   left: CustomSlashCommandDraft,
@@ -1971,10 +1972,12 @@ type CustomSlashCommandsPanelProps = {
   addCustomProjectChatSlashCommand: () => void;
   canAddCustomSlashCommand: boolean;
   conflictingCustomSlashCommandTokens: Set<string>;
+  customSlashCommandModeItems: CustomSlashCommandModeItem[];
   customSlashCommandDefinitions: ReturnType<
     typeof buildCustomPromptSlashCommandDefinitions
   >;
   customSlashNamespaceAuthorityReady: boolean;
+  defaultCustomSlashCommandMode: string;
   newCustomSlashAppGenerationMode: AppGenerationMode | null;
   newCustomSlashCommand: string;
   newCustomSlashPrompt: string;
@@ -1987,8 +1990,10 @@ function CustomSlashCommandsPanel({
   addCustomProjectChatSlashCommand,
   canAddCustomSlashCommand,
   conflictingCustomSlashCommandTokens,
+  customSlashCommandModeItems,
   customSlashCommandDefinitions,
   customSlashNamespaceAuthorityReady,
+  defaultCustomSlashCommandMode,
   newCustomSlashAppGenerationMode,
   newCustomSlashCommand,
   newCustomSlashPrompt,
@@ -2015,15 +2020,14 @@ function CustomSlashCommandsPanel({
           allItems={[
             {
               groupName: "Submission mode",
-              items: CUSTOM_SLASH_COMMAND_MODE_ITEMS.map((item) => ({
+              items: customSlashCommandModeItems.map((item) => ({
                 id: item.id,
                 name: item.name,
               })),
             },
           ]}
           value={
-            newCustomSlashAppGenerationMode ??
-            ProjectChatUIConfig.defaultCustomSlashCommandMode
+            newCustomSlashAppGenerationMode ?? defaultCustomSlashCommandMode
           }
           small={false}
           onSelectedItemChange={onSetNewCustomSlashAppGenerationMode}
@@ -2061,6 +2065,8 @@ function CustomSlashCommandsPanel({
             );
             const modeLabel = getCustomSlashCommandModeLabel(
               command.appGenerationMode ?? null,
+              customSlashCommandModeItems,
+              defaultCustomSlashCommandMode,
             );
             return (
               <div
@@ -2245,10 +2251,12 @@ type SlashCommandsSectionProps = {
   addCustomProjectChatSlashCommand: () => void;
   canAddCustomSlashCommand: boolean;
   conflictingCustomSlashCommandTokens: Set<string>;
+  customSlashCommandModeItems: CustomSlashCommandModeItem[];
   customSlashCommandDefinitions: ReturnType<
     typeof buildCustomPromptSlashCommandDefinitions
   >;
   customSlashNamespaceAuthorityReady: boolean;
+  defaultCustomSlashCommandMode: string;
   engineConfigsInitialLoadComplete: boolean;
   newCustomSlashAppGenerationMode: AppGenerationMode | null;
   newCustomSlashCommand: string;
@@ -2267,8 +2275,10 @@ function SlashCommandsSection({
   addCustomProjectChatSlashCommand,
   canAddCustomSlashCommand,
   conflictingCustomSlashCommandTokens,
+  customSlashCommandModeItems,
   customSlashCommandDefinitions,
   customSlashNamespaceAuthorityReady,
+  defaultCustomSlashCommandMode,
   engineConfigsInitialLoadComplete,
   newCustomSlashAppGenerationMode,
   newCustomSlashCommand,
@@ -2294,8 +2304,10 @@ function SlashCommandsSection({
         conflictingCustomSlashCommandTokens={
           conflictingCustomSlashCommandTokens
         }
+        customSlashCommandModeItems={customSlashCommandModeItems}
         customSlashCommandDefinitions={customSlashCommandDefinitions}
         customSlashNamespaceAuthorityReady={customSlashNamespaceAuthorityReady}
+        defaultCustomSlashCommandMode={defaultCustomSlashCommandMode}
         newCustomSlashAppGenerationMode={newCustomSlashAppGenerationMode}
         newCustomSlashCommand={newCustomSlashCommand}
         newCustomSlashPrompt={newCustomSlashPrompt}
@@ -2657,6 +2669,10 @@ export function ProjectChatSkillsMcpViewer({
     settaFilesLocation,
   ]);
   const appGenerationSlashCommands = useAppSubsystemSlashCommands();
+  const customSlashCommandModeItems =
+    useAppSubsystemCustomSlashCommandModeOptions();
+  const defaultCustomSlashCommandMode =
+    useAppSubsystemDefaultCustomSlashCommandMode();
   const slashCommandsByEngine = useMemo(() => {
     return buildSlashCommandsByEngine({
       engineConfigs,
@@ -3449,8 +3465,10 @@ export function ProjectChatSkillsMcpViewer({
         conflictingCustomSlashCommandTokens={
           conflictingCustomSlashCommandTokens
         }
+        customSlashCommandModeItems={customSlashCommandModeItems}
         customSlashCommandDefinitions={customSlashCommandDefinitions}
         customSlashNamespaceAuthorityReady={customSlashNamespaceAuthorityReady}
+        defaultCustomSlashCommandMode={defaultCustomSlashCommandMode}
         engineConfigsInitialLoadComplete={engineConfigsInitialLoadComplete}
         newCustomSlashAppGenerationMode={newCustomSlashAppGenerationMode}
         newCustomSlashCommand={newCustomSlashCommand}
