@@ -6,11 +6,13 @@ import (
 	"strings"
 	"sync"
 
+	"setta/internal/chatmodes"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/tools"
 )
 
 var ErrBackendProviderUnregistered = errors.New(
@@ -31,10 +33,20 @@ type FrontendRouteRegistrationOptions struct {
 	AppDeploymentIDEPublisher deployments.AppPublishService
 }
 
+type MCPToolRegistration struct {
+	Spec         tools.Spec
+	InputSchema  map[string]any
+	OutputSchema map[string]any
+}
+
 type BackendProvider interface {
 	BuildFrontendAPIRouteRegistrations(
 		options FrontendRouteRegistrationOptions,
 	) httpapi.FrontendAPIRouteRegistrations
+	BuildMCPToolRegistrations(
+		projectRuntime *projectstate.Runtime,
+	) []MCPToolRegistration
+	AppGenerationModeContributions() []chatmodes.AppGenerationModeContribution
 	NewAppPublishService(
 		options deployments.AppPublisherOptions,
 		projectRuntime *projectstate.Runtime,
@@ -90,6 +102,39 @@ func BuildFrontendAPIRouteRegistrations(
 		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
 	return provider.BuildFrontendAPIRouteRegistrations(options), nil
+}
+
+func BuildMCPToolRegistrations(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+	projectRuntime *projectstate.Runtime,
+) ([]MCPToolRegistration, error) {
+	if projectRuntime == nil {
+		return nil, nil
+	}
+	provider, err := BackendProviderForCapabilities(capabilities)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil {
+		return nil, nil
+	}
+	return provider.BuildMCPToolRegistrations(projectRuntime), nil
+}
+
+func AppGenerationModeContributions(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+) ([]chatmodes.AppGenerationModeContribution, error) {
+	if !capabilities.PluginEnabled || !capabilities.AppGenerationChatModes {
+		return nil, nil
+	}
+	provider, err := BackendProviderForCapabilities(capabilities)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil {
+		return nil, nil
+	}
+	return provider.AppGenerationModeContributions(), nil
 }
 
 func NewAppPublishService(
