@@ -51,16 +51,15 @@ const hoistedProjectChatWindowing = vi.hoisted(() => ({
   createTopLevelSectionWithResult: vi.fn(),
   routeSetProjectChatWindowingState: vi.fn(),
   routeSetProjectChatWindowChatId: vi.fn(),
-  reactFlowState: {
-    transform: [0, 0, 1] as [number, number, number],
-    d3Zoom: null,
-    d3Selection: null,
-    domNode: null as HTMLElement | null,
-  },
 }));
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: {
-    getState: () => hoistedProjectChatWindowing.reactFlowState,
+    getState: () => ({
+      transform: [0, 0, 1],
+      d3Zoom: null,
+      d3Selection: null,
+      domNode: null,
+    }),
   },
 }));
 vi.mock("./sections/createSections", () => ({
@@ -108,10 +107,6 @@ describe("project chat windowing reducer helpers", () => {
           useProjectState.getState().projectChatWindowing,
         ),
     );
-    hoistedProjectChatWindowing.reactFlowState.transform = [0, 0, 1];
-    hoistedProjectChatWindowing.reactFlowState.d3Zoom = null;
-    hoistedProjectChatWindowing.reactFlowState.d3Selection = null;
-    hoistedProjectChatWindowing.reactFlowState.domNode = null;
   });
   it("creates an open bottom-docked chat window instance by default", () => {
     // New instances should open docked so the dock owns the initial layout.
@@ -1358,55 +1353,6 @@ describe("project chat windowing reducer helpers", () => {
         target.instanceId
       ]?.title,
     ).toBeNull();
-  });
-  it("uses the misc pane click position when booting a chat window to canvas", async () => {
-    hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockResolvedValue(
-      {
-        sectionId: "section-created",
-      },
-    );
-    hoistedProjectChatWindowing.reactFlowState.domNode = {
-      getBoundingClientRect: () => ({
-        x: 100,
-        y: 200,
-        left: 100,
-        top: 200,
-        right: 600,
-        bottom: 600,
-        width: 500,
-        height: 400,
-        toJSON: () => ({}),
-      }),
-    } as HTMLElement;
-    useMisc.setState({
-      lastPaneClickLocation: { x: 160, y: 290 },
-    });
-    const target = createProjectChatWindowInstance({
-      instanceId: "chat-window-target",
-      placement: ChatWindowPlacementEnum.floating,
-      sectionIdOrNull: null,
-    });
-    useProjectState.setState((state) => {
-      state.projectChatWindowing = createProjectChatWindowingState({
-        order: [target.instanceId],
-        instancesById: {
-          [target.instanceId]: target,
-        },
-        nextInstanceNumber: 2,
-      });
-    });
-
-    await expect(
-      bootProjectChatWindowToCanvasSection(target.instanceId),
-    ).resolves.toBe("section-created");
-
-    expect(
-      hoistedProjectChatWindowing.createTopLevelSectionWithResult,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        position: { x: 160, y: 290 },
-      }),
-    );
   });
   it("does not boot git graph windows into canvas sections", async () => {
     const target = createProjectChatWindowInstance({

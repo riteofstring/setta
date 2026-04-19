@@ -17,6 +17,7 @@ import {
 } from "./actions/nodeInternals";
 import {
   debouncedDispatchViewportUpdate,
+  dispatchViewportUpdateWhileInteracting,
   dispatchViewportUpdateImmediately,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
@@ -62,7 +63,14 @@ export function subscribe() {
           dispatchViewportUpdateImmediately();
         }
       } else {
-        debouncedDispatchViewportUpdate();
+        if (newState.viewportInteractionActive) {
+          dispatchViewportUpdateWhileInteracting();
+        } else if (
+          prevState.viewportInteractionActive ||
+          !_.isEqual(newState.transform, prevState.transform)
+        ) {
+          debouncedDispatchViewportUpdate();
+        }
       }
 
       // used by forked xterm to make text appear correctly
@@ -129,6 +137,7 @@ function reactFlowTransformSubscriptionFn(state) {
     transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,
     fitViewOnInitDone: state.fitViewOnInitDone,
+    viewportInteractionActive: state.viewportInteractionActive,
   };
 }
 

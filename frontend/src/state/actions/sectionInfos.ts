@@ -50,7 +50,6 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
-  IFrameSectionImpl,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
@@ -72,17 +71,6 @@ const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
-// Keep this in sync with internal/projectstate/unshared_defaults.go so optimistic
-// frontend writes follow the same ownership routing as the Go owner.
-const DEFAULT_UNSHARED_PROJECT_FIELDS = new Set([
-  "callable",
-  "codeObjVariantMap",
-  "edgeInputParams",
-  "edgeOutputPorts",
-  "layers",
-  "topLevelParamId",
-  "value",
-]);
 type GeneratedImplUpdateValue<T> = T | ((prev: T) => T);
 type ImplUpdateArgs<T extends object> = {
   [K in keyof T]?: GeneratedImplUpdateValue<T[K]>;
@@ -683,23 +671,6 @@ export function getCurrEffectiveSectionImplWithTypeGuardIfPresent<T>(
   }
   return effective;
 }
-function isIFrameSectionImpl(
-  impl: BaseSectionImplUnion,
-): impl is IFrameSectionImpl {
-  return impl.type === SectionTypeEnum.IFrame && "code" in impl;
-}
-export function getCurrIFrameSectionImpl(
-  p: ZustandProjectState,
-  sectionId: string,
-  preview = false,
-): IFrameSectionImpl {
-  return getCurrEffectiveSectionImplWithTypeGuard(
-    p,
-    sectionId,
-    isIFrameSectionImpl,
-    preview,
-  );
-}
 export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   p: ZustandProjectState,
   sectionId: string,
@@ -866,11 +837,6 @@ function resolveGeneratedImplUpdateValue<T>(
   }
   return value;
 }
-function generatedImplFieldUsesDefaultUnsharedOwnership(
-  fieldName: string,
-): boolean {
-  return DEFAULT_UNSHARED_PROJECT_FIELDS.has(fieldName);
-}
 function setEffectiveImplValue<T extends MutableGeneratedImpl>(
   impl: T,
   core: Core,
@@ -884,16 +850,11 @@ function setEffectiveImplValue<T extends MutableGeneratedImpl>(
     const currV = curr[k];
     const nextValue = resolveGeneratedImplUpdateValue(v, currV);
     const key = k as string;
-    const isUnsharedField =
-      core.unsharedKeys.includes(key) ||
-      generatedImplFieldUsesDefaultUnsharedOwnership(key);
-    if (!isUnsharedField) {
+    if (!core.unsharedKeys.includes(k)) {
       core.sharedModifier[key] = nextValue;
     } else if (!impl.isPreset) {
-      delete core.sharedModifier[key];
       (impl as Record<string, unknown>)[key] = nextValue;
     } else {
-      delete core.sharedModifier[key];
       variant.modifier[key] = nextValue;
     }
   }
@@ -2418,10 +2379,7 @@ export function unselectAllParams() {
   return true;
 }
 export function updateAllProjectMetadata(x: AllProjectMetadata) {
-  useAllProjectMetadata.setState({
-    ...x,
-    projectMetadata: x.projectMetadata ?? [],
-  });
+  useAllProjectMetadata.setState(x);
 }
 function shouldSkipViewportDispatch(
   viewport: PendingViewportState,
@@ -2439,7 +2397,20 @@ function shouldSkipViewportDispatch(
     currentMatches
   );
 }
-function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
+type DispatchViewportUpdateOptions = {
+  immediate?: boolean;
+  mirrorToProjectState?: boolean;
+  scheduleSend?: boolean;
+};
+
+function dispatchViewportUpdate(
+  viewport: Viewport | null,
+  {
+    immediate = false,
+    mirrorToProjectState = true,
+    scheduleSend = true,
+  }: DispatchViewportUpdateOptions = {},
+) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
@@ -2451,11 +2422,16 @@ function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   }
   pendingViewportRef.snapshot = viewport;
   pendingViewportRef.hasQueuedSend = true;
-  useProjectState.setState((state) => {
-    applyViewportSnapshotToProjectState(state, viewport);
-  });
+  if (mirrorToProjectState) {
+    useProjectState.setState((state) => {
+      applyViewportSnapshotToProjectState(state, viewport);
+    });
+  }
   if (!pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
+  }
+  if (!scheduleSend) {
+    return;
   }
   sendViewportToBackend();
   if (immediate) {
@@ -2475,5 +2451,12 @@ export const debouncedDispatchViewportUpdate = Object.assign(
 );
 export function dispatchViewportUpdateImmediately() {
   debouncedDispatchViewportUpdate.cancel();
-  dispatchViewportUpdate(getCurrProjectConfigViewport(), true);
+  dispatchViewportUpdate(getCurrProjectConfigViewport(), { immediate: true });
+}
+
+export function dispatchViewportUpdateWhileInteracting() {
+  dispatchViewportUpdate(getCurrProjectConfigViewport(), {
+    mirrorToProjectState: false,
+    scheduleSend: false,
+  });
 }

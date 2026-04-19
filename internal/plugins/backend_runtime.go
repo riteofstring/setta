@@ -693,7 +693,7 @@ func invokeGoBackendRuntime(
 	buildRoot string,
 	request backendRuntimeRequest,
 ) (backendRuntimeResponse, error) {
-	launch, err := ResolvePluginBackendLaunch(pluginRoot, manifest, buildRoot)
+	executablePath, err := BuildGoBackendExecutable(pluginRoot, manifest, buildRoot)
 	if err != nil {
 		return backendRuntimeResponse{}, err
 	}
@@ -708,12 +708,8 @@ func invokeGoBackendRuntime(
 		)
 	}
 
-	args := append(append([]string(nil), launch.Args...), backendRuntimeArg)
-	command := exec.CommandContext(ctx, launch.Command, args...)
+	command := exec.CommandContext(ctx, executablePath, backendRuntimeArg)
 	command.Dir = pluginRoot
-	if len(launch.Environment) != 0 {
-		command.Env = mergePluginBackendCommandEnv(launch.Environment)
-	}
 	command.Stdin = bytes.NewReader(payload)
 
 	var stdout bytes.Buffer
@@ -730,7 +726,7 @@ func invokeGoBackendRuntime(
 		}
 		return backendRuntimeResponse{}, newServiceError(
 			ServiceErrorCodeBackendRuntimeInvalid,
-			"Plugin backend runtime failed for plugin %s: %s",
+			"Go backend runtime failed for plugin %s: %s",
 			manifest.ID,
 			message,
 		)

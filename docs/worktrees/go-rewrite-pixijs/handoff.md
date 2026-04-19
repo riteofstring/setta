@@ -1,0 +1,3918 @@
+# Go-Rewrite Pixi Canvas-First Handoff
+
+Last updated: 2026-04-20
+Worktree: `go-rewrite-pixijs`
+Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
+Related history: `docs/worktrees/go-rewrite-pixijs/log.md`
+Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
+
+## Current status
+
+- The graph-surface camera-transform subscription cleanup is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-camera-transform-imperative-sync-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - new `frontend/src/forks/xyflow/core/container/useViewportTransformStyle.ts` writes the current React Flow transform directly onto wrapper refs through an imperative store subscription instead of rerendering those wrappers on every camera tick
+    - `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx` and `frontend/src/forks/xyflow/core/container/Viewport.tsx` now reuse that hook for the retained canvas camera layer and the DOM viewport wrapper
+    - `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` now proves both wrappers update after a post-mount transform change
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 44.26`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 66.7`
+    - `raf.maxMs: 1049.92`
+    - `longTasks.count: 11`
+    - `longTasks.totalMs: 5885`
+    - `longTasks.maxMs: 3408`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a safe shared transform-path cleanup on the active viewport-interaction lane, not a new dense-scene breakthrough
+    - the checked canary stayed in the same improved band and the live visual check stayed clean, so the wrapper-level imperative sync does not reopen the checked path
+    - the result is mixed rather than decisive: `longTasks.totalMs` improved slightly (`6076 -> 5885`), but `raf.meanMs` / `raf.p95Ms` did not materially beat the checkpoint
+    - close this camera-wrapper sub-lane now; do not spend another default iteration on top-level transform-wrapper polish
+    - the current trace-backed evidence still points more strongly at motion-time subtree unmount/remount churn or the broader Pixi-owned graph-surface step than at another wrapper-level transform subscription cleanup
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/Viewport.tsx src/forks/xyflow/core/container/useViewportTransformStyle.ts src/forks/xyflow/core/container/GraphSurface.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-013/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.5s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/GraphSurface.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `/settings` was mounted with `All Settings` active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell/body artifact after one bounded fit-view adjustment
+    - only expected workspace chrome noise was visible (top/side/bottom workspace chrome), with nothing anomalous on the graph surface
+
+- The viewport-send deferral slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-send-deferral-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/sectionInfos.ts` now lets the active viewport-interaction path refresh the optimistic pending viewport snapshot without rearming the backend send debounce on every motion tick
+    - `frontend/src/state/subscriptions.test.ts` now contains focused coverage proving the backend viewport send remains deferred until interaction settles while the optimistic pending op stays alive
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.7`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1116.6`
+    - `longTasks.count: 9`
+    - `longTasks.totalMs: 6378`
+    - `longTasks.maxMs: 3903`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a safe whole-scene viewport-persistence cleanup, not a new dense-motion breakthrough
+    - the checked canary stayed in the same improved band, so deferring backend send scheduling during active interaction does not reopen the earlier viewport-persistence regression
+    - it did not materially beat the current whole-scene checkpoint (`raf.meanMs 43.28`, `longTasks.totalMs 6076`), so close this viewport-send sub-lane here instead of spending more default iterations on it
+    - the next default frontier should escalate to the broader Pixi-owned graph-surface step unless a fresh trace identifies a stronger renderer-main JS / GC source than the now-closed viewport-persistence send path
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-012/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (36.9s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `All Settings` stayed active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell/body artifact on the canvas path
+    - bottom project-chat chrome remained visible after close/minimize attempts in that pass; treated as workspace chrome noise rather than renderer drift
+
+- Progress review checkpoint, 2026-04-20, loop iteration `11`:
+  - decision: keep the loop running, but only on the sharper post-run-010 frontier
+  - strongest evidence: the viewport-persistence interaction-deferral slice moved the chat-normalized dense canary from `raf.meanMs 126.46`, `raf.p95Ms 116.7`, `longTasks.totalMs 17245` to `43.28`, `33.4`, and `6076` without reopening DOM counts or visual regressions
+  - bounded follow-up: the spreadsheet `flowZoom` freeze stayed in the same range (`raf.meanMs 44.12`, `longTasks.totalMs 6044`) and is now closed as a support lane rather than a default next action
+  - later bounded follow-up: the camera-transform imperative sync cleanup also stayed in the same range (`raf.meanMs 44.26`, `longTasks.totalMs 5885`) and is now closed as a shared transform-path cleanup rather than a default next action
+  - real red herrings / closed defaults:
+    - motion-shell/header/menu micro-harvests
+    - backend-only switch-family cleanup
+    - more chat-window normalization or other probe-only cleanup as the default next step
+    - more spreadsheet-only or section-local zoom freezes unless a fresh trace makes them dominant again
+    - more camera-wrapper transform-wrapper cleanup unless a fresh trace explicitly points back to it
+  - next default pass: broader `settings-section__browserSectionDefault` viewport-interaction JS / GC reduction with whole-scene reach, or escalate to the next Pixi-owned graph-surface step if no such bounded reducer is credible
+
+- The spreadsheet `flowZoom` interaction-freeze slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-spreadsheet-flowzoom-freeze-rerun.md`.
+  - canonical target section: `settings-section__spreadsheetSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx` now snapshots the current React Flow zoom and freezes the spreadsheet editor `flowZoom` prop while `viewportInteractionActive` is true, then resynchronizes once interaction settles
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.test.tsx` now contains focused coverage proving the spreadsheet editor keeps the previous zoom during active interaction and catches up after settle
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 44.12`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1216.6`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6044`
+    - `longTasks.maxMs: 3520`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded spreadsheet-specific rerender suppression slice on the broader viewport-interaction JS lane, not a new whole-scene perf breakthrough
+    - the dense canary stayed broadly flat versus the latest viewport-persistence checkpoint (`raf.meanMs 43.28 -> 44.12`, `longTasks.totalMs 6076 -> 6044`), so keep the larger `browserSectionDefault` renderer-main JS/GC frontier open
+    - close this spreadsheet sub-lane unless a fresh visible spreadsheet-surface defect appears; do not mistake it for the next default frontier
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Layouts/SpreadsheetArea.tsx src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-011/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.4s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized the surface to `All Settings`
+    - `settings-section__spreadsheetSectionDefault` was visible and intact
+    - after one bounded fit-view adjustment there was no obvious blank or detached artifact around the spreadsheet section
+- The viewport-persistence interaction-deferral slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/sectionInfos.ts` now lets the viewport persistence path refresh the pending viewport snapshot without immediately mirroring that snapshot into `useProjectState`
+    - `frontend/src/state/subscriptions.ts` now includes `viewportInteractionActive` in the React Flow transform subscription, defers the `useProjectState.projectConfig.viewport` mirror while interaction is active, and mirrors the latest snapshot once when interaction settles while keeping the immediate auto-fit flush path intact
+    - `frontend/src/state/subscriptions.test.ts` now contains focused coverage for the deferred mirror behavior
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.28`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 33.4`
+    - `raf.maxMs: 1183.29`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6076`
+    - `longTasks.maxMs: 3610`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a real renderer-main JS/store-churn reduction on the active `All Settings` motion lane, not another ownership proof: the whole-scene DOM counts stayed flat while dense motion metrics dropped sharply against the last chat-normalized rerun (`raf.meanMs 126.46 -> 43.28`, `longTasks.totalMs 17245 -> 6076`)
+    - because the chat-window normalization, document-node counts, interactive-core counts, and motion-hidden-body totals all stayed aligned, the most credible explanation is the intended one: dense motion no longer rewrites `useProjectState.projectConfig.viewport` on every active interaction frame
+    - keep the canonical `browserSectionDefault` lane open on renderer-main JS/GC reduction, but close this viewport-persistence sub-lane now that the per-frame project-store mirror is removed
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.ts src/state/subscriptions.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.6s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - first fresh headless DevTools pass surfaced a docked `Chat Window 1` panel on the right side; treated as workspace-chrome noise rather than a renderer defect
+    - reran the visual check in a fresh headless DevTools sub-agent after closing that docked chat panel
+    - `/settings` loaded with `All Settings` active and `fit view` applied
+    - exactly one retained `react-flow__section-shell-backdrop` canvas was mounted
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached artifact
+- The canonical settings motion probes are now chat-window normalized and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-chat-window-normalized-motion-probes-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/tests/e2e/helpers.ts` now exports `disableProjectChatAutoCreate(...)` for settings probes and `clearProjectChatWindows(...)` now waits on actual floating/docked/maximized/pill chat-window chrome instead of an unrelated in-pane title
+    - `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts` now disables project chat auto-create before bootstrap, clears chat windows after readiness, records `projectChatChromeCount`, and asserts the dense probe runs with zero chat-window chrome
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts` now applies the same chat normalization before the focused motion-hidden-body proof
+  - fresh dense rerun on the current runtime recorded:
+    - `projectChatChromeCount: 0`
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 126.46`
+    - `raf.p50Ms: 83.3`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4649.9`
+    - `longTasks.count: 81`
+    - `longTasks.totalMs: 17245`
+    - `longTasks.maxMs: 3587`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion proof on the same chat-normalized runtime stayed intact:
+    - before motion, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `display: block`, `childElementCount: 2`, with global `hiddenBodyCount: 0` and `hiddenHeaderControlsCount: 0`
+    - during one checked zoom interaction, those same sections flipped to `display: none`, `childElementCount: 0`, with global `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+    - after settle, all three sections restored to `display: block`, `childElementCount: 2`, and both hidden counters returned to `0`
+  - interpretation:
+    - this is a probe-normalization slice, not a product perf win; the dense lane now proves the checked run started with `projectChatChromeCount: 0`
+    - the lower whole-page chrome counts confirm earlier dense runs were carrying workspace chat-window noise
+    - even after removing that noise, the dense canary still misses the target badly, so the blocker remains product work on viewport-interaction JS/GC or the broader graph-surface step
+    - keep this support lane closed now that the canonical settings probes can run chat-free; do not spend the next default pass on more chat-window normalization by inertia
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-009/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+      - result: blocked by the pre-existing unused-symbol errors elsewhere in `frontend/tests/e2e/helpers.ts` (`BOOTSTRAP_TOKEN`, `setSectionEdgeOutputsFromFrontend`, `refreshProjectStateFromBackend`, `waitForProjectUrl`), not by the new normalization lines
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - `fit view` kept `browserSectionDefault`, `promptSectionDefault`, and `languageServer` visually intact with no obvious blank or detached shell artifact
+    - no obvious floating, maximized, or docked chat-window chrome was visible on the settings surface
+- The backdrop measurement-scale freeze slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-measurement-scale-freeze-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now uses `useBackdropMeasurementViewportScale(...)` to snapshot the current React Flow zoom and stop feeding live `transform[2]` churn into the backdrop measurement hook tree while `viewportInteractionActive` is true
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now contains a focused probe that proves measurement scale freezes during active viewport interaction and catches up after interaction ends
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5575`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 122.4`
+    - `raf.p50Ms: 83.3`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4333.1`
+    - `longTasks.count: 72`
+    - `longTasks.totalMs: 16216`
+    - `longTasks.maxMs: 3461`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion proof on the live worktree surface stayed intact:
+    - before motion, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `display: block`, `childElementCount: 2`, with global `hiddenBodyCount: 0` and `hiddenHeaderControlsCount: 0`
+    - during one checked zoom interaction, those same sections flipped to `display: none`, `childElementCount: 0`, with global `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+    - after settle, all three sections restored to `display: block`, `childElementCount: 2`, and both hidden counters returned to `0`
+  - interpretation:
+    - this is a bounded renderer-main hotspot reduction on the canvas-shell path, not another motion-shell wrapper or survivor-family harvest
+    - the dense rerun improved against the latest hotspot report (`raf.meanMs 130.39 -> 122.4`, `longTasks.totalMs 17889 -> 16216`) without reopening the canonical motion-hidden-body regression
+    - the branch is still far above budget, so treat this as evidence that the renderer-main JS/GC lane is real, not as a success claim for dense `All Settings`
+    - keep the named `browserSectionDefault` motion-shell micro-lane closed; the next real frontier remains a larger viewport-interaction JS/GC reduction on the canvas-shell path or the broader Pixi-owned graph-surface step
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.2m)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: blocked by the pre-existing repo jsdom dependency/runtime issue before test collection: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - `fit view` plus one bounded `zoom in` kept exactly one retained `react-flow__section-shell-backdrop` canvas mounted
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell artifact
+- The backend switch value-shell flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backend-switch-value-shell-flattening-rerun.md`.
+  - canonical target section: `settings-section__backend`
+  - focused proof row:
+    - `settings-codeobj__backend__backend__autobackup`
+  - sibling proof sections:
+    - `settings-section__browserSectionDefault`
+    - `settings-section__promptSectionDefault`
+    - `settings-section__gui`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes the backend settings section in `isCanvasOwnedSectionLightweightSwitchValueShell(...)` instead of leaving backend as the last retained-resting-text exception
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `backendSectionLightweightSwitchCount: 9`
+    - `backendCanvasTrack: "true"`
+    - focused `autobackup` row:
+      - `backendRootIsValueShell: true`
+      - `backendCanvasThumbCount: 1`
+      - `backendValueShellWrapperCount: 0`
+      - `backendThumbBackgroundColor: rgba(0, 0, 0, 0)`
+    - first-click toggle stayed intact on the backend lightweight switch family
+    - shared sibling proof remained aligned:
+      - `browserSectionDefault`, `promptSectionDefault`, and `gui` switch rows still report `rootIsValueShell: true`
+      - whole-scene focused switch totals stayed on the retained canvas path with:
+        - `settingsLightweightSwitchCount: 156`
+        - `settingsCanvasTrackSwitchCount: 156`
+        - `settingsCanvasThumbCount: 156`
+        - `settingsButtonSwitchCount: 0`
+  - dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5570`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 125.63`
+    - `raf.p95Ms: 133.3`
+    - `longTasks.totalMs: 17079`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this closes the backend-only exception on the shared switch value-shell seam rather than opening another section-local switch lane
+    - the dense readout moved only modestly and not cleanly enough to justify another switch-family micro-pass by inertia
+    - the next real frontier should stay on a broader row-body / inactive-overlay primitive or the renderer-main JS/GC hotspot on the canvas-shell path, not another backend-only survivor harvest
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - result: `2 passed (73 tests)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts frontend/tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `3 passed (1.4m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - `fit view` plus one `zoom in` kept exactly one retained graph canvas mounted
+    - the backend section switches remained visually intact and nearby `browserSectionDefault` / `promptSectionDefault` showed no obvious blank or detached artifact
+- A fresh post-motion-shell hotspot report is now landed in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5579`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 130.39`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4733.1`
+    - `longTasks.count: 89`
+    - `longTasks.totalMs: 17889`
+    - `longTasks.maxMs: 3663`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion proof still confirms the shell/body lane is behaving on the live worktree surface:
+    - initial `hiddenBodyCount: 0`, `hiddenHeaderControlsCount: 0`
+    - during zoom `hiddenBodyCount: 45`, `hiddenHeaderControlsCount: 45`
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` still flip to `display: none` with `childElementCount: 0`
+    - settled `hiddenBodyCount: 0`, `hiddenHeaderControlsCount: 0`
+  - fresh headless DevTools trace artifact is saved at:
+    - `perf/artifacts/frontend/settings-all-settings/motion-shell-canonical-zoom-trace-2026-04-20.json`
+  - trace summary:
+    - `NO_NAVIGATION`
+    - `CLS: 0.00`
+    - no named DevTools insight beyond that
+    - CDP visual check passed with `All Settings` active, one retained canvas mounted, and the canonical sections visible/intact
+    - CDP had to use blank pane point `x=300`, `y=200` because `x=24`, `y=60` was occupied in that pass
+  - local trace parsing on the saved artifact shows:
+    - ignore the trace-start `CpuProfiler::StartProfiling ~460ms` overhead event
+    - the largest checked renderer-main task after that startup artifact is `EventDispatch 67.136ms` with nested `v8.callFunction 66.924ms`
+    - renderer-main GC remains non-trivial in the same short window:
+      - `MinorGC`: `18` events, `48.157ms` total, `4.572ms` max
+      - `V8.GCScavenger`: `18` events, `46.684ms` total
+    - compositor-side work stayed secondary in that short trace:
+      - `VizCompositorThread RunTask`: `28.53ms` total, `26.692ms` max
+    - no meaningful `Layout`, `Paint`, `Layerize`, or forced-reflow hotspot surfaced in the checked zoom window
+  - interpretation:
+    - this is the current stop signal against another motion-hidden DOM/chrome harvest on `browserSectionDefault`
+    - the checked canary now points at renderer-main JS event work plus GC on the canvas-shell path, not a fresh layout-thrash or menu/header/body survivor family
+    - the next bounded product pass should target viewport-interaction JS cost on the canvas-shell path or escalate to the broader Pixi-owned graph-surface step instead of extending the current motion-shell wrapper lane
+- The motion-shell handoff slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-handoff-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now resolves one shared motion-hidden canvas state on the existing resting-text boundary and passes it through to both `CustomResizable` and `CanvasSectionBody`
+    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` now exposes `data-canvas-owned-motion-shell-root="true"` / `data-canvas-owned-motion-shell-hidden="true"` and makes inactive motion-hidden section surfaces transparent while viewport interaction is active
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now paints full shell/header chrome for motion-hidden resting-text sections during viewport interaction instead of limiting those sections to detail text/boxes only
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+      - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` each reported `motionShellRoot: true`, `motionShellHidden: false`, `backgroundColor: rgb(16, 20, 27)`, and `childElementCount: 2`
+    - during the peak motion snapshot:
+      - `hiddenBodyCount: 45`
+      - `hiddenHeaderControlsCount: 45`
+      - the same canonical sections each flipped to `motionShellHidden: true`, `backgroundColor: rgba(0, 0, 0, 0)`, `motionBodyHidden: true`, and `childElementCount: 0`
+    - after the interaction settled:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+      - the canonical sections restored `motionShellHidden: false`, `backgroundColor: rgb(16, 20, 27)`, and `childElementCount: 2`
+  - dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 130.39`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 17604`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a stronger renderer-side structural reduction on the canonical motion lane, not another header/menu chrome harvest: inactive motion-hidden sections now hand shell/header paint to the retained canvas while keeping only the root box mounted in DOM
+    - the dense rerun stayed noisy-to-worse on this runtime family, so treat this as ownership proof rather than a clean motion win
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target the remaining hidden-section subtree/layout cost beyond this shell handoff instead of reopening motion-chrome micro-slices
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: `1 passed (11 tests)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `All Settings` was active on `http://127.0.0.1:3068/settings`
+    - `fit view` was applied and one `zoom in` kept exactly one retained graph canvas mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` remained visually intact with no obvious blank or detached shell/header artifact
+- The motion-header menu-trigger suspension slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-menu-trigger-suspension-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx` now hides lightweight menu-trigger wrappers with `invisible pointer-events-none` while `viewportInteractionActive` is true on inactive sections that already participate in the motion-hidden body lane
+    - the same wrapper now exposes `data-canvas-owned-motion-menu-trigger-hidden="true"` so focused motion probes can measure the suspension directly
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 156`
+      - `totalTrackedChromeElementCount: 202`
+      - the canonical sections each exposed `menuTriggerCount: 1` with `motionMenuTriggerHidden: false`
+    - during the peak motion-hidden snapshot:
+      - `hiddenBodyCount: 45`
+      - `hiddenHeaderControlsCount: 45`
+      - `hiddenMenuTriggerCount: 45`
+      - `graphSurfaceMenuTriggerCount: 1`
+      - `graphSurfaceRoleSwitchCount: 0`
+      - `totalTrackedChromeElementCount: 1`
+      - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` all flipped to `motionMenuTriggerHidden: true`, `motionBodyHidden: true`, and `motionHeaderControlsHidden: true` with `menuTriggerCount: 0`
+    - after the interaction settled:
+      - `hiddenMenuTriggerCount: 0`
+      - `graphSurfaceMenuTriggerCount: 46`
+      - the canonical sections restored `motionMenuTriggerHidden: false` with `menuTriggerCount: 1`
+  - dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5579`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 89.91`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 13181`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this closes the last bounded motion-chrome harvest on the current `browserSectionDefault` lane: the repeated per-section lightweight menu-trigger family now disappears during motion alongside the hidden body and trailing-header controls
+    - the focused motion inventory collapsed peak tracked chrome from `46` repeated menu triggers to `1` residual non-motion-hidden survivor, but the dense motion probe stayed effectively flat-to-worse (`raf.meanMs 89.07 -> 89.91`, `longTasks.totalMs 12911 -> 13181`)
+    - treat that as a stop signal for this lane, not a reason to keep harvesting more header chrome or another one-off motion wrapper
+    - the next real frontier should pivot to a broader inactive-row/body overlay or stronger renderer-side structural reduction that can still plausibly move dense `All Settings` motion
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+      - result: `1 passed (4.13s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Header/MenuButton/MenuButton.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.4m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `All Settings` was active on `http://127.0.0.1:3068/settings`
+    - `fit view` was applied and exactly one retained graph canvas stayed mounted before and after one `zoom in`
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` remained visually intact with no obvious blank or detached artifact
+- The motion live chrome inventory probe is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-live-chrome-inventory-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/SectionParts/Incrementer.tsx` now exposes `data-section-incrementer-root="true"` so motion-time graph-surface chrome can be measured without brittle structure guessing
+    - focused proof now exists in:
+      - `frontend/src/components/Section/SectionParts/Incrementer.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `mountedSectionCount: 46`
+      - `totalMotionBodyRootCount: 45`
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 156`
+      - `graphSurfaceButtonCount: 0`
+      - `graphSurfaceInputCount: 0`
+      - `graphSurfaceIncrementerRootCount: 0`
+      - `graphSurfaceIncrementerButtonCount: 0`
+      - `totalTrackedChromeElementCount: 202`
+      - the canonical sections each exposed one lightweight menu trigger while `browserSectionDefault` and `promptSectionDefault` still carried switch roots at rest
+    - during the peak motion-hidden snapshot:
+      - `hiddenBodyCount: 45`
+      - `hiddenHeaderControlsCount: 45`
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 0`
+      - `graphSurfaceButtonCount: 0`
+      - `graphSurfaceInputCount: 0`
+      - `graphSurfaceIncrementerRootCount: 0`
+      - `graphSurfaceIncrementerButtonCount: 0`
+      - `totalTrackedChromeElementCount: 46`
+      - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` all flipped to `motionBodyHidden: true` and `motionHeaderControlsHidden: true` while keeping exactly one menu trigger each
+    - after the interaction settled:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 156`
+  - dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 89.07`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 12911`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this closes the current blocker on the motion-header lane: the remaining repeated motion survivor is the lightweight header menu trigger family, not root incrementers, buttons, inputs, or live switch bodies
+    - if the lane continues, the next bounded product slice should target header-leading menu-trigger suspension or canvas ownership on the same canonical `browserSectionDefault` boundary
+    - if removing those `46` menu-trigger roots still does not materially move the dense motion probe, stop extending motion chrome and escalate to a broader renderer/perf replan instead of another small chrome harvest
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/Incrementer.tsx src/components/Section/SectionParts/Incrementer.test.tsx tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.2m)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/SectionParts/Incrementer.test.tsx`
+      - result: blocked by an unrelated runner startup failure before collection (`html-encoding-sniffer` -> `ERR_REQUIRE_ESM`)
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `All Settings` was active, the graph surface was mounted, and `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were visually present and intact
+    - no obvious blank or detached artifact appeared after one `zoom in` interaction
+- The motion-header title canvas slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-header-title-canvas-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx` now marks header titles as canvas-owned resting text on the same motion-hidden settings boundary used by the existing body lane
+    - `frontend/src/components/Section/Header/SectionTitle.tsx` now supports canvas-owned fixed/non-editing titles so the retained canvas owns visible title text while inline title editing stays DOM-visible
+    - `frontend/src/components/Utils/Editable.tsx` now forwards non-editing attributes so the actual DOM title root can be measured by the retained canvas
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - the canonical sections exposed `data-canvas-owned-motion-body-root="true"`, `data-canvas-owned-motion-header-controls-root="true"`, and `data-canvas-owned-header-title="true"`
+      - all three title roots reported `opacity: 0`
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three section bodies flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - all three trailing header wrappers flipped to `data-canvas-owned-motion-header-controls-hidden="true"`
+      - all three title roots stayed present with `opacity: 0`
+      - both global hidden counts rose to `45`
+    - after the interaction settled:
+      - both hidden counts returned to `0`
+      - all three title roots remained present with `opacity: 0`
+      - the canonical sections restored normal body and header-control state
+  - dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 86.83`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 12670`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a real retained-canvas header-title ownership change on the existing canonical motion-hidden lane, not another wrapper-only forwarding hop
+    - the whole-scene DOM counts stayed flat, so the value of this slice is header paint ownership and visual continuity rather than another node-count drop
+    - the dense rerun improved meaningfully on the same runtime family, but keep it as smoke-level evidence rather than a new clean benchmark floor
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target the remaining motion-time header leading chrome and root incrementer only if that still plausibly moves the dense runtime, otherwise stop extending this lane and escalate to the broader inactive-row overlay decision
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/Editable.tsx src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionTitle.tsx src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - normalized to `http://127.0.0.1:3070/settings` with `All Settings` active, `fit view`, and one `zoom in`
+    - exactly one retained graph canvas was mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+    - no obvious blank or detached title/header artifact appeared around the canonical targets
+- The motion-header-controls suspension slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-header-controls-suspension-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx` now marks trailing header chrome as a motion-header-controls root and switches inactive motion-hidden sections to `invisible pointer-events-none` while `viewportInteractionActive` is true on the `canvas-shell-underlay` path
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - the canonical sections exposed both `data-canvas-owned-motion-body-root="true"` and `data-canvas-owned-motion-header-controls-root="true"` wrappers
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three section bodies flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - all three trailing header wrappers flipped to `data-canvas-owned-motion-header-controls-hidden="true"`
+      - both global hidden counts rose to `45`
+    - after the interaction settled:
+      - both hidden counts returned to `0`
+      - the canonical sections restored normal body and header-control state
+  - recovered-runtime dense rerun recorded:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 124.5`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 18329`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded stronger motion-chrome reduction on the existing canonical lane, not another section-family ownership hop
+    - the focused probe proves the new header-control suppression is active for the same resting-text sections already riding the motion-hidden body lane
+    - the dense rerun only happened after a lifecycle recovery and reopened extra non-target workspace chrome, so treat those whole-scene numbers as smoke-level recovered-runtime evidence rather than a clean new benchmark delta
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should normalize the dense runtime again and then target the remaining hidden-section subtree/chrome work instead of reopening another wrapper-only or family-expansion pass
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx src/components/Section/Header/SectionHeader.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-001/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3069/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.9m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after the runtime recovery
+    - normalized to `/settings` with `All Settings` active and used `fit view` plus one `zoom in`
+    - retained graph canvas count looked correct
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` stayed visually intact with no obvious blank or detached artifact
+- The motion-body subtree-suspension slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-body-subtree-suspension-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now keeps the motion-hidden wrapper root but stops rendering `AreaSwitch` while `viewportInteractionActive` is true and the section is not the active UI section
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three resting-text sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - each wrapper computed `display: block`
+      - each wrapper had `childElementCount: 2`
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `display` switched to `none`
+      - each wrapper dropped to `childElementCount: 0`
+      - the global hidden-body count rose to `45`
+    - after the interaction settled:
+      - all three wrappers returned to `display: block`
+      - each wrapper restored `childElementCount: 2`
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 116.52`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 15372`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior motion-body display-none checkpoint:
+    - `documentNodeCount: 5515 -> 5515`
+    - `buttonCount: 47 -> 47`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45 -> 45`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45 -> 45`
+    - `raf.meanMs: 114.28 -> 116.52`
+    - `raf.p95Ms: 133.4 -> 116.7`
+    - `longTasks.totalMs: 15303 -> 15372`
+  - interpretation:
+    - this closes the pure wrapper-only follow-up on the canonical `browserSectionDefault` lane by actually removing hidden descendants from the DOM during motion
+    - the dense-scene result is still mixed: p95 tightened materially, but mean frame time regressed slightly and long-task totals remained effectively flat-to-worse
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target whatever hidden-section subtree work still dominates motion after subtree suspension, not another section-ID expansion or another wrapper-only hop
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `All Settings` was already active; the sub-agent used `fit view`, `reset zoom`, one pane full-width toggle, and one `zoom in` click to normalize the viewport
+    - exactly one visible retained graph canvas was mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+    - no obvious blank or detached artifact appeared around the canonical targets after the interaction
+- The motion-body display-none slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-body-display-none-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now switches motion-hidden section bodies from `visibility: hidden` to `display: none`
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now freezes retained-canvas measurement observers while `viewportInteractionActive` is true so the canvas keeps the last pre-motion scene while hidden DOM subtrees are removed from layout
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three resting-text sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - each wrapper computed `display: block`
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `display` switched to `none`
+      - the global hidden-body count rose to `45`
+    - after the interaction settled:
+      - all three wrappers returned to `display: block`
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 114.28`
+    - `raf.p95Ms: 133.4`
+    - `longTasks.totalMs: 15303`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior shared resting-text motion-body checkpoint:
+    - `documentNodeCount: 5515 -> 5515`
+    - `buttonCount: 47 -> 47`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45 -> 45`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45 -> 45`
+    - `raf.meanMs: 121.7 -> 114.28`
+    - `raf.p95Ms: 150.0 -> 133.4`
+    - `longTasks.totalMs: 14818 -> 15303`
+  - interpretation:
+    - this closes the explicit "go beyond `visibility: hidden`" frontier on the canonical `browserSectionDefault` lane without reopening family broadening
+    - the stronger wrapper suppression improves the checked frame-time distribution, but the dense-scene long-task blocker is still effectively open
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target whatever hidden-section subtree work still dominates motion after `display: none`, not another section-ID expansion or wrapper-only hop
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-009/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.0m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent at `1600x1200`
+    - had to recover from an offscreen graph state by using `fit view`, one `zoom in`, and then shifting the React Flow viewport left so the canonical target sections were actually visible in the rendered viewport
+    - exactly one retained graph canvas remained mounted before and after the interaction
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were on-screen and visually intact at rest
+    - no obvious blank or detached artifact appeared around the canonical targets after the interaction
+- The shared resting-text motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-resting-text-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now widens `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` to the full `CANVAS_OWNED_RESTING_TEXT_SECTION_IDS` boundary instead of a hand-maintained shell/dropdown/param-codeobj subset
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three resting-text sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `visibility` switched to `hidden`
+      - the global hidden-body count rose to `45`
+    - after the interaction settled:
+      - all three wrappers returned to visible
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 121.7`
+    - `raf.p95Ms: 150.0`
+    - `longTasks.totalMs: 14818`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior shared-shell motion-body checkpoint:
+    - `documentNodeCount: 5515 -> 5515`
+    - `buttonCount: 47 -> 47`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 17 -> 45`
+    - `motionHiddenBodies.peakHiddenBodyCount: 17 -> 45`
+    - `raf.meanMs: 124.22 -> 121.7`
+    - `raf.p95Ms: 166.7 -> 150.0`
+    - `longTasks.totalMs: 15383 -> 14818`
+  - interpretation:
+    - this is the first stronger shared motion-state primitive after the small family broadening passes, and it finally moves the checked motion lane with a broad boundary instead of another named-family add
+    - the branch is still far above the final dense-scene motion bar, so do not reopen another low-count motion-body family lane from here
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should strengthen the suppression mode beyond `visibility: hidden` or remove more per-section row-body paint while this broader boundary is active
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (56.6s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - exactly one retained graph canvas was mounted before and after a simple `zoom in` followed by `fit view`
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were visually intact at rest
+    - no obvious blank or detached artifact appeared around the resting-text targets after the interaction
+- The shared shell motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-shell-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__callableSectionDefault`
+  - sibling proof sections:
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now widens `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` to include the shared shell boundary in addition to `sectionSizingPolicy`, the shared settings dropdown family, and the shared param-codeobj family
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-shell-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three shell sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `visibility` switched to `hidden`
+      - the global hidden-body count rose to `17`
+    - after the interaction settled:
+      - all three wrappers returned to visible
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 124.22`
+    - `raf.p95Ms: 166.7`
+    - `longTasks.totalMs: 15383`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 17`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 17`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior shared-dropdown motion-body checkpoint:
+    - `documentNodeCount: 5520 -> 5515`
+    - `buttonCount: 48 -> 47`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 14 -> 17`
+    - `motionHiddenBodies.peakHiddenBodyCount: 14 -> 17`
+    - `raf.meanMs: 133.61 -> 124.22`
+    - `raf.p95Ms: 216.6 -> 166.7`
+    - `longTasks.totalMs: 15853 -> 15383`
+  - interpretation:
+    - this is a higher-cost family add on the real motion blocker rather than another low-payoff section-local overlay hop
+    - the shell family clearly widens the real `viewportInteractionActive` suppression lane and improves the immediate dropdown-family rerun, but the branch still misses the dense-scene motion bar by a wide margin
+    - treat this as the last bounded family broadening before a stronger motion-state body/paint reduction primitive; do not spend the next pass on another low-count overlay add
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-shell-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-shell-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.0m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - exactly one retained graph canvas was mounted before and after a simple `zoom in` followed by `fit view`
+    - `settings-section__callableSectionDefault`, `settings-section__dictSectionDefault`, and `settings-section__globalVariablesSectionDefault` were visually intact at rest
+    - no obvious blank or detached artifact appeared around the shell targets after the interaction
+- The shared settings dropdown motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-dropdown-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__backend`
+  - sibling proof sections:
+    - `settings-section__gui`
+    - `settings-section__stateMachineGateSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS` and widens `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` to cover the shared dropdown family in addition to `sectionSizingPolicy` and the shared param-codeobj family
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-dropdown-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `visibility` switched to `hidden`
+      - the global hidden-body count rose to `14`
+    - after the interaction settled:
+      - all three wrappers returned to visible
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5520`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 48`
+    - `raf.meanMs: 133.61`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 15853`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 14`
+    - `motionHiddenBodies.framesWithHiddenBodies: 117 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 14`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior motion-body overlay checkpoint:
+    - `motionHiddenBodies.totalMotionBodyRootCount: 11 -> 14`
+    - `motionHiddenBodies.peakHiddenBodyCount: 11 -> 14`
+    - `raf.meanMs: 126.89 -> 133.61`
+    - `raf.p95Ms: 150.0 -> 216.6`
+    - `longTasks.totalMs: 15394 -> 15853`
+  - interpretation:
+    - this is the first shared-family motion-body overlay expansion after the sectionSizingPolicy outlier add, so it satisfies the sequencing requirement to land product code on the active motion blocker instead of another section-local hop or another harness-only pass
+    - the overlay definitely widens the real `viewportInteractionActive` suppression lane, but it still does not materially improve dense motion on the same noisy runtime
+    - the next real frontier should target a higher-cost family or a stronger row-body/chrome reduction primitive on this same motion lane, not another low-payoff family add by inertia
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-dropdown-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-006/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-dropdown-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (55.4s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - the provided bootstrap URL was rejected, so the sub-agent verified against the live `http://127.0.0.1:3068/settings` surface directly instead; treat that rejected bootstrap as tooling noise, not product evidence
+    - `/settings` loaded with `All Settings` active
+    - exactly one retained graph canvas was mounted
+    - `settings-section__backend`, `settings-section__gui`, and `settings-section__stateMachineGateSectionDefault` were present and visually intact at rest
+    - a simple `zoom in` followed by `fit view` left the graph intact with no obvious blank or detached artifact around the target sections
+- The `settings-section__sectionSizingPolicy` motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-sizing-policy-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now widens `isCanvasOwnedSectionMotionHiddenBody(...)` from the shared param-codeobj family to a named `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` boundary that also includes `settings-section__sectionSizingPolicy`
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `settings-section__sectionSizingPolicy` exposed one `data-canvas-owned-motion-body-root="true"` wrapper
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - the section wrapper flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `visibility` switched to `hidden`
+      - the global hidden-body count rose above `0`
+    - after the interaction settled:
+      - the section wrapper returned to visible
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 126.89`
+    - `raf.p95Ms: 150.0`
+    - `longTasks.totalMs: 15394`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 11`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 11`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior motion-aware dense checkpoint:
+    - `motionHiddenBodies.totalMotionBodyRootCount: 10 -> 11`
+    - `motionHiddenBodies.peakHiddenBodyCount: 10 -> 11`
+    - `raf.meanMs: 124.92 -> 126.89`
+    - `raf.p95Ms: 150.1 -> 150.0`
+    - `longTasks.totalMs: 15188 -> 15394`
+  - interpretation:
+    - this is the first motion-body overlay expansion beyond the shared param-codeobj family, and it confirms `sectionSizingPolicy` now participates in the real `viewportInteractionActive` suppression lane
+    - the slice is visually clean and the active-section exemption remains intact, but it did not materially improve dense motion on the same noisy runtime
+    - per the sequencing checkpoint, do not spend the next default pass on another harness-only iteration or another `sectionSizingPolicy`-local cleanup follow-up
+    - the next real frontier must escalate to a broader trustworthy motion-state body/row-chrome reduction on the same lane rather than another single-outlier expansion by inertia
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `3 passed (1.3m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly with `All Settings` active
+    - exactly one retained graph canvas was mounted
+    - `settings-section__sectionSizingPolicy-CustomResizable` was present and visible after scrolling into view
+    - a simple `zoom in` followed by `fit view` left the graph intact with no obvious blank or detached artifact around `sectionSizingPolicy`
+- The dense `settings` -> `All Settings` motion-aware probe is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-motion-aware-dense-probe.md`.
+  - focused probe: `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+  - implementation shape:
+    - the new companion Playwright probe normalizes `/settings` to `All Settings`, uses one blank `.react-flow__pane` point, and drives repeated real `wheel` events on `.react-flow__renderer` instead of mutating `.react-flow__viewport.style.transform`
+    - the probe preserves the existing dense metrics surface (`documentNodeCount`, `inputCount`, `buttonCount`, RAF deltas, long-task totals) and now also records motion-body counts from `[data-canvas-owned-motion-body-hidden="true"]`
+  - focused runtime proof on the live worktree surface:
+    - blank pane point: `x=24`, `y=60`
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 124.92`
+    - `raf.p95Ms: 150.1`
+    - `longTasks.totalMs: 15188`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 10`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 10`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - the measurement blocker from the prior motion-body overlay slice is now removed; the dense probe finally exercises the real `viewportInteractionActive` path instead of only the transform-only surrogate
+    - the current shared param-codeobj motion-body overlay is confirmed active throughout the checked motion loop, so future overlay-family product slices can now be measured on the path they actually target
+    - this was intentionally a support slice, not another product cleanup lane; the next default frontier should return to product code on a broader inactive-row body-overlay decision for the whole `All Settings` surface
+    - treat these numbers as the motion-aware companion series, not as a silent replacement for the older scripted-transform baseline
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (45.0s)`
+  - CDP visual check: not run (`probe-only measurement harness change; no runtime UI change`)
+- The shared param-codeobj motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-param-codeobj-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__rotaryParamCodeObjDefault`
+  - sibling proof section: `settings-section__sliderParamCodeObjDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionMotionHiddenBody(...)` for the shared param-codeobj canvas-owned family
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now wraps eligible section bodies with `data-canvas-owned-motion-body-root="true"` and flips them to `visibility: hidden` with `data-canvas-owned-motion-body-hidden="true"` while `viewportInteractionActive` is true and the section is not the current active section
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-param-codeobj-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `hiddenBodyCount: 0`
+      - rotary and slider motion-body roots were visible
+    - during one renderer wheel-zoom interaction:
+      - `hiddenBodyCount: 10`
+      - rotary and slider motion-body roots reported `data-canvas-owned-motion-body-hidden="true"`
+      - both target wrappers computed `visibility: hidden`
+    - after the interaction settled:
+      - `hiddenBodyCount: 0`
+      - rotary and slider motion-body roots returned to `visibility: visible`
+  - interpretation:
+    - this is the first landed motion-time inactive-row overlay primitive on the shared param-codeobj family, not another at-rest resting-text/value cleanup pass
+    - the current transform-only dense baseline probe does not drive `viewportInteractionActive`, so it cannot measure this new primitive yet
+    - the next bounded frontier should be one motion-aware dense probe adaptation or companion probe that drives real viewport interaction on `settings` -> `All Settings`, then rerun the dense measurement against the branch baseline before widening the overlay family again
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-param-codeobj-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-param-codeobj-motion-body-overlay.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (22.8s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one retained graph canvas was mounted
+  - `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault` were present and visually intact at rest
+  - a simple `zoom in` followed by `fit view` left the graph intact with no obvious blank or detached artifact around the target sections
+- The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The remaining-value surface ranking probe is now normalized for the closed value-surface lane.
+  - focused probe: `frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+  - implementation shape:
+    - the probe now treats `totalRemainingValueRowCount: 0` and `totalRemainingValueElementCount: 0` as the success state instead of failing once the shared lightweight value lanes are fully cleared
+    - the attached ranking payload now also records aggregate lightweight ownership totals so the probe still reports useful whole-scene inventory after the remaining-value lane closes
+  - focused runtime proof on the live worktree surface:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalLightweightColorInputRowCount: 6`
+    - `totalLightweightDropdownRowCount: 52`
+    - `totalLightweightRestingTextRowCount: 556`
+    - `totalLightweightSwitchRowCount: 158`
+    - `totalLightweightValueRowCount: 772`
+    - `totalRemainingValueRowCount: 0`
+    - `totalRemainingValueElementCount: 0`
+  - interpretation:
+    - the shared switch/dropdown/color/resting-text value-surface lane is now closed on the current `settings` -> `All Settings` surface, so the stale ranking should stop driving another value-shell slice by default
+    - the next real frontier remains the broader dense motion blocker: article/body structure or a stronger inactive-row overlay primitive, not another value-surface cleanup pass
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+    - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (23.5s)`
+  - CDP visual check: not run (`probe-only normalization; no runtime UI change`)
+- The nested-param resting-text slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-nested-param-resting-text-rerun.md`.
+  - canonical target section: `settings-section__nestedParamCodeObjDefault`
+  - canonical editor handoff row: `settings-codeobj__nestedParamCodeObjDefault__nestedParamCodeObjDefault__typeAnnotation`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__nestedParamCodeObjDefault` in the shared param-codeobj canvas-owned resting-text boundary, which also enables the existing lightweight switch value-shell/track ownership on that section
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints the nested-param section on the retained backdrop canvas
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-nested-param-resting-text.spec.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts` now treats zero remaining row-body rows as the success state
+  - focused runtime proof on the live worktree surface:
+    - the `Core Name Type` and `Type Annotation` inputs now report:
+      - `data-canvas-owned-resting-text-lightweight="true"`
+      - `opacity: "0"` at rest
+      - zero retained `.cm-line span` highlight descendants at rest
+    - the `Core Name Editable` row now reports:
+      - exactly one retained `.section-value` root
+      - `data-canvas-owned-switch-track="true"` on the lightweight switch root
+    - the canonical `Type Annotation` row still focused inline on the first interaction
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 0`
+    - `totalRemainingVisibleElementCount: 0`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 0`
+    - `totalRemainingVisibleValueElementCount: 0`
+    - `commonRemainingKinds: []`
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 3 -> 0`
+    - `totalRemainingVisibleElementCount: 9 -> 0`
+    - `totalRemainingVisibleLabelElementCount: 3 -> 0`
+    - `totalRemainingVisibleValueElementCount: 6 -> 0`
+    - `settings-section__nestedParamCodeObjDefault.remainingRowCount: 3 -> 0`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5578`
+    - `inputCount: 2`
+    - `buttonCount: 40`
+    - `raf.meanMs: 70.29`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10740`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5583 -> 5578`
+    - `inputCount: 2 -> 2`
+    - `buttonCount: 40 -> 40`
+    - `raf.meanMs: 70.11 -> 70.29`
+    - `raf.p95Ms: 116.7 -> 116.7`
+    - `longTasks.totalMs: 10834 -> 10740`
+  - interpretation:
+    - this closes the `nestedParamCodeObjDefault` row-body/value seam as product code instead of leaving one survivor lane open
+    - the `ParamContainer` row-body rerank is now fully cleared on the current `All Settings` surface, so another row-body cleanup pass would be churn
+    - dense motion is still far from the branch goal, so the next default frontier must pivot to the next broader motion blocker rather than more `ParamContainer` cleanup
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly with `All Settings` active
+    - exactly one retained graph canvas was mounted
+    - `settings-section__nestedParamCodeObjDefault` was visible and intact
+    - no obvious blank or detached artifact was visible around the `Core Name Editable` / `Core Name Type` / `Type Annotation` rows
+- The shell `Size` row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shell-size-row-body-flattening-rerun.md`.
+  - canonical target section: `settings-section__callableSectionDefault`
+  - sibling proof sections:
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+  - canonical editor handoff row: `settings-codeobj__callableSectionDefault__callableSectionDefault__size__height`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes an explicit param-specific lightweight nested row-body helper for only the callable/dict/GlobalVariables `__size` parent rows
+    - `frontend/src/components/Params/ParamContainer.tsx` now resolves the lightweight nested/body path from that helper, so the broader shell canaries stay on the existing section-wide boundary while those three `Size` rows alone use the lightweight nested-children/body lane
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-shell-size-row-body.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the callable, dict, and GlobalVariables `Size` parent rows now report:
+      - `data-canvas-owned-lightweight-row-body="true"`
+      - `data-canvas-owned-nested-guide-lightweight="true"`
+      - computed `display: contents`
+      - zero retained nested `div.section-args-nested.section-key-value` wrappers
+    - each `Height` and `Width` child row in those sections now reports:
+      - `data-canvas-owned-lightweight-row-body="true"`
+      - computed `display: contents`
+    - the canonical callable `Height` row still focused inline on the first interaction
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 3`
+    - `totalRemainingVisibleElementCount: 9`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the remaining row-body surface is now concentrated entirely in:
+      - `settings-section__nestedParamCodeObjDefault`
+    - strongest common remaining kinds are now:
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+      - `div.section-value.peer/textinput` (`1`)
+      - `div.cm-line` (`1`)
+      - `span.section-value.peer/textinput` (`1`)
+      - `div.section-value` (`1`)
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 6 -> 3`
+    - `totalRemainingVisibleElementCount: 18 -> 9`
+    - `totalRemainingVisibleChromeElementCount: 9 -> 0`
+    - the old shared shell wrapper kinds dropped out entirely:
+      - `div.section-args-nested.section-key-value` (`3 -> 0`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3 -> 0` for the shell size family)
+    - `settings-section__callableSectionDefault.remainingRowCount: 1 -> 0`
+    - `settings-section__dictSectionDefault.remainingRowCount: 1 -> 0`
+    - `settings-section__globalVariablesSectionDefault.remainingRowCount: 1 -> 0`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5583`
+    - `inputCount: 2`
+    - `buttonCount: 40`
+    - `raf.meanMs: 70.11`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10834`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5653 -> 5583`
+    - `inputCount: 4 -> 2`
+    - `buttonCount: 52 -> 40`
+    - `raf.meanMs: 70.95 -> 70.11`
+    - `raf.p95Ms: 116.7 -> 116.7`
+    - `longTasks.totalMs: 10979 -> 10834`
+  - interpretation:
+    - this closes the shared callable/dict/GlobalVariables shell `Size` wrapper lane as product code rather than reopening those canaries broadly
+    - the repeated row-body primitive is now gone from the whole-scene rerank; the remaining row-body debt is concentrated in the smaller `nestedParamCodeObjDefault` lane
+    - the next default frontier should pivot to `settings-section__nestedParamCodeObjDefault` or the next earlier visual-gate blocker, not reopen the closed shell wrapper family
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly through a fresh bootstrap URL with `All Settings` active
+    - selector counts on the live page were:
+      - `.react-flow__section-shell-backdrop`: `1`
+      - `.react-flow__section-shell-backdrop canvas`: `1`
+      - `canvas`: `1`
+    - no visible crash/error overlay was present
+    - `settings-section__callableSectionDefault`, `settings-section__dictSectionDefault`, and `settings-section__globalVariablesSectionDefault` looked intact after the row-body flattening
+    - no obvious blank or detached artifact was visible around the `Size` / `Height` / `Width` rows
+- The lightweight nested group row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-group-row-body-flattening-rerun.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+  - implementation shape:
+    - `frontend/src/components/Params/ParamSwitch.tsx` now reuses a shared neutral lightweight row-body predicate for both nested leaf rows and nested group rows with children
+    - `frontend/src/components/Params/ParamContainer.tsx` now renders neutral lightweight nested group rows as `display: contents` on the shared lightweight nested-children lane for both nested-root and nested-child layouts
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the existing `sectionSizingPolicy` resting-text probe still focused the canonical `Max Height` row inline on the first interaction
+    - the `byType` and `metaControlByType` parent rows now report:
+      - `data-canvas-owned-lightweight-row-body="true"`
+      - computed `display: contents`
+      - zero retained row-box size
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 6`
+    - `totalRemainingVisibleElementCount: 18`
+    - `totalRemainingVisibleChromeElementCount: 9`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - strongest common remaining kinds are now:
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3`)
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 10 -> 6`
+    - `totalRemainingVisibleElementCount: 61 -> 18`
+    - `totalRemainingVisibleChromeElementCount: 52 -> 9`
+    - `settings-section__sectionSizingPolicy.remainingRowCount: 2 -> 0`
+    - `settings-section__sectionSizingPolicy.remainingVisibleElementCount: 40 -> 0`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5653`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 70.95`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10979`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5653 -> 5653`
+    - `buttonCount: 52 -> 52`
+    - `raf.meanMs: 69.46 -> 70.95`
+    - `raf.p95Ms: 116.7 -> 116.7`
+    - `longTasks.totalMs: 10364 -> 10979`
+  - interpretation:
+    - this closes the `sectionSizingPolicy` / `languageServer` lightweight nested-group wrapper lane as product code rather than another probe-only pass
+    - the dense rerun did not beat the prior checkpoint on this noisy runtime, so treat this slice as confirmed global row-body reduction plus a dense checkpoint rather than a new best motion result
+    - the next default frontier should stay on the remaining shared row-body primitives: the `Size` wrappers in `callable` / `dict` / `GlobalVariables`, or a stronger inactive-row overlay decision if that shared wrapper family does not materially move motion
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly through a fresh bootstrap URL with `All Settings` active
+    - exactly one retained canvas was mounted
+    - `settings-section__sectionSizingPolicy` was visible and intact
+    - no obvious blank or detached artifact was visible around the `byType` / `metaControlByType` area after the flattening
+- The lightweight nested leaf row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-leaf-row-body-flattening-rerun.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+  - implementation shape:
+    - `frontend/src/components/Params/GetParamSwitch.tsx` now threads a lightweight nested leaf-row flag only inside the shared lightweight nested-children path
+    - `frontend/src/components/Params/ParamSwitch.tsx` now flattens only neutral leaf rows on that path, keeping the full row box whenever nested children, kwarg editing, drag-enabled structure editing, selection, search highlighting, or error chrome still need it
+    - `frontend/src/components/Params/ParamContainer.tsx` now marks those neutral rows with `data-canvas-owned-lightweight-row-body="true"` and renders the wrapper as `display: contents`, so the existing lightweight children stay interactive without paying another nested `article` box on the moving surface
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - focused runtime proof on the live worktree surface:
+    - the existing `sectionSizingPolicy` resting-text probe still focused the canonical `Max Height` row inline on the first interaction
+    - `settings-section__sectionSizingPolicy` now reports only `2` remaining rows with moving chrome:
+      - `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType` with `25` remaining chrome elements
+      - `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType` with `15` remaining chrome elements
+    - the repeated nested leaf `article.section-key-value.group/arg-group.section-min-rows` kind dropped from `74` occurrences to `3`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 10`
+    - `totalRemainingVisibleElementCount: 61`
+    - `totalRemainingVisibleChromeElementCount: 52`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - strongest common remaining kinds are now:
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3`)
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 77 -> 10`
+    - `totalRemainingVisibleElementCount: 457 -> 61`
+    - `totalRemainingVisibleChromeElementCount: 448 -> 52`
+    - `settings-section__sectionSizingPolicy.remainingRowCount: 43 -> 2`
+    - `settings-section__sectionSizingPolicy.remainingVisibleElementCount: 370 -> 40`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5653`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 69.46`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10364`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5658 -> 5653`
+    - `buttonCount: 53 -> 52`
+    - `raf.meanMs: 75.6 -> 69.46`
+    - `raf.p95Ms: 133.3 -> 116.7`
+    - `longTasks.totalMs: 11495 -> 10364`
+  - interpretation:
+    - this is the first article/body-structure slice after the resize-handle closure that materially improves both the row-body rerank and the dense motion probe on the same runtime family
+    - the remaining row-body blocker is now the parent nested-group wrapper itself, especially `sectionSizingPolicy.byType`, `sectionSizingPolicy.metaControlByType`, and the smaller shared nested `Size` wrappers in callable/dict/GlobalVariables
+    - the next default frontier should stay on that remaining parent group-body primitive rather than reopening closed text/value lanes
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__sectionSizingPolicy` was visible and intact
+    - the canonical `Max Height` row still looked attached/intact after the nested leaf-row flattening
+    - no obvious blank or detached artifact appeared around the `byType` / `metaControlByType` areas
+- The lightweight resize-handle rest-opacity slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-resize-handle-rest-opacity-rerun.md`.
+  - canonical target section: `settings-section__chatSectionDefault`
+  - sibling proof sections:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Params/ResizeHandle.tsx` now keeps the shared lightweight settings resize-handle root at `opacity: 0` at rest and only reveals it on row hover / direct hover / active press
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ResizeHandle.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightResizeHandleCount: 681`
+    - `settingsLegacyResizeHandleCount: 0`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `lightweightResizeHandleCount 21`, `sampleHandleOpacity "0"`
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `sampleHandleOpacity "0"`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `sampleHandleOpacity "0"`
+    - hovering one chat-section param row still flipped the sampled lightweight handle opacity to `"1"`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 77`
+    - `totalRemainingVisibleElementCount: 457`
+    - `totalRemainingVisibleChromeElementCount: 448`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the prior repeated `div.section-center...` kind dropped out of the common ranking entirely; the new strongest kinds are:
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+  - compared against the prior shared resting param-label checkpoint:
+    - `totalRemainingRowCount: 755 -> 77`
+    - `totalRemainingVisibleElementCount: 1540 -> 457`
+    - `totalRemainingVisibleChromeElementCount: 1531 -> 448`
+    - `totalRemainingVisibleLabelElementCount: 3 -> 3`
+    - `totalRemainingVisibleValueElementCount: 6 -> 6`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 75.6`
+    - `raf.p95Ms: 133.3`
+    - `longTasks.totalMs: 11495`
+  - compared against the prior shared resting param-label checkpoint:
+    - `documentNodeCount: 5658 -> 5658`
+    - `raf.meanMs: 74.58 -> 75.6`
+    - `raf.p95Ms: 150 -> 133.3`
+    - `longTasks.totalMs: 11230 -> 11495`
+  - interpretation:
+    - this closes the remaining shared lightweight `section-center` root lane as product code rather than reopening another support probe
+    - the rerank moved sharply even though DOM node count stayed flat, so the remaining hotspot is now article/body structure rather than handle chrome
+    - the next default frontier should target a stronger article/body primitive centered on `settings-section__sectionSizingPolicy` instead of revisiting resize handles
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__chatSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__browserSectionDefault` looked intact after the opacity change
+    - hovering one chat row showed no obvious blank or detached artifact when the handle became visible
+- The shared resting param-label ownership slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-resting-param-label-ownership-rerun.md`.
+  - canonical target section: `settings-section__stateMachineStartSectionDefault`
+  - sibling proof sections:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__taskBoardSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `isCanvasOwnedSectionParamLabelRestingText(...)` from the shared current resting-text settings boundary instead of the old smaller allowlist
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - canonical `Label` row in `settings-section__stateMachineStartSectionDefault` now reports:
+      - `canvasOwnedRestingTextFlag: "true"`
+      - `lightweightOwnershipFlag: "true"`
+      - `opacity: "0"`
+      - `distinctPixelCount: 5160`
+    - clicking that hidden label root still surfaced the inline CodeMirror editor in place on first interaction
+    - shared untouched-section proof now reports:
+      - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `labelCount 14`, `canvasOwnedRestingTextCount 14`, `legacyLeadingContentWrapperCount 0`
+      - `settings-section__taskBoardSectionDefault`: `rowCount 12`, `labelCount 11`, `canvasOwnedRestingTextCount 11`, `legacyLeadingContentWrapperCount 0`
+      - `settings-section__stateMachineStartSectionDefault`: `rowCount 12`, `labelCount 11`, `canvasOwnedRestingTextCount 11`, `legacyLeadingContentWrapperCount 0`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 1540`
+    - `totalRemainingVisibleChromeElementCount: 1531`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the strongest common remaining kinds are now almost entirely row chrome / article structure:
+      - `div.section-center.group-hover/arg-group:before...after...` (`755`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `p.section-key` (`3`)
+  - compared against the prior row-body checkpoint after the resize-handle generalization:
+    - `totalRemainingVisibleElementCount: 1764 -> 1540`
+    - `totalRemainingVisibleChromeElementCount: 1543 -> 1531`
+    - `totalRemainingVisibleLabelElementCount: 215 -> 3`
+    - `p.section-key` common-kind count: `203 -> 3`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 74.58`
+    - `raf.p95Ms: 150`
+    - `longTasks.totalMs: 11230`
+  - interpretation:
+    - this is a real shared row-body paint reduction rather than another section-local survivor harvest
+    - the label roots stay mounted for interaction handoff, so document node count stayed flat, but the visible moving label surface collapsed across the shared resting-text settings boundary and mean motion improved on the same runtime family
+    - the remaining frontier is no longer broad param-label text; it is the interactive `section-center` root plus the remaining article/body structure in heavy sections like `settings-section__sectionSizingPolicy`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__stateMachineStartSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__taskBoardSectionDefault` were present and looked intact
+    - no obvious blank or detached label artifact was visible after the shared resting label move
+- The shared lightweight resize-handle generalization is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-lightweight-resize-handle-rerun.md`.
+  - canonical target section: `settings-section__chatSectionDefault`
+  - sibling proof sections:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats every settings section as part of the shared lightweight resize-handle lane instead of keeping the single-node handle scoped only to `sectionSizingPolicy`
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-resize-handle-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightResizeHandleCount: 681`
+    - `settingsLegacyResizeHandleCount: 0`
+    - `sectionsWithLegacyResizeHandles: []`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `lightweightResizeHandleCount 21`, `legacyResizeHandleCount 0`
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `legacyResizeHandleCount 0`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `lightweightResizeHandleCount 14`, `legacyResizeHandleCount 0`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 1764`
+    - `totalRemainingVisibleChromeElementCount: 1543`
+    - `totalRemainingVisibleLabelElementCount: 215`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the old nested resize stack kinds dropped out of the common ranking entirely; the new strongest kinds are:
+      - `div.section-center.group-hover/arg-group:before...after...` (`755`)
+      - `p.section-key` (`203`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`74`)
+      - `p` (`12`)
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5658`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 76.81`
+    - `raf.p95Ms: 133.4`
+    - `longTasks.totalMs: 11807`
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingVisibleElementCount: 2934 -> 1764`
+    - `totalRemainingVisibleChromeElementCount: 2713 -> 1543`
+    - `documentNodeCount: 6679 -> 5658`
+    - `raf.meanMs: 101.3 -> 76.81`
+    - `raf.p95Ms: 183.4 -> 133.4`
+    - `longTasks.totalMs: 16263 -> 11807`
+  - interpretation:
+    - this is a real shared row-chrome primitive rather than another section-local resting-text/value harvest
+    - the old nested `group/resize` handle stack is gone across the mounted settings surface, and the dense baseline improved materially on the same runtime family
+    - keep the shared resize-handle lane closed at its current single-node boundary unless a stronger overlay/canvas move can remove the remaining interactive `section-center` root itself
+    - the next default frontier should target the broader label/article structure or a stronger inactive-row overlay/body primitive rather than another handle-only follow-up by inertia
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `http://127.0.0.1:3068/settings` loaded through the bootstrap flow with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__chatSectionDefault`, `settings-section__spreadsheetSectionDefault`, and `settings-section__browserSectionDefault` were visible and looked intact after the resize-handle rollout
+- The whole-scene row-body surface ranking is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - sibling proof sections:
+    - `settings-section__chatSectionDefault`
+    - `settings-section__spreadsheetSectionDefault`
+  - implementation shape:
+    - new focused probe now exists at `frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts`
+    - the probe intentionally ranks visible `ParamContainer` row/article descendants that still move under `All Settings` pan/zoom after excluding the current lightweight/canvas-owned value primitives
+    - this is support work chosen because the latest value-surface ranking had already fallen to `6` visible value elements across `3` rows while dense motion stayed poor, so the old ranking no longer identified the hotspot
+  - focused runtime proof on the live worktree surface:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 2934`
+    - `totalRemainingVisibleChromeElementCount: 2713`
+    - `totalRemainingVisibleLabelElementCount: 215`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the new top row-body sections are:
+      - `settings-section__sectionSizingPolicy` with `211` rows and `868` remaining visible descendants
+      - `settings-section__shortcuts` with `62` rows and `186` remaining visible descendants
+      - `settings-section__chatSectionDefault` with `24` rows and `71` remaining visible descendants
+      - `settings-section__spreadsheetSectionDefault` with `15` rows and `67` remaining visible descendants
+      - `settings-section__gui` with `22` rows and `66` remaining visible descendants
+    - the strongest common remaining kinds are now broad row chrome rather than value leaves:
+      - `div.section-center.group-hover/arg-group:bg-setta-500/15` (`544`)
+      - `div.group/resize` (`544`)
+      - `div` (`543`)
+      - `div.section-center.group-hover/arg-group:before...after...` (`211`)
+      - `p.section-key` (`203`)
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 101.3`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16263`
+  - interpretation:
+    - the latest value-surface ranking is no longer enough to choose the next product slice
+    - the branch is still paying for broad row chrome / resize / article scaffolding even after the visible value surface is almost gone
+    - do not reopen `settings-section__nestedParamCodeObjDefault` or another tiny value-surface cleanup by inertia
+    - the next default frontier must target a shared row-body / row-chrome primitive or a stronger inactive-row overlay/body primitive, with `settings-section__sectionSizingPolicy` now the clearest canonical outlier
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - the graph surface was mounted with one retained canvas
+    - `settings-section__sectionSizingPolicy`, `settings-section__chatSectionDefault`, and `settings-section__spreadsheetSectionDefault` were visible and looked healthy on the live surface
+- The shared lightweight switch resting-visual slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-switch-resting-visual-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__gui`
+  - additional proof sections:
+    - `settings-section__backend`
+    - `settings-section__callableSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes a shared retained resting-text switch-visual boundary via `isCanvasOwnedSectionLightweightSwitchTrack(...)`, plus a fixed `switchThumbFill` in the retained chrome palette
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now routes switch params on that retained boundary through the canvas-owned switch-track/thumb path instead of limiting retained switch chrome to the old shell canaries
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now marks switch thumbs for retained measurement, keeps the resting switch DOM visuals transparent on the canvas path, and hides the non-flattened backend-style wrapper with `opacity: 0` while preserving the lightweight interaction root
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained switch-thumb boxes alongside the existing switch-track boxes, so the resting switch visual is entirely on the shared canvas for retained settings sections
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightSwitchCount: 156`
+    - `settingsCanvasTrackSwitchCount: 155`
+    - `settingsCanvasThumbCount: 155`
+    - `settings-section__browserSectionDefault` target row `Aspect Ratio` now reports:
+      - `targetCanvasTrack: "true"`
+      - `targetCanvasThumbCount: 1`
+      - `targetRootBackgroundColor: "rgba(0, 0, 0, 0)"`
+      - `targetThumbBackgroundColor: "rgba(0, 0, 0, 0)"`
+      - first-click toggle still changes `aria-checked` and `data-state`
+    - `settings-section__backend` now reports:
+      - `backendCanvasTrack: "true"`
+      - `backendCanvasThumbCount: 1`
+      - `backendSectionLightweightSwitchCount: 9`
+      - `backendValueShellWrapperCount: 1`
+      - `backendValueShellWrapperOpacity: "0"`
+      - `backendThumbBackgroundColor: "rgba(0, 0, 0, 0)"`
+    - `settings-section__callableSectionDefault` still preserves shell-owned switch chrome proof with `callableCanvasTrackSwitchCount: 6`
+    - the only remaining non-canvas-owned lightweight switch on the checked surface is outside the retained resting-text boundary
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 3`
+    - `totalRemainingValueElementCount: 6`
+    - `settings-section__backend` dropped out of the ranking entirely
+    - the only remaining visible value surface is now `settings-section__nestedParamCodeObjDefault` with `6` elements across `3` rows, including the one lightweight switch that stays outside the current retained boundary
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 106.61`
+    - `raf.p95Ms: 249.9`
+    - `longTasks.totalMs: 16865`
+  - compared against the prior color-input rerun:
+    - `totalRemainingValueRowCount: 12 -> 3`
+    - `totalRemainingValueElementCount: 15 -> 6`
+    - `documentNodeCount: 6709 -> 6679`
+    - `raf.meanMs: 94.6 -> 106.61`
+    - `raf.p95Ms: 183.3 -> 249.9`
+    - `longTasks.totalMs: 15114 -> 16865`
+  - interpretation:
+    - this is a real shared resting-switch visual primitive rather than another section-local wrapper cleanup
+    - the retained scene now owns the resting switch track/thumb for `155` lightweight switches on the checked `All Settings` surface, and the backend survivor family is no longer visible in the ranking
+    - however, dense motion regressed on this runtime family even though the visible switch surface moved to canvas, so do not spend another iteration on switch-family follow-ups or small survivor harvests by inertia
+    - per the current sequencing checkpoint, the next default frontier must escalate to a larger inactive-row body/overlay decision centered on the remaining nested-param text/value surface and the broader section-body motion cost
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - one retained canvas was mounted
+    - the backend, browser, gui, and callable sections were present
+    - the relevant switch rows still looked visible and stable with no obvious blank or detached switch artifact
+- The shared lightweight nested-children row-structure generalization is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-children-generalization-rerun.md`.
+  - canonical target section: `settings-section__codeSectionDefault`
+  - sibling proof sections:
+    - `settings-section__stateMachineGateSectionDefault`
+    - `settings-section__browserSectionDefault`
+  - negative control kept on the legacy wrapper path:
+    - `settings-section__callableSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves lightweight nested-children ownership from the shared canvas-owned resting-text settings boundary while intentionally excluding the shell canaries
+    - `frontend/src/components/Params/ParamContainer.tsx` already removes the extra `div.section-args-nested...` wrapper whenever that helper returns `true`, so the slice stays on the current retained-canvas primitive with no new renderer branch
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__codeSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `settings-section__stateMachineGateSectionDefault`: `rowCount 14`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 1`
+    - `settings-section__callableSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 1`, `lightweightGuideRootCount 0`
+    - shared lightweight nested-guide ownership now covers `25` resting-text settings sections on the live surface, including `codeSectionDefault`, `stateMachineGateSectionDefault`, `browserSectionDefault`, `chartSectionDefault`, `chatSectionDefault`, `chatWindowing`, `drawSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, `groupSectionDefault`, `iFrameSectionDefault`, `imageSectionDefault`, `languageServer`, `listRootSectionDefault`, `metaControlSectionDefault`, `pluginSectionDefault`, `promptSectionDefault`, `sectionSizingPolicy`, `socialSectionDefault`, `spreadsheetSectionDefault`, `stateMachineEndSectionDefault`, `stateMachineStartSectionDefault`, `taskBoardSectionDefault`, `terminalSectionDefault`, and `textBlockSectionDefault`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 92.64`
+    - `raf.p95Ms: 183.2`
+    - `longTasks.totalMs: 14696`
+  - compared against the prior color-input row-body/value-shell rerun:
+    - `documentNodeCount: 6709 -> 6679`
+    - `raf.meanMs: 94.6 -> 92.64`
+    - `raf.p95Ms: 183.3 -> 183.2`
+    - `longTasks.totalMs: 15114 -> 14696`
+  - interpretation:
+    - this is a real row-structure reduction pass on the current retained-text boundary, not another value-leaf cleanup
+    - the shared lightweight nested-children primitive was broad enough to remove legacy nested wrapper DOM across a meaningful family of existing canvas-owned settings sections
+    - the dense probe moved in the right direction, but the branch still misses the `33.3ms` motion budget badly; the next default frontier should stay on `ParamContainer` row/article structure or a stronger inactive-row overlay/body primitive rather than reopening closed value-shell lanes
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - one retained canvas was mounted under `.react-flow__section-shell-backdrop`
+    - `settings-section__codeSectionDefault`, `settings-section__stateMachineGateSectionDefault`, `settings-section__browserSectionDefault`, and `settings-section__callableSectionDefault` were present and looked intact
+    - no obvious blank or detached nested-guide/body artifact was visible after the new lightweight nested-children ownership
+    - caveat: the page still contains some `Render Errornull` text in the content DOM, but it was not surfaced as a visible overlay in this pass
+- The shared lightweight color-input row-body/value-shell slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-color-input-value-shell-rerun.md`.
+  - canonical target section: `settings-section__gui`
+  - sibling proof sections:
+    - `settings-section__colorPickerParamCodeObjDefault`
+    - `settings-section__drawSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx` now reuses the no-choice lightweight color activator as the wrapper/value-shell root on the canvas path instead of mounting a separate wrapper plus sibling icon shell at rest
+    - the shared settings color-input path still swaps to the live inline `input[type="color"]` on first activation with no new section-specific branching
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightColorCount: 6`
+    - `settingsNativeColorInputCount: 0`
+    - `settings-section__gui`: `lightweightColorCount 4`, `rootsUsingValueShellCount 4`, `rootsWithSeparateValueShellCount 0`, `strayColorIconCount 0`
+    - `settings-section__colorPickerParamCodeObjDefault`: `lightweightColorCount 1`, `rootsUsingValueShellCount 1`, `rootsWithSeparateValueShellCount 0`, `strayColorIconCount 0`
+    - `settings-section__drawSectionDefault`: `lightweightColorCount 1`, `rootsUsingValueShellCount 1`, `rootsWithSeparateValueShellCount 0`, `strayColorIconCount 0`
+    - activating the GUI color control still mounted one inline `input[type="color"]` in place and blur restored the lightweight root
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 12`
+    - `totalRemainingValueElementCount: 15`
+    - `settings-section__backend` now holds the only larger remaining local survivor with `9` elements across `9` already-lightweight switch rows
+    - `settings-section__nestedParamCodeObjDefault` is now the highest non-lightweight text/value survivor with `6` elements across `3` rows
+    - `settings-section__gui` and `settings-section__drawSectionDefault` both fell to `0` remaining value elements
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6709`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 94.6`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15114`
+  - compared against the prior backend rerun:
+    - `totalRemainingValueRowCount: 18 -> 12`
+    - `totalRemainingValueElementCount: 27 -> 15`
+    - `documentNodeCount: 6704 -> 6709`
+    - `raf.meanMs: 94.22 -> 94.6`
+    - `raf.p95Ms: 183.4 -> 183.3`
+    - `longTasks.totalMs: 15021 -> 15114`
+  - interpretation:
+    - this completes the shared lightweight color-input row-body/value-shell candidate from the current replan checkpoint instead of reopening another family-specific text/value lane
+    - the remaining whole-scene value surface is now concentrated in backend switch shells plus the nested-param text/value family
+    - dense motion still did not materially improve, so the next default frontier must escalate to a stronger inactive-row body/overlay primitive rather than another survivor-family cleanup
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+    - one `.react-flow__section-shell-backdrop` wrapper was present with exactly one retained canvas inside it
+    - `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault` were present on the live surface/DOM
+    - activating the GUI `gridColor` lightweight color control mounted one inline `input[type="color"]` in place with no obvious blank or detached jump
+    - caveat: the retained canvas is identified in this build via `data-testid="react-flow__section-shell-backdrop-canvas"` under the backdrop wrapper rather than a dedicated canvas class selector
+- The `backend` plain text-value lane is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-backend-resting-text-rerun.md`.
+  - canonical target section: `settings-section__backend`
+  - focused proof rows:
+    - `settings-codeobj__backend__backend__autobackupFreq`
+    - `settings-codeobj__backend__backend__autobackupKeepLastN`
+    - `settings-codeobj__backend__backend__defaultTerminalShell`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats `settings-section__backend` as canvas-owned resting text plus lightweight text underline while keeping backend excluded from the lightweight switch value-shell boundary
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__backend` on the retained resting-text scene path
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-backend-resting-text.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - at rest, `settings-section__backend` now reports:
+      - `lightweightRestingTextCount: 3`
+      - `underlineCount: 3`
+      - `liveEditorCount: 0`
+    - `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell` each expose `data-canvas-owned-resting-text-lightweight="true"` with computed `opacity: 0`
+    - first-click activation on `Default Terminal Shell` mounted exactly one live editor in place
+    - after activation, `remainingLightweightRestingTextCount` dropped from `3` to `2`
+    - the focused row rect stayed stable with no measurable change in `x`, `y`, `width`, or `height`
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 18`
+    - `totalRemainingValueElementCount: 27`
+    - `settings-section__backend` remains the top local survivor, but only at `9` remaining value elements across `9` rows and every listed survivor is already `lightweightSwitch` with just `div.section-value` still left in DOM
+    - `settings-section__gui` is next at `8` remaining value elements across `4` color-input wrapper rows
+    - `settings-section__nestedParamCodeObjDefault` is now the highest non-lightweight text/value survivor at `6` remaining value elements across `3` rows
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6704`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.22`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15021`
+  - compared against the prior `languageServer` rerun:
+    - `totalRemainingValueRowCount: 21 -> 18`
+    - `totalRemainingValueElementCount: 39 -> 27`
+    - `documentNodeCount: 6713 -> 6704`
+    - `raf.meanMs: 94.13 -> 94.22`
+    - `raf.p95Ms: 166.8 -> 183.4`
+    - `longTasks.totalMs: 14856 -> 15021`
+  - interpretation:
+    - this closes the backend plain text-value lane as product code instead of reopening the older backend dropdown lane or widening the switch-shell boundary again
+    - the backend section is no longer blocked on plain text rows; its remaining surface is now the already-lightweight switch family
+    - however, dense motion still did not materially improve on this pass; combined with the previous `languageServer` frontier slice, the plan's explicit replan trigger is now met
+    - stop default family-by-family harvesting here and replan around a stronger resting-body / overlay primitive before opening another survivor-family lane
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - `settings-section__backend` was present on the graph surface
+    - `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell` all looked intact at rest
+    - caveat: `Default Terminal Shell` rendered `aria-disabled` in the headless CDP session, so that visual pass could not safely prove inline activation there; no blank or detached jump was observed
+- The `languageServer` nested diagnostic resting-text lane is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-language-server-nested-resting-text-rerun.md`.
+  - canonical target section: `settings-section__languageServer`
+  - focused leaf proof row:
+    - `settings-codeobj__languageServer__languageServer__basedpyright__analysis__diagnosticSeverityOverrides__reportUnknownVariableType`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats `settings-section__languageServer` as canvas-owned resting text, canvas-owned resting param-label text, lightweight nested children, and lightweight text underline
+    - the existing `frontend/src/components/Params/ParamUIs/ParamUI.tsx` text path and `frontend/src/components/Params/ParamContainer.tsx` nested-child path pick up that ownership without a new renderer branch
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-language-server-resting-text.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - at rest, `settings-section__languageServer` now reports:
+      - `lightweightRestingTextCount: 4`
+      - `underlineCount: 4`
+      - `nestedGuideLightweightCount: 3`
+      - `nestedGuideWrapperDivCount: 0`
+      - `liveEditorCount: 0`
+    - first-click activation on `Report Unknown Variable Type` mounted exactly one live CodeMirror editor in place
+    - after activation, `remainingLightweightRestingTextCount` dropped from `4` to `3`
+    - the focused row rect stayed stable within `<= 2px` on `x`, `y`, `width`, and `height`
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 21`
+    - `totalRemainingValueElementCount: 39`
+    - `settings-section__languageServer` no longer appears in the top whole-scene remaining-value ranking
+    - the new top remaining section is now `settings-section__backend` with `21` remaining value elements across `12` rows
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6713`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.13`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 14856`
+  - compared against the prior retained-boundary rerun:
+    - `totalRemainingValueRowCount: 28 -> 21`
+    - `totalRemainingValueElementCount: 87 -> 39`
+    - `documentNodeCount: 6728 -> 6713`
+    - `raf.meanMs: 94.6 -> 94.13`
+    - `longTasks.totalMs: 15117 -> 14856`
+  - interpretation:
+    - this closes the single-section `languageServer` fallback lane as product code instead of continuing another repeated switch-shell or resting-text family harvest
+    - the next default frontier is now the `settings-section__backend` plain text-value rows such as `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell`
+    - `settings-section__gui` remains a smaller local survivor, but its remaining surface is a different color-input wrapper/icon primitive and should stay secondary until the backend text-value lane is evaluated
+  - CDP visual check is deferred:
+    - two fresh headless CDP sub-agent attempts reached the live worktree runtime
+    - both attempts could confirm the target DOM exists, but neither could produce a trustworthy visual view of the `Basedpyright -> Analysis -> Diagnostic Severity Overrides` chain or the inline editor transition
+    - treat this slice as `deferred_visual_gate` rather than a passed visual confirmation
+- The retained resting-text switch value-shell boundary is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-resting-text-switch-value-shell-boundary-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof section: `settings-section__promptSectionDefault`
+  - expanded proof section on the same boundary:
+    - `settings-section__gui`
+  - negative control that stayed outside the boundary:
+    - `settings-section__backend`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `isCanvasOwnedSectionLightweightSwitchValueShell(...)` from the retained resting-text ownership boundary instead of a hand-maintained shared-family list
+    - the existing `frontend/src/components/Params/ParamUIs/ParamUI.tsx` switch path now picks up that broader boundary without another renderer branch
+    - focused ownership/unit proof now covers `browser`, `gui`, and `backend` in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts` now verifies the live browser/prompt/gui boundary and keeps `backend` as the negative control
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__browserSectionDefault` `Aspect Ratio`: lightweight switch root is the `.section-value` shell with zero extra non-lightweight wrapper
+    - `settings-section__promptSectionDefault` `Aspect Ratio`: same flattened lightweight switch root with zero extra wrapper
+    - `settings-section__gui` `Left Side Pane Shifts Map`: same flattened lightweight switch root with zero extra wrapper
+    - `settings-section__backend` `Auto Backup`: still retains one non-lightweight `.section-value` wrapper around the lightweight switch
+    - callable canvas-track switch rows still remain present on the retained path
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 28`
+    - `totalRemainingValueElementCount: 87`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6728`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.6`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 15117`
+  - compared against the prior shared switch-family rerun:
+    - `totalRemainingValueRowCount: 119 -> 28`
+    - `totalRemainingValueElementCount: 178 -> 87`
+    - `documentNodeCount: 6819 -> 6728`
+  - interpretation:
+    - this closes the repeated switch value-shell lane at the retained resting-text ownership boundary instead of continuing another section-by-section expansion
+    - `settings-section__gui` and `settings-section__drawSectionDefault` now only show color-input wrapper/icon survivors in the rerank
+    - the next default frontier is now the single-section nested text-value outlier at `settings-section__languageServer`
+    - if that outlier proves blocked on the current ownership boundary, fall back to the `settings-section__backend` plain text-value rows instead of reopening switch-shell work
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active
+    - no crash/error overlay was visible
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, `settings-section__gui`, and `settings-section__backend` were present
+    - the Browser `Aspect Ratio`, Prompt `Aspect Ratio`, GUI `Left Side Pane Shifts Map`, and Backend `Auto Backup` rows all looked intact
+    - the Browser `Aspect Ratio` switch was disabled in this runtime, so the optional manual toggle was not meaningful; it still remained stable with no obvious blank or detached jump
+- The shared param-codeobj resting-text/value cluster is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-param-codeobj-resting-text-cluster-rerun.md`.
+  - canonical target section: `settings-section__rotaryParamCodeObjDefault`
+  - first sibling proof section: `settings-section__sliderParamCodeObjDefault`
+  - the broader shared ownership set now also includes:
+    - `settings-section__colorPickerParamCodeObjDefault`
+    - `settings-section__dropdownParamCodeObjDefault`
+    - `settings-section__textParamCodeObjDefault`
+    - `settings-section__switchParamCodeObjDefault`
+    - `settings-section__passwordParamCodeObjDefault`
+    - `settings-section__codeParamCodeObjDefault`
+    - `settings-section__textAreaParamCodeObjDefault`
+  - the ownership move stayed on the existing retained value seam:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats that nine-section family as shared retained resting-text plus lightweight underline ownership without widening param-label text
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those nine sections directly so the retained scene can paint their text/underline primitives with no new renderer branch
+    - new focused proof now exists at `frontend/tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__rotaryParamCodeObjDefault`: `lightweightRestingTextCount 7`, `underlineCount 7`
+    - `settings-section__sliderParamCodeObjDefault`: `lightweightRestingTextCount 7`, `underlineCount 7`
+    - `settings-section__textParamCodeObjDefault`: `lightweightRestingTextCount 5`, `underlineCount 5`
+    - the canonical rotary `Max` row still focused the inline editor on first interaction with no blank or detached jump
+  - dense rerun outcome versus the prior `6962` checkpoint:
+    - `documentNodeCount: 6879`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 97.2`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15552`
+  - interpretation:
+    - this is a real shared-family DOM reduction slice (`documentNodeCount 6962 -> 6879`), not another section-local cleanup
+    - motion stayed roughly flat on this runtime family, so treat it as a blocker-reduction prerequisite rather than a new motion win
+    - follow-up ranking is now recorded at `perf/reports/frontend/2026-04-19_settings-all-settings-post-param-codeobj-remaining-value-surface-ranking.md`; the next broad survivor is no longer another param-codeobj text/value pass
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash/error overlay was visible
+    - both `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault` were present
+    - the rotary `Max` row looked intact at rest
+    - focusing `settings-section__rotaryParamCodeObjDefault-settings-codeobj__rotaryParamCodeObjDefault__rotaryParamCodeObjDefault__max-ParamInput` surfaced the inline editor in place with no obvious blank or detached jump
+- A fresh post-param-codeobj whole-scene ranking now exists at `perf/reports/frontend/2026-04-19_settings-all-settings-post-param-codeobj-remaining-value-surface-ranking.md`.
+  - refreshed focused totals: `mountedSectionCount 46`, `totalRowCount 759`, `totalRemainingValueRowCount 176`, `totalRemainingValueElementCount 235`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6874`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 96.55`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15347`
+  - compared against the prior whole-scene ranking at `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`, the mounted remaining value surface moved from `220 / 357` down to `176 / 235`
+  - `settings-section__languageServer` remains the single-section outlier at `48` remaining value elements across `7` rows
+  - `settings-section__backend` (`21`) and `settings-section__gui` (`15`) remain visible section-local survivors, but the broader repeated remaining family is now the lightweight-switch value-shell surface led by:
+    - `settings-section__chatSectionDefault`
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+    - `settings-section__callableSectionDefault`
+    - `settings-section__codeSectionDefault`
+    - `settings-section__textBlockSectionDefault`
+    - `settings-section__stateMachineGateSectionDefault`
+    - `settings-section__groupSectionDefault`
+  - inference from the ranking: those repeated survivors are already `lightweightSwitch` rows whose only remaining visible DOM is `div.section-value`, so the next broad lane should target a shared switch-shell/value-shell primitive rather than another resting-text pass
+  - that shared switch-shell/value-shell lane is now landed in the next status entry below; do not reopen this same chat/spreadsheet family unless a fresh defect appears
+  - CDP visual check is done:
+    - `/settings` loaded cleanly with `All Settings` active
+    - no crash/error boundary overlay was visible
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - the exact section ids were not present in the final headless DOM snapshot, but the nearest trustworthy visible evidence still showed overview entries for `languageServer`, `backend`, `gui`, and `chatSectionDefault`, plus the rendered `backend` editor panel on the main graph surface
+- The shared lightweight-switch value-shell family is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-switch-value-shell-flattening-rerun.md`.
+  - canonical target section: `settings-section__chatSectionDefault`
+  - sibling proof section: `settings-section__spreadsheetSectionDefault`
+  - the broader shared value-shell set landed in the same bounded pass:
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+    - `settings-section__callableSectionDefault`
+    - `settings-section__codeSectionDefault`
+    - `settings-section__textBlockSectionDefault`
+    - `settings-section__stateMachineGateSectionDefault`
+    - `settings-section__groupSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now names the shared switch value-shell family explicitly
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now flattens only that family onto the lightweight switch root on the `canvas-shell-underlay` path
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now supports the opt-in lightweight-root class path so the redundant wrapper disappears only for the targeted family
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__chatSectionDefault` `Aspect Ratio`: one lightweight switch root, zero non-lightweight `.section-value` wrappers, first-click toggle still works
+    - `settings-section__spreadsheetSectionDefault` `Aspect Ratio`: one lightweight switch root, zero non-lightweight `.section-value` wrappers, row still looks intact
+    - callable shell-owned switch rows still retain canvas-owned track rendering on the same path
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 119`
+    - `totalRemainingValueElementCount: 178`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6819`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.97`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 15265`
+  - compared against the prior post-param-codeobj ranking report:
+    - `totalRemainingValueRowCount: 176 -> 119`
+    - `totalRemainingValueElementCount: 235 -> 178`
+    - `documentNodeCount: 6874 -> 6819`
+  - interpretation:
+    - this is a real shared-family DOM reduction slice, not another ranking-only pass
+    - the named chat/spreadsheet switch-shell lane is now closed at this ownership boundary and its broader family also dropped out of the rerun top-12 ranking
+    - the remaining top whole-scene survivors are now led by `settings-section__languageServer` (`48`), `settings-section__backend` (`21`), `settings-section__gui` (`15`), then smaller repeated switch-wrapper families such as `drawSectionDefault`, `browserSectionDefault`, `metaControlSectionDefault`, `promptSectionDefault`, `pluginSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, and `stateMachineStartSectionDefault`
+  - next default lane:
+    - keep the shared chat/spreadsheet switch-shell family closed
+    - prefer the next repeated lightweight-switch value-shell family from the fresh `6819 / 119 / 178` checkpoint, with canonical target `settings-section__browserSectionDefault` and first sibling proof `settings-section__promptSectionDefault`
+    - only fall back to the `settings-section__languageServer` outlier if that broader repeated primitive is blocked on the current ownership boundary
+  - CDP visual check is done:
+    - `/settings` loaded cleanly with `All Settings` active
+    - no crash/error overlay was visible
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - both `settings-section__chatSectionDefault` and `settings-section__spreadsheetSectionDefault` were present
+    - the `Aspect Ratio` switch row looked intact in both sections after the switch-shell flattening
+    - the retained canvas path still looked healthy overall
+- The tracking model is now explicit:
+  - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
+  - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
+  - `docs/worktrees/go-rewrite-pixijs/checklist.md` is limited to stable guardrails and acceptance gates instead of checkbox progress tracking
+- Ralph/supervisor bootstrap files have been ported into the worktree.
+- `RALPH.md` now points at this worktree plan set.
+- `RALPH.md` now also pins `main_worktree_root` to `/home/ubuntu/dev/setta`, and the loop scripts honor that explicit reference path instead of requiring branch-name discovery.
+- The missing `scripts/ralph-default-prompt.md` file has been restored in this worktree.
+- The missing `scripts/lib/node_tooling.sh` and `scripts/lib/clear_devtools_profile_auth_cookies.py` helpers have also been restored in this worktree.
+- If Ralph was started before those config/script fixes, restart it once so the running process picks them up.
+- `scripts/run-playwright-e2e.sh` now bootstraps Node/pnpm tooling before starting Vite or Playwright, and its bootstrap-token parser now understands the current Go CLI log format (`bootstrap#token=` and `and paste:`).
+- A focused baseline probe now exists at `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` for `settings` -> `All Settings`.
+- `frontend/src/openapi/http/client.ts` no longer rewrites body-carrying backend requests by cloning one `Request` into another `Request`; it now rebuilds the request explicitly so Chromium can send JSON POSTs like `loadProjectConfig` reliably across the dev frontend/backend origin split.
+- A focused regression test now exists at `frontend/src/openapi/http/client.test.ts` to keep the rewritten OpenAPI transport from dropping POST bodies.
+- `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` now preserves minimap defaults when callers pass optional props as `undefined`, so `MinimapSvg` can render without an explicit `nodeComponent`.
+- `frontend/src/forks/xyflow/minimap/MiniMap.test.ts` now includes a regression test that renders `MinimapSvg` without a custom node component and expects the default minimap rect node output.
+- `frontend/src/components/Utils/Combobox/ComboboxParts.tsx` now treats the combobox `bg` prop as optional when resolving fallback background classes, so `/settings` no longer crashes on `bg.trim()` when a caller omits that prop.
+- `frontend/src/components/Utils/Combobox/ComboboxParts.test.tsx` now includes a regression test proving undefined `bg` values fall back to the variant default classes instead of crashing.
+- The first durable Phase 1 `go-rewrite` baseline report now exists at `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`.
+- A fresh baseline probe run on 2026-04-18 passed on the live worktree runtime and recorded:
+  - `flowNodeCount: 46`
+  - `visibleFlowNodeCount: 46`
+  - `documentNodeCount: 9553`
+  - `inputCount: 92`
+  - `textareaCount: 1`
+  - `buttonCount: 521`
+  - `raf.meanMs: 204.93`
+  - `raf.p95Ms: 216.7`
+  - `longTasks.totalMs: 36337`
+- CDP visual check is done for the baseline-report slice:
+  - `/settings` loads normally
+  - `All Settings` is visible and active
+  - no React error boundary or crash overlay is visible
+  - non-target chrome still visible during the check included the left settings list, right tool rail, bottom tab bar, and a `Chat Window 1` overlay/suggestion panel, but none blocked the graph surface
+- The first settings product renderer slice is now landed:
+  - `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` is now the graph-surface composition boundary instead of inlining the edge/node renderers inside `ReactFlow.tsx`
+  - the active implementation is a new `canvas-shell-underlay` surface that mounts one retained canvas behind the existing DOM section nodes
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now derive top-level node bounds from `useNodeInternals` and paint shell backdrops into a single canvas underlay
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now covers the scene bounds math and retained-canvas sizing path
+- The named canary shell-authority slice is now landed for `settings-section__callableSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/graphSurfaceImplementation.tsx` now exposes the active graph-surface implementation through context so section chrome can react at the real composition boundary instead of via prop threading
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now declares the canonical canvas-owned section shell id and resolves the retained-canvas fill/stroke for that shell, including style-color-aware chrome when a section style is present
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` and `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now let the retained scene paint per-frame chrome overrides, so the canary callable section uses canvas-owned resting fill/border instead of the old generic underlay colors
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx` and `frontend/src/components/Utils/Resizable/CustomResizable.tsx` now make only the canary section's resting DOM shell transparent on the `canvas-shell-underlay` path while leaving the legacy DOM implementation unchanged
+  - `SectionShellBackdropCanvas.tsx` now uses `getCurrEffectiveSectionImplIfPresent(...)` for the canary lookup so non-settings project routes like `/round_lime` no longer crash when that section is absent
+  - focused coverage now exists for this slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+- The next callable shell-chrome slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves canvas-owned header fill/divider colors alongside the retained shell fill/stroke, reusing section style theme colors when a style color is present
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads the measured header height from `useTemporaryMiscState` via `getSectionHeaderHeightKey(...)` and feeds that height into the canary frame visual
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now carries per-frame header-band metadata and paints a clipped header band plus divider before the shell border stroke
+  - focused coverage now exists for this slice:
+    - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` using graph-space canvas pixel sampling derived from the `.react-flow__node` transform so the live canary can verify header-vs-body pixels even when `All Settings` is fitted far out
+- A fresh post-slice live baseline probe on 2026-04-18 passed on the worktree runtime and confirmed the new underlay is present on `settings` -> `All Settings`:
+  - `canvasCount: 1`
+  - `flowNodeCount: 46`
+  - `documentNodeCount: 9555`
+  - `raf.meanMs: 34.91`
+  - `longTasks.totalMs: 119`
+- Treat that post-slice probe as a runtime smoke check for the new surface seam, not as a new durable benchmark claim yet.
+- Canonical target section for the active settings graph-surface lane: `settings-section__globalVariablesSectionDefault`.
+- Fresh live canary inventory on 2026-04-18 closes the stale top-level callable body-panel assumptions for that section:
+  - the retained canvas shell is still mounted and the section is healthy on `/settings` -> `All Settings`
+  - the visible canary shows the section header, the callable `ARGS` toolbar row, and visible settings rows such as `Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Hide Params`, and `Hide Unpinned Params`
+  - the mounted canary does not currently show a separate section search field or a visible pinned-params panel in the checked viewport, so do not spend another slice on search/pinned/unpinned panel chrome for this target
+- The Phase 1 baseline lane is now complete:
+  - the browser-side `loadProjectConfig` transport failure on the live worktree runtime (`http://127.0.0.1:8068`) is fixed
+  - focused runtime verification now succeeds for that exact request shape:
+    - `pnpm -C frontend exec vitest run src/openapi/http/client.test.ts`
+    - a headless Playwright browser import of `/src/openapi/http` now returns `200` for `loadProjectConfig({ body: { projectConfigName: "round_lime" } })` with no `requestfailed` events
+  - `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx` now defines `DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX` locally again, so the prior dock-constant runtime crash is cleared
+  - the `_MiniMapNodes` invalid-element-type crash is now cleared:
+    - a headless Playwright probe with a fresh bootstrap URL lands on the normal project surface at `http://127.0.0.1:3068/round_lime` with no React error boundary and no visible `_MiniMapNodes` / invalid-element-type message
+    - CDP visual check is done for that slice and confirms the same healthy project-route state
+  - the `/settings` combobox `trim()` runtime crash is now cleared:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/Combobox/ComboboxParts.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line`
+    - result: the live Settings route now loads cleanly, `All Settings` becomes active, and the baseline probe emits metrics instead of hitting the React error boundary
+- focused static verification for the minimap fix passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.tsx`
+- focused Vitest verification for the new minimap regression test is currently blocked by an existing jsdom dependency/runtime issue before test collection:
+  - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - fresh bootstrap URLs are one-shot; stale URLs quickly turn into misleading `401` bootstrap failures
+- focused Vitest verification for the new retained-canvas shell test is blocked by the same existing jsdom dependency/runtime issue before test collection:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+  - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- focused lint verification for the new graph-surface files passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ReactFlow.tsx src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts`
+- CDP visual check is done for the retained-canvas slice:
+  - `/settings` loads normally
+  - `All Settings` is visible and active
+  - the graph surface is mounted and usable
+  - a `canvas` is present inside `.react-flow__section-shell-backdrop`
+  - no crash overlay or obviously detached/blank section bodies are visible
+- focused verification for the canary shell-authority slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/graphSurfaceImplementation.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line`
+- CDP visual check is done for the canary shell-authority slice:
+  - `/settings` loads normally
+  - `All Settings` is active
+  - `settings-section__callableSectionDefault` is visible with no crash/error boundary
+  - one retained shell `canvas` is mounted
+  - the section shell still looks intact after the DOM shell was made transparent on the canvas path
+  - residual risk: this headless CDP pass confirmed mounted canvas presence and healthy shell appearance, but the transformed canvas content itself was not fully centered in the viewport for pixel-level inspection
+- focused verification for the callable header-band slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the callable header-band slice:
+  - `/settings` loaded normally in the headless worktree session
+  - `All Settings` was active
+  - the retained shell `canvas` was mounted and the canary section remained visible with no crash/error-boundary state
+  - the section shell still looked intact on the live surface
+  - caveat: the new header-band/header-divider treatment was too tiny in the fitted `All Settings` view for a confident human-only visual call, so treat the updated Playwright graph-space pixel probe as the deterministic proof for that exact detail
+- The next callable shell-chrome slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `callableToolbarFill` and `callableToolbarDivider` alongside the existing shell/header chrome so the retained scene can paint the callable args toolbar card with the same section-style-aware palette rules
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads both `getSectionSearchHeightKey(...)` and `getKwargsControlsHeightKey(...)` for `settings-section__callableSectionDefault`, then places one retained detail band for the callable toolbar beneath the existing header band
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now carries normalized per-frame `detailBands` metadata and paints rounded retained panel fills plus bottom dividers before the outer shell stroke
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now makes only the canary callable toolbar container transparent on the `canvas-shell-underlay` path while keeping the live controls/filter DOM intact
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - the first live probe for this slice exposed a real oracle issue, not a product regression:
+    - the previous graph-space helper treated the `.react-flow__node` transform as if it carried zoom scale, but in the current runtime the zoom lives on the parent `.react-flow__viewport` transform while the node transform stays at scale `1`
+    - the final probe now derives graph-space rects from DOM element bounds divided by the viewport transform scale, then compares the new toolbar-band pixel against the shell body pixel; that fixed the canary probe without changing product code
+- focused verification for the callable toolbar-band slice passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/KwargsControls.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the callable toolbar-band slice:
+  - `/settings` loaded cleanly with no crash/error boundary visible
+  - the retained shell `canvas` was mounted and the workspace surface remained intact
+  - `settings-section__callableSectionDefault` was present and its control cluster still showed the header, filter input, and the `Remove arg` / `Add arg` / `Pin selected args` / `Convert to edge connectors` / `Delete selected args` toolbar row after the DOM toolbar container was made transparent on the canvas path
+  - caveat: the fitted headless view still makes the toolbar row too small for a confident human-only pixel read, so treat the updated Playwright viewport-scale probe as the deterministic oracle for the toolbar-band detail
+- The next callable body-panel slice is now landed for the same canary section:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves `pinnedParamsFill` and `pinnedParamsDivider` alongside the existing shell/header/toolbar chrome so the retained scene can paint the pinned-params card with the same section-style-aware palette rules
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now reads `getPinnedParamsAreaHeightKey(...)` for `settings-section__callableSectionDefault` and emits a second retained detail band below the callable toolbar using the measured pinned-panel height
+  - `frontend/src/components/Params/GroupContainer.tsx` now makes only the canary pinned-params container transparent on the `canvas-shell-underlay` path while keeping the live pinned param rows and controls mounted
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/GroupContainer.test.tsx`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/GroupContainer.tsx src/components/Params/GroupContainer.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted shell/header/toolbar canary smoke still passes unchanged after the pinned-panel product slice
+  - attempted to extend `tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` into a dedicated pinned-panel oracle in the same iteration, but reverted that oracle work after it hit untrusted settings-route automation shapes (`POST /api/setActiveIds -> 404` when headless row-selection replay missed param-select mode, plus empty `/settings` `useProjectState` reads in that setup); keep the checked-in Playwright file on the previously trusted shell/toolbar lane for now
+- CDP visual check is done for the pinned-params slice:
+  - `/settings` loaded normally in the headless worktree session
+  - `All Settings` was active with no crash/error overlay
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was present on the live surface
+  - the pinned-params panel was visible by default on that section and the live surface still looked healthy after the pinned container chrome was made transparent on the canvas path
+  - residual risk: this slice now has focused unit coverage plus live CDP confirmation, but it does not yet have its own dedicated Playwright graph-space pixel probe because the attempted oracle extension was reverted as untrustworthy
+- The first visible param/control family slice is now landed for the same canary section using `Aspect Ratio` as the deterministic probe row:
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now supports retained-scene `detailBoxes`, so the canvas path can paint control-local chrome inside a section frame instead of only full-width shell bands
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures canvas-owned switch roots inside `settings-section__callableSectionDefault`, converts them into graph-space boxes, and paints retained switch-track pills for the visible switch rows on the canvas path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves default and section-style-aware switch-track colors alongside the existing shell/header/toolbar/pinned-panel chrome
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now make only the canary section's switch tracks transparent on the `canvas-shell-underlay` path while leaving the live switch buttons/thumbs interactive
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary shell-ownership probe now also samples the `Aspect Ratio` switch track pixel and passes on the live worktree runtime
+- CDP visual check is done for the switch-track slice:
+  - `Page 1` in the headless worktree session was bootstrapped, then verified on `http://127.0.0.1:3068/settings`
+  - `All Settings` was active with no crash or error-boundary overlay visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was visible on the live surface
+  - the `Aspect Ratio` row remained visible and its switch still looked intact after the DOM switch track was made transparent on the canvas path
+- The first canary resting-text slice is now landed for the same canary section using `Config Language` as the deterministic probe row:
+  - the old `Config Language` dropdown/combobox assumption is now closed as stale for this canary; the live row is a text-like `DummyCodeMirror`/CodeMirror-backed value that shows `python` at rest
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now declares the exact canary `Config Language` param info id so the resting-text handoff stays tied to one explicit product target instead of label heuristics
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now makes only that canary row's inactive `DummyCodeMirror` transparent on the `canvas-shell-underlay` path while leaving the real CodeMirror editor path intact for first-click activation
+  - `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.ts` now supports retained-scene `detailTexts`, so the canvas path can paint measured text lines in graph space instead of only shell bands and control boxes
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures the canary `Config Language` dummy text line in graph space and paints the resting `python` text into the retained canvas; that measurement drops out automatically when the live editor mounts
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellBackdrop.test.ts`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdrop.ts src/forks/xyflow/core/container/sectionShellBackdrop.test.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Config Language` text pixel on the canvas path and that activating the dummy text node surfaces the live editor inline with no blank/detached jump
+      - note: an intermediate row-wrapper click replay hit non-target DnD/selection noise (`POST /api/setActiveIds -> 404`); the final checked-in probe dispatches activation directly to the dummy text node and passes without that side effect
+- CDP visual check is done for the `Config Language` resting-text slice:
+  - `/settings` loaded cleanly with no crash or error overlay visible
+  - `All Settings` was active on the live worktree surface
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` was visible and the `Config Language` row showed resting `python` text on the canvas path
+  - activating the `Config Language` row surfaced the inline editor with no blank or detached visual jump
+- The next canary resting-text slice is now landed for the same canary section using `Column Width` as the deterministic probe row:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the canary resting-text lane as a small explicit set instead of a single param id, so the same named lane now owns both `Config Language` and `Column Width`
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures multiple canary `DummyCodeMirror` roots in graph space and paints both resting text rows into the retained canvas instead of special-casing one input id
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - the checked Playwright oracle is now slightly tighter for text rows: it counts pixels inside each measured text rect that differ from the sampled body pixel instead of treating any opaque pixel in that rect as proof
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms both the retained `Config Language` and retained `Column Width` text pixels on the canvas path while preserving the existing inline `Config Language` activation check
+- CDP visual check is done for the `Column Width` resting-text slice:
+  - `http://127.0.0.1:3068/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `settings-section__callableSectionDefault` was visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - the `Column Width` row was visible and looked intact on the canvas path
+  - no obvious blank or detached section content was visible
+  - caveat: the bootstrap URL used for the visual check had already been rejected, but the existing authenticated `/settings` session was still healthy and sufficient for the required CDP confirmation
+- The next canary resting-text slice is now landed for the same canary section using `Edge Input Params` and `Edge Output Ports` as grouped probe rows:
+  - a fresh live DOM inventory closed the remaining stale assumption here: both visible rows mount as text-like `DummyCodeMirror` / CodeMirror-backed `[]` values on this canary, so they fit the same retained-text lane instead of needing a new control-family path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the canary resting-text lane as a four-row explicit set: `Config Language`, `Column Width`, `Edge Input Params`, and `Edge Output Ports`
+  - the existing retained-scene text measurement in `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now picks up both edge rows automatically through that shared ownership set with no extra special-case path
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`, `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`, and `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms retained text pixels for `Edge Input Params` and `Edge Output Ports` in addition to the existing `Config Language` and `Column Width` checks, while preserving the inline `Config Language` activation proof
+- CDP visual check is done for the `Edge Input Params` / `Edge Output Ports` resting-text slice:
+  - `http://127.0.0.1:3068/settings` was healthy with no visible crash/error overlay
+  - `All Settings` was active
+  - `settings-section__callableSectionDefault` was visible
+  - a retained `canvas` was present inside `.react-flow__section-shell-backdrop`
+  - both `Edge Input Params` and `Edge Output Ports` were visible and looked intact on the canvas path
+  - caveat: the supplied bootstrap token had already been rejected during the CDP pass, but the existing authenticated `/settings` session remained healthy and sufficient for the required visual confirmation
+- The canary resting-text lane is now closed as a per-row allowlist lane and moved to the real ownership boundary:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats canvas-owned resting text as a canary-section rule for text-like params (`CodeParam`, `TextParam`, `TextAreaParam`) instead of enumerating individual param ids
+  - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx` and `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now mark canvas-owned dummy roots with `data-canvas-owned-resting-text="true"`, and `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those marked roots directly instead of rebuilding a manual `ParamInput` id list
+  - that change means newly covered canary text rows such as `Style Color`, `Tag Color`, and the visible `Size` subfields ride the same retained-text path automatically without another ownership-list edit
+  - focused coverage now proves the generalized rule and one newly covered row:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` with a deterministic `Style Color` probe
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - note: the first Playwright attempt in this iteration hit the expected one-shot bootstrap failure (`401` on a spent token); rerunning with a freshly minted token passed unchanged
+- CDP visual check is done for the generalized resting-text slice:
+  - `/settings` loaded with `All Settings` active and no crash/error overlay visible
+  - `settings-section__callableSectionDefault` remained visible
+  - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+  - the newly covered `Style Color` row was present and looked intact on the live canvas path
+  - caveat: the fitted headless viewport still leaves that row small, so treat this as a technical visual pass backed by the deterministic Playwright pixel probe rather than a strong human-only readability judgment
+- The next visible inactive DOM family slice is now landed for param-label text on the same canary section:
+  - the first attempt in this iteration targeted `ParamNameInput`, but a timed-out live wait plus source re-check showed the visible canary labels on this lane render through `ParamTextLabel` except for kwargs; no product code from that dead-end was kept
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamLabelRestingText(...)` so the label lane is explicit at the same canary ownership boundary as the existing resting-text/value lane
+  - `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` now makes only the canary section's resting labels transparent on the `canvas-shell-underlay` path and tags them with `data-canvas-owned-resting-text="true"` so the retained scene can measure and paint them without changing the existing click-to-focus handoff
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now samples the retained `Style Color` label text separately from the retained `Style Color` value text and clicks the label to surface the inline `Style Color` editor on first click with no blank/detached jump
+- CDP visual check is done for the param-label slice:
+  - no crash/error overlay was visible on `/settings` with `All Settings` active
+  - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` remained present on the live surface
+  - the `Style Color` label looked intact on the callable canvas path
+  - clicking the `Style Color` label surfaced the inline `Style Color` editor with the `null` value rendered inline and no blank/detached jump
+- The next visible row-chrome slice is now landed for text-row underlines on the same canary section:
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `[data-canvas-owned-underline="true"]` spans in graph space, derives retained underline boxes from each span's computed border-bottom color/width, and paints those underline boxes into the retained scene alongside the existing shell chrome, switch tracks, and text
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now makes only the canary section's text-like value underline transparent on the `canvas-shell-underlay` path, tags it with `data-canvas-owned-underline="true"`, and restores the live DOM underline on `peer-focus-within/textinput` so the active blue focus state still hands off through the real editor
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Style Color` underline pixels on the live canvas path while preserving the existing inline label-click activation proof
+- CDP visual check is done for the text-row underline slice:
+  - `All Settings` was active with no visible crash/error overlay
+  - a retained `canvas` was mounted inside `.react-flow__section-shell-backdrop`
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present and visible on the live surface
+  - the `Style Color` row inside that exact canary section remained present and looked intact after the underline chrome moved to canvas ownership
+- The next visible nested-row chrome slice is now landed for the same canary section using the `Size` group guide rail:
+  - `frontend/src/components/Params/ParamContainer.tsx` now marks the canary section's nested child-row container with `data-canvas-owned-nested-guide="true"` and hides only the matching DOM `::before` guide on the `canvas-shell-underlay` path
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those marked nested child-row guides from the live DOM `::before` metrics and paints the guide rails into the retained scene alongside the existing shell chrome, switch tracks, labels, values, and underlines
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/components/Params/ParamContainer.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted canary probe now confirms the retained `Size` nested guide pixel on the live canvas path while preserving the existing shell/toolbar/text/underline ownership checks
+  - focused Vitest verification for the touched ParamContainer test file is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx`
+    - error: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done for the `Size` nested-guide slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - a retained `canvas` remained mounted inside `.react-flow__section-shell-backdrop`
+  - `settings-section__callableSectionDefault` remained present on the live surface
+  - the nested `Size` subtree was present and its left guide rail looked intact on the retained canvas path
+  - note: the DOM pseudo-element for that guide is now intentionally `opacity: 0` on the canvas path; the visible rail should come from the retained canvas instead of the live DOM
+- The callable row-decoration lane is now closed at its useful ownership boundary:
+  - a focused 1x headless Playwright DOM inventory on `settings-section__callableSectionDefault` found no additional default-visible inactive row chrome beyond the already-moved shell/header/text/underline/nested-guide layers
+  - the remaining visible DOM on that callable canary is limited to intentional live interactive cores: toolbar/menu buttons and icons plus switch thumbs/buttons
+  - another callable-only retained-canvas micro-slice would be churn unless a new defect appears on that same named section
+- The next param-heavy family lane is now named and ready:
+  - canonical target section: `settings-section__dictSectionDefault`
+  - a matching 1x headless Playwright inventory on that section shows it reuses the same visible row families (`Aspect Ratio`, `Column Width`, `Config Language`, `Edge Input Params`, `Edge Output Ports`, `Size`, `Style Color`, `Tag Color`) and adds dict-specific search/filter chrome through `input#settings-section__dictSectionDefault-args-filter`
+  - the next product slice should start there instead of reopening callable row-decoration
+- The first dict-section shared-family slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the owned shell lane as a small explicit section set instead of a single callable id, so both the callable and dict canaries ride the same retained shell/text/label ownership boundary
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now builds retained measurements per owned section instead of assuming one global canary node, while keeping the callable-only toolbar and pinned-panel bands scoped to `settings-section__callableSectionDefault`
+  - that change lets `settings-section__dictSectionDefault` inherit the already-proven retained shell/header/text/switch/underline/nested-guide path without introducing a dict-specific renderer branch yet
+  - the dict search/filter surface remains intentionally DOM-owned in this slice; it is still present via `input#settings-section__dictSectionDefault-args-filter` and is now the next real section-specific chrome frontier
+  - focused coverage now exists for the dict expansion:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - the retained nested-guide oracle needed one bounded normalization after the multi-section expansion:
+    - the old center-pixel sample on the tiny `Size` guide rail became brittle once both canary sections shared the same retained scene
+    - both Playwright probes now count guide-rect pixels distinct from the sampled body pixel instead of trusting one center sample; treat that as the new trusted guide oracle for the shared callable/dict lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+- CDP visual check is done for the dict shared-family slice:
+  - `/settings` loaded cleanly in a fresh headless DevTools page with `All Settings` active
+  - no crash/error-boundary overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - both `settings-section__callableSectionDefault` and `settings-section__dictSectionDefault` were present and looked intact on the live canvas path
+  - the dict filter/search surface remained present on the live DOM-owned path as expected for this slice
+- The next dict-specific filter/search slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamFilterUnderline(...)` and scopes that ownership rule to the dict canary only instead of treating the filter input as part of the shared-family lane
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now gives the dict filter input a dedicated retained-underline handoff on the `canvas-shell-underlay` path by:
+    - keeping the live input text/editor DOM-owned
+    - making the input's resting DOM border transparent only on the dict canvas path
+    - adding a sibling underline span tagged with `data-canvas-owned-underline="true"` so the existing retained-scene underline measurement paints the idle filter underline on canvas while the blue focus underline still hands off through the live DOM peer-focus state
+  - no new retained-scene primitive was needed for this slice; it intentionally reuses the existing underline measurement/rendering path instead of opening another renderer branch
+  - focused coverage now exists for this dict-specific ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the filter underline ownership flag, the transparent resting DOM border, and distinct retained-canvas underline pixels while preserving the existing dict shared-family shell/text/switch/underline/nested-guide checks
+  - verification caveats closed in this iteration:
+    - the first Playwright rerun failed on a stale bootstrap token (`401`); refresh runtime info before rerunning that probe instead of treating that as renderer drift
+    - an attempted direct click/fill interaction add-on for the dict filter triggered `POST /api/setActiveIds -> 404` in the current headless harness; that interaction add-on was removed from the checked oracle because this slice changed only the visual underline ownership, not filter-editing behavior
+- CDP visual check is done for the dict filter-underline slice:
+  - `/settings` loaded cleanly in the worktree UI slice with `All Settings` active
+  - no crash/error overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was present on the live surface
+  - the dict filter/search row looked intact and its underline remained visible after the resting underline moved to retained canvas ownership
+- The next dict-specific filter/search slice is now landed for `settings-section__dictSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionParamFilterIcon(...)` and scopes that ownership rule to the dict canary only, so the static filter icon is tracked as part of the same dict-specific lane instead of reopening shared-family ownership work
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now tags the dict filter row's static `gg-sort-az` icon with `data-canvas-owned-filter-icon="true"` and hides only the resting DOM icon with `opacity-0` on the `canvas-shell-underlay` path while keeping the live filter input text/editor behavior unchanged
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those tagged dict filter icons with the fixed `gg-sort-az` bar geometry and paints their three retained bars into the existing detail-box pass, so no new retained-scene primitive was needed for this slice
+  - focused coverage now exists for this dict-specific icon ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the hidden DOM filter icon flag, the retained-canvas icon pixels, and the existing dict shell/text/switch/underline/nested-guide checks on the live worktree runtime
+- CDP visual check is done for the dict filter-icon slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__dictSectionDefault"]` was present and visible
+  - the dict filter/search row looked intact after the static filter icon moved to retained canvas ownership
+- The dict filter/search micro-lane is now closed at its useful ownership boundary:
+  - re-read `frontend/src/components/Section/SectionParts/KwargsControls.tsx` and ran a fresh live inventory on `settings-section__dictSectionDefault` instead of opening a third filter-row ownership hop after the underline/icon slices
+  - on the `canvas-shell-underlay` path, the row now contains only the live `search` wrapper plus the live `input#settings-section__dictSectionDefault-args-filter` editor core as visible DOM; the static `gg-sort-az` icon and underline span remain mounted only as hidden handoff surfaces with `opacity: 0`
+  - the adjacent `Param Filter` label row is also already hidden on the DOM side because it rides the shared retained-text lane, so there is no remaining default-visible non-editor filter/search chrome still DOM-owned on this section
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe still passes on the live worktree runtime while the lane-closure inventory confirms the remaining visible filter-row DOM is only the live editor core
+- CDP visual check is done for the dict filter/search lane-closure slice:
+  - `/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted and healthy
+  - `section[data-section-id="settings-section__dictSectionDefault"]` was present on the live surface
+  - the visible filter/search row was limited to the live `input#settings-section__dictSectionDefault-args-filter` editor core; the static icon, underline, and `Param Filter` label remained in DOM only as hidden handoff surfaces on the canvas path
+- The next dict-specific kwargs-controls slice is now landed for `settings-section__dictSectionDefault`:
+  - a fresh normal-zoom live inventory on the dict canary closed the previous closure assumption: once the section is framed large enough, the kwargs-controls `Args` label is visible default-inactive chrome outside the filter row, so the broader dict lane was not actually done yet
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionArgsLabelRestingText(...)` and scopes that ownership rule to the dict canary only, so this stays a dict-lane product slice instead of reopening callable/shared-family work by inertia
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now tags only that dict `Args` label with `data-canvas-owned-resting-text="true"` and hides the resting DOM label with `opacity-0` on the `canvas-shell-underlay` path while leaving the live toolbar buttons and filter editor DOM-owned
+  - no new retained-scene primitive was needed for this slice; it intentionally reuses the existing retained resting-text measurement/rendering path instead of opening another renderer branch
+  - focused coverage now exists for this dict-specific ownership rule:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+      - the trusted dict probe now performs one bounded zoom-to-section + forced subtree remeasure so it can assert the `Args` label is visible at normal section zoom, hidden on the DOM side, and repainted by the retained canvas before the existing inline-editor checks continue
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted dict probe now confirms the hidden DOM `Args` label flag plus distinct retained-canvas text pixels at normal section zoom while preserving the existing dict shell/text/switch/underline/nested-guide and inline `Style Color` activation checks
+- CDP visual check is done for the dict `Args` label slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__dictSectionDefault` was visible on the live surface
+  - after panning/zooming the graph to frame the dict section, the kwargs-controls row still looked intact once the DOM `Args` label was made transparent on the canvas path
+  - caveat: the provided bootstrap token had already been rejected during the CDP pass, so the visual check reused the still-healthy authenticated frontend session at `http://127.0.0.1:3068/settings`
+- The broader dict lane is now closed at its useful ownership boundary:
+  - the filter/search micro-lane is already closed
+  - the only remaining default-visible kwargs-controls DOM at normal dict zoom is now the live interactive core: toolbar buttons/icons inside buttons plus the live filter editor input
+  - do not spend another iteration on `settings-section__dictSectionDefault` shell/text/filter/kwargs-label ownership unless a new defect appears there
+- The first GlobalVariables shared-family slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes the GlobalVariables canary in the explicit retained-shell section set, so the section rides the same shared-family shell/text/label ownership boundary as the callable and dict canaries.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that third owned section directly, so the live GlobalVariables surface can paint retained shell/header chrome plus the existing shared switch/text/underline/nested-guide primitives without opening a new section-specific renderer branch.
+  - shared-family ownership is now live on that section for the currently checked inactive chrome:
+    - shell/header
+    - `Aspect Ratio` switch track
+    - resting `Config Language` and `Style Color` text
+    - the `Style Color` label and underline
+    - the `Size` nested guide rail
+  - the GlobalVariables kwargs/filter surface remains intentionally DOM-owned in this slice:
+    - the visible `Args` label still renders through DOM
+    - `input#settings-section__globalVariablesSectionDefault-args-filter` stays the live editor core
+    - no dict-only filter-icon / filter-underline handoff markers are attached there yet
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the new GlobalVariables probe passed on the live worktree runtime and confirmed retained shell/text/switch/guide pixels plus inline `Style Color` activation
+- CDP visual check is done for the GlobalVariables shared-family slice:
+  - `/settings` loaded on the live worktree runtime with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__globalVariablesSectionDefault"]` was visible on the live surface
+  - the section looked intact after moving its shared shell/text/switch/guide chrome to retained canvas ownership
+- The next GlobalVariables kwargs-controls slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now extends `isCanvasOwnedSectionArgsLabelRestingText(...)` to the GlobalVariables canary, so this stayed a real GlobalVariables product slice instead of reopening dict-only ownership work
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` did not need a new renderer branch for this lane because the existing `data-canvas-owned-resting-text="true"` handoff already covered the `Args` label once the ownership rule included the GlobalVariables section
+  - `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` now performs one bounded normal-zoom label probe on that section:
+    - it reframes the GlobalVariables node to normal section zoom
+    - forces one retained-scene remeasure
+    - confirms the visible `Args` label is hidden on the DOM side and repainted by the retained canvas before continuing the existing inline `Style Color` activation proof
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted GlobalVariables probe now confirms the hidden DOM `Args` label plus retained-canvas text pixels at normal section zoom while preserving the existing shared-family shell/text/switch/guide and inline editor checks
+- CDP visual check is done for the GlobalVariables `Args` label slice:
+  - `http://127.0.0.1:3068/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - after reframing the section at normal zoom, the kwargs-controls row still looked intact with the DOM `Args` label transparent on the canvas path
+  - caveat: the fresh bootstrap token was rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend session instead
+- The next GlobalVariables filter/search slice is now landed for `settings-section__globalVariablesSectionDefault`:
+  - a fresh normal-zoom live inventory closed the stale next-step assumption from the prior handoff: the filter input's resting underline is not visible at normal section zoom on this lane, but the static `gg-sort-az` filter icon is visible default-inactive chrome
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now extends `isCanvasOwnedSectionParamFilterIcon(...)` to the GlobalVariables canary, so this stayed a real GlobalVariables product slice instead of copying the earlier dict underline step by inertia
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` did not need a new renderer branch for this lane because the existing `data-canvas-owned-filter-icon="true"` + `opacity-0` handoff already covered the static icon once the ownership helper included the GlobalVariables section
+  - `frontend/tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` now proves the actual visible boundary on that section:
+    - the static filter icon is hidden on the DOM side
+    - distinct retained-canvas icon pixels are present using the icon's pseudo-element union rect
+    - the filter underline still has no GlobalVariables ownership marker on this path
+    - the live filter input/editor core remains visible
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: the trusted GlobalVariables probe passed on the live worktree runtime with the new retained filter-icon assertions
+- CDP visual check is done for the GlobalVariables filter-icon slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__globalVariablesSectionDefault` was visible on the live surface
+  - the filter/search row still looked intact after the static filter icon moved to retained canvas ownership
+  - the live filter input/editor core remained visible on the DOM path
+- The broader GlobalVariables lane is now closed at its useful ownership boundary:
+  - a fresh 2026-04-18 focused Playwright rerun of `tests/e2e/settings/settings-all-settings-global-variables-canvas-shell-ownership.spec.ts` still passed unchanged on the live worktree runtime after the latest filter-icon slice
+  - a same-day headless CDP inventory on `settings-section__globalVariablesSectionDefault` at normal section zoom confirmed the retained canvas is mounted and the row remains visually intact
+  - the only remaining visible kwargs/filter DOM on that row is the interactive core:
+    - the standard action-strip buttons/icons inside buttons
+    - the live filter `<input>` / editor core
+  - the `Param Filter` label is still present in DOM but not visibly rendered (`opacity-0`), and no additional default-visible filter/search chrome remains to move
+  - keep the GlobalVariables filter input/editor core and action-strip controls DOM-owned unless a concrete product requirement appears there
+- The first non-forwarding Pixi-owned camera/viewport seam is now landed on the `settings` canary path using `settings-section__callableSectionDefault` as the visual target:
+  - `frontend/src/forks/xyflow/core/container/GraphSurface.tsx` is now the real composition boundary for viewport ownership on the active `canvas-shell-underlay` path instead of inheriting an outer `ViewportWrapper` from `ReactFlow.tsx`
+  - new `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx` now applies the shared React Flow transform to the retained canvas layer from store state, so the retained section-shell canvas no longer depends on DOM viewport nesting for its camera transform
+  - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx` now renders `GraphSurface` directly inside `FlowRenderer`, leaving `GraphSurface` to decide whether a surface implementation uses the DOM viewport wrapper, a sibling camera layer, or both
+  - `frontend/src/forks/xyflow/core/styles/init.css` now defines `.react-flow__graph-surface-camera` as a non-interactive transform layer that sits below the DOM viewport
+  - focused coverage now exists at `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` for the new sibling camera-layer boundary, but executing that Vitest file is still blocked by the existing jsdom dependency/runtime issue before collection:
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - focused verification passed for the live seam:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurface.tsx src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/GraphSurface.test.tsx src/forks/xyflow/core/container/ReactFlow.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh token> setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (29.6s)` on the live worktree runtime
+- CDP visual check is done for the sibling camera-layer seam:
+  - `/settings` loaded cleanly with `All Settings` active and no visible crash/error overlay
+  - one retained section-shell canvas was mounted
+  - `.react-flow__graph-surface-camera` was present as a sibling immediately before `.react-flow__viewport`
+  - `settings-section__callableSectionDefault` remained visible and populated with no blank or detached section body
+  - caveat: the supplied bootstrap token was already rejected during the CDP pass, so the visual confirmation reused the still-healthy direct frontend route instead of the bootstrap URL
+- The next camera-lane transform-authority slice is now landed:
+  - canonical lane target remains `settings-section__callableSectionDefault`
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` no longer parses `.react-flow__viewport` computed CSS back from DOM to recover zoom scale for retained switch/underline/filter-icon/nested-guide/resting-text measurements
+  - the retained measurement path now reads shared React Flow zoom state through `useReactFlow((state) => state.transform[2])` and threads that scale into all retained graph-space measurement helpers
+  - new `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts` centralizes graph-space rect normalization, so measurement math now stays coupled to the same store-owned transform authority as the sibling camera layer instead of a second DOM readback source
+  - the retained measurement layout-refresh key now includes normalized viewport scale, so zoom changes force a fresh retained measurement pass without waiting for an unrelated DOM mutation
+  - focused coverage now exists at `frontend/src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts` proving the new helper returns stable graph-space offsets/sizes across equivalent `1x` and `2x` viewport measurements
+- focused verification passed for the transform-authority slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.ts src/forks/xyflow/core/container/sectionShellBackdropMeasurementMath.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-021/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.0s)` on the live worktree runtime
+- CDP visual check is done for the transform-authority slice:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - `.react-flow__section-shell-backdrop canvas` and `.react-flow__graph-surface-camera` were both present on the live surface
+  - `settings-section__dictSectionDefault` was checked at usable zoom because the shared dict probe exercises the retained shell/text/icon/underline primitives touched by this slice
+  - no crash/error overlay, blank/detached content, or obvious shell/text/icon/underline breakage was visible on that section
+  - the CDP pass reused the existing authenticated frontend session; the bootstrap URL was not needed
+- The fresh dense `settings` -> `All Settings` measurement rerun is now landed as the next durable perf report:
+  - new report: `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`
+  - `frontend/tests/e2e/settings/settings-all-settings-baseline.spec.ts` now clicks the real React Flow `fit view` control and waits for a meaningfully dense mounted surface before sampling metrics, because the current landing state can otherwise open into a non-dense close-in view
+  - the normalized rerun landed back on the same baseline viewport start state (`x=759.9`, `y=-51.75`, `zoom=0.1`) and restored the same end state after the scripted transform loop
+  - durable dense-scene metrics on the retained-canvas path now read:
+    - `flowNodeCount: 46`
+    - `visibleFlowNodeCount: 46`
+    - `documentNodeCount: 9517`
+    - `buttonCount: 507`
+    - `canvasCount: 1`
+    - `raf.meanMs: 111.45`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 18159`
+  - compared against the durable pre-change baseline at `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md`, that rerun shows a real dense-scene motion win:
+    - `raf.meanMs` improved from `204.93` to `111.45`
+    - `longTasks.totalMs` improved from `36337` to `18159`
+    - `documentNodeCount` only dropped from `9553` to `9517`, so the dominant remaining blocker is still the live inactive row/widget DOM rather than more closed canary shell/text micro-lanes
+- focused verification passed for the dense measurement/report slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-baseline.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-022/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.9s)` on the live worktree runtime with `visibleFlowNodeCount: 46`
+- CDP visual check is done for the dense measurement/report slice:
+  - `/settings` opened successfully in headless Chrome DevTools on the current worktree runtime
+  - `All Settings` was activated and the real `fit view` control was clicked
+  - the React Flow viewport was normalized (`matrix(0.133509, 0, 0, 0.133509, 2653.05, 62.1818)`)
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - no visible crash/error overlay was present
+- The next dense inactive-text DOM reduction slice is now landed on the shared callable/dict/GlobalVariables retained path:
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now short-circuits `canvasOwnedRestingText` to a lightweight focusable activator root instead of keeping hidden syntax-highlight span trees mounted under `opacity-0`
+  - single-line canvas-owned rows now collapse to one lightweight root node, while multiline rows keep only plain `.cm-line` wrappers for measurement instead of highlighted token spans
+  - first-click activation is preserved because the lightweight root still owns the same `onMouseDownCapture` / focus handoff used to mount the real inline CodeMirror editor
+  - focused coverage now exists at `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `frontend/tests/e2e/settings/settings-all-settings-canvas-shell-ownership.spec.ts` now proves the live callable canary uses the lightweight path by requiring `data-canvas-owned-resting-text-lightweight="true"` and zero highlighted `.cm-line span` descendants on owned `Config Language`, `Column Width`, and `Style Color` rows
+  - a fresh dense rerun is recorded at `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`
+  - that rerun moved the intended blocker metric:
+    - `documentNodeCount` dropped from `9517` to `9457` versus the prior retained-canvas dense rerun
+    - `documentNodeCount` is now down `96` from the durable `go-rewrite` baseline (`9553` -> `9457`)
+    - motion stayed roughly flat (`raf.meanMs 111.45 -> 113.5`, `longTasks.totalMs 18159 -> 18520`), so treat this slice as a DOM-cost reduction prerequisite rather than a new motion win
+- CDP visual check is done for the lightweight resting-text slice:
+  - `All Settings` mounted cleanly on the live worktree runtime
+  - `settings-section__callableSectionDefault` remained visible on the retained canvas path
+  - the canary text rows still looked intact after the dummy text DOM became lightweight
+  - activating the `Style Color` row surfaced the inline editor (`#ff0000`) with no blank or detached canvas jump
+- The next dense resting-text rollout slice is now landed on `settings-section__sectionSizingPolicy`:
+  - canonical target section for the active dense list/object lane is now `settings-section__sectionSizingPolicy`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now separates shell-owned sections from resting-text-owned sections, so `settings-section__sectionSizingPolicy` can ride the retained text/underline path without reopening another shell-transparency lane
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained detail text/underline visuals for that dense section while leaving its shell/header/toolbar DOM-owned
+  - focused coverage now exists for the ownership split:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`
+  - dense rerun outcome versus the prior lightweight-text report:
+    - `documentNodeCount` dropped from `9457` to `9181`
+    - `documentNodeCount` is now down `372` from the durable `go-rewrite` baseline (`9553` -> `9181`)
+    - motion stayed effectively flat (`raf.meanMs 113.5 -> 114.24`, `longTasks.totalMs 18520 -> 18839`), so treat this as a dense DOM-cost reduction slice rather than a new camera/rendering win
+- focused verification passed for the section-sizing-policy resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-024/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.4s)` on the live worktree runtime with `documentNodeCount: 9181`
+- CDP visual check is done for the section-sizing-policy resting-text slice:
+  - `/settings` loaded with no visible crash/error overlay
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was present on the live surface
+  - the Browser `maxHeight` row looked intact after the resting text DOM was hidden on the canvas path
+  - focusing `settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight-ParamInput` surfaced the inline editor with no obvious blank/detached jump or layout shift
+- The next dense non-text control slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now targets the repeated `metaControlByType__...__sizeModeHeight|sizeModeWidth` dropdown ids on that section through `isCanvasOwnedSectionMetaControlDropdown(...)`, so this stayed on the dense inactive-control blocker instead of reopening another shell/text lane.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` is now the real ownership boundary for those rows on the active canvas path; it passes `canvasOwnedRestingDropdown` into the dropdown renderer instead of relying on the stale meta-control wrapper assumption.
+  - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx` and `ComboboxParts.tsx` now expose a lightweight canvas-owned resting combobox shell:
+    - no live `search input` or toggle `button` stays mounted at rest
+    - pointer activation swaps to the real inline combobox and opens the menu on first interaction
+    - the resting value/chevron text stays measurable for retained-canvas text paint
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained dropdown pill boxes for those lightweight rows, so the hidden resting combobox chrome still renders through the retained scene.
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Utils/Combobox/ComboboxParts.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - oracle note for this lane:
+    - the first far-fit canvas pixel probe on these deep meta-control rows was untrustworthy because the fitted `All Settings` view leaves the target row family mounted but visually too tiny/far below the section shell for a reliable direct pixel claim
+    - the checked Playwright oracle now proves the intended product contract instead:
+      - every repeated size-mode row uses the lightweight resting dropdown path
+      - those rows keep zero live `search input` / `search button` controls mounted at rest
+      - a row-centered normal-zoom reframe makes the target activator usable
+      - first interaction swaps in the live inline combobox/search input
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-meta-control-dropdown-rerun.md`
+  - dense rerun outcome versus the prior section-sizing-policy resting-text report:
+    - `documentNodeCount` dropped from `9181` to `9151`
+    - `inputCount` dropped from `90` to `60`
+    - `buttonCount` dropped from `507` to `477`
+    - `raf.meanMs` improved from `114.24ms` to `109.59ms`
+    - `longTasks.totalMs` improved from `18839ms` to `17680ms`
+- focused verification passed for the section-sizing-policy meta-control dropdown slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/Combobox/ComboboxParts.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/DropdownInput.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.tsx src/components/Utils/Combobox/ComboboxParts.tsx src/components/Utils/Combobox/ComboboxParts.test.tsx src/components/Utils/Combobox/IdNameCombobox.tsx src/components/Utils/Combobox/useIdNameCombobox.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-025/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.3s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-025/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.9s)` on the live worktree runtime with `documentNodeCount: 9151`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy meta-control dropdown slice:
+  - direct `http://127.0.0.1:3068/settings` was already authenticated in the live DevTools session
+  - `All Settings` was active with the normal selected-tab styling
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was present and the `Size Mode Height` row looked intact at rest as compact `any ▾` inline content
+  - activating `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType__CodeCallable__sizeModeHeight` swapped in the live inline `Search` combobox populated with `any`
+  - the live dropdown menu opened directly beneath the row with no blank placeholder or detached visual jump
+- The `settings-section__sectionSizingPolicy` repeated inactive-control lane is now explicitly closed at its useful ownership boundary:
+  - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts` now includes a second at-rest inventory probe for the whole dense section instead of only a single-row activation check.
+  - a same-day live worktree inventory on that probe now proves the section is already at the expected at-rest ownership boundary:
+    - `rowCount: 211`
+    - `restingTextRootCount: 198`
+    - `lightweightDropdownRows: 30`
+    - `liveInteractiveRows: []`
+  - every lightweight dropdown row attributed by that probe still maps to `__sizeModeHeight|Width`, so there is no second repeated inactive non-text control family left to chase on this section right now.
+  - focused verification passed for the closure probe:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-026/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (39.5s)` on the live worktree runtime
+- CDP visual check is done for the section-sizing-policy lane-closure probe:
+  - a fresh headless DevTools pass bootstrapped the current worktree runtime and used `http://127.0.0.1:3068/settings?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8068`
+  - `All Settings` was active
+  - `.react-flow__section-shell-backdrop` contained exactly one mounted retained `canvas`
+  - `settings-section__sectionSizingPolicy` was visible with no crash/error overlay
+  - the `Size Mode Height` row still looked intact at rest as compact inline content with no visible live search input or blank placeholder
+  - caveat: because this is a dense retained-canvas surface, the CDP pass paired the visual read with a targeted DOM check for the absence of visible live search input on that row
+- The next dense structural-row slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/components/Params/ResizeHandle.tsx` now supports a single-node lightweight resize-handle path that replaces the old three-`div` handle markup with pseudo-element chrome while keeping the same drag target and first-interaction behavior
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now marks only `settings-section__sectionSizingPolicy` as the active lightweight-resize-handle lane, and `frontend/src/components/Params/ParamContainer.tsx` now switches that section to the lightweight handle only on the `canvas-shell-underlay` path
+  - focused coverage now exists for this slice:
+    - new `frontend/src/components/Params/ResizeHandle.test.tsx`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - the whole-section at-rest probe now proves the new structural contract on the live worktree runtime:
+    - `lightweightResizeHandleCount: 168`
+    - `lightweightResizeHandleChildCount: 0`
+    - `legacyResizeHandleCount: 0`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-resize-handle-rerun.md`
+  - dense rerun outcome versus the prior section-sizing-policy dropdown report:
+    - `documentNodeCount` dropped from `9151` to `8815`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` moved from `109.59ms` to `110.98ms`
+    - `longTasks.totalMs` moved from `17680ms` to `17907ms`
+- focused verification passed for the section-sizing-policy lightweight resize-handle slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ResizeHandle.test.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - note: adding `src/components/Params/ParamContainer.test.tsx` still hits the existing `html-encoding-sniffer` / `@exodus/bytes` jsdom issue already documented in this handoff
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ResizeHandle.tsx src/components/Params/ResizeHandle.test.tsx src/components/Params/ParamContainer.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-027/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.4s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-027/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.4s)` on the live worktree runtime with `documentNodeCount: 8815`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy lightweight resize-handle slice:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - no crash/error overlay was visible
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was visible on the live surface
+  - the `Size Mode Height` row still looked intact at rest
+  - activating the row still focused the inline `Search` combobox/input with value `any` in the same row geometry, with no blank or detached jump observed
+  - caveat: the row is still visually thin in the fitted headless viewport, so the activation continuity call is easiest to confirm from the DOM/rect state plus the visual pass together
+- The next dense structural-row slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/components/Params/ParamContainer.tsx` now collapses the extra non-kwarg `.section-key` wrapper only on the active `canvas-shell-underlay` `sectionSizingPolicy` lane, so the owned param-label element itself occupies the key-column slot instead of sitting inside another structural container.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now distinguishes that dense lane as the only lightweight param-label lane, while `frontend/src/components/Params/ParamItems/ParamTextLabel.tsx` accepts the forwarded class/style hook and exposes `data-canvas-owned-param-label-lightweight="true"` for probe attribution.
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - new `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - note: the pre-existing jsdom `html-encoding-sniffer` / `@exodus/bytes` issue still affects `frontend/src/components/Params/ParamContainer.test.tsx`, so the checked wrapper-removal proof stays on the new server-rendered test instead of that broken lane.
+  - the whole-section at-rest probe now proves the new structural contract on the live worktree runtime:
+    - `legacyLeadingContentWrapperCount: 0`
+    - `lightweightParamLabelCount: 168`
+    - `leadingContentCount: 168`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-param-label-rerun.md`
+  - dense rerun outcome versus the prior section-sizing-policy lightweight resize-handle report:
+    - `documentNodeCount` dropped from `8815` to `8647`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` moved from `110.98ms` to `112.38ms`
+    - `raf.p95Ms` improved from `233.3ms` to `216.7ms`
+    - `longTasks.totalMs` moved from `17907ms` to `18184ms`
+- focused verification passed for the section-sizing-policy lightweight param-label slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-028/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-028/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.4s)` on the live worktree runtime with `documentNodeCount: 8647`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy lightweight param-label slice:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` was visible on the live surface
+  - the `Size Mode Height` row still looked intact at rest with no blank label slot or detached row chrome after the wrapper removal
+  - activating the row kept the inline editor in-place with no visible detached jump
+  - caveat: the focused editor surfaced as a `cm-content` textbox showing `32` in this headless CDP pass, so the exact control affordance was slightly ambiguous even though the row geometry remained stable
+- The next dense structural-row slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats `settings-section__sectionSizingPolicy` as the lightweight nested-children lane while keeping the closed callable/dict/globalVariables lanes unchanged
+  - `frontend/src/components/Params/ParamContainer.tsx` now lets nested child rows mount directly under their owning row on the `canvas-shell-underlay` path and marks the owning nested row as the lightweight retained-guide root instead of keeping the extra `.section-args-nested.section-key-value...` wrapper div
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those lightweight nested-guide roots by unioning their direct child rows, so the retained guide still paints without the removed wrapper node
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+    - new `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - the whole-section at-rest probe now proves the new structural contract on the live worktree runtime:
+    - `legacyNestedChildWrapperCount: 0`
+    - `lightweightNestedGuideRootCount: 43`
+    - `rowCount: 211`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-nested-children-rerun.md`
+  - dense rerun outcome versus the prior section-sizing-policy lightweight param-label report:
+    - `documentNodeCount` dropped from `8647` to `8604`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` improved from `112.38ms` to `110.24ms`
+    - `raf.p95Ms` improved from `216.7ms` to `216.6ms`
+    - `longTasks.totalMs` improved from `18184ms` to `17832ms`
+- focused verification passed for the section-sizing-policy lightweight nested-children slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-029/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (37.7s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-029/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.3s)` on the live worktree runtime with `documentNodeCount: 8604`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy lightweight nested-children slice:
+  - `http://127.0.0.1:3068/settings` loaded with `All Settings` active
+  - no crash/error overlay was visible
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` remained visible on the live surface
+  - the sampled `Size` branch still showed the expected `Height` and `Width` rows with no blank slot or obviously detached row/guide chrome after the nested wrapper removal
+  - caveat: the headless fitted viewport made the deeper guide details hard to inspect pixel-for-pixel, so treat this as a best-effort visual pass on the visible subtree rather than a microscopic guide-fidelity call
+- The next dense structural-row slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now marks `settings-section__sectionSizingPolicy` as the lightweight text-underline lane while leaving the closed callable/dict/globalVariables lanes on the existing shared underline path.
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`, `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`, and `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now let owned `sectionSizingPolicy` text rows carry the retained underline on the existing lightweight text root at rest instead of mounting a second hidden underline sibling node for measurement.
+  - the active inline editor handoff still keeps a live underline target by wrapping the mounted CodeMirror root only while that editor is active, so first-click activation stays on the same product path instead of introducing a second click or a detached shell state.
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - the whole-section at-rest probe now proves the new underline ownership boundary on the live worktree runtime:
+    - `lightweightTextUnderlineCount > 100`
+    - `legacyTextUnderlineCount: 0`
+    - the owned Browser `maxHeight` row now exposes `data-canvas-owned-underline="true"` on the same lightweight text root instead of a second underline node
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-text-underline-rerun.md`
+  - dense rerun outcome versus the prior lightweight nested-children report:
+    - `documentNodeCount` dropped from `8604` to `8466`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` regressed from `110.24ms` to `134.26ms`
+    - `raf.p95Ms` regressed from `216.6ms` to `233.3ms`
+    - `longTasks.totalMs` regressed from `17832ms` to `22119ms`
+  - treat this slice as a real DOM-cost reduction prerequisite, not a new motion win: the dense rerun moved the intended structure metric by exactly the removed underline-family count, but the motion numbers were noisy/regressive on this single pass and need a follow-up structural slice plus remeasurement.
+- focused verification passed for the section-sizing-policy lightweight text-underline slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-030/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (52.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-030/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (58.7s)` on the live worktree runtime with `documentNodeCount: 8466`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy lightweight text-underline slice:
+  - a fresh headless DevTools pass bootstrapped the current worktree runtime and loaded `http://127.0.0.1:3068/settings`
+  - `All Settings` was active
+  - no visible crash/error overlay was present
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__sectionSizingPolicy` and the Browser `maxHeight` row remained present on the live surface, and the DevTools DOM check confirmed the row now uses the lightweight text root as its underline target with no legacy underline sibling at rest
+  - caveat: the headless CDP viewport did not give a strong human-only zoomed read of the tiny fitted row, so treat this as a required technical visual pass paired with the deterministic Playwright row probe rather than a microscopic typography/fidelity judgment
+- The final default wrapper-harvest slice is now landed on the same canonical section `settings-section__sectionSizingPolicy`:
+  - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx` now returns the lightweight `CanvasOwnedRestingComboboxInput` directly on the `canvasOwnedRestingInput` path instead of wrapping it in an extra row-level combobox container and hidden menu portal while the dropdown is still at rest
+  - `frontend/src/components/Utils/Combobox/ComboboxParts.tsx` now lets the lightweight resting root absorb the row-level classes directly so the size-mode dropdown root mounts as the value-side row child instead of one level deeper
+  - focused coverage now exists for this slice:
+    - new `frontend/src/components/Utils/Combobox/IdNameCombobox.test.tsx`
+    - updated `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - the live `sectionSizingPolicy` subtree now proves the new structural contract:
+    - `lightweightDropdownRootCount: 30`
+    - `legacyDropdownWrapperCount: 0`
+    - `lightweightDropdownDirectChildCount: 30`
+    - page-level hidden combobox list nodes dropped from `36` to `6`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-resting-dropdown-container-rerun.md`
+  - dense rerun outcome versus the prior lightweight text-underline report:
+    - `documentNodeCount` dropped from `8466` to `8226`
+    - `inputCount` stayed at `60`
+    - `buttonCount` stayed at `477`
+    - `raf.meanMs` improved from `134.26ms` to `113.96ms`
+    - `raf.p95Ms` stayed effectively flat at `233.4ms`
+    - `longTasks.totalMs` improved from `22119ms` to `18423ms`
+- focused verification passed for the section-sizing-policy lightweight resting-dropdown-container slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/Combobox/IdNameCombobox.test.tsx src/components/Utils/Combobox/ComboboxParts.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/Combobox/ComboboxParts.tsx src/components/Utils/Combobox/IdNameCombobox.tsx src/components/Utils/Combobox/IdNameCombobox.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-031/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-section-sizing-policy-meta-control-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.5s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-031/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (44.9s)` on the live worktree runtime with `documentNodeCount: 8226`, `inputCount: 60`, and `buttonCount: 477`
+- CDP visual check is done for the section-sizing-policy lightweight resting-dropdown-container slice:
+  - `All Settings` was active
+  - `settings-section__sectionSizingPolicy` was visible and exactly one retained `canvas` was mounted under `.react-flow__section-shell-backdrop`
+  - the `By Type` / `Browser` size-mode rows looked intact at rest with no obvious blank value slot after the wrapper collapse
+  - caveat: the headless CDP pass could not surface the inline `Search` editor from that row despite click/focus/keyboard attempts, so keep the paired Playwright activation proof as the authoritative handoff for first-click inline editing on this slice
+- The next dense section-family slice is now landed on the canonical target `settings-section__gui`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID` and treats ordinary `DropdownParam` rows in that section as canvas-owned resting dropdowns through the shared `isCanvasOwnedSectionRestingDropdown(...)` helper instead of hard-coding only the older `sectionSizingPolicy` meta-control lane
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now routes `ConfiguredDropdownInput` through that shared ownership helper, so the live `/settings` graph can reuse the existing lightweight combobox activator without opening another section-specific renderer seam
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts`
+  - the new GUI canary proves the exact owned family on the live worktree runtime:
+    - `Grid Pattern`, `Pan On Scroll Mode`, and `Selection Mode` now mount as lightweight resting dropdown roots at rest
+    - those three rows keep `0` live `search input` nodes and `0` live `search button` nodes at rest while the section keeps only its pre-existing non-dropdown search input live
+    - activating the owned `Grid Pattern` row rehydrates one live search input/button inline on the first pointer down and removes the lightweight resting root for that row
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-gui-lightweight-resting-dropdown-rerun.md`
+  - dense rerun outcome versus the prior lightweight resting-dropdown-container report:
+    - `documentNodeCount` dropped from `8226` to `8200`
+    - `inputCount` dropped from `60` to `57`
+    - `buttonCount` dropped from `477` to `474`
+    - `raf.meanMs` improved from `113.96ms` to `107.44ms`
+    - `raf.p95Ms` improved from `233.4ms` to `216.7ms`
+    - `longTasks.totalMs` improved from `18423ms` to `17334ms`
+- focused verification passed for the GUI lightweight resting-dropdown slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-032/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.0s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.dh94U6/loop-001/run-032/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.5s)` on the live worktree runtime with `documentNodeCount: 8200`, `inputCount: 57`, and `buttonCount: 474`
+- CDP visual check is done for the GUI lightweight resting-dropdown slice:
+  - `/settings` loaded cleanly with no visible crash or error overlay
+  - `All Settings` was active and exactly one retained `canvas` remained mounted under `.react-flow__section-shell-backdrop`
+  - `settings-section__gui` was visible on the live surface
+  - the `Grid Pattern`, `Pan On Scroll Mode`, and `Selection Mode` rows showed readable at-rest values (`dots`, `free`, `partial`) with no obvious blank value slots
+  - caveat: the headless fitted view renders the GUI block very small/narrow, so treat the focused Playwright canary as the authoritative activation proof and this CDP pass as the required visual confirmation layer
+- pre-backend-slice inventory had shown the next dense hot spots:
+  - `settings-section__backend` is the highest remaining combined cluster at `3` inputs / `17` buttons
+  - `settings-section__gui` is next at `5` inputs (`1` text + `4` color) / `13` buttons after closing its dropdown family
+- The next dense section-family slice is now landed on the canonical target `settings-section__backend`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID` and extends the shared `isCanvasOwnedSectionRestingDropdown(...)` helper to ordinary `DropdownParam` rows in that section instead of keeping the retained dropdown lane scoped only to `settings-section__gui` plus the older `sectionSizingPolicy` meta-control seam
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` did not need a new renderer branch for this lane because the existing `ConfiguredDropdownInput` handoff already routes through that shared helper
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts`
+  - the new backend canary proves the exact owned family on the live worktree runtime:
+    - `Rename Refactor Mode` and `Run Snapshot Mode` now mount as lightweight resting dropdown roots at rest
+    - those two rows keep `0` live `search input` nodes and `0` live `search button` nodes at rest while the section keeps only its pre-existing filter input live
+    - activating the owned `Run Snapshot Mode` row rehydrates one live search input/button inline on the first pointer down and removes the lightweight resting root for that row
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-backend-lightweight-resting-dropdown-rerun.md`
+  - dense rerun outcome versus the prior GUI lightweight resting-dropdown report:
+    - `documentNodeCount` dropped from `8200` to `8182`
+    - `inputCount` dropped from `57` to `55`
+    - `buttonCount` dropped from `474` to `472`
+    - `raf.meanMs` improved from `107.44ms` to `102.7ms`
+    - `raf.p95Ms` stayed effectively flat (`216.7ms` -> `216.6ms`)
+    - `longTasks.totalMs` improved from `17334ms` to `16512ms`
+- focused verification passed for the backend lightweight resting-dropdown slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-001/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-001/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.3s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 472`
+- CDP visual check is done for the backend lightweight resting-dropdown slice:
+  - `All Settings` was active on `http://127.0.0.1:3068/settings`
+  - `.react-flow__section-shell-backdrop canvas` was mounted and visible
+  - `section[data-section-id="settings-section__backend"]` was visible on the live surface
+  - the `Rename Refactor Mode` and `Run Snapshot Mode` rows looked intact at rest with no obvious blank value slot after the resting dropdown DOM moved to the retained canvas path
+  - caveat: the headless CDP pass did not re-check first-click inline activation on this slice, so keep the focused Playwright canary as the authoritative activation proof
+- The backend ordinary-dropdown micro-lane is now closed at its useful ownership boundary:
+  - the section no longer mounts live dropdown search inputs/buttons for `Rename Refactor Mode` and `Run Snapshot Mode` at rest
+  - a fresh backend-only inventory still shows one real repeated family there, but it is now the `9` live switch rows rather than another dropdown or wrapper lane
+  - do not reopen `settings-section__backend` for another ordinary-dropdown follow-up unless a fresh visible defect appears there
+- The next dense section-family slice is now landed on the same canonical target `settings-section__backend`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID` and the shared `isCanvasOwnedSectionLightweightSwitch(...)` helper so the backend switch-family lane is explicit at the ownership boundary instead of piggybacking on the older shell-chrome path
+  - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now routes backend `SwitchParam` rows through that helper on the `canvas-shell-underlay` path, and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now renders those owned rows with a lightweight non-button `div[role="switch"]` activator marked by `data-canvas-owned-lightweight-switch="true"` while preserving the same first-click toggle behavior and thumb visuals
+  - focused coverage now exists for this slice:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts`
+  - the new backend switch canary proves the exact owned family on the live worktree runtime:
+    - all `9` backend switch rows now mount lightweight `role="switch"` roots at rest
+    - those rows mount `0` `button[role="switch"]` nodes at rest while preserving one `role="switch"` control per row
+    - the owned `Autosave` row still toggles on the first click and restores to its original `aria-checked` / `data-state` value on the second click
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-backend-lightweight-switch-activator-rerun.md`
+  - dense rerun outcome versus the prior backend lightweight resting-dropdown report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` stayed at `55`
+    - `buttonCount` dropped from `472` to `463`
+    - `raf.meanMs` stayed effectively flat (`102.7ms` -> `102.98ms`)
+    - `raf.p95Ms` improved from `216.6ms` to `200ms`
+    - `longTasks.totalMs` regressed slightly from `16512ms` to `16654ms`
+  - treat this slice as an interactive-core plateau reduction, not a new motion win: the dense rerun held DOM count flat, but it removed all backend switch button roots at rest with no new renderer seam
+- focused verification passed for the backend lightweight switch-activator slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-002/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.0s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-002/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3068/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.0s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 463`
+- CDP visual check is done for the backend lightweight switch-activator slice:
+  - the supplied bootstrap token was rejected during the fresh headless DevTools pass, but the authenticated `/settings` session was already healthy and usable
+  - `All Settings` was active with no visible crash or error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__backend"]` was visible on the live surface
+  - backend switch rows, including `Autosave`, still looked intact with no obvious blank value slot after the switch roots moved off `button`
+- The backend switch-family micro-lane is now closed at its useful ownership boundary:
+  - the section no longer mounts any backend `button[role="switch"]` nodes at rest
+  - a fresh backend-only inventory now leaves `6` remaining buttons in that section, so another backend-only switch follow-up would be churn rather than a new frontier
+  - do not reopen `settings-section__backend` for another single-row switch micro-slice unless a fresh visible defect appears there
+- The next shared button-primitive slice is now landed on the canonical target `settings-section__callableSectionDefault`:
+  - new `frontend/src/components/Section/SectionParts/KwargsActionIconButton.tsx` now provides the shared kwargs-toolbar action primitive and renders a lightweight `DIV[role="button"]` root with `data-canvas-owned-lightweight-action-button="true"` on the `canvas-shell-underlay` path while preserving the legacy `button` path off-canvas
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now routes the repeated kwargs action strip through that shared helper, so the live `Remove arg`, `Add arg`, `Pin selected args`, `Convert to edge connectors`, and `Delete selected args` toolbar actions no longer mount legacy `button` roots at rest on the canvas path
+  - focused coverage now exists for this slice:
+    - new `frontend/src/components/Section/SectionParts/KwargsActionIconButton.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-kwargs-action-buttons.spec.ts`
+  - the live structural contract now holds across the dense `All Settings` surface:
+    - each shared kwargs action label now mounts `46` lightweight roots with `data-canvas-owned-lightweight-action-button="true"`
+    - each shared kwargs action label now mounts `0` legacy `button` roots at rest
+    - the canonical callable canary mounts exactly one lightweight root per label and no legacy kwargs action buttons
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-kwargs-action-button-rerun.md`
+  - dense rerun outcome versus the prior backend lightweight switch-activator report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` stayed at `55`
+    - `buttonCount` dropped from `463` to `233`
+    - `raf.meanMs` regressed from `102.98ms` to `108.75ms`
+    - `raf.p95Ms` regressed from `200ms` to `216.6ms`
+    - `longTasks.totalMs` regressed from `16654ms` to `17559ms`
+  - treat this slice as a major interactive-core plateau reduction, not a new motion win: it removes `230` repeated button roots from the callable-style control strip without reopening another section-specific renderer seam or introducing a second click
+- focused verification passed for the shared kwargs action-button slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/KwargsControls.tsx src/components/Section/SectionParts/KwargsActionIconButton.tsx src/components/Section/SectionParts/KwargsActionIconButton.test.tsx tests/e2e/settings/settings-all-settings-lightweight-kwargs-action-buttons.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-003/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-kwargs-action-buttons.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-003/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.5s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 233`
+  - focused Vitest verification for `frontend/src/components/Section/SectionParts/KwargsActionIconButton.test.tsx` is still blocked by the same existing jsdom dependency/runtime issue before test collection:
+    - `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done for the shared kwargs action-button slice:
+  - `/settings` loaded cleanly with no visible crash or error overlay
+  - `All Settings` was active and exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__callableSectionDefault` was present and its kwargs/action strip looked intact with no obvious blank or missing control slot after the button-to-role-button change
+  - caveat: the headless fitted canvas leaves the callable strip very small on screen, so this CDP pass relied more on DOM-backed confirmation than icon-by-icon human reading
+- The shared kwargs action-button lane is now closed at its useful ownership boundary:
+  - the repeated callable-style kwargs action strip no longer contributes legacy `button` roots at rest on the canvas path
+  - do not reopen this lane unless a fresh visible defect appears in the shared kwargs toolbar family
+- The next shared switch-primitive slice is now landed on the canonical target `settings-section__chatSectionDefault`:
+  - fresh post-kwargs inventory showed the next repeated `button` family clearly: the dense `All Settings` surface still mounted `129` generic settings switch roots plus `18` canvas-track switch roots as live `button[role="switch"]` nodes at rest
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the lightweight switch activator as a shared settings-section rule instead of a backend-only lane, so every settings `SwitchParam` on the `canvas-shell-underlay` path reuses the existing lightweight `DIV[role="switch"]` primitive
+  - focused coverage now exists for this shared lane:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - the live structural contract now holds across the dense settings surface:
+    - `0` `button[role="switch"]` roots remain across `section[data-section-id^="settings-section__"]`
+    - `156` settings switch roots now mount `data-canvas-owned-lightweight-switch="true"`
+    - `settings-section__chatSectionDefault` now uses a lightweight `DIV[role="switch"]` root for the `Aspect Ratio` row and preserves first-click toggle
+    - `settings-section__callableSectionDefault` still mounts `6` lightweight switch roots with `data-canvas-owned-switch-track="true"`, so the existing canvas-track lane remained intact after the shared activator change
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-switch-rerun.md`
+  - dense rerun outcome versus the prior shared kwargs action-button report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` stayed at `55`
+    - `buttonCount` dropped from `233` to `86`
+    - `raf.meanMs` improved from `108.75ms` to `105.12ms`
+    - `raf.p95Ms` improved from `216.6ms` to `200ms`
+    - `longTasks.totalMs` improved from `17559ms` to `16975ms`
+  - treat this slice as a real interactive-core plateau reduction: it removes the repeated settings switch family from live `button` roots at rest without reopening a closed section-local lane or introducing a second click
+- focused verification passed for the shared lightweight switch slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-004/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (25.7s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-004/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (43.2s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 86`
+- CDP visual check is done for the shared lightweight switch slice:
+  - `/settings` loaded cleanly with no visible crash or error overlay
+  - `All Settings` was active and exactly one `.react-flow__section-shell-backdrop canvas` remained mounted
+  - `settings-section__chatSectionDefault` was present and its `Aspect Ratio` switch row still looked intact after the lightweight switch-root change
+  - `settings-section__callableSectionDefault` remained present and its canvas-owned switch-track rows still looked intact with no obvious blank or missing control slot
+- The shared settings switch lane is now closed at its useful ownership boundary:
+  - the repeated settings switch family no longer contributes legacy `button[role="switch"]` roots at rest on the canvas path
+  - do not reopen another settings-switch micro-lane unless a fresh visible switch defect appears
+- The next shared section-menu-trigger slice is now landed on the canonical target `settings-section__callableSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionLightweightMenuTrigger(...)` and scopes that rule to settings sections, so the repeated header-menu-trigger family is explicit at the same ownership boundary as the other retained-canvas shared primitives.
+  - `frontend/src/components/Utils/atoms/menubar/menudropdown.tsx`, `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx`, `frontend/src/components/Section/Container/TextBlockMetaControlMenuButton.tsx`, and `frontend/src/components/Section/Container/MetaControlMenuButton.tsx` now switch settings section header menus onto Radix `asChild` lightweight trigger roots on the `canvas-shell-underlay` path.
+  - that keeps the same menu semantics (`role="menuitem"`) and first-click open behavior while removing the repeated legacy `button[role="menuitem"]` roots at rest across the dense settings surface.
+  - focused coverage now exists for this shared lane:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-section-menu-triggers.spec.ts`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-section-menu-trigger-rerun.md`
+  - dense rerun outcome versus the prior shared lightweight-switch report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` stayed at `55`
+    - `buttonCount` dropped from `86` to `40`
+    - `raf.meanMs` improved from `105.12ms` to `103.91ms`
+    - `raf.p95Ms` stayed at `200ms`
+    - `longTasks.totalMs` improved from `16975ms` to `16729ms`
+  - the live structural contract now holds across `section[data-section-id^="settings-section__"]`:
+    - `0` `button[role="menuitem"]` roots remain at rest
+    - `46` lightweight roots now mount with `data-canvas-owned-lightweight-menu-trigger="true"`
+    - `46` total `role="menuitem"` roots remain across those settings sections, so the family stayed interactive while the button roots disappeared
+- focused verification passed for the shared lightweight section-menu-trigger slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/atoms/menubar/menudropdown.tsx src/components/Section/Header/MenuButton/MenuButton.tsx src/components/Section/Container/TextBlockMetaControlMenuButton.tsx src/components/Section/Container/MetaControlMenuButton.tsx tests/e2e/settings/settings-all-settings-lightweight-section-menu-triggers.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-005/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-section-menu-triggers.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.1s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.jfU8NM/loop-001/run-005/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.1s)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 55`, and `buttonCount: 40`
+- CDP visual check is done for the shared lightweight section-menu-trigger slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present on the live surface
+  - the callable section header menu trigger looked intact after moving off button roots
+  - opening the callable menu showed normal visible items on the live surface: `New Variant`, `Hide Unpinned Params`, `Clear Values`, and `Reset To Default Version`
+- The shared section-menu-trigger lane is now closed at its useful ownership boundary:
+  - the repeated per-section header menu trigger family no longer contributes legacy `button[role="menuitem"]` roots at rest on the canvas path
+  - do not reopen this lane unless a fresh visible defect appears in the section header menu family
+- The next shared value/editor slice is now landed on the canonical target `settings-section__callableSectionDefault`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionLightweightParamFilter(...)` and scopes that rule to settings sections, so the repeated kwargs/filter-input family is explicit at the same retained-canvas ownership boundary as the other shared primitives.
+  - new `frontend/src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.tsx` now provides the shared kwargs/filter activator and renders a lightweight `DIV[role="searchbox"]` root with `data-canvas-owned-lightweight-filter-activator="true"` on the `canvas-shell-underlay` path while preserving the live inline `input` once the filter is activated.
+  - `frontend/src/components/Section/SectionParts/KwargsControls.tsx` now routes section filter rows through that helper on the canvas path, so the repeated `#<sectionId>-args-filter` family no longer mounts live `input` roots at rest across the dense settings surface.
+  - focused coverage now exists for this shared lane:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - new `frontend/src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-filters.spec.ts`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-param-filter-rerun.md`
+  - dense rerun outcome versus the prior shared lightweight section-menu-trigger report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` dropped from `55` to `9`
+    - `buttonCount` stayed at `40`
+    - `raf.meanMs` improved from `103.91ms` to `102.42ms`
+    - `raf.p95Ms` stayed at `200ms`
+    - `longTasks.totalMs` improved from `16729ms` to `16512ms`
+  - the live structural contract now holds across `section[data-section-id^="settings-section__"]`:
+    - `46` lightweight roots now mount with `data-canvas-owned-lightweight-filter-activator="true"`
+    - `0` live `input[id$="-args-filter"]` roots remain at rest
+    - `settings-section__callableSectionDefault-args-filter` now rests as a lightweight `searchbox` activator and swaps to the live inline `input` on first focus/click with no second click
+- focused verification passed for the shared lightweight param-filter slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/SectionParts/KwargsControls.tsx src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.tsx src/components/Section/SectionParts/CanvasOwnedParamFilterActivator.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-filters.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.G3F2Nh/loop-001/run-001/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-param-filters.spec.ts tests/e2e/settings/settings-all-settings-dict-canvas-shell-ownership.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.3m)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 9`, and `buttonCount: 40`
+- CDP visual check is done for the shared lightweight param-filter slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__callableSectionDefault"]` was present on the live surface
+  - the callable kwargs/filter row looked intact at rest with no visible live inline input
+  - activating `#settings-section__callableSectionDefault-args-filter` surfaced the inline filter input in the same wrapper with no obvious blank/detached jump
+- The shared lightweight param-filter lane is now closed at its useful ownership boundary:
+  - the repeated settings kwargs/filter family no longer contributes live `input[id$="-args-filter"]` roots at rest on the canvas path
+  - the fresh post-filter graph-surface inventory now leaves the next real frontier as:
+    - `6` remaining `input[type="color"]` roots across `settings-section__gui` (`4`), `settings-section__colorPickerParamCodeObjDefault` (`1`), and `settings-section__drawSectionDefault` (`1`)
+    - `1` remaining `role="combobox"` search input plus `1` remaining button in `settings-section__stateMachineGateSectionDefault`
+  - do not reopen the shared param-filter lane unless a fresh visible filter defect appears
+- The next shared lightweight color-input slice is now landed on the canonical target `settings-section__gui`:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes `isCanvasOwnedSectionLightweightColorInput(...)` and scopes that rule to settings sections, so the last shared native `input[type="color"]` family is explicit at the same retained-canvas ownership boundary as the other shared primitives
+  - `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx` now swaps settings color pickers with no preset choices onto a lightweight `DIV[role="button"]` root with `data-canvas-owned-lightweight-color-input="true"` on the `canvas-shell-underlay` path while preserving the live inline `input[type="color"]` once activated
+  - `frontend/src/components/Params/ParamUIs/ConfiguredParamInputs.tsx`, `frontend/src/components/Params/ParamUIs/ParamUI.tsx`, `frontend/src/components/Section/Layouts/MetaControl/MetaControlNode.tsx`, and `frontend/src/components/Section/Layouts/DrawArea/DrawAreaControls.tsx` now thread that shared activator onto the remaining settings color-picker family, covering `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault` without reopening another section-local ownership lane
+  - focused coverage now exists for this shared lane:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - updated `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - new durable dense rerun report: `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-color-input-rerun.md`
+  - dense rerun outcome versus the prior shared lightweight param-filter report:
+    - `documentNodeCount` stayed at `8182`
+    - `inputCount` dropped from `9` to `3`
+    - `buttonCount` stayed at `40`
+    - `raf.meanMs` regressed slightly from `102.42ms` to `102.88ms`
+    - `raf.p95Ms` stayed at `200ms`
+    - `longTasks.totalMs` regressed slightly from `16512ms` to `16522ms`
+  - the live structural contract now holds across `section[data-section-id^="settings-section__"]`:
+    - `0` live `input[type="color"]` roots remain at rest
+    - `6` lightweight roots now mount with `data-canvas-owned-lightweight-color-input="true"`
+    - section distribution:
+      - `settings-section__gui`: `4`
+      - `settings-section__colorPickerParamCodeObjDefault`: `1`
+      - `settings-section__drawSectionDefault`: `1`
+    - activating one GUI activator swaps in a live inline `input[type="color"]` in the same section immediately
+- focused verification passed for the shared lightweight color-input slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/components/Params/ParamUIs/ColorPickerInput.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx src/components/Section/Layouts/MetaControl/MetaControlNode.tsx src/components/Section/Layouts/DrawArea/DrawAreaControls.tsx tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.G3F2Nh/loop-001/run-002/worktree-ai.log)" && PLAYWRIGHT_BASE_URL="$(node -pe 'JSON.parse(process.argv[1]).frontendUrl' "$RUNTIME_JSON")" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="$PLAYWRIGHT_BASE_URL" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)` on the live worktree runtime with `documentNodeCount: 8182`, `inputCount: 3`, and `buttonCount: 40`
+- CDP visual check is done for the shared lightweight color-input slice:
+  - the fresh-context bootstrap token was rejected during the CDP pass, but the live `/settings` session itself stayed healthy and usable for verification
+  - `All Settings` was active with no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__gui` was present on the live surface and its resting color controls looked intact after the lightweight activator swap
+  - clicking the GUI `Grid Color` activator mounted a single inline `input[type="color"]` with no obvious blank/detached jump
+  - `settings-section__colorPickerParamCodeObjDefault` and `settings-section__drawSectionDefault` were also present in the DOM during the same pass
+  - caveat: the fitted headless scale remains too small for a confident pixel-level read, so this CDP confirmation relied more on DOM/state verification than on fine visual detail
+- The shared lightweight color-input lane is now closed at its useful ownership boundary:
+  - the remaining shared native settings color-input family no longer contributes live `input[type="color"]` roots at rest on the canvas path
+  - do not reopen this lane unless a fresh visible color-input defect appears
+- A fresh post-color graph-surface inventory is now landed to resolve the stale last-input assumption before opening another product lane:
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-post-color-live-input-inventory.md`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`
+  - a fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 8172`
+    - `inputCount: 3`
+    - `buttonCount: 40`
+    - `raf.meanMs: 99.9`
+    - `raf.p95Ms: 200`
+    - `longTasks.totalMs: 16095`
+  - the fresh section-scoped inventory closes the stale ambiguity:
+    - mounted settings sections: `46`
+    - graph-surface live inputs: `1`
+    - graph-surface live buttons: `1`
+    - outside-graph live inputs: `2`
+    - outside-graph live buttons: `39`
+  - the only remaining mounted graph-surface live editor core is:
+    - section: `settings-section__stateMachineGateSectionDefault`
+    - row id: `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`
+    - row text: `Gate Type`
+    - live controls at rest: one `input[role="combobox"][placeholder="Search"]` plus one companion Downshift toggle `button`
+  - the remaining non-graph inputs are workspace chrome only:
+    - `input#ProjectPageSearchBar`
+    - the overview-pane `Filter` input
+  - the prior `StateMachineSectionSettings.tsx` inspector assumption is now explicitly closed as the wrong ownership boundary for this survivor; the next product slice must go through the generic settings-row dropdown path that owns the `Gate Type` row
+- focused verification passed for the post-color inventory slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (56.8s)` on the live worktree runtime with the metrics recorded above
+- CDP visual check is done for the post-color inventory slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__stateMachineGateSectionDefault` was present on the live surface
+  - the `Gate Type` row still rendered as a live search-style combobox/input plus button at rest (`AND` shown), not a lightweight canvas-owned activator
+  - caveat: this was a headless fitted-view confirmation, so treat the focused Playwright inventory probe as the deterministic owner/row evidence
+- The `settings-section__stateMachineGateSectionDefault` `Gate Type` generic dropdown slice is now landed at the real owner boundary:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__stateMachineGateSectionDefault` in the generic resting-dropdown ownership rule instead of reopening a section-specific renderer branch
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that section directly so the retained scene can paint the dropdown box/text for the new lightweight resting path
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx` now proves the generic `ParamUI -> ConfiguredDropdownInput -> IdNameCombobox` path hands this row to `canvasOwnedRestingInput`
+  - new `frontend/tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts` now verifies the exact `Gate Type` row at rest and after one activation:
+    - at rest it mounts `data-canvas-owned-resting-dropdown-lightweight="true"`
+    - it mounts no live `search input` / `search button` inside that row
+    - one click swaps back to the inline Downshift `search input` plus toggle button with `AND` still selected
+  - `frontend/tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts` is now tightened for this lane:
+    - it asserts the state-machine gate section and row are still mounted
+    - it asserts zero graph-surface live `input` survivors
+    - it asserts zero graph-surface live `button` survivors
+    - it asserts zero remaining entries owned by `settings-section__stateMachineGateSectionDefault`
+  - fresh live inventory rerun on 2026-04-19 now records the closed survivor lane:
+    - `mountedSectionCount: 46`
+    - `documentInputCount: 2`
+    - `documentButtonCount: 39`
+    - `documentTextareaCount: 0`
+    - `graphSurfaceInputEntries: 0`
+    - `graphSurfaceButtonEntries: 0`
+    - remaining inputs/buttons are workspace chrome only
+- focused verification passed for the state-machine gate dropdown slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-state-machine-gate-resting-dropdown.spec.ts tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (45.9s)` on the live worktree runtime
+- CDP visual check is done for the state-machine gate dropdown slice:
+  - fresh bootstrap URL used: `http://127.0.0.1:8068/__setta__/bootstrap#token=...`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__stateMachineGateSectionDefault` was present on the live surface
+  - at rest the `Gate Type` row showed the lightweight canvas-owned dropdown path with `AND` visible and no live search input/button
+  - after one activation, the inline live search input plus toggle button appeared in the same row
+- The at-rest graph-surface input/button survivor lane is now closed at its useful ownership boundary:
+  - do not reopen the `settings-section__stateMachineGateSectionDefault` `Gate Type` lane unless a fresh inventory or visible defect says it regressed
+  - do not continue the dead-end `StateMachineSectionSettings.tsx` inspector path for this lane unless a fresh inventory proves the generic owner boundary changed
+- A fresh post-`Gate Type` dense rerun plus hotspot report is now landed:
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-post-gate-type-dense-hotspot-report.md`
+  - local trace artifact: `perf/artifacts/frontend/settings-all-settings/post-gate-type-dense-pan-trace-2026-04-19.json`
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 8163`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 100.83`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16261`
+  - the focused `NO_NAVIGATION` trace on the same normalized surface recorded:
+    - `CLS: 0.00`
+    - `DocumentLatency`: estimated savings `none`
+    - `Forced reflow`: no problem surfaced in that trace window
+  - interpretation:
+    - the graph-surface live `input` / `button` survivor lane remains closed
+    - the next dense frontier is no longer another lightweight activator family
+    - the remaining cost is the dense mounted section-body / row-value surface moving under viewport transforms, so the next product slice must target broader resting body/value DOM removal or transfer into the retained scene
+- The `settings-section__shortcuts` shared resting-text slice is now landed as the next real dense body/value move:
+  - canonical target section for this lane: `settings-section__shortcuts`
+  - canonical target row for this lane:
+    - row id: `ParamContainer-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut`
+    - input id: `settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__shortcuts` in the shared canvas-owned resting-text lane and gives it lightweight text-underline ownership instead of reopening another activator family
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__shortcuts` directly so the retained scene can paint those resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-shortcuts-resting-text-rerun.md`
+  - fresh section-scoped inventory now confirms the dominant untouched shortcuts family moved onto the lightweight path:
+    - `sectionPresent: true`
+    - `totalParamInputs: 62`
+    - `canvasOwnedRestingTextCount: 62`
+    - `lightweightRestingTextCount: 62`
+    - `highlightSpanCount: 0`
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7981`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 99.34`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15984`
+  - interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened kwargs/menu/filter/color/dropdown activator hop
+    - the shortcuts section was the largest remaining untouched text family from the fresh inventory, and landing it moved the global dense checkpoint again (`8163 -> 7981`)
+    - the shortcuts lane is now closed at its useful ownership boundary unless a fresh visible defect appears
+- focused verification passed for the shortcuts resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-004/worktree-ai.log -- tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.3s)` on the live worktree runtime with `documentNodeCount: 7981`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the shortcuts resting-text slice:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__shortcuts"]` was present on the live surface
+  - the target `Advanced Search Shortcut` row text resolved to `Mod + P` on the canvas path after a readable viewport override
+  - direct DOM focus on `#settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput` surfaced the inline editor `#CodeMirror-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut` in place with no blank/detached DOM jump observed
+  - caveat: headless CDP still did not produce a clean human-readable resting-row screenshot at that zoom level, so the resting-state confirmation relied partly on DOM-backed row text after the explicit viewport override
+- The `settings-section__drawSectionDefault` shared resting-text slice is now landed as the next real dense body/value move:
+  - canonical target section for this lane: `settings-section__drawSectionDefault`
+  - canonical target row for this lane:
+    - row id: `ParamContainer-settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx`
+    - input id: `settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__drawSectionDefault` in the shared canvas-owned resting-text lane and gives it lightweight text-underline ownership instead of reopening another activator family
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__drawSectionDefault` directly so the retained scene can paint those resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-draw-resting-text.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-draw-resting-text-rerun.md`
+  - fresh section-scoped inventory now confirms the dominant untouched draw text family moved onto the lightweight path:
+    - `sectionPresent: true`
+    - `totalParamInputs: 14`
+    - `canvasOwnedRestingTextCount: 14`
+    - `lightweightRestingTextCount: 14`
+    - `lightweightUnderlineCount: 14`
+    - `highlightSpanCount: 0`
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7937`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 101.02`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16270`
+  - interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened kwargs/menu/filter/color/dropdown activator hop
+    - the draw section was the next highest-payoff untouched text family from the fresh post-shortcuts inventory, and landing it moved the global dense checkpoint again (`7981 -> 7937`)
+    - the draw lane is now closed at its useful ownership boundary unless a fresh visible defect appears
+- focused verification passed for the draw resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-draw-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-005/worktree-ai.log -- tests/e2e/settings/settings-all-settings-draw-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (59.2s)` on the live worktree runtime with `documentNodeCount: 7937`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the draw resting-text slice:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__drawSectionDefault"]` was present on the live surface
+  - the target `Active Layer Idx` row looked intact at rest on the canvas path
+  - direct DOM focus on `#settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx-ParamInput` surfaced the inline editor `#CodeMirror-settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx` in place with no blank/detached DOM jump observed
+  - caveat: the console showed existing React/Downshift warnings during the CDP pass, but no visible overlay or draw-section regression surfaced on the page
+- The `settings-section__chatSectionDefault` shared resting-text slice is now landed as the next real dense body/value move:
+  - canonical target section for this lane: `settings-section__chatSectionDefault`
+  - canonical target row for this lane:
+    - row id: `ParamContainer-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode`
+    - input id: `settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__chatSectionDefault` in the shared canvas-owned resting-text lane and gives it lightweight text-underline ownership instead of reopening another activator family
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__chatSectionDefault` directly so the retained scene can paint those resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-chat-resting-text-rerun.md`
+  - fresh section-scoped inventory now confirms the dominant untouched chat text family moved onto the lightweight path:
+    - `sectionPresent: true`
+    - `totalParamInputs: 13`
+    - `canvasOwnedRestingTextCount: 14`
+    - `lightweightRestingTextCount: 13`
+    - `lightweightUnderlineCount: 13`
+    - `highlightSpanCount: 0`
+    - note: the extra non-lightweight `canvasOwnedRestingText` root is the pre-existing `#settings-section__chatSectionDefault-args-filter` activator, not a surviving live text editor
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7899`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 101.3`
+    - `raf.p95Ms: 216.7`
+    - `longTasks.totalMs: 16190`
+  - interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened kwargs/menu/filter/color/dropdown activator hop
+    - the chat section was the top untouched text family from the fresh post-draw inventory, and landing it moved the global dense checkpoint again (`7937 -> 7899`)
+    - the chat lane is now closed at its useful ownership boundary unless a fresh visible defect appears
+- focused verification passed for the chat resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)` on the live worktree runtime with `documentNodeCount: 7899`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the chat resting-text slice:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__chatSectionDefault"]` was present on the live surface
+  - the target `Permission Mode` row looked intact at rest on the canvas path
+  - direct DOM focus on `#settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode-ParamInput` surfaced the inline editor `#CodeMirror-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode` in place with no blank/detached DOM jump observed
+- The `settings-section__browserSectionDefault` shared resting-text slice is now landed as the next real dense body/value move:
+  - canonical target section for this lane: `settings-section__browserSectionDefault`
+  - canonical target row for this lane:
+    - row id: `ParamContainer-settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth`
+    - input id: `settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__browserSectionDefault` in the shared canvas-owned resting-text lane and gives it lightweight text-underline ownership instead of reopening another activator family
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__browserSectionDefault` directly so the retained scene can paint those resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-browser-resting-text-rerun.md`
+  - fresh section-scoped inventory now confirms the dominant untouched browser text family moved onto the lightweight path:
+    - `sectionPresent: true`
+    - `totalParamInputs: 9`
+    - `canvasOwnedRestingTextCount: 10`
+    - `lightweightRestingTextCount: 9`
+    - `lightweightUnderlineCount: 9`
+    - `highlightSpanCount: 0`
+    - note: the extra non-lightweight `canvasOwnedRestingText` root is the pre-existing `#settings-section__browserSectionDefault-args-filter` activator, not a surviving live text editor
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7873`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 104.74`
+    - `raf.p95Ms: 216.6`
+    - `longTasks.totalMs: 16937`
+  - interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened kwargs/menu/filter/color/dropdown activator hop
+    - the browser section was the top untouched text family from the fresh post-chat inventory, and landing it moved the global dense checkpoint again (`7899 -> 7873`)
+    - the browser lane is now closed at its useful ownership boundary unless a fresh visible defect appears
+- focused verification passed for the browser resting-text slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (58.9s)` on the live worktree runtime with `documentNodeCount: 7873`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the browser resting-text slice:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__browserSectionDefault"]` was present on the live surface
+  - the target `Column Width` row was present at rest on the canvas path
+  - direct DOM focus on `#settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth-ParamInput` surfaced the inline editor `#CodeMirror-settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth` in the same section with no blank/detached floating jump observed
+  - caveat: the headless fitted view still leaves the browser section visually compressed, so the CDP pass relied on DOM-backed inspection plus element-level screenshots rather than a clean full-frame human-readable row screenshot
+- The next shared resting-text cluster slice is now landed for the untouched `9`-row code-like family:
+  - canonical target section for the lane: `settings-section__buttonParamCodeObjDefault`
+  - sibling sections landed in the same bounded product slice:
+    - `settings-section__codeSectionDefault`
+    - `settings-section__promptSectionDefault`
+  - canonical target inputs for the checked cluster probe:
+    - `#settings-section__buttonParamCodeObjDefault-settings-codeobj__buttonParamCodeObjDefault__buttonParamCodeObjDefault__label-ParamInput`
+    - `#settings-section__codeSectionDefault-settings-codeobj__codeSectionDefault__codeSectionDefault__codeLanguage-ParamInput`
+    - `#settings-section__promptSectionDefault-settings-codeobj__promptSectionDefault__promptSectionDefault__format-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes the button/code/prompt cluster in the shared canvas-owned resting-text lane and gives that same cluster lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures all three sections directly so the retained scene can paint their resting text and underline primitives without opening a new renderer branch.
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-code-like-resting-text-cluster.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-code-like-resting-text-cluster-rerun.md`
+  - fresh post-change focused cluster probe recorded:
+    - `settings-section__buttonParamCodeObjDefault`: `uniqueParamInputCount 9`, `canvasOwnedRestingTextCount 10`, `lightweightRestingTextCount 9`, `underlineCount 9`, `liveInputCount 0`
+    - `settings-section__codeSectionDefault`: `uniqueParamInputCount 9`, `canvasOwnedRestingTextCount 10`, `lightweightRestingTextCount 9`, `underlineCount 9`, `liveInputCount 0`
+    - `settings-section__promptSectionDefault`: `uniqueParamInputCount 9`, `canvasOwnedRestingTextCount 10`, `lightweightRestingTextCount 9`, `underlineCount 9`, `liveInputCount 0`
+    - note: the extra non-lightweight `canvasOwnedRestingText` root on each section is still the pre-existing `args-filter` activator, not a surviving live text editor
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7806`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 102.14`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16467`
+  - interpretation:
+    - this was a broader shared-family move than the recent one-section browser/chat passes, so it closes the immediate “repeat the same section hop” risk while still targeting the top untouched dense surface from the current handoff
+    - the code-like cluster is now closed at its useful ownership boundary unless a fresh visible defect appears
+    - the global dense checkpoint moved again (`7873 -> 7806`) while the interactive-core plateau stayed flat at `2` / `39`
+- focused verification passed for the code-like resting-text cluster slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-code-like-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-008/worktree-ai.log -- tests/e2e/settings/settings-all-settings-code-like-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.6s)` on the live worktree runtime with `documentNodeCount: 7806`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the code-like resting-text cluster slice:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__buttonParamCodeObjDefault`, `settings-section__codeSectionDefault`, and `settings-section__promptSectionDefault` were present and intact on the live surface
+  - the canonical rows resolved to `Trigger`, `python`, and `Jinja` at rest on the canvas path
+  - focusing each canonical input mounted the inline CodeMirror editor in place while the active editor stayed inside the same article bounds with no obvious blank/detached jump
+  - caveat: the fitted headless canvas still leaves these rows visually compact, so the visual confirmation leaned on live focus geometry plus screenshots rather than a large close-up of each card
+- A fresh post-code-like-cluster untouched-text ranking is now recorded for the next pass:
+  - `settings-section__dateParamCodeObjDefault`: `8`
+  - `settings-section__gui`: `8`
+  - `settings-section__textBlockSectionDefault`: `8`
+  - `settings-section__timeParamCodeObjDefault`: `8`
+  - `settings-section__chatWindowing`: `7`
+  - `settings-section__dropzoneParamCodeObjDefault`: `7`
+  - `settings-section__genPythonCodeSectionDefault`: `7`
+  - `settings-section__genPythonMetadataSectionDefault`: `7`
+  - `settings-section__pluginSectionDefault`: `7`
+- The next shared resting-text cluster slice is now landed for the remaining pure-text `8`-row pair:
+  - canonical target section for the lane: `settings-section__gui`
+  - sibling section landed in the same bounded product slice:
+    - `settings-section__textBlockSectionDefault`
+  - canonical target inputs for the checked pair probe:
+    - `#settings-section__gui-settings-codeobj__gui__gui__defaultZoomLevel-ParamInput`
+    - `#settings-section__textBlockSectionDefault-settings-codeobj__textBlockSectionDefault__textBlockSectionDefault__format-ParamInput`
+  - the old post-code-like-cluster `8`-row ranking is now split into two lanes:
+    - `settings-section__gui` and `settings-section__textBlockSectionDefault` were valid shared text-like targets and are now moved onto the lightweight resting-text path
+    - `settings-section__dateParamCodeObjDefault` and `settings-section__timeParamCodeObjDefault` were explicitly closed as a mismatch for this lane after live inspection showed they route through the specialized `DateParam` / `TimeParam` path rather than the shared text-like `ParamInput` path
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__gui` and `settings-section__textBlockSectionDefault` in the shared canvas-owned resting-text lane and gives both sections lightweight underline ownership
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures both sections directly so the retained scene can paint their resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-gui-textblock-resting-text-cluster.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-gui-textblock-resting-text-cluster-rerun.md`
+  - fresh post-change focused pair probe recorded:
+    - `settings-section__gui`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 15`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - `settings-section__textBlockSectionDefault`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 9`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - note: `canvasOwnedRestingTextCount` is higher than the target-row count because those totals also include other pre-existing canvas-owned text roots elsewhere in each section, not because the target rows stayed live
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7708`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 105.12`
+    - `raf.p95Ms: 216.7`
+    - `longTasks.totalMs: 16889`
+  - interpretation:
+    - this slice moved another real mounted row-value surface (`7806 -> 7708`) without reopening closed kwargs/menu/filter/dropdown/color/browser/chat/code-like follow-ups
+    - the gui/text-block pair is now closed at its useful ownership boundary unless a fresh visible defect appears
+    - the motion result was mixed even though mounted DOM dropped, so treat this as valid ownership progress rather than a clean perf win
+- focused verification passed for the gui/text-block resting-text pair slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-gui-textblock-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-009/worktree-ai.log -- tests/e2e/settings/settings-all-settings-gui-textblock-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)` on the live worktree runtime with `documentNodeCount: 7708`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the gui/text-block resting-text pair slice:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__gui"]` and `section[data-section-id="settings-section__textBlockSectionDefault"]` were present on the live surface
+  - the canonical `Default Zoom Level` and `Format` rows looked intact at rest on the canvas path
+  - focusing `#settings-section__gui-settings-codeobj__gui__gui__defaultZoomLevel-ParamInput` and `#settings-section__textBlockSectionDefault-settings-codeobj__textBlockSectionDefault__textBlockSectionDefault__format-ParamInput` surfaced inline editors in place with no obvious blank/detached jump
+  - caveat: the inline editors are visually very small at the current fitted canvas scale, but their bounds stayed anchored to the same row containers throughout the check
+- A fresh post-gui/text-block-cluster untouched-text ranking is now recorded for the next pass:
+  - `settings-section__chatWindowing`: `7`
+  - `settings-section__dropzoneParamCodeObjDefault`: `7`
+  - `settings-section__genPythonCodeSectionDefault`: `7`
+  - `settings-section__genPythonMetadataSectionDefault`: `7`
+  - `settings-section__pluginSectionDefault`: `7`
+  - `settings-section__dateParamCodeObjDefault`: inspect separately on a future date/time-specific lane if needed; do not treat it as shared resting-text work
+  - `settings-section__timeParamCodeObjDefault`: inspect separately on a future date/time-specific lane if needed; do not treat it as shared resting-text work
+- The next shared resting-text cluster slice is now landed for the remaining pure-text gen-python `7`-row pair:
+  - canonical target section for the lane: `settings-section__genPythonCodeSectionDefault`
+  - sibling section landed in the same bounded product slice:
+    - `settings-section__genPythonMetadataSectionDefault`
+  - canonical target inputs for the checked pair probe:
+    - `#settings-section__genPythonCodeSectionDefault-settings-codeobj__genPythonCodeSectionDefault__genPythonCodeSectionDefault__size__width-ParamInput`
+    - `#settings-section__genPythonMetadataSectionDefault-settings-codeobj__genPythonMetadataSectionDefault__genPythonMetadataSectionDefault__size__width-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__genPythonCodeSectionDefault` and `settings-section__genPythonMetadataSectionDefault` in the shared canvas-owned resting-text lane and gives both sections lightweight underline ownership
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures both sections directly so the retained scene can paint their resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-gen-python-resting-text-cluster.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md`
+  - fresh post-change focused pair probe recorded:
+    - `settings-section__genPythonCodeSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__genPythonMetadataSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - note: `canvasOwnedRestingTextCount` is higher than the target-row count because each section still has one pre-existing non-lightweight canvas-owned text root elsewhere in the section, not because the target rows stayed live
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 7670`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 102.6`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16510`
+  - interpretation:
+    - this slice moved another real mounted row-value surface (`7708 -> 7670`) without reopening closed kwargs/menu/filter/dropdown/color/browser/chat/code-like/gen-python follow-ups
+    - unlike the immediately prior gui/text-block slice, the dense rerun also improved `raf.mean`, `raf.p95`, and long-task total instead of only lowering mounted DOM
+    - the gen-python pair is now closed at its useful ownership boundary unless a fresh visible defect appears
+- focused verification passed for the gen-python resting-text pair slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-gen-python-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-010/worktree-ai.log -- tests/e2e/settings/settings-all-settings-gen-python-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.9s)` on the live worktree runtime with `documentNodeCount: 7670`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done for the gen-python resting-text pair slice:
+  - the live authenticated `/settings` session was used directly; no stale bootstrap token path was reused during the CDP pass
+  - `All Settings` was active with no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__genPythonCodeSectionDefault"]` and `section[data-section-id="settings-section__genPythonMetadataSectionDefault"]` were present and visible on the live surface
+  - both `Size > Width` rows looked intact at rest on the canvas path with value `500`
+  - caveat: the CDP scripted focus path was viewport-sensitive on the metadata width row, so the visual pass treats the at-rest state as confirmed and relies on the deterministic Playwright probe for the two inline-editor focus assertions; do not treat that CDP-only focus flake as product evidence unless it reproduces on the trusted Playwright lane
+- A fresh post-gen-python-cluster untouched-text ranking is now recorded for the next pass:
+  - `settings-section__chatWindowing`: `7`
+  - `settings-section__dropzoneParamCodeObjDefault`: `7`
+  - `settings-section__pluginSectionDefault`: `7`
+  - `settings-section__dateParamCodeObjDefault`: inspect separately on a future date/time-specific lane if needed; do not treat it as shared resting-text work
+  - `settings-section__timeParamCodeObjDefault`: inspect separately on a future date/time-specific lane if needed; do not treat it as shared resting-text work
+- The next shared resting-text cluster slice is now landed for the remaining `7`-row chat-windowing/dropzone/plugin triple:
+  - canonical target section for the lane: `settings-section__chatWindowing`
+  - sibling sections landed in the same bounded product slice:
+    - `settings-section__dropzoneParamCodeObjDefault`
+    - `settings-section__pluginSectionDefault`
+  - canonical target inputs for the checked triple probe:
+    - `#settings-section__chatWindowing-settings-codeobj__chatWindowing__chatWindowing__shortcuts__canvasToggle-ParamInput`
+    - `#settings-section__dropzoneParamCodeObjDefault-settings-codeobj__dropzoneParamCodeObjDefault__dropzoneParamCodeObjDefault__placeholder-ParamInput`
+    - `#settings-section__pluginSectionDefault-settings-codeobj__pluginSectionDefault__pluginSectionDefault__size__width-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__chatWindowing`, `settings-section__dropzoneParamCodeObjDefault`, and `settings-section__pluginSectionDefault` in the shared canvas-owned resting-text lane and gives all three sections lightweight underline ownership
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures all three sections directly so the retained scene can paint their resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster.spec.ts`
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster-rerun.md`
+  - fresh post-change focused triple probe recorded:
+    - `settings-section__chatWindowing`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__dropzoneParamCodeObjDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__pluginSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - note: each section still has one pre-existing non-lightweight canvas-owned text root elsewhere in the section; the target `7` rows themselves are now all on the lightweight path
+  - a bounded lifecycle recovery was required before the final live checks:
+    - the first Playwright attempt hit a harness-only auth-cookie false negative after `./scripts/run-playwright-against-runtime.sh` set `SETTA_AUTH_COOKIE_NAME` to a workspace-scoped prefix while the recovered storage state held `setta_auth_<sessionId>`
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` recovered the worktree runtime on `http://127.0.0.1:3069/` and `http://127.0.0.1:8069`
+    - the final focused probe and dense rerun both passed when replayed against that recovered runtime with fresh one-shot bootstrap tokens and no `SETTA_AUTH_COOKIE_NAME` override; treat the earlier auth-prefix miss as harness noise, not product evidence
+  - fresh dense rerun on the recovered runtime recorded:
+    - `documentNodeCount: 7701`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 103.53`
+    - `raf.p95Ms: 200.1`
+    - `longTasks.totalMs: 16599`
+  - interpretation:
+    - this slice closes the remaining shared pure-text `7`-row cluster at its useful ownership boundary and moves another real mounted row-value surface without reopening any closed kwargs/menu/filter/dropdown/color/browser/chat/code-like/gui/gen-python lane
+    - the deterministic section-scoped ownership proof is clean, but the recovered-runtime dense rerun reopened extra non-target workspace chrome, so the global `documentNodeCount` / `inputCount` / `buttonCount` deltas are smoke-level evidence rather than a clean apples-to-apples benchmark versus the prior `7670 / 2 / 39` run
+    - the chat-windowing/dropzone/plugin cluster is now closed unless a fresh visible defect appears, and the next real frontier should either be a date/time-specific ownership move or a broader primitive with clearer dense-scene payoff
+- focused verification passed for the chat-windowing/dropzone/plugin resting-text triple slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/.)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3069/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (57.2s)` on the recovered live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/.)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3069/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (41.4s)` on the recovered live worktree runtime with `documentNodeCount: 7701`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done for the chat-windowing/dropzone/plugin resting-text triple slice:
+  - the current recovered runtime at `http://127.0.0.1:3069/settings` was used for the final check
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__chatWindowing`, `settings-section__dropzoneParamCodeObjDefault`, and `settings-section__pluginSectionDefault` were present on the live surface
+  - the canonical `canvasToggle`, `Drop a file here`, and `Width` rows looked intact at rest on the canvas path
+  - focusing each canonical `ParamInput` root surfaced an inline editor in place with no obvious blank or detached jump
+  - caveat: the recovered session reopened extra non-target workspace chrome, so rely on the deterministic focused Playwright probe for the ownership counts and treat the CDP pass as the required visual confirmation layer
+- The remaining shared pure-text `7`-row cluster is now closed, and the next frontier is no longer another generic text/date/time harvest:
+  - the remaining dominant cost is the dense resting section-body / row-value DOM that still moves under viewport transforms across `All Settings`
+  - default next step: target a broader shared resting-body/value primitive or ownership seam that can reduce that cost across multiple sections at once
+  - inspect `settings-section__dateParamCodeObjDefault` / `settings-section__timeParamCodeObjDefault` only if a fresh whole-scene inventory proves they are the single highest-payoff remaining dense family rather than just the next untouched local lane
+- The date/time-specific ownership lane is now landed and closed at its useful boundary:
+  - canonical target sections:
+    - `settings-section__dateParamCodeObjDefault`
+    - `settings-section__timeParamCodeObjDefault`
+  - canonical target inputs for the checked pair probe:
+    - `#settings-section__dateParamCodeObjDefault-settings-codeobj__dateParamCodeObjDefault__dateParamCodeObjDefault__dateDisplayFormat-ParamInput`
+    - `#settings-section__timeParamCodeObjDefault-settings-codeobj__timeParamCodeObjDefault__timeParamCodeObjDefault__timeDisplayFormat-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes both sections in the shared canvas-owned resting-text lane and gives both sections lightweight underline ownership
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures both sections directly so the retained scene can paint their resting text and underline primitives
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-date-time-resting-text-cluster.spec.ts`
+  - new dense rerun report: `perf/reports/frontend/2026-04-19_settings-all-settings-date-time-resting-text-cluster-rerun.md`
+  - fresh post-change focused pair probe recorded:
+    - `settings-section__dateParamCodeObjDefault`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 9`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - `settings-section__timeParamCodeObjDefault`: `uniqueParamInputCount 8`, `canvasOwnedRestingTextCount 9`, `lightweightRestingTextCount 8`, `underlineCount 8`, `liveInputCount 0`
+    - note: the extra non-lightweight root in each section is the pre-existing `args-filter` activator, not a surviving live value editor
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 7663`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 52`
+    - `raf.meanMs: 115.27`
+    - `raf.p95Ms: 233.4`
+    - `longTasks.totalMs: 18504`
+  - interpretation:
+    - this closes the date/time pair at the same resting-text ownership boundary as the earlier text/value clusters without opening a new renderer branch
+    - the deterministic section-scoped ownership proof is clean, but the global dense rerun still carries non-target workspace-chrome noise, so use the report as a checkpoint rather than as the only motion oracle
+    - the next frontier is now a broader shared primitive or ownership seam, not another section-local resting-text/date/time follow-up
+- focused verification passed for the date/time resting-text pair slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-date-time-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-date-time-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)` on the live worktree runtime with `documentNodeCount: 7663`, `inputCount: 4`, and `buttonCount: 52`
+- CDP visual check is done for the date/time resting-text pair slice:
+  - a fresh DevTools page loaded `http://127.0.0.1:3070/settings` with `All Settings` active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash/error overlay was visible
+  - `settings-section__dateParamCodeObjDefault` and `settings-section__timeParamCodeObjDefault` were present on the live surface
+  - the canonical `Date Display Format` and `Time Display Format` rows looked intact at rest on the canvas path
+  - focusing each canonical `ParamInput` root mounted a single inline CodeMirror editor inside the same section with no detached/floating editor and no scroll jump
+  - caveat: the inline editors were visually short in the fitted headless view, so treat the deterministic Playwright pair probe as the authoritative ownership count oracle and the CDP pass as the required live visual confirmation layer
+- The shared lightweight param-label primitive is now landed and closed at its useful boundary for the currently measured retained-canvas sections:
+  - canonical target section: `settings-section__shortcuts`
+  - sibling proof sections landed in the same bounded primitive slice:
+    - `settings-section__gui`
+    - `settings-section__chatSectionDefault`
+  - canonical target row/input for the checked interaction proof:
+    - row: `ParamContainer-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut`
+    - input: `#settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats param-label resting text and lightweight leading-content ownership as a shared measured-section rule via `isCanvasOwnedSectionRestingTextSection(...)` instead of the old section-sizing-policy-only wrapper rule
+  - `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx` now covers both the expanded owned-section rule and the non-owned fallback path
+  - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx` now covers the expanded shared label path for both retained-text and retained-dropdown sections while keeping a truly non-owned section visible
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves the broader measured-section label rule while keeping backend/non-owned sections out of scope
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-cluster.spec.ts`
+  - new dense rerun report: `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-cluster-rerun.md`
+  - fresh post-change cluster summary recorded:
+    - `settings-section__shortcuts`: `rowCount 62`, `labelCount 62`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 62`
+    - `settings-section__gui`: `rowCount 22`, `labelCount 22`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 22`
+    - `settings-section__chatSectionDefault`: `rowCount 24`, `labelCount 21`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 21`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 7350`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 99.07`
+    - `raf.p95Ms: 216.7`
+    - `longTasks.totalMs: 15896`
+  - interpretation:
+    - this is a real shared row-shell primitive move, not another section-local resting-text hop: the repeated leading-content wrapper is gone across multiple already measured retained-canvas sections
+    - the authoritative proof for this slice is the focused cluster summary plus the dense `documentNodeCount` drop to `7350`
+    - the global `input` / `button` counts on this runtime still carry non-target workspace-chrome noise, so treat this report as a strong dense-surface checkpoint, not as a new clean interactive-core benchmark
+- focused verification passed for the shared lightweight param-label primitive:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamItems/ParamTextLabel.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-label-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-003/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-param-label-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.5s)` on the live worktree runtime with `documentNodeCount: 7350`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done for the shared lightweight param-label primitive:
+  - `All Settings` was active on `/settings`
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - no crash overlay was visible
+  - `settings-section__shortcuts` was present and the `Advanced Search Shortcut` row looked intact at rest on the canvas path with visible `Mod + P` text
+  - focusing `#settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput` surfaced the inline CodeMirror editor in the same section with no obvious blank or detached jump
+  - caveat: the page also showed an unrelated existing `Claude Code (SDK) unavailable` warning banner during the headless CDP pass
+- The shared lightweight param-label primitive is now generalized and re-closed at the real settings ownership boundary:
+  - canonical target section: `settings-section__stateMachineStartSectionDefault`
+  - sibling proof sections landed in the same bounded primitive slice:
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__taskBoardSectionDefault`
+  - canonical target row/editor for the checked interaction proof:
+    - row: `ParamContainer-settings-section__stateMachineStartSectionDefault-settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label`
+    - editor: `CodeMirror-settings-section__stateMachineStartSectionDefault-settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats lightweight param-label roots as a shared `settings-section__*` rule instead of the older measured-section allowlist, while actual canvas-owned label text remains restricted to the existing resting-text-owned sections
+  - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - updated `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - new dense rerun report: `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-generalization-rerun.md`
+  - fresh post-change cluster summary recorded:
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `labelCount 14`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 14`
+    - `settings-section__taskBoardSectionDefault`: `rowCount 12`, `labelCount 11`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 11`
+    - `settings-section__stateMachineStartSectionDefault`: `rowCount 12`, `labelCount 11`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 11`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 7155`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 96.36`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15485`
+  - interpretation:
+    - this takes the shared lightweight param-label primitive to its real settings ownership boundary instead of reopening another section-local value lane
+    - actual canvas-owned label text did not widen with this slice, so non-owned settings labels still render visibly in DOM while the extra wrapper disappears
+    - the authoritative proof for this slice is the focused untouched-section cluster summary plus the dense `documentNodeCount` drop to `7155`
+    - the global `input` / `button` counts on this runtime still carry non-target workspace-chrome noise, so treat this report as a strong dense-surface checkpoint, not as a new clean interactive-core benchmark
+- focused verification passed for the lightweight param-label generalization slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-004/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (58.7s)` on the live worktree runtime with `documentNodeCount: 7155`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done for the lightweight param-label generalization slice:
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash overlay was visible
+  - `settings-section__spreadsheetSectionDefault`, `settings-section__taskBoardSectionDefault`, and `settings-section__stateMachineStartSectionDefault` were present on the live surface
+  - the canonical `Label` row on `settings-section__stateMachineStartSectionDefault` looked intact at rest with a visible DOM label (`opacity: 1`) and no missing text
+  - clicking that label surfaced the inline CodeMirror editor in the same row with no blank or detached jump
+- The next frontier after the landed date/time pair is still the broader dense-scene hotspot:
+  - keep the date/time pair closed unless a fresh visible defect appears there
+  - keep the shared lightweight param-label primitive closed unless a fresh visible defect appears there; do not spend the next default pass on another label-wrapper follow-up by inertia
+  - do not spend the next default pass on another section-local resting-text/body follow-up
+  - start from a fresh whole-scene ranking and pick either the largest remaining shared interactive/resting primitive or the single highest-payoff untouched family only if it plausibly moves the global dense numbers before code is written
+
+## Preservation rule
+
+- `origin/go-rewrite` is the product-architecture source of truth for this restart.
+- `/home/ubuntu/dev/setta` is the read-only reference worktree when a side-by-side compare is needed.
+- That `/home/ubuntu/dev/setta` checkout is currently on branch `go-rewrite` and is the temporary pristine oracle until `go-rewrite` merges back into `main`.
+- Prior Pixi/frontend-performance branches are research inputs only.
+- Port ideas, helpers, instrumentation, and narrow code slices from older branches only where they fit the `go-rewrite` structure.
+- Do not undo broad `go-rewrite` refactors just to recreate an older branch shape.
+- If Ralph hits a frontend compile blocker during bootstrap, the allowed response is a narrow `go-rewrite`-native source repair only.
+- Do not restore deleted generated exports or reintroduce old branch scaffolding just to satisfy stale imports.
+- If unblocking the build would require broad rollback of the `go-rewrite` refactor, stop and record that as a blocker/replan instead of doing it.
+
+## Why this restart exists
+
+The prior work established three things:
+
+1. The main `All Settings` bottleneck is the visible live row/widget subtree.
+2. Simple DOM cleanup was not enough.
+3. A renderer change alone does not help if visible heavyweight DOM still stays fully live.
+
+That leaves one primary architectural move:
+
+- make the default visible graph surface cheap by design
+
+## Immediate next actions
+
+1. Keep the callable row-decoration lane closed for `settings-section__callableSectionDefault`; do not spend another iteration on callable-only shell/body/text/underline/nested-guide polish unless a new defect appears.
+2. Use `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` as the pre-change benchmark reference for every future product slice on this lane.
+3. Treat the broader `settings-section__dictSectionDefault` lane as closed at its current ownership boundary; do not reopen shared-family dict shell/text/filter/kwargs-label slices by inertia unless a new defect appears there.
+4. Keep the shared callable/dict retained-guide oracle on the new guide-rect distinct-pixel check; do not revert to the old one-pixel center sample for that tiny rail.
+5. Treat the broader `settings-section__globalVariablesSectionDefault` lane as closed at its current ownership boundary; do not reopen more GlobalVariables kwargs/filter micro-slices unless a fresh visible defect appears there, and keep only the active filter editor core plus action-strip controls DOM-owned once a shared lightweight activator has handed off.
+6. Keep the callable, dict, GlobalVariables, shortcuts, draw, chat, browser, code-like cluster, gui/text-block pair, gen-python pair, chat-windowing/dropzone/plugin triple, date/time pair, and shared lightweight param-label primitive lanes closed once landed; the dense-scene evidence now lives in `perf/reports/frontend/2026-04-18_settings-all-settings-retained-canvas-dense-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-resting-text-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-resting-text-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-meta-control-dropdown-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-resize-handle-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-param-label-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-nested-children-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-text-underline-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-section-sizing-policy-lightweight-resting-dropdown-container-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-gui-lightweight-resting-dropdown-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-backend-lightweight-resting-dropdown-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-backend-lightweight-switch-activator-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-kwargs-action-button-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-section-menu-trigger-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-param-filter-rerun.md`, `perf/reports/frontend/2026-04-18_settings-all-settings-lightweight-color-input-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-shortcuts-resting-text-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-draw-resting-text-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-chat-resting-text-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-browser-resting-text-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-code-like-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-gui-textblock-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-date-time-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-cluster-rerun.md`, and `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-generalization-rerun.md`.
+7. Use that latest retained-canvas benchmark chain as the current sequence: motion improved materially from baseline, the lightweight callable/dict/globalVariables slice pushed `documentNodeCount` to `9457`, the dense `sectionSizingPolicy` resting-text rollout pushed it to `9181`, the repeated dropdown slice pushed it to `9151` while cutting `inputCount` to `60` and `buttonCount` to `477`, the lightweight resize-handle slice pushed it to `8815`, the lightweight param-label slice pushed it to `8647`, the lightweight nested-children slice pushed it to `8604`, the lightweight text-underline slice pushed it to `8466`, the lightweight resting-dropdown-container slice pushed it to `8226` while keeping the live `60` / `477` interactive-core plateau unchanged, the GUI lightweight resting-dropdown slice pushed it to `8200` while moving that plateau to `57` / `474`, the backend lightweight resting-dropdown slice pushed it to `8182` while moving that plateau to `55` / `472`, the backend lightweight switch-activator slice held `documentNodeCount` flat at `8182` while moving that plateau to `55` / `463`, the shared kwargs action-button slice held `documentNodeCount` flat at `8182` while moving that plateau to `55` / `233`, the shared section-menu-trigger slice held `documentNodeCount` flat at `8182` while moving that plateau to `55` / `40`, the shared lightweight param-filter slice held `documentNodeCount` flat at `8182` while moving that plateau to `9` / `40`, the shared lightweight color-input slice held `documentNodeCount` flat at `8182` while moving that plateau to `3` / `40`, the shortcuts resting-text slice pushed the dense mounted surface down again to `7981` while improving `raf.meanMs` to `99.34` and `longTasks.totalMs` to `15984`, the draw resting-text slice pushed that surface to `7937` while leaving the interactive-core plateau at `2` / `39`, the chat resting-text slice pushed that surface to `7899` while keeping the interactive-core plateau at `2` / `39`, the browser resting-text slice pushed that surface to `7873` while leaving the interactive-core plateau at `2` / `39`, the code-like cluster slice pushed that surface to `7806` while keeping the interactive-core plateau at `2` / `39`, the gui/text-block pair slice pushed that surface to `7708` while keeping the interactive-core plateau at `2` / `39`, the gen-python pair slice pushed that surface to `7670` while keeping the interactive-core plateau at `2` / `39` and improving `raf.meanMs` to `102.6`, `raf.p95Ms` to `183.4`, and `longTasks.totalMs` to `16510`, the chat-windowing/dropzone/plugin triple slice then recorded `7701`, `4`, `53`, `103.53`, `200.1`, and `16599`, the date/time pair then recorded `7663`, `4`, `52`, `115.27`, `233.4`, and `18504`, the shared lightweight param-label primitive then recorded `7350`, `4`, `53`, `99.07`, `216.7`, and `15896`, and the generalized shared lightweight param-label primitive now records `7155`, `4`, `53`, `96.36`, `183.3`, and `15485`; treat the last four reports as section-scoped/shared-primitive ownership proofs plus smoke-level dense checkpoints rather than clean benchmark deltas.
+8. Treat the repeated inactive-control lane on `settings-section__sectionSizingPolicy` as closed at its current ownership boundary; do not reopen another micro control-family slice there unless a fresh visible live input/dropdown/switch family reappears.
+9. Treat the inventory-backed `settings-section__sectionSizingPolicy` wrapper-harvest lane as complete after the lightweight resting-dropdown-container slice; do not spend another default iteration there on a tiny row/container/decorator removal by inertia.
+10. Treat the new `settings-section__gui` dropdown lane as closed at its current ownership boundary; do not reopen it for another micro dropdown follow-up unless a fresh visible defect appears there.
+11. Treat the new `settings-section__backend` ordinary-dropdown lane as closed at its current ownership boundary; do not reopen it for another dropdown micro-slice unless a fresh visible defect appears there.
+12. Treat the new `settings-section__backend` switch-family lane as closed at its current ownership boundary; do not reopen it for another backend-only switch micro-slice unless a fresh visible defect appears there.
+13. Treat the shared kwargs action-button lane, the shared section-menu-trigger lane, the shared lightweight param-filter lane, and the shared lightweight color-input lane as closed at their current ownership boundaries; do not reopen another kwargs/menu-trigger/filter/color-input micro-slice unless a fresh visible defect appears there.
+14. Treat the current evidence as proof of direction, not proof of success: use `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md` as the current best clean dense checkpoint at `7670 / 2 / 39` with `raf.meanMs 102.6`, `raf.p95Ms 183.4`, and `longTasks.totalMs 16510`, and treat the later `7701 / 4 / 53` chat-windowing/dropzone/plugin rerun, the `7663 / 4 / 52` date/time rerun, the `7350 / 4 / 53` lightweight-param-label rerun, the `7155 / 4 / 53` lightweight-param-label-generalization rerun, and the later `6713 / 4 / 52` languageServer and `6704 / 4 / 52` backend reruns as ownership proof plus decision evidence rather than final success claims.
+15. The recent stop signal is real: the languageServer and backend passes cut the remaining value surface from `87 / 28` to `39 / 21` to `27 / 18`, but dense motion did not materially improve, so default family-by-family survivor harvesting is now closed as a strategy.
+16. The next automated pass must target broad structural reduction of the dense resting section-body/value DOM from a whole-scene `All Settings` inventory, not another `gui`, `textBlock`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, `chatWindowing`, `dropzoneParamCodeObjDefault`, `pluginSectionDefault`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, state-machine-gate dropdown, shortcuts, draw, chat, browser, code-like-cluster, date/time, label-wrapper, or other survivor-family cleanup hop by inertia.
+17. Current priority order is:
+    - keep the date/time pair lane, the shared lightweight param-label primitive, the chat-windowing/dropzone/plugin triple lane, the size/style/tag lane, the param-codeobj lane, the languageServer lane, the backend plain-text lane, the shared switch value-shell lane, and the older callable/dict/GlobalVariables/sectionSizingPolicy/backend/gui/shared-activator/resting-text lanes closed unless fresh evidence proves a regression
+    - start the next product pass from the remaining row-body/value-shell survivors, not from another text-value leaf
+    - first candidate: shared lightweight-switch row-body/value-shell ownership where rows are already `lightweightSwitch` and the only remaining motion cost is `div.section-value`
+    - second candidate: shared lightweight color-input row-body/value-shell ownership where the remaining motion cost is `div.section-value.single-cell-container` plus icon shell
+    - if neither candidate is viable on the current ownership boundary, escalate directly to a stronger inactive-row overlay/body primitive instead of reopening another family lane
+18. If the next candidate slice does not plausibly remove row-body/layout cost from motion before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
+18. The ranking-backed untouched resting-text trio is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-untouched-resting-text-trio-rerun.md`:
+    - canonical target section: `settings-section__stateMachineStartSectionDefault`
+    - sibling sections landed in the same slice: `settings-section__spreadsheetSectionDefault` and `settings-section__taskBoardSectionDefault`
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes that trio in the retained resting-text + lightweight underline lane while keeping actual param-label text on those sections DOM-visible
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that trio so the existing retained scene paints their resting values/underlines with no new renderer branch
+    - focused verification passed via `frontend/tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts` and confirmed `7` lightweight resting-text roots, `7` underline roots, and `0` live editors at rest on each section while preserving first-focus inline editing on the state-machine-start `Label` row
+    - the dense rerun on the same noisy runtime moved to `documentNodeCount 7093`, `inputCount 4`, `buttonCount 53`, `raf.meanMs 94.97`, `raf.p95Ms 183.3`, and `longTasks.totalMs 15184`; treat this as another section-scoped ownership proof plus smoke-level dense checkpoint rather than a new clean interactive-core benchmark
+19. Keep actual param-label text on the untouched trio DOM-visible unless a future visual defect or stronger whole-scene ranking justifies widening label-text ownership there; that reranking is now recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`, so do not reopen label work on those sections by inertia.
+20. A fresh whole-scene ranking of the remaining non-lightweight value surface is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`:
+    - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+    - focused inventory totals on the current runtime:
+      - `mountedSectionCount: 46`
+      - `totalRowCount: 759`
+      - `totalRemainingValueRowCount: 273`
+      - `totalRemainingValueElementCount: 570`
+    - fresh dense rerun on the same runtime recorded:
+      - `documentNodeCount: 7088`
+      - `inputCount: 4`
+      - `buttonCount: 52`
+      - `raf.meanMs: 94.69`
+      - `raf.p95Ms: 166.7`
+      - `longTasks.totalMs: 15112`
+    - the new ranking closes the stale “just keep harvesting untouched text sections” assumption:
+      - `settings-section__languageServer` is the only clear section-specific outlier (`remainingValueElementCount 48` across `7` rows)
+      - the rest of the top remaining surface is now a broader repeated shared family spread across sections such as `stateMachineEndSectionDefault`, `listRootSectionDefault`, `chartSectionDefault`, `groupSectionDefault`, `terminalSectionDefault`, `imageSectionDefault`, `socialSectionDefault`, `metaControlSectionDefault`, and `iFrameSectionDefault`
+      - those sections all expose the same dominant remaining row kinds: `Size`, `Height`, `Width`, `Style Color`, `Tag Color`, and in some sections `Default Child Section Type`
+    - next default pass:
+      - prefer one shared resting-body/value primitive or ownership seam that can move that repeated row family across multiple sections at once
+      - only choose the `languageServer` outlier as the next product slice if that broader shared primitive is not viable on the current ownership boundary
+    - focused verification passed:
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+        - result: `2 passed (1.0m)` on the live worktree runtime
+    - CDP visual check is done:
+      - `/settings` loaded cleanly with `All Settings` active
+      - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+      - no crash/error overlay was visible
+      - `settings-section__languageServer` and `settings-section__stateMachineEndSectionDefault` were present on the live surface/DOM
+21. The shared `Size` / `Height` / `Width` / `Style Color` / `Tag Color` resting-text family is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-size-style-tag-resting-text-cluster-rerun.md`:
+    - canonical target section: `settings-section__stateMachineEndSectionDefault`
+    - sibling proof sections checked in the same bounded slice:
+      - `settings-section__listRootSectionDefault`
+      - `settings-section__terminalSectionDefault`
+    - the ownership move stays at the existing retained-text boundary instead of widening label text or dropdown behavior:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the top repeated settings family as a shared retained resting-text + lightweight underline cluster via `SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS`
+      - that cluster currently covers `stateMachineEndSectionDefault`, `listRootSectionDefault`, `chartSectionDefault`, `groupSectionDefault`, `terminalSectionDefault`, `imageSectionDefault`, `socialSectionDefault`, `metaControlSectionDefault`, and `iFrameSectionDefault`
+      - actual param-label text on those sections stays DOM-visible because `isCanvasOwnedSectionParamLabelRestingText(...)` was not widened
+    - focused proof now exists in `frontend/tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts`:
+      - `settings-section__stateMachineEndSectionDefault`: `lightweightRestingTextCount 6`, `underlineCount 6`, canonical `Height` row focused inline with no second click
+      - `settings-section__listRootSectionDefault`: `lightweightRestingTextCount 6`, `underlineCount 6`, canonical `Style Color` row focused inline with no second click
+      - `settings-section__terminalSectionDefault`: `lightweightRestingTextCount 4`, `underlineCount 4`, canonical `Tag Color` row focused inline with no second click
+    - focused verification passed:
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+        - result: `2 passed (58.5s)` on the live worktree runtime
+    - dense rerun on the same noisy runtime moved to:
+      - `documentNodeCount: 6962`
+      - `inputCount: 4`
+      - `buttonCount: 52`
+      - `raf.meanMs: 99.44`
+      - `raf.p95Ms: 183.4`
+      - `longTasks.totalMs: 15955`
+    - interpretation:
+      - this is a real shared-family reduction from the latest remaining-value ranking, not another small section-local hop
+      - the authoritative proof is the focused cluster summary plus the dense `documentNodeCount` drop from `7088` to `6962`
+      - `input` / `button` totals still carry workspace-chrome noise, so treat this as a shared-family ownership proof plus smoke-level dense checkpoint rather than a new clean interactive-core benchmark
+    - CDP visual check is done:
+      - `/settings` loaded cleanly with `All Settings` active
+      - exactly one `.react-flow__section-shell-backdrop canvas` was present
+      - no crash/error overlay was visible
+      - `settings-section__stateMachineEndSectionDefault`, `settings-section__listRootSectionDefault`, and `settings-section__terminalSectionDefault` were present and intact on the canvas path
+      - the canonical `Height`, `Style Color`, and `Tag Color` rows still looked intact after the DOM resting text was made transparent
+    - next default pass:
+      - keep this shared size/style/tag lane closed unless a fresh visible defect appears
+      - rerun the whole-scene remaining-value ranking from the new `6962` checkpoint, then choose between the `languageServer` outlier and the next remaining shared family only from that refreshed evidence
+22. A fresh post-shared-size/style/tag whole-scene ranking is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`:
+    - focused inventory totals on the current runtime:
+      - `mountedSectionCount: 46`
+      - `totalRowCount: 759`
+      - `totalRemainingValueRowCount: 220`
+      - `totalRemainingValueElementCount: 357`
+    - fresh dense rerun on the same runtime recorded:
+      - `documentNodeCount: 6962`
+      - `inputCount: 4`
+      - `buttonCount: 52`
+      - `raf.meanMs: 95.62`
+      - `raf.p95Ms: 183.4`
+      - `longTasks.totalMs: 15281`
+    - compared against the prior whole-scene ranking at `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`, the shared size/style/tag slice moved the mounted remaining value surface from `273 / 570` down to `220 / 357`
+    - the refreshed ranking closes the stale “keep following the size/style/tag family” assumption:
+      - `settings-section__languageServer` remains the only single-section outlier (`remainingValueElementCount 48` across `7` rows)
+      - the broader repeated survivor is now the param-codeobj text/value family led by `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault`
+      - that shared family also includes `colorPickerParamCodeObjDefault`, `dropdownParamCodeObjDefault`, `textParamCodeObjDefault`, `switchParamCodeObjDefault`, `passwordParamCodeObjDefault`, `codeParamCodeObjDefault`, and `textAreaParamCodeObjDefault`
+      - those sections now account for `134` visible remaining value elements across `54` rows on the current live surface, with dominant surviving row kinds still matching the retained-text ownership seam (`div.section-value.peer/textinput`, `div.cm-line`, `span.section-value`)
+    - next default pass:
+      - keep the shared size/style/tag lane closed unless a fresh visible defect appears
+      - prefer a shared param-codeobj resting-text/value primitive or ownership seam with canonical target `settings-section__rotaryParamCodeObjDefault` and first sibling proof `settings-section__sliderParamCodeObjDefault`
+      - only fall back to the `languageServer` outlier if that broader shared primitive is not viable on the current ownership boundary
+    - focused verification passed:
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-008/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+        - result: `2 passed (1.0m)` on the live worktree runtime
+    - CDP visual check is done:
+      - `http://127.0.0.1:3068/settings` loaded cleanly with `All Settings` active
+      - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+      - no crash/error overlay was visible
+      - the settings surface still visibly contained the `languageServer`, `rotary`, and `slider` areas at the current fit-view state, although the exact section selectors were not all present in the live DOM during that headless pass
+
+## First product frontier
+
+The first product frontier is not:
+
+- another broad DOM cleanup pass
+- another shell-only Pixi experiment
+- parity polishing before the perf floor moves
+
+The first product frontier is:
+
+- a real graph-surface composition boundary on the `settings` canary path
+- with one retained scene canvas now mounted under the DOM section nodes as the first renderer-owned static layer
+- with the named canary section now using canvas-owned resting shell fill/border instead of a purely parallel underlay
+- with the same canary section now also painting a canvas-owned header band/divider from the measured header height
+- with the same canary section now also painting a canvas-owned callable toolbar band while the live controls remain interactive
+- with the same canary section now also painting canvas-owned switch tracks for visible switch rows while the live switch thumbs/buttons remain interactive
+- with the same canary section now also painting the resting `Config Language` text in the retained canvas while the live CodeMirror editor still activates inline on first click
+- with the same canary section now also painting the resting `Column Width`, `Edge Input Params`, and `Edge Output Ports` text in the retained canvas while the live editors remain available
+- with the same canary section now also painting the resting `Style Color` label text in the retained canvas while label clicks still hand off directly to the inline `Style Color` editor
+- with the same canary section now also painting the shared text-row underlines in the retained canvas while the live blue focus underline still reappears from DOM on activation
+- with the same canary section now also painting the `Size` nested child-row guide rail in the retained canvas while the DOM `::before` guide stays hidden on the canvas path
+- with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
+- with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
+- with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
+- next: keep the closed `sectionSizingPolicy` nested-group lane closed, then choose the next shared row-body primitive from the remaining rerank with `settings-section__callableSectionDefault__size`, `settings-section__dictSectionDefault__size`, and `settings-section__globalVariablesSectionDefault__size` as the default bounded frontier; only escalate to a stronger inactive-row overlay decision if that shared `Size` wrapper family does not plausibly move dense motion
+
+## Hard rules
+
+- No second click to edit.
+- No visible layout jump when a field becomes editable.
+- No progress claims from narrow canaries while dense `All Settings` still performs badly.
+- Keep the append-only log and handoff current from the first worktree bootstrap step onward.
+- Do not let the loop backslide into undoing `go-rewrite` architecture to mimic older branches.

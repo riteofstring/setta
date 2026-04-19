@@ -21,7 +21,6 @@ type recordingDocumentSyncer struct {
 	refreshed  map[string]SyncedDocument
 	upserted   []SyncedDocument
 	closeCalls int
-	languages  map[string]struct{}
 }
 
 func (s *recordingDocumentSyncer) SyncDocuments(_ context.Context, documents map[string]SyncedDocument) error {
@@ -42,14 +41,6 @@ func (s *recordingDocumentSyncer) UpsertDocument(_ context.Context, document Syn
 func (s *recordingDocumentSyncer) Close(context.Context) error {
 	s.closeCalls += 1
 	return nil
-}
-
-func (s *recordingDocumentSyncer) hasLanguage(languageID string) bool {
-	if s.languages == nil {
-		return true
-	}
-	_, ok := s.languages[strings.ToLower(strings.TrimSpace(languageID))]
-	return ok
 }
 
 // The project synchronizer should write active Python code sections to their
@@ -102,78 +93,6 @@ func TestProjectSynchronizerMaterializeDocument(t *testing.T) {
 	}
 	if _, err := os.Stat(metadataPath); err != nil {
 		t.Fatalf("generated metadata file missing: %v", err)
-	}
-}
-
-func TestProjectSynchronizerMaterializeDocumentClearsUnavailablePythonDiagnostics(t *testing.T) {
-	t.Parallel()
-
-	settaFilesRoot := t.TempDir()
-	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
-	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
-		SettaFilesRoot: settaFilesRoot,
-		Service:        &recordingDocumentSyncer{languages: map[string]struct{}{}},
-		Diagnostics:    diagnostics,
-	})
-	if err != nil {
-		t.Fatalf("new project synchronizer: %v", err)
-	}
-
-	document, _, generatedPath, metadataPath := lspTestDocument(t, settaFilesRoot)
-	if err := statefs.AtomicWriteFile(generatedPath, []byte("class SettaState:\n    pass\n"), 0o644); err != nil {
-		t.Fatalf("write generated code: %v", err)
-	}
-	if err := statefs.AtomicWriteFile(metadataPath, []byte("METADATA = {}\n"), 0o644); err != nil {
-		t.Fatalf("write generated metadata: %v", err)
-	}
-
-	diagnostics.UpdateCodeSection("project-alpha", "runner", []projectstate.LSPDiagnostic{testProjectSynchronizerDiagnostic("reportUndefinedVariable")})
-	diagnostics.UpdateGeneratedDocument(
-		"project-alpha",
-		projectstate.GeneratedDiagnosticsDocumentCode,
-		projectstate.ProjectConfigDiagnostics{
-			ProjectID: "project-alpha",
-			Errors: map[string]projectstate.SectionTypeErrors{
-				"runner": {Callable: []string{"callable missing"}},
-			},
-			IsGenCode: true,
-		},
-		[]projectstate.LSPDiagnostic{testProjectSynchronizerDiagnostic("generated")},
-	)
-	diagnostics.UpdateGeneratedDocument(
-		"project-alpha",
-		projectstate.GeneratedDiagnosticsDocumentMetadata,
-		projectstate.ProjectConfigDiagnostics{
-			ProjectID: "project-alpha",
-			Errors:    map[string]projectstate.SectionTypeErrors{},
-			IsGenCode: true,
-		},
-		[]projectstate.LSPDiagnostic{testProjectSynchronizerDiagnostic("metadata")},
-	)
-
-	if err := synchronizer.MaterializeDocument(context.Background(), document); err != nil {
-		t.Fatalf("materialize document: %v", err)
-	}
-
-	snapshot := diagnostics.Snapshot("project-alpha")
-	if len(snapshot.CodeSections) != 0 {
-		t.Fatalf("expected unavailable Python diagnostics to clear, got %#v", snapshot.CodeSections)
-	}
-	if len(snapshot.GenCode.Errors) != 0 {
-		t.Fatalf("expected generated diagnostics to clear, got %#v", snapshot.GenCode.Errors)
-	}
-	if len(snapshot.UnmappedGenCode) != 0 {
-		t.Fatalf("expected generated unmapped diagnostics to clear, got %#v", snapshot.UnmappedGenCode)
-	}
-}
-
-func testProjectSynchronizerDiagnostic(message string) projectstate.LSPDiagnostic {
-	return projectstate.LSPDiagnostic{
-		Message: message,
-		Range: projectstate.LSPDiagnosticRange{
-			Start: projectstate.LSPDiagnosticPosition{},
-			End:   projectstate.LSPDiagnosticPosition{},
-		},
 	}
 }
 
@@ -1201,7 +1120,7 @@ func TestProjectSynchronizerTypeCheckProjectRefreshesPythonSectionsWithoutCodege
 	t.Parallel()
 
 	settaFilesRoot := t.TempDir()
-	router := newFixturePythonRouter(t, settaFilesRoot, nil)
+	router := newFixturePythonRouter(t, settaFilesRoot, nil, nil)
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
 		Service:        router,
@@ -1429,9 +1348,6 @@ func TestProjectSynchronizerRestartClosesBeforeRematerializing(t *testing.T) {
 	if len(syncer.synced) != 3 {
 		t.Fatalf("expected rematerialized sync set, got %#v", syncer.synced)
 	}
-	if len(syncer.refreshed) != 3 {
-		t.Fatalf("expected forced refresh after restart, got %#v", syncer.refreshed)
-	}
 	if _, ok := syncer.synced[sectionPath]; !ok {
 		t.Fatalf("expected section path %q in rematerialized set", sectionPath)
 	}
@@ -1440,15 +1356,6 @@ func TestProjectSynchronizerRestartClosesBeforeRematerializing(t *testing.T) {
 	}
 	if _, ok := syncer.synced[metadataPath]; !ok {
 		t.Fatalf("expected metadata path %q in rematerialized set", metadataPath)
-	}
-	if _, ok := syncer.refreshed[sectionPath]; !ok {
-		t.Fatalf("expected refreshed section path %q after restart", sectionPath)
-	}
-	if _, ok := syncer.refreshed[generatedPath]; !ok {
-		t.Fatalf("expected refreshed generated path %q after restart", generatedPath)
-	}
-	if _, ok := syncer.refreshed[metadataPath]; !ok {
-		t.Fatalf("expected refreshed metadata path %q after restart", metadataPath)
 	}
 }
 

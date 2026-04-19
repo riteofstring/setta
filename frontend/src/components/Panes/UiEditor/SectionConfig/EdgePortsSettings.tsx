@@ -41,9 +41,9 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
+  type BaseSectionImplUnion,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
-  type DictSectionImpl,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
@@ -79,6 +79,14 @@ type JsonSourcePathUpdateArgs = {
   setJsonSourcePath: JsonSourcePathSetter;
   setJsonSourceError: JsonSourceErrorSetter;
 };
+type DictSectionImpl = Extract<
+  BaseSectionImplUnion,
+  { type: typeof SectionTypeEnum.Dict }
+>;
+
+function isDictSectionImpl(impl: BaseSectionImplUnion): impl is DictSectionImpl {
+  return impl.type === SectionTypeEnum.Dict;
+}
 
 function formatJsonSourcePath(keys: string[]) {
   return keys.join(".");
@@ -111,11 +119,10 @@ function shouldRollbackJsonSourceKeys(
     core,
     variantId,
   );
-  if (impl.type !== SectionTypeEnum.Dict) {
+  if (!isDictSectionImpl(impl)) {
     return false;
   }
-  const dictImpl = impl as DictSectionImpl;
-  return _.isEqual(dictImpl.jsonSourceKeys ?? [], expectedKeys);
+  return _.isEqual(impl.jsonSourceKeys, expectedKeys);
 }
 function buildParamLabels(
   state: ZustandProjectState,
@@ -267,13 +274,17 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         sectionId,
         isBaseSectionWithParamsImpl,
       );
-      const dictImpl =
-        impl.type === SectionTypeEnum.Dict ? (impl as DictSectionImpl) : null;
+      let jsonSourceKeys: string[] = [];
+      let isJsonSource = false;
+      if (isDictSectionImpl(impl)) {
+        jsonSourceKeys = impl.jsonSourceKeys;
+        isJsonSource = impl.isJsonSource;
+      }
       return {
         edgeInputParams: impl.edgeInputParams,
         edgeOutputPorts: impl.edgeOutputPorts,
-        jsonSourceKeys: dictImpl?.jsonSourceKeys ?? [],
-        isJsonSource: dictImpl?.isJsonSource ?? false,
+        jsonSourceKeys,
+        isJsonSource,
       };
     }, shallow);
   const variantId = useProjectState((state) =>
