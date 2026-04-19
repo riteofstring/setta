@@ -8059,6 +8059,38 @@
         ],
         "type": "object"
       },
+      "PluginsPluginAppSubsystemCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appAuthoringUi": {
+            "type": "boolean"
+          },
+          "appDeploymentRuntime": {
+            "type": "boolean"
+          },
+          "appGenerationChatModes": {
+            "type": "boolean"
+          },
+          "appPreviewUi": {
+            "type": "boolean"
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "appAuthoringUi",
+          "appPreviewUi",
+          "appGenerationChatModes",
+          "appDeploymentRuntime"
+        ],
+        "type": "object"
+      },
       "PluginsPluginBlockedCapability": {
         "additionalProperties": false,
         "properties": {
@@ -8172,6 +8204,16 @@
           }
         },
         "required": ["code", "message"],
+        "type": "object"
+      },
+      "PluginsPluginFeatureCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSubsystem": {
+            "$ref": "#/components/schemas/PluginsPluginAppSubsystemCapabilities"
+          }
+        },
+        "required": ["appSubsystem"],
         "type": "object"
       },
       "PluginsPluginFrontendDescriptor": {
@@ -8549,6 +8591,9 @@
       "PluginsPluginRuntimeResponse": {
         "additionalProperties": false,
         "properties": {
+          "featureCapabilities": {
+            "$ref": "#/components/schemas/PluginsPluginFeatureCapabilities"
+          },
           "list": {
             "$ref": "#/components/schemas/PluginsPluginListResponse"
           },

@@ -2647,6 +2647,16 @@
       "schemaRef": "#/$defs/PatchPolicy"
     },
     {
+      "name": "PluginAppSubsystemCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginAppSubsystemCapabilities"
+    },
+    {
+      "name": "PluginAppSubsystemFeatureManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginAppSubsystemFeatureManifest"
+    },
+    {
       "name": "PluginBackendManifest",
       "kind": "model",
       "schemaRef": "#/$defs/PluginBackendManifest"
@@ -2732,6 +2742,16 @@
       "name": "PluginErrorInfo",
       "kind": "model",
       "schemaRef": "#/$defs/PluginErrorInfo"
+    },
+    {
+      "name": "PluginFeatureCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginFeatureCapabilities"
+    },
+    {
+      "name": "PluginFeatureCapabilitiesManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginFeatureCapabilitiesManifest"
     },
     {
       "name": "PluginFrontendDescriptor",
