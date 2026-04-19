@@ -37,11 +37,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	if err := RegisterFrontendRootRoutes(router, rootDeps); err != nil {
 		return err
 	}
-	return RegisterFrontendAPIRoutes(
-		router,
-		apiDeps,
-		BuildAppSubsystemFrontendAPIRouteRegistrations(apiDeps),
-	)
+	return RegisterFrontendAPIRoutes(router, apiDeps)
 }
 
 func newOpenAPIDocumentRouteDependencies[T any](modeOverrides map[string]config.Mode) (T, error) {

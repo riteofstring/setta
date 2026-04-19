@@ -279,11 +279,6 @@ type FrontendBrowserSectionImpl struct {
 	SavedSearches    []BrowserSavedSearch `json:"savedSearches"`
 }
 
-type FrontendIFrameSectionImpl struct {
-	FrontendBaseSectionImpl
-	Code string `json:"code"`
-}
-
 type FrontendListRootSectionImpl struct {
 	FrontendBaseSectionImpl
 	FrontendChildSectionFields
@@ -373,14 +368,6 @@ type FrontendDictSectionImpl struct {
 	IsJSONSource      bool     `json:"isJsonSource"`
 	JSONSourceKeys    []string `json:"jsonSourceKeys"`
 	JSONSourceMissing bool     `json:"jsonSourceMissing"`
-}
-
-type FrontendMetaControlSectionImpl struct {
-	FrontendBaseSectionImpl
-	FrontendSectionWithParamsLeadingFields
-	MetaControlParamID *string `json:"metaControlParamId"`
-	ShowSectionTitle   bool    `json:"showSectionTitle"`
-	FrontendSectionWithParamsTrailingFields
 }
 
 type FrontendTaskBoardTask = TaskBoardTask
@@ -513,7 +500,7 @@ type FrontendColorPickerParamCodeObjImpl struct {
 
 type FrontendDropdownParamCodeObjImpl struct {
 	FrontendBaseValueParamCodeObjImpl
-	Choices []string `json:"choices" py_default:"factory:list" shared_schema_non_null:"true"`
+	Choices []string `json:"choices"`
 }
 
 type FrontendPasswordParamCodeObjImpl struct {
