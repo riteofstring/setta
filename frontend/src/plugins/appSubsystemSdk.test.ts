@@ -65,6 +65,17 @@ describe("appSubsystemFrontendSdk", () => {
     expect(frontendHost.subscribeProjectContext(() => undefined)).toBeTypeOf(
       "function",
     );
+    expect(frontendHost.getProjectStateSnapshot()).toMatchObject({
+      projectConfig: {
+        id: "",
+        name: "",
+        entryCodeBlockId: null,
+      },
+      previewSectionVariantMap: {},
+    });
+    expect(
+      frontendHost.subscribeProjectStateSnapshot(() => undefined),
+    ).toBeTypeOf("function");
     expect(frontendHost.getRuntimeContext()).toEqual({
       isAppDeploymentMode: false,
       shareSessionId: null,
@@ -82,6 +93,9 @@ describe("appSubsystemFrontendSdk", () => {
       modeResolved: false,
       modeError: null,
     });
+    expect(frontendHost.subscribeServerModeState(() => undefined)).toBeTypeOf(
+      "function",
+    );
     expect(() => frontendHost.setAppDeploymentSession(null)).not.toThrow();
     expect(() =>
       frontendHost.incrementAppDeploymentSessionRunCount(),

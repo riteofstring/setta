@@ -3,7 +3,9 @@ import {
   callOpenAPI,
   getPasswordParamValue,
   loadCachedImageArtifacts,
+  res200,
   setParamEnteredValue,
+  type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
@@ -22,7 +24,10 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { useAppSubsystemFrontendHost } from "../../appSubsystemFrontendHostContext";
+import {
+  useAppSubsystemFrontendHost,
+  useAppSubsystemServerModeState,
+} from "../../appSubsystemFrontendHostContext";
 import {
   useAppConfigs,
   type AppConfigState,
@@ -42,7 +47,6 @@ import {
   useDecodedImages,
   useImages,
   useProjectState,
-  useServerMode,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -54,7 +58,6 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { ensureAppProjectConfigLoaded } from "../../state/actions/app";
 import type {
   DateParamCodeObjImpl,
@@ -644,8 +647,7 @@ function useAppConfigLoadState(
   configState: AppConfigState | null,
 ) {
   const frontendHost = useAppSubsystemFrontendHost();
-  const serverMode = useServerMode((x) => x.mode);
-  const modeResolved = useServerMode((x) => x.modeResolved);
+  const { mode: serverMode, modeResolved } = useAppSubsystemServerModeState();
   React.useEffect(() => {
     if (!resolvedConfigId) {
       return;
