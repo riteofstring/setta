@@ -20,11 +20,10 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 	"setta/internal/tools"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestReadFileRangeHandlerMirrorsPythonBehavior(t *testing.T) {
@@ -1412,42 +1411,6 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 
 	if server.sessionAgenticContext("missing-session") != nil {
 		t.Fatal("expected missing session agentic context lookup to return nil")
-	}
-}
-
-func TestServerCanOmitDefaultAppSubsystemTools(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
-		WorkspaceRoot:                t.TempDir(),
-		ProjectState:                 projectRuntime,
-		LSPDiagnostics:               openScopedTestLSPDiagnosticsRegistry(),
-		SkipDefaultAppSubsystemTools: true,
-	})
-	defer clientSession.Close()
-
-	toolsResult, err := clientSession.ListTools(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("list tools without default app subsystem tools: %v", err)
-	}
-
-	names := make([]string, 0, len(toolsResult.Tools))
-	for _, tool := range toolsResult.Tools {
-		names = append(names, tool.Name)
-	}
-	for _, name := range []string{
-		"get_app_catalog",
-		"list_app_components",
-		"get_app_definition",
-		"validate_app_definition",
-		"set_app_definition",
-		"stream_app_definition",
-		"update_app_definition",
-	} {
-		if slices.Contains(names, name) {
-			t.Fatalf("expected %s to be absent without app subsystem contributions; tools=%#v", name, names)
-		}
 	}
 }
 
@@ -3959,12 +3922,14 @@ func TestServerGetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
@@ -4150,9 +4115,8 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(t, projectRuntime.Snapshot().Document.AppDefinition)
-	if storedAppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected runtime app definition after mutation, got %#v", storedAppDefinition)
+	if projectRuntime.Snapshot().Document.AppDefinition == nil || projectRuntime.Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected runtime app definition after mutation, got %#v", projectRuntime.Snapshot().Document.AppDefinition)
 	}
 }
 
@@ -4160,7 +4124,7 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -4172,7 +4136,9 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
@@ -4236,11 +4202,11 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.AppDefinition = mustMarshalStoredAppDefinition(t, projectstate.AppDefinition{
+		document.AppDefinition = &projectstate.AppDefinition{
 			AppSpecPath:    appspec.DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,
-		})
+		}
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed missing app definition metadata: %v", err)
@@ -9301,14 +9267,6 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.ProjectState == nil {
 		options.ProjectState = projectRuntime
-	}
-	if options.AppDefinitionService == nil && projectRuntime != nil {
-		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
-	}
-	if !options.SkipDefaultAppSubsystemTools &&
-		options.AppDefinitionService != nil &&
-		len(options.ContributedToolRegistrations) == 0 {
-		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(options.AppDefinitionService)
 	}
 	if options.LSPDiagnostics == nil {
 		options.LSPDiagnostics = openScopedTestLSPDiagnosticsRegistry()

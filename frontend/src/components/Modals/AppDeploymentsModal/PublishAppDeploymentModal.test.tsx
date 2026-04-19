@@ -38,7 +38,7 @@ vi.mock("openapi/http/result", () => ({
   },
 }));
 
-import { PublishAppDeploymentModal } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
+import { PublishAppDeploymentModal } from "./PublishAppDeploymentModal";
 
 type RenderedModal = {
   host: HTMLDivElement;

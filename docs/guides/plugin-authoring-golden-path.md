@@ -28,12 +28,6 @@ backend authoring should target Go rather than Python.
 - Backend: edit `backend/main.go` and `backend/go.mod`.
 - Content: add templates/assets under `content/`.
 
-Language-server-only package-manager plugins may use a thin `backend/main.py`
-probe entrypoint when the package runtime already owns the actual server
-executable. Keep that entrypoint probe-only: it should validate/emit language
-server registrations, while Setta still owns selection, restart, status, and
-transport behavior in Go.
-
 ### Optional: define plugin UI settings from config schema
 
 Add `x-setta-ui-settings` entries to your plugin config schema (`content/config/schema.json`) when settings should read/write plugin config paths directly:

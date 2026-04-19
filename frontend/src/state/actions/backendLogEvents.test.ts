@@ -4,15 +4,15 @@ import {
   OverviewNotificationsPaneTabEnum,
   OverviewTabNameEnum,
 } from "utils/constants";
-import { type BackendLogEvent } from "utils/generatedTypes";
+import { type SettaBackendLogEvent } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addBackendLogEvent } from "./backendLogEvents";
 
 let backendLogEventCounter = 0;
 
 function createBackendLogEvent(
-  severity: BackendLogEvent["severity"],
-): BackendLogEvent {
+  severity: SettaBackendLogEvent["severity"],
+): SettaBackendLogEvent {
   backendLogEventCounter += 1;
   return {
     id: `backend-log-event-${backendLogEventCounter}`,

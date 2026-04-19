@@ -1,8 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
-import { useProjectState } from "state/definitions";
+import { useAppConfigs, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
@@ -19,8 +18,8 @@ import {
   AppActionContext,
   AppConfigScopeContext,
   AppRuntimeContext,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
-import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
+} from "./appContext";
+import { appRegistry } from "./appRegistry";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -349,7 +348,7 @@ describe("AppRenderer policy enforcement", () => {
     expect(markup).toContain("Beta");
   });
 
-  it("renders markdown TextBlock output using the section core modifier and typography scale", () => {
+  it("renders TextBlock output using the section core modifier (not raw impl text)", () => {
     const sectionId = "section-1";
     const sectionVariantId = "section-variant-1";
     const sectionImplId = "section-impl-1";
@@ -374,8 +373,6 @@ describe("AppRenderer policy enforcement", () => {
     });
     const sectionImpl = createTextBlockSectionImpl({
       id: sectionImplId,
-      format: "Markdown",
-      masterFontSizePx: 18,
       text: "From impl",
     });
 
@@ -422,7 +419,5 @@ describe("AppRenderer policy enforcement", () => {
 
     expect(markup).toContain("From core modifier");
     expect(markup).not.toContain("From impl");
-    expect(markup).toContain("--setta-textblock-body-size:18px");
-    expect(markup).toContain("--setta-textblock-h1-size:36px");
   });
 });

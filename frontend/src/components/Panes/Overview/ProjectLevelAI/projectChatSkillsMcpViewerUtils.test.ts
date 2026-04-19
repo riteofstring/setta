@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
-import { buildAppGenerationSlashCommandDefinitions } from "plugins/appSubsystemChatUi";
 import {
   createAgentRun,
   createAllConfigs,
@@ -22,9 +21,6 @@ import {
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
-
-const APP_GENERATION_SLASH_COMMANDS =
-  buildAppGenerationSlashCommandDefinitions();
 
 function buildExternalAgentPreflightStatus(
   overrides: Partial<HttpapiExternalAgentPreflightStatus> = {},
@@ -704,7 +700,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const rows = buildSlashCommandsByEngine({
       engineConfigs,
-      appGenerationSlashCommands: APP_GENERATION_SLASH_COMMANDS,
       allLLMConfigs,
       apiKeys: { OPENAI_API_KEY: "secret" },
       externalAgentHealth,
@@ -776,7 +771,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const rows = buildSlashCommandsByEngine({
       engineConfigs,
-      appGenerationSlashCommands: APP_GENERATION_SLASH_COMMANDS,
       allLLMConfigs,
       apiKeys: {},
       externalAgentHealth,
