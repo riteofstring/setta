@@ -16,6 +16,7 @@ import {
   upsertAppGenCustomSkill,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { useAppSubsystemSlashCommands } from "plugins/appSubsystemRuntime";
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -2655,9 +2656,11 @@ export function ProjectChatSkillsMcpViewer({
     mcpConfigPath,
     settaFilesLocation,
   ]);
+  const appGenerationSlashCommands = useAppSubsystemSlashCommands();
   const slashCommandsByEngine = useMemo(() => {
     return buildSlashCommandsByEngine({
       engineConfigs,
+      appGenerationSlashCommands,
       allLLMConfigs,
       apiKeys,
       externalAgentHealth,
@@ -2665,6 +2668,7 @@ export function ProjectChatSkillsMcpViewer({
     });
   }, [
     allLLMConfigs,
+    appGenerationSlashCommands,
     apiKeys,
     engineConfigs,
     externalAgentHealth,
@@ -2725,9 +2729,9 @@ export function ProjectChatSkillsMcpViewer({
       model: true,
       permissions: true,
       search: true,
-      appGenerationModes: true,
+      appGenerationCommands: appGenerationSlashCommands,
     });
-  }, []);
+  }, [appGenerationSlashCommands]);
   const customSlashCommandDefinitions = useMemo(() => {
     return buildCustomPromptSlashCommandDefinitions(
       customProjectChatSlashCommands,

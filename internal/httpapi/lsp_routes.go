@@ -11,9 +11,11 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 )
 
 const (
@@ -37,11 +39,13 @@ type LSPAdminService interface {
 }
 
 type LSPRouteDependencies struct {
-	ModePolicy   modes.Policy
-	ProjectState *projectstate.Runtime
-	Diagnostics  *projectstate.LSPDiagnosticsRegistry
-	Completions  *lspcompletion.Service
-	Admin        LSPAdminService
+	ModePolicy    modes.Policy
+	ProjectState  *projectstate.Runtime
+	Diagnostics   *projectstate.LSPDiagnosticsRegistry
+	Completions   *lspcompletion.Service
+	Admin         LSPAdminService
+	WebsocketHub  *realtime.WebsocketHub
+	PluginRuntime pluginRuntimeUpdateService
 }
 
 type TypeCheckRequest struct {
@@ -129,6 +133,12 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 		}
 		if deps.Admin == nil {
 			return fmt.Errorf("lsp admin service is required in ide mode")
+		}
+		if deps.WebsocketHub == nil {
+			return fmt.Errorf("websocket hub is required in ide mode")
+		}
+		if deps.PluginRuntime == nil {
+			return fmt.Errorf("plugin runtime service is required in ide mode")
 		}
 	}
 
@@ -301,12 +311,26 @@ func lspDiagnosticsModeDetail(policy modes.Policy) (string, bool) {
 
 func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if deps.ProjectState == nil || deps.Admin == nil {
+		if deps.ProjectState == nil || deps.Admin == nil || deps.WebsocketHub == nil || deps.PluginRuntime == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		snapshot := deps.ProjectState.Snapshot()
 		if err := deps.Admin.Restart(r.Context(), snapshot.Document); err != nil {
+			if errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+				writeError(
+					w,
+					r,
+					http.StatusConflict,
+					"language_server_not_configured",
+					"Language server is not configured. Select a plugin and restart after it is available.",
+				)
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if err := broadcastPluginRuntimeUpdate(r.Context(), deps.PluginRuntime, deps.WebsocketHub); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}

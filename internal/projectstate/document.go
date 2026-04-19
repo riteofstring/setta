@@ -158,11 +158,10 @@ func normalizeDocumentAppDefinition(appDefinition *AppDefinition) (*AppDefinitio
 		return nil, nil
 	}
 
-	normalized, err := appDefinition.Normalized()
-	if err != nil {
-		return nil, fmt.Errorf("normalize app definition: %w", err)
-	}
-	return &normalized, nil
+	// Core preserves the legacy app payload for compatibility only. The app
+	// plugin owns validation and interpretation of this data.
+	cloned := appDefinition.Clone()
+	return &cloned, nil
 }
 
 func normalizeDocumentProjects(projects map[string]Project) error {

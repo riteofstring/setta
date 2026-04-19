@@ -7,7 +7,7 @@ import {
   resetAppDeployment,
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAppConfigs } from "state/definitions";
+import { useAppConfigs, useLocalStorage, useSettings } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { resolveRunRequest } from "utils/runCapabilities";
 import type { AppActionDefinitions } from "./appBindings";
@@ -228,32 +228,55 @@ async function loadConfigState(
   return useAppConfigs.getState().configs[configId] ?? null;
 }
 
+function resolveAppRunSnapshotMode(
+  configId: string,
+  deploymentMode: boolean,
+): string {
+  if (deploymentMode) {
+    return "";
+  }
+  const runSnapshotOverride =
+    useLocalStorage.getState().runSnapshotModeByProjectConfigId[configId];
+  if (runSnapshotOverride !== undefined) {
+    return runSnapshotOverride;
+  }
+  return useSettings.getState().backend.runSnapshotMode;
+}
+
 function buildRunRequestBody(
   runParams: PreparedRunParams,
   executionSectionId: string,
+  deploymentMode: boolean,
 ): Parameters<typeof runCode>[0]["body"] {
   return {
+    cliId: "",
+    drawSnapshotsBySectionId: {},
+    paramOverrides: runParams.paramOverrides ?? {},
     projectConfigId: runParams.configId,
+    runSnapshotMode: resolveAppRunSnapshotMode(
+      runParams.configId,
+      deploymentMode,
+    ),
     sectionId: executionSectionId,
-    ...(runParams.hasSectionVariantOverrides &&
-    runParams.sectionVariantOverrides
-      ? { sectionVariantOverrides: runParams.sectionVariantOverrides }
-      : {}),
-    ...(runParams.hasParamOverrides && runParams.paramOverrides
-      ? { paramOverrides: runParams.paramOverrides }
-      : {}),
+    sectionVariantOverrides: runParams.sectionVariantOverrides ?? {},
+    terminalSectionId: "",
   };
 }
 
 async function submitRunRequest(
   runParams: PreparedRunParams,
   executionSectionId: string,
+  deploymentMode: boolean,
 ): Promise<boolean> {
   try {
     const res = await callOpenAPI(
       runCode({
-        body: buildRunRequestBody(runParams, executionSectionId),
-      } as Parameters<typeof runCode>[0]),
+        body: buildRunRequestBody(
+          runParams,
+          executionSectionId,
+          deploymentMode,
+        ),
+      }),
     );
     return res200(res);
   } catch {
@@ -367,7 +390,11 @@ async function executeRunHandler(
     return;
   }
   const didRun = await runWithProgress(args.setIsRunning, () =>
-    submitRunRequest(preparedRun.runParams, preparedRun.executionSectionId),
+    submitRunRequest(
+      preparedRun.runParams,
+      preparedRun.executionSectionId,
+      args.deploymentMode,
+    ),
   );
   if (!didRun) {
     addTemporaryNotification("Run failed.");
