@@ -26,6 +26,7 @@ import {
   toGraphSpaceLength,
 } from "./sectionShellBackdropMeasurementMath";
 import {
+  BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -1430,6 +1431,7 @@ export default function SectionShellBackdropCanvas() {
   const shortcutsNode = nodes.get(
     SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
+  const browserNode = nodes.get(BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const stateMachineGateNode = nodes.get(
     STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   );
@@ -1478,6 +1480,12 @@ export default function SectionShellBackdropCanvas() {
     sectionId: SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const browserMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: browserNode?.height,
+    nodeWidth: browserNode?.width,
+    sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const stateMachineGateMeasurements =
     useCanvasOwnedSectionBackdropMeasurements({
       nodeHeight: stateMachineGateNode?.height,
@@ -1496,6 +1504,7 @@ export default function SectionShellBackdropCanvas() {
       [DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: drawMeasurements,
       [CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: chatMeasurements,
       [SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: shortcutsMeasurements,
+      [BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: browserMeasurements,
       [STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]:
         stateMachineGateMeasurements,
     }),
@@ -1507,6 +1516,7 @@ export default function SectionShellBackdropCanvas() {
       drawMeasurements,
       chatMeasurements,
       shortcutsMeasurements,
+      browserMeasurements,
       stateMachineGateMeasurements,
     ],
   );

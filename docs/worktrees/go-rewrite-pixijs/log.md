@@ -2108,3 +2108,64 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - start the next iteration from the fresh post-filter inventory and target a shared lightweight color-input/value activator across `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault`; if that path is not viable, pivot to the bounded `settings-section__stateMachineGateSectionDefault` combobox/search core
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 054
+
+- Item: Move the browser settings section onto the shared canvas-owned resting-text lane.
+- Status: `done`
+- Details:
+  - Checked the recent iteration pattern before coding: the last three passes were the same resting-text section move, so this pass only continued that lane because `settings-section__browserSectionDefault` was still the fresh top untouched dense family at `9` untouched `ParamInput` roots.
+  - Used one live inventory probe first to pin a real browser target instead of relying on stale assumptions:
+    - canonical target section: `settings-section__browserSectionDefault`
+    - canonical target row: `ParamContainer-settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth`
+    - canonical target input: `settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__browserSectionDefault` in the shared resting-text ownership lane and gives it lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__browserSectionDefault` so the retained scene can paint its resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+  - The first browser Playwright probe picked the wrong oracle row (`viewMode`): ownership flags flipped correctly, but that fitted row produced `0` distinct canvas pixels at the normalized zoom.
+  - A follow-up live inventory of all browser rows showed `columnWidth`, `savedSearches`, `size.height`, `size.width`, `styleColor`, and `tagColor` were all canvas-distinct while `viewMode` was not, so the checked spec now uses `columnWidth` as the canonical deterministic row.
+  - Fresh section-scoped browser inventory after the product change:
+    - `sectionPresent: true`
+    - `totalParamInputs: 9`
+    - `canvasOwnedRestingTextCount: 10`
+    - `lightweightRestingTextCount: 9`
+    - `lightweightUnderlineCount: 9`
+    - `highlightSpanCount: 0`
+    - note: the extra non-lightweight root is the pre-existing `#settings-section__browserSectionDefault-args-filter` activator, not a surviving live text editor
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-browser-resting-text-rerun.md`.
+  - Dense rerun outcome versus the prior chat resting-text report:
+    - `documentNodeCount`: `7899 -> 7873`
+    - `inputCount`: `2 -> 2`
+    - `buttonCount`: `39 -> 39`
+    - `raf.meanMs`: `101.3 -> 104.74`
+    - `raf.p95Ms`: `216.7 -> 216.6`
+    - `longTasks.totalMs`: `16190 -> 16937`
+  - Interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened kwargs/menu/filter/color/dropdown activator hop
+    - the browser lane is now closed at its useful ownership boundary unless a fresh defect appears
+    - the fresh untouched ranking now starts with:
+      - `settings-section__buttonParamCodeObjDefault`: `9`
+      - `settings-section__codeSectionDefault`: `9`
+      - `settings-section__promptSectionDefault`: `9`
+      - `settings-section__dateParamCodeObjDefault`: `8`
+      - `settings-section__gui`: `8`
+      - `settings-section__textBlockSectionDefault`: `8`
+      - `settings-section__timeParamCodeObjDefault`: `8`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (58.9s)` on the live worktree runtime with `documentNodeCount: 7873`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done:
+  - `/settings` loaded in the live worktree runtime and `All Settings` was active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__browserSectionDefault"]` was present
+  - the `Column Width` row was present at rest on the canvas path
+  - focusing `#settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth-ParamInput` mounted `#CodeMirror-settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth` inline in the same section with no detached floating editor observed
+  - caveat: headless CDP still leaves that section visually compressed, so the visual pass relied on DOM-backed inspection plus element-level screenshots instead of a clean full-frame row screenshot
+- Next action:
+  - start the next iteration from the fresh post-browser ranking and target the remaining `9`-row untouched cluster (`settings-section__buttonParamCodeObjDefault`, `settings-section__codeSectionDefault`, `settings-section__promptSectionDefault`) unless a broader shared resting-value primitive now shows a clearer payoff
+LOOP_TERMINAL_MARKER: none

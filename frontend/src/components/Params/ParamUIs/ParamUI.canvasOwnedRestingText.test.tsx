@@ -1,5 +1,6 @@
 import {
   BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -416,6 +417,36 @@ describe("ParamUI canvas-owned resting text", () => {
         sectionId={CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
         paramInfoId="settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode"
         value="minimal"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+      true,
+    );
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+      true,
+    );
+    expect(
+      mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+    ).toContain("opacity-0");
+    expect(markup).toContain('data-canvas-owned-underline="true"');
+    expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+  });
+
+  it("hides browser-section resting text on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.TextParam,
+      defaultVal: "",
+    };
+
+    const markup = renderToStaticMarkup(
+      <ParamUI
+        sectionId={BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
+        paramInfoId="settings-codeobj__browserSectionDefault__browserSectionDefault__viewMode"
+        value="list"
         onChange={() => undefined}
       />,
     );

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
   BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionArgsLabelRestingText,
@@ -167,6 +168,11 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionRestingTextSection(
+        BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
         DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
@@ -197,6 +203,12 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       }),
     ).toBe(true);
     expect(
@@ -494,6 +506,11 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightTextUnderline(
         SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(
