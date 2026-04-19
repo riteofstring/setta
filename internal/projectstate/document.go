@@ -121,7 +121,7 @@ func (d Document) Normalized() (Document, error) {
 	}
 
 	normalized.Projects = normalizeDocumentProjectMap(normalized.Projects)
-	appDefinition, err := normalizeDocumentAppDefinition(normalized.AppDefinition)
+	appDefinition, err := normalizeRawJSON(normalized.AppDefinition, "appDefinition")
 	if err != nil {
 		return Document{}, err
 	}
@@ -148,16 +148,6 @@ func normalizeDocumentProjectMap(projects map[string]Project) map[string]Project
 		return map[string]Project{}
 	}
 	return projects
-}
-
-func normalizeDocumentAppDefinition(appDefinition RawJSON) (RawJSON, error) {
-	// Core preserves the legacy app payload for compatibility only. The app
-	// plugin owns validation and interpretation of this data.
-	return NormalizeOpaqueAppDefinitionPayload(appDefinition)
-}
-
-func NormalizeOpaqueAppDefinitionPayload(appDefinition RawJSON) (RawJSON, error) {
-	return normalizeRawJSON(appDefinition, "appDefinition")
 }
 
 func normalizeDocumentProjects(projects map[string]Project) error {
