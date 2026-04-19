@@ -45,8 +45,12 @@ test("canvas shell path owns backend dropdown params at rest and keeps first-cli
       const section = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"]`,
       );
+      const inner = document.getElementById(`${sectionId}-CustomResizable`);
       if (!(section instanceof HTMLElement)) {
         throw new Error(`Missing section ${sectionId}`);
+      }
+      if (!(inner instanceof HTMLElement)) {
+        throw new Error(`Missing inner shell for ${sectionId}`);
       }
 
       const familyState = rowIds.map((rowId) => {
@@ -84,6 +88,13 @@ test("canvas shell path owns backend dropdown params at rest and keeps first-cli
       return {
         familyRowCount: familyState.length,
         familyState,
+        innerBackground: window.getComputedStyle(inner).backgroundColor,
+        innerBeforeBorderWidth:
+          window.getComputedStyle(inner, "::before").borderTopWidth,
+        innerOwnershipFlag: inner.dataset.canvasOwnedShell ?? null,
+        outerBackground: window.getComputedStyle(section).backgroundColor,
+        outerBorderColor: window.getComputedStyle(section).borderTopColor,
+        outerOwnershipFlag: section.dataset.canvasOwnedShell ?? null,
         sectionSearchInputCount: section.querySelectorAll("search input").length,
         sectionSearchButtonCount:
           section.querySelectorAll("search button").length,
@@ -96,7 +107,13 @@ test("canvas shell path owns backend dropdown params at rest and keeps first-cli
   );
 
   expect(restingState.familyRowCount).toBe(BACKEND_DROPDOWN_ROW_IDS.length);
-  expect(restingState.sectionSearchInputCount).toBe(1);
+  expect(restingState.outerOwnershipFlag).toBe("true");
+  expect(restingState.innerOwnershipFlag).toBe("true");
+  expect(restingState.outerBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.outerBorderColor).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.innerBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.innerBeforeBorderWidth).toBe("0px");
+  expect(restingState.sectionSearchInputCount).toBe(0);
   expect(restingState.sectionSearchButtonCount).toBe(0);
   expect(
     restingState.familyState.every(
@@ -191,6 +208,6 @@ test("canvas shell path owns backend dropdown params at rest and keeps first-cli
   expect(liveState.value.length).toBeGreaterThan(0);
   expect(liveState.ariaExpanded).toBe("true");
   expect(liveState.buttonExpanded).toBe("true");
-  expect(liveState.sectionSearchInputCount).toBe(2);
+  expect(liveState.sectionSearchInputCount).toBe(1);
   expect(liveState.sectionSearchButtonCount).toBe(1);
 });

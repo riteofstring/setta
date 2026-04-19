@@ -19,12 +19,14 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `027` removed one trace-backed param-tree / lodash fanout by memoizing the `ParamDndList` duplicate-index selector per section while keeping the dense canary in the same `~42-43ms` band
   - run `028` removed another shared `GroupContainer` selector / label rebuild path by memoizing pinned, unpinned, and edge-strip derived state per section while the dense canary stayed in the same `~43ms` / `~5.8-5.9s` band after one bounded rerun
   - run `029` removed another shared param-row project-state rebuild path by memoizing `ParamSwitch` row state per section/param while the dense canary stayed in the same `~42-43ms` / `~5.8s` band
+  - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior, and the dense canary stayed in the same `~43ms` / `~5.7s` band
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
   - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
   - run `027` also stayed in the same dense band, so close the duplicate-index selector micro-lane here instead of spending another pass on narrow selector-cache follow-ups
   - run `028` stayed in the same dense band too, so close the `GroupContainer` selector micro-lane here instead of iterating on another similar cache-only follow-up
   - run `029` stayed in the same dense band too, so close the `ParamSwitch` selector micro-lane here instead of chaining another row-selector follow-up by inertia
+  - run `030` stayed in the same dense band too, so close the GUI/backend shell-ownership cluster here instead of reopening that family with state-machine-gate or other dropdown-sibling shell follow-ups by inertia
   - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
@@ -32,8 +34,52 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
     - a trace-backed whole-scene reducer tied to the remaining renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`, preferably one shared param-family, transform subscriber, or measurement fanout beyond the now-closed `ParamDndList`, `GroupContainer`, and `ParamSwitch` selector micro-lanes
     - or a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
   - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, `GroupContainer` selector-cache follow-ups, `ParamSwitch` selector follow-ups, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
+  - do not spend the next default pass on GUI/backend dropdown-family follow-ups or a state-machine-gate shell promotion unless a fresh trace or visual blocker makes that family the concrete frontier again
 
 ## Current status
+
+- The GUI/backend shell-ownership cluster slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-gui-backend-shell-ownership-cluster-rerun.md`.
+  - canonical target section for this slice: `settings-section__gui`
+  - sibling proof sections:
+    - `settings-section__backend`
+    - dense-lane canary remains `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now promotes `settings-section__gui` and `settings-section__backend` into `CANVAS_OWNED_SECTION_SHELL_IDS`
+    - the same file now preserves lightweight nested children for the shell-owned GUI/backend family through an explicit shell-owned allowlist so the widened shell boundary does not regress those sections onto the heavier nested wrapper path
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves both the new shell ownership and the preserved lightweight nested-child behavior
+    - `frontend/tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts` and `frontend/tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts` now assert shell ownership on both the section root and inner `CustomResizable` while keeping first-click dropdown activation coverage
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5493`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 46`
+    - `raf.meanMs: 43.14`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1100`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5746`
+    - `longTasks.maxMs: 3383`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a real shared graph-surface ownership step rather than another isolated shell-sibling canary
+    - the widened shell boundary removed the old always-live GUI/backend section search inputs at rest while preserving first-click dropdown activation and the lightweight switch path
+    - the dense canary stayed in the current improved runtime band, so keep this family ownership step but close the lane here instead of reopening the same dropdown family again by inertia
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - result: `1 passed`, `27` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-030/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-gui-resting-dropdown.spec.ts frontend/tests/e2e/settings/settings-all-settings-backend-resting-dropdown.spec.ts frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `4 passed (1.4m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized to `/settings` with `All Settings` active and one `fit view`
+    - `gui` and `backend` were mounted on the graph surface with no obvious blank or detached shell/body artifact
+    - notable workspace chrome noise during the check: persistent `Chat Window 1` panel on the right and compact left workspace chrome/sidebar
 
 - The ParamSwitch selector cache slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-param-switch-selector-cache-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

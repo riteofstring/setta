@@ -20,6 +20,7 @@ import {
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  GUI_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -27,6 +28,7 @@ import {
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_CANVAS_OWNED_SECTION_SHELL_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  BACKEND_CANVAS_OWNED_SECTION_SHELL_ID,
   SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS,
   SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
@@ -64,7 +66,7 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable, dict, global variables, browser, button/code, prompt, and section sizing policy shell canaries", () => {
+  it("targets the callable, dict, global variables, browser, code-like, gui/backend, prompt, and section sizing policy shell canaries", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
@@ -90,7 +92,18 @@ describe("sectionShellCanvasOwnership", () => {
       ),
     ).toBe(true);
     expect(
+      isCanvasOwnedSectionShell(GUI_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(BACKEND_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
       isCanvasOwnedSectionShell("settings-section__textBlockSectionDefault"),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionShell(
+        STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
     ).toBe(false);
   });
 
@@ -1071,7 +1084,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
   });
 
-  it("keeps lightweight nested children on the shared resting-text lane without widening the shell-owned browser, button/code, or prompt canaries", () => {
+  it("keeps lightweight nested children on the supported shell canaries and shared resting-text lane", () => {
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1105,6 +1118,16 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
     ).toBe(true);
     expect(

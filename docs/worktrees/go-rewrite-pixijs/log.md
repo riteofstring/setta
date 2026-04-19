@@ -5608,3 +5608,14 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL, normalizing to `/settings` with `All Settings` active, applying `fit view`, and closing the extra chat window chrome; `browserSectionDefault` was visible with no obvious blank graph or detached shell/body artifact.
 - Next frontier: move to the next trace-backed shared reducer or a broader graph-surface ownership step instead of reopening another row-selector cache follow-up.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 030
+
+- Landed a shared GUI/backend shell-ownership cluster instead of another selector-cache or single-shell micro-pass.
+- `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now promotes `settings-section__gui` and `settings-section__backend` into `CANVAS_OWNED_SECTION_SHELL_IDS` and explicitly preserves lightweight nested children for that shell-owned family.
+- `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves both the new shell ownership and the preserved lightweight nested-child behavior, while the focused GUI/backend dropdown specs now assert shell ownership on both the section root and inner `CustomResizable`.
+- The widened shell boundary removed the old always-live section search inputs from GUI/backend at rest, but first-click dropdown activation still creates one live search input plus one live search button for the active row, and the shared lightweight switch probe stayed green on the same runtime.
+- Verification: eslint passed; `vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` passed with `27` tests; Playwright `settings-all-settings-gui-resting-dropdown.spec.ts`, `settings-all-settings-backend-resting-dropdown.spec.ts`, `settings-all-settings-lightweight-switches.spec.ts`, and `settings-all-settings-motion-aware-dense.spec.ts` passed on the run-030 runtime with dense metrics `raf.meanMs 43.14`, `raf.p95Ms 50`, `longTasks.totalMs 5746`, and `documentNodeCount 5493`.
+- CDP visual check: done in a fresh headless DevTools sub-agent after one `fit view`; `gui` and `backend` were mounted on the graph surface with no obvious blank or detached shell/body artifact. Notable noise was the persistent `Chat Window 1` panel on the right plus compact left workspace chrome.
+- Next frontier: return to a broader trace-backed renderer-main JS / GC reducer or a stronger shared ownership primitive; do not reopen GUI/backend dropdown-family follow-ups or a state-machine-gate shell promotion by inertia.
+LOOP_TERMINAL_MARKER: none
