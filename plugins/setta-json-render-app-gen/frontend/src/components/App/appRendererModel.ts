@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
+import { useAppConfigs } from "../../appSubsystemProjectState";
 import { useShareSession } from "state/definitions";
 import { resolveAppPolicy } from "utils/deploymentPolicies";
 import type { AppDefinition, Policy } from "utils/generatedTypes";
