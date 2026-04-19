@@ -13,10 +13,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/appsubsystem"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
@@ -27,6 +30,14 @@ type routeValidationErrorResponse struct {
 	StatusCode int    `json:"status_code"`
 	Message    string `json:"message"`
 	Data       any    `json:"data"`
+}
+
+type routeCapabilityProvider struct {
+	capabilities plugins.PluginAppSubsystemCapabilities
+}
+
+func (p routeCapabilityProvider) AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities {
+	return p.capabilities
 }
 
 func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
@@ -76,6 +87,54 @@ func TestAppDefinitionRoutePublicNamesRemainFrozen(t *testing.T) {
 	}
 }
 
+func TestBuildFrontendAPIRouteRegistrationsWithChatModesOnlyRegistersSkillRoutes(t *testing.T) {
+	t.Parallel()
+
+	document := buildAppSubsystemRouteDocumentForTest(
+		t,
+		plugins.PluginAppSubsystemCapabilities{
+			PluginID:               ProviderPluginID,
+			PluginEnabled:          true,
+			AppGenerationChatModes: true,
+		},
+	)
+	if document.Paths[httpapi.RouteGetAppGenSkills] == nil {
+		t.Fatalf("expected chat-mode provider to register %s", httpapi.RouteGetAppGenSkills)
+	}
+	for _, routePath := range []string{
+		httpapi.RouteGetAppDefinition,
+		httpapi.RouteSetAppDefinition,
+		httpapi.RouteValidateAppDefinition,
+	} {
+		if document.Paths[routePath] != nil {
+			t.Fatalf("did not expect chat-only provider to register %s", routePath)
+		}
+	}
+}
+
+func TestBuildFrontendAPIRouteRegistrationsWithoutDeploymentCapabilityOmitsDeploymentRoutes(t *testing.T) {
+	t.Parallel()
+
+	document := buildAppSubsystemRouteDocumentForTest(
+		t,
+		plugins.PluginAppSubsystemCapabilities{
+			PluginID:       ProviderPluginID,
+			PluginEnabled:  true,
+			AppAuthoringUI: true,
+		},
+	)
+	for _, routePath := range []string{
+		httpapi.RouteAppDeployments,
+		httpapi.RouteAppDeploymentCurrentSession,
+		httpapi.RouteAppDeploymentState,
+		httpapi.RouteAppDeploymentProjectConfig,
+	} {
+		if document.Paths[routePath] != nil {
+			t.Fatalf("did not expect deployment route %s without deployment capability", routePath)
+		}
+	}
+}
+
 func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	t.Parallel()
 
@@ -119,6 +178,38 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	if !reflect.DeepEqual(payload.AppSpec, storedSpec) {
 		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, payload.AppSpec)
 	}
+}
+
+func buildAppSubsystemRouteDocumentForTest(
+	t *testing.T,
+	capabilities plugins.PluginAppSubsystemCapabilities,
+) *huma.OpenAPI {
+	t.Helper()
+
+	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
+			registrations, buildErr := appsubsystem.BuildFrontendAPIRouteRegistrations(
+				appsubsystem.FrontendRouteRegistrationOptions{
+					Capabilities:       routeCapabilityProvider{capabilities: capabilities},
+					ModePolicy:         deps.Project.ModePolicy,
+					ProjectState:       deps.Project.ProjectState,
+					AppGenSkill:        deps.AppGenSkill,
+					ShareDeploymentIDE: deps.ShareDeploymentIDE,
+					AppDeployment: httpapi.DeploymentRouteDependencies{
+						ModePolicy: modes.NewPolicy(config.ModeApp),
+					},
+				},
+			)
+			if buildErr != nil {
+				t.Fatalf("build app subsystem route registrations: %v", buildErr)
+			}
+			return registrations
+		},
+	)
+	if err != nil {
+		t.Fatalf("build app subsystem route document: %v", err)
+	}
+	return document
 }
 
 func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testing.T) {

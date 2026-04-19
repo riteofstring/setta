@@ -112,7 +112,7 @@ func buildAppDefinitionToolRegistrations(
 		return nil
 	}
 	if strings.TrimSpace(defaultAppSpecPath) == "" {
-		defaultAppSpecPath = appspec.DefaultPath()
+		panic("default app spec path is required for app definition tool registrations")
 	}
 
 	return []mcpx.ToolRegistration{

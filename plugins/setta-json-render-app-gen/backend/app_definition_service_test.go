@@ -113,6 +113,43 @@ func TestAppDefinitionServiceUsesSelectedProviderNamespace(t *testing.T) {
 	}
 }
 
+func TestAppDefinitionServiceReadsCanonicalizedWhitespacePluginDataKey(t *testing.T) {
+	t.Parallel()
+
+	_, runtime := openPersistedPluginAppDefinitionRuntime(t)
+	providerPluginID := "acme.third-party-app-provider"
+	service := NewAppDefinitionService(runtime, providerPluginID)
+	defaultAppSpecPath := appspec.ForPlugin(providerPluginID).DefaultPath()
+
+	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		next := document.Clone()
+		next.PluginData = map[string]projectstate.RawJSON{
+			"  " + providerPluginID + "  ": mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
+				AppSpecPath:    defaultAppSpecPath,
+				AppSpecVersion: "v1",
+				CatalogID:      appspec.DefaultCatalogID,
+			}),
+		}
+		return next.Normalized()
+	}); err != nil {
+		t.Fatalf("mutate canonicalized plugin data: %v", err)
+	}
+
+	result, err := service.GetAppDefinition(context.Background())
+	if err != nil {
+		t.Fatalf("get app definition: %v", err)
+	}
+	if result.AppDefinition == nil {
+		t.Fatal("expected app definition metadata")
+	}
+	if result.AppDefinition.AppSpecPath != defaultAppSpecPath {
+		t.Fatalf("expected canonical app spec path %q, got %#v", defaultAppSpecPath, result.AppDefinition.AppSpecPath)
+	}
+	if result.AppSpec != nil {
+		t.Fatalf("expected nil app spec when no file exists, got %#v", result.AppSpec)
+	}
+}
+
 func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *testing.T) {
 	t.Parallel()
 
