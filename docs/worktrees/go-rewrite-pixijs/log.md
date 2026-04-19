@@ -5693,3 +5693,16 @@ LOOP_TERMINAL_MARKER: replan_required
 - CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL; `/settings` mounted with `All Settings` active, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on a rendered graph surface, and there was no obvious blank/transparent canvas or detached shell/body artifact.
 - Next frontier: close the backdrop observer-churn lane here and move to a different retained-graph candidate such as retained-scene paint invalidation, snapshot invalidation/reuse beyond observer lifecycle, or motion-hidden-body orchestration that still fires even with the visible row-body frontier already at zero.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 035
+
+- Landed the backdrop mutation-refresh deferral slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now defers mutation-driven retained-detail observer refresh while `viewportInteractionActive` is suspending measurements, so hidden subtree churn sets one pending refresh flag and refreshes measured-element `ResizeObserver` wiring only once after interaction settles.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now covers that deferred refresh behavior by proving subtree mutations do not recreate backdrop observers until interaction resumes.
+- Verification:
+  - eslint passed for `SectionShellBackdropCanvas.tsx` and `SectionShellBackdropCanvas.test.tsx`
+  - `vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` still hit the pre-existing repo `html-encoding-sniffer` ESM failure before collection
+  - Playwright `settings-all-settings-resting-text-motion-body-overlay.spec.ts` plus `settings-all-settings-motion-aware-dense.spec.ts` passed on the current `3068/8068` runtime with dense metrics `documentNodeCount 5494`, `raf.meanMs 46.36`, `raf.p95Ms 50.1`, `longTasks.totalMs 6719`, and `motionHiddenBodies.peakHiddenBodyCount 45`
+- CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL; `/settings` mounted with `All Settings` active, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on a rendered graph surface, and there was no obvious blank/transparent canvas or detached shell/body artifact.
+- Next frontier: close the remaining `SectionShellBackdropCanvas` observer-timing lane and move to another retained-graph candidate such as retained-scene paint invalidation, snapshot invalidation/reuse beyond observer timing, or motion-hidden-body orchestration that still dominates the start/end interaction outlier.
+LOOP_TERMINAL_MARKER: none

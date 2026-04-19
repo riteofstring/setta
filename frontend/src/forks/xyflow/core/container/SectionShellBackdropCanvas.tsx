@@ -978,6 +978,8 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
   const measureRef = useRef(measure);
   const mutationObserverInitRef = useRef(mutationObserverInit);
   const pendingMeasurementRef = useRef(false);
+  const pendingObserverRefreshRef = useRef(false);
+  const refreshObservedElementsRef = useRef<(() => void) | null>(null);
   const scheduleMeasurementRef = useRef<(() => void) | null>(null);
   const suspendMeasurementsRef = useRef(suspendMeasurements);
 
@@ -991,6 +993,8 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
     suspendMeasurementsRef.current = suspendMeasurements;
     if (!measurementsEnabled) {
       pendingMeasurementRef.current = false;
+      pendingObserverRefreshRef.current = false;
+      refreshObservedElementsRef.current = null;
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
         animationFrameIdRef.current = 0;
@@ -1005,6 +1009,11 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
         animationFrameIdRef.current = 0;
       }
       return;
+    }
+
+    if (pendingObserverRefreshRef.current) {
+      pendingObserverRefreshRef.current = false;
+      refreshObservedElementsRef.current?.();
     }
 
     if (pendingMeasurementRef.current) {
@@ -1022,8 +1031,10 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
       setMeasuredValue((previousValue) =>
         previousValue.length === 0 ? previousValue : createEmptyValueRef.current(),
       );
+      refreshObservedElementsRef.current = null;
       scheduleMeasurementRef.current = null;
       pendingMeasurementRef.current = false;
+      pendingObserverRefreshRef.current = false;
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
         animationFrameIdRef.current = 0;
@@ -1081,7 +1092,7 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
     }
 
     let resizeObserver: ResizeObserver | null = null;
-    const observeMeasuredElements = () => {
+    const refreshObservedElements = () => {
       resizeObserver?.disconnect();
       resizeObserver = new ResizeObserver(scheduleMeasure);
       resizeObserver.observe(section);
@@ -1090,7 +1101,8 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
       }
     };
 
-    observeMeasuredElements();
+    refreshObservedElementsRef.current = refreshObservedElements;
+    refreshObservedElements();
     if (suspendMeasurementsRef.current) {
       pendingMeasurementRef.current = true;
     } else {
@@ -1098,12 +1110,21 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
     }
 
     const mutationObserver = new MutationObserver(() => {
-      observeMeasuredElements();
+      if (suspendMeasurementsRef.current) {
+        pendingObserverRefreshRef.current = true;
+        pendingMeasurementRef.current = true;
+        return;
+      }
+
+      refreshObservedElements();
       scheduleMeasure();
     });
     mutationObserver.observe(section, mutationObserverInitRef.current);
 
     return () => {
+      if (refreshObservedElementsRef.current === refreshObservedElements) {
+        refreshObservedElementsRef.current = null;
+      }
       if (scheduleMeasurementRef.current === scheduleMeasure) {
         scheduleMeasurementRef.current = null;
       }

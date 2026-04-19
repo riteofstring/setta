@@ -356,6 +356,99 @@ describe("SectionShellBackdropCanvas", () => {
     expect(MutationObserverMock.disconnectCount).toBe(0);
   });
 
+  it("defers backdrop observer refresh caused by subtree mutations until interaction settles", async () => {
+    class ResizeObserverMock {
+      static instanceCount = 0;
+      static disconnectCount = 0;
+
+      constructor(...args: [ResizeObserverCallback]) {
+        void args;
+        ResizeObserverMock.instanceCount += 1;
+      }
+
+      disconnect = vi.fn(() => {
+        ResizeObserverMock.disconnectCount += 1;
+      });
+
+      observe = vi.fn();
+      unobserve = vi.fn();
+    }
+
+    class MutationObserverMock {
+      static instances: Array<MutationObserverMock> = [];
+
+      callback: MutationCallback;
+
+      constructor(callback: MutationCallback) {
+        this.callback = callback;
+        MutationObserverMock.instances.push(this);
+      }
+
+      disconnect = vi.fn();
+      observe = vi.fn();
+      takeRecords = vi.fn(() => []);
+    }
+
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("MutationObserver", MutationObserverMock);
+
+    const section = document.createElement("section");
+    section.dataset.sectionId = BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+    section.innerHTML =
+      '<div data-canvas-owned-resting-text="true">Browser</div>';
+    document.body.appendChild(section);
+
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+          createNode({
+            id: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+            position: { x: 10, y: 20 },
+            width: 100,
+          }),
+        ],
+      ]),
+    });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      viewportInteractionActive: false,
+    });
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(createElement(SectionShellBackdropCanvas));
+    });
+
+    const initialResizeObserverCount = ResizeObserverMock.instanceCount;
+
+    expect(initialResizeObserverCount).toBeGreaterThan(0);
+    expect(MutationObserverMock.instances).toHaveLength(initialResizeObserverCount);
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: true });
+    });
+
+    await act(async () => {
+      for (const observer of MutationObserverMock.instances) {
+        observer.callback([], observer as unknown as MutationObserver);
+      }
+    });
+
+    expect(ResizeObserverMock.instanceCount).toBe(initialResizeObserverCount);
+    expect(ResizeObserverMock.disconnectCount).toBe(0);
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: false });
+    });
+
+    expect(ResizeObserverMock.instanceCount).toBe(initialResizeObserverCount * 2);
+    expect(ResizeObserverMock.disconnectCount).toBe(initialResizeObserverCount);
+  });
+
   it("sizes and paints one retained canvas around the current node bounds", async () => {
     useNodeInternals.setState({
       x: new Map([
