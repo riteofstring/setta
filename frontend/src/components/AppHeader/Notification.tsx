@@ -2,7 +2,7 @@ import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea
 import { type CSSProperties, useEffect, useState } from "react";
 import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
 import { useNotifications } from "state/definitions";
-import { type AppNotification } from "state/types/notifications";
+import { type Notification as AppNotification } from "utils/generatedTypes";
 
 export function Notification() {
   // State to track the notification to display in the navbar

@@ -15,9 +15,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 )
 
 type stubLSPAdminService struct {
@@ -35,41 +33,6 @@ func (s *stubLSPAdminService) Restart(_ context.Context, document projectstate.D
 	cloned := document.Clone()
 	s.restartDocument = &cloned
 	return nil
-}
-
-type stubPluginRuntimeUpdateService struct {
-	response plugins.PluginRuntimeResponse
-	err      error
-}
-
-func (s *stubPluginRuntimeUpdateService) Runtime(_ plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	if s.err != nil {
-		return plugins.PluginRuntimeResponse{}, s.err
-	}
-	return s.response, nil
-}
-
-func newTestPluginRuntimeResponse() plugins.PluginRuntimeResponse {
-	return plugins.PluginRuntimeResponse{
-		SchemaVersion: 1,
-		List: plugins.PluginListResponse{
-			SchemaVersion: 1,
-			ServerMode:    config.ModeIDE,
-			RestartCapability: plugins.PluginRestartCapability{
-				Mode:    plugins.PluginRestartCapabilityModeProgrammatic,
-				Command: nil,
-				Reason:  nil,
-			},
-			Plugins: []plugins.PluginListEntry{},
-		},
-		Status: plugins.PluginStatusResponse{
-			SchemaVersion:            1,
-			ServerMode:               config.ModeIDE,
-			RestartCapability:        plugins.PluginRestartCapability{Mode: plugins.PluginRestartCapabilityModeProgrammatic},
-			Plugins:                  []plugins.PluginStatusEntry{},
-			LanguageServerSelections: []plugins.LanguageServerSelectionStatus{},
-		},
-	}
 }
 
 func (s *stubLSPAdminService) TypeCheckProject(_ context.Context, document projectstate.Document, projectID string) error {
@@ -420,45 +383,6 @@ func TestRegisterLSPRoutesRestartsLanguageServer(t *testing.T) {
 	}
 	if _, ok := admin.restartDocument.Projects["project-alpha"]; !ok {
 		t.Fatalf("expected live project document, got %#v", admin.restartDocument.Projects)
-	}
-}
-
-func TestRegisterLSPRoutesReturnsExplicitErrorWhenLanguageServerIsUnconfigured(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := completionRouteTestRuntime(t)
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close runtime: %v", err)
-		}
-	})
-
-	admin := &stubLSPAdminService{restartErr: lsp.ErrLanguageServerNotConfigured}
-	handler := newLSPRouteTestHandlerWithAdmin(
-		t,
-		config.ModeIDE,
-		projectRuntime,
-		projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
-		nil,
-		admin,
-	)
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRestartLanguageServer, strings.NewReader("null"))
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	if response.Code != http.StatusConflict {
-		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
-	}
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode restart error response: %v", err)
-	}
-	if payload.Error.Code != "language_server_not_configured" {
-		t.Fatalf("expected language_server_not_configured code, got %#v", payload.Error)
-	}
-	if payload.Error.Message != "Language server is not configured. Select a plugin and restart after it is available." {
-		t.Fatalf("unexpected restart error message %#v", payload.Error)
 	}
 }
 
@@ -957,9 +881,6 @@ func newLSPRouteTestHandlerWithAdmin(
 	if mode == config.ModeIDE && admin == nil {
 		admin = &stubLSPAdminService{}
 	}
-	pluginRuntime := &stubPluginRuntimeUpdateService{
-		response: newTestPluginRuntimeResponse(),
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -967,13 +888,11 @@ func newLSPRouteTestHandlerWithAdmin(
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterLSPRoutes(r, LSPRouteDependencies{
-				ModePolicy:    modes.NewPolicy(mode),
-				ProjectState:  projectRuntime,
-				Diagnostics:   diagnostics,
-				Completions:   completions,
-				Admin:         admin,
-				WebsocketHub:  realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
-				PluginRuntime: pluginRuntime,
+				ModePolicy:   modes.NewPolicy(mode),
+				ProjectState: projectRuntime,
+				Diagnostics:  diagnostics,
+				Completions:  completions,
+				Admin:        admin,
 			}); err != nil {
 				t.Fatalf("register lsp routes: %v", err)
 			}

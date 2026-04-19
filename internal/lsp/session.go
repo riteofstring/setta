@@ -283,10 +283,7 @@ func (s *Session) buildInitializeParams() (map[string]any, error) {
 		return nil, fmt.Errorf("lsp: workspace root uri: %w", err)
 	}
 	params["workspaceFolders"] = []map[string]string{
-		{
-			"uri":  uri,
-			"name": workspaceFolderName(s.options.WorkspaceRoot),
-		},
+		{"uri": uri},
 	}
 	return params, nil
 }
@@ -452,7 +449,6 @@ func (s *Session) SignatureHelp(ctx context.Context, path string, line int, char
 		"context": map[string]any{
 			"triggerKind":      2,
 			"triggerCharacter": "(",
-			"isRetrigger":      false,
 		},
 	}, &result); err != nil {
 		return SignatureHelpResult{}, err
@@ -965,22 +961,6 @@ func pathToURI(path string) (string, error) {
 		Scheme: "file",
 		Path:   filepath.ToSlash(resolved),
 	}).String(), nil
-}
-
-func workspaceFolderName(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		return ""
-	}
-
-	cleaned := filepath.Clean(trimmed)
-	name := filepath.Base(cleaned)
-	switch name {
-	case "", ".", string(filepath.Separator):
-		return cleaned
-	default:
-		return name
-	}
 }
 
 func sortedDocumentPaths(documents map[string]SyncedDocument) []string {
