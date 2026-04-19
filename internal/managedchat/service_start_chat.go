@@ -72,6 +72,7 @@ func (s *Service) startChat(request StartChatRequest) (StartChatResult, error) {
 		return StartChatResult{}, err
 	}
 	if err := validateStartChatImageRequirements(
+		s.appGenerationModes,
 		normalized,
 		conversation.PriorMessages,
 		appGenerationByMessageID,
@@ -211,7 +212,7 @@ func normalizeStartChatGenerationOptions(
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	if appGenerationMode == nil || *appGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
+	if !chatmodesAllowsReferenceImage(appGenerationModes, appGenerationMode) {
 		referenceImageURL = nil
 		referenceImageNotes = nil
 	}
@@ -373,20 +374,22 @@ func resolveSubmittedTurnAppGenerationByMessageID(
 }
 
 func validateStartChatImageRequirements(
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	request normalizedStartChatRequest,
 	priorMessages []map[string]any,
 	appGenerationByMessageID map[string]string,
 ) error {
-	if request.AppGenerationMode == nil || *request.AppGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
+	if appGenerationModes == nil {
 		return nil
 	}
-	if agentruns.MessageHasImageAttachment(request.Message) {
-		return nil
-	}
-	if agentruns.HasRetainedImageAttachmentFromImageModeThread(priorMessages, appGenerationByMessageID) {
-		return nil
-	}
-	return ErrAppGenerationImageAttachmentRequired
+	return appGenerationModes.ValidateCurrentTurn(
+		request.AppGenerationMode,
+		chatmodes.AppGenerationTurnValidationOptions{
+			Message:                  request.Message,
+			PriorMessages:            priorMessages,
+			AppGenerationByMessageID: appGenerationByMessageID,
+		},
+	)
 }
 
 func (s *Service) prepareStartChatRun(
