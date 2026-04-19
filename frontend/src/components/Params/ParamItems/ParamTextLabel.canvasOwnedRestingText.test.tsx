@@ -58,7 +58,7 @@ describe("ParamTextLabel canvas-owned resting text", () => {
     expect(markup).toContain("Style Color");
   });
 
-  it("keeps legacy or truly non-owned param labels visible", () => {
+  it("keeps legacy param labels visible and hides the nested param settings lane on the canvas path", () => {
     mocks.graphSurfaceImplementation = "legacy-dom";
 
     const legacyMarkup = renderToStaticMarkup(
@@ -82,10 +82,8 @@ describe("ParamTextLabel canvas-owned resting text", () => {
       />,
     );
 
-    expect(nonOwnedMarkup).not.toContain(
-      'data-canvas-owned-resting-text="true"',
-    );
-    expect(nonOwnedMarkup).not.toContain("opacity-0");
+    expect(nonOwnedMarkup).toContain('data-canvas-owned-resting-text="true"');
+    expect(nonOwnedMarkup).toContain("opacity-0");
   });
 
   it("hides dict canary param labels on the canvas path", () => {

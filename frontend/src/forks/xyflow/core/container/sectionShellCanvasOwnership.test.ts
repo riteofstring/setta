@@ -231,6 +231,11 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionRestingTextSection(
+        "settings-section__nestedParamCodeObjDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
         CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
@@ -539,7 +544,7 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionParamLabelRestingText(
         "settings-section__nestedParamCodeObjDefault",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("targets the dict and global variables canary args labels for canvas resting-text ownership", () => {
@@ -754,6 +759,11 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightSwitchValueShell(
+        "settings-section__nestedParamCodeObjDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchValueShell(
         "round_lime__callableSectionDefault",
       ),
     ).toBe(false);
@@ -779,7 +789,7 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionLightweightSwitchTrack(
         "settings-section__nestedParamCodeObjDefault",
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightSwitchTrack(
         "round_lime__callableSectionDefault",

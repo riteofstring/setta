@@ -9,6 +9,65 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The nested-param resting-text slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-nested-param-resting-text-rerun.md`.
+  - canonical target section: `settings-section__nestedParamCodeObjDefault`
+  - canonical editor handoff row: `settings-codeobj__nestedParamCodeObjDefault__nestedParamCodeObjDefault__typeAnnotation`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__nestedParamCodeObjDefault` in the shared param-codeobj canvas-owned resting-text boundary, which also enables the existing lightweight switch value-shell/track ownership on that section
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints the nested-param section on the retained backdrop canvas
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-nested-param-resting-text.spec.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts` now treats zero remaining row-body rows as the success state
+  - focused runtime proof on the live worktree surface:
+    - the `Core Name Type` and `Type Annotation` inputs now report:
+      - `data-canvas-owned-resting-text-lightweight="true"`
+      - `opacity: "0"` at rest
+      - zero retained `.cm-line span` highlight descendants at rest
+    - the `Core Name Editable` row now reports:
+      - exactly one retained `.section-value` root
+      - `data-canvas-owned-switch-track="true"` on the lightweight switch root
+    - the canonical `Type Annotation` row still focused inline on the first interaction
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 0`
+    - `totalRemainingVisibleElementCount: 0`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 0`
+    - `totalRemainingVisibleValueElementCount: 0`
+    - `commonRemainingKinds: []`
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 3 -> 0`
+    - `totalRemainingVisibleElementCount: 9 -> 0`
+    - `totalRemainingVisibleLabelElementCount: 3 -> 0`
+    - `totalRemainingVisibleValueElementCount: 6 -> 0`
+    - `settings-section__nestedParamCodeObjDefault.remainingRowCount: 3 -> 0`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5578`
+    - `inputCount: 2`
+    - `buttonCount: 40`
+    - `raf.meanMs: 70.29`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10740`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5583 -> 5578`
+    - `inputCount: 2 -> 2`
+    - `buttonCount: 40 -> 40`
+    - `raf.meanMs: 70.11 -> 70.29`
+    - `raf.p95Ms: 116.7 -> 116.7`
+    - `longTasks.totalMs: 10834 -> 10740`
+  - interpretation:
+    - this closes the `nestedParamCodeObjDefault` row-body/value seam as product code instead of leaving one survivor lane open
+    - the `ParamContainer` row-body rerank is now fully cleared on the current `All Settings` surface, so another row-body cleanup pass would be churn
+    - dense motion is still far from the branch goal, so the next default frontier must pivot to the next broader motion blocker rather than more `ParamContainer` cleanup
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly with `All Settings` active
+    - exactly one retained graph canvas was mounted
+    - `settings-section__nestedParamCodeObjDefault` was visible and intact
+    - no obvious blank or detached artifact was visible around the `Core Name Editable` / `Core Name Type` / `Type Annotation` rows
 - The shell `Size` row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shell-size-row-body-flattening-rerun.md`.
   - canonical target section: `settings-section__callableSectionDefault`
   - sibling proof sections:

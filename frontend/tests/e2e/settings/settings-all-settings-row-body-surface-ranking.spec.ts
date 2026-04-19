@@ -322,10 +322,18 @@ test("settings All Settings ranking identifies the remaining ParamContainer row-
 
   expect(ranking.mountedSectionCount).toBeGreaterThan(20);
   expect(ranking.totalRowCount).toBeGreaterThan(200);
-  expect(ranking.totalRemainingRowCount).toBeGreaterThan(0);
+  expect(ranking.totalRemainingRowCount).toBeGreaterThanOrEqual(0);
+  expect(ranking.topSections.length).toBeGreaterThanOrEqual(3);
+  if (ranking.totalRemainingRowCount === 0) {
+    expect(ranking.totalRemainingVisibleElementCount).toBe(0);
+    expect(ranking.totalRemainingVisibleLabelElementCount).toBe(0);
+    expect(ranking.totalRemainingVisibleValueElementCount).toBe(0);
+    expect(ranking.commonRemainingKinds.length).toBe(0);
+    return;
+  }
+
   expect(ranking.totalRemainingVisibleElementCount).toBeGreaterThan(0);
   expect(ranking.totalRemainingVisibleLabelElementCount).toBeGreaterThan(0);
-  expect(ranking.topSections.length).toBeGreaterThanOrEqual(3);
   expect(ranking.commonRemainingKinds.length).toBeGreaterThan(0);
 });
 

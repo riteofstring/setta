@@ -44,6 +44,7 @@ import {
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  NESTED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PASSWORD_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1673,6 +1674,9 @@ export default function SectionShellBackdropCanvas() {
   const textAreaParamNode = nodes.get(
     TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
+  const nestedParamNode = nodes.get(
+    NESTED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const codeSectionNode = nodes.get(CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const dateParamNode = nodes.get(DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const backendNode = nodes.get(BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
@@ -1847,6 +1851,12 @@ export default function SectionShellBackdropCanvas() {
     sectionId: TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const nestedParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: nestedParamNode?.height,
+    nodeWidth: nestedParamNode?.width,
+    sectionId: NESTED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const codeSectionMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: codeSectionNode?.height,
     nodeWidth: codeSectionNode?.width,
@@ -1944,6 +1954,8 @@ export default function SectionShellBackdropCanvas() {
         codeParamMeasurements,
       [TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         textAreaParamMeasurements,
+      [NESTED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        nestedParamMeasurements,
       [CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         codeSectionMeasurements,
       [DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
@@ -1986,6 +1998,7 @@ export default function SectionShellBackdropCanvas() {
       passwordParamMeasurements,
       codeParamMeasurements,
       textAreaParamMeasurements,
+      nestedParamMeasurements,
       codeSectionMeasurements,
       dateParamMeasurements,
       backendMeasurements,

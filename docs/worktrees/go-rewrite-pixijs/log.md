@@ -155,6 +155,58 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 076
+
+- Item: Move the final `nestedParamCodeObjDefault` resting row-body/value lane onto the retained canvas path.
+- Status: `done`
+- Details:
+  - Chose the only remaining production row-body lane from the live whole-scene rerank instead of reopening any closed shell or nested-group wrapper families.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` to include `settings-section__nestedParamCodeObjDefault` in the shared param-codeobj canvas-owned resting-text boundary, which also enables the existing lightweight switch value-shell/track path there.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` to measure and paint that nested-param section on the retained backdrop canvas.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-nested-param-resting-text.spec.ts`
+  - Updated `frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts` so the probe now treats zero remaining row-body rows as the successful end state instead of assuming survivors must always remain.
+  - Live canary result on the worktree runtime:
+    - the `Core Name Type` and `Type Annotation` inputs now report `data-canvas-owned-resting-text-lightweight="true"` with `opacity: "0"` and zero retained `.cm-line span` descendants at rest
+    - the `Core Name Editable` row now has exactly one retained `.section-value` root and `data-canvas-owned-switch-track="true"` on the lightweight switch root
+    - the canonical `settings-codeobj__nestedParamCodeObjDefault__nestedParamCodeObjDefault__typeAnnotation` row still focused inline on the first interaction
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 0`
+    - `totalRemainingVisibleElementCount: 0`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 0`
+    - `totalRemainingVisibleValueElementCount: 0`
+    - `commonRemainingKinds: []`
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5578`
+    - `inputCount: 2`
+    - `buttonCount: 40`
+    - `raf.meanMs: 70.29`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10740`
+  - Interpretation:
+    - this closes the last `ParamContainer` row-body/value seam as product code instead of leaving a survivor-family cleanup open by inertia
+    - the row-body rerank is now fully cleared on `All Settings`, so more `ParamContainer` cleanup would be churn rather than progress
+    - dense motion is still far from the branch goal, so the next pass must pivot to the next broader motion blocker or inactive-row overlay decision instead of another row-body/value-shell slice
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-nested-param-resting-text.spec.ts tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-nested-param-resting-text.spec.ts tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.1m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one retained graph canvas was mounted
+  - `settings-section__nestedParamCodeObjDefault` was visible and intact
+  - no obvious blank or detached artifact was visible around the `Core Name Editable` / `Core Name Type` / `Type Annotation` rows
+- Next action:
+  - keep the `nestedParamCodeObjDefault` lane closed and choose the next product slice from the broader motion blocker now that the row-body rerank is zero, likely a stronger inactive-row overlay/body decision or the next measured whole-scene hotspot
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 075
 
 - Item: Flatten the shared shell `Size` row-body wrappers on the callable, dict, and GlobalVariables canaries.
