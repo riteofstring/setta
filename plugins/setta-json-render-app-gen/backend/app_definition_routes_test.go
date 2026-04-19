@@ -17,6 +17,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
@@ -100,7 +101,7 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload projectstate.AppDefinitionReadResult
+	var payload appdefinition.ReadResult
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode get app definition payload: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testi
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload projectstate.AppDefinitionReadResult
+	var payload appdefinition.ReadResult
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode missing-file get app definition payload: %v", err)
 	}
@@ -180,7 +181,7 @@ func TestRegisterAppDefinitionRoutesValidatesDefinition(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload projectstate.AppDefinitionValidationResult
+	var payload appdefinition.ValidationResult
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode validate app definition payload: %v", err)
 	}
@@ -216,7 +217,7 @@ func TestRegisterAppDefinitionRoutesPersistsDefinition(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload projectstate.AppDefinitionMutationResult
+	var payload appdefinition.MutationResult
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode set app definition payload: %v", err)
 	}
@@ -503,6 +504,9 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	if got := getAppDefinition.Extensions["x-setta-mode-requirement"]; got != "not-deployment" {
 		t.Fatalf("get app definition mode requirement = %#v, want %q", got, "not-deployment")
 	}
+	if got := getAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult" {
+		t.Fatalf("get app definition response schema ref = %q, want %q", got, "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult")
+	}
 
 	setAppDefinition := document.Paths[httpapi.RouteSetAppDefinition].Post
 	if setAppDefinition == nil {
@@ -511,6 +515,9 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	if setAppDefinition.OperationID != "setAppDefinition" {
 		t.Fatalf("set app definition operation id = %q, want %q", setAppDefinition.OperationID, "setAppDefinition")
 	}
+	if got := setAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult" {
+		t.Fatalf("set app definition response schema ref = %q, want %q", got, "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult")
+	}
 
 	validateAppDefinition := document.Paths[httpapi.RouteValidateAppDefinition].Post
 	if validateAppDefinition == nil {
@@ -518,6 +525,18 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	}
 	if validateAppDefinition.OperationID != "validateAppDefinition" {
 		t.Fatalf("validate app definition operation id = %q, want %q", validateAppDefinition.OperationID, "validateAppDefinition")
+	}
+	if got := validateAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult" {
+		t.Fatalf("validate app definition response schema ref = %q, want %q", got, "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult")
+	}
+	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition"); schema == nil {
+		t.Fatal("expected plugin-owned app definition schema in HTTP OpenAPI document")
+	}
+	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/ProjectstateAppDefinition"); schema != nil {
+		t.Fatalf("did not expect host projectstate app definition schema in HTTP OpenAPI document, got %#v", schema)
+	}
+	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/ProjectstateAppRoute"); schema != nil {
+		t.Fatalf("did not expect host projectstate app route schema in HTTP OpenAPI document, got %#v", schema)
 	}
 }
 
