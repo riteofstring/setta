@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  createAppSubsystemFrontendHost,
   getAppSubsystemFrontendRuntimeState,
   resetAppSubsystemFrontendRuntimeState,
 } from "plugins/appSubsystem";
@@ -158,6 +159,7 @@ function buildPluginStatusResponse(
 function buildPluginRuntimeResponse(
   list: PluginListResponse,
   status: PluginStatusResponse,
+  pluginId: string,
 ): PluginRuntimeResponse {
   return {
     schemaVersion: 1,
@@ -168,13 +170,13 @@ function buildPluginRuntimeResponse(
       appSubsystem: {
         providerSelection: {
           status: "active",
-          selectedPluginId: "setta-json-render-app-gen",
-          activePluginIds: ["setta-json-render-app-gen"],
+          selectedPluginId: pluginId,
+          activePluginIds: [pluginId],
           disabledPluginIds: [],
           invalidPluginIds: [],
           conflictingPluginIds: [],
         },
-        pluginId: "setta-json-render-app-gen",
+        pluginId,
         pluginEnabled: true,
         appAuthoringUi: true,
         appPreviewUi: true,
@@ -221,6 +223,7 @@ describe("app subsystem built plugin bundle", () => {
             name: "Setta JSON Render App Generation",
           }),
         ]),
+        "setta-json-render-app-gen",
       ),
     );
 
@@ -241,5 +244,96 @@ describe("app subsystem built plugin bundle", () => {
     expect(
       getAppSubsystemFrontendRuntimeState().registration?.appDeploymentModal,
     ).not.toBeNull();
+  });
+
+  it("loads an unknown-id app-subsystem fixture through the same runtime metadata contract", async () => {
+    const pluginId = "acme-app-subsystem-fixture";
+    const modulePath = resolve(
+      process.cwd(),
+      "../tests/fixtures/plugins/app-subsystem-unknown-id/frontend/dist/index.js",
+    );
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(readFileSync(modulePath, "utf8"));
+
+    await receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntryWithDefaults({
+            pluginId,
+            name: "Acme App Subsystem Fixture",
+            frontend: {
+              entrypointUrl: moduleUrl,
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntryWithDefaults({
+            pluginId,
+            name: "Acme App Subsystem Fixture",
+          }),
+        ]),
+        pluginId,
+      ),
+    );
+
+    expect(
+      usePluginRuntimeStore.getState().frontendErrorsByPluginId[pluginId],
+    ).toBeUndefined();
+
+    const registration = getAppSubsystemFrontendRuntimeState().registration;
+    expect(registration?.pluginId).toBe(pluginId);
+    expect(registration?.overviewTab).toMatchObject({
+      moreMenuLabel: "Acme App",
+    });
+    expect(registration?.chat?.slashCommands).toEqual([
+      expect.objectContaining({
+        command: "/acme-app",
+        appGenerationMode: "acme_app",
+      }),
+    ]);
+    expect(registration?.controller?.getPreviewEnabled?.()).toBe(true);
+
+    const host = createAppSubsystemFrontendHost({
+      getProjectContext: () => ({
+        defaultProjectConfigId: "project-config",
+        projectMetadata: [{ id: "project-config", name: "Fixture Project" }],
+        projectConfig: {
+          id: "project-config",
+          name: "Fixture Project",
+          entryCodeBlockId: null,
+        },
+      }),
+    });
+    const mountTarget = document.createElement("div");
+    const modalTarget = document.createElement("div");
+
+    registration?.overviewTab?.renderer.mount(mountTarget, {}, host);
+    expect(mountTarget.textContent).toBe("overview-tab:Fixture Project:static");
+
+    registration?.appDeploymentModal?.renderer.mount(
+      modalTarget,
+      { open: true },
+      host,
+    );
+    expect(modalTarget.textContent).toBe(
+      "app-deployment-modal:Fixture Project:open",
+    );
+
+    registration?.appDeploymentModal?.renderer.update?.(
+      modalTarget,
+      { open: false },
+      host,
+    );
+    expect(modalTarget.textContent).toBe(
+      "app-deployment-modal:Fixture Project:closed",
+    );
+
+    registration?.appDeploymentModal?.renderer.unmount?.(modalTarget);
+    expect(modalTarget.textContent).toBe("");
+    expect(modalTarget.dataset.acmeAppSubsystemUnmounted).toBe(
+      "app-deployment-modal",
+    );
   });
 });
