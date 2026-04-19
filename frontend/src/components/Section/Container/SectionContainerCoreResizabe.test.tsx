@@ -321,6 +321,47 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('style="visibility:hidden"');
   });
 
+  it("hides shared shell bodies during viewport interaction on the canvas path", () => {
+    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
+    mockCanvasState.viewportInteractionActive = true;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="settings-section__callableSectionDefault"
+        sectionTypeName={SectionTypeEnum.Callable}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
+    expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
+    expect(markup).toContain('style="visibility:hidden"');
+  });
+
+  it("keeps the active shared shell body visible during viewport interaction", () => {
+    mockCanvasState.activeSectionId = "settings-section__callableSectionDefault";
+    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
+    mockCanvasState.viewportInteractionActive = true;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="settings-section__callableSectionDefault"
+        sectionTypeName={SectionTypeEnum.Callable}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
+    expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
+    expect(markup).not.toContain('style="visibility:hidden"');
+  });
+
   it("keeps the active shared param-codeobj body visible during viewport interaction", () => {
     mockCanvasState.activeSectionId = "settings-section__rotaryParamCodeObjDefault";
     mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";

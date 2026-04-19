@@ -494,6 +494,13 @@ describe("sectionShellCanvasOwnership", () => {
   });
 
   it("targets the current motion-hidden body overlay sections", () => {
+    for (const sectionId of [
+      CANVAS_OWNED_SECTION_SHELL_ID,
+      DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+    ]) {
+      expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
+    }
     expect(
       isCanvasOwnedSectionMotionHiddenBody(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,

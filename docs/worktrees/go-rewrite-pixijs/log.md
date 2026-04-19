@@ -3993,6 +3993,58 @@ LOOP_TERMINAL_MARKER: none
   - keep the shared resize-handle lane closed and choose the next shared row-body slice from the updated ranking, likely DOM-visible label/article structure or a stronger inactive-row overlay/body primitive
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 079
+
+- Item: Expand the motion-body overlay to the heavyweight shared shell family.
+- Status: `done`
+- Details:
+  - Chose the first higher-cost family on the active motion lane instead of another low-payoff section-local overlay add.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` now includes the shared shell boundary:
+    - `settings-section__callableSectionDefault`
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-shell-motion-body-overlay.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - shell motion-body overlay probe:
+      - initial `hiddenBodyCount: 0`
+      - during one renderer wheel interaction, `hiddenBodyCount: 17`
+      - `callable`, `dict`, and `GlobalVariables` each reported `data-canvas-owned-motion-body-hidden="true"` with computed `visibility: hidden`
+      - settled `hiddenBodyCount: 0`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5515`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 124.22`
+      - `raf.p95Ms: 166.7`
+      - `longTasks.totalMs: 15383`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 17`
+      - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 17`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - the shared shell family now participates in the real `viewportInteractionActive` suppression lane
+    - this improved the immediate dropdown-family rerun (`raf.mean 133.61 -> 124.22`, `raf.p95 216.6 -> 166.7`, `longTasks 15853 -> 15383`) but it still does not solve the dense-scene motion blocker
+    - do not spend the next pass on another small motion-body family add; the next real frontier should strengthen the motion-state row-body/body-paint reduction primitive itself
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-shell-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-shell-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one retained graph canvas was mounted before and after a simple `zoom in` followed by `fit view`
+  - `settings-section__callableSectionDefault`, `settings-section__dictSectionDefault`, and `settings-section__globalVariablesSectionDefault` were present and visually intact
+  - no obvious blank or detached artifact appeared around the shell targets after the interaction
+- Next action:
+  - choose a stronger motion-state row-body/body-paint reduction primitive instead of another low-count overlay family add
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 078
 
 - Item: Add a motion-aware dense `All Settings` probe that exercises the real viewport wheel path.
