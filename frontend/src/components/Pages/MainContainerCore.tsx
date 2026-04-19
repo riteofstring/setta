@@ -6,16 +6,25 @@ import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMir
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
+import {
+  useAppSubsystemPreviewEnabled,
+  useAppSubsystemPreviewSurface,
+} from "plugins/appSubsystem";
+import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
+import {
+  AppSubsystemRendererHost,
+  EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
+} from "plugins/appSubsystemRendererHost";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useAppPreview } from "state/definitions";
+import { useMemo } from "react";
 import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
+import { resetProjectStores } from "state/utils";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
-import { AppPreview } from "./Project/AppPreview";
 import { UIPage } from "./Project/UiPage";
 import { ViewModeTabs } from "./Project/ViewModeTabs";
 
@@ -28,7 +37,15 @@ export function MainContainerCore({
   doneLoading,
   is404,
 }: MainContainerCoreProps) {
-  const isAppPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
+  const isAppPreviewEnabled = useAppSubsystemPreviewEnabled();
+  const appPreviewSurface = useAppSubsystemPreviewSurface();
+  const appSubsystemHost = useMemo(
+    () =>
+      createRuntimeAppSubsystemFrontendHost({
+        resetProjectRuntimeState: resetProjectStores,
+      }),
+    [],
+  );
   useCodeMirrorStyleLoader(doneLoading, is404);
   useAddMouseLocationListener();
   useAIFollowViewport();
@@ -49,7 +66,17 @@ export function MainContainerCore({
       <Overview />
       <UiEditor />
       <GridWrapper>
-        {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
+        {isAppPreviewEnabled && appPreviewSurface ? (
+          <AppSubsystemRendererHost
+            renderer={appPreviewSurface.renderer}
+            props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
+            host={appSubsystemHost}
+            className="h-full w-full"
+            testId="app-subsystem-preview-surface"
+          />
+        ) : (
+          <UIPage />
+        )}
       </GridWrapper>
       <ProjectChatBottomDock />
       <ViewModeTabs />

@@ -1,15 +1,16 @@
+import {
+  createAppSubsystemFrontendHost,
+  type Policy,
+} from "@setta/app-subsystem-frontend-sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  useAllProjectMetadata,
-  useAppDefinition,
-  useShareSession,
-} from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
 
-import { AppPage } from "./AppPage";
+import { AppPage } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/App/AppPage";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -22,25 +23,51 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function renderPage(pathname: string) {
+function renderPage(
+  pathname: string,
+  args: {
+    defaultProjectConfigId?: string | null;
+    projectMetadata?: Array<{ id: string; name: string }>;
+    sharePolicy?: Policy | null;
+  } = {},
+) {
+  const frontendHost = createAppSubsystemFrontendHost({
+    getProjectContext: () => ({
+      defaultProjectConfigId: args.defaultProjectConfigId ?? null,
+      projectMetadata: args.projectMetadata ?? [],
+      projectConfig: {
+        id: args.defaultProjectConfigId ?? null,
+        name:
+          args.projectMetadata?.find(
+            (entry) => entry.id === (args.defaultProjectConfigId ?? null),
+          )?.name ?? "",
+        entryCodeBlockId: null,
+      },
+    }),
+    subscribeProjectContext: () => () => undefined,
+    getRuntimeContext: () => ({
+      isAppDeploymentMode: false,
+      shareSessionId: null,
+      sessionRunCount: 0,
+      sharePolicy: args.sharePolicy ?? null,
+      defaultRunSnapshotMode: "ephemeral",
+      runSnapshotModeByProjectConfigId: {},
+    }),
+    subscribeRuntimeContext: () => () => undefined,
+  });
+
   return renderToStaticMarkup(
-    <MemoryRouter initialEntries={[pathname]}>
-      <AppPage />
-    </MemoryRouter>,
+    <AppSubsystemFrontendHostProvider host={frontendHost}>
+      <MemoryRouter initialEntries={[pathname]}>
+        <AppPage />
+      </MemoryRouter>
+    </AppSubsystemFrontendHostProvider>,
   );
 }
 
 describe("AppPage", () => {
   beforeEach(() => {
     resetProjectStores();
-    useShareSession.setState({
-      isDeploymentMode: false,
-      shareSessionId: null,
-      sharePolicy: null,
-      shareDeploymentName: null,
-      shareDeploymentVersion: null,
-      deploymentMode: null,
-    });
   });
 
   afterEach(() => {
@@ -98,29 +125,22 @@ describe("AppPage", () => {
   });
 
   it("falls back to the default config name when no routes exist", () => {
-    useAllProjectMetadata.setState({
-      defaultProjectConfigId: "config-1",
-      projectMetadata: [{ id: "config-1", name: "Example Project" }],
-    });
-    syncStoreInitialState(useAllProjectMetadata);
     useAppDefinition.setState({
       appDefinition: null,
       appSpec: null,
     });
     syncStoreInitialState(useAppDefinition);
 
-    const markup = renderPage("/");
+    const markup = renderPage("/", {
+      defaultProjectConfigId: "config-1",
+      projectMetadata: [{ id: "config-1", name: "Example Project" }],
+    });
 
     expect(markup).toContain("Example Project");
     expect(markup).toContain("No app spec found");
   });
 
   it("adds a dark-mode class when the app theme mode is forced to dark", () => {
-    useAllProjectMetadata.setState({
-      defaultProjectConfigId: "config-1",
-      projectMetadata: [{ id: "config-1", name: "Example Project" }],
-    });
-    syncStoreInitialState(useAllProjectMetadata);
     useAppDefinition.setState({
       appDefinition: {
         appSpecVersion: "v1",
@@ -136,7 +156,10 @@ describe("AppPage", () => {
     });
     syncStoreInitialState(useAppDefinition);
 
-    const markup = renderPage("/");
+    const markup = renderPage("/", {
+      defaultProjectConfigId: "config-1",
+      projectMetadata: [{ id: "config-1", name: "Example Project" }],
+    });
 
     // Match the `dark` class token, not Tailwind `dark:*` class names.
     expect(markup).toMatch(/\sdark(?:\s|")/);

@@ -51,9 +51,10 @@ type DefaultEntry struct {
 }
 
 type ExportedValueEntry struct {
-	Name  string `json:"name"`
-	Type  string `json:"type"`
-	Value any    `json:"value"`
+	Name            string `json:"name"`
+	DeclarationName string `json:"declarationName,omitempty"`
+	Type            string `json:"type"`
+	Value           any    `json:"value"`
 }
 
 type DiscriminatedUnionEntry struct {
@@ -106,13 +107,17 @@ func BuildSemanticSidecar() (SemanticSidecar, error) {
 	if err != nil {
 		return SemanticSidecar{}, err
 	}
+	exportedValues, err := buildExportedValueEntries()
+	if err != nil {
+		return SemanticSidecar{}, err
+	}
 
 	return SemanticSidecar{
 		SchemaVersion:         1,
 		Contracts:             contracts,
 		Routes:                routes,
 		Defaults:              buildDefaultEntries(),
-		ExportedValues:        buildExportedValueEntries(),
+		ExportedValues:        exportedValues,
 		DiscriminatedUnions:   discriminatedUnions,
 		DiscriminatedFamilies: families,
 	}, nil
@@ -288,24 +293,97 @@ func buildDefaultEntries() []DefaultEntry {
 	return entries
 }
 
-func buildExportedValueEntries() []ExportedValueEntry {
+func buildExportedValueEntries() ([]ExportedValueEntry, error) {
 	exports := sharedvalueexports.DiscoveredValueExports()
 	entries := make([]ExportedValueEntry, 0, len(exports))
+	seenDeclarationNames := make(map[string]string, len(exports))
 	for _, export := range exports {
 		typeName := strings.TrimSpace(ContractNameForType(export.Type))
 		if typeName == "" {
 			typeName = export.Type.String()
 		}
-		entries = append(entries, ExportedValueEntry{
+		declarationName := exportedValueDeclarationName(export.Name)
+		if declarationName == "" {
+			return nil, fmt.Errorf("shared sidecar export %q has empty declaration name", export.Name)
+		}
+		if existing, ok := seenDeclarationNames[declarationName]; ok && existing != export.Name {
+			return nil, fmt.Errorf(
+				"shared sidecar exported value declaration %q collides for %q and %q",
+				declarationName,
+				existing,
+				export.Name,
+			)
+		}
+		seenDeclarationNames[declarationName] = export.Name
+
+		entry := ExportedValueEntry{
 			Name:  export.Name,
 			Type:  typeName,
 			Value: export.Value(),
-		})
+		}
+		if declarationName != export.Name {
+			entry.DeclarationName = declarationName
+		}
+		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i int, j int) bool {
 		return entries[i].Name < entries[j].Name
 	})
-	return entries
+	return entries, nil
+}
+
+func exportedValueDeclarationName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return ""
+	}
+	if isTSDeclarationIdentifier(trimmed) {
+		return trimmed
+	}
+
+	var builder strings.Builder
+	for index, r := range trimmed {
+		switch {
+		case isTSIdentifierLetter(r):
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			if index == 0 {
+				builder.WriteByte('_')
+			}
+			builder.WriteRune(r)
+		case r == '-':
+			builder.WriteString("_dash_")
+		case r == '/':
+			builder.WriteString("_slash_")
+		case r == '.':
+			builder.WriteString("_dot_")
+		default:
+			builder.WriteString(fmt.Sprintf("_u%04X_", r))
+		}
+	}
+	return builder.String()
+}
+
+func isTSDeclarationIdentifier(name string) bool {
+	if strings.TrimSpace(name) == "" {
+		return false
+	}
+	for index, r := range name {
+		switch {
+		case isTSIdentifierLetter(r):
+		case r >= '0' && r <= '9':
+			if index == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func isTSIdentifierLetter(r rune) bool {
+	return r == '_' || r == '$' || unicode.IsLetter(r)
 }
 
 func buildDiscriminatedFamilyEntries() ([]DiscriminatedFamilyEntry, error) {

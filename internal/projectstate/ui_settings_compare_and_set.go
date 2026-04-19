@@ -395,6 +395,13 @@ func optionalBoolAny(value *bool) any {
 	return *value
 }
 
+func optionalStringAny(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
 func optionalStringSliceAny(value []string) any {
 	if value == nil {
 		return nil

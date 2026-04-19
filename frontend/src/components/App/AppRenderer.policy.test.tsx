@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useAppConfigs, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
@@ -13,13 +13,14 @@ import {
   createTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import {
   AppActionContext,
   AppConfigScopeContext,
   AppRuntimeContext,
-} from "./appContext";
-import { appRegistry } from "./appRegistry";
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
+import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

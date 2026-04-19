@@ -4,6 +4,7 @@ package sharedtypes
 
 import (
 	"reflect"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	artifacts "setta/internal/artifacts"
 	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
@@ -22,9 +23,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(backendlogs.BackendLogEvent{}),
 		reflect.TypeOf(backendlogs.WebsocketMessage{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
 		reflect.TypeOf(projectstate.BrowserAreaViewMode("")),
 		reflect.TypeOf(projectstate.BrowserSearchScope("")),
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
@@ -148,8 +146,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.CodeObject{}),
 		reflect.TypeOf(projectstate.CodeObjectVariant{}),
 		reflect.TypeOf(projectstate.CodeObjectImpl{}),
-		reflect.TypeOf(projectstate.AppRoute{}),
-		reflect.TypeOf(projectstate.AppDefinition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticPosition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticRange{}),
 		reflect.TypeOf(projectstate.LSPDiagnostic{}),
@@ -395,7 +391,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatDictationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatPermissionModeOption{}),
-		reflect.TypeOf(projectview.ProjectChatAppGenerationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatUIConfigValue{}),
 		reflect.TypeOf(projectview.SingleConfig{}),
 		reflect.TypeOf(projectview.ProjectConfig{}),
@@ -473,6 +468,13 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreListenerRealtimeDelta{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{}),
+		reflect.TypeOf(appdefinition.AppRoute{}),
+		reflect.TypeOf(appdefinition.AppDefinition{}),
+		reflect.TypeOf(appdefinition.ReadResult{}),
+		reflect.TypeOf(appdefinition.ValidationIssue{}),
+		reflect.TypeOf(appdefinition.Capabilities{}),
+		reflect.TypeOf(appdefinition.ValidationResult{}),
+		reflect.TypeOf(appdefinition.MutationResult{}),
 		reflect.TypeOf(artifacts.BaseArtifactUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyKeyUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyValueUnion{}),

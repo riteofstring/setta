@@ -31,12 +31,13 @@ type pluginBackendRuntimeRefresher struct {
 	pendingLanguageServerSelectionPluginIDs []string
 	projectState                            *projectstate.Runtime
 	projectSync                             *lsp.ProjectSynchronizer
+	appSubsystemCapabilities                *appSubsystemCapabilityState
+	refreshAppHandler                       func() error
 
 	mu sync.Mutex
 }
 
 type pluginBackendRefreshTransition struct {
-	previewSnapshot  plugins.DiscoverySnapshot
 	nextRuntime      *pluginBackendMCPRuntime
 	nextLSPSpecs     []lsp.LanguageServerSpec
 	previousRuntime  *pluginBackendMCPRuntime
@@ -44,21 +45,87 @@ type pluginBackendRefreshTransition struct {
 }
 
 type pluginMutationRuntimeService struct {
-	base      *plugins.Service
-	refresher *pluginBackendRuntimeRefresher
+	base                     *plugins.Service
+	refresher                *pluginBackendRuntimeRefresher
+	appSubsystemCapabilities *appSubsystemCapabilityState
 }
 
-func newPluginMutationRuntimeService(base *plugins.Service, refresher *pluginBackendRuntimeRefresher) *pluginMutationRuntimeService {
+func newPluginMutationRuntimeService(
+	base *plugins.Service,
+	refresher *pluginBackendRuntimeRefresher,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
+) *pluginMutationRuntimeService {
 	return &pluginMutationRuntimeService{
-		base:      base,
-		refresher: refresher,
+		base:                     base,
+		refresher:                refresher,
+		appSubsystemCapabilities: appSubsystemCapabilities,
 	}
+}
+
+func (s *pluginMutationRuntimeService) syncCapabilitiesFromRuntimeResponse(
+	response plugins.PluginRuntimeResponse,
+) {
+	if s == nil || s.appSubsystemCapabilities == nil || response.FeatureCapabilities == nil {
+		return
+	}
+	s.appSubsystemCapabilities.Set(response.FeatureCapabilities.AppSubsystem)
+}
+
+func (s *pluginMutationRuntimeService) syncCapabilitiesFromSnapshot(
+	snapshot plugins.DiscoverySnapshot,
+) {
+	if s == nil || s.appSubsystemCapabilities == nil {
+		return
+	}
+	s.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+}
+
+func (r *pluginBackendRuntimeRefresher) SetAppHandlerRefresh(
+	refresh func() error,
+) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.refreshAppHandler = refresh
+}
+
+func (r *pluginBackendRuntimeRefresher) refreshAppHandlerLocked() error {
+	if r == nil || r.refreshAppHandler == nil {
+		return nil
+	}
+	return r.refreshAppHandler()
+}
+
+func (s *pluginMutationRuntimeService) rescanRuntimeToolsWithoutRestart(
+	ctx context.Context,
+) (plugins.DiscoverySnapshot, error) {
+	if s == nil || s.base == nil {
+		return plugins.DiscoverySnapshot{}, nil
+	}
+	snapshot, err := s.base.Rescan()
+	if err != nil {
+		return plugins.DiscoverySnapshot{}, err
+	}
+	if s.refresher == nil {
+		s.syncCapabilitiesFromSnapshot(snapshot)
+		return snapshot, nil
+	}
+	if err := s.refresher.RescanRuntimeTools(ctx, snapshot); err != nil {
+		return plugins.DiscoverySnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
 	response, err := s.base.Runtime(options)
-	if err != nil || s.refresher == nil {
+	if err != nil {
 		return response, err
+	}
+	s.syncCapabilitiesFromRuntimeResponse(response)
+	if s.refresher == nil {
+		return response, nil
 	}
 	s.refresher.applyAppliedLanguageServerStatus(&response.Status)
 	if err := s.refresher.applyLanguageServerSelectionStatuses(&response.Status); err != nil {
@@ -95,8 +162,12 @@ func (s *pluginMutationRuntimeService) InvokeRegisteredListenerEndpoint(
 
 func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, error) {
 	snapshot, err := s.base.Rescan()
-	if err != nil || s.refresher == nil {
+	if err != nil {
 		return snapshot, err
+	}
+	if s.refresher == nil {
+		s.syncCapabilitiesFromSnapshot(snapshot)
+		return snapshot, nil
 	}
 	if err := s.refresher.RescanRuntimeTools(context.Background(), snapshot); err != nil {
 		return plugins.DiscoverySnapshot{}, err
@@ -106,13 +177,21 @@ func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, erro
 
 func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
 	result, err := s.base.Install(ctx, options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
+	if err != nil {
+		return result, err
+	}
+	if s.refresher == nil || !result.RestartRequired {
+		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if syncErr != nil {
+			return result, syncErr
+		}
 		return result, err
 	}
 	snapshot, err := s.refresher.Refresh(ctx)
 	if err != nil {
 		return result, err
 	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
 	if entry, ok := findPluginInScope(snapshot.Plugins, result.PluginID, result.SourceScope); ok {
 		result.State = entry.State
 		result.Version = entry.Version
@@ -125,13 +204,21 @@ func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plug
 
 func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
 	result, err := s.base.Link(options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
+	if err != nil {
+		return result, err
+	}
+	if s.refresher == nil || !result.RestartRequired {
+		_, syncErr := s.rescanRuntimeToolsWithoutRestart(context.Background())
+		if syncErr != nil {
+			return result, syncErr
+		}
 		return result, err
 	}
 	snapshot, err := s.refresher.Refresh(context.Background())
 	if err != nil {
 		return result, err
 	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
 	if entry, ok := findPluginInScope(snapshot.Plugins, result.PluginID, result.SourceScope); ok {
 		result.State = entry.State
 		result.Version = entry.Version
@@ -144,49 +231,87 @@ func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugin
 
 func (s *pluginMutationRuntimeService) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
 	result, err := s.base.Uninstall(ctx, options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
+	if err != nil {
 		return result, err
 	}
-	if _, err := s.refresher.Refresh(ctx); err != nil {
-		return result, err
-	}
-	result.RestartRequired = false
-	return result, nil
-}
-
-func (s *pluginMutationRuntimeService) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
-	result, err := s.base.Update(ctx, options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
-		return result, err
-	}
-	if _, err := s.refresher.Refresh(ctx); err != nil {
-		return result, err
-	}
-	result.RestartRequired = false
-	return result, nil
-}
-
-func (s *pluginMutationRuntimeService) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
-	result, err := s.base.Rollback(ctx, options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
-		return result, err
-	}
-	if _, err := s.refresher.Refresh(ctx); err != nil {
-		return result, err
-	}
-	result.RestartRequired = false
-	return result, nil
-}
-
-func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
-	result, err := s.base.Enable(ctx, options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
+	if s.refresher == nil || !result.RestartRequired {
+		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if syncErr != nil {
+			return result, syncErr
+		}
 		return result, err
 	}
 	snapshot, err := s.refresher.Refresh(ctx)
 	if err != nil {
 		return result, err
 	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
+	result.RestartRequired = false
+	return result, nil
+}
+
+func (s *pluginMutationRuntimeService) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
+	result, err := s.base.Update(ctx, options)
+	if err != nil {
+		return result, err
+	}
+	if s.refresher == nil || !result.RestartRequired {
+		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if syncErr != nil {
+			return result, syncErr
+		}
+		return result, err
+	}
+	snapshot, err := s.refresher.Refresh(ctx)
+	if err != nil {
+		return result, err
+	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
+	result.RestartRequired = false
+	return result, nil
+}
+
+func (s *pluginMutationRuntimeService) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
+	result, err := s.base.Rollback(ctx, options)
+	if err != nil {
+		return result, err
+	}
+	if s.refresher == nil || !result.RestartRequired {
+		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if syncErr != nil {
+			return result, syncErr
+		}
+		return result, err
+	}
+	snapshot, err := s.refresher.Refresh(ctx)
+	if err != nil {
+		return result, err
+	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
+	result.RestartRequired = false
+	return result, nil
+}
+
+func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+	result, err := s.base.Enable(ctx, options)
+	if err != nil {
+		return result, err
+	}
+	if s.refresher == nil || !result.RestartRequired {
+		snapshot, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if syncErr != nil {
+			return result, syncErr
+		}
+		if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
+			result.State = entry.State
+		}
+		return result, err
+	}
+	snapshot, err := s.refresher.Refresh(ctx)
+	if err != nil {
+		return result, err
+	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
 	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
 		result.State = entry.State
 	}
@@ -196,13 +321,24 @@ func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugi
 
 func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
 	result, err := s.base.Disable(ctx, options)
-	if err != nil || s.refresher == nil || !result.RestartRequired {
+	if err != nil {
+		return result, err
+	}
+	if s.refresher == nil || !result.RestartRequired {
+		snapshot, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if syncErr != nil {
+			return result, syncErr
+		}
+		if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
+			result.State = entry.State
+		}
 		return result, err
 	}
 	snapshot, err := s.refresher.Refresh(ctx)
 	if err != nil {
 		return result, err
 	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
 	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
 		result.State = entry.State
 	}
@@ -258,12 +394,22 @@ func (s *pluginMutationRuntimeService) WriteLockfile() (plugins.PluginLockWriteR
 
 func (s *pluginMutationRuntimeService) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResponse, error) {
 	result, err := s.base.ApplyLockfile(ctx, check)
-	if err != nil || s.refresher == nil || !result.Applied || check {
+	if err != nil {
 		return result, err
 	}
-	if _, err := s.refresher.Refresh(ctx); err != nil {
+	if s.refresher == nil || !result.Applied || check {
+		if result.Applied && !check {
+			if _, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx); syncErr != nil {
+				return result, syncErr
+			}
+		}
 		return result, err
 	}
+	snapshot, err := s.refresher.Refresh(ctx)
+	if err != nil {
+		return result, err
+	}
+	s.syncCapabilitiesFromSnapshot(snapshot)
 	return result, nil
 }
 
@@ -282,18 +428,39 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	snapshot, err := r.service.Rescan()
+	nextRuntime, nextLSPSpecs, err := r.prepareInitializeRuntimeLocked(ctx)
 	if err != nil {
 		return err
+	}
+	return r.commitInitializedRuntimeLocked(ctx, nextRuntime, nextLSPSpecs)
+}
+
+func (r *pluginBackendRuntimeRefresher) prepareInitializeRuntimeLocked(
+	ctx context.Context,
+) (*pluginBackendMCPRuntime, []lsp.LanguageServerSpec, error) {
+	snapshot, err := r.service.Rescan()
+	if err != nil {
+		return nil, nil, err
+	}
+	if r.appSubsystemCapabilities != nil {
+		r.appSubsystemCapabilities.SetFromSnapshot(snapshot)
 	}
 	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot, false)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+	return nextRuntime, nextLSPSpecs, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) commitInitializedRuntimeLocked(
+	ctx context.Context,
+	nextRuntime *pluginBackendMCPRuntime,
+	nextLSPSpecs []lsp.LanguageServerSpec,
+) error {
 	if err := r.replaceRuntimeToolsLocked(nil, nextRuntime); err != nil {
 		_ = nextRuntime.Close(context.Background())
 		return err
@@ -331,8 +498,10 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		return plugins.DiscoverySnapshot{}, err
 	}
 	if err := r.reconcileProjectDocumentLocked(ctx, transition.previousLSPSpecs, transition.nextLSPSpecs); err != nil {
-		r.rollbackRefreshTransitionLocked(transition)
-		return plugins.DiscoverySnapshot{}, err
+		return plugins.DiscoverySnapshot{}, errors.Join(
+			err,
+			r.rollbackRefreshTransitionLocked(transition),
+		)
 	}
 	return r.commitRefreshTransitionLocked(transition)
 }
@@ -348,6 +517,12 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	previousCapabilities := plugins.PluginAppSubsystemCapabilities{}
+	nextCapabilities := plugins.PluginAppSubsystemCapabilities{}
+	if r.appSubsystemCapabilities != nil {
+		previousCapabilities = r.appSubsystemCapabilities.AppSubsystemCapabilities()
+		nextCapabilities = plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
+	}
 	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
 	if err != nil {
 		return err
@@ -358,6 +533,18 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 		return err
 	}
 	r.runtime = nextRuntime
+	if r.appSubsystemCapabilities != nil {
+		r.appSubsystemCapabilities.Set(nextCapabilities)
+	}
+	if err := r.refreshAppHandlerLocked(); err != nil {
+		if r.appSubsystemCapabilities != nil {
+			r.appSubsystemCapabilities.Set(previousCapabilities)
+		}
+		r.runtime = previousRuntime
+		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
+		closePluginBackendRuntime(nextRuntime)
+		return errors.Join(err, rollbackErr)
+	}
 	closePluginBackendRuntime(previousRuntime)
 	return nil
 }
@@ -466,7 +653,6 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 		return nil, err
 	}
 	return &pluginBackendRefreshTransition{
-		previewSnapshot:  previewSnapshot,
 		nextRuntime:      nextRuntime,
 		nextLSPSpecs:     nextLSPSpecs,
 		previousRuntime:  r.runtime,
@@ -497,10 +683,34 @@ func (r *pluginBackendRuntimeRefresher) applyRefreshTransitionLocked(
 func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 	transition *pluginBackendRefreshTransition,
 ) (plugins.DiscoverySnapshot, error) {
+	previousRefreshState, err := r.service.BackendRuntimeRefreshState()
+	if err != nil {
+		return plugins.DiscoverySnapshot{}, errors.Join(
+			err,
+			r.rollbackRefreshTransitionLocked(transition),
+		)
+	}
 	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
 	if commitErr != nil {
-		r.rollbackRefreshTransitionLocked(transition)
-		return committedSnapshot, commitErr
+		return committedSnapshot, errors.Join(
+			commitErr,
+			r.rollbackRefreshTransitionLocked(transition),
+		)
+	}
+	previousCapabilities := plugins.PluginAppSubsystemCapabilities{}
+	if r.appSubsystemCapabilities != nil {
+		previousCapabilities = r.appSubsystemCapabilities.AppSubsystemCapabilities()
+		r.appSubsystemCapabilities.SetFromSnapshot(committedSnapshot)
+	}
+	if err := r.refreshAppHandlerLocked(); err != nil {
+		if r.appSubsystemCapabilities != nil {
+			r.appSubsystemCapabilities.Set(previousCapabilities)
+		}
+		rollbackErr := r.rollbackRefreshTransitionLocked(transition)
+		restoreErr := r.service.RestoreBackendRuntimeRefreshState(
+			previousRefreshState,
+		)
+		return committedSnapshot, errors.Join(err, rollbackErr, restoreErr)
 	}
 
 	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
@@ -512,14 +722,23 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 
 func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	transition *pluginBackendRefreshTransition,
-) {
+) error {
+	var rollbackErr error
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend MCP tools failed",
-		r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime),
+		func() error {
+			err := r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime)
+			rollbackErr = errors.Join(rollbackErr, err)
+			return err
+		}(),
 	)
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend language servers failed",
-		r.replaceLSPSpecsLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
+		func() error {
+			err := r.replaceLSPSpecsLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs)
+			rollbackErr = errors.Join(rollbackErr, err)
+			return err
+		}(),
 	)
 	r.runtime = transition.previousRuntime
 	r.lspSpecs = transition.previousLSPSpecs
@@ -527,9 +746,14 @@ func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	r.pendingLanguageServerSelectionPluginIDs = nil
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend project reconciliation failed",
-		r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
+		func() error {
+			err := r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs)
+			rollbackErr = errors.Join(rollbackErr, err)
+			return err
+		}(),
 	)
 	closePluginBackendRuntime(transition.nextRuntime)
+	return rollbackErr
 }
 
 func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
@@ -781,9 +1005,10 @@ func (r *pluginBackendRuntimeRefresher) languageServerSpecsForSelections(
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
 	return newPluginBackendMCPRuntime(ctx, pluginBackendMCPRuntimeOptions{
-		Logger:      r.logger,
-		RuntimeRoot: r.runtimeRoot,
-		Snapshot:    snapshot,
+		Logger:         r.logger,
+		RuntimeRoot:    r.runtimeRoot,
+		Snapshot:       snapshot,
+		ProjectRuntime: r.projectState,
 	})
 }
 

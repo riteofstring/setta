@@ -1,3 +1,4 @@
+import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystem";
 import {
   usePluginRuntimeStore,
   type PluginPaneTabEntry,
@@ -86,11 +87,13 @@ function resetPluginRuntimeStateForTests(): void {
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -123,6 +126,7 @@ describe("Overview rail offsets", () => {
   beforeEach(() => {
     resetProjectStores();
     resetPluginRuntimeStateForTests();
+    resetAppSubsystemFrontendRuntimeState();
     latestNavbarMenuDropdownContentClassName = undefined;
     memoryStorage.reset();
     const viewId = "default-view";
@@ -171,6 +175,7 @@ describe("Overview rail offsets", () => {
   afterEach(() => {
     resetProjectStores();
     resetPluginRuntimeStateForTests();
+    resetAppSubsystemFrontendRuntimeState();
   });
 
   it("extends to the bottom when no view mode tabs exist", () => {
@@ -470,7 +475,7 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
-  it("renders JSON Render quick info without crashing the App tab", () => {
+  it("falls back to Overview when the app subsystem authoring UI is unavailable", () => {
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.App,
     });
@@ -482,12 +487,10 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">JSON Render<");
-    expect(markup).toContain(
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain("Mock App Workbench");
+    expect(markup).not.toContain(
       "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
-    );
-    expect(markup).toContain(
-      "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
     );
   });
 

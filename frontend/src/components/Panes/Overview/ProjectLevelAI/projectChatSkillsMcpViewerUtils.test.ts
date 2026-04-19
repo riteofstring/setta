@@ -7,6 +7,7 @@ import {
   createEngineConfig,
   createLLMConfig,
 } from "utils/generatedTypes";
+import { buildAppGenerationSlashCommandDefinitions } from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
 import {
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
@@ -21,6 +22,9 @@ import {
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
+
+const APP_GENERATION_SLASH_COMMANDS =
+  buildAppGenerationSlashCommandDefinitions();
 
 function buildExternalAgentPreflightStatus(
   overrides: Partial<HttpapiExternalAgentPreflightStatus> = {},
@@ -700,6 +704,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const rows = buildSlashCommandsByEngine({
       engineConfigs,
+      appGenerationSlashCommands: APP_GENERATION_SLASH_COMMANDS,
       allLLMConfigs,
       apiKeys: { OPENAI_API_KEY: "secret" },
       externalAgentHealth,
@@ -771,6 +776,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const rows = buildSlashCommandsByEngine({
       engineConfigs,
+      appGenerationSlashCommands: APP_GENERATION_SLASH_COMMANDS,
       allLLMConfigs,
       apiKeys: {},
       externalAgentHealth,

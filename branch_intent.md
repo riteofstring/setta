@@ -1,1 +1,0 @@
-Keep the app chrome, but rebuild the entire visible workspace/xyflow area as one Pixi-owned scene: one infinite canvas, all visible sections, premium pan/zoom, no DOM section shells, no hybrid underlay, and `Callable`/`Dict` on `settings -> All Settings` as the first proving families.

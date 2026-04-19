@@ -37,6 +37,7 @@ print(json.dumps({"packages": packages}))
 import importlib.metadata
 import json
 import pathlib
+import re
 import sys
 
 search_paths = json.loads(sys.argv[1])
@@ -44,17 +45,61 @@ kwargs = {}
 if search_paths is not None:
     kwargs["path"] = search_paths
 
+def add_manifest_path(manifest_paths, seen_paths, candidate):
+    resolved = pathlib.Path(candidate).resolve(strict=False)
+    resolved_key = str(resolved)
+    if resolved_key in seen_paths or not resolved.is_file():
+        return
+    seen_paths.add(resolved_key)
+    manifest_paths.append(resolved_key)
+
+def add_candidate_package_roots(candidate_roots, seen_roots, install_root, package_name):
+    package_name = (package_name or "").strip()
+    if not package_name:
+        return
+    normalized = re.sub(r"[-_.]+", "-", package_name).strip("-").lower()
+    root_names = [package_name]
+    if normalized:
+        root_names.extend([normalized, normalized.replace("-", "_"), normalized.replace("-", ".")])
+    for root_name in root_names:
+        root_name = root_name.strip()
+        if not root_name:
+            continue
+        root_path = (install_root / root_name).resolve(strict=False)
+        root_key = str(root_path)
+        if root_key in seen_roots:
+            continue
+        seen_roots.add(root_key)
+        candidate_roots.append(root_path)
+
 distributions = []
 for dist in importlib.metadata.distributions(**kwargs):
-    files = dist.files
-    if files is None:
-        continue
     manifest_paths = []
-    for file in files:
-        path_value = pathlib.Path(str(file))
-        if path_value.name != "setta.plugin.json":
-            continue
-        manifest_paths.append(str(pathlib.Path(dist.locate_file(file)).resolve(strict=False)))
+    seen_manifest_paths = set()
+    files = dist.files
+    if files is not None:
+        for file in files:
+            path_value = pathlib.Path(str(file))
+            if path_value.name != "setta.plugin.json":
+                continue
+            add_manifest_path(manifest_paths, seen_manifest_paths, dist.locate_file(file))
+    if not manifest_paths:
+        install_root = pathlib.Path(dist.locate_file(pathlib.Path(""))).resolve(strict=False)
+        candidate_roots = [install_root]
+        seen_candidate_roots = {str(install_root)}
+        name = (dist.metadata.get("Name") or "").strip()
+        add_candidate_package_roots(candidate_roots, seen_candidate_roots, install_root, name)
+        dist_name = getattr(dist, "name", "")
+        add_candidate_package_roots(candidate_roots, seen_candidate_roots, install_root, dist_name)
+        top_level = (dist.read_text("top_level.txt") or "")
+        for line in top_level.splitlines():
+            add_candidate_package_roots(candidate_roots, seen_candidate_roots, install_root, line)
+        for candidate_root in candidate_roots:
+            add_manifest_path(
+                manifest_paths,
+                seen_manifest_paths,
+                candidate_root / "setta.plugin.json",
+            )
     if not manifest_paths:
         continue
     manifest_paths.sort(key=str.lower)

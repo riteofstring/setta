@@ -153,6 +153,22 @@ def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     return wheel_paths[0]
 
 
+def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
+    source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
+    plugin_root = tmp_path / "setta-json-render-app-gen"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(plugin_root / "build", ignore_errors=True)
+
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
+    assert len(wheel_paths) == 1
+    return wheel_paths[0]
+
+
 def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
     project_root = _write_minimal_distribution_project(
         tmp_path,
@@ -203,6 +219,19 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
 
 
+def test_first_party_app_subsystem_plugin_package_has_no_python_runtime_dependency() -> None:
+    plugin_pyproject = tomllib.loads(
+        (
+            _repo_root()
+            / "plugins"
+            / "setta-json-render-app-gen"
+            / "pyproject.toml"
+        ).read_text(encoding="utf-8")
+    )
+
+    assert plugin_pyproject["project"]["dependencies"] == []
+
+
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
     tmp_path: Path,
 ) -> None:
@@ -250,6 +279,75 @@ def test_first_party_basedpyright_plugin_wheel_installs_under_plugin_specific_ro
     record_text = record_path.read_text(encoding="utf-8")
     assert "setta-basedpyright/setta.plugin.json" in record_text
     assert "setta-basedpyright/backend/main.py" in record_text
+
+
+def test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(
+        name.endswith("setta-json-render-app-gen/setta.plugin.json")
+        for name in names
+    )
+    assert any(name.endswith("setta-json-render-app-gen/README.md") for name in names)
+    assert any(
+        name.endswith("setta-json-render-app-gen/runtime_backend/main.py")
+        for name in names
+    )
+    assert any(
+        name.endswith("setta-json-render-app-gen/frontend/dist/index.js")
+        for name in names
+    )
+    assert any(
+        name.endswith("setta-json-render-app-gen/frontend/dist/index.css")
+        for name in names
+    )
+
+
+def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            str(wheel_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    installed_plugin_root = site_packages / "setta-json-render-app-gen"
+    assert (installed_plugin_root / "setta.plugin.json").is_file()
+    assert (installed_plugin_root / "README.md").is_file()
+    assert (installed_plugin_root / "runtime_backend" / "main.py").is_file()
+    assert (installed_plugin_root / "frontend" / "dist" / "index.js").is_file()
+    assert (installed_plugin_root / "frontend" / "dist" / "index.css").is_file()
+
+    record_path = (
+        site_packages / "setta_json_render_app_gen-0.1.0.dist-info" / "RECORD"
+    )
+    record_text = record_path.read_text(encoding="utf-8")
+    assert "setta-json-render-app-gen/setta.plugin.json" in record_text
+    assert "setta-json-render-app-gen/README.md" in record_text
+    assert "setta-json-render-app-gen/runtime_backend/main.py" in record_text
+    assert "setta-json-render-app-gen/frontend/dist/index.js" in record_text
+    assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

@@ -1,52 +1,42 @@
 /* @vitest-environment jsdom */
 
-import { loadCachedImageArtifacts } from "openapi/http";
+import {
+  downloadBinary,
+  loadCachedImageArtifacts,
+} from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useDecodedImages, useImages } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
   createContentRef,
   createImageArtifact,
   createPolicy,
 } from "utils/generatedTypes";
+import { resetAppSubsystemImageArtifactsState } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemImageArtifacts";
 
 const openAPIMocks = vi.hoisted(() => ({
   loadCachedImageArtifacts: vi.fn(),
+  downloadBinary: vi.fn(),
 }));
 
-const decodeExistingRawImagesMock = vi.hoisted(() => vi.fn());
-
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
+  const actual = await vi.importActual<
+    typeof import("@setta/app-subsystem-frontend-sdk")
+  >("@setta/app-subsystem-frontend-sdk");
   return {
     ...actual,
     loadCachedImageArtifacts: openAPIMocks.loadCachedImageArtifacts,
+    downloadBinary: openAPIMocks.downloadBinary,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
   };
 });
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
-
-vi.mock("state/hooks/artifacts", async () => {
-  const actual = await vi.importActual<typeof import("state/hooks/artifacts")>(
-    "state/hooks/artifacts",
-  );
-  return {
-    ...actual,
-    decodeExistingRawImages: decodeExistingRawImagesMock,
-  };
-});
-
-import { AppRuntimeContext } from "./appContext";
-import { appRegistry } from "./appRegistry";
+import { AppRuntimeContext } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
+import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
 
 type RenderedRegistryNode = {
   host: HTMLDivElement;
@@ -56,6 +46,9 @@ type RenderedRegistryNode = {
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
+const originalCreateObjectURL = URL.createObjectURL;
+const originalRevokeObjectURL = URL.revokeObjectURL;
+const originalImageDecode = HTMLImageElement.prototype.decode;
 
 async function renderRegistryNode(): Promise<RenderedRegistryNode> {
   const host = document.createElement("div");
@@ -104,10 +97,22 @@ async function flushEffects(): Promise<void> {
 
 describe("appRegistry", () => {
   beforeEach(() => {
-    resetProjectStores();
+    resetAppSubsystemImageArtifactsState();
     openAPIMocks.loadCachedImageArtifacts.mockReset();
-    decodeExistingRawImagesMock.mockReset();
+    openAPIMocks.downloadBinary.mockReset();
     document.body.innerHTML = "";
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:test-output-image"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -116,8 +121,20 @@ describe("appRegistry", () => {
   });
 
   afterEach(() => {
-    resetProjectStores();
+    resetAppSubsystemImageArtifactsState();
     document.body.innerHTML = "";
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: originalCreateObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: originalRevokeObjectURL,
+    });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: originalImageDecode,
+    });
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -139,19 +156,12 @@ describe("appRegistry", () => {
       status: 200,
       hasResponse: true,
     });
-    decodeExistingRawImagesMock.mockImplementation(async (artifactIds) => {
-      // Mirror the production decode step by publishing the decoded image to the shared store.
-      expect(artifactIds).toEqual([artifact.id]);
-      const decoded = document.createElement("img");
-      decoded.src = "blob:test-output-image";
-      decoded.dataset.contentId = artifact.value.contentId;
-      useDecodedImages.setState((state) => ({
-        x: { ...state.x, [artifact.id]: decoded },
-        revisionById: {
-          ...state.revisionById,
-          [artifact.id]: (state.revisionById[artifact.id] ?? 0) + 1,
-        },
-      }));
+    openAPIMocks.downloadBinary.mockResolvedValue({
+      data: new Blob(["image"], {
+        type: "image/png",
+      }),
+      status: 200,
+      hasResponse: true,
     });
 
     const { host, root } = await renderRegistryNode();
@@ -162,7 +172,11 @@ describe("appRegistry", () => {
         paths: [artifact.id],
       },
     });
-    expect(useImages.getState().x[artifact.id]).toEqual(artifact);
+    expect(downloadBinary).toHaveBeenCalledWith({
+      path: {
+        contentId: artifact.value.contentId,
+      },
+    });
     const renderedImage = host.querySelector(
       'img[alt="Bound output image"]',
     ) as HTMLImageElement | null;
