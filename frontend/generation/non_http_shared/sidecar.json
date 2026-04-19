@@ -135,31 +135,6 @@
       "schemaRef": "#/$defs/AppDefinition"
     },
     {
-      "name": "AppDefinitionCapabilities",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionCapabilities"
-    },
-    {
-      "name": "AppDefinitionMutationResult",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionMutationResult"
-    },
-    {
-      "name": "AppDefinitionReadResult",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionReadResult"
-    },
-    {
-      "name": "AppDefinitionValidationIssue",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionValidationIssue"
-    },
-    {
-      "name": "AppDefinitionValidationResult",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionValidationResult"
-    },
-    {
       "name": "AppGenerationMode",
       "kind": "enum",
       "schemaRef": "#/$defs/AppGenerationMode",
@@ -465,6 +440,11 @@
       "name": "CanvasPoint",
       "kind": "alias",
       "schemaRef": "#/$defs/CanvasPoint"
+    },
+    {
+      "name": "Capabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/Capabilities"
     },
     {
       "name": "ChangeParamImplUIConfigValue",
@@ -2456,6 +2436,11 @@
       "schemaRef": "#/$defs/MoveSectionsInput"
     },
     {
+      "name": "MutationResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/MutationResult"
+    },
+    {
       "name": "NameValidationContract",
       "kind": "model",
       "schemaRef": "#/$defs/NameValidationContract"
@@ -3283,6 +3268,11 @@
       "name": "RawMessage",
       "kind": "alias",
       "schemaRef": "#/$defs/RawMessage"
+    },
+    {
+      "name": "ReadResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/ReadResult"
     },
     {
       "name": "RealtimeDependencyEventContent",
@@ -6436,6 +6426,16 @@
       "name": "UserChatMessage",
       "kind": "model",
       "schemaRef": "#/$defs/UserChatMessage"
+    },
+    {
+      "name": "ValidationIssue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ValidationIssue"
+    },
+    {
+      "name": "ValidationResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/ValidationResult"
     },
     {
       "name": "Variant",
