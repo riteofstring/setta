@@ -256,43 +256,38 @@ Use this order unless a fresh measurement disproves it:
 
 ## Current sequencing checkpoint
 
-As of the 2026-04-20 replan after run `033`:
+As of the 2026-04-20 progress review after run `044`:
 
-- The recent stretch is still worthwhile, but the default frontier changed. The current whole-scene band is still roughly `documentNodeCount 5493-5498`, `inputCount 3`, `textareaCount 1`, `buttonCount 46-47`, `raf.meanMs ~42.6-43.1`, and `longTasks.totalMs ~5.8-6.7s`, so the branch is materially better than the older triple-digit frame-time state but still above the real `33.3ms` target with significant long-task debt.
-- The stretch produced real Phase 2 product progress: run `022` hardened first-click CodeMirror activation on the retained-text/canvas-shell path, run `024` promoted `sectionSizingPolicy` into full canvas-owned shell ownership, and run `030` widened full shell ownership to the shared GUI/backend settings family while keeping first-click dropdown/editor handoff intact. Treat those as architecture progress, not as new whole-scene perf checkpoints.
-- Run `032` landed a real shared graph-surface ownership step on the canonical `settings-section__browserSectionDefault` lane: the shell-owned browser/code/prompt family now keeps lightweight nested children on the canvas-owned path, and the concrete browser/code legacy nested-wrapper gap is closed on the current runtime.
-- Run `033` materially changed the frontier evidence: the refreshed row-body/article-chrome rerank on the live run-033 runtime recorded `totalRemainingRowCount 0`, `totalRemainingVisibleElementCount 0`, and `commonRemainingKinds []` while the paired dense probe stayed in the same `~43ms` band. The queued row-body/article-chrome lane is therefore closed as stale on the current runtime.
-- The micro-reducer lane is also closed as a default strategy. Runs `023`, `025`, `026`, `027`, `028`, and `029` each removed real JS/selector fanout but all settled back into the same dense band, so further viewport/`ZoomPane`/selector-cache passes are churn unless a fresh product slice directly depends on one.
-- Run `031` already closed the older `EventDispatch` / `v8.callFunction` / GC hotspot report as the default reason to keep trace-chasing the same reducer family: the refreshed post-run-030 trace only surfaced short `RunTask` activity.
-- Taken together, the branch evidence now says the remaining blocker is no longer “one more visible DOM survivor family.” The next plausible blocker is retained-graph / renderer-side work during viewport interaction: snapshot invalidation, redraw/re-measure fanout, motion-hidden-body orchestration, or another shared canvas-side path that the current short trace did not isolate cleanly.
-- The run-033 headless blank-canvas sample is a verification ambiguity, not yet a product regression. Earlier run-030/run-032 visual checks on the same canary family showed the graph surface intact, so do not let one headless transparent-canvas sample force a rollback without a more trustworthy visual repro.
+- The recent stretch is still worthwhile, but the default frontier changed again after run `041`. The canonical lane still sits above the real `33.3ms` goal, yet the latest trusted reruns kept the same dense DOM/canvas shape (`documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `canvasCount 1`) while pushing `longTasks.totalMs` down from the clean checkpoint's `5844` toward `3565` on run `042`, `2993` on run `043`, and `3256` on run `044`. Treat that as real hotspot progress, not completion.
+- Runs `034` through `040` were not wasted, but they closed the current retained-backdrop invalidation family as a default target. Observer churn, mutation-refresh churn, motion-hidden subtree detach / restore, unconditional settle-flush churn, header/menu viewport subscription fanout, and same-scene backdrop node-map repaint are all either removed or demoted behind stronger evidence.
+- Run `041` is the durable attribution pivot: the saved trace on the canonical `settings-section__browserSectionDefault` lane pointed more strongly at `_SectionContainerCore` / `_SectionContainerCoreResizable` viewport-interaction rerender work than at another `SectionShellBackdropCanvas` paint/layout pass.
+- Runs `042` and `043` then removed the direct `viewportInteractionActive` subscriptions from both section-container layers while preserving the motion-hidden DOM contract and the trusted live chrome inventory. Run `044` followed by memoizing the `SectionContainerCoreResizable` chrome/body children so active-section flips without a motion-hidden change no longer rerender the header or browser-area subtree. Treat those as real local hotspot reductions, not just internal cleanup.
+- The remaining blocker is now narrower. The next plausible cost is another local `SectionContainerCoreResizable` active-section or non-viewport prop-fanout path beyond the now-memoized chrome/body boundary. Another generic backdrop, observer, DOM-sync, or repeat child-memo micro-pass would be churn by default.
+- The repeated headless transparent-canvas samples are still verification ambiguity, not proved product regressions. Keep them explicit, but do not let them force a rollback unless a more trustworthy visual path reproduces the blank graph.
 
 Required order from here:
 
 1. Start each default pass from the chat-normalized dense `settings` -> `All Settings` probe on the named `settings-section__browserSectionDefault` lane, not from a previously closed section-local cleanup lane.
-2. Keep using `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`). Treat later shell-ownership and row-body-refresh reports as ownership/frontier evidence, not as replacements for that checkpoint.
+2. Keep using `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`). Treat later reruns as hotspot-evidence slices unless they are clearly cleaner on the same normalized runtime.
 3. Treat these default lanes as closed unless a visible regression or fresh evidence explicitly reopens one:
    - shared row-body/article-chrome cleanup from the April 19 ranking
    - selector-cache / viewport-persistence / `ZoomPane` wheel-event micro-passes
    - another browser/code/prompt lightweight nested-children widening for the same family
    - another shell-only sibling promotion derived only from the old DOM ranking
+   - another `SectionShellBackdropCanvas` observer / snapshot / map-equality micro-pass by inertia
+   - another pass that only re-proves the `SectionContainerCore` or `SectionContainerCoreResizable` viewport start/stop DOM-sync path
 4. The next default pass must do exactly one of these:
-   - a bounded retained-graph instrumentation / hotspot-scout slice that attributes the remaining `~43ms` / `~6s` band to one concrete renderer-side path on the live canary
-   - a broader graph-surface structural slice only if existing evidence already points to a specific retained-graph path it will remove
-5. When the next pass is an evidence slice, scope it around retained-graph invalidation and motion-time canvas work rather than visible DOM descendants. Default candidates:
-   - snapshot invalidation / reuse on `SectionShellBackdropCanvas`
-   - redraw or re-measure fanout while `viewportInteractionActive`
-   - motion-hidden-body orchestration that still fires even though the visible row-body frontier is zero
-   - another shared canvas-side `RunTask` source that can be attributed with saved trace or local instrumentation
-6. A research slice is only successful if it ends with one concrete next product candidate, not “do more research.” Required outputs:
+   - land one bounded product slice that removes another remaining `SectionContainerCoreResizable` active-section or non-viewport prop-fanout rerender path on the canonical lane
+   - if code inspection cannot isolate that path confidently, land one bounded evidence slice scoped specifically to `SectionContainerCoreResizable` and its immediate children, not to `SectionShellBackdropCanvas` or `ZoomPane`
+5. A successful evidence slice is only successful if it ends with one concrete next product candidate inside `SectionContainerCoreResizable`, not “do more research.” Required outputs:
    - one fresh dense rerun on the canonical lane
    - one saved trace or instrumentation artifact tied to the same runtime
    - one trustworthy visual confirmation path for the retained graph on that runtime
+   - one named follow-up target such as active-section decoration churn, resize-affordance prop churn, nested child prop fanout, or another similarly local container-owned path
+6. If one bounded evidence pass still cannot produce a credible `SectionContainerCoreResizable` product slice, stop automation and escalate to a broader architecture decision instead of reopening backdrop invalidation, DOM-sync, or selector-cache lanes by inertia.
 7. Do not treat a headless transparent-canvas sample by itself as proof of product breakage. If the blank retained graph reproduces on a trustworthy visual path, then treat that as a blocker and stop for a deeper renderer replan before landing more ownership work.
-8. When the next pass is a product slice, prefer retained-graph snapshot reuse, redraw isolation, or other shared canvas-side structural changes over further descendant-count cleanup.
-9. If a longer or better-instrumented trace still fails to expose a bounded renderer-side path and no concrete graph-surface structural slice is credible, stop automation and escalate to a broader architecture decision instead of letting Ralph continue by inertia.
 
-Do not let Ralph treat the current `~43ms` / `~5.8-6.7s` band as success just because it is better than the earlier triple-digit frame times.
+Do not let Ralph treat the current `~43ms` band as success just because it is better than the earlier triple-digit frame times. The latest long-task drop is useful evidence, but the loop is only still worthwhile if the next pass stays narrowly focused on the remaining section-container rerender fanout.
 
 ## Testing discipline
 

@@ -471,6 +471,8 @@ function SectionContainerChrome({
   );
 }
 
+const MemoizedSectionContainerChrome = React.memo(SectionContainerChrome);
+
 const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
     <CallableArea
@@ -623,7 +625,7 @@ function _SectionContainerCoreResizable({
       motionCanvasOwnedShell={motionHidden}
       motionCanvasOwnedShellRoot={motionHiddenRoot}
     >
-      <SectionContainerChrome
+      <MemoizedSectionContainerChrome
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
@@ -635,7 +637,7 @@ function _SectionContainerCoreResizable({
         positionAndSizeLocked={positionAndSizeLocked}
         motionHiddenInteractionActive={motionHidden}
       />
-      <CanvasSectionBody
+      <MemoizedCanvasSectionBody
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         bgColor={bgColor}
@@ -745,6 +747,8 @@ function CanvasSectionBody({
     </div>
   );
 }
+
+const MemoizedCanvasSectionBody = React.memo(CanvasSectionBody);
 
 function ChatSectionArea({
   sectionId,

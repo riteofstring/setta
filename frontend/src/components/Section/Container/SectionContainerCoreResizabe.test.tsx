@@ -40,6 +40,7 @@ let mockProjectState: MockProjectState = {
 let root: Root | null = null;
 let mockSectionHeaderMotionHiddenInteractionActive = false;
 let mockSectionHeaderRenderCount = 0;
+let mockBrowserAreaRenderCount = 0;
 
 const mockReactFlowSubscriptions = new Set<{
   currentValue: unknown;
@@ -245,7 +246,10 @@ vi.mock("../Layouts/CodeArea", () => ({
 }));
 
 vi.mock("../Layouts/BrowserArea", () => ({
-  BrowserArea: () => <div data-testid="mock-browser-area" />,
+  BrowserArea: () => {
+    mockBrowserAreaRenderCount += 1;
+    return <div data-testid="mock-browser-area" />;
+  },
 }));
 vi.mock("../Layouts/CallableArea", () => ({
   CallableArea: () => <div data-testid="mock-callable-area" />,
@@ -318,6 +322,7 @@ describe("SectionContainerCoreResizable", () => {
     mockReactFlowSubscriptions.clear();
     mockSectionHeaderMotionHiddenInteractionActive = false;
     mockSectionHeaderRenderCount = 0;
+    mockBrowserAreaRenderCount = 0;
   });
 
   afterEach(() => {
@@ -596,6 +601,48 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
     expect(markup).not.toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-code-area"');
+  });
+
+  it("skips chrome and body rerenders when active-section changes do not change motion-hidden props", async () => {
+    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(
+        <SectionContainerCoreResizable
+          sectionId="settings-section__browserSectionDefault"
+          sectionTypeName={SectionTypeEnum.Browser}
+          isInOtherProjectConfigs={false}
+          isUserView={false}
+          positionAndSizeLocked={false}
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(mockSectionHeaderRenderCount).toBe(1);
+    expect(mockBrowserAreaRenderCount).toBe(1);
+
+    mockCanvasState.activeSectionId = "settings-section__browserSectionDefault";
+
+    await act(async () => {
+      root?.render(
+        <SectionContainerCoreResizable
+          sectionId="settings-section__browserSectionDefault"
+          sectionTypeName={SectionTypeEnum.Browser}
+          isInOtherProjectConfigs={false}
+          isUserView={false}
+          positionAndSizeLocked={false}
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(mockSectionHeaderRenderCount).toBe(1);
+    expect(mockBrowserAreaRenderCount).toBe(1);
   });
 
   it("syncs motion-hidden DOM attrs after mount without rerendering the section header", async () => {
