@@ -11546,6 +11546,12 @@
             "null",
             "string"
           ]
+        },
+        "runtimeSearchPathsKey": {
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "title": "PluginRegisteredLanguageServer",
