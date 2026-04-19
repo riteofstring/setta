@@ -1,4 +1,10 @@
 import type { Action } from "@json-render/core";
+import {
+  callOpenAPI,
+  getPasswordParamValue,
+  loadCachedImageArtifacts,
+  setParamEnteredValue,
+} from "@setta/app-subsystem-frontend-sdk";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
@@ -11,12 +17,6 @@ import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
 import _ from "lodash";
-import {
-  getPasswordParamValue,
-  loadCachedImageArtifacts,
-  setParamEnteredValue,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
