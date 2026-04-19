@@ -1,6 +1,10 @@
 package settajsonrenderappgenbackend
 
-import "setta/internal/deployments"
+import (
+	"context"
+
+	"setta/internal/deployments"
+)
 
 func AppDeploymentTypeRegistration() deployments.TypeRegistration {
 	return deployments.TypeRegistration{
@@ -9,6 +13,18 @@ func AppDeploymentTypeRegistration() deployments.TypeRegistration {
 			ModeName: string(deployments.TypeApp),
 			URLLabel: "App URL",
 		},
-		OpenRuntime: deployments.Open,
+		OpenRuntime: OpenAppDeploymentRuntime,
 	}
+}
+
+func OpenAppDeploymentRuntime(
+	ctx context.Context,
+	options deployments.RuntimeOptions,
+) (*deployments.Runtime, error) {
+	runtime, err := deployments.Open(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	runtime.SetAppDeploymentRuntimeContent(NewAppDeploymentRuntimeContent())
+	return runtime, nil
 }
