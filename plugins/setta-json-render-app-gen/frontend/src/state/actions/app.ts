@@ -1,11 +1,11 @@
 import {
+  callOpenAPI,
   getAppDeploymentCurrentSession,
   getAppDeploymentProjectConfig,
   getAppDeploymentState,
   type GetAppDeploymentCurrentSessionResponses,
   type GetAppDeploymentStateResponses,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+} from "@setta/app-subsystem-frontend-sdk";
 import { useAppConfigs } from "../../appSubsystemProjectState";
 import {
   useAllProjectMetadata,

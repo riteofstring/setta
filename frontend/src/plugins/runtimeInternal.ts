@@ -1,3 +1,8 @@
+import {
+  isAppSubsystemFrontendRegistration,
+  type AppSubsystemFrontendRegistration,
+  type RegisteredAppSubsystemFrontendRegistration,
+} from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
@@ -14,11 +19,6 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
-import {
-  isAppSubsystemFrontendRegistration,
-  type AppSubsystemFrontendRegistration,
-  type RegisteredAppSubsystemFrontendRegistration,
-} from "./appSubsystem";
 import {
   isPluginPaneIconName,
   PluginPaneIconNameEnum,

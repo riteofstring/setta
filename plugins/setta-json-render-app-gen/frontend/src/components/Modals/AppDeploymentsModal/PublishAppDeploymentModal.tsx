@@ -1,3 +1,11 @@
+import {
+  callOpenAPI,
+  checkIfFileExists,
+  listAppDeployments,
+  publishAppDeployment,
+  type HttpapiDeploymentMetadataResponse,
+  type HttpapiPublishAppDeploymentRequest,
+} from "@setta/app-subsystem-frontend-sdk";
 import * as Dialog from "components/Modals/radixDialog";
 import {
   normalizeActionDefinitions,
@@ -5,14 +13,6 @@ import {
   resolveActionType,
 } from "../../App/appBindings";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import {
-  checkIfFileExists,
-  listAppDeployments,
-  publishAppDeployment,
-  type HttpapiDeploymentMetadataResponse,
-  type HttpapiPublishAppDeploymentRequest,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
