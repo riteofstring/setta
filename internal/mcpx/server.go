@@ -43,6 +43,7 @@ type Server struct {
 	logger               *slog.Logger
 	registry             *tools.Registry
 	projectState         projectStateProvider
+	appDefinitionService projectstate.AppDefinitionRuntime
 	afterProjectMutation func(context.Context, string) error
 	pluginMutations      pluginMutationProvider
 	pythonPackages       pythonPackageProvider
@@ -72,6 +73,7 @@ type ServerOptions struct {
 	Registry                       *tools.Registry
 	WorkspaceRoot                  string
 	ProjectState                   projectStateProvider
+	AppDefinitionService           projectstate.AppDefinitionRuntime
 	SkipDefaultAppSubsystemTools   bool
 	ContributedToolRegistrations   []ToolRegistration
 	AfterProjectStateMutation      func(context.Context, string) error
@@ -162,10 +164,6 @@ type projectStateProvider interface {
 	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
 	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
-	CompareAndSetAppDefinitionCatalogID(ctx context.Context, catalogID string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
-	CompareAndSetAppDefinitionSpecVersion(ctx context.Context, appSpecVersion string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
-	CompareAndSetAppDefinitionSpecPath(ctx context.Context, appSpecPath string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
-	CompareAndSetAppDefinitionThemeMode(ctx context.Context, themeMode string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 	ToggleGroupOrientation(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
@@ -329,6 +327,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		logger:               opts.Logger,
 		registry:             registry,
 		projectState:         opts.ProjectState,
+		appDefinitionService: opts.AppDefinitionService,
 		afterProjectMutation: opts.AfterProjectStateMutation,
 		pluginMutations:      opts.PluginMutations,
 		pythonPackages:       opts.PythonPackages,

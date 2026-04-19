@@ -1011,6 +1011,22 @@ func (s deploymentIDETestAppDefinitionService) UpdateAppDefinition(_ context.Con
 	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
 }
 
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionCatalogID(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecVersion(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecPath(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
 func deploymentIDETestAppspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {
 	dataBindings, err := deploymentIDETestDecodeJSONObject(definition.DataBindings, "appDefinition.dataBindings")
 	if err != nil {
