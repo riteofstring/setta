@@ -204,6 +204,36 @@ type runtimeAppSubsystemProviderCandidate struct {
 	feature  *PluginAppSubsystemFeatureManifest
 }
 
+func setRuntimeAppSubsystemProviderResolutionStatus(
+	resolution *runtimeAppSubsystemProviderResolution,
+	activeProviders []runtimeAppSubsystemProviderCandidate,
+	hasInvalidActiveProvider bool,
+) {
+	switch {
+	case hasInvalidActiveProvider:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusInvalidProvider
+	case len(activeProviders) == 0:
+		switch {
+		case len(resolution.selection.InvalidPluginIDs) != 0:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusInvalidProvider
+		case len(resolution.selection.DisabledPluginIDs) != 0:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusDisabledProvider
+		default:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusNoProvider
+		}
+	case len(activeProviders) == 1:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusActive
+		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
+		resolution.feature = activeProviders[0].feature
+	default:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusConflict
+		resolution.selection.ConflictingPluginIDs = append(
+			resolution.selection.ConflictingPluginIDs,
+			resolution.selection.ActivePluginIDs...,
+		)
+	}
+}
+
 func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystemProviderResolution {
 	resolution := runtimeAppSubsystemProviderResolution{
 		selection: PluginAppSubsystemProviderSelection{
@@ -215,6 +245,7 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 		},
 	}
 	activeProviders := make([]runtimeAppSubsystemProviderCandidate, 0)
+	hasInvalidActiveProvider := false
 	for _, entry := range entries {
 		feature := runtimeAppSubsystemFeatureManifest(entry)
 		if feature == nil {
@@ -225,43 +256,38 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 				resolution.selection.InvalidPluginIDs,
 				entry.PluginID,
 			)
+			hasInvalidActiveProvider =
+				hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
 			continue
 		}
 		switch entry.State {
 		case PluginRuntimeStateActive:
-			resolution.selection.ActivePluginIDs = append(resolution.selection.ActivePluginIDs, entry.PluginID)
+			resolution.selection.ActivePluginIDs = append(
+				resolution.selection.ActivePluginIDs,
+				entry.PluginID,
+			)
 			activeProviders = append(activeProviders, runtimeAppSubsystemProviderCandidate{
 				pluginID: entry.PluginID,
 				feature:  feature,
 			})
 		case PluginRuntimeStateDisabled:
-			resolution.selection.DisabledPluginIDs = append(resolution.selection.DisabledPluginIDs, entry.PluginID)
+			resolution.selection.DisabledPluginIDs = append(
+				resolution.selection.DisabledPluginIDs,
+				entry.PluginID,
+			)
 		case PluginRuntimeStateInvalid:
-			resolution.selection.InvalidPluginIDs = append(resolution.selection.InvalidPluginIDs, entry.PluginID)
+			resolution.selection.InvalidPluginIDs = append(
+				resolution.selection.InvalidPluginIDs,
+				entry.PluginID,
+			)
 		}
 	}
 
-	switch len(activeProviders) {
-	case 0:
-		switch {
-		case len(resolution.selection.InvalidPluginIDs) != 0:
-			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusInvalidProvider
-		case len(resolution.selection.DisabledPluginIDs) != 0:
-			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusDisabledProvider
-		default:
-			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusNoProvider
-		}
-	case 1:
-		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusActive
-		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
-		resolution.feature = activeProviders[0].feature
-	default:
-		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusConflict
-		resolution.selection.ConflictingPluginIDs = append(
-			resolution.selection.ConflictingPluginIDs,
-			resolution.selection.ActivePluginIDs...,
-		)
-	}
+	setRuntimeAppSubsystemProviderResolutionStatus(
+		&resolution,
+		activeProviders,
+		hasInvalidActiveProvider,
+	)
 
 	resolution.selection.ActivePluginIDs = cloneStringSliceOrEmpty(resolution.selection.ActivePluginIDs)
 	resolution.selection.DisabledPluginIDs = cloneStringSliceOrEmpty(resolution.selection.DisabledPluginIDs)

@@ -15,6 +15,7 @@ import {
   useAppSubsystemFrontendStore,
   useAppSubsystemOverviewTab,
   useAppSubsystemSlashCommands,
+  useAppSubsystemSupportedAppGenerationModes,
 } from "plugins/appSubsystem";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -119,6 +120,11 @@ function AppSubsystemCustomSlashModeProbe() {
       {options.map((entry) => `${entry.id}=${entry.name}`).join(",")}
     </span>
   );
+}
+
+function AppSubsystemSupportedModesProbe() {
+  const modes = useAppSubsystemSupportedAppGenerationModes();
+  return <span>{modes.join(",")}</span>;
 }
 
 describe("appSubsystem", () => {
@@ -227,6 +233,15 @@ describe("appSubsystem", () => {
       appSubsystemModeRequiresImageAttachment("json_render_with_image"),
     ).toBe(true);
     expect(appSubsystemModeRequiresImageAttachment("json_render")).toBe(false);
+  });
+
+  it("exposes supported app-generation modes through a capability-gated hook", async () => {
+    await syncEnabledAppSubsystem();
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(renderToStaticMarkup(<AppSubsystemSupportedModesProbe />)).toContain(
+      "json_render",
+    );
   });
 
   it("falls back to plain-chat-only custom slash modes when the subsystem is unavailable", async () => {

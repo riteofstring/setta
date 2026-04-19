@@ -112,6 +112,7 @@ const INITIAL_APP_SUBSYSTEM_FRONTEND_STORE: AppSubsystemFrontendStore = {
   registration: null,
 };
 const EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] = [];
+const EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES: string[] = [];
 const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE = "plain_chat";
 const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustomSlashCommandModeOption[] =
   [{ id: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE, name: "Plain chat" }];
@@ -147,6 +148,7 @@ export const useAppSubsystemFrontendStore =
 
 function buildAppSubsystemCapabilitySignature(
   capabilities: AppSubsystemCapabilities | null,
+  selectedProviderFrontendRefreshSignature?: string | null,
 ): string {
   if (capabilities === null) {
     return "";
@@ -158,6 +160,7 @@ function buildAppSubsystemCapabilitySignature(
     capabilities.appPreviewUi ? "1" : "0",
     capabilities.appGenerationChatModes ? "1" : "0",
     capabilities.appDeploymentRuntime ? "1" : "0",
+    selectedProviderFrontendRefreshSignature?.trim() ?? "",
   ].join(":");
 }
 
@@ -183,6 +186,55 @@ function hasFrontendSurfaceAvailability(
     capabilities.appGenerationChatModes ||
     capabilities.appDeploymentRuntime
   );
+}
+
+function appendSupportedAppGenerationMode(
+  modes: string[],
+  seenModes: Set<string>,
+  rawMode: string | null | undefined,
+  excludePlainChat = false,
+): void {
+  const mode = rawMode?.trim() ?? "";
+  if (!mode || seenModes.has(mode)) {
+    return;
+  }
+  if (
+    excludePlainChat &&
+    mode === DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE
+  ) {
+    return;
+  }
+  seenModes.add(mode);
+  modes.push(mode);
+}
+
+function collectSupportedAppGenerationModes(
+  registration: AppSubsystemFrontendRegistration | null,
+): string[] {
+  if (registration === null) {
+    return EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES;
+  }
+  const seenModes = new Set<string>();
+  const modes: string[] = [];
+  for (const command of registration.slashCommands ?? []) {
+    appendSupportedAppGenerationMode(
+      modes,
+      seenModes,
+      command.appGenerationMode,
+    );
+  }
+  for (const option of registration.customSlashCommandModes?.options ?? []) {
+    appendSupportedAppGenerationMode(modes, seenModes, option.id, true);
+  }
+  appendSupportedAppGenerationMode(
+    modes,
+    seenModes,
+    registration.customSlashCommandModes?.defaultMode,
+    true,
+  );
+  return modes.length === 0
+    ? EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES
+    : modes;
 }
 
 function quotedPluginIDs(pluginIDs: string[] | undefined): string {
@@ -728,9 +780,12 @@ function requireAppSubsystemFrontendRegistration(
 export async function syncAppSubsystemFrontendRegistration(
   capabilities: AppSubsystemCapabilities | null,
   registrationsByPluginId: AppSubsystemFrontendRegistrationsByPluginId,
+  selectedProviderFrontendRefreshSignature?: string | null,
 ): Promise<void> {
-  const capabilitySignature =
-    buildAppSubsystemCapabilitySignature(capabilities);
+  const capabilitySignature = buildAppSubsystemCapabilitySignature(
+    capabilities,
+    selectedProviderFrontendRefreshSignature,
+  );
   if (!hasFrontendSurfaceAvailability(capabilities)) {
     setUnavailableAppSubsystemFrontendState(capabilities, capabilitySignature);
     return;
@@ -889,6 +944,18 @@ export function useAppSubsystemSlashCommands(): ChatSlashCommandDefinition[] {
     return (
       state.registration?.slashCommands ?? EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS
     );
+  });
+}
+
+export function useAppSubsystemSupportedAppGenerationModes(): string[] {
+  return useAppSubsystemFrontendStore((state) => {
+    if (
+      !state.capabilities?.pluginEnabled ||
+      !state.capabilities.appGenerationChatModes
+    ) {
+      return EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES;
+    }
+    return collectSupportedAppGenerationModes(state.registration);
   });
 }
 
@@ -1118,9 +1185,12 @@ export function processAppProjectStateUpdateFromBackend(
 
 export function beginAppSubsystemFrontendRegistrationLoad(
   capabilities: AppSubsystemCapabilities | null,
+  selectedProviderFrontendRefreshSignature?: string | null,
 ): void {
-  const capabilitySignature =
-    buildAppSubsystemCapabilitySignature(capabilities);
+  const capabilitySignature = buildAppSubsystemCapabilitySignature(
+    capabilities,
+    selectedProviderFrontendRefreshSignature,
+  );
   if (!hasFrontendSurfaceAvailability(capabilities)) {
     setUnavailableAppSubsystemFrontendState(capabilities, capabilitySignature);
     return;
