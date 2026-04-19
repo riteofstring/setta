@@ -11,7 +11,6 @@ import (
 	"unicode/utf8"
 
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
 )
 
 const (
@@ -54,12 +53,14 @@ type pluginUISettingRequiredFields struct {
 	RevealKey      string
 }
 
+type RuntimeEntryBuilder func(plugins.PluginRuntimeResponse) ([]RuntimeEntry, error)
+
 type ScopedRegistryOptions struct {
-	Runtime           CoreProjectState
-	AppDefinition     projectstate.AppDefinitionRuntime
-	WorkspaceRoot     string
-	PluginService     PluginRuntimeService
-	ProjectAISettings ProjectAISettingProviders
+	Runtime                  CoreProjectState
+	WorkspaceRoot            string
+	PluginService            PluginRuntimeService
+	ProjectAISettings        ProjectAISettingProviders
+	ContributedEntryBuilders []RuntimeEntryBuilder
 }
 
 type pluginBackendInvalidValueError struct {
@@ -99,6 +100,9 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	}
 
 	metadata := buildPluginRegistryMetadata(pluginRuntime)
+	if err := appendContributedRuntimeEntries(&entries, pluginRuntime, options.ContributedEntryBuilders); err != nil {
+		return nil, err
+	}
 	if err := appendPluginRuntimeEntries(&entries, &metadata, options.PluginService, pluginRuntime.List.Plugins); err != nil {
 		return nil, err
 	}
@@ -107,7 +111,7 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 }
 
 func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEntry, error) {
-	coreRegistry, err := NewCoreRegistry(options.Runtime, options.AppDefinition, options.WorkspaceRoot)
+	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +120,24 @@ func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEnt
 		entries = append(entries, entry)
 	}
 	return append(entries, buildProjectAISettingEntries(options.ProjectAISettings)...), nil
+}
+
+func appendContributedRuntimeEntries(
+	entries *[]RuntimeEntry,
+	runtime plugins.PluginRuntimeResponse,
+	builders []RuntimeEntryBuilder,
+) error {
+	for _, builder := range builders {
+		if builder == nil {
+			continue
+		}
+		contributedEntries, err := builder(runtime)
+		if err != nil {
+			return err
+		}
+		*entries = append(*entries, contributedEntries...)
+	}
+	return nil
 }
 
 func appendPluginRuntimeEntries(
