@@ -297,6 +297,74 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAs
 	}
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatMixedRegisteredAndUnregisteredActiveProvidersAsInvalid(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	activePluginID := "acme-active-app-provider"
+	invalidPluginID := "acme-unregistered-app-provider"
+	registerRuntimeAppSubsystemProvider(t, activePluginID)
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         activePluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         invalidPluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		[]string{activePluginID},
+		nil,
+		[]string{invalidPluginID},
+		nil,
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected mixed active providers to fail closed, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected mixed active providers to keep app subsystem unavailable, got %#v", appSubsystem)
+	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		[]string{activePluginID},
+		nil,
+		[]string{invalidPluginID},
+		nil,
+	)
+}
+
 func TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders(
 	t *testing.T,
 ) {

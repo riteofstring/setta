@@ -94,6 +94,11 @@ type QueuedDraftReplaySnapshot =
       command: ChatSlashCommand;
     };
 
+type QueuedSlashCommandReplaySnapshot = Extract<
+  QueuedDraftReplaySnapshot,
+  { kind: "slash_command" }
+>;
+
 const APP_SUBSYSTEM_PROVIDER_REQUIRED_FEEDBACK =
   "requires an active app subsystem provider with app-generation chat-mode support.";
 
@@ -405,6 +410,40 @@ export function buildQueuedDraftReplaySnapshot({
       ? "current_registry"
       : "fixed",
     command: cloneSlashCommand(resolvedRequest.parsed),
+  };
+}
+
+export function resolveQueuedDraftReplaySlashCommand({
+  message,
+  replaySnapshot,
+  recognizedSlashCommands,
+  slashCommands,
+}: {
+  message: string;
+  replaySnapshot: QueuedSlashCommandReplaySnapshot;
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+  slashCommands: ChatSlashCommandDefinition[];
+}): { parsed: ChatSlashCommand; commandAvailable: boolean } {
+  if (replaySnapshot.availabilityPolicy === "fixed") {
+    return {
+      parsed: replaySnapshot.command,
+      commandAvailable: true,
+    };
+  }
+  const resolvedRequest = resolveSlashCommandRequest({
+    message,
+    slashCommands,
+    recognizedSlashCommands,
+  });
+  if (resolvedRequest.parsed) {
+    return {
+      parsed: resolvedRequest.parsed,
+      commandAvailable: resolvedRequest.commandAvailable,
+    };
+  }
+  return {
+    parsed: replaySnapshot.command,
+    commandAvailable: false,
   };
 }
 
