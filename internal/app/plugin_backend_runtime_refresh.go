@@ -16,6 +16,7 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
+	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 type pluginBackendRuntimeRefresher struct {
@@ -936,10 +937,10 @@ func (r *pluginBackendRuntimeRefresher) languageServerSpecsForSelections(
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
 	return newPluginBackendMCPRuntime(ctx, pluginBackendMCPRuntimeOptions{
-		Logger:                   r.logger,
-		RuntimeRoot:              r.runtimeRoot,
-		Snapshot:                 snapshot,
-		AppSubsystemProjectState: r.projectState,
+		Logger:               r.logger,
+		RuntimeRoot:          r.runtimeRoot,
+		Snapshot:             snapshot,
+		AppDefinitionService: appsubsystemplugin.NewAppDefinitionService(r.projectState),
 	})
 }
 

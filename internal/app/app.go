@@ -1970,9 +1970,10 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		apiDeps.Project.AcceptRenameRefactor = deps.renameRefactors.AcceptRenameRefactor
 		apiDeps.Project.DeclineRenameRefactor = deps.renameRefactors.DeclineRenameRefactor
 	}
+	appDefinitionService := appsubsystemplugin.NewAppDefinitionService(deps.projectRuntime)
 	apiDeps.AppDefinition = httpapi.AppDefinitionRouteDependencies{
-		ModePolicy:   deps.modePolicy,
-		ProjectState: deps.projectRuntime,
+		ModePolicy: deps.modePolicy,
+		Service:    appDefinitionService,
 	}
 	apiDeps.AI = httpapi.AIRouteDependencies{
 		ModePolicy:            deps.modePolicy,
