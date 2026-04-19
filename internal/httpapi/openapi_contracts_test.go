@@ -104,7 +104,9 @@ func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
 }
 
 func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
-	document, err := BuildFrontendHTTPOpenAPIDocument()
+	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+		buildContributedRouteRegistrationsForTest,
+	)
 	if err != nil {
 		t.Fatalf("build frontend http openapi document: %v", err)
 	}
@@ -153,6 +155,18 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if loadSettings.RequestBody != nil {
 		t.Fatalf("expected loadSettings request body to be omitted, got %#v", loadSettings.RequestBody)
+	}
+
+	setLanguageServerSelection := document.Paths[RouteSetLanguageServerSelection].Post
+	if setLanguageServerSelection == nil {
+		t.Fatalf("expected %s post operation", RouteSetLanguageServerSelection)
+	}
+	if setLanguageServerSelection.RequestBody == nil {
+		t.Fatalf("expected setLanguageServerSelection request body to be documented")
+	}
+	setLanguageServerSelectionSchema := setLanguageServerSelection.Responses["200"].Content["application/json"].Schema
+	if setLanguageServerSelectionSchema.Type != "null" {
+		t.Fatalf("setLanguageServerSelection response schema type = %q, want %q", setLanguageServerSelectionSchema.Type, "null")
 	}
 
 	getLlmConfig := document.Paths[RouteLLMConfig].Get
@@ -330,34 +344,28 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		t.Fatalf("mcp mode requirement = %#v, want %q", got, "full-ide")
 	}
 
-	getAppCatalog := document.Paths[RouteGetAppCatalog].Get
-	if getAppCatalog == nil {
-		t.Fatalf("expected %s get operation", RouteGetAppCatalog)
+	contributedProject := document.Paths[testContributedProjectRoutePath].Get
+	if contributedProject == nil {
+		t.Fatalf("expected %s get operation", testContributedProjectRoutePath)
 	}
-	if getAppCatalog.OperationID != "getAppCatalog" {
-		t.Fatalf("get app catalog operation id = %q, want %q", getAppCatalog.OperationID, "getAppCatalog")
-	}
-
-	getAppDefinition := document.Paths[RouteGetAppDefinition].Post
-	if getAppDefinition == nil {
-		t.Fatalf("expected %s post operation", RouteGetAppDefinition)
-	}
-	if getAppDefinition.OperationID != "getAppDefinition" {
-		t.Fatalf("get app definition operation id = %q, want %q", getAppDefinition.OperationID, "getAppDefinition")
-	}
-	if got := getAppDefinition.Extensions["x-setta-mode-requirement"]; got != "not-deployment" {
-		t.Fatalf("get app definition mode requirement = %#v, want %q", got, "not-deployment")
+	if contributedProject.OperationID != testContributedProjectOperationID {
+		t.Fatalf(
+			"contributed project operation id = %q, want %q",
+			contributedProject.OperationID,
+			testContributedProjectOperationID,
+		)
 	}
 
-	getAppGenSkills := document.Paths[RouteGetAppGenSkills].Get
-	if getAppGenSkills == nil {
-		t.Fatalf("expected %s get operation", RouteGetAppGenSkills)
+	contributedDeployment := document.Paths[testContributedDeploymentRoutePath].Post
+	if contributedDeployment == nil {
+		t.Fatalf("expected %s post operation", testContributedDeploymentRoutePath)
 	}
-	if getAppGenSkills.OperationID != "getAppGenSkills" {
-		t.Fatalf("get app gen skills operation id = %q, want %q", getAppGenSkills.OperationID, "getAppGenSkills")
-	}
-	if got := getAppGenSkills.Extensions["x-setta-mode-requirement"]; got != "ide" {
-		t.Fatalf("get app gen skills mode requirement = %#v, want %q", got, "ide")
+	if contributedDeployment.OperationID != testContributedDeploymentOperation {
+		t.Fatalf(
+			"contributed deployment operation id = %q, want %q",
+			contributedDeployment.OperationID,
+			testContributedDeploymentOperation,
+		)
 	}
 
 	getGitStatus := document.Paths[RouteGetGitStatus].Post
@@ -717,14 +725,6 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		t.Fatalf("share deployments mode requirement = %#v, want %q", got, "ide")
 	}
 
-	publishAppDeployment := document.Paths[RouteAppDeployments].Post
-	if publishAppDeployment == nil {
-		t.Fatalf("expected %s post operation", RouteAppDeployments)
-	}
-	if publishAppDeployment.OperationID != "publishAppDeployment" {
-		t.Fatalf("publish app deployment operation id = %q, want %q", publishAppDeployment.OperationID, "publishAppDeployment")
-	}
-
 	getShareDeploymentState := document.Paths[RouteShareDeploymentState].Get
 	if getShareDeploymentState == nil {
 		t.Fatalf("expected %s get operation", RouteShareDeploymentState)
@@ -739,16 +739,6 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		t.Fatalf("share deployment state params = %#v, want deploymentName/version path params", getShareDeploymentState.Parameters)
 	}
 
-	getAppDeploymentCurrentSession := document.Paths[RouteAppDeploymentCurrentSession].Post
-	if getAppDeploymentCurrentSession == nil {
-		t.Fatalf("expected %s post operation", RouteAppDeploymentCurrentSession)
-	}
-	if getAppDeploymentCurrentSession.OperationID != "getAppDeploymentCurrentSession" {
-		t.Fatalf("app deployment current session operation id = %q, want %q", getAppDeploymentCurrentSession.OperationID, "getAppDeploymentCurrentSession")
-	}
-	if got := getAppDeploymentCurrentSession.Extensions["x-setta-mode-requirement"]; got != "app" {
-		t.Fatalf("app deployment current session mode requirement = %#v, want %q", got, "app")
-	}
 }
 
 func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {

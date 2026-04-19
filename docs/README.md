@@ -36,6 +36,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
 - `reference/lsp-diagnostics.md` – how LSP diagnostics are collected, broadcast, and surfaced (generated code + code sections).
+- `reference/plugin-language-servers.md` – plugin-backed language-server selection, defaults bootstrap, and restart/runtime status behavior.
 - `reference/mcp-system-overview.md` – explains the MCP server, tool catalog, client bridge, managed chat runtime, and frontend chat loop (plus third-party access).
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.

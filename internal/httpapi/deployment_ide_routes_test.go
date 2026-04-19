@@ -26,8 +26,8 @@ type deploymentIDERouteFixture struct {
 	WorkspaceRoot    string
 	ProjectRuntime   *projectstate.Runtime
 	Catalog          *deployments.Catalog
-	SharePublisher   *deployments.SharePublisher
-	AppPublisher     *deployments.AppPublisher
+	SharePublisher   deployments.SharePublishService
+	AppPublisher     deployments.AppPublishService
 	setPublishedAtFn func(time.Time)
 }
 
@@ -868,14 +868,21 @@ func newDeploymentIDERouteTestHandler(t *testing.T, mode config.Mode, fixture de
 		},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentIDERoutes(r, DeploymentIDERouteDependencies{
+			if err := RegisterShareDeploymentIDERoutes(r, ShareDeploymentIDERouteDependencies{
 				ModePolicy:     modes.NewPolicy(mode),
 				ProjectState:   fixture.ProjectRuntime,
 				Catalog:        fixture.Catalog,
 				SharePublisher: fixture.SharePublisher,
-				AppPublisher:   fixture.AppPublisher,
 			}); err != nil {
-				t.Fatalf("register deployment ide routes: %v", err)
+				t.Fatalf("register share deployment ide routes: %v", err)
+			}
+			if err := RegisterAppDeploymentIDERoutes(r, AppDeploymentIDERouteDependencies{
+				ModePolicy:   modes.NewPolicy(mode),
+				ProjectState: fixture.ProjectRuntime,
+				Catalog:      fixture.Catalog,
+				AppPublisher: fixture.AppPublisher,
+			}); err != nil {
+				t.Fatalf("register app deployment ide routes: %v", err)
 			}
 		},
 	})

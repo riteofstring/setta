@@ -6,6 +6,18 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type FrontendAPIRouteContribution struct {
+	Family   string
+	Register func(chi.Router) error
+}
+
+type FrontendAPIRouteRegistrations struct {
+	Project    []FrontendAPIRouteContribution
+	Deployment []FrontendAPIRouteContribution
+}
+
+type FrontendAPIRouteRegistrationBuilder func(FrontendAPIRouteDependencies) FrontendAPIRouteRegistrations
+
 type FrontendRootRouteDependencies struct {
 	AttachmentRoot *AttachmentRootRouteDependencies
 }
@@ -16,7 +28,7 @@ type FrontendAPIRouteDependencies struct {
 	Settings             SettingsRouteDependencies
 	Plugin               *PluginRouteDependencies
 	Listener             ListenerRouteDependencies
-	DeploymentIDE        DeploymentIDERouteDependencies
+	ShareDeploymentIDE   ShareDeploymentIDERouteDependencies
 	ShareDeployment      DeploymentRouteDependencies
 	AppDeployment        DeploymentRouteDependencies
 	LauncherHome         LauncherHomeRouteDependencies
@@ -64,11 +76,19 @@ func RegisterFrontendRootRoutes(router chi.Router, deps FrontendRootRouteDepende
 	)
 }
 
-func RegisterFrontendAPIRoutes(router chi.Router, deps FrontendAPIRouteDependencies) error {
+func RegisterFrontendAPIRoutes(
+	router chi.Router,
+	deps FrontendAPIRouteDependencies,
+	registrations FrontendAPIRouteRegistrations,
+) error {
 	if err := registerFrontendStatusRoutes(router, deps); err != nil {
 		return err
 	}
-	if err := registerFrontendDeploymentRoutes(router, deps); err != nil {
+	if err := registerFrontendDeploymentRoutes(
+		router,
+		deps,
+		registrations.Deployment,
+	); err != nil {
 		return err
 	}
 	if err := registerFrontendWorkspaceDataRoutes(router, deps); err != nil {
@@ -77,7 +97,11 @@ func RegisterFrontendAPIRoutes(router chi.Router, deps FrontendAPIRouteDependenc
 	if err := registerFrontendWorkspaceExecutionRoutes(router, deps); err != nil {
 		return err
 	}
-	if err := registerFrontendProjectRoutes(router, deps); err != nil {
+	if err := registerFrontendProjectRoutes(
+		router,
+		deps,
+		registrations.Project,
+	); err != nil {
 		return err
 	}
 	if err := registerFrontendToolingSupportRoutes(router, deps); err != nil {
@@ -104,14 +128,33 @@ func registerFrontendStatusRoutes(router chi.Router, deps FrontendAPIRouteDepend
 	return registerFrontendHTTPOpenAPIRouteFamily("listener", RegisterListenerRoutes(router, deps.Listener))
 }
 
-func registerFrontendDeploymentRoutes(router chi.Router, deps FrontendAPIRouteDependencies) error {
-	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterDeploymentRoutes(router, deps.ShareDeployment)); err != nil {
+func registerFrontendRouteContributions(
+	router chi.Router,
+	contributions []FrontendAPIRouteContribution,
+) error {
+	for _, contribution := range contributions {
+		if err := registerFrontendHTTPOpenAPIRouteFamily(
+			contribution.Family,
+			contribution.Register(router),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func registerFrontendDeploymentRoutes(
+	router chi.Router,
+	deps FrontendAPIRouteDependencies,
+	contributions []FrontendAPIRouteContribution,
+) error {
+	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterShareDeploymentRoutes(router, deps.ShareDeployment)); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app deployment", RegisterDeploymentRoutes(router, deps.AppDeployment)); err != nil {
+	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment ide", RegisterShareDeploymentIDERoutes(router, deps.ShareDeploymentIDE)); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("deployment ide", RegisterDeploymentIDERoutes(router, deps.DeploymentIDE)); err != nil {
+	if err := registerFrontendRouteContributions(router, contributions); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher home", RegisterLauncherHomeRoutes(router, deps.LauncherHome)); err != nil {
@@ -158,11 +201,15 @@ func registerFrontendWorkspaceExecutionRoutes(router chi.Router, deps FrontendAP
 	return nil
 }
 
-func registerFrontendProjectRoutes(router chi.Router, deps FrontendAPIRouteDependencies) error {
+func registerFrontendProjectRoutes(
+	router chi.Router,
+	deps FrontendAPIRouteDependencies,
+	contributions []FrontendAPIRouteContribution,
+) error {
 	if err := registerFrontendHTTPOpenAPIRouteFamily("project", RegisterProjectRoutes(router, deps.Project)); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app definition", RegisterAppDefinitionRoutes(router, deps.AppDefinition)); err != nil {
+	if err := registerFrontendRouteContributions(router, contributions); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("ai", RegisterAIRoutes(router, deps.AI)); err != nil {
@@ -174,9 +221,7 @@ func registerFrontendProjectRoutes(router chi.Router, deps FrontendAPIRouteDepen
 	if err := registerFrontendHTTPOpenAPIRouteFamily("prompt template", RegisterPromptTemplateRoutes(router, deps.PromptTemplate)); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app gen skill", RegisterAppGenSkillRoutes(router, deps.AppGenSkill)); err != nil {
-		return err
-	}
+	// App-generation skill routes are plugin-gated app-subsystem contributions.
 	return nil
 }
 

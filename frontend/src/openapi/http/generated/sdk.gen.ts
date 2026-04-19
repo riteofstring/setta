@@ -617,6 +617,9 @@ import type {
   SetImageAreaImagePathData,
   SetImageAreaImagePathErrors,
   SetImageAreaImagePathResponses,
+  SetLanguageServerSelectionData,
+  SetLanguageServerSelectionErrors,
+  SetLanguageServerSelectionResponses,
   SetListRootViewModeData,
   SetListRootViewModeErrors,
   SetListRootViewModeResponses,
@@ -4671,6 +4674,28 @@ export const setImageAreaImagePath = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/setImageAreaImagePath",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Select or disable the language-server plugin for a language in workspace settings.
+ */
+export const setLanguageServerSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetLanguageServerSelectionData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    SetLanguageServerSelectionResponses,
+    SetLanguageServerSelectionErrors,
+    ThrowOnError
+  >({
+    url: "/setLanguageServerSelection",
     ...options,
     headers: {
       "Content-Type": "application/json",

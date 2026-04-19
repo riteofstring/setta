@@ -49,36 +49,6 @@ describe("getXYWidthHeight", () => {
 });
 
 describe("syncSelectedMiniMapNodes", () => {
-  it("renders the default minimap node component when callers omit it", () => {
-    const markup = renderToStaticMarkup(
-      createElement(MinimapSvg, {
-        elementWidth: 200,
-        elementHeight: 150,
-        x: 0,
-        y: 0,
-        width: 200,
-        height: 150,
-        offset: 0,
-        viewBB: { x: 0, y: 0, width: 200, height: 150 },
-        maskColor: "rgba(0, 0, 0, 0.1)",
-        maskStrokeColor: "transparent",
-        maskStrokeWidth: 0,
-        nodes: [
-          {
-            id: "section-a",
-            position: { x: 10, y: 20 },
-            width: 100,
-            height: 80,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      }),
-    );
-
-    expect(markup).toContain('data-minimap-node-id="section-a"');
-  });
-
   it("does nothing when the minimap svg is not available yet", () => {
     expect(() => {
       syncSelectedMiniMapNodes(undefined, ["alpha"]);
@@ -171,6 +141,36 @@ describe("syncSelectedMiniMapNodes", () => {
       host.remove();
       resetProjectStores();
     }
+  });
+
+  it("keeps the default minimap node renderer when no custom node component is provided", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MinimapSvg, {
+        elementWidth: 200,
+        elementHeight: 150,
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 150,
+        offset: 0,
+        viewBB: { x: 0, y: 0, width: 200, height: 150 },
+        maskColor: "rgba(0, 0, 0, 0.1)",
+        maskStrokeColor: "transparent",
+        maskStrokeWidth: 0,
+        nodes: [
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 100,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain('data-minimap-node-id="section-a"');
   });
 });
 
