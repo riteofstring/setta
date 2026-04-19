@@ -155,6 +155,39 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 055
+
+- Landed the first real pane-level lightweight-text activator primitive in source instead of another DOM-row proxy:
+  - `frontend/src/forks/xyflow/core/container/canvasOwnedTextPaneActivator.ts` resolves lightweight canvas-owned text activators from retained-surface row hits
+  - `frontend/src/forks/xyflow/core/container/Pane.tsx` now installs a native pane capture listener that scopes the hit test to the hit `section[data-section-id]` before forwarding activation
+  - `frontend/src/forks/xyflow/core/container/Pane.test.tsx` adds a focused pane-routing regression
+  - `frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts` now targets a real section-surface click instead of the old hidden-input focus shortcut
+- Focused verification outcome:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/Pane.tsx src/forks/xyflow/core/container/Pane.test.tsx src/forks/xyflow/core/container/canvasOwnedTextPaneActivator.ts tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/Pane.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts --reporter=line --workers=1`
+    - result: on the pre-restart `3068/8068` runtime the updated chat proof still failed to surface inline CodeMirror while the unchanged shortcuts proof stayed green
+- Direct live probe on the same pre-restart runtime clarified the remaining blocker:
+  - the visible chat hit lands on the transparent `SECTION` surface, not on the pane or the hidden input
+  - the section-scoped row lookup resolves the intended chat `permissionMode` activator correctly once the lookup is limited to the hit section
+  - even so, `mouse.down()` on that live section surface still left `document.activeElement` empty and mounted no inline editor, so the forwarded activation was not observed on that live bundle
+- One bounded self-recovery was attempted:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - result: fresh worktree runtime came up on `frontend 3069`, `backend 8069`, session `b58dfd`
+  - follow-up blocker: the canonical Playwright helper could only recover the fresh frontend URL via a synthetic temp runtime log because the supervisor log still pointed at the old lifecycle, and the restarted Playwright path then failed bootstrap/auth-cookie setup before the real chat proof could be re-run cleanly
+- Interpretation:
+  - this is not another pure forwarding seam lift; the product code now contains the first pane-native activator path
+  - the live canary is not yet trustworthy enough to claim the chat blocker fixed
+  - the next pass should start from a fresh supervisor-managed lifecycle and retry the canonical chat plus shortcuts specs before making more product edits on this lane
+- CDP visual check:
+  - not run; this iteration did not reach a trustworthy live canary state after the manual lifecycle restart
+- Next frontier:
+  - retry the same chat/shortcuts lane on a fresh managed runtime first
+  - if the native pane capture still produces no focus/editor on chat while shortcuts stays green, inspect the forwarded activation path itself rather than widening to another ownership family
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 051
 
 - Closed `settings-section__chatSectionDefault` as the immediate shell-ownership fallback on the current runtime and recorded the blocker in `perf/reports/frontend/2026-04-20_settings-all-settings-chat-shell-fallback-blocker-report.md`.
@@ -6254,4 +6287,44 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check:
   - not rerun because no source changes from this experiment were kept
 - Next frontier: keep `settings-section__chatSectionDefault` only as the blocker reproduction target and land a pane-level or scene-level canvas-owned resting-text activator / hit-test primitive instead of reopening DOM-row live-click retries.
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 056
+
+- Closed the fresh pane-level text activator attempt itself on the canonical `settings-section__chatSectionDefault` blocker and recorded the result in `perf/reports/frontend/2026-04-20_settings-all-settings-pane-level-text-activator-chat-blocker-report.md`.
+- Started from the uncommitted `Pane.tsx` / `canvasOwnedTextPaneActivator.ts` pane-native attempt from run `055`, then used the one allowed lifecycle recovery:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - the recovered worktree runtime came up on `http://127.0.0.1:3071/` and `http://127.0.0.1:8071`
+- The first helper rerun after recovery hit the known auth-cookie prefix mismatch again:
+  - `./scripts/run-playwright-against-runtime.sh` checked a workspace-scoped cookie prefix
+  - the recovered runtime minted a session-scoped `setta_auth_<sessionId>` cookie
+  - rerunning with fresh one-shot bootstrap tokens and no `SETTA_AUTH_COOKIE_NAME` override reached real product behavior, so treat the helper miss as harness noise rather than renderer evidence
+- On that recovered runtime, the real chat lane still failed:
+  - section-surface click on `chat.permissionMode` still did not mount `#CodeMirror-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode`
+  - the page surfaced `POST /api/setActiveIds -> 404`
+- The `404` is not sufficient by itself to explain the blocker:
+  - the stable `shortcuts.advancedSearchShortcut` hidden-input baseline also surfaced `POST /api/setActiveIds -> 404`
+  - that baseline still mounted inline CodeMirror and passed
+- Tried two bounded hardening follow-ups locally, then reverted both before finishing the iteration after neither changed the chat outcome:
+  - removed synthetic pre-focus before forwarding the hidden-input `mousedown`
+  - deferred the forwarded `mousedown` into a microtask so it no longer fired re-entrantly inside the pane capture handler
+- Tried one bounded same-path `shortcuts` comparison update, then reverted it before finishing:
+  - after normalized fit-view, `ParamContainer-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut` had no trustworthy section-surface hit point inside its row bounds
+  - do not treat that same-path `shortcuts` retry as a trusted oracle on this lane
+- Reverted all speculative pane-level source and test edits before ending the iteration, then restored the stable focused proofs.
+- Interpretation:
+  - close the current pane-level `Pane.tsx` activator attempt as insufficient on this lane
+  - do not spend the next automated pass on more pane-native event-ordering tweaks, more synthetic focus / `mousedown` variants, or another normalized-fit-view `shortcuts` same-path retry at this exact boundary
+  - the next frontier is now a deeper scene-level / renderer-authoritative text activator primitive, with `chatSectionDefault` kept only as the blocker reproduction target
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/Pane.tsx src/forks/xyflow/core/container/Pane.test.tsx tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts`
+    - result: passed after reverting the speculative pane-level source
+  - `source activate.sh && . scripts/lib/node_tooling.sh && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3071 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8071 SETTA_BOOTSTRAP_TOKEN=<fresh-token> setta_run_pnpm "$PWD" -C frontend exec playwright test frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (42.6s)` on the restored baseline
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/Pane.test.tsx`
+    - result: still blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+- CDP visual check:
+  - done in a fresh DevTools sub-agent on the recovered runtime with a fresh bootstrap URL
+  - `/settings` loaded with `All Settings` active, the graph surface was mounted and nonblank, and no obvious detached shell/body regression was observed on the restored baseline
+- Next frontier: keep `settings-section__chatSectionDefault` only as the blocker reproduction target and land a deeper scene-level / renderer-authoritative text activator or hit-test primitive instead of reopening the closed row, hidden-input, shell, DOM-row, or pane-level `Pane.tsx` attempts.
 LOOP_TERMINAL_MARKER: none
