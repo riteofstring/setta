@@ -134,11 +134,11 @@ func TestServiceStatusIncludesRegisteredLanguageServers(t *testing.T) {
 func TestServiceStatusIncludesAppSubsystemProviderSelection(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-status-app-provider"
-	registerRuntimeAppSubsystemProvider(t, pluginID)
 	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
-		PluginID:         pluginID,
-		FixtureName:      "frontend",
-		EnabledByDefault: true,
+		PluginID:                    pluginID,
+		FixtureName:                 "frontend",
+		EnabledByDefault:            true,
+		RegisterAppSubsystemBackend: true,
 		AppSubsystem: map[string]any{
 			"appAuthoringUi": true,
 			"appPreviewUi":   true,

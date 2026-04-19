@@ -73,7 +73,6 @@ func RegisterBackendProvider(pluginID string, provider BackendProvider) {
 		panic(fmt.Sprintf("app subsystem backend provider already registered for %q", trimmedPluginID))
 	}
 	backendProvidersByPluginID[trimmedPluginID] = provider
-	plugins.RegisterAppSubsystemProvider(trimmedPluginID)
 }
 
 func BackendProviderForCapabilities(
