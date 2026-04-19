@@ -30,7 +30,6 @@ type FrontendAPIRouteDependencies struct {
 	Listener             ListenerRouteDependencies
 	ShareDeploymentIDE   ShareDeploymentIDERouteDependencies
 	ShareDeployment      DeploymentRouteDependencies
-	AppDeployment        DeploymentRouteDependencies
 	LauncherHome         LauncherHomeRouteDependencies
 	LauncherManagement   LauncherManagementRouteDependencies
 	WorkspaceLaunch      WorkspaceLaunchRouteDependencies
