@@ -1,0 +1,111 @@
+Continue the current effort from the repository state plus the plan and handoff files. Do not invent a new direction.
+
+Execution rules:
+
+- Select exactly one bounded next subtask.
+- Keep the task small enough to finish, verify, refresh the handoff, append the history, and commit within this iteration.
+- Follow the plan's sequencing gates instead of skipping ahead.
+- Before selecting the subtask, check whether the last few iterations were repeating the same refactor shape. Do not keep continuing a pattern just because the handoff or history says "continue".
+- Do not choose a seam-lift task if it only moves the same prop, renderer, or boundary through a pure forwarding layer with no new decision, behavior, perf change, or blocker resolution.
+- Treat a seam-lift lane as complete once the seam reaches the nearest composition boundary that actually chooses an implementation. For this repo, pushing `SectionBoundary` / `renderDictArea` through app, router, bootstrap, or entrypoint wrappers is not meaningful progress unless that layer truly selects between implementations.
+- If the plan/handoff says to move a seam "one level higher" but the next caller only forwards the same contract, stop the seam-lift lane instead of doing another ownership hop.
+- If the same blocker repeats for two iterations, pivot to resolving that blocker or stop for replan. Do not continue unrelated seam lifting while the blocker remains unchanged.
+- Prefer subtasks that either resolve the active blocker, land the first real Pixi/scene behavior, or move the measured performance hotspot.
+- Treat parity-harness, oracle-alignment, and test-helper work as support work, not the default frontier. Only choose a harness-only subtask when a concrete currently observed visual/parity blocker cannot be trusted or resolved without that exact support change.
+- If the last two completed iterations were harness-only or oracle-only and did not change production renderer or interaction code, the next iteration must either land a production fix or complete one bounded normalization/oracle step that directly unblocks a concrete renderer question. Do not spend a third iteration polishing the harness without narrowing the product question.
+- Prefer using the existing CDP/manual comparison flow to identify the next renderer defect over extending Playwright or helper coverage. Add or tighten harness checks only after the real product behavior to lock down is known, or when one narrow missing guard is the direct blocker.
+- Do not open new parity lanes for transient notifications, menus, pane toggles, or chat-manager microstates unless they are still visibly contaminating the normalized target graph surface in CDP.
+- Do not install, add, upgrade, or fetch new dependencies without explicit user permission. This includes package-manager commands and repo scripts that install dependencies. If a subtask genuinely requires an install, stop and ask the user plainly instead of proceeding.
+- Do not auto-upgrade dependencies or relax version pins without explicit user permission. Keep manifests and lockfiles pinned, do not change version specs to broad ranges such as `^`, `~`, `>=`, or `latest`, and do not run upgrade-oriented commands such as `pnpm update`, `npm update`, `uv lock --upgrade`, or similar unless the user explicitly approves that exact change.
+- Refresh the handoff and append the history before you finish the iteration.
+- Make a descriptive git commit after each concrete completed subtask.
+- Prefer the narrowest relevant tests and verification for the work you changed.
+- In this worktree, `main` below means the read-only reference checkout at `/home/ubuntu/dev/setta`, currently on branch `go-rewrite`.
+- That checkout is the temporary pristine oracle until `go-rewrite` merges back into real `main`.
+- For parity or visual checks that are not explicitly about workspace chrome, minimize or close non-target panes first and close docked/floating/maximized chat surfaces on both the worktree and the read-only `main` reference before comparing them.
+- Keep panes or chat chrome open only when the current slice is specifically verifying those surfaces or genuinely requires them for the target interaction.
+- If you intentionally verify with extra pane or chat chrome visible, say why in the handoff/history so later iterations do not treat uncontrolled workspace state as renderer drift.
+- Treat persisted session ordering, overview ordering, page scroll, worktree-label chrome, and other non-target workspace chrome as oracle noise unless the current slice is explicitly about those surfaces.
+- For dynamic Gate 1 or Gate 2 compares on `All Settings`, default to this normalization before deciding there is a renderer bug:
+  - normalize both sessions to active `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
+  - compare graph-surface-only outputs such as viewport transform, target section rects, nearby section geometry, and graph-surface screenshots
+- Treat the shared Playwright parity probe as the primary oracle for those dynamic lanes. Use Chrome DevTools MCP as the required visual confirmation layer, not as the default tool for re-driving fragile motion or wheel input from scratch.
+- If a dynamic compare needs the same subject on both sides, choose a shared section by name or id and align that section locally inside the graph surface before acting. Do not use overview ordering or whole-page scroll position as the oracle.
+- Each lane must name one canonical target section in the handoff/history. Use `findSharedVisibleSettingsGraphSection(...)` only when opening a brand-new lane; once the lane exists, keep using the same named section instead of rediscovering a target every pass.
+- Trusted parity lanes on normalized `All Settings`:
+  - shared `clear viewport -> fit view` landing on one named section via the Playwright parity helpers
+  - named-section authoritative viewport override / restoration
+  - named-section toolbar zoom or modified-wheel zoom where Playwright drives the motion and CDP only checks the post-state visually
+  - named-section blank-pane pan or top-level drag on a lane that already has a deterministic Playwright oracle
+  - named-section post-motion attachment/editing checks backed by one deterministic Playwright probe
+- Known-untrusted compare shapes:
+  - ad hoc CDP modified-wheel replay as the only zoom oracle
+  - ad hoc CDP drag/drop or pane-pan replay without a paired deterministic Playwright lane
+  - compare targets chosen from overview ordering, DOM order, first visible section, or page scroll
+  - reused-session stale viewport/state snapshots treated as fresh parity evidence
+- Before making a parity claim, run a hard preflight on both worktree and read-only `main`:
+  - expected surface kind is mounted
+  - compare pane state matches the normalized oracle state
+  - active view mode is `All Settings`
+  - the named target section exists
+  - the shared targeted `fitView(...)` path returns `true` when that lane requires it
+- If the worktree side fails preflight, classify the result as `worktree_unhealthy` and recover or narrow the setup before making renderer claims.
+- If the read-only `main` side fails preflight, classify the result as `reference_unhealthy` and refresh/restart the reference runtime before making renderer claims.
+- For UI work, do not claim visual verification without the required CDP check.
+- Treat `main` as the visual oracle for the renderer. Final acceptance for the macOS `100%` zoom canary states is `1:1` appearance versus `main`, but iteration sequencing should follow the staged visual gates instead of treating final pixel parity as the first blocker on every pass.
+- Use this staged gate ladder when deciding what to do next:
+  - Gate 0: normal-zoom body visible, attached during pan/zoom/move, interaction/editing handoff works, and not obviously slower than DOM
+  - Gate 1: no gross visual drift, no wrong surface/state, no obvious zoom artifacts, interactions correct
+  - Gate 2: spacing/text/chrome/interaction-state behavior visually indistinguishable in normal use
+  - Gate 3: macOS Chrome `100%` canary `1:1` versus `main`
+- Always target the earliest failing gate first.
+- If Gate 0 is still failing, do not spend the iteration on low-zoom tiny-card fidelity, palette/spacing polish, pixel-perfect parity, or harness-only cleanup unless that exact work directly unblocks the active Gate 0 bug.
+- Treat a blank card, detached body during movement, non-interactive section, severe blur/pixelation, or obviously worse-than-DOM performance as a Gate 0 failure.
+- While Gate 0 is still failing, default the proving scenario to one normal-zoom section on `All Settings`, not a far-zoomed tiny-card surface.
+- If Gate 1 or Gate 2 is still clearly failing, do not spend the iteration on microscopic pixel matching for Gate 3.
+- Visual artifacts are hard blockers, not acceptable canary debt. First-zoom text width changes, temporary too-wide text before a later redraw, blurry or blocky text during ordinary zooming, visible raster snap-after-zoom behavior, and obvious spacing/chrome drift versus `main` must be treated as failures.
+- Do not count a perf probe or perf-oriented subtask as success if it leaves those visible artifacts unresolved on the checked canary path. Log the perf finding if useful, but keep the visual blocker explicit and do not present the path as visually acceptable.
+- Never work in the `main` worktree or on the `main` branch. `main` is a pristine reference only.
+- A read-only reference app session may be running from `main` for visual comparison. You may inspect it, but never edit files, commit, or run implementation work there.
+- Make changes only in the current non-main worktree.
+- If the current iteration is otherwise on track and the only blocker is local lifecycle availability (for example CDP/debug Chrome, bootstrap session, or the worktree app session died), attempt one bounded self-recovery before returning `BLOCKED`.
+- Prefer restarting the current worktree with the browser env prefix shown in the loop context and `./aireset.sh`; if that fails, retry once with the same prefix and `./ai.sh`.
+- After any restart, refresh runtime values with `./scripts/dev-runtime-info.sh --workspace . --runtime-log <current lifecycle log>`; if that helper fails, fall back to `setta status --connect-info --latest --json --workspace .` plus `./scripts/cdp-port.sh --workspace . --json`. Retry the blocked verification using the refreshed values instead of stale ports or URLs.
+- For Playwright against a live dev runtime, prefer `./scripts/run-playwright-against-runtime.sh --workspace . --runtime-log <current lifecycle log> -- <spec args...>` instead of assembling `PLAYWRIGHT_BASE_URL`, `SETTA_BACKEND_ORIGIN`, and `SETTA_BOOTSTRAP_TOKEN` by hand.
+- Return `BLOCKED` only if that recovery attempt fails or the retried verification still cannot run.
+- If the code subtask is complete but the required visual/CDP gate is temporarily not trustworthy because the rewrite phase has not produced a stable live canary yet, record that state in the handoff/history and return `LOOP_STATUS: SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate`.
+- If the only remaining diffs after normalized graph-surface comparison are oracle-noise classes, do not return `REPLAN_REQUIRED`; record the noise and return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step.
+- For settings graph exact-fit / centering lanes, reuse the shared helpers in `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` for pane-state normalization, section lookup, targeted `fitView(...)`, and center-offset capture instead of rebuilding those snippets ad hoc inside the browser tool.
+- When those settings parity helpers are available, prefer `runSettingsGraphComparePreflight(...)` before the lane action so setup/runtime failures are classified explicitly instead of being mistaken for renderer drift.
+- Lane budget rule: after two oracle-only or probe-only passes on the same named lane, the next pass must either land product code on that lane or explicitly close the lane as unsupported/untrustworthy for the current tool stack. Do not spend a third pass re-proving the same setup.
+- Use `LOOP_TERMINAL_MARKER: none` for `SUBTASK_DONE` and `BLOCKED`.
+- Use `LOOP_TERMINAL_MARKER: task_done` only when the overall plan is actually complete, and append the exact line `LOOP_TERMINAL_MARKER: task_done` to the history file in the same iteration.
+- Use `LOOP_TERMINAL_MARKER: replan_required` only when the correct outcome is to stop the loop for a real human replan/review, and append the exact line `LOOP_TERMINAL_MARKER: replan_required` to the history file in the same iteration.
+- Use `LOOP_RECOVERY: restart_worktree_lifecycle` only when the next iteration should begin with a fresh worktree bootstrap. Use `LOOP_RECOVERY: retry_next_iteration` only when the next fresh pass should retry the same blocked work instead of treating it as fatal.
+
+Sub-agent rules:
+
+- Use sub-agents for any Chrome DevTools MCP or CDP verification so the main chat context stays clean.
+- Those CDP sub-agents must start with fresh context.
+- Use sub-agents for other parallelizable, non-overlapping tasks when they materially help.
+- Do not treat an empty `list_mcp_resources` result as proof that Chrome DevTools MCP is missing or unusable. In this repo the MCP server may expose tools without resources, so only declare the CDP gate blocked after a real transport/tool failure or after the configured DevTools MCP path cannot actually be used.
+- If Chrome CDP is inaccessible after the one allowed self-recovery attempt, stop and say so plainly.
+
+Handoff rules:
+
+- Rely on the plan and handoff files as the durable handoff between iterations instead of long in-chat summaries. Use the history file only when you need older detail not preserved in the handoff.
+- If you hit a blocker, refresh the handoff, append the history with the blocker, and stop.
+- Reserve `LOOP_STATUS: TASK_DONE` for when the overall rewrite task in the plan is actually complete and the final verification for this iteration passed.
+- If the correct outcome is to stop the loop for a real replan/human decision, return `LOOP_STATUS: REPLAN_REQUIRED` instead of `TASK_DONE`.
+- If the current micro-lane or seam-lift lane is complete but broader rewrite work remains, do not stop the Ralph loop; return `LOOP_STATUS: SUBTASK_DONE` and name the next real frontier in `LOOP_NEXT_ACTION`.
+- If the remaining "next steps" in the current lane are only more pure-forwarding seam lifts, close that lane and move to the next real blocker/frontier instead of manufacturing another slice.
+- If the remaining "next steps" in the current lane are only more harness/oracle hygiene without a concrete renderer question or bounded normalization payoff, stop for replan instead of manufacturing another support-only slice.
+- If the current lane already spent two oracle-only passes and the third pass would still only re-prove setup, close that lane as unsupported/untrustworthy or move to a different named lane instead of extending the same oracle family again.
+- Session-state ordering, overview ordering, page scroll, and other oracle-noise classes are not by themselves a real human-replan condition; prefer `SUBTASK_DONE` with the next bounded graph-surface-only oracle step.
+- If progress now depends on fixing a repeated external blocker or writing a new plan, stop and say that plainly instead of continuing the previous sequence.
+- If the blocker is recoverable by a fresh outer-loop bootstrap of the current worktree, return `LOOP_RECOVERY: restart_worktree_lifecycle` with `LOOP_STATUS: BLOCKED` so Ralph can retry automatically.
+- If the blocker should be retried in the next fresh iteration without stopping the loop, return `LOOP_RECOVERY: retry_next_iteration` with `LOOP_STATUS: BLOCKED`.
+- If the code slice is done but the visual gate is intentionally deferred for the rewrite phase, return `LOOP_STATUS: SUBTASK_DONE`, `LOOP_VERIFY_RESULT: deferred_visual_gate`, and `LOOP_RECOVERY: none` so the next iteration can move on.
+- If the seam-lift / cleanup lane has reached its useful boundary and further work in that lane would be churn, return `LOOP_STATUS: SUBTASK_DONE`, explain that the lane is complete, and state the real next frontier separately.

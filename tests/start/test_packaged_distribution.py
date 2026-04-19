@@ -2,7 +2,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tomllib
 import zipfile
 from pathlib import Path
 
@@ -170,54 +169,6 @@ def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) 
     assert result.returncode == 0, combined_output
 
 
-def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
-    pyproject = tomllib.loads((_repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
-
-    optional_dependencies = pyproject["project"]["optional-dependencies"]
-    assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
-
-
-def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() -> None:
-    plugin_pyproject = tomllib.loads(
-        (_repo_root() / "plugins" / "setta-basedpyright" / "pyproject.toml").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
-
-
-def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
-    tmp_path: Path,
-) -> None:
-    source_root = _repo_root() / "plugins" / "setta-basedpyright"
-    plugin_root = tmp_path / "setta-basedpyright"
-    shutil.copytree(source_root, plugin_root)
-    shutil.rmtree(plugin_root / "build", ignore_errors=True)
-    outdir = tmp_path / "dist"
-
-    result = subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
-        cwd=plugin_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    combined_output = f"{result.stdout}\n{result.stderr}"
-    assert result.returncode == 0, combined_output
-
-    wheel_paths = list(outdir.glob("setta_basedpyright-*.whl"))
-    assert len(wheel_paths) == 1
-
-    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
-        names = set(wheel_archive.namelist())
-
-    assert any(name.endswith("backend/main.py") for name in names)
-    assert not any(name.endswith("backend/main.go") for name in names)
-    assert any(name.endswith("content/config/schema.json") for name in names)
-
-
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
     # Wheel builds must fail fast instead of silently shipping a broken router.
     project_root = _write_minimal_distribution_project(
@@ -316,8 +267,7 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     tmp_path: Path,
 ) -> None:
     # The default wheel install should only depend on the Python tools and
-    # sidecar SDK that the packaged runtime still uses directly. Python LSP now
-    # enters through the defaults/plugin path rather than core metadata.
+    # sidecar SDK that the packaged runtime still uses directly.
     project_root = _write_minimal_distribution_project(
         tmp_path,
         include_go_binaries=True,
@@ -341,9 +291,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     default_requires = {
         line for line in requires_lines if "extra ==" not in line
     }
-    defaults_requires = {
-        line for line in requires_lines if "extra == 'defaults'" in line
-    }
     source_requires = {
         line for line in requires_lines if "extra == 'source'" in line
     }
@@ -353,12 +300,8 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
 
     assert default_requires == {
         "Requires-Dist: claude-agent-sdk==0.1.52",
+        "Requires-Dist: basedpyright==1.25.0",
         "Requires-Dist: ruff==0.12.12",
-    }
-
-    assert "Provides-Extra: defaults" in metadata
-    assert defaults_requires == {
-        "Requires-Dist: setta-basedpyright==0.1.0; extra == 'defaults'",
     }
 
     assert "Requires-Dist: click==8.2.1" not in default_requires
@@ -379,8 +322,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     }
     assert dev_requires == {
         "Requires-Dist: build==1.0.3; extra == 'dev'",
-        "Requires-Dist: coverage==7.10.6; extra == 'dev'",
-        "Requires-Dist: datamodel-code-generator==0.56.0; extra == 'dev'",
         "Requires-Dist: pip-audit==2.9.0; extra == 'dev'",
         "Requires-Dist: pyyaml==6.0.2; extra == 'dev'",
         "Requires-Dist: pytest==8.3.3; extra == 'dev'",
@@ -388,7 +329,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
         "Requires-Dist: python-dotenv==1.1.0; extra == 'dev'",
         "Requires-Dist: twine==6.1.0; extra == 'dev'",
         "Requires-Dist: ty==0.0.26; extra == 'dev'",
-        "Requires-Dist: vulture==2.14; extra == 'dev'",
         "Requires-Dist: watchdog==6.0.0; extra == 'dev'",
     }
 

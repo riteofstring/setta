@@ -379,14 +379,6 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 		entry.State = PluginRuntimeStateInvalid
 		return
 	}
-	if err := validateDiscoveredPluginConfigSchema(*entry); err != nil {
-		entry.Errors = append(entry.Errors, PluginErrorInfo{
-			Code:    string(ServiceErrorCodeConfigSchemaInvalid),
-			Message: err.Error(),
-		})
-		entry.State = PluginRuntimeStateInvalid
-		return
-	}
 
 	if containsString(pluginsState.PendingRestartBackendPluginIDs, entry.PluginID) {
 		entry.State = PluginRuntimeStatePendingRestart
