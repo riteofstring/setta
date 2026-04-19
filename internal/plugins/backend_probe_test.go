@@ -215,6 +215,45 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 	}
 }
 
+func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersion(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	pluginRoot := t.TempDir()
+	normalized, err := normalizeBackendProbeResponse(
+		pluginRoot,
+		"setta-fixture-backend",
+		backendProbeResponse{
+			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
+				ContractVersion: appSubsystemBackendContractVersion,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("normalize app subsystem backend registration: %v", err)
+	}
+	if normalized.AppSubsystemBackend == nil || normalized.AppSubsystemBackend.ContractVersion != appSubsystemBackendContractVersion {
+		t.Fatalf("expected normalized app subsystem backend registration, got %#v", normalized.AppSubsystemBackend)
+	}
+
+	_, err = normalizeBackendProbeResponse(
+		pluginRoot,
+		"setta-fixture-backend",
+		backendProbeResponse{
+			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
+				ContractVersion: appSubsystemBackendContractVersion + 1,
+			},
+		},
+	)
+	if err == nil {
+		t.Fatal("expected unsupported app subsystem backend contract version to fail")
+	}
+	if !strings.Contains(err.Error(), "appSubsystemBackend: unsupported contract version") {
+		t.Fatalf("expected app subsystem backend version error, got %v", err)
+	}
+}
+
 func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand(t *testing.T) {
 	// Plugin language-server commands should resolve relative filesystem paths against the plugin root.
 	pluginRoot := t.TempDir()
