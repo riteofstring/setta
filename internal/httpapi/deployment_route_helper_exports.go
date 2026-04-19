@@ -36,3 +36,38 @@ func HandleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, e
 func CloneAppDefinition(appDefinition *projectstate.AppDefinition) *projectstate.AppDefinition {
 	return cloneAppDefinition(appDefinition)
 }
+
+func ListDeploymentMetadataHandler(
+	catalog *deployments.Catalog,
+	deploymentType deployments.Type,
+) http.HandlerFunc {
+	return listDeploymentMetadataHandler(catalog, deploymentType)
+}
+
+func ListDeploymentVersionMetadataHandler(
+	catalog *deployments.Catalog,
+	deploymentType deployments.Type,
+) http.HandlerFunc {
+	return listDeploymentVersionMetadataHandler(catalog, deploymentType)
+}
+
+func LatestDeploymentMetadataHandler(
+	catalog *deployments.Catalog,
+	deploymentType deployments.Type,
+) http.HandlerFunc {
+	return latestDeploymentMetadataHandler(catalog, deploymentType)
+}
+
+func HandleDeploymentPublishError(
+	w http.ResponseWriter,
+	r *http.Request,
+	err error,
+) {
+	handleDeploymentPublishError(w, r, err)
+}
+
+func DeploymentMetadataResponseFromMetadata(
+	metadata deployments.Metadata,
+) DeploymentMetadataResponse {
+	return deploymentMetadataResponseFromMetadata(metadata)
+}
