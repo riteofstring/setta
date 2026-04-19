@@ -1,6 +1,6 @@
 # Go-Rewrite Pixi Canvas-First Handoff
 
-Last updated: 2026-04-18
+Last updated: 2026-04-19
 Worktree: `go-rewrite-pixijs`
 Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
 Related history: `docs/worktrees/go-rewrite-pixijs/log.md`
@@ -1134,6 +1134,41 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 - The shared lightweight color-input lane is now closed at its useful ownership boundary:
   - the remaining shared native settings color-input family no longer contributes live `input[type="color"]` roots at rest on the canvas path
   - do not reopen this lane unless a fresh visible color-input defect appears
+- A fresh post-color graph-surface inventory is now landed to resolve the stale last-input assumption before opening another product lane:
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-post-color-live-input-inventory.md`
+  - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`
+  - a fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 8172`
+    - `inputCount: 3`
+    - `buttonCount: 40`
+    - `raf.meanMs: 99.9`
+    - `raf.p95Ms: 200`
+    - `longTasks.totalMs: 16095`
+  - the fresh section-scoped inventory closes the stale ambiguity:
+    - mounted settings sections: `46`
+    - graph-surface live inputs: `1`
+    - graph-surface live buttons: `1`
+    - outside-graph live inputs: `2`
+    - outside-graph live buttons: `39`
+  - the only remaining mounted graph-surface live editor core is:
+    - section: `settings-section__stateMachineGateSectionDefault`
+    - row id: `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`
+    - row text: `Gate Type`
+    - live controls at rest: one `input[role="combobox"][placeholder="Search"]` plus one companion Downshift toggle `button`
+  - the remaining non-graph inputs are workspace chrome only:
+    - `input#ProjectPageSearchBar`
+    - the overview-pane `Filter` input
+  - the prior `StateMachineSectionSettings.tsx` inspector assumption is now explicitly closed as the wrong ownership boundary for this survivor; the next product slice must go through the generic settings-row dropdown path that owns the `Gate Type` row
+- focused verification passed for the post-color inventory slice:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (56.8s)` on the live worktree runtime with the metrics recorded above
+- CDP visual check is done for the post-color inventory slice:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__stateMachineGateSectionDefault` was present on the live surface
+  - the `Gate Type` row still rendered as a live search-style combobox/input plus button at rest (`AND` shown), not a lightweight canvas-owned activator
+  - caveat: this was a headless fitted-view confirmation, so treat the focused Playwright inventory probe as the deterministic owner/row evidence
 
 ## Preservation rule
 
@@ -1177,8 +1212,9 @@ That leaves one primary architectural move:
 14. Treat the current best checkpoint as proof of direction, not proof of success: `settings` -> `All Settings` still performs poorly in absolute terms even after the shared lightweight color-input slice at `raf.meanMs 102.88`, `raf.p95Ms 200`, and `longTasks.totalMs 16522`, so the branch still owes a major pan/zoom win.
 15. The next automated pass must target the next real dense frontier from the fresh post-color surface, not another `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, or color-input cleanup hop.
 16. Current priority order is:
-    - the bounded `settings-section__stateMachineGateSectionDefault` combobox/search core, because the fresh dense baseline now reports only `3` live inputs total and the previously identified search/combobox survivor is still the clearest remaining graph-surface live editor lane
-    - if the state-machine-gate lane is not viable as-is, do one fresh post-color inventory pass of the last `3` live inputs and choose the next product slice from that evidence instead of reopening a closed shared-family lane
+    - the bounded `settings-section__stateMachineGateSectionDefault` `Gate Type` combobox/search core, routed through the generic settings-row dropdown owner at `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`
+    - do not continue the dead-end `StateMachineSectionSettings.tsx` inspector path for this survivor unless a fresh inventory proves the ownership moved
+    - after that `Gate Type` row is converted, rerun the same graph-surface inventory probe before opening another support lane so the next frontier comes from fresh evidence instead of document-wide chrome counts
 17. If the next candidate slice does not plausibly move the global dense-scene numbers before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
 
 ## First product frontier

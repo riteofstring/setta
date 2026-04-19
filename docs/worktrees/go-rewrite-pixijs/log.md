@@ -155,6 +155,50 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 055
+
+- Item: Refresh the post-color graph-surface inventory to close the stale last-input assumption before opening another product lane.
+- Status: `done`
+- Details:
+  - Started from the handoff fallback for the `settings-section__stateMachineGateSectionDefault` combobox/search lane after a direct lightweight-activator probe hit the wrong ownership boundary.
+  - Added `frontend/tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`, a focused live probe that inventories mounted `input` / `textarea` / `button` roots, separates graph-surface controls from workspace chrome, and records the owning section plus nearest row id/text.
+  - Recorded the fresh evidence at `perf/reports/frontend/2026-04-19_settings-all-settings-post-color-live-input-inventory.md`.
+  - The new graph-surface inventory on dense `All Settings` closes the stale ambiguity:
+    - mounted settings sections: `46`
+    - graph-surface live inputs: `1`
+    - graph-surface live buttons: `1`
+    - outside-graph live inputs: `2`
+    - outside-graph live buttons: `39`
+  - The only remaining mounted graph-surface live editor/search survivor is now pinned to one concrete row:
+    - section: `settings-section__stateMachineGateSectionDefault`
+    - row id: `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`
+    - row text: `Gate Type`
+    - live controls at rest: one `input[role="combobox"][placeholder="Search"]` plus one companion Downshift toggle `button`
+  - The remaining non-graph inputs are confirmed workspace chrome only:
+    - `input#ProjectPageSearchBar`
+    - the overview-pane `Filter` input
+  - The old `StateMachineSectionSettings.tsx` assumption is now explicitly closed as the wrong ownership boundary for this survivor; the next product slice must target the generic settings-row dropdown path that owns the `Gate Type` row.
+  - Dense rerun outcome captured during the same pass:
+    - `documentNodeCount`: `8172`
+    - `inputCount`: `3`
+    - `buttonCount`: `40`
+    - `raf.meanMs`: `99.9`
+    - `raf.p95Ms`: `200`
+    - `longTasks.totalMs`: `16095`
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-graph-surface-live-input-inventory.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (56.8s)` on the live worktree runtime
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__stateMachineGateSectionDefault` was present on the live surface
+  - the `Gate Type` row still rendered as a live search-style combobox/input plus button at rest (`AND` shown), not a lightweight canvas-owned activator
+  - caveat: this was a headless fitted-view confirmation, so the Playwright inventory probe remains the deterministic owner/row oracle
+- Next action:
+  - land the actual `Gate Type` dropdown product slice through the generic settings-row dropdown owner at `ParamContainer-settings-section__stateMachineGateSectionDefault-settings-codeobj__stateMachineGateSectionDefault__stateMachineGateSectionDefault__gateType`, then rerun the same graph-surface inventory probe before opening another support lane
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 054
 
 - Item: Clarify that the read-only oracle checkout is temporarily `go-rewrite`, not `origin/main`.
