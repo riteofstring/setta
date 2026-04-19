@@ -131,7 +131,7 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 			{TargetID: " go-target ", Language: "go", Name: "Go target", DefaultFileName: "go.txt"},
 		},
 		LanguageServers: []PluginRegisteredLanguageServer{
-			{Name: "TypeScript LS", Language: " typescript ", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
+			{Name: "TypeScript LS", Language: " typescript ", Command: "node", Args: []string{"--stdio"}},
 			{Name: "Go LS", Language: "go", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
 		},
 		UISettingsRaw: []map[string]any{
@@ -240,30 +240,6 @@ func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand
 	}
 }
 
-func TestNormalizeBackendLanguageServerRegistrationRejectsMissingPathLikeCommands(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	_, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-		Name:     "Fixture DSL",
-		Language: "TypeScript",
-		Command:  filepath.Join(t.TempDir(), "missing-language-server"),
-		Args:     []string{"--stdio"},
-	})
-	if err == nil || !strings.Contains(err.Error(), "not executable") {
-		t.Fatalf("expected missing absolute path to fail as non-executable, got %v", err)
-	}
-
-	_, err = normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-		Name:     "Fixture DSL",
-		Language: "TypeScript",
-		Command:  "./backend/missing-language-server",
-		Args:     []string{"--stdio"},
-	})
-	if err == nil || !strings.Contains(err.Error(), "not executable") {
-		t.Fatalf("expected missing plugin-relative path to fail as non-executable, got %v", err)
-	}
-}
-
 func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t *testing.T) {
 	// Plugin language-server registrations should keep trimmed custom settings keys.
 	pluginRoot := t.TempDir()
@@ -288,13 +264,22 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 }
 
 func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testing.T) {
-	// Language-server registrations must fail closed on missing commands.
+	// Language-server registrations must fail closed on missing commands and python targets.
 	pluginRoot := t.TempDir()
 	testCases := []struct {
 		name         string
 		registration PluginRegisteredLanguageServer
 		wantErr      string
 	}{
+		{
+			name: "python-target",
+			registration: PluginRegisteredLanguageServer{
+				Name:     "Fixture DSL",
+				Language: "python",
+				Command:  "python3",
+			},
+			wantErr: "cannot target python",
+		},
 		{
 			name: "missing-command",
 			registration: PluginRegisteredLanguageServer{
@@ -316,48 +301,6 @@ func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testi
 				t.Fatalf("expected error containing %q, got %v", testCase.wantErr, err)
 			}
 		})
-	}
-}
-
-func TestNormalizeBackendLanguageServerRegistrationAllowsPythonTargets(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-		Name:     "Fixture Python",
-		Language: "python",
-		Command:  "python3",
-		Args:     []string{"--stdio"},
-	})
-	if err != nil {
-		t.Fatalf("normalize backend language server registration: %v", err)
-	}
-	if normalized.Language != "python" {
-		t.Fatalf("expected normalized python language id, got %q", normalized.Language)
-	}
-}
-
-func TestNormalizeBackendLanguageServersRejectsMultipleImplementationsPerPlugin(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	_, err := normalizeBackendLanguageServers(pluginRoot, "setta-fixture-backend", []PluginRegisteredLanguageServer{
-		{
-			Name:     "Fixture One",
-			Language: "python",
-			Command:  "python3",
-			Args:     []string{"--stdio"},
-		},
-		{
-			Name:     "Fixture Two",
-			Language: "bash",
-			Command:  "node",
-			Args:     []string{"server.js"},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected multiple plugin language server implementations to fail")
-	}
-	if !strings.Contains(err.Error(), "one implementation per plugin") {
-		t.Fatalf("expected single-implementation error, got %v", err)
 	}
 }
 

@@ -31,18 +31,6 @@ func TestCodeObjectImplPayloadNormalizesEmptyChildrenForParentTypes(t *testing.T
 				}),
 			},
 		},
-		{
-			name: "dropdown param with nil choices payload",
-			impl: CodeObjectImpl{
-				ID:   "dropdown-param-impl",
-				Type: "DropdownParam",
-				Payload: mustMarshalProjectObject(map[string]any{
-					"id":      "dropdown-param-impl",
-					"type":    "DropdownParam",
-					"choices": nil,
-				}),
-			},
-		},
 	} {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
@@ -58,23 +46,12 @@ func TestCodeObjectImplPayloadNormalizesEmptyChildrenForParentTypes(t *testing.T
 				t.Fatalf("decode code object payload: %v", err)
 			}
 
-			switch testCase.impl.Type {
-			case "DropdownParam":
-				choices, ok := payload["choices"].([]any)
-				if !ok || choices == nil {
-					t.Fatalf("expected normalized choices array, got %#v", payload["choices"])
-				}
-				if len(choices) != 0 {
-					t.Fatalf("expected normalized choices to be empty, got %#v", choices)
-				}
-			default:
-				children, ok := payload["children"].([]any)
-				if !ok || children == nil {
-					t.Fatalf("expected normalized children array, got %#v", payload["children"])
-				}
-				if len(children) != 0 {
-					t.Fatalf("expected normalized children to be empty, got %#v", children)
-				}
+			children, ok := payload["children"].([]any)
+			if !ok || children == nil {
+				t.Fatalf("expected normalized children array, got %#v", payload["children"])
+			}
+			if len(children) != 0 {
+				t.Fatalf("expected normalized children to be empty, got %#v", children)
 			}
 		})
 	}
@@ -128,59 +105,5 @@ func TestEffectiveCodeObjectPayloadNormalizesParentChildrenAfterModifierMerge(t 
 	}
 	if len(children) != 0 {
 		t.Fatalf("expected effective children to be empty, got %#v", children)
-	}
-}
-
-func TestEffectiveCodeObjectPayloadNormalizesDropdownChoicesAfterModifierMerge(t *testing.T) {
-	t.Parallel()
-
-	project, err := Project{
-		ID:   "project-alpha",
-		Name: "Alpha",
-		CodeObjs: map[string]CodeObject{
-			"dropdown-param": {
-				ID:               "dropdown-param",
-				Name:             "dropdown_param",
-				VariantIDs:       []string{"dropdown-param-variant"},
-				DefaultVariantID: "dropdown-param-variant",
-				SharedModifier: mustMarshalProjectObject(map[string]any{
-					"choices": nil,
-				}),
-			},
-		},
-		CodeObjVariants: map[string]CodeObjectVariant{
-			"dropdown-param-variant": {
-				ID:     "dropdown-param-variant",
-				ImplID: "dropdown-param-impl",
-				Modifier: mustMarshalProjectObject(map[string]any{
-					"choices": nil,
-				}),
-			},
-		},
-		CodeObjImpls: map[string]CodeObjectImpl{
-			"dropdown-param-impl": {
-				ID:   "dropdown-param-impl",
-				Type: "DropdownParam",
-			},
-		},
-	}.Normalized()
-	if err != nil {
-		t.Fatalf("normalize project: %v", err)
-	}
-
-	payload, _, _, _, err := project.EffectiveCodeObjectPayload(
-		map[string]string{"dropdown-param": "dropdown-param-variant"},
-		"dropdown-param",
-	)
-	if err != nil {
-		t.Fatalf("EffectiveCodeObjectPayload returned error: %v", err)
-	}
-
-	choices, ok := payload["choices"].([]any)
-	if !ok || choices == nil {
-		t.Fatalf("expected normalized effective choices array, got %#v", payload["choices"])
-	}
-	if len(choices) != 0 {
-		t.Fatalf("expected effective choices to be empty, got %#v", choices)
 	}
 }

@@ -35,6 +35,7 @@ def _build_browser_mcp_sandbox(tmp_path: Path) -> Path:
         "scripts/start-browser-mcp.sh",
         "scripts/bootstrap-url.sh",
         "scripts/lib/setta_cli_command.sh",
+        "scripts/lib/clear_devtools_profile_auth_cookies.py",
     ):
         src = repo_root / rel_path
         dst = sandbox_root / rel_path
@@ -140,6 +141,7 @@ def test_start_browser_mcp_uses_source_checkout_cli_when_setta_not_on_path(
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     capture_args_path = tmp_path / "go_args.bin"
+    chrome_invocations_path = tmp_path / "chrome_invocations.txt"
 
     class _Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
@@ -195,8 +197,10 @@ printf '__SETTA_JSON_B64__{status_payload}'
         )
         _write_executable(
             stub_dir / "chrome",
-            """#!/usr/bin/env bash
+            f"""#!/usr/bin/env bash
 set -euo pipefail
+printf '%s\\t' "$@" >> "{chrome_invocations_path}"
+printf '\\n' >> "{chrome_invocations_path}"
 exit 0
 """,
         )
@@ -229,8 +233,96 @@ exit 1
         thread.join(timeout=5)
 
     assert result.returncode == 0, result.stderr
-    assert "Opening Setta bootstrap URL in devtools Chrome." in result.stdout
+    chrome_invocations = chrome_invocations_path.read_text(encoding="utf-8").splitlines()
+    assert len(chrome_invocations) == 1
+    assert bootstrap_url not in chrome_invocations[0]
+    assert bootstrap_url in result.stdout
     go_args = _read_nul_separated_args(capture_args_path)
     assert go_args[:5] == ["run", "./cmd/setta", "status", "--connect-info", "--latest"]
     assert "--workspace" in go_args
     assert str(sandbox_root) in go_args
+
+
+def test_start_browser_mcp_falls_back_to_direct_chrome_open_when_devtools_open_fails(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = _build_browser_mcp_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    chrome_invocations_path = tmp_path / "chrome_invocations.txt"
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: object) -> None:
+            return None
+
+        def do_GET(self) -> None:  # noqa: N802
+            if self.path.startswith("/__setta__/bootstrap"):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"ok")
+                return
+            self.send_response(404)
+            self.end_headers()
+
+        def do_PUT(self) -> None:  # noqa: N802
+            self.send_response(404)
+            self.end_headers()
+
+    with socketserver.TCPServer(("127.0.0.1", 0), _Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        server_port = server.server_address[1]
+        bootstrap_url = (
+            f"http://127.0.0.1:{server_port}/__setta__/bootstrap#token=test-token"
+        )
+        status_payload = base64.b64encode(
+            json.dumps({"bootstrapUrlFragment": bootstrap_url}).encode("utf-8")
+        ).decode("ascii")
+        _write_executable(
+            stub_dir / "setta",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '__SETTA_JSON_B64__{status_payload}'
+""",
+        )
+        _write_executable(
+            stub_dir / "chrome",
+            f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\t' "$@" >> "{chrome_invocations_path}"
+printf '\\n' >> "{chrome_invocations_path}"
+exit 0
+""",
+        )
+        _write_executable(
+            stub_dir / "lsof",
+            """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+        )
+
+        env = os.environ.copy()
+        env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+        env["CHROME_BIN"] = str(stub_dir / "chrome")
+        env["DEBUG_PORT"] = str(server_port)
+        env["BOOTSTRAP_WAIT_SECONDS"] = "2"
+        env["MCP_BASE_DIR"] = str(tmp_path / "mcp")
+        env["OSTYPE"] = "linux-gnu"
+
+        result = subprocess.run(
+            ["bash", str(sandbox_root / "scripts" / "start-browser-mcp.sh"), "--devtools"],
+            cwd=sandbox_root,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        server.shutdown()
+        thread.join(timeout=5)
+
+    assert result.returncode == 0, result.stderr
+    chrome_invocations = chrome_invocations_path.read_text(encoding="utf-8").splitlines()
+    assert len(chrome_invocations) == 2
+    assert any(bootstrap_url in invocation for invocation in chrome_invocations)

@@ -26,32 +26,30 @@ type PluginRestartCapability struct {
 }
 
 type PluginStatusEntry struct {
-	PluginID                       string                             `json:"pluginId"`
-	Name                           string                             `json:"name"`
-	Version                        string                             `json:"version"`
-	State                          PluginRuntimeState                 `json:"state"`
-	SourceScope                    PluginScope                        `json:"sourceScope"`
-	SourceScopeLabel               string                             `json:"sourceScopeLabel"`
-	SourceManager                  PluginSourceManager                `json:"sourceManager"`
-	SourceManagerHint              *string                            `json:"sourceManagerHint"`
-	SourcePath                     string                             `json:"sourcePath"`
-	CanonicalSourceKey             string                             `json:"canonicalSourceKey"`
-	SourceDigestSHA256             *string                            `json:"sourceDigestSha256"`
-	ShadowedBySourcePath           *string                            `json:"shadowedBySourcePath"`
-	RequestedCapabilities          []string                           `json:"requestedCapabilities"`
-	EffectiveCapabilities          []string                           `json:"effectiveCapabilities"`
-	BlockedCapabilities            []PluginBlockedCapability          `json:"blockedCapabilities"`
-	Components                     []string                           `json:"components" ts_skip:"true"`
-	RegisteredCodegenTargets       []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
-	RegisteredLanguageServers      []PluginRegisteredLanguageServer   `json:"registeredLanguageServers"`
-	AppliedLanguageServerLanguages []string                           `json:"appliedLanguageServerLanguages,omitempty"`
-	RegisteredBackendRoutes        []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
-	RegisteredStaticDirs           []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
-	RegisteredListenerEndpoints    []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
-	EnablementSource               *PluginEnablementSource            `json:"enablementSource"`
-	RestartRequired                bool                               `json:"restartRequired"`
-	RuntimePayloadDigestSHA256     string                             `json:"runtimePayloadDigestSha256"`
-	Errors                         []PluginErrorInfo                  `json:"errors"`
+	PluginID                    string                             `json:"pluginId"`
+	Name                        string                             `json:"name"`
+	Version                     string                             `json:"version"`
+	State                       PluginRuntimeState                 `json:"state"`
+	SourceScope                 PluginScope                        `json:"sourceScope"`
+	SourceScopeLabel            string                             `json:"sourceScopeLabel"`
+	SourceManager               PluginSourceManager                `json:"sourceManager"`
+	SourceManagerHint           *string                            `json:"sourceManagerHint"`
+	SourcePath                  string                             `json:"sourcePath"`
+	CanonicalSourceKey          string                             `json:"canonicalSourceKey"`
+	SourceDigestSHA256          *string                            `json:"sourceDigestSha256"`
+	ShadowedBySourcePath        *string                            `json:"shadowedBySourcePath"`
+	RequestedCapabilities       []string                           `json:"requestedCapabilities"`
+	EffectiveCapabilities       []string                           `json:"effectiveCapabilities"`
+	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
+	Components                  []string                           `json:"components" ts_skip:"true"`
+	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
+	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
+	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
+	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
+	EnablementSource            *PluginEnablementSource            `json:"enablementSource"`
+	RestartRequired             bool                               `json:"restartRequired"`
+	RuntimePayloadDigestSHA256  string                             `json:"runtimePayloadDigestSha256"`
+	Errors                      []PluginErrorInfo                  `json:"errors"`
 }
 
 type PluginStatusResponse struct {
@@ -81,7 +79,6 @@ type statusEntryRuntimeDigestPayload struct {
 	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
 	Components                  []string                           `json:"components"`
 	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
-	RegisteredLanguageServers   []PluginRegisteredLanguageServer   `json:"registeredLanguageServers"`
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
 	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint `json:"registeredListenerEndpoints"`
@@ -223,7 +220,6 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) PluginStatusEntry {
 		BlockedCapabilities:         cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
 		Components:                  statusEntryComponents(entry),
 		RegisteredCodegenTargets:    cloneRegisteredCodegenTargetsOrEmpty(entry.RegisteredCodegenTargets),
-		RegisteredLanguageServers:   cloneRegisteredLanguageServersOrEmpty(entry.RegisteredLanguageServers),
 		RegisteredBackendRoutes:     cloneRegisteredBackendRoutesOrEmpty(entry.RegisteredBackendRoutes),
 		RegisteredStaticDirs:        cloneRegisteredStaticDirsOrEmpty(entry.RegisteredStaticDirs),
 		RegisteredListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(entry.RegisteredListenerEndpoints),
@@ -241,7 +237,6 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 		BlockedCapabilities:         cloneBlockedCapabilitiesOrEmpty(entry.BlockedCapabilities),
 		Components:                  statusEntryComponents(entry),
 		RegisteredCodegenTargets:    cloneRegisteredCodegenTargetsOrEmpty(entry.RegisteredCodegenTargets),
-		RegisteredLanguageServers:   cloneRegisteredLanguageServersOrEmpty(entry.RegisteredLanguageServers),
 		RegisteredBackendRoutes:     cloneRegisteredBackendRoutesOrEmpty(entry.RegisteredBackendRoutes),
 		RegisteredStaticDirs:        cloneRegisteredStaticDirsOrEmpty(entry.RegisteredStaticDirs),
 		RegisteredListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(entry.RegisteredListenerEndpoints),
@@ -274,24 +269,6 @@ func cloneRegisteredCodegenTargetsOrEmpty(values []PluginRegisteredCodegenTarget
 		return []PluginRegisteredCodegenTarget{}
 	}
 	return append([]PluginRegisteredCodegenTarget{}, values...)
-}
-
-func cloneRegisteredLanguageServersOrEmpty(values []PluginRegisteredLanguageServer) []PluginRegisteredLanguageServer {
-	if len(values) == 0 {
-		return []PluginRegisteredLanguageServer{}
-	}
-	cloned := make([]PluginRegisteredLanguageServer, 0, len(values))
-	for _, value := range values {
-		cloned = append(cloned, PluginRegisteredLanguageServer{
-			PluginID:    value.PluginID,
-			Name:        value.Name,
-			Language:    value.Language,
-			Command:     value.Command,
-			Args:        append([]string{}, value.Args...),
-			SettingsKey: cloneOptionalString(value.SettingsKey),
-		})
-	}
-	return cloned
 }
 
 func cloneRegisteredBackendRoutesOrEmpty(values []PluginRegisteredBackendRoute) []PluginRegisteredBackendRoute {
