@@ -14,14 +14,17 @@ type appDeploymentContentService struct {
 	appDefinitionService projectstate.AppDefinitionRuntime
 }
 
-func NewAppDeploymentRuntimeContent() deployments.AppDeploymentRuntimeContent {
-	return appDeploymentContentService{}
-}
-
-func NewAppDeploymentPublishContent(
-	service projectstate.AppDefinitionRuntime,
-) deployments.AppDeploymentPublishContent {
-	return appDeploymentContentService{appDefinitionService: service}
+func LoadPublishedAppSpecFromRuntime(
+	runtime *deployments.Runtime,
+	appDefinition *projectstate.AppDefinition,
+) (any, error) {
+	if runtime == nil {
+		return nil, deployments.ErrRuntimeRequired
+	}
+	return appDeploymentContentService{}.LoadPublishedAppSpec(
+		runtime.Paths().DeploymentRoot,
+		appDefinition,
+	)
 }
 
 func (s appDeploymentContentService) LoadPublishedAppSpec(
