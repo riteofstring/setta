@@ -1,5 +1,6 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
+  appSubsystemModeRequiresImageAttachment,
   getAppSubsystemFrontendRuntimeState,
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
@@ -37,6 +38,7 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
       appGenerationMode: "json_render",
     },
   ],
+  imageRequiredModes: ["json_render_with_image"],
   customSlashCommandModes: {
     options: [
       { id: "plain_chat", name: "Plain chat" },
@@ -164,6 +166,21 @@ describe("appSubsystemRuntime", () => {
     expect(
       renderToStaticMarkup(<AppSubsystemSlashCommandProbe />),
     ).not.toContain("/app-json");
+  });
+
+  it("exposes image-required mode metadata only when the subsystem is available", async () => {
+    expect(
+      appSubsystemModeRequiresImageAttachment("json_render_with_image"),
+    ).toBe(false);
+
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+
+    expect(
+      appSubsystemModeRequiresImageAttachment("json_render_with_image"),
+    ).toBe(true);
+    expect(appSubsystemModeRequiresImageAttachment("json_render")).toBe(false);
   });
 
   it("falls back to plain-chat-only custom slash modes when the subsystem is unavailable", async () => {

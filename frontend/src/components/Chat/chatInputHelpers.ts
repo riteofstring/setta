@@ -1,11 +1,9 @@
+import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystemRuntime";
 import type { CSSProperties } from "react";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { isImageAttachment } from "utils/attachmentPreview";
-import {
-  AppGenerationModeEnum,
-  ChatFileAttachment,
-} from "utils/generatedTypes";
+import { ChatFileAttachment } from "utils/generatedTypes";
 import {
   type ChatPermissionModeValue,
   type ChatSlashCommandAction,
@@ -28,6 +26,7 @@ export type ChatSlashCommand = {
   rawSuffix?: string;
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
+  requiresImageAttachment?: boolean;
   unavailableFeedback?: string;
 };
 
@@ -250,9 +249,15 @@ export function resolveSlashCommandSubmitOptions(
 }
 
 function requiresImageAttachmentForAppGenerationMode(
-  appGenerationMode: AppGenerationMode | null | undefined,
+  command: Pick<
+    ChatSlashCommand,
+    "appGenerationMode" | "requiresImageAttachment"
+  >,
 ): boolean {
-  return appGenerationMode === AppGenerationModeEnum.json_render_with_image;
+  if (command.requiresImageAttachment === true) {
+    return true;
+  }
+  return appSubsystemModeRequiresImageAttachment(command.appGenerationMode);
 }
 
 function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {
@@ -270,7 +275,12 @@ export function getSlashCommandImageAttachmentError({
   attachments: ChatFileAttachment[];
   hasRetainedImageAttachmentForImageMode: boolean;
 }): string | null {
-  if (!requiresImageAttachmentForAppGenerationMode(appGenerationMode)) {
+  if (
+    !requiresImageAttachmentForAppGenerationMode({
+      appGenerationMode,
+      requiresImageAttachment: command.requiresImageAttachment,
+    })
+  ) {
     return null;
   }
   if (
@@ -295,6 +305,7 @@ function serializeSlashCommandsForReplaySignature(
   appGenerationMode: AppGenerationMode | null;
   command: string;
   promptTemplate: string | null;
+  requiresImageAttachment: boolean;
   summary: string;
   unavailableFeedback: string | null;
 }> {
@@ -303,6 +314,7 @@ function serializeSlashCommandsForReplaySignature(
     appGenerationMode: command.appGenerationMode ?? null,
     command: command.command,
     promptTemplate: command.promptTemplate ?? null,
+    requiresImageAttachment: command.requiresImageAttachment ?? false,
     summary: command.summary,
     unavailableFeedback: command.unavailableFeedback ?? null,
   }));

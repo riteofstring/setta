@@ -668,6 +668,7 @@ describe("ChatInput queued slash-command replay", () => {
               summary: "Generate from an attached reference image.",
               promptTemplate: "Match the attached design.",
               appGenerationMode: "json_render_with_image",
+              requiresImageAttachment: true,
             },
           ]}
           recognizedSlashCommands={[
@@ -677,6 +678,7 @@ describe("ChatInput queued slash-command replay", () => {
               summary: "Generate from an attached reference image.",
               promptTemplate: "Match the attached design.",
               appGenerationMode: "json_render_with_image",
+              requiresImageAttachment: true,
             },
           ]}
           onSubmit={onSubmit}
@@ -726,6 +728,7 @@ describe("ChatInput queued slash-command replay", () => {
       summary: "Generate from an attached reference image.",
       promptTemplate: "Match the attached design.",
       appGenerationMode: "json_render_with_image",
+      requiresImageAttachment: true,
     };
 
     const App = () => {
