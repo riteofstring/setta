@@ -155,6 +155,14 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-21 run 062 append correction
+
+- Canonical status: `replan_required`
+- Note:
+  - the detailed `run 062` blocker entry was written earlier in this file during this iteration; this short append keeps the latest terminal marker at the true end of the append-only log without changing the recorded blocker details
+  - no source changes were kept from the retry, and the correct next step remains a human architectural decision on the chat activation primitive before any more pane-consumer or registry retries
+LOOP_TERMINAL_MARKER: replan_required
+
 ## 2026-04-21 run 061
 
 - Item: Land one bounded shared activator-hygiene slice on the chat retry path without reopening the closed row or shell lanes.
@@ -6450,6 +6458,35 @@ LOOP_TERMINAL_MARKER: none
   - not run because no product source changes from this attempt were kept
 - Next frontier: keep `settings-section__chatSectionDefault` as the blocker reproduction target, use `settings-section__browserSectionDefault` / `columnWidth` as the current on-screen control lane, and instrument or simplify the live hit-box publication / consumption path itself instead of reopening another pane-level timing tweak.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-21 run 062
+
+- Item: Retry the canonical `settings-section__chatSectionDefault` / `chat.permissionMode` lane through the existing pane-capture consumer path and stop the loop if one bounded retry still cannot produce a real visible-click handoff.
+- Status: `replan_required`
+- Details:
+  - One local `Pane.tsx` coordinate-frame adjustment and one matching real-click upgrade to `frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts` were tried and reverted in the same iteration after focused verification showed the coordinate tweak was not the missing primitive.
+  - The focused live browser/chat rerun kept `settings-section__browserSectionDefault` / `browser.columnWidth` green, but `settings-section__chatSectionDefault` / `chat.permissionMode` still failed under a real visible pane click and triggered the unexpected `POST /api/setActiveIds -> 404` page-close guard before any inline editor mounted.
+  - Fresh page-side probes on the live `3068/8068` runtime narrowed the blocker materially:
+    - the rounded chat click point (`x=860`, `y=372`) still belonged to `.react-flow__pane`
+    - the corresponding flow point (`x≈98.15`, `y≈2531.13`) still landed inside the published chat activator after the existing minimum-hit-size expansion
+    - the overlapping candidate ranking at that exact rounded point still preferred the chat activator over `settings-section__drawSectionDefault` / `draw.activeLayerIdx` (`centerDistance≈5.08` vs `≈7.52`)
+    - the preferred chat activator target still existed in the live DOM at click time
+  - Interpretation:
+    - the lane is no longer blocked on publication, missing target nodes, z-order tie-breaks, or the pane/client coordinate frame
+    - the remaining miss is a deeper chat-specific activation primitive after the forwarded retained-text click
+    - per the Phase 3 checkpoint rule after run `060`, this counts as the one bounded chat-lane retry that still failed to produce a forwarded-target proof, focus change, or real editor mount, so the correct next step is a human architectural decision instead of reopening more pane-timing, synthetic-focus, or registry-only retries
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/Pane.tsx tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+    - result during the speculative try: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-020/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts --reporter=line --workers=1`
+    - result during the speculative try: `browser` passed, `chat` failed under the real visible-click oracle and hit the unexpected `POST /api/setActiveIds -> 404` page-close guard; all speculative source and spec edits were reverted before finish
+  - one-off `@playwright/test` node probes against fresh bootstrap URLs
+    - result: the rounded chat click point still hit `.react-flow__pane`, still lay inside the published chat activator, and still ranked the chat target ahead of the overlapping draw activator with a live target element present
+- CDP visual check:
+  - not run because no product source changes from this retry were kept
+- Next action:
+  - stop the autonomous loop for a human architectural decision on the chat activation primitive before any more pane-consumer or registry retries
+LOOP_TERMINAL_MARKER: replan_required
 
 ## 2026-04-20 run 060
 
