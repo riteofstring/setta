@@ -1,3 +1,11 @@
+import { C_ADDRESSES } from "utils/c_addresses";
+import {
+  resolveEndpointOriginForMode,
+  type ServerMode,
+} from "utils/serverModeBoundaryPolicy";
+import { buildBinaryDownloadRoute } from "utils/transportRouteConstants";
+import { client } from "openapi/http/generated/client.gen";
+import { getActiveAppSubsystemFrontendHostRuntime } from "./runtimeHost";
 export {
   checkIfFileExists,
   deleteArtifacts,
@@ -19,15 +27,17 @@ export {
   updateArtifacts,
   uploadBinary,
   validateAppDefinition,
-  type GetAppDeploymentCurrentSessionResponses,
-  type GetAppDeploymentStateResponses,
-  type GetLatestProjectStateResponse,
-  type HttpapiDeploymentMetadataResponse,
-  type HttpapiServerModeResponse,
-  type HttpapiPublishAppDeploymentRequest,
-} from "openapi/http";
+} from "openapi/http/generated/sdk.gen";
+export type {
+  GetAppDeploymentCurrentSessionResponses,
+  GetAppDeploymentStateResponses,
+  GetLatestProjectStateResponse,
+  HttpapiDeploymentMetadataResponse,
+  HttpapiServerModeResponse,
+  HttpapiPublishAppDeploymentRequest,
+  PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition,
+} from "openapi/http/generated/types.gen";
 export { callOpenAPI } from "openapi/http/result";
-export { buildBinaryDownloadUrl } from "utils/backendTransport";
 export {
   getErrorDetail,
   getErrorCode,
@@ -82,6 +92,106 @@ export {
   resolveMainRunRequest,
   resolveRunRequest,
 } from "utils/runCapabilities";
-export type {
-  PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition,
-} from "openapi/http/generated/types.gen";
+
+function resolveTransportBaseUrl(serverMode: ServerMode, address: string): string {
+  const endpointOrigin = resolveEndpointOriginForMode(address, serverMode);
+  if (endpointOrigin === "backend-origin") {
+    return C_ADDRESSES.BACKEND_ORIGIN;
+  }
+  if (endpointOrigin === "launcher") {
+    return C_ADDRESSES.LAUNCHER;
+  }
+  return C_ADDRESSES.BACKEND;
+}
+
+function resolveOpenAPIBaseURL(): string {
+  if (typeof location === "undefined") {
+    return "http://localhost";
+  }
+  return C_ADDRESSES.BACKEND_ORIGIN;
+}
+
+async function rebuildBackendRequest(
+  request: Request,
+  resolvedURL: string,
+): Promise<Request> {
+  const rebuiltInit: RequestInit = {
+    method: request.method,
+    headers: new Headers(request.headers),
+    mode: request.mode,
+    credentials: request.credentials,
+    cache: request.cache,
+    redirect: request.redirect,
+    referrer: request.referrer,
+    referrerPolicy: request.referrerPolicy,
+    integrity: request.integrity,
+    keepalive: request.keepalive,
+    signal: request.signal,
+  };
+
+  if (
+    request.body !== null &&
+    request.method !== "GET" &&
+    request.method !== "HEAD"
+  ) {
+    rebuiltInit.body = await request.clone().arrayBuffer();
+  }
+
+  return new Request(resolvedURL, rebuiltInit);
+}
+
+function buildShareSessionHeaders(): Record<string, string> {
+  const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
+  const runtimeShareSessionId =
+    frontendHost?.getRuntimeContext().shareSessionId ?? null;
+  const deploymentShareSessionId =
+    frontendHost?.getAppDeploymentSession()?.shareSessionId ?? null;
+  const shareSessionId = runtimeShareSessionId ?? deploymentShareSessionId;
+  if (!shareSessionId) {
+    return {};
+  }
+  return { "X-Share-Session-Id": shareSessionId };
+}
+
+function buildBackendURL(address: string): string {
+  const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
+  const serverMode = frontendHost?.getServerModeState().mode ?? null;
+  return new URL(address, resolveTransportBaseUrl(serverMode, address)).toString();
+}
+
+async function fetchOpenAPIRequest(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const request = input instanceof Request ? input : new Request(input, init);
+  const requestURL = new URL(request.url);
+  const resolvedURL = buildBackendURL(
+    `${requestURL.pathname}${requestURL.search}`,
+  );
+  const nextRequest = await rebuildBackendRequest(request, resolvedURL);
+  const shareHeaders = buildShareSessionHeaders();
+  for (const [key, value] of Object.entries(shareHeaders)) {
+    nextRequest.headers.set(key, value);
+  }
+  return await fetch(nextRequest);
+}
+
+client.setConfig({
+  baseUrl: resolveOpenAPIBaseURL(),
+  credentials: "include",
+  responseStyle: "fields",
+  fetch: fetchOpenAPIRequest,
+});
+
+export function buildBinaryDownloadUrl(
+  contentId: string,
+  shareSessionId: string | null,
+  serverMode: ServerMode,
+): string {
+  const address = buildBinaryDownloadRoute(contentId);
+  const url = new URL(address, resolveTransportBaseUrl(serverMode, address));
+  if (shareSessionId) {
+    url.searchParams.set("shareSessionId", shareSessionId);
+  }
+  return url.toString();
+}
