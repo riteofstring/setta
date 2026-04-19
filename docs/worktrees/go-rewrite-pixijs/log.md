@@ -5974,3 +5974,27 @@ LOOP_TERMINAL_MARKER: none
     - the graph surface was mounted and nonblank, `browserSectionDefault` was present, and there was no obvious detached shell/body or gross visual regression on that lane
 - Next frontier: stay on the canonical browser lane and isolate another remaining `SectionContainerCoreResizable` child prop-fanout path now that the chrome/body boundary is memoized and the direct viewport-interaction subscriptions are gone.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 045
+
+- Landed the `SectionContainerCoreResizable` `CustomResizable` boundary memo slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now wraps the `CustomResizable` handoff in a memoized local surface component and memoizes the combined chrome/body child subtree that it passes down, so no-op active-section flips that leave the derived motion-hidden shell/body state unchanged no longer re-enter the resizable size / handle / layout hook stack.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now counts `CustomResizable` renders in addition to the existing section-header and browser-area counters and proves that the same active-section change stays cold across the full resizable boundary, although the focused vitest run remains blocked by the pre-existing repo `html-encoding-sniffer` ESM failure before collection.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-custom-resizable-boundary-memo-rerun.md` with the current evidence: `documentNodeCount 5494`, `raf.meanMs 45.8`, `longTasks.totalMs 3220`, `peakMotion.graphSurfaceMenuTriggerCount 1`, `peakMotion.graphSurfaceSectionResizeHandleCount 3`, and `hiddenResizeHandleRootCount 45`.
+- Interpretation:
+  - this closes the remaining no-op active-section `CustomResizable` boundary sub-lane at the current `SectionContainerCoreResizable` frontier
+  - the trusted live motion inventory stayed intact, so this did not reopen the closed motion-hidden shell/body or resize-handle contracts
+  - the next pass should stay on `SectionContainerCoreResizable`, but it now needs a different remaining local prop-fanout path beyond the stabilized `CustomResizable` handoff instead of reopening shell-style, DOM-sync, or backdrop micro-lanes
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-012/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - reached `/settings` with `All Settings` active and chat chrome normalized away
+    - the graph surface was mounted and nonblank, `browserSectionDefault` was present, and there was no obvious detached shell/body or gross visual regression on that lane
+- Next frontier: stay on the canonical browser lane and isolate another remaining `SectionContainerCoreResizable` active-section or non-viewport prop-fanout path beyond the stabilized `CustomResizable` handoff; if one bounded evidence pass still cannot name it, stop for human replan.
+LOOP_TERMINAL_MARKER: none

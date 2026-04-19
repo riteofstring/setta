@@ -41,6 +41,7 @@ let root: Root | null = null;
 let mockSectionHeaderMotionHiddenInteractionActive = false;
 let mockSectionHeaderRenderCount = 0;
 let mockBrowserAreaRenderCount = 0;
+let mockCustomResizableRenderCount = 0;
 
 const mockReactFlowSubscriptions = new Set<{
   currentValue: unknown;
@@ -107,20 +108,23 @@ vi.mock("components/Utils/Resizable/CustomResizable", () => ({
     children: ReactNode;
     motionCanvasOwnedShell?: boolean;
     motionCanvasOwnedShellRoot?: boolean;
-  }) => (
-    <section
-      id={`${sectionId}-CustomResizable`}
-      data-testid="mock-custom-resizable"
-      data-canvas-owned-motion-shell-hidden={
-        motionCanvasOwnedShell ? "true" : undefined
-      }
-      data-canvas-owned-motion-shell-root={
-        motionCanvasOwnedShellRoot ? "true" : undefined
-      }
-    >
-      {children}
-    </section>
-  ),
+  }) => {
+    mockCustomResizableRenderCount += 1;
+    return (
+      <section
+        id={`${sectionId}-CustomResizable`}
+        data-testid="mock-custom-resizable"
+        data-canvas-owned-motion-shell-hidden={
+          motionCanvasOwnedShell ? "true" : undefined
+        }
+        data-canvas-owned-motion-shell-root={
+          motionCanvasOwnedShellRoot ? "true" : undefined
+        }
+      >
+        {children}
+      </section>
+    );
+  },
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
@@ -323,6 +327,7 @@ describe("SectionContainerCoreResizable", () => {
     mockSectionHeaderMotionHiddenInteractionActive = false;
     mockSectionHeaderRenderCount = 0;
     mockBrowserAreaRenderCount = 0;
+    mockCustomResizableRenderCount = 0;
   });
 
   afterEach(() => {
@@ -603,7 +608,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="mock-code-area"');
   });
 
-  it("skips chrome and body rerenders when active-section changes do not change motion-hidden props", async () => {
+  it("skips resizable, chrome, and body rerenders when active-section changes do not change motion-hidden props", async () => {
     mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
 
     const host = document.createElement("div");
@@ -623,6 +628,7 @@ describe("SectionContainerCoreResizable", () => {
       );
     });
 
+    expect(mockCustomResizableRenderCount).toBe(1);
     expect(mockSectionHeaderRenderCount).toBe(1);
     expect(mockBrowserAreaRenderCount).toBe(1);
 
@@ -641,6 +647,7 @@ describe("SectionContainerCoreResizable", () => {
       );
     });
 
+    expect(mockCustomResizableRenderCount).toBe(1);
     expect(mockSectionHeaderRenderCount).toBe(1);
     expect(mockBrowserAreaRenderCount).toBe(1);
   });

@@ -473,6 +473,59 @@ function SectionContainerChrome({
 
 const MemoizedSectionContainerChrome = React.memo(SectionContainerChrome);
 
+type SectionContainerResizableSurfaceProps = {
+  sectionId: string;
+  bgColor: string;
+  isYouTube: boolean;
+  useMetaControlStyle: boolean;
+  positionAndSizeLocked: boolean;
+  hasSectionStyleTheme: boolean;
+  hasEmbeddedTerminal: boolean;
+  metaControlFrameClassName?: string;
+  metaControlLayoutClassName?: string;
+  motionHidden: boolean;
+  motionHiddenRoot: boolean;
+  children: React.ReactNode;
+};
+
+function SectionContainerResizableSurface({
+  sectionId,
+  bgColor,
+  isYouTube,
+  useMetaControlStyle,
+  positionAndSizeLocked,
+  hasSectionStyleTheme,
+  hasEmbeddedTerminal,
+  metaControlFrameClassName,
+  metaControlLayoutClassName,
+  motionHidden,
+  motionHiddenRoot,
+  children,
+}: SectionContainerResizableSurfaceProps) {
+  return (
+    <CustomResizable
+      sectionId={sectionId}
+      as="section"
+      bgColor={bgColor}
+      isYouTube={isYouTube}
+      isMetaControl={useMetaControlStyle}
+      positionAndSizeLocked={positionAndSizeLocked}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      allowPointerEventsDuringDnd={hasEmbeddedTerminal}
+      frameClassName={metaControlFrameClassName}
+      layoutClassName={metaControlLayoutClassName}
+      motionCanvasOwnedShell={motionHidden}
+      motionCanvasOwnedShellRoot={motionHiddenRoot}
+    >
+      {children}
+    </CustomResizable>
+  );
+}
+
+const MemoizedSectionContainerResizableSurface = React.memo(
+  SectionContainerResizableSurface,
+);
+
 const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
     <CallableArea
@@ -610,43 +663,65 @@ function _SectionContainerCoreResizable({
     isSectionUIActive,
   });
 
+  const resizableChildren = React.useMemo(
+    () => (
+      <>
+        <MemoizedSectionContainerChrome
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
+          isUserView={isUserView}
+          isRoot={isRoot}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          chromeMode={chromeMode}
+          hideHeader={hideHeader}
+          positionAndSizeLocked={positionAndSizeLocked}
+          motionHiddenInteractionActive={motionHidden}
+        />
+        <MemoizedCanvasSectionBody
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+          motionHiddenBody={motionHidden}
+          motionHiddenBodyRoot={motionHiddenRoot}
+        />
+      </>
+    ),
+    [
+      bgColor,
+      chromeMode,
+      hasSectionStyleTheme,
+      hideHeader,
+      isInOtherProjectConfigs,
+      isMinimized,
+      isRoot,
+      isUserView,
+      motionHidden,
+      motionHiddenRoot,
+      positionAndSizeLocked,
+      sectionId,
+      sectionTypeName,
+    ],
+  );
+
   return (
-    <CustomResizable
+    <MemoizedSectionContainerResizableSurface
       sectionId={sectionId}
-      as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isMetaControl={useMetaControlStyle}
+      useMetaControlStyle={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
-      allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      frameClassName={metaControlFrameClassName}
-      layoutClassName={metaControlLayoutClassName}
-      motionCanvasOwnedShell={motionHidden}
-      motionCanvasOwnedShellRoot={motionHiddenRoot}
+      hasEmbeddedTerminal={hasEmbeddedTerminal}
+      metaControlFrameClassName={metaControlFrameClassName}
+      metaControlLayoutClassName={metaControlLayoutClassName}
+      motionHidden={motionHidden}
+      motionHiddenRoot={motionHiddenRoot}
     >
-      <MemoizedSectionContainerChrome
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        isUserView={isUserView}
-        isRoot={isRoot}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        chromeMode={chromeMode}
-        hideHeader={hideHeader}
-        positionAndSizeLocked={positionAndSizeLocked}
-        motionHiddenInteractionActive={motionHidden}
-      />
-      <MemoizedCanvasSectionBody
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-        motionHiddenBody={motionHidden}
-        motionHiddenBodyRoot={motionHiddenRoot}
-      />
-    </CustomResizable>
+      {resizableChildren}
+    </MemoizedSectionContainerResizableSurface>
   );
 }
 
