@@ -5,6 +5,7 @@ import sys
 
 BACKEND_PROBE_ARG = "--setta-plugin-backend-probe"
 BACKEND_RUNTIME_ARG = "--setta-plugin-backend-runtime"
+APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = 1
 
 
 def write_json(payload: object) -> None:
@@ -27,7 +28,12 @@ def main() -> None:
         write_json(
             {
                 "schemaVersion": 1,
+                "appSubsystemBackend": {
+                    "contractVersion": APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION
+                },
                 "codegenTargets": [],
+                "languageServers": [],
+                "uiSettings": [],
                 "routes": [],
                 "staticDirs": [],
                 "listenerEndpoints": [],

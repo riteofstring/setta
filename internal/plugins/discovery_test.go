@@ -237,7 +237,11 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	t.Parallel()
 
 	entry := &DiscoveredPlugin{
-		EffectiveCapabilities: []string{"registerRouter", "registerStaticDir"},
+		EffectiveCapabilities: []string{
+			"registerRouter",
+			"registerStaticDir",
+			"registerAppSubsystemBackend",
+		},
 	}
 	probe := backendProbeResponse{
 		CodegenTargets: []PluginRegisteredCodegenTarget{
@@ -257,6 +261,9 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 		},
 		ListenerEndpoints: []PluginRegisteredListenerEndpoint{
 			{Name: "route_backend_fixture_ping"},
+		},
+		AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
+			ContractVersion: appSubsystemBackendContractVersion,
 		},
 	}
 
@@ -281,10 +288,17 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	if len(entry.RegisteredUISettings) != 1 || entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
 		t.Fatalf("expected ui settings to be copied from the probe, got %#v", entry.RegisteredUISettings)
 	}
+	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != appSubsystemBackendContractVersion {
+		t.Fatalf("expected app subsystem backend registration to be copied, got %#v", entry.appSubsystemBackend)
+	}
 
 	probe.UISettings[0].LocalSettingID = "mutated"
 	if entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
 		t.Fatalf("expected registered ui settings to be cloned, got %#v", entry.RegisteredUISettings)
+	}
+	probe.AppSubsystemBackend.ContractVersion = 999
+	if entry.appSubsystemBackend.ContractVersion != appSubsystemBackendContractVersion {
+		t.Fatalf("expected app subsystem backend registration to be cloned, got %#v", entry.appSubsystemBackend)
 	}
 }
 
