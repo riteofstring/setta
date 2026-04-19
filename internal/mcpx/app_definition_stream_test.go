@@ -8,15 +8,15 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
+	"setta/internal/appspec"
+	"setta/internal/projectstate"
 )
 
 func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -29,7 +29,9 @@ func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 				},
 			},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{

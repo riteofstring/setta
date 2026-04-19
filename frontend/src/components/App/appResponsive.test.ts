@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveResponsiveValue } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appResponsive";
+import { resolveResponsiveValue } from "./appResponsive";
 
 describe("resolveResponsiveValue", () => {
   it("returns scalar values unchanged", () => {
