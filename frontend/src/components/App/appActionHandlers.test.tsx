@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
+import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import {
-  useAppConfigs,
   useLocalStorage,
   useProjectState,
   useSettings,

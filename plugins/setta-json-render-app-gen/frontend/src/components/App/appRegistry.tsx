@@ -22,6 +22,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -35,7 +36,6 @@ import {
   sendRealtimeSectionParamLiteral,
 } from "state/actions/websocketReceive";
 import {
-  useAppConfigs,
   useDecodedImages,
   useImages,
   useProjectState,
