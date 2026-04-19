@@ -67,6 +67,8 @@ describe("plugin runtime bootstrap", () => {
       sortedPluginListEntries: [],
       pluginStatusById: {},
       statusEntries: [],
+      languageServerSelectionsByLanguage: {},
+      languageServerSelections: [],
       sectionKindsByKey: {},
       sortedSectionKinds: [],
       panesByPluginId: {},
