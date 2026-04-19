@@ -19,6 +19,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
@@ -222,9 +223,7 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	)); err != nil {
 		t.Fatalf("expected published deployment to package provider plugin, got %v", err)
 	}
-	var pluginsState struct {
-		EnabledPluginIDs []string `json:"enabledPluginIds"`
-	}
+	var pluginsState plugins.PluginsStateFile
 	pluginsStatePayload, err := os.ReadFile(
 		filepath.Join(payload.DeploymentRoot, "plugins_state.json"),
 	)
@@ -237,6 +236,13 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if len(pluginsState.EnabledPluginIDs) != 1 ||
 		pluginsState.EnabledPluginIDs[0] != ProviderPluginID {
 		t.Fatalf("expected published deployment plugins state to enable %q, got %#v", ProviderPluginID, pluginsState)
+	}
+	workspaceConfig, ok := pluginsState.PluginConfigByID["workspace:"+ProviderPluginID].(map[string]any)
+	if !ok || workspaceConfig["theme"] != "ocean" {
+		t.Fatalf("expected published deployment workspace-scoped provider config, got %#v", pluginsState.PluginConfigByID)
+	}
+	if _, ok := pluginsState.PluginConfigByID["global:"+ProviderPluginID]; ok {
+		t.Fatalf("expected published deployment to omit global-scoped provider config, got %#v", pluginsState.PluginConfigByID)
 	}
 
 	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
@@ -821,6 +827,12 @@ func newAppDeploymentIDERouteFixture(
 		SettaFilesRoot:   settaFilesRoot,
 		WorkspaceRoot:    workspaceRoot,
 		PluginSourcePath: appDeploymentIDEProviderSourcePath(t),
+		EnabledPluginIDs: []string{ProviderPluginID},
+		PluginConfigByID: map[string]any{
+			"workspace:" + ProviderPluginID: map[string]any{
+				"theme": "ocean",
+			},
+		},
 		Now: func() time.Time {
 			return publishedAt
 		},

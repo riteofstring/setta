@@ -220,6 +220,13 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 		if feature == nil {
 			continue
 		}
+		if !appSubsystemProviderRegistered(entry.PluginID) {
+			resolution.selection.InvalidPluginIDs = append(
+				resolution.selection.InvalidPluginIDs,
+				entry.PluginID,
+			)
+			continue
+		}
 		switch entry.State {
 		case PluginRuntimeStateActive:
 			resolution.selection.ActivePluginIDs = append(resolution.selection.ActivePluginIDs, entry.PluginID)
