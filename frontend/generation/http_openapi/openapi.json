@@ -7771,6 +7771,9 @@
           },
           "pluginId": {
             "type": "string"
+          },
+          "providerSelection": {
+            "$ref": "#/components/schemas/PluginsPluginAppSubsystemProviderSelection"
           }
         },
         "required": [
@@ -7780,6 +7783,49 @@
           "appPreviewUi",
           "appGenerationChatModes",
           "appDeploymentRuntime"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginAppSubsystemProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "selectedPluginId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "conflictingPluginIds"
         ],
         "type": "object"
       },
@@ -8447,6 +8493,9 @@
       "PluginsPluginStatusResponse": {
         "additionalProperties": false,
         "properties": {
+          "appSubsystemSelection": {
+            "$ref": "#/components/schemas/PluginsPluginAppSubsystemProviderSelection"
+          },
           "languageServerSelections": {
             "items": {
               "$ref": "#/components/schemas/PluginsLanguageServerSelectionStatus"

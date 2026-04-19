@@ -1170,6 +1170,14 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: {
+              providerSelection: {
+                status: "active",
+                selectedPluginId: "setta-json-render-app-gen",
+                activePluginIds: ["setta-json-render-app-gen"],
+                disabledPluginIds: [],
+                invalidPluginIds: [],
+                conflictingPluginIds: [],
+              },
               pluginId: "setta-json-render-app-gen",
               pluginEnabled: true,
               appAuthoringUi: true,
@@ -1193,13 +1201,21 @@ describe("plugin runtime helpers", () => {
     expect(
       state.languageServerSelectionsByLanguage.python?.appliedPluginId,
     ).toBe("setta-basedpyright");
-    expect(state.appSubsystemCapabilities).toEqual({
+    expect(state.appSubsystemCapabilities).toMatchObject({
       pluginId: "setta-json-render-app-gen",
       pluginEnabled: true,
       appAuthoringUi: true,
       appPreviewUi: true,
       appGenerationChatModes: false,
       appDeploymentRuntime: false,
+      providerSelection: {
+        status: "active",
+        selectedPluginId: "setta-json-render-app-gen",
+        activePluginIds: ["setta-json-render-app-gen"],
+        disabledPluginIds: [],
+        invalidPluginIds: [],
+        conflictingPluginIds: [],
+      },
     });
   });
   it("removes plugin styles when refresh enters error state", async () => {
