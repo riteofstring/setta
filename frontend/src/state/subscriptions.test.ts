@@ -175,4 +175,41 @@ describe("subscriptions viewport persistence", () => {
       localViewport,
     );
   });
+
+  it("defers mirroring viewport into project state until interaction settles", () => {
+    const settledViewport = { x: 220, y: -140, zoom: 0.8 };
+
+    useReactFlow.setState({
+      ...initialState,
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: false,
+    });
+    debouncedDispatchViewportUpdate.cancel();
+    routeSetViewportMock.mockClear();
+    usePendingOperations.setState({ pending: [] });
+
+    useReactFlow.setState({
+      transform: [settledViewport.x, settledViewport.y, settledViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: true,
+    });
+
+    expect(useProjectState.getState().projectConfig.viewport).toBeNull();
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(routeSetViewportMock).not.toHaveBeenCalled();
+
+    useReactFlow.setState({
+      transform: [settledViewport.x, settledViewport.y, settledViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: false,
+    });
+
+    expect(useProjectState.getState().projectConfig.viewport).toEqual(
+      settledViewport,
+    );
+  });
 });

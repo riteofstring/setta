@@ -23,9 +23,14 @@ type SectionTitleClassNames = {
 };
 type SectionTitleProps = {
   sectionId: string;
+  canvasOwnedRestingText?: boolean;
   titleProps: SectionTitleClassNames;
 };
-export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
+export function SectionTitle({
+  sectionId,
+  canvasOwnedRestingText = false,
+  titleProps,
+}: SectionTitleProps) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
   const backendErrors = useNameValidationErrors(
     (state) => state.sectionErrors[sectionId],
@@ -65,6 +70,7 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
       <EditableTitle
         sectionId={sectionId}
         sectionName={sectionName}
+        canvasOwnedRestingText={canvasOwnedRestingText}
         titleProps={mergedTitleProps}
         {...getFloatingBoxHandlers(...tooltipContentArray)}
       />
@@ -73,18 +79,24 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   return (
     <FixedTitle
       sectionName={sectionName}
-      className={mergedTitleProps.fixed}
+      className={getCanvasOwnedFixedTitleClassName({
+        canvasOwnedRestingText,
+        className: mergedTitleProps.fixed,
+      })}
+      canvasOwnedRestingText={canvasOwnedRestingText}
       {...getFloatingBoxHandlers(...tooltipContentArray)}
     />
   );
 }
 type FixedTitleProps = {
+  canvasOwnedRestingText?: boolean;
   sectionName: string;
   className?: string;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 };
 function FixedTitle({
+  canvasOwnedRestingText = false,
   sectionName,
   className,
   onMouseEnter,
@@ -93,6 +105,12 @@ function FixedTitle({
   return (
     <h2
       className={className}
+      data-canvas-owned-header-title={
+        canvasOwnedRestingText ? "true" : undefined
+      }
+      data-canvas-owned-resting-text={
+        canvasOwnedRestingText ? "true" : undefined
+      }
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -101,6 +119,7 @@ function FixedTitle({
   );
 }
 type EditableTitleProps = {
+  canvasOwnedRestingText?: boolean;
   sectionId: string;
   sectionName: string;
   titleProps: SectionTitleClassNames;
@@ -108,6 +127,7 @@ type EditableTitleProps = {
   onMouseLeave?: () => void;
 };
 function EditableTitle({
+  canvasOwnedRestingText = false,
   sectionId,
   sectionName,
   titleProps,
@@ -156,9 +176,12 @@ function EditableTitle({
     editing: titleProps.editing
       ? `${titleProps.editing} ${localErrorClassName}`
       : titleProps.editing,
-    notEditing: titleProps.notEditing
-      ? `${titleProps.notEditing} ${localErrorClassName}`
-      : titleProps.notEditing,
+    notEditing: getCanvasOwnedNotEditingTitleClassName({
+      canvasOwnedRestingText,
+      className: titleProps.notEditing
+        ? `${titleProps.notEditing} ${localErrorClassName}`
+        : titleProps.notEditing,
+    }),
   };
   return (
     <div className="relative flex min-w-0 flex-1 flex-col">
@@ -172,6 +195,14 @@ function EditableTitle({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
+        nonEditingAttributes={
+          canvasOwnedRestingText
+            ? {
+                "data-canvas-owned-header-title": "true",
+                "data-canvas-owned-resting-text": "true",
+              }
+            : undefined
+        }
       />
       {validationError && (
         <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200">
@@ -217,6 +248,35 @@ async function renameSection(sectionId: string, normalizedName: string) {
   });
   return await result;
 }
+
+function getCanvasOwnedFixedTitleClassName({
+  canvasOwnedRestingText,
+  className,
+}: {
+  canvasOwnedRestingText: boolean;
+  className: string | undefined;
+}) {
+  if (!canvasOwnedRestingText) {
+    return className;
+  }
+  return className ? `${className} opacity-0` : "opacity-0";
+}
+
+function getCanvasOwnedNotEditingTitleClassName({
+  canvasOwnedRestingText,
+  className,
+}: {
+  canvasOwnedRestingText: boolean;
+  className: string | undefined;
+}) {
+  if (!canvasOwnedRestingText) {
+    return className;
+  }
+  return className
+    ? `${className} opacity-0 focus-visible:opacity-100`
+    : "opacity-0 focus-visible:opacity-100";
+}
+
 function useTitleIsEditable(sectionId: string) {
   const { canEditStructure } = useShareCapabilities();
   return useProjectState((x) => {
