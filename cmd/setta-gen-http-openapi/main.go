@@ -13,19 +13,28 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 )
+
+type openAPICapabilityProvider struct {
+	capabilities plugins.PluginAppSubsystemCapabilities
+}
+
+func (p openAPICapabilityProvider) AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities {
+	return p.capabilities
+}
 
 func buildOpenAPIDocumentAppSubsystemRegistrations(
 	deps httpapi.FrontendAPIRouteDependencies,
-	providers []appsubsystemproviders.DiscoveredProvider,
+	providers []plugins.PluginAppSubsystemFeatureManifest,
 ) (httpapi.FrontendAPIRouteRegistrations, error) {
-	mergedProvider, ok := mergedOpenAPIProvider(providers)
+	mergedCapabilities, ok := appsubsystemproviders.MergeOpenAPICapabilities(providers)
 	if !ok {
 		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
 	return appsubsystem.BuildFrontendAPIRouteRegistrations(
 		appsubsystem.FrontendRouteRegistrationOptions{
-			Capabilities:       mergedProvider,
+			Capabilities:       openAPICapabilityProvider{capabilities: mergedCapabilities},
 			ModePolicy:         deps.Project.ModePolicy,
 			ProjectState:       deps.Project.ProjectState,
 			AppGenSkill:        deps.AppGenSkill,
@@ -35,34 +44,6 @@ func buildOpenAPIDocumentAppSubsystemRegistrations(
 			},
 		},
 	)
-}
-
-func mergedOpenAPIProvider(
-	providers []appsubsystemproviders.DiscoveredProvider,
-) (appsubsystemproviders.DiscoveredProvider, bool) {
-	merged := appsubsystemproviders.DiscoveredProvider{}
-	for _, provider := range providers {
-		if merged.PluginID == "" {
-			merged.PluginID = strings.TrimSpace(provider.PluginID)
-		}
-		merged.Capabilities.AppAuthoringUI =
-			merged.Capabilities.AppAuthoringUI || provider.Capabilities.AppAuthoringUI
-		merged.Capabilities.AppPreviewUI =
-			merged.Capabilities.AppPreviewUI || provider.Capabilities.AppPreviewUI
-		merged.Capabilities.AppGenerationChatModes =
-			merged.Capabilities.AppGenerationChatModes || provider.Capabilities.AppGenerationChatModes
-		merged.Capabilities.AppDeploymentRuntime =
-			merged.Capabilities.AppDeploymentRuntime || provider.Capabilities.AppDeploymentRuntime
-	}
-	if merged.PluginID == "" {
-		return appsubsystemproviders.DiscoveredProvider{}, false
-	}
-	if !merged.Capabilities.AppAuthoringUI &&
-		!merged.Capabilities.AppGenerationChatModes &&
-		!merged.Capabilities.AppDeploymentRuntime {
-		return appsubsystemproviders.DiscoveredProvider{}, false
-	}
-	return merged, true
 }
 
 func main() {
@@ -80,7 +61,7 @@ func main() {
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
 			registrations, err := buildOpenAPIDocumentAppSubsystemRegistrations(
 				deps,
-				appsubsystemproviders.DiscoveredProviders(),
+				appsubsystemproviders.DiscoveredProviderCapabilities(),
 			)
 			registrationErr = err
 			return registrations
