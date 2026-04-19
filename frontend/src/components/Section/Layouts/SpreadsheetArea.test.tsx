@@ -31,10 +31,26 @@ const mockSectionImpl = vi.hoisted(() => ({
   showRowNumbers: true,
 }));
 
+const mockReactFlowState = vi.hoisted(() => ({
+  transform: [0, 0, 1] as [number, number, number],
+  viewportInteractionActive: false,
+}));
+
+const mockReactFlowSubscribe = vi.hoisted(() => vi.fn(() => vi.fn()));
+
 vi.mock("forks/xyflow/core/store", () => ({
-  useReactFlow: (
-    selector: (state: { transform: [number, number, number] }) => unknown,
-  ) => selector({ transform: [0, 0, 1] }),
+  useReactFlow: Object.assign(
+    (
+      selector: (state: {
+        transform: [number, number, number];
+        viewportInteractionActive: boolean;
+      }) => unknown,
+    ) => selector(mockReactFlowState),
+    {
+      getState: () => mockReactFlowState,
+      subscribe: mockReactFlowSubscribe,
+    },
+  ),
 }));
 
 vi.mock("openapi/http", () => ({
@@ -80,10 +96,12 @@ vi.mock(
   () => ({
     FileBrowserSpreadsheetEditor: ({
       selectedFile,
+      flowZoom = 1,
     }: {
       selectedFile: { fullPath: string } | null;
+      flowZoom?: number;
     }) => (
-      <div data-testid="spreadsheet-editor">
+      <div data-testid="spreadsheet-editor" data-flow-zoom={flowZoom}>
         {selectedFile?.fullPath ?? "no-file"}
       </div>
     ),
@@ -105,6 +123,10 @@ describe("SpreadsheetArea", () => {
     mocks.importNativeFileToWorkspace.mockReset();
     mocks.setCurrEffectiveSectionImplValue.mockReset();
     mocks.setSpreadsheetFilePath.mockClear();
+    mockReactFlowSubscribe.mockReset();
+    mockReactFlowSubscribe.mockImplementation(() => vi.fn());
+    mockReactFlowState.transform = [0, 0, 1];
+    mockReactFlowState.viewportInteractionActive = false;
     mockSectionImpl.filePath = "";
     mockSectionImpl.activeSheet = "Sheet1";
     mockSectionImpl.readOnly = false;
@@ -127,10 +149,22 @@ describe("SpreadsheetArea", () => {
     });
   }
 
+  function getSpreadsheetEditor(): HTMLDivElement {
+    const editor = host.querySelector(
+      '[data-testid="spreadsheet-editor"]',
+    ) as HTMLDivElement | null;
+    if (!editor) {
+      throw new Error("Expected the spreadsheet editor to render.");
+    }
+    return editor;
+  }
+
   function getDropZone(): HTMLDivElement {
     const zone = host.querySelector(".section-main") as HTMLDivElement | null;
-    expect(zone).not.toBeNull();
-    return zone!;
+    if (!zone) {
+      throw new Error("Expected the spreadsheet drop zone to render.");
+    }
+    return zone;
   }
 
   function createDropEvent(type: string, file: File | null): Event {
@@ -260,5 +294,22 @@ describe("SpreadsheetArea", () => {
     expect(mocks.dispatchOptimisticProjectStateUpdate).not.toHaveBeenCalled();
     expect(mocks.importNativeFileToWorkspace).not.toHaveBeenCalled();
     expect(mocks.addTemporaryNotification).not.toHaveBeenCalled();
+  });
+
+  it("freezes spreadsheet zoom updates while viewport interaction is active", async () => {
+    await renderArea();
+    expect(getSpreadsheetEditor().dataset.flowZoom).toBe("1");
+
+    mockReactFlowState.viewportInteractionActive = true;
+    await renderArea();
+    expect(getSpreadsheetEditor().dataset.flowZoom).toBe("1");
+
+    mockReactFlowState.transform = [0, 0, 2];
+    await renderArea();
+    expect(getSpreadsheetEditor().dataset.flowZoom).toBe("1");
+
+    mockReactFlowState.viewportInteractionActive = false;
+    await renderArea();
+    expect(getSpreadsheetEditor().dataset.flowZoom).toBe("2");
   });
 });

@@ -45,7 +45,6 @@ type Service struct {
 	restartCommand    string
 	restartCallback   RestartCallback
 	settaVersion      string
-	settaFilesRoot    string
 
 	mu                          sync.Mutex
 	installTargetReservations   map[string]struct{}
@@ -53,31 +52,29 @@ type Service struct {
 }
 
 type preparedInstall struct {
-	scope                           PluginScope
-	sourceSpec                      string
-	installer                       PluginInstallerBackend
-	candidate                       CandidatePlugin
-	targetPath                      string
-	enable                          bool
-	force                           bool
-	hasExistingEntry                bool
-	existingEntryBackend            bool
-	existingEntryLanguageServerOnly bool
-	skipLookupRescan                bool
-	skipFinalRescan                 bool
+	scope                PluginScope
+	sourceSpec           string
+	installer            PluginInstallerBackend
+	candidate            CandidatePlugin
+	targetPath           string
+	enable               bool
+	force                bool
+	hasExistingEntry     bool
+	existingEntryBackend bool
+	skipLookupRescan     bool
+	skipFinalRescan      bool
 }
 
 type preparedRollback struct {
-	pluginID                       string
-	scope                          PluginScope
-	targetPath                     string
-	snapshotPath                   string
-	snapshotManifest               PluginManifest
-	snapshotDigest                 string
-	metadata                       PluginInstallMetadataFile
-	metadataEntry                  PluginInstallMetadataEntry
-	currentEntryHadBackend         bool
-	currentEntryLanguageServerOnly bool
+	pluginID               string
+	scope                  PluginScope
+	targetPath             string
+	snapshotPath           string
+	snapshotManifest       PluginManifest
+	snapshotDigest         string
+	metadata               PluginInstallMetadataFile
+	metadataEntry          PluginInstallMetadataEntry
+	currentEntryHadBackend bool
 }
 
 type preparedUninstall struct {
@@ -122,7 +119,6 @@ func NewService(options ServiceOptions) (*Service, error) {
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
 		restartCallback:             options.RestartCallback,
 		settaVersion:                resolvedSettaVersion(options.SettaVersion),
-		settaFilesRoot:              strings.TrimSpace(options.SettaFilesRoot),
 		installTargetReservations:   map[string]struct{}{},
 		pendingRestartRemovedPlugin: map[string]PendingRestartRemovedBackendPlugin{},
 	}, nil
@@ -170,7 +166,6 @@ func (s *Service) PreviewBackendRuntimeRefresh() (DiscoverySnapshot, error) {
 	}
 
 	state.PendingRestartBackendPluginIDs = nil
-	state.PendingRestartLanguageServerOnlyPluginIDs = nil
 	return s.discoveryService.rescanWithStates(state, globalState)
 }
 
@@ -187,10 +182,9 @@ func (s *Service) CommitBackendRuntimeRefresh() (DiscoverySnapshot, error) {
 		return DiscoverySnapshot{}, err
 	}
 
-	stateChanged := len(state.PendingRestartBackendPluginIDs) != 0 || len(state.PendingRestartLanguageServerOnlyPluginIDs) != 0
+	stateChanged := len(state.PendingRestartBackendPluginIDs) != 0
 	if stateChanged {
 		state.PendingRestartBackendPluginIDs = nil
-		state.PendingRestartLanguageServerOnlyPluginIDs = nil
 		if err := s.store.SavePluginsState(state); err != nil {
 			return DiscoverySnapshot{}, err
 		}
@@ -200,47 +194,6 @@ func (s *Service) CommitBackendRuntimeRefresh() (DiscoverySnapshot, error) {
 	}
 
 	return s.rescanLocked()
-}
-
-func (s *Service) CommitAppliedLanguageServerPlugins(pluginIDs []string) error {
-	if s == nil {
-		return ErrWorkspaceRootRequired
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	state, err := s.store.LoadPluginsState()
-	if err != nil {
-		return err
-	}
-	if len(state.PendingRestartLanguageServerOnlyPluginIDs) == 0 {
-		return nil
-	}
-
-	removablePendingIDs := selectedPendingRestartLanguageServerOnlyPluginIDs(
-		state.PendingRestartLanguageServerOnlyPluginIDs,
-		pluginIDs,
-	)
-	if len(removablePendingIDs) == 0 {
-		return nil
-	}
-
-	state.PendingRestartBackendPluginIDs = removeStrings(
-		state.PendingRestartBackendPluginIDs,
-		removablePendingIDs,
-	)
-	state.PendingRestartLanguageServerOnlyPluginIDs = removeStrings(
-		state.PendingRestartLanguageServerOnlyPluginIDs,
-		removablePendingIDs,
-	)
-	if err := s.store.SavePluginsState(state); err != nil {
-		return err
-	}
-	for pluginID := range removablePendingIDs {
-		delete(s.pendingRestartRemovedPlugin, pluginID)
-	}
-	return nil
 }
 
 func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResponse, error) {
@@ -373,9 +326,14 @@ func (s *Service) applyPendingRestartAfterEnablementMutation(
 	if state == nil || !entry.HasBackend() || wasEnabled == enable {
 		return false
 	}
-	stateChanged := syncPendingRestartBackendState(state, pluginID, entryHasLanguageServerOnlyBackendRuntime(entry))
+	if containsString(state.PendingRestartBackendPluginIDs, pluginID) {
+		delete(s.pendingRestartRemovedPlugin, pluginID)
+		return false
+	}
+
+	state.PendingRestartBackendPluginIDs = appendIfMissing(state.PendingRestartBackendPluginIDs, pluginID)
 	delete(s.pendingRestartRemovedPlugin, pluginID)
-	return stateChanged
+	return true
 }
 
 func (s *Service) buildEnableDisableResponseLocked(pluginID string, restartRequired bool) (PluginEnableDisableResponse, error) {
@@ -383,8 +341,8 @@ func (s *Service) buildEnableDisableResponseLocked(pluginID string, restartRequi
 	if err != nil {
 		return PluginEnableDisableResponse{}, err
 	}
-	latestEntry, ok := PrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if !ok {
+	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if latestEntry.PluginID == "" {
 		return PluginEnableDisableResponse{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return PluginEnableDisableResponse{
@@ -450,7 +408,7 @@ func (s *Service) uninstallPreparedLocked(uninstall preparedUninstall) (PluginUn
 
 func (s *Service) syncPendingRestartAfterUninstallLocked(entry DiscoveredPlugin, restartRequired bool) error {
 	if restartRequired {
-		if err := s.addPendingRestartBackendIDLocked(entry.PluginID, entryHasLanguageServerOnlyBackendRuntime(entry)); err != nil {
+		if err := s.addPendingRestartBackendIDLocked(entry.PluginID); err != nil {
 			return err
 		}
 		s.pendingRestartRemovedPlugin[entry.PluginID] = PendingRestartRemovedBackendPlugin{
@@ -594,7 +552,6 @@ func (s *Service) prepareInstall(ctx context.Context, options InstallOptions) (p
 	}
 	if options.existingEntry != nil {
 		request.existingEntryBackend = options.existingEntry.HasBackend()
-		request.existingEntryLanguageServerOnly = entryHasLanguageServerOnlyBackendRuntime(*options.existingEntry)
 	}
 	return request, nil
 }
@@ -605,7 +562,7 @@ func (s *Service) installPreparedLocked(request preparedInstall) (PluginInstallR
 	}
 	defer s.releaseInstallTargetPathReservationLocked(request.targetPath)
 
-	hadBackendBefore, hadLanguageServerOnlyBefore, err := s.installHadBackendBeforeLocked(request)
+	hadBackendBefore, err := s.installHadBackendBeforeLocked(request)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
@@ -621,42 +578,34 @@ func (s *Service) installPreparedLocked(request preparedInstall) (PluginInstallR
 		return PluginInstallResponse{}, err
 	}
 
-	restartRequired, err := s.syncInstallRestartStateLocked(request, hadBackendBefore, hadLanguageServerOnlyBefore)
+	restartRequired, err := s.syncInstallRestartStateLocked(request, hadBackendBefore)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
 	return s.buildInstallResponseLocked(request, restartRequired)
 }
 
-func (s *Service) installHadBackendBeforeLocked(request preparedInstall) (bool, bool, error) {
+func (s *Service) installHadBackendBeforeLocked(request preparedInstall) (bool, error) {
 	if request.hasExistingEntry {
-		return request.existingEntryBackend, request.existingEntryLanguageServerOnly, nil
+		return request.existingEntryBackend, nil
 	}
 	if request.skipLookupRescan {
-		return false, false, nil
+		return false, nil
 	}
 
 	currentSnapshot, err := s.rescanLocked()
 	if err != nil {
-		return false, false, err
+		return false, err
 	}
 	existingEntry := findDiscoveredPlugin(currentSnapshot.Plugins, request.candidate.Manifest.ID, request.scope)
-	return existingEntry.PluginID != "" && existingEntry.HasBackend(), entryHasLanguageServerOnlyBackendRuntime(existingEntry), nil
+	return existingEntry.PluginID != "" && existingEntry.HasBackend(), nil
 }
 
-func (s *Service) syncInstallRestartStateLocked(
-	request preparedInstall,
-	hadBackendBefore bool,
-	hadLanguageServerOnlyBefore bool,
-) (bool, error) {
+func (s *Service) syncInstallRestartStateLocked(request preparedInstall, hadBackendBefore bool) (bool, error) {
 	restartRequired := request.candidate.Manifest.Backend != nil || hadBackendBefore
 	delete(s.pendingRestartRemovedPlugin, request.candidate.Manifest.ID)
 	if restartRequired {
-		languageServerOnly := s.pendingRestartLanguageServerOnlyForManifest(
-			&request.candidate.Manifest,
-			hadLanguageServerOnlyBefore,
-		)
-		if err := s.addPendingRestartBackendIDLocked(request.candidate.Manifest.ID, languageServerOnly); err != nil {
+		if err := s.addPendingRestartBackendIDLocked(request.candidate.Manifest.ID); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -753,16 +702,15 @@ func (s *Service) prepareRollbackLocked(options RollbackOptions) (preparedRollba
 		return preparedRollback{}, err
 	}
 	return preparedRollback{
-		pluginID:                       options.PluginID,
-		scope:                          scope,
-		targetPath:                     targetPath,
-		snapshotPath:                   snapshotPath,
-		snapshotManifest:               snapshotManifest,
-		snapshotDigest:                 snapshotDigest,
-		metadata:                       metadata,
-		metadataEntry:                  metadataEntry,
-		currentEntryHadBackend:         entry.HasBackend(),
-		currentEntryLanguageServerOnly: entryHasLanguageServerOnlyBackendRuntime(entry),
+		pluginID:               options.PluginID,
+		scope:                  scope,
+		targetPath:             targetPath,
+		snapshotPath:           snapshotPath,
+		snapshotManifest:       snapshotManifest,
+		snapshotDigest:         snapshotDigest,
+		metadata:               metadata,
+		metadataEntry:          metadataEntry,
+		currentEntryHadBackend: entry.HasBackend(),
 	}, nil
 }
 
@@ -836,11 +784,7 @@ func (s *Service) rollbackPreparedLocked(rollback preparedRollback) (bool, error
 
 	restartRequired := rollback.snapshotManifest.Backend != nil || rollback.currentEntryHadBackend
 	if restartRequired {
-		languageServerOnly := s.pendingRestartLanguageServerOnlyForManifest(
-			&rollback.snapshotManifest,
-			rollback.currentEntryLanguageServerOnly,
-		)
-		if err := s.addPendingRestartBackendIDLocked(rollback.pluginID, languageServerOnly); err != nil {
+		if err := s.addPendingRestartBackendIDLocked(rollback.pluginID); err != nil {
 			return false, err
 		}
 		delete(s.pendingRestartRemovedPlugin, rollback.pluginID)
@@ -948,7 +892,7 @@ func (s *Service) rescanLocked() (DiscoverySnapshot, error) {
 			RestartRequired:       true,
 		})
 	}
-	slices.SortFunc(snapshot.Plugins, compareResolvedDiscoveredPlugins)
+	slices.SortFunc(snapshot.Plugins, compareDiscoveredPlugins)
 	snapshot.InstalledPlugins = 0
 	snapshot.ActivePlugins = 0
 	for _, entry := range snapshot.Plugins {
@@ -1009,8 +953,8 @@ func (s *Service) resolveHighestPrecedenceEntryLocked(pluginID string) (Discover
 	if err != nil {
 		return DiscoveredPlugin{}, err
 	}
-	entry, ok := PrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if !ok {
+	entry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if entry.PluginID == "" {
 		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return entry, nil
@@ -1037,28 +981,13 @@ func findDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string, scope Plu
 	return DiscoveredPlugin{}
 }
 
-// PrimaryDiscoveredPlugin returns the primary visible entry for a plugin ID,
-// preferring usable unshadowed entries over invalid or shadowed duplicates.
-func PrimaryDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) (DiscoveredPlugin, bool) {
-	best := DiscoveredPlugin{}
-	found := false
+func findHighestPrecedenceDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) DiscoveredPlugin {
 	for _, entry := range entries {
-		if entry.PluginID != pluginID {
-			continue
-		}
-		if !found || discoveredPluginIsPreferredPrimary(best, entry) {
-			best = entry
-			found = true
+		if entry.PluginID == pluginID {
+			return entry
 		}
 	}
-	if !found {
-		return DiscoveredPlugin{}, false
-	}
-	return best, true
-}
-
-func discoveredPluginIsPreferredPrimary(current DiscoveredPlugin, candidate DiscoveredPlugin) bool {
-	return compareResolvedDiscoveredPlugins(candidate, current) < 0
+	return DiscoveredPlugin{}
 }
 
 func resolveEnablementBeforeMutation(entry DiscoveredPlugin, state PluginsStateFile, globalState PluginsGlobalStateFile) bool {
@@ -1260,12 +1189,12 @@ func (s *Service) removePluginFromEnablementLocked(pluginID string, scope Plugin
 	return s.store.SavePluginsGlobalState(globalState)
 }
 
-func (s *Service) addPendingRestartBackendIDLocked(pluginID string, languageServerOnly bool) error {
+func (s *Service) addPendingRestartBackendIDLocked(pluginID string) error {
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
 		return err
 	}
-	syncPendingRestartBackendState(&state, pluginID, languageServerOnly)
+	state.PendingRestartBackendPluginIDs = appendIfMissing(state.PendingRestartBackendPluginIDs, pluginID)
 	return s.store.SavePluginsState(state)
 }
 
@@ -1274,7 +1203,7 @@ func (s *Service) discardPendingRestartBackendIDLocked(pluginID string) error {
 	if err != nil {
 		return err
 	}
-	clearPendingRestartBackendState(&state, pluginID)
+	state.PendingRestartBackendPluginIDs = removeString(state.PendingRestartBackendPluginIDs, pluginID)
 	return s.store.SavePluginsState(state)
 }
 
@@ -1282,129 +1211,10 @@ func pluginConfigKey(pluginID string, scope PluginScope) string {
 	return fmt.Sprintf("%s:%s", scope, pluginID)
 }
 
-func entryHasLanguageServerOnlyBackendRuntime(entry DiscoveredPlugin) bool {
-	if !entry.HasBackend() {
-		return false
-	}
-	return capabilitiesHaveLanguageServerOnlyBackendRuntime(entry.EffectiveCapabilities)
-}
-
-func manifestHasLanguageServerOnlyBackendRuntime(manifest *PluginManifest, serverMode config.Mode) bool {
-	if manifest == nil || manifest.Backend == nil {
-		return false
-	}
-	_, effectiveCapabilities, _, err := resolveFilesystemPluginCapabilities(manifest.Capabilities, serverMode)
-	if err != nil {
-		return false
-	}
-	return capabilitiesHaveLanguageServerOnlyBackendRuntime(effectiveCapabilities)
-}
-
-func capabilitiesHaveLanguageServerOnlyBackendRuntime(capabilities []string) bool {
-	hasLanguageServer := false
-	for _, capability := range capabilities {
-		switch capability {
-		case "registerLanguageServer":
-			hasLanguageServer = true
-		case "registerCodegenTarget", "registerListenerEndpoint", "registerMcpTools", "registerRouter", "registerStaticDir":
-			return false
-		}
-	}
-	return hasLanguageServer
-}
-
-func (s *Service) pendingRestartLanguageServerOnlyForManifest(manifest *PluginManifest, fallback bool) bool {
-	if manifest == nil || manifest.Backend == nil {
-		return fallback
-	}
-	return manifestHasLanguageServerOnlyBackendRuntime(manifest, s.discoveryService.serverMode)
-}
-
-func syncPendingRestartBackendState(state *PluginsStateFile, pluginID string, languageServerOnly bool) bool {
-	if state == nil {
-		return false
-	}
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return false
-	}
-	stateChanged := false
-	if !containsString(state.PendingRestartBackendPluginIDs, trimmedPluginID) {
-		state.PendingRestartBackendPluginIDs = appendIfMissing(state.PendingRestartBackendPluginIDs, trimmedPluginID)
-		stateChanged = true
-	}
-	hasLanguageServerOnly := containsString(state.PendingRestartLanguageServerOnlyPluginIDs, trimmedPluginID)
-	switch {
-	case languageServerOnly && !hasLanguageServerOnly:
-		state.PendingRestartLanguageServerOnlyPluginIDs = appendIfMissing(state.PendingRestartLanguageServerOnlyPluginIDs, trimmedPluginID)
-		stateChanged = true
-	case !languageServerOnly && hasLanguageServerOnly:
-		state.PendingRestartLanguageServerOnlyPluginIDs = removeString(state.PendingRestartLanguageServerOnlyPluginIDs, trimmedPluginID)
-		stateChanged = true
-	}
-	return stateChanged
-}
-
-func clearPendingRestartBackendState(state *PluginsStateFile, pluginID string) bool {
-	if state == nil {
-		return false
-	}
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return false
-	}
-	stateChanged := false
-	if containsString(state.PendingRestartBackendPluginIDs, trimmedPluginID) {
-		state.PendingRestartBackendPluginIDs = removeString(state.PendingRestartBackendPluginIDs, trimmedPluginID)
-		stateChanged = true
-	}
-	if containsString(state.PendingRestartLanguageServerOnlyPluginIDs, trimmedPluginID) {
-		state.PendingRestartLanguageServerOnlyPluginIDs = removeString(state.PendingRestartLanguageServerOnlyPluginIDs, trimmedPluginID)
-		stateChanged = true
-	}
-	return stateChanged
-}
-
-func selectedPendingRestartLanguageServerOnlyPluginIDs(
-	pendingLanguageServerOnlyPluginIDs []string,
-	pluginIDs []string,
-) map[string]struct{} {
-	selected := stringSet(pluginIDs)
-	if len(selected) == 0 {
-		return nil
-	}
-
-	removable := map[string]struct{}{}
-	for _, pluginID := range pendingLanguageServerOnlyPluginIDs {
-		if _, ok := selected[pluginID]; !ok {
-			continue
-		}
-		removable[pluginID] = struct{}{}
-	}
-	if len(removable) == 0 {
-		return nil
-	}
-	return removable
-}
-
 func removeString(values []string, target string) []string {
 	filtered := make([]string, 0, len(values))
 	for _, value := range values {
 		if value == target {
-			continue
-		}
-		filtered = append(filtered, value)
-	}
-	return filtered
-}
-
-func removeStrings(values []string, removals map[string]struct{}) []string {
-	if len(values) == 0 || len(removals) == 0 {
-		return values
-	}
-	filtered := make([]string, 0, len(values))
-	for _, value := range values {
-		if _, ok := removals[value]; ok {
 			continue
 		}
 		filtered = append(filtered, value)
@@ -1419,24 +1229,6 @@ func appendIfMissing(values []string, target string) []string {
 		}
 	}
 	return append(values, target)
-}
-
-func stringSet(values []string) map[string]struct{} {
-	if len(values) == 0 {
-		return nil
-	}
-	set := map[string]struct{}{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			continue
-		}
-		set[trimmed] = struct{}{}
-	}
-	if len(set) == 0 {
-		return nil
-	}
-	return set
 }
 
 func manifestComponents(manifest PluginManifest) []string {
