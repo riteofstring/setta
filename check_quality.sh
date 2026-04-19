@@ -3,43 +3,35 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./check_quality.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
+Usage: ./check_quality.sh [--staged | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
 
 Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
 
 Modes:
-  --git-changes      Check tracked files changed from HEAD plus untracked files (default).
-  --staged           Check staged files only.
+  --staged           Check staged files only (default).
   --all              Check all tracked files covered by this tool.
   --files <path>...  Check only the provided files.
 
 Thresholds:
-  --python-max N     Fail Python cyclomatic complexity at >= N (default: 10).
-  --frontend-max N   Fail frontend JS/TS cyclomatic complexity at >= N (default: 10).
-  --go-max N         Fail Go cyclomatic complexity at >= N (default: 12).
+  --python-max N     Maximum allowed Python cyclomatic complexity (default: 9).
+  --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 9).
+  --go-max N         Maximum allowed Go cyclomatic complexity (default: 9).
   -h, --help         Show this help text.
 EOF
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
-mode="git-changes"
-# shellcheck source=scripts/lib/quality_paths.sh
-. "${repo_root}/scripts/lib/quality_paths.sh"
-
-python_max="$(quality_default_python_complexity_threshold)"
-frontend_max="$(quality_default_frontend_complexity_threshold)"
-go_max="$(quality_default_go_complexity_threshold)"
+mode="staged"
+python_max="9"
+frontend_max="9"
+go_max="9"
 declare -a explicit_files=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --staged)
       mode="staged"
-      shift
-      ;;
-    --git-changes)
-      mode="git-changes"
       shift
       ;;
     --all)
@@ -55,7 +47,7 @@ while [[ $# -gt 0 ]]; do
       fi
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --staged|--git-changes|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
+          --staged|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
             break
             ;;
           *)
@@ -108,16 +100,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+validate_integer() {
+  local value="$1"
+  local label="$2"
+  if ! [[ "${value}" =~ ^[0-9]+$ ]]; then
+    echo "${label} must be a non-negative integer: ${value}" >&2
+    exit 1
+  fi
+}
+
 collect_files() {
   case "${mode}" in
     staged)
       git diff --cached --name-only --diff-filter=ACMR
-      ;;
-    git-changes)
-      {
-        git diff --name-only --diff-filter=ACMR HEAD --
-        git ls-files --others --exclude-standard
-      }
       ;;
     all)
       git ls-files
@@ -128,14 +123,69 @@ collect_files() {
   esac
 }
 
-quality_validate_positive_integer "${python_max}" "--python-max"
-quality_validate_positive_integer "${frontend_max}" "--frontend-max"
-quality_validate_positive_integer "${go_max}" "--go-max"
+is_python_candidate() {
+  local path="$1"
+  case "${path}" in
+    tests/*|*/tests/*|backend/setta/types/generated/*|backend/setta/sdk_contracts/generated.py|backend/setta/api/listener_endpoint_client.py)
+      return 1
+      ;;
+    *.py)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+is_frontend_candidate() {
+  local path="$1"
+  case "${path}" in
+    frontend/src/*)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "${path}" in
+    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*)
+      return 1
+      ;;
+    *.js|*.jsx|*.ts|*.tsx)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+is_go_candidate() {
+  local path="$1"
+  case "${path}" in
+    cmd/*|internal/*)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "${path}" in
+    *_test.go|*_gen.go)
+      return 1
+      ;;
+    *.go)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+validate_integer "${python_max}" "--python-max"
+validate_integer "${frontend_max}" "--frontend-max"
+validate_integer "${go_max}" "--go-max"
 
 cd "${repo_root}"
 
 declare -a python_files=()
-declare -a frontend_eslint_files=()
+declare -a frontend_relative_files=()
 declare -a go_files=()
 declare -a go_packages=()
 
@@ -143,13 +193,13 @@ while IFS= read -r file_path; do
   [[ -z "${file_path}" ]] && continue
   [[ -f "${file_path}" ]] || continue
 
-  if quality_is_python_candidate "${file_path}"; then
+  if is_python_candidate "${file_path}"; then
     python_files+=("${file_path}")
   fi
-  if quality_is_frontend_candidate "${file_path}"; then
-    frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
+  if is_frontend_candidate "${file_path}"; then
+    frontend_relative_files+=("${file_path#frontend/}")
   fi
-  if quality_is_go_candidate "${file_path}"; then
+  if is_go_candidate "${file_path}"; then
     go_files+=("${file_path}")
     go_packages+=("./$(dirname "${file_path}")")
   fi
@@ -160,7 +210,7 @@ if [[ ${#go_packages[@]} -gt 0 ]]; then
   unset IFS
 fi
 
-if [[ ${#python_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
+if [[ ${#python_files[@]} -eq 0 && ${#frontend_relative_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
@@ -173,23 +223,23 @@ if [[ ${#python_files[@]} -gt 0 ]]; then
     set -euo pipefail
     . ./activate.sh
     ruff check "${python_files[@]}"
-    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_files[@]}"
+    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = ${python_max}" "${python_files[@]}"
   ) || status=1
 fi
 
-if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
-  echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
+if [[ ${#frontend_relative_files[@]} -gt 0 ]]; then
+  echo "Frontend quality checks (${#frontend_relative_files[@]} files)..."
   pnpm -C frontend exec eslint \
-    --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
+    --rule "complexity:[\"error\",${frontend_max}]" \
     --rule 'max-depth:["error",4]' \
     --rule 'max-params:["error",5]' \
-    -- "${frontend_eslint_files[@]}" || status=1
+    -- "${frontend_relative_files[@]}" || status=1
 fi
 
 if [[ ${#go_files[@]} -gt 0 ]]; then
   echo "Go quality checks (${#go_files[@]} files)..."
   ./scripts/go.sh vet "${go_packages[@]}" || status=1
-  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "$(quality_effective_exceeds_threshold "${go_max}")" "${go_files[@]}" || status=1
+  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "${go_max}" "${go_files[@]}" || status=1
 fi
 
 exit "${status}"
