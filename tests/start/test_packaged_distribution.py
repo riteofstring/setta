@@ -179,6 +179,10 @@ def _install_editable(project_root: Path, venv_python: Path) -> subprocess.Compl
     )
 
 
+def _pnpm_command() -> str:
+    return "pnpm.cmd" if os.name == "nt" else "pnpm"
+
+
 def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     source_root = _repo_root() / "plugins" / "setta-basedpyright"
     plugin_root = tmp_path / "setta-basedpyright"
@@ -293,6 +297,46 @@ def test_first_party_app_subsystem_plugin_package_has_no_python_runtime_dependen
     )
 
     assert plugin_pyproject["project"]["dependencies"] == []
+
+
+def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree(
+    tmp_path: Path,
+) -> None:
+    source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
+    plugin_root = tmp_path / "setta-json-render-app-gen"
+    frontend_root = plugin_root / "frontend"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(plugin_root / "build", ignore_errors=True)
+    shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
+
+    install_result = subprocess.run(
+        [_pnpm_command(), "--dir", str(frontend_root), "install", "--lockfile=false"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    install_output = f"{install_result.stdout}\n{install_result.stderr}".strip()
+    assert install_result.returncode == 0, install_output
+
+    build_result = subprocess.run(
+        [_pnpm_command(), "--dir", str(frontend_root), "run", "build"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    build_output = f"{build_result.stdout}\n{build_result.stderr}".strip()
+    assert build_result.returncode == 0, build_output
+
+    built_js = frontend_root / "dist" / "index.js"
+    built_css = frontend_root / "dist" / "index.css"
+    assert built_js.is_file()
+    assert built_css.is_file()
+
+    bundle_text = built_js.read_text(encoding="utf-8")
+    assert "frontend/node_modules" not in bundle_text
+    assert "plugin-sdk/app-subsystem/src" not in bundle_text
+    assert str(_repo_root()) not in bundle_text
 
 
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
