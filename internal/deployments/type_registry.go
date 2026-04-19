@@ -72,9 +72,11 @@ func NewTypeRegistry(registrations []TypeRegistration) (*TypeRegistry, error) {
 func normalizeTypeRegistration(
 	registration TypeRegistration,
 ) (TypeRegistration, error) {
-	if err := validateDeploymentType(registration.Type); err != nil {
+	deploymentType, err := normalizeDeploymentType(registration.Type)
+	if err != nil {
 		return TypeRegistration{}, fmt.Errorf("%w: %v", ErrTypeRegistrationInvalid, err)
 	}
+	registration.Type = deploymentType
 
 	modeName := strings.TrimSpace(registration.Startup.ModeName)
 	if modeName == "" {
