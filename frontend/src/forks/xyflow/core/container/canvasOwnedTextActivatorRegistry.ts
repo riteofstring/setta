@@ -135,6 +135,14 @@ export function resolveCanvasOwnedTextActivatorAtGraphPoint({
   x,
   y,
 }: CanvasOwnedTextActivatorGraphPoint & CanvasOwnedTextActivatorHitSlopOptions) {
+  let bestMatch:
+    | {
+        activator: CanvasOwnedTextActivator;
+        area: number;
+        centerDistance: number;
+      }
+    | undefined;
+
   for (const activator of getCanvasOwnedTextActivatorSource()) {
     if (sectionId !== undefined && activator.sectionId !== sectionId) {
       continue;
@@ -150,9 +158,33 @@ export function resolveCanvasOwnedTextActivatorAtGraphPoint({
       y >= bounds.minY &&
       y <= bounds.maxY
     ) {
-      return copyCanvasOwnedTextActivator(activator);
+      const centerDistance = Math.hypot(
+        x - (activator.x + activator.width * 0.5),
+        y - (activator.y + activator.height * 0.5),
+      );
+      const area = activator.width * activator.height;
+
+      if (
+        bestMatch === undefined ||
+        centerDistance < bestMatch.centerDistance ||
+        (centerDistance === bestMatch.centerDistance &&
+          activator.zIndex > bestMatch.activator.zIndex) ||
+        (centerDistance === bestMatch.centerDistance &&
+          activator.zIndex === bestMatch.activator.zIndex &&
+          area < bestMatch.area) ||
+        (centerDistance === bestMatch.centerDistance &&
+          activator.zIndex === bestMatch.activator.zIndex &&
+          area === bestMatch.area &&
+          activator.targetId.localeCompare(bestMatch.activator.targetId) < 0)
+      ) {
+        bestMatch = {
+          activator,
+          area,
+          centerDistance,
+        };
+      }
     }
   }
 
-  return null;
+  return bestMatch ? copyCanvasOwnedTextActivator(bestMatch.activator) : null;
 }

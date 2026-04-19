@@ -19,6 +19,7 @@ describe("DummyCodeMirror canvas-owned resting text", () => {
     expect(markup).toContain(
       'data-canvas-owned-resting-text-lightweight="true"',
     );
+    expect(markup).toContain("pointer-events-none");
     expect(markup).not.toContain('class="cm-line"');
     expect(markup).toContain(">python</div>");
   });

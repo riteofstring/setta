@@ -99,7 +99,7 @@ function CanvasOwnedRestingTextRoot({
   return (
     <div
       id={divId}
-      className={`${className} outline-none ${placeholderText ? "text-gray-600" : ""}`}
+      className={`${className} pointer-events-none outline-none ${placeholderText ? "text-gray-600" : ""}`}
       data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
       data-canvas-owned-resting-text="true"
       data-canvas-owned-resting-text-lightweight="true"

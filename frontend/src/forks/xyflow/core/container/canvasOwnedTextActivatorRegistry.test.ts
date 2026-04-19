@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("canvasOwnedTextActivatorRegistry", () => {
-  it("sorts activators by z-index and narrower hit boxes before resolving", () => {
+  it("keeps snapshots sorted by z-index and narrower hit boxes", () => {
     replaceCanvasOwnedTextActivators([
       {
         height: 20,
@@ -44,14 +44,47 @@ describe("canvasOwnedTextActivatorRegistry", () => {
 
     expect(getCanvasOwnedTextActivatorSnapshot().map((activator) => activator.targetId))
       .toEqual(["top-target", "narrow-target", "wide-target"]);
+  });
+
+  it("resolves overlapping hits to the nearest activator center", () => {
+    replaceCanvasOwnedTextActivators([
+      {
+        height: 20,
+        sectionId: "section-a",
+        targetId: "wide-target",
+        width: 80,
+        x: 10,
+        y: 10,
+        zIndex: 1,
+      },
+      {
+        height: 10,
+        sectionId: "section-a",
+        targetId: "narrow-target",
+        width: 30,
+        x: 20,
+        y: 15,
+        zIndex: 1,
+      },
+      {
+        height: 12,
+        sectionId: "section-b",
+        targetId: "top-target",
+        width: 30,
+        x: 20,
+        y: 15,
+        zIndex: 2,
+      },
+    ]);
+
     expect(
       resolveCanvasOwnedTextActivatorAtGraphPoint({
         x: 25,
         y: 18,
       }),
     ).toMatchObject({
-      sectionId: "section-b",
-      targetId: "top-target",
+      sectionId: "section-a",
+      targetId: "narrow-target",
     });
     expect(
       resolveCanvasOwnedTextActivatorAtGraphPoint({
@@ -62,6 +95,42 @@ describe("canvasOwnedTextActivatorRegistry", () => {
     ).toMatchObject({
       sectionId: "section-a",
       targetId: "narrow-target",
+    });
+  });
+
+  it("prefers the nearest activator center over a higher-z overlapping fallback", () => {
+    replaceCanvasOwnedTextActivators([
+      {
+        height: 116.99996948242188,
+        sectionId: "settings-section__chatSectionDefault",
+        targetId:
+          "settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode-ParamInput",
+        width: 3.203125,
+        x: 92.9998779296875,
+        y: 2469.0000915527344,
+        zIndex: 9,
+      },
+      {
+        height: 37.0001220703125,
+        sectionId: "settings-section__drawSectionDefault",
+        targetId:
+          "settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx-ParamInput",
+        width: 1.818115234375,
+        x: 94.11279296875,
+        y: 2513.500015258789,
+        zIndex: 12,
+      },
+    ]);
+
+    expect(
+      resolveCanvasOwnedTextActivatorAtGraphPoint({
+        x: 94.6014404296875,
+        y: 2527.5000762939453,
+      }),
+    ).toMatchObject({
+      sectionId: "settings-section__chatSectionDefault",
+      targetId:
+        "settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode-ParamInput",
     });
   });
 

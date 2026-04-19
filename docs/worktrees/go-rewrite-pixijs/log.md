@@ -155,6 +155,29 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-21 run 061
+
+- Item: Land one bounded shared activator-hygiene slice on the chat retry path without reopening the closed row or shell lanes.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.tsx` now makes lightweight canvas-owned resting-text roots `pointer-events-none`, so invisible hidden inputs stop directly stealing visible retained-text clicks from other sections before the pane consumer can inspect them.
+  - `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts` now resolves overlapping hit boxes by nearest activator center before falling back to z-index / area tie-breaks.
+  - `frontend/src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx` now proves the pointer-transparent lightweight root markup, and `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts` now covers the overlapping-hit nearest-center behavior plus the concrete chat-vs-draw overlap sample.
+  - One speculative local chat visible-click proof was tried and reverted before finish after live probes still showed the pane path forwarding the activator-center click to `settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx-ParamInput`; keep that blocker in handoff, not in committed test coverage.
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/CodeMirror/DummyCodeMirror.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/forks/xyflow/core/container/Pane.tsx src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts`
+    - result: `2 passed (9 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-019/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (38.0s)` on the current `3068/8068` runtime
+- CDP visual check:
+  - done in a fresh DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+  - `/settings` was mounted and nonblank, `All Settings` was visible and active, `browserSectionDefault` and `chatSectionDefault` were both present, and no obvious detached shell/body regression was observed
+- Next frontier:
+  - keep `settings-section__chatSectionDefault` as the canonical blocker target, and inspect the Pane client-to-flow coordinate frame next; the remaining live blocker now looks like `.react-flow` root offset / `screenToFlowPosition(...)` mismatch rather than invisible DOM interception or the old z-index-only overlap rule
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 progress review after loop-001 run 017
 
 - Reviewed `RALPH.md`, the current durable `plan.md` and `handoff.md`, and supervisor runs `008` through `017`.
