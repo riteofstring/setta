@@ -155,6 +155,57 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 082
+
+- Item: Suspend trailing header controls on the canonical resting-text motion lane.
+- Status: `done`
+- Details:
+  - Re-read the latest handoff and avoided another motion-body ownership hop; the chosen slice strengthens the existing `browserSectionDefault` motion path by suppressing trailing header chrome during viewport interaction for the same motion-hidden resting-text sections.
+  - Updated `frontend/src/components/Section/Header/SectionHeader.tsx` so `SectionHeaderTrailing` now exposes `data-canvas-owned-motion-header-controls-root="true"` and flips to `invisible pointer-events-none` when the graph surface is `canvas-shell-underlay`, `viewportInteractionActive` is true, the section is inactive, and the section already participates in `isCanvasOwnedSectionMotionHiddenBody(...)`.
+  - Added focused server-rendered coverage in `frontend/src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`.
+  - Extended `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts` so the canonical `browserSectionDefault` lane now proves both motion-body hiding and trailing header-control hiding for `browserSectionDefault`, `promptSectionDefault`, and `languageServer`.
+  - Live canary result on the recovered worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - initial overlay state:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+    - during one renderer wheel interaction:
+      - all three canonical sections reported `data-canvas-owned-motion-body-hidden="true"`
+      - all three canonical sections reported `data-canvas-owned-motion-header-controls-hidden="true"`
+      - both global hidden counts rose to `45`
+    - settled state:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+  - Recovered-runtime dense rerun:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 124.5`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 18329`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - the new motion-header-controls primitive is active on the canonical lane and does not introduce an obvious visual artifact
+    - the dense rerun happened only after a bounded `./aireset.sh` recovery because the original runtime no longer exposed a frontend URL; those whole-scene counts therefore include reopened non-target workspace chrome and should be treated as recovered-runtime smoke evidence, not as a fresh apples-to-apples benchmark
+    - keep the named `browserSectionDefault` lane, but the next pass should normalize the dense runtime again before judging whether any further hidden-section subtree/chrome reduction materially moves the motion hotspot
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx src/components/Section/Header/SectionHeader.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-001/worktree-ai.log)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3069/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.9m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent after the lifecycle recovery
+  - normalized `/settings` to `All Settings`, used `fit view`, then one `zoom in`
+  - retained graph canvas count looked correct
+  - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached artifact
+- Next action:
+  - re-establish a clean normalized dense `All Settings` runtime after recovery noise and then target the remaining hidden-section subtree/chrome hotspot on the same `browserSectionDefault` lane instead of reopening another ownership-family expansion
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 081
 
 - Item: Suspend hidden motion-body subtrees on the canonical `browserSectionDefault` lane.
