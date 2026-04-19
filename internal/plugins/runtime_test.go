@@ -1887,18 +1887,19 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 }
 
 func TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin(t *testing.T) {
-	const unknownAppSubsystemPluginID = "setta-fixture-app-subsystem-provider"
+	const unknownAppSubsystemPluginID = "acme-app-subsystem-fixture"
 
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
 
 	roots := newFilesystemResolverTestRoots(t)
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installFirstPartyPackageManagerPluginAsIDInSearchPath(
+	installPackageManagerFixtureInSearchPath(
 		t,
 		sitePackages,
-		firstpartyplugin.AppSubsystemPluginID,
+		"app-subsystem-unknown-id",
 		unknownAppSubsystemPluginID,
-		"Unknown-id app subsystem fixture",
+		"0.1.0",
+		nil,
 	)
 
 	service := mustNewPluginMutationServiceWithPackageManager(

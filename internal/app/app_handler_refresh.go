@@ -65,7 +65,7 @@ func currentAppPublishService(handlerDeps appHandlerDeps) (deployments.AppPublis
 		PluginSourcePath: providerSnapshot.SourcePath,
 		EnabledPluginIDs: providerSnapshot.State.EnabledPluginIDs,
 		PluginConfigByID: providerSnapshot.State.PluginConfigByID,
-	}, handlerDeps.projectRuntime)
+	}, handlerDeps.projectRuntime, handlerDeps.pluginRouteService)
 }
 
 func currentAppPublishProviderSnapshot(

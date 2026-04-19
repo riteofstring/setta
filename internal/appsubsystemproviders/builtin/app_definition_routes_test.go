@@ -547,9 +547,8 @@ func newAppDefinitionRouteTestHandler(
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := appdefinitionhttp.RegisterRoutes(r, appdefinitionhttp.RouteDependencies{
-				ModePolicy:   modes.NewPolicy(mode),
-				ProjectState: projectRuntime,
-				PluginID:     ProviderPluginID,
+				ModePolicy: modes.NewPolicy(mode),
+				Service:    appdefinition.NewAppDefinitionService(projectRuntime, ProviderPluginID),
 			}); err != nil {
 				t.Fatalf("register app definition routes: %v", err)
 			}
@@ -645,9 +644,11 @@ func buildAppDefinitionRouteRegistrationsForTest(
 				Family: "app definition",
 				Register: func(router chi.Router) error {
 					return appdefinitionhttp.RegisterRoutes(router, appdefinitionhttp.RouteDependencies{
-						ModePolicy:   deps.Project.ModePolicy,
-						ProjectState: deps.Project.ProjectState,
-						PluginID:     ProviderPluginID,
+						ModePolicy: deps.Project.ModePolicy,
+						Service: appdefinition.NewAppDefinitionService(
+							deps.Project.ProjectState,
+							ProviderPluginID,
+						),
 					})
 				},
 			},

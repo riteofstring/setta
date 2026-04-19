@@ -4,9 +4,57 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	appdefinitionpkg "setta/internal/appsubsystem/appdefinition"
+	neutralappdeploymenthttp "setta/internal/appsubsystem/appdeploymenthttp"
+	"setta/internal/appsubsystem/apppublish"
+	neutralmcptools "setta/internal/appsubsystem/mcptools"
+	"setta/internal/deployments"
+	"setta/internal/httpapi"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 )
+
+const ProviderPluginID = "setta-json-render-app-gen"
+
+func NewAppDefinitionService(
+	runtime *projectstate.Runtime,
+	pluginID string,
+) appdefinitionpkg.Runtime {
+	return appdefinitionpkg.NewAppDefinitionService(runtime, pluginID)
+}
+
+func BuildMCPToolRegistrations(
+	service appdefinitionpkg.Runtime,
+	defaultAppSpecPath string,
+) []mcpx.ToolRegistration {
+	return neutralmcptools.BuildMCPToolRegistrations(service, defaultAppSpecPath)
+}
+
+func NewAppPublishService(
+	options deployments.AppPublisherOptions,
+	service appdefinitionpkg.Runtime,
+	pluginID string,
+) (deployments.AppPublishService, error) {
+	return apppublish.NewService(options, service, pluginID)
+}
+
+type AppDeploymentIDERouteDependencies = neutralappdeploymenthttp.IDERouteDependencies
+
+func RegisterAppDeploymentIDERoutes(
+	router chi.Router,
+	deps AppDeploymentIDERouteDependencies,
+) error {
+	return neutralappdeploymenthttp.RegisterIDERoutes(router, deps)
+}
+
+func RegisterAppDeploymentRoutes(
+	router chi.Router,
+	deps httpapi.DeploymentRouteDependencies,
+	pluginID string,
+) error {
+	return neutralappdeploymenthttp.RegisterDeploymentRoutes(router, deps, pluginID)
+}
 
 func appDefinitionServiceForTest(
 	runtime *projectstate.Runtime,

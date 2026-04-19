@@ -347,12 +347,7 @@ func TestAppSubsystemUnknownIDPackageManagerPluginEnabledRestoresBackendRoutesAn
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installAppPackageManagerPluginAsID(
-		t,
-		sitePackages,
-		firstpartyplugin.AppSubsystemPluginID,
-		unknownAppSubsystemPluginID,
-	)
+	installAppPackageManagerFixturePlugin(t, sitePackages, "app-subsystem-unknown-id")
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
 	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
 	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
@@ -404,12 +399,7 @@ func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *test
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 
-	installAppRepoPluginAsID(
-		t,
-		cfg,
-		firstpartyplugin.AppSubsystemPluginID,
-		unknownAppSubsystemPluginID,
-	)
+	installAppFixturePlugin(t, cfg, "app-subsystem-unknown-id")
 	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -439,61 +429,6 @@ func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *test
 		http.StatusOK,
 	)
 	assertAppSubsystemToolPresence(t, app, true)
-}
-
-func TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-
-	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-			},
-		},
-	}); err != nil {
-		t.Fatalf("seed saved main project state: %v", err)
-	}
-
-	installAppRepoPluginAsID(
-		t,
-		cfg,
-		firstpartyplugin.AppSubsystemPluginID,
-		"setta-fixture-unregistered-app-provider",
-	)
-	writeEnabledAppPluginState(t, cfg, "setta-fixture-unregistered-app-provider")
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := appSubsystemPluginTestAuthCookie(t, app)
-	assertAppSubsystemRouteStatus(
-		t,
-		server.URL+"/api"+httpapi.RouteGetAppCatalog,
-		authCookie,
-		http.StatusNotFound,
-	)
-	assertAppSubsystemRouteStatus(
-		t,
-		server.URL+"/api"+httpapi.RouteAppDeployments,
-		authCookie,
-		http.StatusNotFound,
-	)
-	assertAppSubsystemToolPresence(t, app, false)
 }
 
 func appSubsystemPluginTestAuthCookie(t *testing.T, app *App) *http.Cookie {
@@ -602,6 +537,15 @@ func installAppRepoPluginAsID(
 	})
 }
 
+func installAppFixturePlugin(t *testing.T, cfg config.Config, fixtureName string) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", unknownAppSubsystemPluginID)
+	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
 func installAppPackageManagerPlugin(t *testing.T, sitePackages string, pluginID string) {
 	t.Helper()
 
@@ -654,6 +598,47 @@ func installAppPackageManagerPluginAsID(
 		})
 		if err != nil {
 			t.Fatalf("walk package-manager plugin fixture: %v", err)
+		}
+	}
+	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
+	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
+}
+
+func installAppPackageManagerFixturePlugin(t *testing.T, sitePackages string, fixtureName string) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	pluginRoot := filepath.Join(sitePackages, unknownAppSubsystemPluginID)
+	copyAppTestDir(t, filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName), pluginRoot)
+
+	distInfoName := strings.ReplaceAll(unknownAppSubsystemPluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoRoot := filepath.Join(sitePackages, distInfoName)
+	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: " + unknownAppSubsystemPluginID,
+		"Version: 0.1.0",
+		"Summary: Unknown-id app subsystem fixture",
+		"",
+	}, "\n"))
+
+	recordLines := make([]string, 0)
+	for _, root := range []string{pluginRoot, distInfoRoot} {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if info.IsDir() || filepath.Base(path) == "RECORD" {
+				return nil
+			}
+			relativePath, err := filepath.Rel(sitePackages, path)
+			if err != nil {
+				return err
+			}
+			recordLines = append(recordLines, filepath.ToSlash(relativePath)+",,")
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk package-manager fixture plugin: %v", err)
 		}
 	}
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")

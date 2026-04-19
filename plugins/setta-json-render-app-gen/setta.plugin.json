@@ -20,5 +20,8 @@
       "appDeploymentRuntime": true
     }
   },
-  "capabilities": ["registerAppSubsystemBackend"]
+  "capabilities": [
+    "registerAppSubsystemBackend",
+    "registerListenerEndpoint"
+  ]
 }

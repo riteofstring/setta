@@ -734,7 +734,6 @@ func buildAppDeploymentIDERouteRegistrationsForTest(
 						ModePolicy:   deps.ShareDeploymentIDE.ModePolicy,
 						ProjectState: deps.ShareDeploymentIDE.ProjectState,
 						Catalog:      deps.ShareDeploymentIDE.Catalog,
-						PluginID:     ProviderPluginID,
 					})
 				},
 			},
@@ -767,7 +766,6 @@ func newAppDeploymentIDERouteTestHandler(
 				ProjectState: fixture.ProjectRuntime,
 				Catalog:      fixture.Catalog,
 				AppPublisher: fixture.AppPublisher,
-				PluginID:     ProviderPluginID,
 			}); err != nil {
 				t.Fatalf("register app deployment ide routes: %v", err)
 			}
