@@ -100,22 +100,22 @@ type SectionCapabilities struct {
 }
 
 type Core struct {
-	ID             string               `json:"id"`
-	Name           string               `json:"name"`
-	DisplayName    string               `json:"displayName"`
-	Variants       []string             `json:"variants"`
-	DefaultVariant *string              `json:"defaultVariant"`
-	SharedModifier projectstate.RawJSON `json:"sharedModifier" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage" shared_schema_non_null:"true"`
-	UnsharedKeys   []string             `json:"unsharedKeys"`
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	DisplayName    string          `json:"displayName"`
+	Variants       []string        `json:"variants"`
+	DefaultVariant *string         `json:"defaultVariant"`
+	SharedModifier json.RawMessage `json:"sharedModifier" ts_type:"Record<string, unknown>"`
+	UnsharedKeys   []string        `json:"unsharedKeys"`
 }
 
 type Variant struct {
-	ID             string               `json:"id"`
-	Name           string               `json:"name"`
-	Impl           string               `json:"impl"`
-	NonPresetImpls []string             `json:"nonPresetImpls"`
-	Modifier       projectstate.RawJSON `json:"modifier" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage" shared_schema_non_null:"true"`
-	IsFrozen       bool                 `json:"isFrozen"`
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	Impl           string          `json:"impl"`
+	NonPresetImpls []string        `json:"nonPresetImpls"`
+	Modifier       json.RawMessage `json:"modifier" ts_type:"Record<string, unknown>"`
+	IsFrozen       bool            `json:"isFrozen"`
 }
 
 type SingletonSections struct {
