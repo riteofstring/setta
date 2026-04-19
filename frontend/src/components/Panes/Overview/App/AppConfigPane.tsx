@@ -701,6 +701,7 @@ function AppConfigAdvancedContent({
     </div>
   );
 }
+/** @lintignore Consumed by the app subsystem plugin frontend. */
 export function AppConfigPane() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appSpec = useAppDefinition((state) => state.appSpec);
