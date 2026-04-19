@@ -301,6 +301,51 @@ function shouldFlattenLightweightNestedLeafRow({
   return (
     lightweightNestedLeafRows &&
     !hasChildren &&
+    shouldFlattenLightweightRowBody({
+      bg,
+      border,
+      dndEnabled,
+      isKwarg,
+    })
+  );
+}
+
+function shouldFlattenLightweightNestedGroupRow({
+  bg,
+  border,
+  dndEnabled,
+  hasChildren,
+  isKwarg,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  hasChildren: boolean;
+  isKwarg: boolean;
+}) {
+  return (
+    hasChildren &&
+    shouldFlattenLightweightRowBody({
+      bg,
+      border,
+      dndEnabled,
+      isKwarg,
+    })
+  );
+}
+
+function shouldFlattenLightweightRowBody({
+  bg,
+  border,
+  dndEnabled,
+  isKwarg,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  isKwarg: boolean;
+}) {
+  return (
     !isKwarg &&
     !dndEnabled &&
     bg === "transition-colors rounded-sm" &&
@@ -478,6 +523,13 @@ function SortableRealParamSwitchRow({
         hasChildren: hasNested,
         isKwarg: props.isKwarg,
         lightweightNestedLeafRows,
+      })}
+      flattenLightweightNestedGroupRow={shouldFlattenLightweightNestedGroupRow({
+        bg: props.bg,
+        border: props.border,
+        dndEnabled,
+        hasChildren: hasNested,
+        isKwarg: props.isKwarg,
       })}
       sectionId={sectionId}
       paramInfoId={paramInfoId}

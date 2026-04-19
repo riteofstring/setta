@@ -155,6 +155,62 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 074
+
+- Item: Flatten the remaining lightweight nested-group row-body wrappers on the shared nested-children lane.
+- Status: `done`
+- Details:
+  - Chose the actual remaining production primitive from the latest row-body rerank instead of repeating another leaf-row ownership hop.
+  - Updated `frontend/src/components/Params/ParamSwitch.tsx` to reuse a shared neutral lightweight row-body predicate for both nested leaf rows and group rows with children.
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so neutral lightweight nested group rows now render as `display: contents` on the shared lightweight nested-children lane for both nested-root and nested-child layouts.
+  - Added focused proof in:
+    - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - Live canary result on the worktree runtime:
+    - canonical target section: `settings-section__sectionSizingPolicy`
+    - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+    - the `byType` and `metaControlByType` parent rows now report `data-canvas-owned-lightweight-row-body="true"`, computed `display: contents`, and zero retained row-box size
+    - the canonical `Max Height` row still focused inline on first interaction
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 6`
+    - `totalRemainingVisibleElementCount: 18`
+    - `totalRemainingVisibleChromeElementCount: 9`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - `settings-section__sectionSizingPolicy.remainingRowCount: 0`
+    - strongest common remaining kinds are now:
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3`)
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5653`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 70.95`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10979`
+  - Interpretation:
+    - this closes the `sectionSizingPolicy` / `languageServer` lightweight nested-group wrapper lane as product code
+    - the rerank moved materially, but the single dense rerun did not beat the prior checkpoint on this noisy runtime; treat this as confirmed global row-body reduction plus a dense checkpoint, not a new best motion result
+    - the next real frontier is the shared `Size` wrapper family on `callable` / `dict` / `GlobalVariables`, unless that family now looks too small to matter and the correct next step is a stronger inactive-row overlay decision
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-009/worktree-ai.log -- tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.1m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one retained canvas was mounted
+  - `settings-section__sectionSizingPolicy` was visible and intact
+  - no obvious blank or detached artifact was visible around the `byType` / `metaControlByType` area after the flattening
+- Next action:
+  - keep the closed `sectionSizingPolicy` nested-group lane closed and choose the next shared row-body slice from the remaining rerank, starting with the `Size` wrappers on `callable`, `dict`, and `GlobalVariables`
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 072
 
 - Item: Flatten lightweight nested leaf row bodies on the shared canvas-owned nested-child lane.

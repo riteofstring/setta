@@ -52,6 +52,7 @@ type ParamContainerProps = {
   dndClassName?: string;
   listKey: ParamListKey;
   flattenLightweightNestedLeafRow?: boolean;
+  flattenLightweightNestedGroupRow?: boolean;
 };
 
 type ParamArticleProps = {
@@ -127,6 +128,7 @@ type ParamRowRenderProps = {
   columnWidth: string;
   errorMessage: string;
   flattenLightweightNestedLeafRow: boolean;
+  flattenLightweightNestedGroupRow: boolean;
   hasError: boolean;
   isKwarg: boolean;
   isTopLevelWithPad: boolean;
@@ -518,6 +520,7 @@ function renderParamContainerRow({
   columnWidth,
   errorMessage,
   flattenLightweightNestedLeafRow,
+  flattenLightweightNestedGroupRow,
   hasError,
   isKwarg,
   isTopLevelWithPad,
@@ -561,6 +564,8 @@ function renderParamContainerRow({
             ...paramStyleProps,
             lightweightNestedChildren,
           }),
+          flattenToContents:
+            flattenLightweightNestedGroupRow && lightweightNestedChildren,
         }}
         canvasOwnedNestedGuideLightweight={
           nestedChildrenProps.canvasOwnedNestedGuide && lightweightNestedChildren
@@ -587,6 +592,8 @@ function renderParamContainerRow({
           ...paramStyleProps,
           isTopLevelWithPad,
         }),
+        flattenToContents:
+          flattenLightweightNestedGroupRow && lightweightNestedChildren,
       }}
       canvasOwnedNestedGuideLightweight={
         nestedChildrenProps.canvasOwnedNestedGuide && lightweightNestedChildren
@@ -620,6 +627,7 @@ function _ParamContainer({
   dndClassName,
   listKey,
   flattenLightweightNestedLeafRow = false,
+  flattenLightweightNestedGroupRow = false,
 }: ParamContainerProps) {
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
@@ -708,6 +716,7 @@ function _ParamContainer({
     columnWidth,
     errorMessage,
     flattenLightweightNestedLeafRow,
+    flattenLightweightNestedGroupRow,
     hasError,
     isKwarg,
     isTopLevelWithPad,

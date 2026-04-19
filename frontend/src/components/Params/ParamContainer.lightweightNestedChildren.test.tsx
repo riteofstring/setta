@@ -162,4 +162,69 @@ describe("ParamContainer lightweight nested children", () => {
     expect(markup).toContain('data-canvas-owned-lightweight-row-body="true"');
     expect(markup).toContain("contents");
   });
+
+  it("marks lightweight nested group rows as contents-ready row bodies", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.lightweightNestedChildrenSectionId =
+      "settings-section__sectionSizingPolicy";
+
+    const markup = renderToStaticMarkup(
+      <ParamContainer
+        sectionId="settings-section__sectionSizingPolicy"
+        paramInfoId="param-current"
+        requiredParamIdsToPaths={{}}
+        onResizeStart={() => undefined}
+        listKey="unpinned"
+        isKwarg={false}
+        isNestedParam={false}
+        hasSectionStyleTheme={false}
+        paramChildren={["param-child-1", "param-child-2"]}
+        border=""
+        bg=""
+        flattenLightweightNestedGroupRow={true}
+      >
+        <span data-testid="param-label">Param</span>
+      </ParamContainer>,
+    );
+
+    expect(markup).toContain('data-canvas-owned-lightweight-row-body="true"');
+    expect(markup).toContain(
+      'data-canvas-owned-nested-guide-lightweight="true"',
+    );
+    expect(markup).toContain("section-args-nested-key-value");
+    expect(markup).toContain("contents");
+    expect(markup).toContain('data-testid="nested-child-row-1"');
+    expect(markup).toContain('data-testid="nested-child-row-2"');
+  });
+
+  it("marks lightweight nested child-group rows as contents-ready row bodies", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.lightweightNestedChildrenSectionId =
+      "settings-section__sectionSizingPolicy";
+
+    const markup = renderToStaticMarkup(
+      <ParamContainer
+        sectionId="settings-section__sectionSizingPolicy"
+        paramInfoId="param-current"
+        requiredParamIdsToPaths={{}}
+        onResizeStart={() => undefined}
+        listKey="unpinned"
+        isKwarg={false}
+        isNestedParam={true}
+        hasSectionStyleTheme={false}
+        paramChildren={["param-child-1", "param-child-2"]}
+        border=""
+        bg=""
+        flattenLightweightNestedGroupRow={true}
+      >
+        <span data-testid="param-label">Param</span>
+      </ParamContainer>,
+    );
+
+    expect(markup).toContain('data-canvas-owned-lightweight-row-body="true"');
+    expect(markup).toContain("section-lg-value");
+    expect(markup).toContain("contents");
+    expect(markup).toContain('data-testid="nested-child-row-1"');
+    expect(markup).toContain('data-testid="nested-child-row-2"');
+  });
 });

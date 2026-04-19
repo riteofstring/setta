@@ -9,6 +9,8 @@ const TARGET_PARAM_INFO_ID =
   "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight";
 const TARGET_INPUT_ID = `${TARGET_SECTION_ID}-${TARGET_PARAM_INFO_ID}-ParamInput`;
 const TARGET_EDITOR_ID = `CodeMirror-${TARGET_SECTION_ID}-${TARGET_PARAM_INFO_ID}`;
+const BY_TYPE_PARENT_ROW_ID = `ParamContainer-${TARGET_SECTION_ID}-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType`;
+const META_CONTROL_PARENT_ROW_ID = `ParamContainer-${TARGET_SECTION_ID}-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType`;
 
 test("canvas shell path owns section sizing policy resting text", async ({
   page,
@@ -25,7 +27,7 @@ test("canvas shell path owns section sizing policy resting text", async ({
   await allSettingsTab.click();
 
   await page.waitForFunction(
-    ({ inputId, sectionId }) => {
+    ({ inputId, parentRowIds, sectionId }) => {
       const canvas = document.querySelector<HTMLCanvasElement>(
         ".react-flow__section-shell-backdrop canvas",
       );
@@ -33,9 +35,13 @@ test("canvas shell path owns section sizing policy resting text", async ({
         `section[data-section-id="${sectionId}"]`,
       );
       const input = document.getElementById(inputId);
+      const parentRowsReady = parentRowIds.every(
+        (rowId: string) => document.getElementById(rowId) instanceof HTMLElement,
+      );
       return (
         section instanceof HTMLElement &&
         input instanceof HTMLElement &&
+        parentRowsReady &&
         canvas instanceof HTMLCanvasElement &&
         canvas.clientWidth > 0 &&
         canvas.clientHeight > 0 &&
@@ -45,16 +51,33 @@ test("canvas shell path owns section sizing policy resting text", async ({
     },
     {
       inputId: TARGET_INPUT_ID,
+      parentRowIds: [BY_TYPE_PARENT_ROW_ID, META_CONTROL_PARENT_ROW_ID],
       sectionId: TARGET_SECTION_ID,
     },
   );
 
   const restingTextState = await page.evaluate(
-    ({ inputId, sectionId }) => {
+    ({ inputId, parentRowIds, sectionId }) => {
       const section = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"]`,
       );
       const input = document.getElementById(inputId);
+      const parentRows = parentRowIds.map((rowId: string) => {
+        const row = document.getElementById(rowId);
+        if (!(row instanceof HTMLElement)) {
+          throw new Error(`Missing parent row ${rowId}`);
+        }
+        const rowStyle = window.getComputedStyle(row);
+        const rowRect = row.getBoundingClientRect();
+        return {
+          display: rowStyle.display,
+          lightweightRowBodyFlag:
+            row.dataset.canvasOwnedLightweightRowBody ?? null,
+          rectHeight: rowRect.height,
+          rectWidth: rowRect.width,
+          rowId,
+        };
+      });
       const canvas = document.querySelector<HTMLCanvasElement>(
         ".react-flow__section-shell-backdrop canvas",
       );
@@ -210,10 +233,12 @@ test("canvas shell path owns section sizing policy resting text", async ({
         inputOpacity: inputStyle.opacity,
         lightweightOwnershipFlag:
           input.dataset.canvasOwnedRestingTextLightweight ?? null,
+        parentRows,
       };
     },
     {
       inputId: TARGET_INPUT_ID,
+      parentRowIds: [BY_TYPE_PARENT_ROW_ID, META_CONTROL_PARENT_ROW_ID],
       sectionId: TARGET_SECTION_ID,
     },
   );
@@ -222,6 +247,15 @@ test("canvas shell path owns section sizing policy resting text", async ({
   expect(restingTextState.lightweightOwnershipFlag).toBe("true");
   expect(restingTextState.inputHighlightSpanCount).toBe(0);
   expect(restingTextState.inputDistinctPixelCount).toBeGreaterThan(0);
+  expect(
+    restingTextState.parentRows.every(
+      (parentRow) =>
+        parentRow.lightweightRowBodyFlag === "true" &&
+        parentRow.display === "contents" &&
+        parentRow.rectWidth === 0 &&
+        parentRow.rectHeight === 0,
+    ),
+  ).toBe(true);
 
   await page.locator(`#${TARGET_INPUT_ID}`).focus();
   await expect(page.locator(`#${TARGET_EDITOR_ID}`)).toBeVisible();
