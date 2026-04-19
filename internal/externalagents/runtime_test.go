@@ -649,7 +649,7 @@ func TestPersistExternalAgentRunFailureBroadcastsBackendLogEvent(t *testing.T) {
 	if envelope.MessageType != string(realtime.WebsocketMessageTypeBackendLogEvent) {
 		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
 	}
-	var event backendlogs.Event
+	var event backendlogs.BackendLogEvent
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}

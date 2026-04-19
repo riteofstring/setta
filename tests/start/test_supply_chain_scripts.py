@@ -668,7 +668,7 @@ echo "python3 $*" >> "{command_log}"
         "python3 ./scripts/normalize_uv_lock.py ./uv.lock",
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 7 --lockfile ./uv.lock",
-        "uv sync --frozen --extra source --extra dev --python 3.13",
+        "uv sync --frozen --extra defaults --extra source --extra dev --python 3.13",
         "activate",
         "pnpm -C frontend install --lockfile-only",
         "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./frontend/pnpm-lock.yaml",
