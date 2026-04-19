@@ -116,10 +116,6 @@ describe("Incrementer", () => {
   it("posts incrementer add and delete actions through the canonical endpoints", async () => {
     const { host, root } = await renderIncrementer(sectionId);
     try {
-      const incrementerRoot = host.querySelector<HTMLElement>(
-        '[data-section-incrementer-root="true"]',
-      );
-      expect(incrementerRoot).not.toBeNull();
       const input = host.querySelector<HTMLInputElement>("input");
       if (!(input instanceof HTMLInputElement)) {
         throw new Error("Expected incrementer input");

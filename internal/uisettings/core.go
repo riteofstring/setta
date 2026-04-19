@@ -2,6 +2,7 @@ package uisettings
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"setta/internal/projectstate"
@@ -28,9 +29,14 @@ var (
 	}
 )
 
-func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
+var errAppDefinitionRuntimeRequired = errors.New("uisettings: app definition runtime is required")
+
+func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDefinitionRuntime, workspaceRoot string) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
+	}
+	if appDefinition == nil {
+		return nil, errAppDefinitionRuntimeRequired
 	}
 	boolSchema := ValueSchema{Type: ValueTypeBoolean}
 	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: intPointer(1)}
@@ -203,7 +209,7 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -225,7 +231,7 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -247,7 +253,7 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -269,7 +275,7 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 			}),
 			normalizeOptionalThemeModeWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],

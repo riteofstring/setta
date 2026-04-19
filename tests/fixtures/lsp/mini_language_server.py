@@ -96,6 +96,14 @@ def signature_help_for_content(content):
     }
 
 
+def write_environment_echo():
+    output_path = os.environ.get("FIXTURE_PYTHONPATH_ECHO_FILE", "").strip()
+    if not output_path:
+        return
+    with open(output_path, "w", encoding="utf-8") as output_file:
+        output_file.write(os.environ.get("PYTHONPATH", ""))
+
+
 documents = {}
 
 while True:
@@ -108,6 +116,7 @@ while True:
     params = message.get("params") or {}
 
     if method == "initialize" and message_id is not None:
+        write_environment_echo()
         send(
             {
                 "jsonrpc": "2.0",

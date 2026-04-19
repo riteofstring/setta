@@ -489,6 +489,7 @@ func resolveScopedUISettingRegistry(
 
 	registry, err := uisettings.NewScopedRegistry(uisettings.ScopedRegistryOptions{
 		Runtime:           projectState,
+		AppDefinition:     server.appDefinitionService,
 		WorkspaceRoot:     workspaceRoot,
 		PluginService:     server.pluginMutations,
 		ProjectAISettings: buildProjectAISettingProviders(server),

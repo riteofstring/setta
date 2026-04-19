@@ -198,56 +198,76 @@ def scan_python_body(
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     for statement in body:
-        if isinstance(statement, ast.ClassDef):
+        nested_scope = python_nested_scope(statement)
+        if nested_scope is not None:
             candidates.extend(
-                scan_python_body(
-                    body=statement.body,
-                    relative_path=relative_path,
-                    scope=f"class {statement.name}",
-                )
+                scan_python_body(statement.body, relative_path, nested_scope)
             )
             continue
 
-        name = ""
-        value_node: ast.expr | None = None
-        if isinstance(statement, ast.Assign):
-            if len(statement.targets) != 1:
-                continue
-            target = statement.targets[0]
-            if not isinstance(target, ast.Name):
-                continue
-            name = target.id
-            value_node = statement.value
-            line = statement.lineno
-            column = target.col_offset + 1
-        elif isinstance(statement, ast.AnnAssign):
-            if not isinstance(statement.target, ast.Name) or statement.value is None:
-                continue
-            name = statement.target.id
-            value_node = statement.value
-            line = statement.lineno
-            column = statement.target.col_offset + 1
-        else:
-            continue
-
-        if not is_python_constant_name(name):
-            continue
-        rhs = python_simple_alias_expr(value_node)
-        if rhs is None:
-            continue
-        candidates.append(
-            {
-                "language": "python",
-                "path": relative_path,
-                "line": line,
-                "column": column,
-                "scope": scope,
-                "name": name,
-                "rhs": rhs,
-                "kind": "python-constant-assignment",
-            }
-        )
+        candidate = python_constant_alias_candidate(statement, relative_path, scope)
+        if candidate is not None:
+            candidates.append(candidate)
     return candidates
+
+
+def python_nested_scope(statement: ast.stmt) -> str | None:
+    if isinstance(statement, ast.ClassDef):
+        return f"class {statement.name}"
+    return None
+
+
+def python_constant_alias_candidate(
+    statement: ast.stmt,
+    relative_path: str,
+    scope: str,
+) -> dict[str, Any] | None:
+    assignment = python_constant_assignment(statement)
+    if assignment is None:
+        return None
+
+    name, value_node, line, column = assignment
+    if not is_python_constant_name(name):
+        return None
+
+    rhs = python_simple_alias_expr(value_node)
+    if rhs is None:
+        return None
+
+    return {
+        "language": "python",
+        "path": relative_path,
+        "line": line,
+        "column": column,
+        "scope": scope,
+        "name": name,
+        "rhs": rhs,
+        "kind": "python-constant-assignment",
+    }
+
+
+def python_constant_assignment(
+    statement: ast.stmt,
+) -> tuple[str, ast.expr, int, int] | None:
+    if isinstance(statement, ast.Assign):
+        if len(statement.targets) != 1:
+            return None
+        target = statement.targets[0]
+        if not isinstance(target, ast.Name):
+            return None
+        return target.id, statement.value, statement.lineno, target.col_offset + 1
+
+    if isinstance(statement, ast.AnnAssign):
+        if not isinstance(statement.target, ast.Name) or statement.value is None:
+            return None
+        return (
+            statement.target.id,
+            statement.value,
+            statement.lineno,
+            statement.target.col_offset + 1,
+        )
+
+    return None
 
 
 def python_simple_alias_expr(node: ast.expr) -> str | None:
