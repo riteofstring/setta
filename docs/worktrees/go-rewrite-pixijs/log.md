@@ -155,6 +155,33 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 041
+
+- Landed the retained-graph attribution pass on the canonical `settings-section__browserSectionDefault` lane.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-retained-graph-attribution-report.md` plus one fresh local trace artifact at `perf/artifacts/frontend/settings-all-settings/backdrop-retained-graph-attribution-trace-2026-04-20.json`.
+- Fresh dense rerun on the current `3068/8068` runtime recorded `documentNodeCount 5494`, `buttonCount 47`, `canvasCount 1`, `raf.meanMs 58.82`, `raf.p95Ms 50.1`, `longTasks.totalMs 5303`, `motionHiddenBodies.peakHiddenBodyCount 45`, and `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`.
+- Fresh headless DevTools trace on the same runtime:
+  - visual preflight passed on `/settings` with `All Settings` active and the graph surface visibly mounted
+  - saved successfully to `perf/artifacts/frontend/settings-all-settings/backdrop-retained-graph-attribution-trace-2026-04-20.json`
+  - `CLS` remained `0.00`
+- Local trace parsing showed:
+  - ignore the first `~479ms` `ProjectChatCore` startup timer task as workspace-chat noise
+  - the largest trusted post-startup main-thread task in the checked interaction window was `RunTask 144.739ms` with nested `RunMicrotasks 133.921ms` and nested `v8.callFunction 130.038ms`
+  - the same window only surfaced smaller renderer-side non-JS totals: `Commit 26.094ms`, `Commit 23.644ms`, `HitTest 18.236ms`, `Paint 13.394ms`, `EventDispatch 9.568ms`, `Layerize 9.502ms`, and `Layout 1.215ms`
+  - local CPU sample aggregation over that post-startup window pointed more strongly at `_SectionContainerCore @ src/components/Section/Container/SectionContainerCore.tsx:168` and `_SectionContainerCoreResizable @ src/components/Section/Container/SectionContainerCoreResizabe.tsx:462` than at `SectionShellBackdropCanvas`
+- Interpretation:
+  - this closes the current “maybe one more retained-backdrop invalidation pass” attribution question on the canonical lane
+  - the next bounded product frontier should reduce viewport-interaction rerender fanout in `SectionContainerCore` / `SectionContainerCoreResizable` instead of reopening another backdrop observer / measurement / paint cleanup by inertia
+  - if another trace is needed on this lane later, normalize project chat off first so workspace-chat timers do not contaminate the renderer window
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.1s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - `/settings` mounted with `All Settings` active, the graph surface was visibly nonblank, and `browserSectionDefault` was present on the graph surface
+- Next frontier: stay on the canonical browser lane and land one product slice that reduces section-container viewport-interaction rerender churn before reopening `SectionShellBackdropCanvas` again.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 039
 
 - Landed the motion-hidden header chrome state-hoist slice on the canonical `settings-section__browserSectionDefault` lane.

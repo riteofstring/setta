@@ -8,8 +8,9 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `040`: `backdrop_scene_map_equality_landed_continue`.
+- Decision for the 2026-04-20 checkpoint after run `041`: `retained_graph_attribution_points_to_section_container_rerender_continue`.
 - Recent progress is real:
+  - run `041` landed the planned attribution pass on the canonical `settings-section__browserSectionDefault` lane without reopening another closed renderer micro-lane: the fresh dense rerun kept the same stable DOM/canvas shape (`documentNodeCount 5494`, `buttonCount 47`, `canvasCount 1`) while a fresh headless DevTools trace plus local CPU sample aggregation on `perf/artifacts/frontend/settings-all-settings/backdrop-retained-graph-attribution-trace-2026-04-20.json` pointed more strongly at `_SectionContainerCore` / `_SectionContainerCoreResizable` viewport-interaction rerender work than at `SectionShellBackdropCanvas` paint/layout work
   - run `040` landed one more real retained-scene invalidation slice on the canonical `settings-section__browserSectionDefault` lane by teaching `SectionShellBackdropCanvas` to ignore `useNodeInternals` map replacement when scene-relevant geometry is unchanged; the focused canvas test now proves same-scene node-map churn does not trigger another retained-canvas paint while a real width change still does, and the paired dense rerun recorded `documentNodeCount 5494`, `raf.meanMs 47.62`, and `longTasks.totalMs 3902`
   - run `039` landed one more real product slice on the canonical `settings-section__browserSectionDefault` lane by computing the motion-hidden chrome state once in `SectionContainerCoreResizable` and reusing it in `SectionHeader` plus `MenuButton`; the focused motion inventory on the live canary collapsed peak tracked menu triggers from `46` to `1`, hid `45` menu triggers on the motion-hidden sections, and left only one non-motion-hidden survivor section at peak motion while the paired dense rerun recorded `documentNodeCount 5494`, `raf.meanMs 45.52`, and `longTasks.totalMs 3667`
   - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
@@ -33,18 +34,57 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `038` closes the unconditional post-motion retained-detail remeasure flush sub-lane here; the focused behavior is now guarded in `SectionShellBackdropCanvas.test.tsx`, but the dense rerun stayed noisy (`raf.meanMs 57.98`, `longTasks.totalMs 5196`), so do not spend the next pass on more `useCanvasOwnedMeasuredArray(...)` suspend/resume bookkeeping by inertia
   - run `039` closes the motion-hidden header/menu prop-plumbing lane here; the live canary now hides those `45` lightweight menu triggers at peak motion, so do not spend the next automated pass on more `SectionHeader` / `MenuButton` motion-state hoisting or another header-menu micro-pass on the same lane
   - run `040` closes the raw `useNodeInternals` map-identity invalidation sub-lane here; the retained backdrop now ignores same-scene map churn, so do not spend the next pass on more backdrop node-map equality micropolish unless a fresh hotspot isolates another scene-authority miss
+  - run `041` closes the current “maybe one more `SectionShellBackdropCanvas` invalidation pass” attribution question here; the fresh trace-backed report points more strongly at section-container rerender fanout under viewport interaction, and the saved trace is contaminated enough by workspace-chat timer activity that it should not be used to justify another backdrop observer / measurement / paint cleanup by inertia
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
-  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, or another backdrop node-map equality micro-pass on the same measurement families
+  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, another backdrop node-map equality micro-pass, or another generic backdrop invalidation pass on the same measurement families
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - the next real step should attribute or remove the remaining frame-time cost after motion-hidden subtree churn, the unconditional post-motion measure flush, the repeated motion-hidden header/menu subscription fanout, and the same-scene backdrop node-map repaint path are all gone, instead of reopening those now-closed invalidation lanes
+  - the next real step should remove viewport-interaction rerender fanout in `SectionContainerCore` / `SectionContainerCoreResizable` now that motion-hidden subtree churn, the unconditional post-motion measure flush, the repeated motion-hidden header/menu subscription fanout, and the same-scene backdrop node-map repaint path are all gone
   - current concrete candidate:
-    - isolate remaining retained-scene redraw / paint / snapshot invalidation cost on the canonical browser lane now that observer churn, subtree churn, and settle-flush churn are all closed
-  - keep retained-scene redraw/paint invalidation or snapshot invalidation/reuse as the primary candidates from here; the motion-hidden product slice is already landed
+    - reduce section-container viewport-interaction subscriptions or prop churn on the canonical browser lane, starting from `_SectionContainerCore` and `_SectionContainerCoreResizable`
+  - treat `SectionShellBackdropCanvas` and `ZoomPane` as secondary suspects from the saved attribution trace, not the default primary target for the next pass
   - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
+
+- The retained-graph attribution pass is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-retained-graph-attribution-report.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - trace artifact:
+    - `perf/artifacts/frontend/settings-all-settings/backdrop-retained-graph-attribution-trace-2026-04-20.json`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `canvasCount: 1`
+    - `raf.meanMs: 58.82`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50.1`
+    - `raf.maxMs: 1533.3`
+    - `longTasks.count: 13`
+    - `longTasks.totalMs: 5303`
+    - `longTasks.maxMs: 844`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+    - `motionHiddenSubtreeChurn.childListMutationCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeRemovedElementCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeAddedElementCount: 0`
+  - trace-backed interpretation:
+    - the largest trusted post-startup work in the saved trace window was JS / React scheduler work (`RunTask 144.739ms`, nested `RunMicrotasks 133.921ms`, nested `v8.callFunction 130.038ms`) rather than a new layout or paint hotspot
+    - local CPU sample aggregation over that post-startup window pointed more strongly at `_SectionContainerCore` and `_SectionContainerCoreResizable` than at `SectionShellBackdropCanvas`
+    - a `ProjectChatCore` startup timer also appeared in the trace, so treat workspace-chat frames there as oracle noise and do not use that artifact to justify another chat or backdrop cleanup pass by inertia
+    - the next bounded product slice should target section-container rerender fanout under viewport interaction instead of reopening another retained-backdrop invalidation sub-lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (42.1s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+    - `/settings` mounted with `All Settings` active and the graph surface visibly nonblank
+    - `browserSectionDefault` existed on the graph surface
+    - one headless `NO_NAVIGATION` trace saved successfully to the artifact path above
 
 - The backdrop scene-map equality slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-scene-map-equality-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
