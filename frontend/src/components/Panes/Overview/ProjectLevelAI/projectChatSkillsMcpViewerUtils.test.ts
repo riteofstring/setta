@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAppGenerationSlashCommandDefinitions } from "components/Chat/appGenerationSlashCommands";
 import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
+import { buildAppGenerationSlashCommandDefinitions } from "plugins/appSubsystemChatUi";
 import {
   createAgentRun,
   createAllConfigs,
