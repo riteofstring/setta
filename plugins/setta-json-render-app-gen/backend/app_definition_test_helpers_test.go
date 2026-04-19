@@ -10,14 +10,14 @@ import (
 
 func appDefinitionServiceForTest(
 	runtime *projectstate.Runtime,
-) projectstate.AppDefinitionRuntime {
+) appdefinitionpkg.Runtime {
 	return NewAppDefinitionService(runtime)
 }
 
 func setTestAppDefinition(
 	t *testing.T,
 	runtime *projectstate.Runtime,
-	input projectstate.SetAppDefinitionInput,
+	input appdefinitionpkg.SetInput,
 ) {
 	t.Helper()
 
@@ -29,7 +29,7 @@ func setTestAppDefinition(
 
 func mustEncodeStoredAppDefinition(
 	t *testing.T,
-	definition *projectstate.AppDefinition,
+	definition *appdefinitionpkg.AppDefinition,
 ) projectstate.RawJSON {
 	t.Helper()
 
@@ -43,7 +43,7 @@ func mustEncodeStoredAppDefinition(
 func mustDecodeStoredAppDefinition(
 	t *testing.T,
 	raw projectstate.RawJSON,
-) *projectstate.AppDefinition {
+) *appdefinitionpkg.AppDefinition {
 	t.Helper()
 
 	definition, err := appdefinitionpkg.DecodeStoredAppDefinition(raw)
@@ -56,7 +56,7 @@ func mustDecodeStoredAppDefinition(
 func storedDocumentAppDefinition(
 	t *testing.T,
 	document projectstate.Document,
-) *projectstate.AppDefinition {
+) *appdefinitionpkg.AppDefinition {
 	t.Helper()
 
 	return mustDecodeStoredAppDefinition(t, appdefinitionpkg.StoredDocumentAppDefinitionRaw(document))

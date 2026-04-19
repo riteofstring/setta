@@ -542,7 +542,7 @@ func deploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecord
 	}
 }
 
-func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
+func deploymentIDERouteDocument(appDefinition *appdefinition.AppDefinition) projectstate.Document {
 	return appdefinition.WithStoredDocumentAppDefinition(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -556,7 +556,7 @@ func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) proje
 }
 
 func encodeDeploymentIDERouteAppDefinition(
-	appDefinition *projectstate.AppDefinition,
+	appDefinition *appdefinition.AppDefinition,
 ) projectstate.RawJSON {
 	if appDefinition == nil {
 		return nil

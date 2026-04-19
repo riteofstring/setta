@@ -17,7 +17,7 @@ import (
 func setTestAppDefinition(
 	t *testing.T,
 	runtime *projectstate.Runtime,
-	input projectstate.SetAppDefinitionInput,
+	input appdefinition.SetInput,
 ) {
 	t.Helper()
 
@@ -26,7 +26,7 @@ func setTestAppDefinition(
 		t.Fatalf("project root: %v", err)
 	}
 	current := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document)
-	metadata := projectstate.AppDefinition{}
+	metadata := appdefinition.AppDefinition{}
 	if len(current) != 0 {
 		metadata = mustDecodeStoredAppDefinition(t, current)
 	}
@@ -56,7 +56,7 @@ func setTestAppDefinition(
 		metadata.CatalogID = *input.CatalogID
 	}
 	if input.Routes != nil {
-		metadata.Routes = append([]projectstate.AppRoute(nil), (*input.Routes)...)
+		metadata.Routes = append([]appdefinition.AppRoute(nil), (*input.Routes)...)
 	}
 	if input.DataBindings != nil {
 		metadata.DataBindings = mustMarshalTestRawJSON(t, *input.DataBindings, "appDefinition.dataBindings")
@@ -108,7 +108,7 @@ func mustMarshalTestRawJSON(t *testing.T, value any, field string) projectstate.
 
 func mustMarshalStoredAppDefinition(
 	t *testing.T,
-	definition projectstate.AppDefinition,
+	definition appdefinition.AppDefinition,
 ) projectstate.RawJSON {
 	t.Helper()
 
@@ -118,10 +118,10 @@ func mustMarshalStoredAppDefinition(
 func mustDecodeStoredAppDefinition(
 	t *testing.T,
 	raw projectstate.RawJSON,
-) projectstate.AppDefinition {
+) appdefinition.AppDefinition {
 	t.Helper()
 
-	var definition projectstate.AppDefinition
+	var definition appdefinition.AppDefinition
 	if err := json.Unmarshal(raw, &definition); err != nil {
 		t.Fatalf("decode stored app definition: %v", err)
 	}

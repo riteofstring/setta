@@ -13,9 +13,9 @@ import (
 
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
 	"setta/internal/tools"
 	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const pluginBackendBuildRootName = "plugin_backend_builds"
@@ -42,7 +42,7 @@ type pluginBackendMCPRuntimeOptions struct {
 	Logger               *slog.Logger
 	RuntimeRoot          string
 	Snapshot             plugins.DiscoverySnapshot
-	AppDefinitionService projectstate.AppDefinitionRuntime
+	AppDefinitionService appdefinition.Runtime
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
@@ -81,7 +81,7 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 
 func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 	snapshot plugins.DiscoverySnapshot,
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) {
 	if r == nil || service == nil {
 		return

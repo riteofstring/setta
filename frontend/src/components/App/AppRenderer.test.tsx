@@ -9,12 +9,12 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type { Policy } from "utils/generatedTypes";
 import {
-  createAppDefinition,
   createPolicy,
   createProjectConfig,
   createSectionCapabilities,
   createSingletonSections,
 } from "utils/generatedTypes";
+import { createAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
 import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import { AppRenderer } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer";

@@ -14,6 +14,35 @@ import (
 
 const appSubsystemPluginDataKey = "setta-json-render-app-gen"
 
+type AppRoute struct {
+	Path    string `json:"path"`
+	Name    string `json:"name,omitempty"`
+	RootKey string `json:"rootKey,omitempty"`
+}
+
+type AppDefinition struct {
+	AppSpecVersion string     `json:"appSpecVersion,omitempty"`
+	CatalogID      string     `json:"catalogId,omitempty"`
+	AppSpecPath    string     `json:"appSpecPath,omitempty"`
+	Routes         []AppRoute `json:"routes,omitempty"`
+	DataBindings   RawJSON    `json:"dataBindings,omitempty"`
+	Actions        RawJSON    `json:"actions,omitempty"`
+	Theme          RawJSON    `json:"theme,omitempty"`
+	Assets         RawJSON    `json:"assets,omitempty"`
+}
+
+type SetAppDefinitionInput struct {
+	AppSpec        any
+	AppSpecPath    *string
+	AppSpecVersion *string
+	CatalogID      *string
+	Routes         *[]AppRoute
+	DataBindings   *map[string]any
+	Actions        *map[string]any
+	Theme          *map[string]any
+	Assets         *[]any
+}
+
 func setTestAppDefinition(
 	t *testing.T,
 	runtime *Runtime,

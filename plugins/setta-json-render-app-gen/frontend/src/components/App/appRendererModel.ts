@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useAppConfigs } from "../../appSubsystemProjectState";
 import { useShareSession } from "state/definitions";
 import { resolveAppPolicy } from "utils/deploymentPolicies";
-import type { AppDefinition, Policy } from "utils/generatedTypes";
+import type { Policy } from "utils/generatedTypes";
+import type { AppDefinition } from "../../appSubsystemContracts";
 import { resolveMainRunRequest } from "utils/runCapabilities";
 import {
   resolveAppRunState,

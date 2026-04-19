@@ -15,7 +15,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
-	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -36,7 +36,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -111,7 +111,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -183,7 +183,7 @@ func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{

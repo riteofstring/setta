@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"setta/internal/modes"
-	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const (
@@ -14,5 +14,5 @@ const (
 
 type AppDefinitionRouteDependencies struct {
 	ModePolicy modes.Policy
-	Service    projectstate.AppDefinitionRuntime
+	Service    appdefinition.Runtime
 }

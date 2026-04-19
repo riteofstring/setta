@@ -15,8 +15,8 @@ import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   createAppDefinition,
   type AppDefinition,
-  type SingleConfig,
-} from "utils/generatedTypes";
+} from "../../../appSubsystemContracts";
+import { type SingleConfig } from "utils/generatedTypes";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
 type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 export function AppPreview() {

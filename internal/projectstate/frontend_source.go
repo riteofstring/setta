@@ -122,25 +122,6 @@ type CodeObjectImpl struct {
 	Payload RawJSON `json:"payload,omitempty"`
 }
 
-// setta-go-type-discovery: skip
-type AppRoute struct {
-	Path    string `json:"path"`
-	Name    string `json:"name,omitempty"`
-	RootKey string `json:"rootKey,omitempty"`
-}
-
-// setta-go-type-discovery: skip
-type AppDefinition struct {
-	AppSpecVersion string     `json:"appSpecVersion,omitempty"`
-	CatalogID      string     `json:"catalogId,omitempty"`
-	AppSpecPath    string     `json:"appSpecPath,omitempty"`
-	Routes         []AppRoute `json:"routes,omitempty"`
-	DataBindings   RawJSON    `json:"dataBindings,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
-	Actions        RawJSON    `json:"actions,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
-	Theme          RawJSON    `json:"theme,omitempty"`
-	Assets         RawJSON    `json:"assets,omitempty"`
-}
-
 func (v ViewMode) Clone() ViewMode {
 	cloned := v
 	cloned.VisibilityBySectionID = cloneBoolMap(v.VisibilityBySectionID)
@@ -193,16 +174,6 @@ func (v CodeObjectVariant) Clone() CodeObjectVariant {
 func (i CodeObjectImpl) Clone() CodeObjectImpl {
 	cloned := i
 	cloned.Payload = cloneRawJSON(i.Payload)
-	return cloned
-}
-
-func (d AppDefinition) Clone() AppDefinition {
-	cloned := d
-	cloned.Routes = append([]AppRoute(nil), d.Routes...)
-	cloned.DataBindings = cloneRawJSON(d.DataBindings)
-	cloned.Actions = cloneRawJSON(d.Actions)
-	cloned.Theme = cloneRawJSON(d.Theme)
-	cloned.Assets = cloneRawJSON(d.Assets)
 	return cloned
 }
 

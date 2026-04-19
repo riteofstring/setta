@@ -1,4 +1,4 @@
-import type { AppDefinition } from "utils/generatedTypes";
+import type { AppDefinition } from "./appSubsystemContracts";
 
 import { withProjectState, withResetFn } from "state/utils";
 import { createWithEqualityFn } from "utils/zustandTraditional";

@@ -19,9 +19,9 @@ type AppDefinitionService struct {
 	runtime *projectstate.Runtime
 }
 
-var _ projectstate.AppDefinitionRuntime = (*AppDefinitionService)(nil)
+var _ Runtime = (*AppDefinitionService)(nil)
 
-func NewAppDefinitionService(runtime *projectstate.Runtime) projectstate.AppDefinitionRuntime {
+func NewAppDefinitionService(runtime *projectstate.Runtime) Runtime {
 	if runtime == nil {
 		return nil
 	}
@@ -30,29 +30,29 @@ func NewAppDefinitionService(runtime *projectstate.Runtime) projectstate.AppDefi
 
 func (s *AppDefinitionService) GetAppDefinition(
 	ctx context.Context,
-) (projectstate.AppDefinitionReadResult, error) {
+) (ReadResult, error) {
 	_ = ctx
 	if s == nil || s.runtime == nil {
-		return projectstate.AppDefinitionReadResult{}, projectstate.ErrRuntimeClosed
+		return ReadResult{}, projectstate.ErrRuntimeClosed
 	}
 
 	snapshot := s.runtime.Snapshot()
 	appDefinition, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
-		return projectstate.AppDefinitionReadResult{}, err
+		return ReadResult{}, err
 	}
-	result := projectstate.AppDefinitionReadResult{AppDefinition: appDefinition}
+	result := ReadResult{AppDefinition: appDefinition}
 	if result.AppDefinition == nil || strings.TrimSpace(result.AppDefinition.AppSpecPath) == "" {
 		return result, nil
 	}
 
 	projectRoot, err := s.runtime.ProjectRoot()
 	if err != nil {
-		return projectstate.AppDefinitionReadResult{}, err
+		return ReadResult{}, err
 	}
 	appSpec, err := appspec.Read(projectRoot, result.AppDefinition.AppSpecPath)
 	if err != nil {
-		return projectstate.AppDefinitionReadResult{}, err
+		return ReadResult{}, err
 	}
 	result.AppSpec = cloneJSONValue(appSpec)
 	return result, nil
@@ -60,10 +60,10 @@ func (s *AppDefinitionService) GetAppDefinition(
 
 func (s *AppDefinitionService) GetEffectiveAppDefinition(
 	ctx context.Context,
-) (projectstate.AppDefinition, error) {
+) (AppDefinition, error) {
 	_ = ctx
 	if s == nil || s.runtime == nil {
-		return projectstate.AppDefinition{}, projectstate.ErrRuntimeClosed
+		return AppDefinition{}, projectstate.ErrRuntimeClosed
 	}
 	return effectiveAppDefinition(s.runtime.Snapshot().Document)
 }
@@ -90,25 +90,25 @@ func (s *AppDefinitionService) GetEffectiveAppThemeMode(
 
 func (s *AppDefinitionService) ValidateAppDefinition(
 	ctx context.Context,
-	input projectstate.ValidateAppDefinitionInput,
-) (projectstate.AppDefinitionValidationResult, error) {
+	input ValidateInput,
+) (ValidationResult, error) {
 	_ = ctx
 	if s == nil || s.runtime == nil {
-		return projectstate.AppDefinitionValidationResult{}, projectstate.ErrRuntimeClosed
+		return ValidationResult{}, projectstate.ErrRuntimeClosed
 	}
 
 	current, err := effectiveAppDefinition(s.runtime.Snapshot().Document)
 	if err != nil {
-		return projectstate.AppDefinitionValidationResult{}, err
+		return ValidationResult{}, err
 	}
 	updated, err := applyValidateAppDefinitionInput(current, input)
 	if err != nil {
-		return projectstate.AppDefinitionValidationResult{}, err
+		return ValidationResult{}, err
 	}
 
 	validationDefinition, err := appspecDefinition(updated)
 	if err != nil {
-		return projectstate.AppDefinitionValidationResult{}, err
+		return ValidationResult{}, err
 	}
 	validationErrors, warnings := appspec.ValidateDefinitionPayload(input.AppSpec, validationDefinition)
 	if validationErrors == nil {
@@ -118,24 +118,24 @@ func (s *AppDefinitionService) ValidateAppDefinition(
 		warnings = []appspec.AppValidationIssue{}
 	}
 
-	return projectstate.AppDefinitionValidationResult{
-		Errors:       projectstateValidationIssues(validationErrors),
-		Warnings:     projectstateValidationIssues(warnings),
-		Capabilities: projectstateValidationCapabilities(appspec.BuildCapabilities(validationDefinition)),
+	return ValidationResult{
+		Errors:       validationIssues(validationErrors),
+		Warnings:     validationIssues(warnings),
+		Capabilities: validationCapabilities(appspec.BuildCapabilities(validationDefinition)),
 	}, nil
 }
 
 func (s *AppDefinitionService) SetAppDefinition(
 	ctx context.Context,
-	input projectstate.SetAppDefinitionInput,
-) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
+	input SetInput,
+) (projectstate.Snapshot, MutationResult, error) {
 	if s == nil || s.runtime == nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, projectstate.ErrRuntimeClosed
+		return projectstate.Snapshot{}, MutationResult{}, projectstate.ErrRuntimeClosed
 	}
 
 	projectRoot, err := s.runtime.ProjectRoot()
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
 	var nextAppSpec any
@@ -145,15 +145,15 @@ func (s *AppDefinitionService) SetAppDefinition(
 		return plan, err
 	})
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
 	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
-	return snapshot, projectstate.AppDefinitionMutationResult{
+	return snapshot, MutationResult{
 		AppSpec:       cloneJSONValue(nextAppSpec),
 		AppDefinition: appDefinitionResult,
 	}, nil
@@ -161,19 +161,19 @@ func (s *AppDefinitionService) SetAppDefinition(
 
 func (s *AppDefinitionService) StreamAppDefinition(
 	ctx context.Context,
-	input projectstate.StreamAppDefinitionInput,
-) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
+	input StreamInput,
+) (projectstate.Snapshot, MutationResult, error) {
 	if s == nil || s.runtime == nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, projectstate.ErrRuntimeClosed
+		return projectstate.Snapshot{}, MutationResult{}, projectstate.ErrRuntimeClosed
 	}
 
 	projectRoot, err := s.runtime.ProjectRoot()
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 	ops, err := parseStreamAppDefinitionPatches(input.Patches)
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
 	var nextAppSpec any
@@ -183,15 +183,15 @@ func (s *AppDefinitionService) StreamAppDefinition(
 		return plan, err
 	})
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
 	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
-	return snapshot, projectstate.AppDefinitionMutationResult{
+	return snapshot, MutationResult{
 		AppSpec:       cloneJSONValue(nextAppSpec),
 		AppDefinition: appDefinitionResult,
 	}, nil
@@ -212,7 +212,7 @@ func parseStreamAppDefinitionPatches(patches string) ([]appspec.PatchOp, error) 
 func buildSetAppDefinitionPlan(
 	document projectstate.Document,
 	projectRoot string,
-	input projectstate.SetAppDefinitionInput,
+	input SetInput,
 ) (projectstate.PersistedMutationPlan, any, error) {
 	current, err := effectiveAppDefinition(document)
 	if err != nil {
@@ -244,7 +244,7 @@ func buildSetAppDefinitionPlan(
 func buildStreamAppDefinitionPlan(
 	document projectstate.Document,
 	projectRoot string,
-	input projectstate.StreamAppDefinitionInput,
+	input StreamInput,
 	ops []appspec.PatchOp,
 ) (projectstate.PersistedMutationPlan, any, error) {
 	current, err := effectiveAppDefinition(document)
@@ -267,7 +267,7 @@ func buildStreamAppDefinitionPlan(
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
-	nextDocument, nextSpec, err := setAppDefinitionDocument(document, projectstate.SetAppDefinitionInput{
+	nextDocument, nextSpec, err := setAppDefinitionDocument(document, SetInput{
 		AppSpec:     appSpec,
 		AppSpecPath: input.AppSpecPath,
 	}, targetPath)
@@ -288,14 +288,14 @@ func buildStreamAppDefinitionPlan(
 func (s *AppDefinitionService) UpdateAppDefinition(
 	ctx context.Context,
 	patch any,
-) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
+) (projectstate.Snapshot, MutationResult, error) {
 	if s == nil || s.runtime == nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, projectstate.ErrRuntimeClosed
+		return projectstate.Snapshot{}, MutationResult{}, projectstate.ErrRuntimeClosed
 	}
 
 	projectRoot, err := s.runtime.ProjectRoot()
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
 	var nextAppSpec any
@@ -305,15 +305,15 @@ func (s *AppDefinitionService) UpdateAppDefinition(
 		return plan, err
 	})
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
 	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
-		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
+		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
-	return snapshot, projectstate.AppDefinitionMutationResult{
+	return snapshot, MutationResult{
 		AppSpec:       cloneJSONValue(nextAppSpec),
 		AppDefinition: appDefinitionResult,
 	}, nil
@@ -329,7 +329,7 @@ func buildUpdateAppDefinitionPlan(
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	if current == nil || strings.TrimSpace(current.AppSpecPath) == "" {
-		return projectstate.PersistedMutationPlan{}, nil, projectstate.ErrAppSpecPathUnconfigured
+		return projectstate.PersistedMutationPlan{}, nil, ErrAppSpecPathUnconfigured
 	}
 
 	appSpecPath := current.AppSpecPath
@@ -338,7 +338,7 @@ func buildUpdateAppDefinitionPlan(
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	if existing == nil {
-		return projectstate.PersistedMutationPlan{}, nil, projectstate.ErrAppSpecNotFound
+		return projectstate.PersistedMutationPlan{}, nil, ErrAppSpecNotFound
 	}
 
 	nextDocument, appSpec, err := updateAppDefinitionDocument(document, patch, existing)
@@ -363,20 +363,20 @@ type appSpecPatchInvalidError struct {
 
 func (e *appSpecPatchInvalidError) Error() string {
 	if e == nil || e.cause == nil {
-		return projectstate.ErrAppSpecPatchInvalid.Error()
+		return ErrAppSpecPatchInvalid.Error()
 	}
 	return e.cause.Error()
 }
 
 func (e *appSpecPatchInvalidError) Unwrap() error {
-	return projectstate.ErrAppSpecPatchInvalid
+	return ErrAppSpecPatchInvalid
 }
 
 func newAppSpecPatchInvalidError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+	if errors.Is(err, ErrAppSpecPatchInvalid) {
 		return err
 	}
 	return &appSpecPatchInvalidError{cause: err}
@@ -384,7 +384,7 @@ func newAppSpecPatchInvalidError(err error) error {
 
 func setAppDefinitionDocument(
 	document projectstate.Document,
-	input projectstate.SetAppDefinitionInput,
+	input SetInput,
 	normalizedAppSpecPath string,
 ) (projectstate.Document, any, error) {
 	current, err := effectiveAppDefinition(document)
@@ -442,7 +442,7 @@ func updateAppDefinitionDocument(
 
 func resolveSetAppDefinitionTargetPath(
 	projectRoot string,
-	current projectstate.AppDefinition,
+	current AppDefinition,
 	inputAppSpecPath *string,
 ) (string, error) {
 	targetPath := appspec.DefaultPath()
@@ -457,7 +457,7 @@ func resolveSetAppDefinitionTargetPath(
 
 func resolveStreamAppDefinitionTargetPath(
 	projectRoot string,
-	current projectstate.AppDefinition,
+	current AppDefinition,
 	inputAppSpecPath *string,
 ) (string, error) {
 	targetPath := appspec.DefaultPath()
@@ -472,7 +472,7 @@ func resolveStreamAppDefinitionTargetPath(
 
 func resolveStreamAppDefinitionBaseSpec(
 	projectRoot string,
-	current projectstate.AppDefinition,
+	current AppDefinition,
 	baseAppSpec *map[string]any,
 ) (map[string]any, error) {
 	if baseAppSpec != nil {
@@ -505,54 +505,54 @@ func resolveStreamAppDefinitionBaseSpec(
 }
 
 func applyValidateAppDefinitionInput(
-	current projectstate.AppDefinition,
-	input projectstate.ValidateAppDefinitionInput,
-) (projectstate.AppDefinition, error) {
+	current AppDefinition,
+	input ValidateInput,
+) (AppDefinition, error) {
 	updated := current.Clone()
 	applyOptionalAppDefinitionMetadata(&updated, input.AppSpecVersion, input.CatalogID, input.Routes)
 	if err := applyOptionalAppDefinitionJSONField(&updated.DataBindings, input.DataBindings, "appDefinition.dataBindings"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if err := applyOptionalAppDefinitionJSONField(&updated.Actions, input.Actions, "appDefinition.actions"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if err := applyOptionalAppDefinitionJSONField(&updated.Theme, input.Theme, "appDefinition.theme"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if err := applyOptionalAppDefinitionJSONField(&updated.Assets, input.Assets, "appDefinition.assets"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	return normalizeAppDefinition(updated)
 }
 
 func applySetAppDefinitionInput(
-	current projectstate.AppDefinition,
-	input projectstate.SetAppDefinitionInput,
+	current AppDefinition,
+	input SetInput,
 	normalizedAppSpecPath string,
-) (projectstate.AppDefinition, error) {
+) (AppDefinition, error) {
 	updated := current.Clone()
 	updated.AppSpecPath = normalizedAppSpecPath
 	applyOptionalAppDefinitionMetadata(&updated, input.AppSpecVersion, input.CatalogID, input.Routes)
 	if err := applyOptionalAppDefinitionJSONField(&updated.DataBindings, input.DataBindings, "appDefinition.dataBindings"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if err := applyOptionalAppDefinitionJSONField(&updated.Actions, input.Actions, "appDefinition.actions"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if err := applyOptionalAppDefinitionJSONField(&updated.Theme, input.Theme, "appDefinition.theme"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if err := applyOptionalAppDefinitionJSONField(&updated.Assets, input.Assets, "appDefinition.assets"); err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	return normalizeAppDefinition(updated)
 }
 
 func applyOptionalAppDefinitionMetadata(
-	definition *projectstate.AppDefinition,
+	definition *AppDefinition,
 	appSpecVersion *string,
 	catalogID *string,
-	routes *[]projectstate.AppRoute,
+	routes *[]AppRoute,
 ) {
 	if appSpecVersion != nil {
 		definition.AppSpecVersion = *appSpecVersion
@@ -561,7 +561,7 @@ func applyOptionalAppDefinitionMetadata(
 		definition.CatalogID = *catalogID
 	}
 	if routes != nil {
-		definition.Routes = append([]projectstate.AppRoute(nil), (*routes)...)
+		definition.Routes = append([]AppRoute(nil), (*routes)...)
 	}
 }
 
@@ -581,7 +581,7 @@ func applyOptionalAppDefinitionJSONField[T any](
 	return nil
 }
 
-func appspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {
+func appspecDefinition(definition AppDefinition) (appspec.Definition, error) {
 	dataBindings, err := decodeAppDefinitionJSONObject(definition.DataBindings, "appDefinition.dataBindings")
 	if err != nil {
 		return appspec.Definition{}, err
@@ -608,16 +608,16 @@ func appspecDefinition(definition projectstate.AppDefinition) (appspec.Definitio
 	}, nil
 }
 
-func projectstateValidationIssues(
+func validationIssues(
 	issues []appspec.AppValidationIssue,
-) []projectstate.AppDefinitionValidationIssue {
+) []ValidationIssue {
 	if len(issues) == 0 {
-		return []projectstate.AppDefinitionValidationIssue{}
+		return []ValidationIssue{}
 	}
 
-	converted := make([]projectstate.AppDefinitionValidationIssue, 0, len(issues))
+	converted := make([]ValidationIssue, 0, len(issues))
 	for _, issue := range issues {
-		converted = append(converted, projectstate.AppDefinitionValidationIssue{
+		converted = append(converted, ValidationIssue{
 			Message:     issue.Message,
 			ElementKey:  issue.ElementKey,
 			ElementType: issue.ElementType,
@@ -626,14 +626,14 @@ func projectstateValidationIssues(
 	return converted
 }
 
-func projectstateValidationCapabilities(
+func validationCapabilities(
 	capabilities appspec.AppCapabilities,
-) projectstate.AppDefinitionCapabilities {
+) Capabilities {
 	features := make(map[string]bool, len(capabilities.Features))
 	for key, enabled := range capabilities.Features {
 		features[key] = enabled
 	}
-	return projectstate.AppDefinitionCapabilities{
+	return Capabilities{
 		CatalogID:          capabilities.CatalogID,
 		CatalogVersion:     capabilities.CatalogVersion,
 		AppSpecVersion:     capabilities.AppSpecVersion,
@@ -691,7 +691,7 @@ func decodeAppDefinitionJSONArray(raw projectstate.RawJSON, field string) ([]any
 	return array, nil
 }
 
-func cloneAppDefinitionPointer(appDefinition *projectstate.AppDefinition) *projectstate.AppDefinition {
+func cloneAppDefinitionPointer(appDefinition *AppDefinition) *AppDefinition {
 	if appDefinition == nil {
 		return nil
 	}
