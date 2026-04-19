@@ -8,6 +8,11 @@ import {
   type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  processAppProjectStateUpdateFromBackend,
+  resetAppSessionState,
+} from "plugins/appSubsystemRuntime";
 import { receivePluginRuntimeUpdate } from "plugins/runtime";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
@@ -64,11 +69,6 @@ import {
   type WebsocketMessageType,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import {
-  initializeAppSessionFromCurrentDeployment,
-  resetAppSessionState,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
-import { processAppProjectStateUpdateFromBackend } from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/appProjectState";
 import {
   loadAgentRuns,
   receiveAgentProfilesUpdate,

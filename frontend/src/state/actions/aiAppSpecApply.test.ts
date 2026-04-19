@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "plugins/appSubsystemRuntime";
 import { receiveLLMResponseChunk } from "./ai";
 
 import { useProjectState } from "state/definitions";
@@ -12,10 +16,22 @@ import {
 import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
 import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
+const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
+  pluginId: "setta-json-render-app-gen",
+  pluginEnabled: true,
+  appAuthoringUi: true,
+  appPreviewUi: true,
+  appGenerationChatModes: true,
+  appDeploymentRuntime: true,
+} as const;
+
 describe("ai app spec tool results", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     resetProjectStores();
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
@@ -24,6 +40,7 @@ describe("ai app spec tool results", () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
+    resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 
