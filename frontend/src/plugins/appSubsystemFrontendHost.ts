@@ -5,11 +5,16 @@ import {
   type AppSubsystemNotification,
   type AppSubsystemProjectContext,
   type AppSubsystemProjectStateSnapshot,
+  type AppSubsystemRealtimeDependencyEvent,
   type AppSubsystemRuntimeContext,
   type AppSubsystemServerModeState,
 } from "@setta/app-subsystem-frontend-sdk";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  sendRealtimeDependencyEvent,
+  sendRealtimeSectionParamLiteral,
+} from "state/actions/realtimeDependencySend";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
@@ -294,12 +299,21 @@ function addAppSubsystemNotification(
   );
 }
 
+function emitAppSubsystemRealtimeDependencyEvent(
+  event: AppSubsystemRealtimeDependencyEvent,
+  projectConfigIdOverride?: string | null,
+): void {
+  sendRealtimeDependencyEvent(event, projectConfigIdOverride);
+}
+
 export function createRuntimeAppSubsystemFrontendHost(
   overrides: Partial<AppSubsystemFrontendHost> = {},
 ): AppSubsystemFrontendHost {
   return createAppSubsystemFrontendHost({
     closeModal,
     notify: addAppSubsystemNotification,
+    emitRealtimeDependencyEvent: emitAppSubsystemRealtimeDependencyEvent,
+    emitRealtimeSectionParamLiteral: sendRealtimeSectionParamLiteral,
     getProjectContext: () => currentAppSubsystemProjectContext,
     subscribeProjectContext: (
       listener: (projectContext: AppSubsystemProjectContext) => void,
