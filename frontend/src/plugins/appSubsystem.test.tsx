@@ -6,6 +6,7 @@ import {
   buildDefaultAppSpecPath,
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
   getAppSubsystemFrontendRuntimeState,
+  isAppSubsystemFrontendRegistration,
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
   syncAppSubsystemFrontendRegistration,
@@ -24,52 +25,57 @@ const resetProjectStateMock = vi.fn();
 const applyStructuredContentMock = vi.fn();
 let mockPreviewEnabled = false;
 let previewEnabledListener: ((previewEnabled: boolean) => void) | null = null;
+const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
 
 const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   overviewTab: {
-    component: () => null,
+    renderer: NOOP_APP_SUBSYSTEM_RENDERER,
     titleQuickInfo: "Authoring quick info",
     moreMenuQuickInfo: "More menu quick info",
     moreMenuLabel: "JSON Render",
   },
   previewSurface: {
-    component: () => null,
+    renderer: NOOP_APP_SUBSYSTEM_RENDERER,
   },
   appModeRoute: {
-    component: () => null,
+    renderer: NOOP_APP_SUBSYSTEM_RENDERER,
   },
   appDeploymentModal: {
-    component: () => null,
+    renderer: NOOP_APP_SUBSYSTEM_RENDERER,
   },
-  slashCommands: [
-    {
-      command: "/app-json",
-      action: "app_json_render",
-      summary: "Generate an app spec.",
-      promptTemplate: "Generate an app spec.",
-      appGenerationMode: "json_render",
-    },
-  ],
-  imageRequiredModes: ["json_render_with_image"],
-  customSlashCommandModes: {
-    options: [
-      { id: "plain_chat", name: "Plain chat" },
-      { id: "json_render", name: "JSON Render" },
+  chat: {
+    slashCommands: [
+      {
+        command: "/app-json",
+        action: "app_json_render",
+        summary: "Generate an app spec.",
+        promptTemplate: "Generate an app spec.",
+        appGenerationMode: "json_render",
+      },
     ],
-    defaultMode: "plain_chat",
+    imageRequiredModes: ["json_render_with_image"],
+    customSlashCommandModes: {
+      options: [
+        { id: "plain_chat", name: "Plain chat" },
+        { id: "json_render", name: "JSON Render" },
+      ],
+      defaultMode: "plain_chat",
+    },
   },
-  getPreviewEnabled: () => mockPreviewEnabled,
-  subscribePreviewEnabled: (listener: (previewEnabled: boolean) => void) => {
-    previewEnabledListener = listener;
-    return () => {
-      if (previewEnabledListener === listener) {
-        previewEnabledListener = null;
-      }
-    };
-  },
-  applyAppDefinitionStructuredContentToStore: applyStructuredContentMock,
-  resetProjectState: () => {
-    resetProjectStateMock();
+  controller: {
+    getPreviewEnabled: () => mockPreviewEnabled,
+    subscribePreviewEnabled: (listener: (previewEnabled: boolean) => void) => {
+      previewEnabledListener = listener;
+      return () => {
+        if (previewEnabledListener === listener) {
+          previewEnabledListener = null;
+        }
+      };
+    },
+    applyAppDefinitionStructuredContentToStore: applyStructuredContentMock,
+    resetProjectState: () => {
+      resetProjectStateMock();
+    },
   },
 };
 
@@ -84,22 +90,24 @@ const OTHER_APP_SUBSYSTEM_CAPABILITIES = {
 
 const OTHER_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
-  slashCommands: [
-    {
-      command: "/acme-app",
-      action: "acme_app_render",
-      summary: "Generate the alternate provider app spec.",
-      promptTemplate: "Generate an alternate provider app spec.",
-      appGenerationMode: "acme_render",
-    },
-  ],
-  imageRequiredModes: ["acme_render"],
-  customSlashCommandModes: {
-    options: [
-      { id: "plain_chat", name: "Plain chat" },
-      { id: "acme_render", name: "Acme Render" },
+  chat: {
+    slashCommands: [
+      {
+        command: "/acme-app",
+        action: "acme_app_render",
+        summary: "Generate the alternate provider app spec.",
+        promptTemplate: "Generate an alternate provider app spec.",
+        appGenerationMode: "acme_render",
+      },
     ],
-    defaultMode: "acme_render",
+    imageRequiredModes: ["acme_render"],
+    customSlashCommandModes: {
+      options: [
+        { id: "plain_chat", name: "Plain chat" },
+        { id: "acme_render", name: "Acme Render" },
+      ],
+      defaultMode: "acme_render",
+    },
   },
 };
 
@@ -184,6 +192,19 @@ describe("appSubsystem", () => {
     mockPreviewEnabled = false;
     previewEnabledListener = null;
     resetAppSubsystemFrontendRuntimeState();
+  });
+
+  it("rejects legacy component-based registrations", () => {
+    expect(
+      isAppSubsystemFrontendRegistration({
+        overviewTab: {
+          component: () => null,
+          titleQuickInfo: "Quick info",
+          moreMenuQuickInfo: "More quick info",
+          moreMenuLabel: "Legacy",
+        },
+      }),
+    ).toBe(false);
   });
 
   it("treats missing capabilities as unavailable and does not keep stale registrations", async () => {
