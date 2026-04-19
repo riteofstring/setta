@@ -141,12 +141,20 @@ describe("chatComposerControls", () => {
     ]);
     expect(commands.slice(2, 6)).toEqual(
       APP_GENERATION_SLASH_COMMANDS.map(
-        ({ command, action, summary, promptTemplate, appGenerationMode }) => ({
+        ({
           command,
           action,
           summary,
           promptTemplate,
           appGenerationMode,
+          requiresImageAttachment,
+        }) => ({
+          command,
+          action,
+          summary,
+          promptTemplate,
+          appGenerationMode,
+          requiresImageAttachment,
         }),
       ),
     );
@@ -174,6 +182,7 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Summarize regressions.",
         appGenerationMode: null,
+        requiresImageAttachment: false,
       },
     ]);
 
@@ -215,6 +224,7 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Build from the project design system.",
         appGenerationMode: "json_render",
+        requiresImageAttachment: false,
       },
     ]);
 
@@ -275,6 +285,7 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Keep this prompt.",
         appGenerationMode: null,
+        requiresImageAttachment: false,
       },
     ]);
   });
