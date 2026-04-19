@@ -30,6 +30,7 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -3627,7 +3628,10 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"]), storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(t, app.ProjectStates().Main().Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(
+		t,
+		appdefinition.StoredDocumentAppDefinitionRaw(app.ProjectStates().Main().Snapshot().Document),
+	)
 	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
 		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", storedAppDefinition)
 	}
