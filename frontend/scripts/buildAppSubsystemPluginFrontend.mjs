@@ -1,26 +1,27 @@
+import { spawnSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "vite";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const frontendDir = resolve(scriptDir, "..");
 const repoRootDir = resolve(frontendDir, "..");
-
-const sdkConfigFile = resolve(
-  frontendDir,
-  "plugin-sdk/app-subsystem/vite.config.mjs",
-);
-const pluginConfigFile = resolve(
+const pluginFrontendDir = resolve(
   repoRootDir,
-  "plugins/setta-json-render-app-gen/frontend/vite.config.mjs",
+  "plugins/setta-json-render-app-gen/frontend",
+);
+const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+console.log(
+  "Delegating to the plugin-owned app plugin frontend build in plugins/setta-json-render-app-gen/frontend...",
 );
 
-console.log("Building app-subsystem frontend SDK...");
-await build({
-  configFile: sdkConfigFile,
+const result = spawnSync(pnpmCommand, ["run", "build"], {
+  cwd: pluginFrontendDir,
+  stdio: "inherit",
 });
 
-console.log("Building setta-json-render-app-gen plugin frontend...");
-await build({
-  configFile: pluginConfigFile,
-});
+if (result.error) {
+  throw result.error;
+}
+
+process.exit(result.status ?? 1);
