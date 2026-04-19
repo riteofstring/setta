@@ -2657,6 +2657,38 @@
       "schemaRef": "#/$defs/PluginAppSubsystemFeatureManifest"
     },
     {
+      "name": "PluginAppSubsystemProviderSelection",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginAppSubsystemProviderSelection"
+    },
+    {
+      "name": "PluginAppSubsystemProviderSelectionStatusKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PluginAppSubsystemProviderSelectionStatusKind",
+      "enumValues": [
+        {
+          "name": "no_provider",
+          "value": "no_provider"
+        },
+        {
+          "name": "disabled_provider",
+          "value": "disabled_provider"
+        },
+        {
+          "name": "invalid_provider",
+          "value": "invalid_provider"
+        },
+        {
+          "name": "active",
+          "value": "active"
+        },
+        {
+          "name": "provider_conflict",
+          "value": "provider_conflict"
+        }
+      ]
+    },
+    {
       "name": "PluginBackendManifest",
       "kind": "model",
       "schemaRef": "#/$defs/PluginBackendManifest"
