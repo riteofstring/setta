@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -104,8 +105,18 @@ func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin
 		t.Fatal("expected feature capabilities payload")
 	}
 	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
-	if appSubsystem.PluginID != AppSubsystemPluginID {
-		t.Fatalf("expected app subsystem plugin id %q, got %q", AppSubsystemPluginID, appSubsystem.PluginID)
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	if appSubsystem.PluginID != "" {
+		t.Fatalf("expected no selected app subsystem plugin, got %q", appSubsystem.PluginID)
 	}
 	if appSubsystem.PluginEnabled {
 		t.Fatalf("expected app subsystem plugin disabled without fixture plugin, got %#v", appSubsystem)
@@ -113,15 +124,31 @@ func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin
 	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
 		t.Fatalf("expected app subsystem surfaces unavailable without plugin, got %#v", appSubsystem)
 	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 }
 
 func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	installRuntimeAppSubsystemFixture(t, roots, false, map[string]any{
-		"appAuthoringUi":         true,
-		"appPreviewUi":           true,
-		"appGenerationChatModes": true,
-		"appDeploymentRuntime":   true,
+	pluginID := "acme-disabled-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: false,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -134,21 +161,47 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(
 		t.Fatal("expected feature capabilities payload")
 	}
 	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusDisabledProvider,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+		nil,
+	)
 	if appSubsystem.PluginEnabled {
 		t.Fatalf("expected disabled app subsystem plugin to stay unavailable, got %#v", appSubsystem)
 	}
 	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
 		t.Fatalf("expected disabled app subsystem surfaces unavailable, got %#v", appSubsystem)
 	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusDisabledProvider,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+		nil,
+	)
 }
 
 func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	installRuntimeAppSubsystemFixture(t, roots, true, map[string]any{
-		"appAuthoringUi":         true,
-		"appPreviewUi":           true,
-		"appGenerationChatModes": false,
-		"appDeploymentRuntime":   false,
+	pluginID := "acme-active-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": false,
+			"appDeploymentRuntime":   false,
+		},
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -161,6 +214,19 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *tes
 		t.Fatal("expected feature capabilities payload")
 	}
 	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusActive,
+		stringPointer(pluginID),
+		[]string{pluginID},
+		nil,
+		nil,
+		nil,
+	)
+	if appSubsystem.PluginID != pluginID {
+		t.Fatalf("expected selected app subsystem plugin %q, got %#v", pluginID, appSubsystem.PluginID)
+	}
 	if !appSubsystem.PluginEnabled {
 		t.Fatalf("expected enabled app subsystem plugin, got %#v", appSubsystem)
 	}
@@ -170,30 +236,213 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *tes
 	if appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
 		t.Fatalf("expected disabled chat-mode/runtime surfaces to stay false, got %#v", appSubsystem)
 	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusActive,
+		stringPointer(pluginID),
+		[]string{pluginID},
+		nil,
+		nil,
+		nil,
+	)
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatInvalidProviderAsUnavailable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-invalid-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "full",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pluginConfigById": map[string]any{
+			string(PluginScopeWorkspace) + ":" + pluginID: "invalid-root",
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected invalid provider to stay unavailable, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected invalid provider surfaces unavailable, got %#v", appSubsystem)
+	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesFailClosedOnProviderConflict(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	firstPluginID := "acme-primary-app-provider"
+	secondPluginID := "contoso-secondary-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         firstPluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi": true,
+			"appPreviewUi":   true,
+		},
+	})
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         secondPluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusConflict,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+		nil,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected conflicting providers to disable app subsystem, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected conflicting provider surfaces unavailable, got %#v", appSubsystem)
+	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusConflict,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+		nil,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+	)
+}
+
+type runtimeAppSubsystemFixtureOptions struct {
+	PluginID         string
+	FixtureName      string
+	EnabledByDefault bool
+	AppSubsystem     map[string]any
 }
 
 func installRuntimeAppSubsystemFixture(
 	t *testing.T,
 	roots filesystemResolverTestRoots,
-	enabledByDefault bool,
-	appSubsystem map[string]any,
+	options runtimeAppSubsystemFixtureOptions,
 ) string {
 	t.Helper()
 
-	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
-	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), AppSubsystemPluginID)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, options.FixtureName)
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), options.PluginID)
 	if err := os.Rename(pluginRoot, targetRoot); err != nil {
 		t.Fatalf("rename plugin root %s -> %s: %v", pluginRoot, targetRoot, err)
 	}
 	rewritePluginManifest(t, targetRoot, func(payload map[string]any) {
-		payload["id"] = AppSubsystemPluginID
-		payload["name"] = "Setta JSON Render App Gen"
-		payload["enabledByDefault"] = enabledByDefault
+		payload["id"] = options.PluginID
+		payload["name"] = "Runtime App Subsystem Fixture"
+		payload["enabledByDefault"] = options.EnabledByDefault
 		payload["featureCapabilities"] = map[string]any{
-			"appSubsystem": appSubsystem,
+			"appSubsystem": options.AppSubsystem,
 		}
 	})
 	return targetRoot
+}
+
+func assertRuntimeAppSubsystemSelection(
+	t *testing.T,
+	selection *PluginAppSubsystemProviderSelection,
+	expectedStatus PluginAppSubsystemProviderSelectionStatusKind,
+	expectedSelectedPluginID *string,
+	expectedActive []string,
+	expectedDisabled []string,
+	expectedInvalid []string,
+	expectedConflicting []string,
+) {
+	t.Helper()
+
+	if selection == nil {
+		t.Fatal("expected app subsystem provider selection")
+	}
+	if selection.Status != expectedStatus {
+		t.Fatalf("expected selection status %q, got %#v", expectedStatus, selection)
+	}
+	if expectedSelectedPluginID == nil {
+		if selection.SelectedPluginID != nil {
+			t.Fatalf("expected no selected provider, got %#v", selection.SelectedPluginID)
+		}
+	} else {
+		if selection.SelectedPluginID == nil || *selection.SelectedPluginID != *expectedSelectedPluginID {
+			t.Fatalf("expected selected provider %q, got %#v", *expectedSelectedPluginID, selection.SelectedPluginID)
+		}
+	}
+	if !slices.Equal(selection.ActivePluginIDs, emptyStrings(expectedActive)) {
+		t.Fatalf("expected active provider ids %#v, got %#v", expectedActive, selection.ActivePluginIDs)
+	}
+	if !slices.Equal(selection.DisabledPluginIDs, emptyStrings(expectedDisabled)) {
+		t.Fatalf("expected disabled provider ids %#v, got %#v", expectedDisabled, selection.DisabledPluginIDs)
+	}
+	if !slices.Equal(selection.InvalidPluginIDs, emptyStrings(expectedInvalid)) {
+		t.Fatalf("expected invalid provider ids %#v, got %#v", expectedInvalid, selection.InvalidPluginIDs)
+	}
+	if !slices.Equal(selection.ConflictingPluginIDs, emptyStrings(expectedConflicting)) {
+		t.Fatalf("expected conflicting provider ids %#v, got %#v", expectedConflicting, selection.ConflictingPluginIDs)
+	}
+}
+
+func emptyStrings(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	return values
 }
 
 // Content descriptor scans should ignore symlinked directory loops until a real file appears.

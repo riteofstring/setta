@@ -28,13 +28,33 @@ type RuntimeOptions struct {
 	AssetURLBuilder AssetURLBuilder
 }
 
+type PluginAppSubsystemProviderSelectionStatusKind string
+
+const (
+	PluginAppSubsystemProviderSelectionStatusNoProvider       PluginAppSubsystemProviderSelectionStatusKind = "no_provider"
+	PluginAppSubsystemProviderSelectionStatusDisabledProvider PluginAppSubsystemProviderSelectionStatusKind = "disabled_provider"
+	PluginAppSubsystemProviderSelectionStatusInvalidProvider  PluginAppSubsystemProviderSelectionStatusKind = "invalid_provider"
+	PluginAppSubsystemProviderSelectionStatusActive           PluginAppSubsystemProviderSelectionStatusKind = "active"
+	PluginAppSubsystemProviderSelectionStatusConflict         PluginAppSubsystemProviderSelectionStatusKind = "provider_conflict"
+)
+
+type PluginAppSubsystemProviderSelection struct {
+	Status               PluginAppSubsystemProviderSelectionStatusKind `json:"status"`
+	SelectedPluginID     *string                                       `json:"selectedPluginId,omitempty"`
+	ActivePluginIDs      []string                                      `json:"activePluginIds"`
+	DisabledPluginIDs    []string                                      `json:"disabledPluginIds"`
+	InvalidPluginIDs     []string                                      `json:"invalidPluginIds"`
+	ConflictingPluginIDs []string                                      `json:"conflictingPluginIds"`
+}
+
 type PluginAppSubsystemCapabilities struct {
-	PluginID               string `json:"pluginId"`
-	PluginEnabled          bool   `json:"pluginEnabled"`
-	AppAuthoringUI         bool   `json:"appAuthoringUi"`
-	AppPreviewUI           bool   `json:"appPreviewUi"`
-	AppGenerationChatModes bool   `json:"appGenerationChatModes"`
-	AppDeploymentRuntime   bool   `json:"appDeploymentRuntime"`
+	ProviderSelection      *PluginAppSubsystemProviderSelection `json:"providerSelection,omitempty"`
+	PluginID               string                               `json:"pluginId"`
+	PluginEnabled          bool                                 `json:"pluginEnabled"`
+	AppAuthoringUI         bool                                 `json:"appAuthoringUi"`
+	AppPreviewUI           bool                                 `json:"appPreviewUi"`
+	AppGenerationChatModes bool                                 `json:"appGenerationChatModes"`
+	AppDeploymentRuntime   bool                                 `json:"appDeploymentRuntime"`
 }
 
 type PluginFeatureCapabilities struct {
@@ -150,33 +170,97 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 }
 
 func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppSubsystemCapabilities {
+	resolution := resolveAppSubsystemProvider(entries)
 	capabilities := PluginAppSubsystemCapabilities{
-		PluginID: AppSubsystemPluginID,
+		ProviderSelection: &resolution.selection,
 	}
-	for _, entry := range entries {
-		if !isRuntimeAppSubsystemEntry(entry) {
-			continue
-		}
+	if resolution.selection.SelectedPluginID != nil {
+		capabilities.PluginID = *resolution.selection.SelectedPluginID
 		capabilities.PluginEnabled = true
-		mergeRuntimeAppSubsystemCapabilities(
-			&capabilities,
-			runtimeAppSubsystemFeatureManifest(entry),
-		)
+		mergeRuntimeAppSubsystemCapabilities(&capabilities, resolution.feature)
 	}
 	return capabilities
-}
-
-func isRuntimeAppSubsystemEntry(entry DiscoveredPlugin) bool {
-	if entry.PluginID != AppSubsystemPluginID {
-		return false
-	}
-	return entry.State == PluginRuntimeStateActive || entry.State == PluginRuntimeStatePendingRestart
 }
 
 func AppSubsystemCapabilitiesFromSnapshot(
 	snapshot DiscoverySnapshot,
 ) PluginAppSubsystemCapabilities {
 	return buildRuntimeAppSubsystemCapabilities(snapshot.Plugins)
+}
+
+func AppSubsystemProviderSelectionFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginAppSubsystemProviderSelection {
+	return resolveAppSubsystemProvider(snapshot.Plugins).selection
+}
+
+type runtimeAppSubsystemProviderResolution struct {
+	selection PluginAppSubsystemProviderSelection
+	feature   *PluginAppSubsystemFeatureManifest
+}
+
+type runtimeAppSubsystemProviderCandidate struct {
+	pluginID string
+	feature  *PluginAppSubsystemFeatureManifest
+}
+
+func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystemProviderResolution {
+	resolution := runtimeAppSubsystemProviderResolution{
+		selection: PluginAppSubsystemProviderSelection{
+			Status:               PluginAppSubsystemProviderSelectionStatusNoProvider,
+			ActivePluginIDs:      []string{},
+			DisabledPluginIDs:    []string{},
+			InvalidPluginIDs:     []string{},
+			ConflictingPluginIDs: []string{},
+		},
+	}
+	activeProviders := make([]runtimeAppSubsystemProviderCandidate, 0)
+	for _, entry := range entries {
+		feature := runtimeAppSubsystemFeatureManifest(entry)
+		if feature == nil {
+			continue
+		}
+		switch entry.State {
+		case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart:
+			resolution.selection.ActivePluginIDs = append(resolution.selection.ActivePluginIDs, entry.PluginID)
+			activeProviders = append(activeProviders, runtimeAppSubsystemProviderCandidate{
+				pluginID: entry.PluginID,
+				feature:  feature,
+			})
+		case PluginRuntimeStateDisabled:
+			resolution.selection.DisabledPluginIDs = append(resolution.selection.DisabledPluginIDs, entry.PluginID)
+		case PluginRuntimeStateInvalid:
+			resolution.selection.InvalidPluginIDs = append(resolution.selection.InvalidPluginIDs, entry.PluginID)
+		}
+	}
+
+	switch len(activeProviders) {
+	case 0:
+		switch {
+		case len(resolution.selection.InvalidPluginIDs) != 0:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusInvalidProvider
+		case len(resolution.selection.DisabledPluginIDs) != 0:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusDisabledProvider
+		default:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusNoProvider
+		}
+	case 1:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusActive
+		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
+		resolution.feature = activeProviders[0].feature
+	default:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusConflict
+		resolution.selection.ConflictingPluginIDs = append(
+			resolution.selection.ConflictingPluginIDs,
+			resolution.selection.ActivePluginIDs...,
+		)
+	}
+
+	resolution.selection.ActivePluginIDs = cloneStringSliceOrEmpty(resolution.selection.ActivePluginIDs)
+	resolution.selection.DisabledPluginIDs = cloneStringSliceOrEmpty(resolution.selection.DisabledPluginIDs)
+	resolution.selection.InvalidPluginIDs = cloneStringSliceOrEmpty(resolution.selection.InvalidPluginIDs)
+	resolution.selection.ConflictingPluginIDs = cloneStringSliceOrEmpty(resolution.selection.ConflictingPluginIDs)
+	return resolution
 }
 
 func runtimeAppSubsystemFeatureManifest(
@@ -475,9 +559,16 @@ func buildRuntimeStatusResponse(
 		SchemaVersion:            pluginStatusSchemaVersion,
 		ServerMode:               snapshot.ServerMode,
 		RestartCapability:        capability,
+		AppSubsystemSelection:    stringPointerSelection(resolveAppSubsystemProvider(snapshot.Plugins).selection),
 		Plugins:                  entries,
 		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
+}
+
+func stringPointerSelection(
+	selection PluginAppSubsystemProviderSelection,
+) *PluginAppSubsystemProviderSelection {
+	return &selection
 }
 
 func buildRuntimeStatusEntry(entry DiscoveredPlugin, redactSourceDetails bool, redactedSourcePathByPath map[string]string) PluginStatusEntry {
