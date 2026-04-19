@@ -17,8 +17,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem"
 	"setta/internal/appsubsystem/appdefinition"
+	appdefinitionhttp "setta/internal/appsubsystem/appdefinitionhttp"
 	"setta/internal/appsubsystem/appspec"
-	"setta/internal/appsubsystemproviders/builtin/appdefinitionhttp"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
@@ -546,7 +546,7 @@ func newAppDefinitionRouteTestHandler(
 		Info:       httpapi.NewConfigInfoService(config.Config{Server: config.Server{Mode: mode}}, ""),
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterAppDefinitionRoutes(r, AppDefinitionRouteDependencies{
+			if err := appdefinitionhttp.RegisterRoutes(r, appdefinitionhttp.RouteDependencies{
 				ModePolicy:   modes.NewPolicy(mode),
 				ProjectState: projectRuntime,
 				PluginID:     ProviderPluginID,
@@ -622,6 +622,12 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/AppsubsystemAppdefinitionAppDefinition"); schema == nil {
 		t.Fatal("expected plugin-owned app definition schema in HTTP OpenAPI document")
 	}
+	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/AppsubsystemAppdefinitionhttpSetAppDefinitionRequest"); schema == nil {
+		t.Fatal("expected app-definition request schema to use the neutral app subsystem HTTP owner path")
+	}
+	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest"); schema == nil {
+		t.Fatal("expected app-definition validation schema to use the neutral app subsystem HTTP owner path")
+	}
 	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/ProjectstateAppDefinition"); schema != nil {
 		t.Fatalf("did not expect host projectstate app definition schema in HTTP OpenAPI document, got %#v", schema)
 	}
@@ -638,7 +644,7 @@ func buildAppDefinitionRouteRegistrationsForTest(
 			{
 				Family: "app definition",
 				Register: func(router chi.Router) error {
-					return RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
+					return appdefinitionhttp.RegisterRoutes(router, appdefinitionhttp.RouteDependencies{
 						ModePolicy:   deps.Project.ModePolicy,
 						ProjectState: deps.Project.ProjectState,
 						PluginID:     ProviderPluginID,

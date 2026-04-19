@@ -467,7 +467,7 @@
         "required": ["errors", "warnings", "capabilities"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogActionResponse": {
+      "AppsubsystemAppdefinitionhttpAppCatalogActionResponse": {
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -477,7 +477,7 @@
         "required": ["name"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogComponentResponse": {
+      "AppsubsystemAppdefinitionhttpAppCatalogComponentResponse": {
         "additionalProperties": false,
         "properties": {
           "children": {
@@ -485,7 +485,7 @@
           },
           "props": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogPropResponse"
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogPropResponse"
             },
             "type": "object"
           },
@@ -496,7 +496,7 @@
         "required": ["type", "children"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogPropResponse": {
+      "AppsubsystemAppdefinitionhttpAppCatalogPropResponse": {
         "additionalProperties": false,
         "properties": {
           "default": {},
@@ -525,18 +525,18 @@
         "required": ["type"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogResponse": {
+      "AppsubsystemAppdefinitionhttpAppCatalogResponse": {
         "additionalProperties": false,
         "properties": {
           "actions": {
             "items": {
-              "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogActionResponse"
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogActionResponse"
             },
             "type": ["array", "null"]
           },
           "components": {
             "items": {
-              "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogComponentResponse"
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogComponentResponse"
             },
             "type": ["array", "null"]
           },
@@ -550,7 +550,7 @@
         "required": ["id", "version", "components", "actions"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpGetAppDefinitionRequest": {
+      "AppsubsystemAppdefinitionhttpGetAppDefinitionRequest": {
         "additionalProperties": false,
         "properties": {
           "frontendOpId": {
@@ -559,7 +559,7 @@
         },
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest": {
+      "AppsubsystemAppdefinitionhttpSetAppDefinitionRequest": {
         "additionalProperties": false,
         "properties": {
           "actions": {
@@ -601,7 +601,7 @@
         "required": ["appSpec"],
         "type": "object"
       },
-      "AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest": {
+      "AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest": {
         "additionalProperties": false,
         "properties": {
           "actions": {
@@ -15049,7 +15049,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogResponse"
+                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogResponse"
                 }
               }
             },
@@ -15078,7 +15078,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpGetAppDefinitionRequest"
+                "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpGetAppDefinitionRequest"
               }
             }
           },
@@ -18928,7 +18928,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest"
+                "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpSetAppDefinitionRequest"
               }
             }
           },
@@ -23842,7 +23842,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest"
+                "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest"
               }
             }
           },
