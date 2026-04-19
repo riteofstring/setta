@@ -65,6 +65,17 @@ describe("appSubsystemFrontendSdk", () => {
     expect(frontendHost.subscribeProjectContext(() => undefined)).toBeTypeOf(
       "function",
     );
+    expect(frontendHost.getRuntimeContext()).toEqual({
+      isAppDeploymentMode: false,
+      shareSessionId: null,
+      sessionRunCount: 0,
+      sharePolicy: null,
+      defaultRunSnapshotMode: "ephemeral",
+      runSnapshotModeByProjectConfigId: {},
+    });
+    expect(frontendHost.subscribeRuntimeContext(() => undefined)).toBeTypeOf(
+      "function",
+    );
     expect(() => frontendHost.notify({ message: "hello" })).not.toThrow();
   });
 

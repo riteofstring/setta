@@ -2,6 +2,7 @@ import {
   createAppSubsystemFrontendHost,
   type AppSubsystemFrontendHost,
   type AppSubsystemProjectContext,
+  type AppSubsystemRuntimeContext,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
   createContext,
@@ -49,4 +50,20 @@ export function useAppSubsystemProjectContext(): AppSubsystemProjectContext {
   }, [host]);
 
   return projectContext;
+}
+
+export function useAppSubsystemRuntimeContext(): AppSubsystemRuntimeContext {
+  const host = useAppSubsystemFrontendHost();
+  const [runtimeContext, setRuntimeContext] = useState(() =>
+    host.getRuntimeContext(),
+  );
+
+  useEffect(() => {
+    setRuntimeContext(host.getRuntimeContext());
+    return host.subscribeRuntimeContext((nextRuntimeContext) => {
+      setRuntimeContext(nextRuntimeContext);
+    });
+  }, [host]);
+
+  return runtimeContext;
 }
