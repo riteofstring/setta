@@ -188,6 +188,7 @@ Reference worktree note:
 - `main` reference startup is asynchronous; Ralph does not block Codex on `main` becoming ready.
 - If `main` is configured with an `ai` lifecycle and the launched reference frontend still does not start serving, Ralph should retry `main` once with `restart-aireset` before giving up on that iteration.
 - When Ralph starts lifecycle sessions itself, it should force the configured loop browser mode for those launches. Headless remains the default loop behavior; manual `./ai.sh` or `./aireset.sh` runs stay headed unless the caller explicitly opts into headless mode.
+- Detached supervisor launches do not stay attached to the starting terminal or `tmux` pane. Use `./ralph-watch.sh` to follow the active detached log stream after reconnects.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
 - If an iteration returns `BLOCKED` with `LOOP_RECOVERY: restart_worktree_lifecycle`, Ralph should continue to the next iteration instead of stopping so the configured worktree bootstrap can retry automatically.
 - If an iteration returns `BLOCKED` with `LOOP_RECOVERY: retry_next_iteration`, Ralph should continue to the next iteration instead of stopping.

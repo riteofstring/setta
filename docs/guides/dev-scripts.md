@@ -61,6 +61,15 @@ Use these first for day-to-day work.
   - Python: `ty check` across all tracked repo Python files after env activation.
   - Frontend: `pnpm -C frontend typecheck` (`tsc --noEmit`).
   - Supports `--go`, `--python`, and `--frontend` to limit the run to selected language groups.
+- `./ralph.sh`
+  - Starts the Ralph supervisor by default.
+  - Supports `--raw-loop` to bypass the supervisor and run the inner loop directly.
+- `./ralph-stop.sh`
+  - Requests a clean Ralph stop after the current successful iteration.
+- `./ralph-watch.sh`
+  - Reattaches to the active detached Ralph log stream after reconnects.
+  - Follows the current supervisor loop log automatically and switches when Ralph rolls to a new `loop-XXX` directory.
+  - Use `--once` to print the current active log path and its latest buffered output without following.
 - `./report_quality_hotspots.sh`
   - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
   - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
@@ -177,6 +186,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - Specialized Codex loop for migrating the remaining non-HTTP Go-owned TS/Python shared model generation onto a schema + semantic-sidecar path.
   - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Seeds a schema-migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, forbids tautological metadata tests and inventory shuffles, and stops after sustained plateau rather than churning tiny cleanups forever.
+- `./scripts/watch-ralph.sh`
+  - Underlying detached-log watcher used by `./ralph-watch.sh`.
+  - Reads Ralph runtime-state files and follows the active supervisor or raw-loop log.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
 
