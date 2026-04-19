@@ -1,8 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystem";
-import { useEffect } from "react";
+import {
+  createAppSubsystemFrontendHost,
+  useAppSubsystemAppDeploymentModal,
+} from "plugins/appSubsystem";
+import { AppSubsystemRendererHost } from "plugins/appSubsystemRendererHost";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { openWorkspaceSwitcherModal } from "state/actions/modal";
+import { closeModal, openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_OVERLAY_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
@@ -77,6 +81,10 @@ export function ModalContainer({ children }) {
 function ModalContent({ open }: { open: boolean }) {
   const modalInfo = useModal((x) => x.modalInfo);
   const appDeploymentModal = useAppSubsystemAppDeploymentModal();
+  const appSubsystemHost = useMemo(
+    () => createAppSubsystemFrontendHost({ closeModal }),
+    [],
+  );
 
   if (!open || !modalInfo) {
     return null;
@@ -86,8 +94,15 @@ function ModalContent({ open }: { open: boolean }) {
     if (!appDeploymentModal) {
       return null;
     }
-    const AppDeploymentModal = appDeploymentModal.component;
-    return <AppDeploymentModal open={open} />;
+    return (
+      <AppSubsystemRendererHost
+        renderer={appDeploymentModal.renderer}
+        props={{ open }}
+        host={appSubsystemHost}
+        className="w-full"
+        testId="app-subsystem-app-deployment-modal"
+      />
+    );
   }
 
   const renderModal = MODAL_RENDERERS[modalInfo.type];
