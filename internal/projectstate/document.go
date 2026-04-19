@@ -25,7 +25,7 @@ var (
 type Document struct {
 	SchemaVersion    int                `json:"schemaVersion"`
 	DefaultProjectID string             `json:"defaultProjectId,omitempty"`
-	AppDefinition    RawJSON            `json:"appDefinition,omitempty"`
+	AppDefinition    *AppDefinition     `json:"appDefinition,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
 	passwordSecrets       PasswordSecretStore
@@ -83,7 +83,10 @@ func (d Document) Clone() Document {
 	cloned := d
 	cloned.passwordSecrets = d.passwordSecrets
 	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
-	cloned.AppDefinition = cloneRawJSON(d.AppDefinition)
+	if d.AppDefinition != nil {
+		appDefinition := d.AppDefinition.Clone()
+		cloned.AppDefinition = &appDefinition
+	}
 	if d.Projects == nil {
 		return cloned
 	}
@@ -121,7 +124,7 @@ func (d Document) Normalized() (Document, error) {
 	}
 
 	normalized.Projects = normalizeDocumentProjectMap(normalized.Projects)
-	appDefinition, err := normalizeRawJSON(normalized.AppDefinition, "appDefinition")
+	appDefinition, err := normalizeDocumentAppDefinition(normalized.AppDefinition)
 	if err != nil {
 		return Document{}, err
 	}
@@ -148,6 +151,18 @@ func normalizeDocumentProjectMap(projects map[string]Project) map[string]Project
 		return map[string]Project{}
 	}
 	return projects
+}
+
+func normalizeDocumentAppDefinition(appDefinition *AppDefinition) (*AppDefinition, error) {
+	if appDefinition == nil {
+		return nil, nil
+	}
+
+	normalized, err := appDefinition.Normalized()
+	if err != nil {
+		return nil, fmt.Errorf("normalize app definition: %w", err)
+	}
+	return &normalized, nil
 }
 
 func normalizeDocumentProjects(projects map[string]Project) error {

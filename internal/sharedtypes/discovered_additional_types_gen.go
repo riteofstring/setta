@@ -5,7 +5,6 @@ package sharedtypes
 import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
-	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
 	deployments "setta/internal/deployments"
 	projectstate "setta/internal/projectstate"
@@ -13,22 +12,20 @@ import (
 	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
 	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func discoveredAdditionalTypes() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(binary.ContentRef{}),
-		reflect.TypeOf(backendlogs.Severity("")),
-		reflect.TypeOf(backendlogs.BackendLogEvent{}),
-		reflect.TypeOf(backendlogs.WebsocketMessage{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
 		reflect.TypeOf(projectstate.BrowserAreaViewMode("")),
 		reflect.TypeOf(projectstate.BrowserSearchScope("")),
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
 		reflect.TypeOf(projectstate.BrowserSavedSearch{}),
 		reflect.TypeOf(projectstate.SignatureHelpStatus("")),
-		reflect.TypeOf(projectstate.ChangeParamImplUIConfigValue{}),
 		reflect.TypeOf(projectstate.LineChartSettings{}),
 		reflect.TypeOf(projectstate.ScatterChartSettings{}),
 		reflect.TypeOf(projectstate.ChartType("")),
@@ -89,7 +86,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.FrontendChatSectionState{}),
 		reflect.TypeOf(projectstate.FrontendChatSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendBrowserSectionImpl{}),
-		reflect.TypeOf(projectstate.FrontendIFrameSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendListRootSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendGroupSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendStateMachineStartSectionImpl{}),
@@ -101,7 +97,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.FrontendTerminalSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
-		reflect.TypeOf(projectstate.FrontendMetaControlSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendTaskBoardTask{}),
 		reflect.TypeOf(projectstate.FrontendTaskBoardSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendChartSectionImpl{}),
@@ -146,6 +141,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.CodeObject{}),
 		reflect.TypeOf(projectstate.CodeObjectVariant{}),
 		reflect.TypeOf(projectstate.CodeObjectImpl{}),
+		reflect.TypeOf(projectstate.AppRoute{}),
+		reflect.TypeOf(projectstate.AppDefinition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticPosition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticRange{}),
 		reflect.TypeOf(projectstate.LSPDiagnostic{}),
@@ -309,7 +306,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(realtime.ProjectStateUpdateContent{}),
 		reflect.TypeOf(realtime.ProjectStateUpdateMessage{}),
 		reflect.TypeOf(realtime.SettingsUpdateMessage{}),
-		reflect.TypeOf(realtime.PluginRuntimeUpdateMessage{}),
 		reflect.TypeOf(realtime.RenameReferenceDependencyKey{}),
 		reflect.TypeOf(realtime.RenameReferenceChangedValue{}),
 		reflect.TypeOf(realtime.RenameRefactorBroadcastContent{}),
@@ -391,6 +387,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatDictationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatPermissionModeOption{}),
+		reflect.TypeOf(projectview.ProjectChatAppGenerationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatUIConfigValue{}),
 		reflect.TypeOf(projectview.SingleConfig{}),
 		reflect.TypeOf(projectview.ProjectConfig{}),
@@ -468,13 +465,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreListenerRealtimeDelta{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{}),
-		reflect.TypeOf(appdefinition.AppRoute{}),
-		reflect.TypeOf(appdefinition.AppDefinition{}),
-		reflect.TypeOf(appdefinition.ReadResult{}),
-		reflect.TypeOf(appdefinition.ValidationIssue{}),
-		reflect.TypeOf(appdefinition.Capabilities{}),
-		reflect.TypeOf(appdefinition.ValidationResult{}),
-		reflect.TypeOf(appdefinition.MutationResult{}),
 		reflect.TypeOf(artifacts.BaseArtifactUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyKeyUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyValueUnion{}),

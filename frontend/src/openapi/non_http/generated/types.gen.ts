@@ -206,27 +206,59 @@ type Allocation = {
 };
 
 /**
+ * AppCapabilities
+ */
+type AppCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
+/**
  * AppDefinition
  */
 export type AppDefinition = {
-  actions?: {
-    [key: string]: RawMessage;
-  } | null;
+  actions?: RawMessage | null;
   appSpecPath?: string;
   appSpecVersion?: string;
   assets?: RawMessage | null;
   catalogId?: string;
-  dataBindings?: {
-    [key: string]: RawMessage;
-  } | null;
+  dataBindings?: RawMessage | null;
   routes?: null | Array<AppRoute>;
   theme?: RawMessage | null;
 };
 
 /**
+ * AppDefinitionMutationResult
+ */
+type AppDefinitionMutationResult = {
+  appDefinition?: AppDefinition | null;
+};
+
+/**
+ * AppDefinitionReadResult
+ */
+type AppDefinitionReadResult = {
+  appDefinition?: AppDefinition | null;
+};
+
+/**
+ * AppDefinitionValidationResult
+ */
+type AppDefinitionValidationResult = {
+  capabilities: AppCapabilities;
+  errors: null | Array<AppValidationIssue>;
+  warnings: null | Array<AppValidationIssue>;
+};
+
+/**
  * AppGenerationMode
  */
-type AppGenerationMode =
+export type AppGenerationMode =
   | "json_render"
   | "json_render_with_image"
   | "prompt_builder"
@@ -235,38 +267,19 @@ type AppGenerationMode =
 /**
  * AppRoute
  */
-type AppRoute = {
+export type AppRoute = {
   name?: string;
   path: string;
   rootKey?: string;
 };
 
 /**
- * AppSubsystemChatSlashCommandValue
+ * AppValidationIssue
  */
-type AppSubsystemChatSlashCommandValue = {
-  action: string;
-  appGenerationMode: string;
-  command: string;
-  promptTemplate: string;
-  summary: string;
-};
-
-/**
- * AppSubsystemChatUIConfigValue
- */
-type AppSubsystemChatUIConfigValue = {
-  customSlashCommandModeOptions: null | Array<AppSubsystemCustomSlashCommandModeOptionValue>;
-  defaultCustomSlashCommandMode: string;
-  slashCommands: null | Array<AppSubsystemChatSlashCommandValue>;
-};
-
-/**
- * AppSubsystemCustomSlashCommandModeOptionValue
- */
-type AppSubsystemCustomSlashCommandModeOptionValue = {
-  label: string;
-  value: string;
+type AppValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
 };
 
 /**
@@ -274,7 +287,7 @@ type AppSubsystemCustomSlashCommandModeOptionValue = {
  */
 type AppendMessagesRequest = {
   chatId: string;
-  messages: Array<BaseChatMessageUnion> | null;
+  messages: null | Array<BaseChatMessageUnion>;
   projectConfigId?: null | string;
 };
 
@@ -359,17 +372,6 @@ type BackendListenerEndpointRequest = {
   payload: {
     [key: string]: unknown;
   };
-};
-
-/**
- * BackendLogEvent
- */
-export type BackendLogEvent = {
-  id: string;
-  message: string;
-  projectConfigId: null | string;
-  severity: Severity;
-  timestamp: string;
 };
 
 /**
@@ -517,7 +519,7 @@ type BaseParamCodeObjImpl = {
 /**
  * BaseSectionImpl
  */
-export type BaseSectionImpl = {
+type BaseSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   id: string;
@@ -545,13 +547,11 @@ export type BaseSectionImplUnion =
   | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
-  | MetaControlSectionImpl
   | GlobalVariablesSectionImpl
   | CodeSectionImpl
   | GenPythonCodeSectionImpl
   | GenPythonMetadataSectionImpl
   | TerminalSectionImpl
-  | IFrameSectionImpl
   | ChatSectionImpl
   | BrowserSectionImpl
   | TaskBoardSectionImpl
@@ -681,7 +681,7 @@ export type BrushStroke = {
   globalCompositeOperation: string;
   lineCap: DrawAreaBrushShape;
   lineWidth: number;
-  points: Array<unknown>;
+  points: null | Array<unknown>;
   strokeStyle: string;
 };
 
@@ -701,7 +701,7 @@ export type BrushStrokeWithTransform = {
   globalCompositeOperation: string;
   lineCap: DrawAreaBrushShape;
   lineWidth: number;
-  points: Array<unknown>;
+  points: null | Array<unknown>;
   strokeStyle: string;
   transform: DrawAreaTransform;
 };
@@ -818,28 +818,6 @@ export type CallableSectionImpl = {
 export type CanvasPoint = [number, number];
 
 /**
- * Capabilities
- */
-type Capabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-/**
- * ChangeParamImplUIConfigValue
- */
-export type ChangeParamImplUIConfigValue = {
-  allParamCodeObjTypes: null | Array<CodeObjType>;
-  controlCodeObjTypes: null | Array<CodeObjType>;
-  sectionParamCodeObjTypes: null | Array<CodeObjType>;
-};
-
-/**
  * ChartDataArtifact
  */
 export type ChartDataArtifact = {
@@ -910,7 +888,7 @@ type Chat = {
   id: string;
   lastUpdated: string;
   llmConfig: LLMConfig;
-  messages: Array<BaseChatMessageUnion> | null;
+  messages: null | Array<BaseChatMessageUnion>;
   name: string;
   projectConfigId?: null | string;
   systemPrompt: null | string;
@@ -975,7 +953,7 @@ export type ChatRunTypeSet = {
 export type ChatSectionBranch = {
   branchFromMessageId: null | string;
   createdAt: number;
-  messages: Array<BaseChatMessageUnion> | null;
+  messages: null | Array<BaseChatMessageUnion>;
   parentBranchId: null | string;
 };
 
@@ -1058,7 +1036,7 @@ export type ChatSectionState = {
     [key: string]: ChatSectionBranch;
   };
   inputText: string;
-  messages: Array<BaseChatMessageUnion> | null;
+  messages: null | Array<BaseChatMessageUnion>;
   toolCallArguments: {
     [key: string]: string;
   };
@@ -1227,13 +1205,11 @@ type ClipboardProjectStateCore = {
       | ChartSectionImpl
       | TextBlockSectionImpl
       | PromptSectionImpl
-      | MetaControlSectionImpl
       | GlobalVariablesSectionImpl
       | CodeSectionImpl
       | GenPythonCodeSectionImpl
       | GenPythonMetadataSectionImpl
       | TerminalSectionImpl
-      | IFrameSectionImpl
       | ChatSectionImpl
       | BrowserSectionImpl
       | TaskBoardSectionImpl
@@ -1549,9 +1525,7 @@ export type Core = {
   displayName: string;
   id: string;
   name: string;
-  sharedModifier: {
-    [key: string]: RawMessage;
-  };
+  sharedModifier: RawMessage | null;
   unsharedKeys: null | Array<string>;
   variants: null | Array<string>;
 };
@@ -1867,7 +1841,7 @@ export type DrawAreaBrushShape = "butt" | "round" | "square";
  * DrawAreaLayer
  */
 export type DrawAreaLayer = {
-  elements: Array<DrawAreaLayerItem>;
+  elements: null | Array<DrawAreaLayerItem>;
   layerOpacity: number;
   name: string;
   visible: boolean;
@@ -1886,7 +1860,7 @@ export type DrawAreaLayerItem = {
  * DrawAreaLayerItemTransform
  */
 export type DrawAreaLayerItemTransform = {
-  eraserStrokes: Array<BrushStrokeWithTransform>;
+  eraserStrokes: null | Array<BrushStrokeWithTransform>;
   transform: DrawAreaTransform;
 };
 
@@ -1932,7 +1906,7 @@ type DrawSectionImpl = {
  * DropdownParamCodeObjImpl
  */
 export type DropdownParamCodeObjImpl = {
-  choices: Array<string>;
+  choices: null | Array<string>;
   coreNameEditable: boolean;
   coreNameType: string;
   defaultVal: string;
@@ -2398,35 +2372,6 @@ export type HTTPRequestMethod =
   | "OPTIONS";
 
 /**
- * IFrameSectionImpl
- */
-export type IFrameSectionImpl = {
-  aspectRatioExtraHeight: number;
-  aspectRatioExtraWidth: number;
-  code: string;
-  id: string;
-  isFrozen: boolean;
-  isInOtherProjectConfigs: boolean;
-  isMinimized: boolean;
-  isPreset: boolean;
-  name: string;
-  positionAndSizeLocked: boolean;
-  size: {
-    height: {
-      Auto: boolean;
-      Value: number;
-    };
-    width: {
-      Auto: boolean;
-      Value: number;
-    };
-  };
-  styleColor: null | string;
-  tagColor: null | string;
-  type: string;
-};
-
-/**
  * IdentityContent
  */
 type IdentityContent = {
@@ -2611,52 +2556,6 @@ export type LSPDiagnosticsPayload = {
 };
 
 /**
- * LanguageServerProviderOption
- */
-type LanguageServerProviderOption = {
-  available: boolean;
-  name: string;
-  pluginId: string;
-};
-
-/**
- * LanguageServerSelectionSeverity
- */
-type LanguageServerSelectionSeverity = "default" | "warning" | "success";
-
-/**
- * LanguageServerSelectionState
- */
-type LanguageServerSelectionState = "unset" | "disabled" | "selected";
-
-/**
- * LanguageServerSelectionStatus
- */
-export type LanguageServerSelectionStatus = {
-  appliedPluginId: null | string;
-  availableProviders: null | Array<LanguageServerProviderOption>;
-  language: string;
-  message: string;
-  restartRequired: boolean;
-  selectedPluginId: null | string;
-  selectionState: LanguageServerSelectionState;
-  severity: LanguageServerSelectionSeverity;
-  status: LanguageServerSelectionStatusKind;
-};
-
-/**
- * LanguageServerSelectionStatusKind
- */
-type LanguageServerSelectionStatusKind =
-  | "unselected"
-  | "disabled"
-  | "no_available_providers"
-  | "selected_unavailable"
-  | "selected_incompatible"
-  | "pending_restart"
-  | "active";
-
-/**
  * LauncherManagementTransportRoutes
  */
 type LauncherManagementTransportRoutes = {
@@ -2743,7 +2642,7 @@ type ListenerCoverageDependency = {
  * ListenerCoverageSnapshot
  */
 export type ListenerCoverageSnapshot = {
-  dependencies: Array<BaseDependencyKeyUnion> | null;
+  dependencies: null | Array<BaseDependencyKeyUnion>;
   hasRealtimeWildcard: boolean;
   projectConfigId: string;
 };
@@ -3294,7 +3193,7 @@ type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
  * MessageDeltaEvent
  */
 export type MessageDeltaEvent = {
-  content: Array<MessageContentDelta> | null;
+  content: null | Array<MessageContentDelta>;
   message_id: string;
   type: StreamingEventType;
 };
@@ -3385,55 +3284,6 @@ type MessageType =
   | "UISettingRevealResult"
   | "RealtimeUIChange"
   | "RealtimeDependencyEvent";
-
-/**
- * MetaControlSectionImpl
- */
-export type MetaControlSectionImpl = {
-  aspectRatioExtraHeight: number;
-  aspectRatioExtraWidth: number;
-  codeObjVariantMap: {
-    [key: string]: string;
-  };
-  columnWidth: null | number;
-  edgeInputParams: null | Array<string>;
-  edgeOutputPorts: null | Array<{
-    accessor: string;
-    id: string;
-  }>;
-  hideUnpinnedParams: boolean;
-  id: string;
-  ignoreTypeErrors: {
-    callable: boolean;
-    params: {
-      [key: string]: boolean;
-    };
-  };
-  isFrozen: boolean;
-  isInOtherProjectConfigs: boolean;
-  isMinimized: boolean;
-  isPreset: boolean;
-  metaControlParamId: null | string;
-  name: string;
-  paramFilter: string;
-  pinnedParams: null | Array<string>;
-  positionAndSizeLocked: boolean;
-  selectedParams: null | Array<string>;
-  showSectionTitle: boolean;
-  size: {
-    height: {
-      Auto: boolean;
-      Value: number;
-    };
-    width: {
-      Auto: boolean;
-      Value: number;
-    };
-  };
-  styleColor: null | string;
-  tagColor: null | string;
-  type: string;
-};
 
 /**
  * MetaControlSizeMode
@@ -3532,13 +3382,6 @@ type MoveSectionsInput = {
     [key: string]: Position;
   };
   sectionIds: null | Array<string>;
-};
-
-/**
- * MutationResult
- */
-type MutationResult = {
-  appDefinition?: AppDefinition | null;
 };
 
 /**
@@ -3752,35 +3595,13 @@ type PasteSectionsInput = {
 /**
  * PatchPolicy
  */
-type PatchPolicy = {
+export type PatchPolicy = {
   allowedOps: null | Array<string>;
   commentPrefix: string;
   elementsPathPrefix: string;
   rootPath: string;
   rootResetValue: string;
   valueOptionalOps: null | Array<string>;
-};
-
-/**
- * PluginAppSubsystemCapabilities
- */
-type PluginAppSubsystemCapabilities = {
-  appAuthoringUi: boolean;
-  appDeploymentRuntime: boolean;
-  appGenerationChatModes: boolean;
-  appPreviewUi: boolean;
-  pluginEnabled: boolean;
-  pluginId: string;
-};
-
-/**
- * PluginAppSubsystemFeatureManifest
- */
-type PluginAppSubsystemFeatureManifest = {
-  appAuthoringUi: boolean;
-  appDeploymentRuntime: boolean;
-  appGenerationChatModes: boolean;
-  appPreviewUi: boolean;
 };
 
 /**
@@ -3881,20 +3702,6 @@ type PluginEnablementSource =
 type PluginErrorInfo = {
   code: string;
   message: string;
-};
-
-/**
- * PluginFeatureCapabilities
- */
-type PluginFeatureCapabilities = {
-  appSubsystem: PluginAppSubsystemCapabilities;
-};
-
-/**
- * PluginFeatureCapabilitiesManifest
- */
-type PluginFeatureCapabilitiesManifest = {
-  appSubsystem?: PluginAppSubsystemFeatureManifest | null;
 };
 
 /**
@@ -4041,7 +3848,6 @@ type PluginManifest = {
   configSchemaPath?: string;
   content?: PluginContentManifest | null;
   enabledByDefault: boolean;
-  featureCapabilities?: PluginFeatureCapabilitiesManifest | null;
   frontend?: PluginFrontendManifest | null;
   id: string;
   name: string;
@@ -4158,7 +3964,6 @@ type PluginRollbackResponse = {
  * PluginRuntimeResponse
  */
 export type PluginRuntimeResponse = {
-  featureCapabilities?: PluginFeatureCapabilities | null;
   list: PluginListResponse;
   schemaVersion: number;
   status: PluginStatusResponse;
@@ -4173,14 +3978,6 @@ type PluginRuntimeState =
   | "invalid"
   | "shadowed"
   | "pending_restart";
-
-/**
- * PluginRuntimeUpdateMessage
- */
-type PluginRuntimeUpdateMessage = {
-  content: PluginRuntimeResponse;
-  messageType: WebsocketMessageType;
-};
 
 /**
  * PluginScope
@@ -4206,7 +4003,6 @@ type PluginSourceTrustStatus = "unverified";
  * PluginStatusEntry
  */
 export type PluginStatusEntry = {
-  appliedLanguageServerLanguages?: null | Array<string>;
   blockedCapabilities: null | Array<PluginBlockedCapability>;
   canonicalSourceKey: string;
   components: null | Array<string>;
@@ -4217,7 +4013,6 @@ export type PluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: null | Array<PluginRegisteredBackendRoute>;
   registeredCodegenTargets: null | Array<PluginRegisteredCodegenTarget>;
-  registeredLanguageServers: null | Array<PluginRegisteredLanguageServer>;
   registeredListenerEndpoints: null | Array<PluginRegisteredListenerEndpoint>;
   registeredStaticDirs: null | Array<PluginRegisteredStaticDir>;
   requestedCapabilities: null | Array<string>;
@@ -4238,7 +4033,6 @@ export type PluginStatusEntry = {
  * PluginStatusResponse
  */
 export type PluginStatusResponse = {
-  languageServerSelections: null | Array<LanguageServerSelectionStatus>;
   plugins: null | Array<PluginStatusEntry>;
   restartCapability: PluginRestartCapability;
   schemaVersion: number;
@@ -4287,7 +4081,6 @@ type PluginsStateFile = {
   disabledPluginIds: null | Array<string>;
   enabledPluginIds: null | Array<string>;
   pendingRestartBackendPluginIds: null | Array<string>;
-  pendingRestartLanguageServerOnlyPluginIds: null | Array<string>;
   pluginConfigById: {
     [key: string]: unknown;
   };
@@ -4330,6 +4123,14 @@ type ProjectChatAgenticEdgeContextModeOption = {
 };
 
 /**
+ * ProjectChatAppGenerationModeOption
+ */
+type ProjectChatAppGenerationModeOption = {
+  label: string;
+  value: string;
+};
+
+/**
  * ProjectChatDictationModeOption
  */
 type ProjectChatDictationModeOption = {
@@ -4350,6 +4151,8 @@ type ProjectChatPermissionModeOption = {
  */
 export type ProjectChatUIConfigValue = {
   agenticEdgeContextModeOptions: null | Array<ProjectChatAgenticEdgeContextModeOption>;
+  customSlashCommandModeOptions: null | Array<ProjectChatAppGenerationModeOption>;
+  defaultCustomSlashCommandMode: string;
   permissionModeOptions: null | Array<ProjectChatPermissionModeOption>;
   projectDictationModeOptions: null | Array<ProjectChatDictationModeOption>;
   sectionChatWindowModeOptions: null | Array<ProjectChatWindowModeOption>;
@@ -4677,13 +4480,6 @@ type RawMessage =
   | {
       [key: string]: RawMessage;
     };
-
-/**
- * ReadResult
- */
-type ReadResult = {
-  appDefinition?: AppDefinition | null;
-};
 
 /**
  * RealtimeDependencyEventContent
@@ -5034,7 +4830,6 @@ type Route =
   | "/setGenCodeSuffix"
   | "/setGroupOverflowMode"
   | "/setImageAreaImagePath"
-  | "/setLanguageServerSelection"
   | "/setListRootViewMode"
   | "/setMetaControlShowSectionTitle"
   | "/setParamEnteredValue"
@@ -5208,7 +5003,7 @@ type RunToolsRequest = {
   frontendAffinityToken?: null | string;
   projectConfigId?: null | string;
   sectionId: string;
-  toolCalls: Array<ToolCall> | null;
+  toolCalls: null | Array<ToolCall>;
 };
 
 /**
@@ -5292,9 +5087,7 @@ type Section = {
   id: string;
   name: string;
   parentSectionId?: string;
-  sharedModifier?: {
-    [key: string]: RawMessage;
-  } | null;
+  sharedModifier?: RawMessage | null;
   unsharedKeys?: null | Array<string>;
   variantIds?: null | Array<string>;
 };
@@ -5528,9 +5321,7 @@ type SectionVariant = {
   id: string;
   implId: string;
   isFrozen?: boolean;
-  modifier?: {
-    [key: string]: RawMessage;
-  } | null;
+  modifier?: RawMessage | null;
   name?: string;
   nonPresetImplIds?: null | Array<string>;
 };
@@ -5790,28 +5581,6 @@ export type SettingsBackend = {
 };
 
 /**
- * SettingsChatWindowing
- */
-export type SettingsChatWindowing = {
-  autoCreateInitialChat: boolean;
-  restorePriorStateOnUnmaximize: boolean;
-  shortcuts: SettingsChatWindowingShortcuts;
-};
-
-/**
- * SettingsChatWindowingShortcuts
- */
-export type SettingsChatWindowingShortcuts = {
-  canvasToggle: string;
-  maximizeFocused: string;
-  minimizeFocused: string;
-  snapBottom: string;
-  snapLeft: string;
-  snapRight: string;
-  snapTop: string;
-};
-
-/**
  * SettingsGUI
  */
 export type SettingsGUI = {
@@ -5837,15 +5606,6 @@ export type SettingsGUI = {
   zoomOnDoubleClick: boolean;
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
-};
-
-/**
- * SettingsLanguageServer
- */
-export type SettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: null | string;
-  };
 };
 
 /**
@@ -5940,9 +5700,10 @@ export type SettingsShortcuts = {
  */
 export type SettingsState = {
   backend: SettingsBackend;
-  chatWindowing: SettingsChatWindowing;
   gui: SettingsGUI;
-  languageServer: SettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: SectionSizingPolicy;
   shortcuts: SettingsShortcuts;
 };
@@ -5954,11 +5715,6 @@ type SettingsUpdateMessage = {
   content: Document;
   messageType: WebsocketMessageType;
 };
-
-/**
- * Severity
- */
-type Severity = "info" | "warning" | "error" | "critical";
 
 /**
  * SharePolicyOverrides
@@ -6053,13 +5809,11 @@ export type SingleConfig = {
       | ChartSectionImpl
       | TextBlockSectionImpl
       | PromptSectionImpl
-      | MetaControlSectionImpl
       | GlobalVariablesSectionImpl
       | CodeSectionImpl
       | GenPythonCodeSectionImpl
       | GenPythonMetadataSectionImpl
       | TerminalSectionImpl
-      | IFrameSectionImpl
       | ChatSectionImpl
       | BrowserSectionImpl
       | TaskBoardSectionImpl
@@ -7229,7 +6983,7 @@ type UnindentParamsInput = {
  * UpdateArtifactsContent
  */
 type UpdateArtifactsContent = {
-  artifacts: Array<BaseArtifactUnion> | null;
+  artifacts: null | Array<BaseArtifactUnion>;
   updateType: string;
 };
 
@@ -7246,7 +7000,7 @@ type UpdateArtifactsMessage = {
  * UpdateRequest
  */
 type UpdateRequest = {
-  artifacts: Array<BaseArtifactUnion> | null;
+  artifacts: null | Array<BaseArtifactUnion>;
   conflictStrategy: SaveConflictStrategy | null;
   uploadScope: UploadScope;
 };
@@ -7270,33 +7024,13 @@ export type UserChatMessage = {
 };
 
 /**
- * ValidationIssue
- */
-type ValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
-};
-
-/**
- * ValidationResult
- */
-type ValidationResult = {
-  capabilities: Capabilities;
-  errors: null | Array<ValidationIssue>;
-  warnings: null | Array<ValidationIssue>;
-};
-
-/**
  * Variant
  */
 export type Variant = {
   id: string;
   impl: string;
   isFrozen: boolean;
-  modifier: {
-    [key: string]: RawMessage;
-  };
+  modifier: RawMessage | null;
   name: string;
   nonPresetImpls: null | Array<string>;
 };
@@ -7366,15 +7100,6 @@ type WatchCodeRegistryEntry = {
 };
 
 /**
- * WebsocketMessage
- */
-type WebsocketMessage = {
-  content: BackendLogEvent;
-  id: null | string;
-  messageType: WebsocketMessageType;
-};
-
-/**
  * WebsocketMessageType
  */
 export type WebsocketMessageType =
@@ -7400,7 +7125,6 @@ export type WebsocketMessageType =
   | "TranscriptionProfilesUpdated"
   | "UpdateFrontendProjectState"
   | "UpdateSettings"
-  | "UpdatePluginRuntime"
   | "ReturnRenameRefactorResults"
   | "BackendLogEvent";
 

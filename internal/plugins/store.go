@@ -375,16 +375,11 @@ func metadataKey(scope PluginScope, pluginID string) string {
 }
 
 func normalizePluginsStateFile(state PluginsStateFile) PluginsStateFile {
-	pendingRestartBackendPluginIDs := sortedUniqueStrings(state.PendingRestartBackendPluginIDs)
 	normalized := PluginsStateFile{
 		EnabledPluginIDs:               sortedUniqueStrings(state.EnabledPluginIDs),
 		DisabledPluginIDs:              sortedUniqueStrings(state.DisabledPluginIDs),
-		PendingRestartBackendPluginIDs: pendingRestartBackendPluginIDs,
-		PendingRestartLanguageServerOnlyPluginIDs: filterSortedStringsToSet(
-			sortedUniqueStrings(state.PendingRestartLanguageServerOnlyPluginIDs),
-			pendingRestartBackendPluginIDs,
-		),
-		PluginConfigByID: cloneStringAnyMap(state.PluginConfigByID),
+		PendingRestartBackendPluginIDs: sortedUniqueStrings(state.PendingRestartBackendPluginIDs),
+		PluginConfigByID:               cloneStringAnyMap(state.PluginConfigByID),
 	}
 	if normalized.PluginConfigByID == nil {
 		normalized.PluginConfigByID = map[string]any{}
@@ -515,24 +510,6 @@ func sortedUniqueStrings(values []string) []string {
 	}
 	slices.Sort(normalized)
 	return normalized
-}
-
-func filterSortedStringsToSet(values []string, allowed []string) []string {
-	if len(values) == 0 || len(allowed) == 0 {
-		return []string{}
-	}
-	allowedSet := make(map[string]struct{}, len(allowed))
-	for _, value := range allowed {
-		allowedSet[value] = struct{}{}
-	}
-	filtered := make([]string, 0, len(values))
-	for _, value := range values {
-		if _, ok := allowedSet[value]; !ok {
-			continue
-		}
-		filtered = append(filtered, value)
-	}
-	return filtered
 }
 
 func pluginStoreLoadError(
