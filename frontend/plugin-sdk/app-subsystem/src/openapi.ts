@@ -19,6 +19,7 @@ export {
   type GetAppDeploymentStateResponses,
   type GetLatestProjectStateResponse,
   type HttpapiDeploymentMetadataResponse,
+  type HttpapiServerModeResponse,
   type HttpapiPublishAppDeploymentRequest,
 } from "openapi/http";
 export { callOpenAPI } from "openapi/http/result";
