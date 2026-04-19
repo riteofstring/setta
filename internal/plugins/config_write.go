@@ -30,11 +30,59 @@ type PluginConfigWriteResponse struct {
 	Validation PluginConfigValidationResult `json:"validation"`
 }
 
+type PluginConfigSnapshot struct {
+	Config map[string]any
+	Exists bool
+}
+
 type preparedPluginConfigWrite struct {
 	entry         DiscoveredPlugin
 	state         PluginsStateFile
 	currentConfig map[string]any
 	requested     map[string]any
+}
+
+func (s *Service) CurrentConfigSnapshot(pluginID string) (PluginConfigSnapshot, error) {
+	if s == nil {
+		return PluginConfigSnapshot{}, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _, snapshot, err := s.loadPluginConfigSnapshotLocked(pluginID)
+	if err != nil {
+		return PluginConfigSnapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func (s *Service) RestoreConfig(pluginID string, snapshot PluginConfigSnapshot, expectedCurrentConfig map[string]any) error {
+	if s == nil {
+		return ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entry, state, currentSnapshot, err := s.loadPluginConfigSnapshotLocked(pluginID)
+	if err != nil {
+		return err
+	}
+	if expectedCurrentConfig != nil && !reflect.DeepEqual(currentSnapshot.Config, cloneStringAnyMap(expectedCurrentConfig)) {
+		return newServiceError(
+			ServiceErrorCodeConfigChanged,
+			"Plugin %s config changed since rollback validation.",
+			entry.PluginID,
+		)
+	}
+
+	applyPluginConfigSnapshot(&state, entry, snapshot)
+	if err := s.store.SavePluginsState(state); err != nil {
+		return err
+	}
+	_, err = s.rescanLocked()
+	return err
 }
 
 func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResponse, error) {
@@ -61,7 +109,7 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 }
 
 func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (preparedPluginConfigWrite, error) {
-	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
+	entry, state, currentSnapshot, err := s.loadPluginConfigSnapshotLocked(options.PluginID)
 	if err != nil {
 		return preparedPluginConfigWrite{}, err
 	}
@@ -75,13 +123,7 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 	if err := validatePluginConfig(entry, options.Config); err != nil {
 		return preparedPluginConfigWrite{}, err
 	}
-
-	state, err := s.store.LoadPluginsState()
-	if err != nil {
-		return preparedPluginConfigWrite{}, err
-	}
-	currentConfig := runtimeCurrentConfig(entry, &state)
-	if expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig); expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
+	if expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig); expectedCurrentConfig != nil && !reflect.DeepEqual(currentSnapshot.Config, expectedCurrentConfig) {
 		return preparedPluginConfigWrite{}, newServiceError(
 			ServiceErrorCodeConfigChanged,
 			"Plugin %s config changed since pre-write validation.",
@@ -92,9 +134,59 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 	return preparedPluginConfigWrite{
 		entry:         entry,
 		state:         state,
-		currentConfig: currentConfig,
+		currentConfig: currentSnapshot.Config,
 		requested:     cloneStringAnyMap(options.Config),
 	}, nil
+}
+
+func (s *Service) loadPluginConfigSnapshotLocked(pluginID string) (DiscoveredPlugin, PluginsStateFile, PluginConfigSnapshot, error) {
+	entry, err := s.resolveHighestPrecedenceEntryLocked(pluginID)
+	if err != nil {
+		return DiscoveredPlugin{}, PluginsStateFile{}, PluginConfigSnapshot{}, err
+	}
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return DiscoveredPlugin{}, PluginsStateFile{}, PluginConfigSnapshot{}, err
+	}
+	return entry, state, pluginConfigSnapshot(entry, &state), nil
+}
+
+func pluginConfigSnapshot(entry DiscoveredPlugin, pluginsState *PluginsStateFile) PluginConfigSnapshot {
+	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
+		return PluginConfigSnapshot{Config: map[string]any{}}
+	}
+	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
+	if !ok || rawValue == nil {
+		return PluginConfigSnapshot{Config: map[string]any{}}
+	}
+	currentConfig, ok := rawValue.(map[string]any)
+	if !ok {
+		return PluginConfigSnapshot{Config: map[string]any{}}
+	}
+	return PluginConfigSnapshot{
+		Config: cloneStringAnyMap(currentConfig),
+		Exists: true,
+	}
+}
+
+func applyPluginConfigSnapshot(state *PluginsStateFile, entry DiscoveredPlugin, snapshot PluginConfigSnapshot) {
+	if state == nil {
+		return
+	}
+	key := pluginConfigKey(entry.PluginID, entry.Scope)
+	if !snapshot.Exists {
+		if state.PluginConfigByID != nil {
+			delete(state.PluginConfigByID, key)
+			if len(state.PluginConfigByID) == 0 {
+				state.PluginConfigByID = nil
+			}
+		}
+		return
+	}
+	if state.PluginConfigByID == nil {
+		state.PluginConfigByID = map[string]any{}
+	}
+	state.PluginConfigByID[key] = cloneStringAnyMap(snapshot.Config)
 }
 
 func pluginConfigWriteNoopResponse(
@@ -111,10 +203,10 @@ func pluginConfigWriteNoopResponse(
 }
 
 func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (PluginConfigWriteResponse, error) {
-	if prepared.state.PluginConfigByID == nil {
-		prepared.state.PluginConfigByID = map[string]any{}
-	}
-	prepared.state.PluginConfigByID[pluginConfigKey(prepared.entry.PluginID, prepared.entry.Scope)] = prepared.requested
+	applyPluginConfigSnapshot(&prepared.state, prepared.entry, PluginConfigSnapshot{
+		Config: prepared.requested,
+		Exists: true,
+	})
 	if err := s.store.SavePluginsState(prepared.state); err != nil {
 		return PluginConfigWriteResponse{}, err
 	}

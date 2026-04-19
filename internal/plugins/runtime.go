@@ -347,18 +347,7 @@ func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[strin
 }
 
 func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
-	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
-		return map[string]any{}
-	}
-	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
-	if !ok || rawValue == nil {
-		return map[string]any{}
-	}
-	currentConfig, ok := rawValue.(map[string]any)
-	if !ok {
-		return map[string]any{}
-	}
-	return cloneStringAnyMap(currentConfig)
+	return pluginConfigSnapshot(entry, pluginsState).Config
 }
 
 func runtimeDirectoryHasFiles(pluginRoot string, relativePath string) bool {

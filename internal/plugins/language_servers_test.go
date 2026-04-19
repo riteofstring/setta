@@ -143,6 +143,54 @@ func TestServiceLanguageServerSpecsKeepsMissingSelectionInactive(t *testing.T) {
 	}
 }
 
+func TestServiceLanguageServerSpecsIncludesPendingRestartLanguageServerOnlyPlugin(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pendingRestartBackendPluginIds": []string{"setta-fixture-backend"},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load pending language-server-only specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one pending language-server-only spec, got %#v", specs)
+	}
+}
+
+func TestServiceLanguageServerSpecsExcludesPendingRestartMixedBackendPlugin(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer", "registerRouter"}
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pendingRestartBackendPluginIds": []string{"setta-fixture-backend"},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load pending mixed-backend specs: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Fatalf("expected mixed pending_restart plugin to stay inactive for LSP selection, got %#v", specs)
+	}
+}
+
 func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *testing.T) {
 	pythonPath, _ := preparePluginLanguageServerFixture(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
@@ -329,6 +377,89 @@ func TestServiceLanguageServerSpecsLoadsDefaultsFromResolvedPluginConfigSchema(t
 	}
 	if analysis["emitDiagnostics"] != true {
 		t.Fatalf("expected referenced default emitDiagnostics=true, got %#v", analysis["emitDiagnostics"])
+	}
+}
+
+func TestServiceLanguageServerSpecsScopesSettingsToSettingsKey(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+		payload["configSchemaPath"] = "content/config/schema.json"
+	})
+	writeJSONFile(t, filepath.Join(pluginRoot, "content", "config", "schema.json"), map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"fixtureDslLanguageServer": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"analysis": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"emitDiagnostics": map[string]any{
+								"type":    "boolean",
+								"default": true,
+							},
+						},
+					},
+				},
+			},
+			"ui": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"label": map[string]any{
+						"type":    "string",
+						"default": "keep-out",
+					},
+				},
+			},
+		},
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pluginConfigById": map[string]any{
+			pluginConfigKey("setta-fixture-backend", PluginScopeWorkspace): map[string]any{
+				"fixtureDslLanguageServer": map[string]any{
+					"analysis": map[string]any{
+						"emitDiagnostics": false,
+					},
+				},
+				"ui": map[string]any{
+					"label": "sibling",
+				},
+			},
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load plugin language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one plugin language server spec, got %#v", specs)
+	}
+	if len(specs[0].Settings) != 1 {
+		t.Fatalf("expected only the keyed settings branch, got %#v", specs[0].Settings)
+	}
+	if _, ok := specs[0].Settings["ui"]; ok {
+		t.Fatalf("expected sibling plugin settings to stay out of the LSP payload, got %#v", specs[0].Settings)
+	}
+
+	settingsRoot, ok := specs[0].Settings["fixtureDslLanguageServer"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected keyed fixture language-server settings root, got %#v", specs[0].Settings)
+	}
+	analysis, ok := settingsRoot["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis settings, got %#v", settingsRoot["analysis"])
+	}
+	if analysis["emitDiagnostics"] != false {
+		t.Fatalf("expected runtime config to override keyed emitDiagnostics default, got %#v", analysis["emitDiagnostics"])
 	}
 }
 

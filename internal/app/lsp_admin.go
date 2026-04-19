@@ -50,7 +50,7 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 	}
 	if a.runtime != nil {
 		if err := a.runtime.CommitAppliedLanguageServerPlugins(ctx); err != nil {
-			return err
+			return a.rollbackLanguageServers(ctx, document, err)
 		}
 		if !a.runtime.HasConfiguredLanguageServers() {
 			return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)

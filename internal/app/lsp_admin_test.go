@@ -99,6 +99,16 @@ func (s *recordingProjectSyncer) Close(context.Context) error {
 	return s.closeErr
 }
 
+func fixtureLanguageServerConfig(emitDiagnostics bool) map[string]any {
+	return map[string]any{
+		"fixtureDslLanguageServer": map[string]any{
+			"analysis": map[string]any{
+				"emitDiagnostics": emitDiagnostics,
+			},
+		},
+	}
+}
+
 func newAppWithFixtureLanguageServer(t *testing.T) *App {
 	t.Helper()
 
@@ -120,11 +130,8 @@ func newAppWithFixtureLanguageServer(t *testing.T) *App {
 	return app
 }
 
-func attachRecordingProjectSyncer(t *testing.T, app *App) (*projectstate.Runtime, *recordingProjectSyncer) {
+func attachRecordingProjectSyncer(t *testing.T, app *App, syncer *recordingProjectSyncer) (*projectstate.Runtime, *recordingProjectSyncer) {
 	t.Helper()
-
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
 
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
 	if err != nil {
@@ -136,10 +143,12 @@ func attachRecordingProjectSyncer(t *testing.T, app *App) (*projectstate.Runtime
 		}
 	})
 
-	recordingSyncer := &recordingProjectSyncer{}
+	if syncer == nil {
+		syncer = &recordingProjectSyncer{}
+	}
 	projectSync, err := lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
-		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-		Service:        recordingSyncer,
+		SettaFilesRoot: app.config.Paths.SettaFilesRoot,
+		Service:        syncer,
 	})
 	if err != nil {
 		t.Fatalf("new project synchronizer: %v", err)
@@ -152,7 +161,7 @@ func attachRecordingProjectSyncer(t *testing.T, app *App) (*projectstate.Runtime
 
 	app.pluginRuntime.projectState = projectRuntime
 	app.pluginRuntime.projectSync = projectSync
-	return projectRuntime, recordingSyncer
+	return projectRuntime, syncer
 }
 
 func TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync(t *testing.T) {
@@ -224,10 +233,33 @@ func TestWorkspaceLSPAdminRestartRollsBackRuntimeWhenProjectRestartFails(t *test
 	}
 }
 
+func TestWorkspaceLSPAdminRestartRollsBackRuntimeWhenCommitFails(t *testing.T) {
+	t.Parallel()
+
+	commitErr := errors.New("commit failed")
+	projectAdmin := &stubProjectLSPAdmin{restartErrs: []error{nil, nil}}
+	runtime := &stubRuntimeLSPRefresher{hasSpecs: true, commitErr: commitErr}
+	admin := newWorkspaceLSPAdmin(projectAdmin, runtime)
+
+	err := admin.Restart(context.Background(), projectstate.Document{})
+	if !errors.Is(err, commitErr) {
+		t.Fatalf("expected commit error, got %v", err)
+	}
+	if runtime.commitCalls != 1 {
+		t.Fatalf("expected one runtime commit attempt, got %d", runtime.commitCalls)
+	}
+	if runtime.rollbackCalls != 1 {
+		t.Fatalf("expected one runtime rollback after commit failure, got %d", runtime.rollbackCalls)
+	}
+	if projectAdmin.restartCalls != 2 {
+		t.Fatalf("expected commit failure to re-materialize project state once after rollback, got %d calls", projectAdmin.restartCalls)
+	}
+}
+
 func TestWorkspaceLSPAdminRestartOnlyRestartsProjectSyncOnceWhenSpecsChange(t *testing.T) {
 	app := newAppWithFixtureLanguageServer(t)
 	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
-	projectRuntime, recordingSyncer := attachRecordingProjectSyncer(t, app)
+	projectRuntime, recordingSyncer := attachRecordingProjectSyncer(t, app, nil)
 
 	admin := newWorkspaceLSPAdmin(app.pluginRuntime.projectSync, app.pluginRuntime)
 	if err := admin.Restart(context.Background(), projectRuntime.Snapshot().Document); err != nil {
@@ -248,7 +280,7 @@ func TestWorkspaceLSPAdminRestartOnlyRestartsProjectSyncOnceWhenSpecsDisappear(t
 	}); err != nil {
 		t.Fatalf("clear language server selection: %v", err)
 	}
-	projectRuntime, recordingSyncer := attachRecordingProjectSyncer(t, app)
+	projectRuntime, recordingSyncer := attachRecordingProjectSyncer(t, app, nil)
 
 	admin := newWorkspaceLSPAdmin(app.pluginRuntime.projectSync, app.pluginRuntime)
 	err := admin.Restart(context.Background(), projectRuntime.Snapshot().Document)

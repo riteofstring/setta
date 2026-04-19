@@ -81,13 +81,11 @@ func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *Pl
 }
 
 func pluginProvidesLanguageServer(entry DiscoveredPlugin) bool {
-	if entry.Manifest == nil {
+	if entry.Manifest == nil || !containsString(entry.EffectiveCapabilities, "registerLanguageServer") {
 		return false
 	}
-	if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
-		return false
-	}
-	return containsString(entry.EffectiveCapabilities, "registerLanguageServer")
+	return entry.State == PluginRuntimeStateActive ||
+		(entry.State == PluginRuntimeStatePendingRestart && entryHasLanguageServerOnlyBackendRuntime(entry))
 }
 
 func buildLanguageServerSpec(
@@ -122,26 +120,23 @@ func languageServerSettingsWithRuntimePaths(
 	settaFilesRoot string,
 ) map[string]any {
 	settings := languageServerSettingsRoot(entry, pluginsState)
-	if !isFirstPartyBasedpyrightRegistration(entry, registration) {
-		return settings
-	}
+	if isFirstPartyBasedpyrightRegistration(entry, registration) {
+		normalizedSettaFilesRoot := strings.TrimSpace(settaFilesRoot)
+		if normalizedSettaFilesRoot != "" {
+			if settings == nil {
+				settings = map[string]any{}
+			} else {
+				settings = cloneStringAnyMap(settings)
+			}
 
-	normalizedSettaFilesRoot := strings.TrimSpace(settaFilesRoot)
-	if normalizedSettaFilesRoot == "" {
-		return settings
+			basedpyright := ensureSettingsMap(settings, "basedpyright")
+			analysis := ensureSettingsMap(basedpyright, "analysis")
+			analysis["extraPaths"] = stringSliceToAnySlice(
+				mergeUniqueSettingPaths(analysis["extraPaths"], normalizedSettaFilesRoot),
+			)
+		}
 	}
-	if settings == nil {
-		settings = map[string]any{}
-	} else {
-		settings = cloneStringAnyMap(settings)
-	}
-
-	basedpyright := ensureSettingsMap(settings, "basedpyright")
-	analysis := ensureSettingsMap(basedpyright, "analysis")
-	analysis["extraPaths"] = stringSliceToAnySlice(
-		mergeUniqueSettingPaths(analysis["extraPaths"], normalizedSettaFilesRoot),
-	)
-	return settings
+	return scopeLanguageServerSettings(settings, registration.SettingsKey)
 }
 
 func isFirstPartyBasedpyrightRegistration(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer) bool {
@@ -163,6 +158,58 @@ func ensureSettingsMap(parent map[string]any, key string) map[string]any {
 	child := map[string]any{}
 	parent[key] = child
 	return child
+}
+
+func scopeLanguageServerSettings(settings map[string]any, settingsKey *string) map[string]any {
+	if settingsKey == nil {
+		return settings
+	}
+
+	segments := parseLanguageServerSettingsKey(*settingsKey)
+	if len(segments) == 0 {
+		return nil
+	}
+
+	current := settings
+	for index, segment := range segments {
+		value, ok := current[segment]
+		if !ok {
+			return nil
+		}
+		if index == len(segments)-1 {
+			currentMap, ok := value.(map[string]any)
+			if !ok {
+				return nil
+			}
+			return wrapLanguageServerSettingsBranch(segments, currentMap)
+		}
+		next, ok := value.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = next
+	}
+	return nil
+}
+
+func parseLanguageServerSettingsKey(key string) []string {
+	segments := strings.Split(strings.TrimSpace(key), ".")
+	filtered := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		trimmed := strings.TrimSpace(segment)
+		if trimmed != "" {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	return filtered
+}
+
+func wrapLanguageServerSettingsBranch(segments []string, settings map[string]any) map[string]any {
+	wrapped := cloneStringAnyMap(settings)
+	for index := len(segments) - 1; index >= 0; index-- {
+		wrapped = map[string]any{segments[index]: wrapped}
+	}
+	return wrapped
 }
 
 func mergeUniqueSettingPaths(existing any, required ...string) []string {

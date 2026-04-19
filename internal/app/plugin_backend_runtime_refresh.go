@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -203,11 +204,30 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 }
 
 func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
+	if s.refresher == nil {
+		return s.base.WriteConfig(ctx, options)
+	}
+
+	previousConfig := plugins.PluginConfigSnapshot{}
+	shouldRollbackConfig := s.refresher.hasAppliedPluginLanguageServers(options.PluginID)
+	if shouldRollbackConfig {
+		currentConfig, err := s.base.CurrentConfigSnapshot(options.PluginID)
+		if err != nil {
+			return plugins.PluginConfigWriteResponse{}, err
+		}
+		previousConfig = currentConfig
+	}
+
 	result, err := s.base.WriteConfig(ctx, options)
-	if err != nil || s.refresher == nil {
+	if err != nil {
 		return result, err
 	}
 	if err := s.refresher.RefreshAppliedPluginLanguageServers(ctx, result.PluginID); err != nil {
+		if shouldRollbackConfig {
+			if rollbackErr := s.base.RestoreConfig(result.PluginID, previousConfig, result.Config); rollbackErr != nil {
+				return result, errors.Join(err, rollbackErr)
+			}
+		}
 		return result, err
 	}
 	return result, nil
@@ -494,18 +514,25 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	}
 
 	r.mu.Lock()
-	previousLSPSpecs := r.appliedLSPSpecs
-	r.appliedLSPSpecs = cloneLanguageServerSpecs(r.lspSpecs)
-	allAppliedSpecs := make([]lsp.LanguageServerSpec, 0, len(previousLSPSpecs)+len(r.appliedLSPSpecs))
+	previousLSPSpecs := cloneLanguageServerSpecs(r.appliedLSPSpecs)
+	nextAppliedLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
+	service := r.service
+	allAppliedSpecs := make([]lsp.LanguageServerSpec, 0, len(previousLSPSpecs)+len(nextAppliedLSPSpecs))
 	allAppliedSpecs = append(allAppliedSpecs, previousLSPSpecs...)
-	allAppliedSpecs = append(allAppliedSpecs, r.appliedLSPSpecs...)
+	allAppliedSpecs = append(allAppliedSpecs, nextAppliedLSPSpecs...)
 	pluginIDs := appliedLanguageServerPluginIDs(allAppliedSpecs)
 	r.mu.Unlock()
-	if len(pluginIDs) == 0 || r.service == nil {
-		return nil
+	if len(pluginIDs) != 0 && service != nil {
+		if err := service.CommitAppliedLanguageServerPlugins(pluginIDs); err != nil {
+			return err
+		}
 	}
 
-	return r.service.CommitAppliedLanguageServerPlugins(pluginIDs)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.appliedLSPSpecs = nextAppliedLSPSpecs
+	return nil
 }
 
 func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status *plugins.PluginStatusResponse) {
@@ -671,6 +698,17 @@ func (r *pluginBackendRuntimeRefresher) pluginHasAppliedLanguageServersLocked(pl
 		}
 	}
 	return false
+}
+
+func (r *pluginBackendRuntimeRefresher) hasAppliedPluginLanguageServers(pluginID string) bool {
+	if r == nil {
+		return false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.pluginHasAppliedLanguageServersLocked(pluginID)
 }
 
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {
@@ -841,7 +879,7 @@ func refreshedAppliedLanguageServerSpecs(
 }
 
 func clonePluginLanguageServerSettings(settings map[string]any) map[string]any {
-	if len(settings) == 0 {
+	if settings == nil {
 		return nil
 	}
 	payload, err := json.Marshal(settings)

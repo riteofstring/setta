@@ -1,6 +1,9 @@
 package app
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"setta/internal/lsp"
@@ -36,6 +39,23 @@ func TestCloneLanguageServerSpecsDeepCopiesSettings(t *testing.T) {
 	originalOverrides := original[0].Settings["basedpyright"].(map[string]any)["analysis"].(map[string]any)["diagnosticSeverityOverrides"].(map[string]any)
 	if originalOverrides["reportUnknownVariableType"] != "none" {
 		t.Fatalf("expected original settings to remain unchanged, got %#v", originalOverrides)
+	}
+}
+
+func TestCloneLanguageServerSpecsPreservesEmptySettingsMap(t *testing.T) {
+	original := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			Name:       "fixture-dsl",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Settings:   map[string]any{},
+		},
+	}
+
+	cloned := cloneLanguageServerSpecs(original)
+	if cloned[0].Settings == nil || len(cloned[0].Settings) != 0 {
+		t.Fatalf("expected explicit empty settings map to remain explicit, got %#v", cloned[0].Settings)
 	}
 }
 
@@ -124,6 +144,54 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 
 	if len(status.Plugins[0].AppliedLanguageServerLanguages) != 1 || status.Plugins[0].AppliedLanguageServerLanguages[0] != "python" {
 		t.Fatalf("expected applied python status, got %#v", status.Plugins[0].AppliedLanguageServerLanguages)
+	}
+}
+
+func TestCommitAppliedLanguageServerPluginsDoesNotAdvanceAppliedSpecsOnCommitFailure(t *testing.T) {
+	app := newAppWithFixtureLanguageServer(t)
+
+	previous := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Settings:   map[string]any{},
+		},
+	}
+	next := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-basedpyright",
+			LanguageID: "python",
+			Command:    "python",
+			Settings: map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{"/tmp/spec"},
+					},
+				},
+			},
+		},
+	}
+
+	app.pluginRuntime.mu.Lock()
+	app.pluginRuntime.appliedLSPSpecs = cloneLanguageServerSpecs(previous)
+	app.pluginRuntime.lspSpecs = cloneLanguageServerSpecs(next)
+	app.pluginRuntime.mu.Unlock()
+
+	if err := os.WriteFile(filepath.Join(app.config.Paths.SettaFilesRoot, "plugins_state.json"), []byte("{"), 0o644); err != nil {
+		t.Fatalf("write malformed plugin state: %v", err)
+	}
+
+	err := app.pluginRuntime.CommitAppliedLanguageServerPlugins(context.Background())
+	if err == nil {
+		t.Fatal("expected commit failure")
+	}
+
+	app.pluginRuntime.mu.Lock()
+	defer app.pluginRuntime.mu.Unlock()
+
+	if !languageServerSpecSlicesEqual(app.pluginRuntime.appliedLSPSpecs, previous) {
+		t.Fatalf("expected applied specs to remain unchanged after commit failure, got %#v", app.pluginRuntime.appliedLSPSpecs)
 	}
 }
 
