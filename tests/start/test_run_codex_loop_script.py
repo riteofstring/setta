@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -225,6 +226,174 @@ printf 'success\\n'
         output_dir / "run-001" / "status.txt"
     ).read_text(encoding="utf-8").strip() == "success"
     assert post_file.read_text(encoding="utf-8") == "post-iteration\n"
+
+
+def test_run_codex_loop_can_continue_after_pre_iteration_failure(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    bin_dir = tmp_path / "bin"
+    pre_calls_file = tmp_path / "pre-calls.txt"
+    codex_calls_file = tmp_path / "codex-calls.txt"
+
+    workdir.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="{codex_calls_file}"
+count="0"
+if [[ -f "${{calls_file}}" ]]; then
+  count="$(cat "${{calls_file}}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "${{calls_file}}"
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+if [[ -n "${{response_file}}" ]]; then
+  printf 'success\\n' > "${{response_file}}"
+fi
+printf 'success\\n'
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--prompt-file",
+            str(prompt_file),
+            "--iterations",
+            "2",
+            "--output-dir",
+            str(output_dir),
+            "--workdir",
+            str(workdir),
+            "--pre-iteration-command",
+            "count=0; "
+            f"if [[ -f {shlex.quote(str(pre_calls_file))} ]]; then "
+            f'count="$(cat {shlex.quote(str(pre_calls_file))})"; '
+            "fi; "
+            'count="$((count + 1))"; '
+            f"printf '%s\\n' \"$count\" > {shlex.quote(str(pre_calls_file))}; "
+            'if [[ "$count" == "1" ]]; then exit 7; fi',
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (
+        output_dir / "run-001" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "pre-iteration-failure:7"
+    assert (output_dir / "run-002" / "status.txt").read_text(
+        encoding="utf-8",
+    ).strip() == "success"
+    assert pre_calls_file.read_text(encoding="utf-8").strip() == "2"
+    assert codex_calls_file.read_text(encoding="utf-8").strip() == "1"
+
+
+def test_run_codex_loop_can_continue_after_post_iteration_failure(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    bin_dir = tmp_path / "bin"
+    post_calls_file = tmp_path / "post-calls.txt"
+    codex_calls_file = tmp_path / "codex-calls.txt"
+
+    workdir.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+calls_file="{codex_calls_file}"
+count="0"
+if [[ -f "${{calls_file}}" ]]; then
+  count="$(cat "${{calls_file}}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "${{calls_file}}"
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+if [[ -n "${{response_file}}" ]]; then
+  printf 'success\\n' > "${{response_file}}"
+fi
+printf 'success\\n'
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--prompt-file",
+            str(prompt_file),
+            "--iterations",
+            "2",
+            "--output-dir",
+            str(output_dir),
+            "--workdir",
+            str(workdir),
+            "--post-iteration-command",
+            "count=0; "
+            f"if [[ -f {shlex.quote(str(post_calls_file))} ]]; then "
+            f'count="$(cat {shlex.quote(str(post_calls_file))})"; '
+            "fi; "
+            'count="$((count + 1))"; '
+            f"printf '%s\\n' \"$count\" > {shlex.quote(str(post_calls_file))}; "
+            'if [[ "$count" == "1" ]]; then exit 7; fi',
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (
+        output_dir / "run-001" / "status.txt"
+    ).read_text(encoding="utf-8").strip() == "post-iteration-failure:7"
+    assert (output_dir / "run-002" / "status.txt").read_text(
+        encoding="utf-8",
+    ).strip() == "success"
+    assert post_calls_file.read_text(encoding="utf-8").strip() == "2"
+    assert codex_calls_file.read_text(encoding="utf-8").strip() == "2"
 
 
 def test_run_codex_loop_stops_on_post_iteration_failure(tmp_path: Path) -> None:
