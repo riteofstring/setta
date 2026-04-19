@@ -189,11 +189,12 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load published app document: %v", err)
 	}
-	if document.AppDefinition == nil {
+	storedDefinition := mustDecodeStoredAppDefinition(t, document.AppDefinition)
+	if storedDefinition == nil {
 		t.Fatal("expected published app definition")
 	}
-	if document.AppDefinition.AppSpecPath != appSpecPath {
-		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, document.AppDefinition.AppSpecPath)
+	if storedDefinition.AppSpecPath != appSpecPath {
+		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, storedDefinition.AppSpecPath)
 	}
 
 	publishedSpec, err := appspec.Read(payload.DeploymentRoot, appSpecPath)
@@ -306,9 +307,9 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 	}
 	absoluteAppSpecPath := filepath.Join(fixture.SettaFilesRoot, filepath.FromSlash(appSpecPath))
 	if _, err := fixture.ProjectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.AppDefinition = &projectstate.AppDefinition{
+		document.AppDefinition = mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 			AppSpecPath: absoluteAppSpecPath,
-		}
+		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("set absolute app spec path: %v", err)
@@ -354,11 +355,12 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 	if err != nil {
 		t.Fatalf("load published app document: %v", err)
 	}
-	if document.AppDefinition == nil {
+	storedDefinition := mustDecodeStoredAppDefinition(t, document.AppDefinition)
+	if storedDefinition == nil {
 		t.Fatal("expected published app definition")
 	}
-	if document.AppDefinition.AppSpecPath != appSpecPath {
-		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, document.AppDefinition.AppSpecPath)
+	if storedDefinition.AppSpecPath != appSpecPath {
+		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, storedDefinition.AppSpecPath)
 	}
 }
 
@@ -849,7 +851,7 @@ func appDeploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) pr
 	return projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		AppDefinition:    appDefinition,
+		AppDefinition:    encodeAppDeploymentIDERouteAppDefinition(appDefinition),
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
 				ID:   "project-alpha",
@@ -857,4 +859,17 @@ func appDeploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) pr
 			},
 		},
 	}
+}
+
+func encodeAppDeploymentIDERouteAppDefinition(
+	appDefinition *projectstate.AppDefinition,
+) projectstate.RawJSON {
+	if appDefinition == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(appDefinition)
+	if err != nil {
+		panic(err)
+	}
+	return projectstate.RawJSON(encoded)
 }

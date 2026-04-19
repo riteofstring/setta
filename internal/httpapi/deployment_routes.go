@@ -268,11 +268,3 @@ func handleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, e
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
 }
-
-func cloneAppDefinition(appDefinition *projectstate.AppDefinition) *projectstate.AppDefinition {
-	if appDefinition == nil {
-		return nil
-	}
-	cloned := appDefinition.Clone()
-	return &cloned
-}
