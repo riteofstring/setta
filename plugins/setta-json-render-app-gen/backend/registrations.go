@@ -43,7 +43,7 @@ func buildProjectFrontendRouteContributions(
 		{
 			Family: "app definition",
 			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppDefinitionRoutes(router, deps.AppDefinition)
+				return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
 			},
 		},
 		{
