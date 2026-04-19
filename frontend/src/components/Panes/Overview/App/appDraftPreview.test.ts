@@ -4,7 +4,7 @@ import {
   parseDraftAppAssets,
   parseDraftAppSpec,
   parseDraftAppTheme,
-} from "./appDraftPreview";
+} from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Panes/Overview/App/appDraftPreview";
 
 describe("appDraftPreview", () => {
   describe("parseDraftAppSpec", () => {

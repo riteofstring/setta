@@ -17,7 +17,7 @@ import {
   createSingletonSections,
 } from "utils/generatedTypes";
 
-import { AppRenderer } from "./AppRenderer";
+import { AppRenderer } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer";
 
 const addTemporaryNotificationMock = vi.hoisted(() => vi.fn());
 let latestHandlers: Record<
@@ -31,7 +31,9 @@ vi.mock("state/actions/notifications", () => ({
 
 vi.mock("@json-render/react", async () => {
   const React = await import("react");
-  const { useAppActionState } = await import("./appContext");
+  const { useAppActionState } = await import(
+    "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext"
+  );
 
   const Passthrough = ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
