@@ -4,8 +4,8 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
+import type { Policy } from "@setta/app-subsystem-frontend-sdk";
 import type { CSSProperties } from "react";
-import type { Policy } from "utils/generatedTypes";
 import type { AppDefinition } from "../../appSubsystemContracts";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
