@@ -154,3 +154,25 @@ def test_report_quality_hotspots_uses_shared_plugin_filters(tmp_path: Path) -> N
     assert (sandbox_root / "go_args.txt").read_text(encoding="utf-8").strip() == (
         "run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -top 10 plugins/demo/backend/main.go"
     )
+
+
+def test_report_quality_hotspots_defaults_match_check_quality_thresholds(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = _build_report_quality_hotspots_sandbox(tmp_path)
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "report_quality_hotspots.sh")],
+        cwd=sandbox_root,
+        env=_script_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert "Top 20, minimum complexity 12" in result.stdout
+    assert "Top 20, minimum complexity 10" in result.stdout
+    assert "demo.pluginMain  plugins/demo/backend/main.go:1" in result.stdout
+    assert "plugin_main  plugins/demo/backend/main.py:1" in result.stdout
+    assert "No frontend hotspots found with complexity >= 10." in result.stdout

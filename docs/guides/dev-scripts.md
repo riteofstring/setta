@@ -56,9 +56,9 @@ Use these first for day-to-day work.
   - Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
   - Defaults to the current git changes relative to `HEAD` plus untracked files so it works before staging or committing.
   - Use `--staged` when you intentionally want to verify only the staged set.
-  - Python: `ruff check` plus `C901` complexity checks (default max complexity `10`).
-  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `10`, `max-depth` `4`, `max-params` `5`).
-  - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `12`).
+  - Python: `ruff check` plus `C901` complexity checks, failing at complexity `>= 10`.
+  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files, failing at complexity `>= 10` (`max-depth` `4`, `max-params` `5` still apply separately).
+  - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files, failing at complexity `>= 12`.
   - Supports `--all`, `--git-changes`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
 - `./check_types.sh`
   - Runs full-repo type checks across Go, Python, and frontend TypeScript.
@@ -68,7 +68,7 @@ Use these first for day-to-day work.
   - Supports `--go`, `--python`, and `--frontend` to limit the run to selected language groups.
 - `./report_quality_hotspots.sh`
   - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
-  - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
+  - Defaults to the top `20` hotspots per language section and uses the same default threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
   - Supports `--top`, `--python-min`, `--frontend-min`, and `--go-min` to narrow the report.
   - Intended for cleanup planning and hotspot discovery, not commit gating.
 - `./build.sh`

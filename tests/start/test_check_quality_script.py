@@ -134,7 +134,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
         "C901",
         "--output-format=concise",
         "--config",
-        "lint.mccabe.max-complexity = 10",
+        "lint.mccabe.max-complexity = 9",
         "plugins/demo/backend/main.py",
     ]
 
@@ -146,7 +146,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "exec",
             "eslint",
             '--rule',
-            'complexity:["error",10]',
+            'complexity:["error",9]',
             '--rule',
             'max-depth:["error",4]',
             '--rule',
@@ -164,7 +164,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "run",
             "github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0",
             "-over",
-            "12",
+            "11",
             "plugins/demo/backend/main.go",
         ],
     ]

@@ -9,9 +9,9 @@ Report the highest-complexity code hotspots across the repo.
 
 Options:
   --top N            Show up to N hotspots per language section (default: 20).
-  --python-min N     Only show Python hotspots with complexity >= N (default: 1).
-  --frontend-min N   Only show frontend hotspots with complexity >= N (default: 1).
-  --go-min N         Only show Go hotspots with complexity >= N (default: 1).
+  --python-min N     Only show Python hotspots with complexity >= N (default: 10).
+  --frontend-min N   Only show frontend hotspots with complexity >= N (default: 10).
+  --go-min N         Only show Go hotspots with complexity >= N (default: 12).
   -h, --help         Show this help text.
 
 Notes:
@@ -23,12 +23,12 @@ EOF
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
 top_n="20"
-python_min="1"
-frontend_min="1"
-go_min="1"
-
 # shellcheck source=scripts/lib/quality_paths.sh
 . "${repo_root}/scripts/lib/quality_paths.sh"
+
+python_min="$(quality_default_python_complexity_threshold)"
+frontend_min="$(quality_default_frontend_complexity_threshold)"
+go_min="$(quality_default_go_complexity_threshold)"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -80,15 +80,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-validate_positive_integer() {
-  local value="$1"
-  local label="$2"
-  if ! [[ "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
-    echo "${label} must be a positive integer: ${value}" >&2
-    exit 1
-  fi
-}
-
 run_ruff_complexity_report() {
   local output_path="$1"
   shift
@@ -128,10 +119,10 @@ run_eslint_complexity_report() {
   return 0
 }
 
-validate_positive_integer "${top_n}" "--top"
-validate_positive_integer "${python_min}" "--python-min"
-validate_positive_integer "${frontend_min}" "--frontend-min"
-validate_positive_integer "${go_min}" "--go-min"
+quality_validate_positive_integer "${top_n}" "--top"
+quality_validate_positive_integer "${python_min}" "--python-min"
+quality_validate_positive_integer "${frontend_min}" "--frontend-min"
+quality_validate_positive_integer "${go_min}" "--go-min"
 
 if ! command -v rg >/dev/null 2>&1; then
   echo "rg is required to build the hotspot report." >&2

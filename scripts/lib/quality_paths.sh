@@ -1,5 +1,36 @@
 #!/usr/bin/env bash
 
+readonly QUALITY_DEFAULT_PYTHON_COMPLEXITY_THRESHOLD="10"
+readonly QUALITY_DEFAULT_FRONTEND_COMPLEXITY_THRESHOLD="10"
+readonly QUALITY_DEFAULT_GO_COMPLEXITY_THRESHOLD="12"
+
+quality_default_python_complexity_threshold() {
+  printf '%s\n' "${QUALITY_DEFAULT_PYTHON_COMPLEXITY_THRESHOLD}"
+}
+
+quality_default_frontend_complexity_threshold() {
+  printf '%s\n' "${QUALITY_DEFAULT_FRONTEND_COMPLEXITY_THRESHOLD}"
+}
+
+quality_default_go_complexity_threshold() {
+  printf '%s\n' "${QUALITY_DEFAULT_GO_COMPLEXITY_THRESHOLD}"
+}
+
+quality_validate_positive_integer() {
+  local value="$1"
+  local label="$2"
+  if ! [[ "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
+    echo "${label} must be a positive integer: ${value}" >&2
+    return 1
+  fi
+}
+
+quality_effective_exceeds_threshold() {
+  local threshold="$1"
+  quality_validate_positive_integer "${threshold}" "threshold" >/dev/null
+  printf '%s\n' "$((threshold - 1))"
+}
+
 quality_is_python_candidate() {
   local path="${1#./}"
   case "${path}" in

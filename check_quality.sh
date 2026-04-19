@@ -14,9 +14,9 @@ Modes:
   --files <path>...  Check only the provided files.
 
 Thresholds:
-  --python-max N     Maximum allowed Python cyclomatic complexity (default: 10).
-  --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 10).
-  --go-max N         Maximum allowed Go cyclomatic complexity (default: 12).
+  --python-max N     Fail Python cyclomatic complexity at >= N (default: 10).
+  --frontend-max N   Fail frontend JS/TS cyclomatic complexity at >= N (default: 10).
+  --go-max N         Fail Go cyclomatic complexity at >= N (default: 12).
   -h, --help         Show this help text.
 EOF
 }
@@ -24,13 +24,13 @@ EOF
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
 mode="git-changes"
-python_max="10"
-frontend_max="10"
-go_max="12"
-declare -a explicit_files=()
-
 # shellcheck source=scripts/lib/quality_paths.sh
 . "${repo_root}/scripts/lib/quality_paths.sh"
+
+python_max="$(quality_default_python_complexity_threshold)"
+frontend_max="$(quality_default_frontend_complexity_threshold)"
+go_max="$(quality_default_go_complexity_threshold)"
+declare -a explicit_files=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -108,15 +108,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-validate_integer() {
-  local value="$1"
-  local label="$2"
-  if ! [[ "${value}" =~ ^[0-9]+$ ]]; then
-    echo "${label} must be a non-negative integer: ${value}" >&2
-    exit 1
-  fi
-}
-
 collect_files() {
   case "${mode}" in
     staged)
@@ -137,9 +128,9 @@ collect_files() {
   esac
 }
 
-validate_integer "${python_max}" "--python-max"
-validate_integer "${frontend_max}" "--frontend-max"
-validate_integer "${go_max}" "--go-max"
+quality_validate_positive_integer "${python_max}" "--python-max"
+quality_validate_positive_integer "${frontend_max}" "--frontend-max"
+quality_validate_positive_integer "${go_max}" "--go-max"
 
 cd "${repo_root}"
 
@@ -182,14 +173,14 @@ if [[ ${#python_files[@]} -gt 0 ]]; then
     set -euo pipefail
     . ./activate.sh
     ruff check "${python_files[@]}"
-    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = ${python_max}" "${python_files[@]}"
+    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_files[@]}"
   ) || status=1
 fi
 
 if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
   echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
   pnpm -C frontend exec eslint \
-    --rule "complexity:[\"error\",${frontend_max}]" \
+    --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
     --rule 'max-depth:["error",4]' \
     --rule 'max-params:["error",5]' \
     -- "${frontend_eslint_files[@]}" || status=1
@@ -198,7 +189,7 @@ fi
 if [[ ${#go_files[@]} -gt 0 ]]; then
   echo "Go quality checks (${#go_files[@]} files)..."
   ./scripts/go.sh vet "${go_packages[@]}" || status=1
-  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "${go_max}" "${go_files[@]}" || status=1
+  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "$(quality_effective_exceeds_threshold "${go_max}")" "${go_files[@]}" || status=1
 fi
 
 exit "${status}"
