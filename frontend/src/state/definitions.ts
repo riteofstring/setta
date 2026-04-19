@@ -11,6 +11,7 @@ import {
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
 import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
+import type { AppNotification } from "state/types/notifications";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -39,30 +40,29 @@ import {
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
-  BrushStrokeMapping,
-  ChartDataMapping,
   ChatDictationModeEnum,
   Connection,
   createProjectChatWindowingState,
   createProjectConfig,
   createSettingsState,
   createSingletonSections,
-  DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
-  ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
   LSPDiagnostic,
-  Notification,
   Policy,
   RenameRefactorBroadcastContent,
-  SettaBackendLogEvent,
   SettingsState,
   SingleConfig,
   Template,
   TranscriptionProfile,
+  type BackendLogEvent,
+  type BrushStrokeMapping,
+  type ChartDataMapping,
   type ChatDictationMode,
+  type DrawAreaLayerItemTransformMapping,
+  type ImageMapping,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -484,7 +484,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<Notification> };
+type ZustandNotificationState = { notifications: Array<AppNotification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -854,7 +854,7 @@ export const useRunControl = withProjectState(
   ),
 );
 
-type BackendLogSeverity = SettaBackendLogEvent["severity"];
+type BackendLogSeverity = BackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {
   projectConfigId: string | null;
@@ -869,7 +869,7 @@ export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
 };
 
 type BackendLogEventsState = {
-  events: Array<SettaBackendLogEvent>;
+  events: Array<BackendLogEvent>;
   filter: BackendLogEventsFilter;
   unreadHighSeverityCount: number;
 };

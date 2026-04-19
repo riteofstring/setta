@@ -208,6 +208,7 @@ func DiscoveredRouteConstants() []RouteConstant {
 		{Name: "RouteSetGenCodeSuffix", Path: RouteSetGenCodeSuffix},
 		{Name: "RouteSetGroupOverflowMode", Path: RouteSetGroupOverflowMode},
 		{Name: "RouteSetImageAreaImagePath", Path: RouteSetImageAreaImagePath},
+		{Name: "RouteSetLanguageServerSelection", Path: RouteSetLanguageServerSelection},
 		{Name: "RouteSetListRootViewMode", Path: RouteSetListRootViewMode},
 		{Name: "RouteSetMetaControlShowSectionTitle", Path: RouteSetMetaControlShowSectionTitle},
 		{Name: "RouteSetParamEnteredValue", Path: RouteSetParamEnteredValue},

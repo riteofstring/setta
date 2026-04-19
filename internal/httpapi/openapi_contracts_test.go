@@ -104,7 +104,9 @@ func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
 }
 
 func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
-	document, err := BuildFrontendHTTPOpenAPIDocument()
+	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+		buildAppSubsystemRegistrationsForTest,
+	)
 	if err != nil {
 		t.Fatalf("build frontend http openapi document: %v", err)
 	}
@@ -153,6 +155,18 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if loadSettings.RequestBody != nil {
 		t.Fatalf("expected loadSettings request body to be omitted, got %#v", loadSettings.RequestBody)
+	}
+
+	setLanguageServerSelection := document.Paths[RouteSetLanguageServerSelection].Post
+	if setLanguageServerSelection == nil {
+		t.Fatalf("expected %s post operation", RouteSetLanguageServerSelection)
+	}
+	if setLanguageServerSelection.RequestBody == nil {
+		t.Fatalf("expected setLanguageServerSelection request body to be documented")
+	}
+	setLanguageServerSelectionSchema := setLanguageServerSelection.Responses["200"].Content["application/json"].Schema
+	if setLanguageServerSelectionSchema.Type != "null" {
+		t.Fatalf("setLanguageServerSelection response schema type = %q, want %q", setLanguageServerSelectionSchema.Type, "null")
 	}
 
 	getLlmConfig := document.Paths[RouteLLMConfig].Get
