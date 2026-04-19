@@ -25,6 +25,8 @@ type AppPublisherOptions struct {
 	SettaFilesRoot   string
 	WorkspaceRoot    string
 	PluginSourcePath string
+	EnabledPluginIDs []string
+	PluginConfigByID map[string]any
 	Now              func() time.Time
 }
 

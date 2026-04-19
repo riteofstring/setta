@@ -11,6 +11,7 @@ import (
 
 func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeManagedComponents(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
+	registerRuntimeAppSubsystemProvider(t, AppSubsystemPluginID)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 
 	scope := PluginScopeWorkspace

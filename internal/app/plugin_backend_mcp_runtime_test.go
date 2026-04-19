@@ -2,12 +2,10 @@ package app
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"strings"
 	"testing"
 
-	"setta/internal/appsubsystem"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
@@ -141,7 +139,7 @@ func TestNewPluginBackendMCPRuntimeIncludesUnknownProviderTools(t *testing.T) {
 	}
 }
 
-func TestNewPluginBackendMCPRuntimeErrorsForUnregisteredProvider(t *testing.T) {
+func TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider(t *testing.T) {
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
 	if err != nil {
 		t.Fatalf("open overlay project runtime: %v", err)
@@ -152,16 +150,18 @@ func TestNewPluginBackendMCPRuntimeErrorsForUnregisteredProvider(t *testing.T) {
 		}
 	}()
 
-	_, err = newPluginBackendMCPRuntime(context.Background(), pluginBackendMCPRuntimeOptions{
+	runtime, err := newPluginBackendMCPRuntime(context.Background(), pluginBackendMCPRuntimeOptions{
 		RuntimeRoot:    t.TempDir(),
 		Snapshot:       appSubsystemDiscoverySnapshotForTest("setta-unregistered-app-provider"),
 		ProjectRuntime: projectRuntime,
 	})
-	if err == nil {
-		t.Fatal("expected unregistered provider error")
+	if err != nil {
+		t.Fatalf("new plugin backend MCP runtime: %v", err)
 	}
-	if !errors.Is(err, appsubsystem.ErrBackendProviderUnregistered) {
-		t.Fatalf("expected ErrBackendProviderUnregistered, got %v", err)
+	for _, toolName := range runtime.toolNames {
+		if strings.Contains(toolName, "app") {
+			t.Fatalf("expected unregistered provider app tools to stay unavailable, got %#v", runtime.toolNames)
+		}
 	}
 }
 

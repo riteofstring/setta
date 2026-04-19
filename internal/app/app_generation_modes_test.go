@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -211,19 +210,22 @@ func TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch(t *testing.T
 	}
 }
 
-func TestNewAppGenerationModeResolverErrorsForUnregisteredProvider(t *testing.T) {
+func TestNewAppGenerationModeResolverTreatsUnavailableProviderAsNoop(t *testing.T) {
 	capabilities := newAppSubsystemCapabilityState()
 	capabilities.Set(plugins.PluginAppSubsystemCapabilities{
-		PluginID:               "setta-unregistered-app-provider",
-		PluginEnabled:          true,
-		AppGenerationChatModes: true,
+		ProviderSelection: &plugins.PluginAppSubsystemProviderSelection{
+			Status:           plugins.PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+			InvalidPluginIDs: []string{"setta-unregistered-app-provider"},
+		},
 	})
 
-	_, err := newAppGenerationModeResolver(capabilities)
-	if err == nil {
-		t.Fatal("expected unregistered provider error")
+	resolver, err := newAppGenerationModeResolver(capabilities)
+	if err != nil {
+		t.Fatalf("new app generation mode resolver: %v", err)
 	}
-	if !errors.Is(err, appsubsystem.ErrBackendProviderUnregistered) {
-		t.Fatalf("expected ErrBackendProviderUnregistered, got %v", err)
+	mode := string(agentruns.AppGenerationModeJSONRenderWithImage)
+	normalized, ok := resolver.NormalizeOptionalMode(&mode)
+	if ok || normalized != nil {
+		t.Fatalf("expected unavailable provider mode to fail closed, got ok=%t normalized=%v", ok, normalized)
 	}
 }

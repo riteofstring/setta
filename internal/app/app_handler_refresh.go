@@ -54,7 +54,7 @@ func currentAppPublishService(handlerDeps appHandlerDeps) (deployments.AppPublis
 	if handlerDeps.appSubsystemCapabilities != nil {
 		capabilities = handlerDeps.appSubsystemCapabilities.AppSubsystemCapabilities()
 	}
-	pluginSourcePath, err := currentAppPublishProviderSourcePath(handlerDeps, capabilities.PluginID)
+	providerSnapshot, err := currentAppPublishProviderSnapshot(handlerDeps, capabilities.PluginID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,29 +62,21 @@ func currentAppPublishService(handlerDeps appHandlerDeps) (deployments.AppPublis
 		Catalog:          handlerDeps.deploymentCatalog,
 		SettaFilesRoot:   handlerDeps.cfg.Paths.SettaFilesRoot,
 		WorkspaceRoot:    handlerDeps.cfg.Paths.WorkspaceRoot,
-		PluginSourcePath: pluginSourcePath,
+		PluginSourcePath: providerSnapshot.SourcePath,
+		EnabledPluginIDs: providerSnapshot.State.EnabledPluginIDs,
+		PluginConfigByID: providerSnapshot.State.PluginConfigByID,
 	}, handlerDeps.projectRuntime)
 }
 
-func currentAppPublishProviderSourcePath(
+func currentAppPublishProviderSnapshot(
 	handlerDeps appHandlerDeps,
 	pluginID string,
-) (string, error) {
+) (plugins.ActivePluginDeploymentSnapshot, error) {
 	trimmedPluginID := strings.TrimSpace(pluginID)
 	if trimmedPluginID == "" || handlerDeps.pluginRuntime == nil || handlerDeps.pluginRuntime.service == nil {
-		return "", nil
+		return plugins.ActivePluginDeploymentSnapshot{}, nil
 	}
-	snapshot, err := handlerDeps.pluginRuntime.service.Rescan()
-	if err != nil {
-		return "", err
-	}
-	for _, entry := range snapshot.Plugins {
-		if entry.PluginID != trimmedPluginID {
-			continue
-		}
-		return entry.SourcePath, nil
-	}
-	return "", nil
+	return handlerDeps.pluginRuntime.service.DeploymentSnapshotForActivePlugin(trimmedPluginID)
 }
 
 type swappableHandler struct {
