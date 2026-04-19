@@ -18,12 +18,12 @@ import (
 	"setta/internal/appsubsystem"
 	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
+	"setta/internal/appsubsystemproviders/builtin/appdefinitionhttp"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 )
 
 type routeValidationErrorResponse struct {

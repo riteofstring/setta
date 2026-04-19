@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/appsubsystemproviders/builtin/appdeploymenthttp"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appdeploymenthttp"
 )
 
 type AppDeploymentIDERouteDependencies struct {

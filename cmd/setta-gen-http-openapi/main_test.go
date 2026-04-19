@@ -16,7 +16,6 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
@@ -34,7 +33,7 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
 		if document.Paths[routePath] == nil {
 			t.Fatalf(
 				"expected discovered app subsystem provider %q to contribute %s",
-				appsubsystemplugin.ProviderPluginID,
+				"setta-json-render-app-gen",
 				routePath,
 			)
 		}
@@ -50,7 +49,7 @@ func TestBuildOpenAPIDocumentAppSubsystemRegistrationsIncludesAdditionalProvider
 		t,
 		[]appsubsystemproviders.DiscoveredProvider{
 			{
-				PluginID: appsubsystemplugin.ProviderPluginID,
+				PluginID: "setta-json-render-app-gen",
 				Capabilities: plugins.PluginAppSubsystemFeatureManifest{
 					AppAuthoringUI:         true,
 					AppPreviewUI:           true,
