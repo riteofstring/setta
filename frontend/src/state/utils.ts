@@ -1,7 +1,7 @@
+import { runAppSubsystemProjectResetHooks } from "plugins/appSubsystemRuntime";
 import { resetAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
-import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
-import { StateCreator } from "zustand";
+import { type StateCreator, type StoreApi } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
@@ -21,7 +21,7 @@ const stateDict = {
 
 export function withResetFn<T>(
   config: StateCreator<T>,
-): StateCreator<T & { reset: Function }> {
+): StateCreator<T & { reset: ResetFn }> {
   return (set, get, api) => {
     const initialState = config(set, get, api);
 
@@ -46,6 +46,9 @@ export function withResetFn<T>(
   };
 }
 
+type ResetCallback = (api: StoreApi<unknown>) => Record<string, unknown>;
+type ResetFn = (callback?: ResetCallback) => void;
+
 function addStatePointer(state, stateType) {
   stateDict[stateType].push(state);
 }
@@ -59,6 +62,6 @@ function resetStores(stateType) {
 export function resetProjectStores() {
   resetStores(STATE_TYPES.PROJECT_STATE);
   resetStreamingTracker();
-  clearAllAppSpecPatchStreams();
+  runAppSubsystemProjectResetHooks();
   resetAuthoritativeProjectChatWindowingState();
 }

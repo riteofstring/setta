@@ -19,12 +19,26 @@ const (
 
 	redactedSourcePathPrefix         = "[redacted]"
 	redactedCanonicalSourceKeyPrefix = "redacted:"
+	AppSubsystemPluginID             = "setta-json-render-app-gen"
 )
 
 type AssetURLBuilder func(pluginID string, relativePath string, sourceDigestSHA256 *string) string
 
 type RuntimeOptions struct {
 	AssetURLBuilder AssetURLBuilder
+}
+
+type PluginAppSubsystemCapabilities struct {
+	PluginID               string `json:"pluginId"`
+	PluginEnabled          bool   `json:"pluginEnabled"`
+	AppAuthoringUI         bool   `json:"appAuthoringUi"`
+	AppPreviewUI           bool   `json:"appPreviewUi"`
+	AppGenerationChatModes bool   `json:"appGenerationChatModes"`
+	AppDeploymentRuntime   bool   `json:"appDeploymentRuntime"`
+}
+
+type PluginFeatureCapabilities struct {
+	AppSubsystem PluginAppSubsystemCapabilities `json:"appSubsystem"`
 }
 
 type PluginFrontendDescriptor struct {
@@ -73,9 +87,10 @@ type PluginListResponse struct {
 }
 
 type PluginRuntimeResponse struct {
-	SchemaVersion int                  `json:"schemaVersion"`
-	List          PluginListResponse   `json:"list"`
-	Status        PluginStatusResponse `json:"status"`
+	SchemaVersion       int                        `json:"schemaVersion"`
+	FeatureCapabilities *PluginFeatureCapabilities `json:"featureCapabilities,omitempty"`
+	List                PluginListResponse         `json:"list"`
+	Status              PluginStatusResponse       `json:"status"`
 }
 
 func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error) {
@@ -110,6 +125,9 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 	restartCapability := s.restartCapability()
 	return PluginRuntimeResponse{
 		SchemaVersion: pluginRuntimeSchemaVersion,
+		FeatureCapabilities: &PluginFeatureCapabilities{
+			AppSubsystem: buildRuntimeAppSubsystemCapabilities(snapshot.Plugins),
+		},
 		List: PluginListResponse{
 			SchemaVersion:     pluginListSchemaVersion,
 			ServerMode:        snapshot.ServerMode,
@@ -129,6 +147,58 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 			redactedSourcePathByPath,
 		),
 	}, nil
+}
+
+func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppSubsystemCapabilities {
+	capabilities := PluginAppSubsystemCapabilities{
+		PluginID: AppSubsystemPluginID,
+	}
+	for _, entry := range entries {
+		if !isRuntimeAppSubsystemEntry(entry) {
+			continue
+		}
+		capabilities.PluginEnabled = true
+		mergeRuntimeAppSubsystemCapabilities(
+			&capabilities,
+			runtimeAppSubsystemFeatureManifest(entry),
+		)
+	}
+	return capabilities
+}
+
+func isRuntimeAppSubsystemEntry(entry DiscoveredPlugin) bool {
+	if entry.PluginID != AppSubsystemPluginID {
+		return false
+	}
+	return entry.State == PluginRuntimeStateActive || entry.State == PluginRuntimeStatePendingRestart
+}
+
+func AppSubsystemCapabilitiesFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginAppSubsystemCapabilities {
+	return buildRuntimeAppSubsystemCapabilities(snapshot.Plugins)
+}
+
+func runtimeAppSubsystemFeatureManifest(
+	entry DiscoveredPlugin,
+) *PluginAppSubsystemFeatureManifest {
+	if entry.Manifest == nil || entry.Manifest.FeatureCapabilities == nil {
+		return nil
+	}
+	return entry.Manifest.FeatureCapabilities.AppSubsystem
+}
+
+func mergeRuntimeAppSubsystemCapabilities(
+	capabilities *PluginAppSubsystemCapabilities,
+	feature *PluginAppSubsystemFeatureManifest,
+) {
+	if capabilities == nil || feature == nil {
+		return
+	}
+	capabilities.AppAuthoringUI = capabilities.AppAuthoringUI || feature.AppAuthoringUI
+	capabilities.AppPreviewUI = capabilities.AppPreviewUI || feature.AppPreviewUI
+	capabilities.AppGenerationChatModes = capabilities.AppGenerationChatModes || feature.AppGenerationChatModes
+	capabilities.AppDeploymentRuntime = capabilities.AppDeploymentRuntime || feature.AppDeploymentRuntime
 }
 
 func (s *Service) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
@@ -252,6 +322,7 @@ func (s *Service) buildRuntimeListEntries(
 			Frontend:           buildRuntimeFrontendDescriptor(entry, assetURLBuilder),
 			Content:            buildRuntimeContentDescriptor(entry),
 			Config: buildRuntimeConfigDescriptor(
+				entries,
 				entry,
 				pluginsState,
 				redactConfigDetails,
@@ -313,7 +384,7 @@ func buildRuntimeContentDescriptor(entry DiscoveredPlugin) PluginContentDescript
 	}
 }
 
-func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsStateFile, redactConfigDetails bool) PluginConfigDescriptor {
+func buildRuntimeConfigDescriptor(entries []DiscoveredPlugin, entry DiscoveredPlugin, pluginsState *PluginsStateFile, redactConfigDetails bool) PluginConfigDescriptor {
 	hasSchema, schemaJSON, schemaDigest := buildRuntimeConfigSchemaDescriptor(entry)
 	if redactConfigDetails {
 		return PluginConfigDescriptor{
@@ -325,7 +396,7 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 		}
 	}
 
-	currentConfig := runtimeCurrentConfig(entry, pluginsState)
+	currentConfig := pluginConfigSnapshotWithDuplicateFallback(entries, entry, pluginsState).Config
 	return PluginConfigDescriptor{
 		HasSchema:                 hasSchema,
 		SchemaJSON:                schemaJSON,
@@ -336,44 +407,14 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 }
 
 func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[string]any, *string) {
-	if entry.Manifest == nil {
-		return false, map[string]any{}, nil
-	}
-	trimmedPath := strings.TrimSpace(entry.Manifest.ConfigSchemaPath)
-	if trimmedPath == "" {
-		return false, map[string]any{}, nil
-	}
-	schemaPath, err := resolveManifestRegularFile(entry.SourcePath, trimmedPath, "plugin config schema")
+	document, ok, err := loadPluginConfigSchemaDocument(entry)
 	if err != nil {
 		return false, map[string]any{}, nil
 	}
-	payload, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return true, map[string]any{}, nil
-	}
-	var schemaJSON map[string]any
-	if err := json.Unmarshal(payload, &schemaJSON); err != nil {
-		return true, map[string]any{}, nil
-	}
-	if schemaJSON == nil {
-		return true, map[string]any{}, nil
-	}
-	return true, schemaJSON, runtimeDigestJSONValue(schemaJSON)
-}
-
-func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
-	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
-		return map[string]any{}
-	}
-	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
-	if !ok || rawValue == nil {
-		return map[string]any{}
-	}
-	currentConfig, ok := rawValue.(map[string]any)
 	if !ok {
-		return map[string]any{}
+		return false, map[string]any{}, nil
 	}
-	return cloneStringAnyMap(currentConfig)
+	return true, document.JSON, runtimeDigestJSONValue(document.JSON)
 }
 
 func runtimeDirectoryHasFiles(pluginRoot string, relativePath string) bool {
@@ -431,10 +472,11 @@ func buildRuntimeStatusResponse(
 		entries = append(entries, buildRuntimeStatusEntry(entry, redactSourceDetails, redactedSourcePathByPath))
 	}
 	return PluginStatusResponse{
-		SchemaVersion:     pluginStatusSchemaVersion,
-		ServerMode:        snapshot.ServerMode,
-		RestartCapability: capability,
-		Plugins:           entries,
+		SchemaVersion:            pluginStatusSchemaVersion,
+		ServerMode:               snapshot.ServerMode,
+		RestartCapability:        capability,
+		Plugins:                  entries,
+		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
 }
 

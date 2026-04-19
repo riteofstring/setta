@@ -5,6 +5,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/chatmodes"
 )
 
 type normalizedStartChatRequest struct {
@@ -48,7 +49,7 @@ func (s *Service) startChat(request StartChatRequest) (StartChatResult, error) {
 	if err := s.validateStartChatPreconditions(); err != nil {
 		return StartChatResult{}, err
 	}
-	normalized, err := normalizeStartChatRequest(request)
+	normalized, err := normalizeStartChatRequest(request, s.appGenerationModes)
 	if err != nil {
 		return StartChatResult{}, err
 	}
@@ -99,7 +100,10 @@ func (s *Service) validateStartChatPreconditions() error {
 	return nil
 }
 
-func normalizeStartChatRequest(request StartChatRequest) (normalizedStartChatRequest, error) {
+func normalizeStartChatRequest(
+	request StartChatRequest,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
+) (normalizedStartChatRequest, error) {
 	normalizedMessage, projectConfigID, sectionID, permissionMode, err := normalizeStartChatCoreRequest(request)
 	if err != nil {
 		return normalizedStartChatRequest{}, err
@@ -112,7 +116,10 @@ func normalizeStartChatRequest(request StartChatRequest) (normalizedStartChatReq
 	if err != nil {
 		return normalizedStartChatRequest{}, err
 	}
-	appGenerationMode, referenceImageURL, referenceImageNotes, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(request)
+	appGenerationMode, referenceImageURL, referenceImageNotes, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(
+		request,
+		appGenerationModes,
+	)
 	if err != nil {
 		return normalizedStartChatRequest{}, err
 	}
@@ -188,8 +195,12 @@ func normalizeStartChatConversationIDs(
 
 func normalizeStartChatGenerationOptions(
 	request StartChatRequest,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 ) (*string, *string, *string, string, error) {
-	appGenerationMode, err := normalizeAppGenerationMode(request.AppGenerationMode)
+	appGenerationMode, err := normalizeAppGenerationModeWithResolver(
+		appGenerationModes,
+		request.AppGenerationMode,
+	)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -204,7 +215,8 @@ func normalizeStartChatGenerationOptions(
 		referenceImageURL = nil
 		referenceImageNotes = nil
 	}
-	return appGenerationMode, referenceImageURL, referenceImageNotes, buildAppGenerationModePrompt(
+	return appGenerationMode, referenceImageURL, referenceImageNotes, buildAppGenerationModePromptWithResolver(
+		appGenerationModes,
 		appGenerationMode,
 		request.AppSpecStreamingEnabled,
 		referenceImageURL,
