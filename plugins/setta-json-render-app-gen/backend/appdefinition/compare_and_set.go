@@ -32,18 +32,22 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionCatalogID(
 		expectedOldValue,
 		catalogID,
 		func(document projectstate.Document) (string, error) {
-			current, err := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinitionWithStorage(document, s.storage)
 			if err != nil {
 				return "", err
 			}
 			return current.CatalogID, nil
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current, err := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinitionWithStorage(document, s.storage)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
-			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
+			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(
+				projectRoot,
+				current,
+				s.appSpecStore,
+			)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
@@ -55,7 +59,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionCatalogID(
 				AppSpecVersion: &current.AppSpecVersion,
 				CatalogID:      &current.CatalogID,
 				Routes:         &current.Routes,
-			}, normalizedPath)
+			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
 	)
@@ -77,18 +81,22 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecVersion(
 		expectedOldValue,
 		appSpecVersion,
 		func(document projectstate.Document) (string, error) {
-			current, err := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinitionWithStorage(document, s.storage)
 			if err != nil {
 				return "", err
 			}
 			return current.AppSpecVersion, nil
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current, err := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinitionWithStorage(document, s.storage)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
-			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
+			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(
+				projectRoot,
+				current,
+				s.appSpecStore,
+			)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
@@ -100,7 +108,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecVersion(
 				AppSpecVersion: &current.AppSpecVersion,
 				CatalogID:      &current.CatalogID,
 				Routes:         &current.Routes,
-			}, normalizedPath)
+			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
 	)
@@ -115,7 +123,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
-	normalizedPath, err := appspec.NormalizePath(projectRoot, appSpecPath)
+	normalizedPath, err := s.appSpecStore.NormalizePath(projectRoot, appSpecPath)
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
@@ -126,18 +134,22 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 		expectedOldValue,
 		normalizedPath,
 		func(document projectstate.Document) (string, error) {
-			return effectiveAppSpecPath(document)
+			return effectiveAppSpecPathWithStore(document, s.storage, s.appSpecStore)
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current, err := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinitionWithStorage(document, s.storage)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
-			normalizedPath, err := appspec.NormalizePath(projectRoot, appSpecPath)
+			normalizedPath, err := s.appSpecStore.NormalizePath(projectRoot, appSpecPath)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
-			_, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
+			_, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(
+				projectRoot,
+				current,
+				s.appSpecStore,
+			)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
@@ -148,7 +160,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 				AppSpecVersion: &current.AppSpecVersion,
 				CatalogID:      &current.CatalogID,
 				Routes:         &current.Routes,
-			}, normalizedPath)
+			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
 	)
@@ -170,14 +182,18 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 		expectedOldValue,
 		themeMode,
 		func(document projectstate.Document) (string, error) {
-			return effectiveAppThemeMode(document)
+			return effectiveAppThemeModeWithStorage(document, s.storage)
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current, err := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinitionWithStorage(document, s.storage)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
-			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
+			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(
+				projectRoot,
+				current,
+				s.appSpecStore,
+			)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
 			}
@@ -200,7 +216,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 				Actions:        cloneJSONObjectPointerFromRawJSON(current.Actions),
 				Theme:          &theme,
 				Assets:         cloneJSONArrayPointerFromRawJSON(current.Assets),
-			}, normalizedPath)
+			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
 	)
@@ -249,6 +265,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 			readValue,
 			mutate,
 			&result,
+			s.appSpecStore,
 		)
 	})
 	return snapshot, result, err
@@ -278,6 +295,7 @@ func buildCompareAndSetAppDefinitionPlan(
 	readValue func(projectstate.Document) (string, error),
 	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
 	result *projectstate.CompareAndSetResult[string],
+	appSpecStore appspec.Store,
 ) (projectstate.PersistedMutationPlan, error) {
 	oldValue, err := readValidatedAppDefinitionSetting(document, readValue, settingID, expectedOldValue)
 	if err != nil {
@@ -287,7 +305,7 @@ func buildCompareAndSetAppDefinitionPlan(
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, err
 	}
-	previousAppSpec, err := appspec.Read(projectRoot, appSpecPath)
+	previousAppSpec, err := appSpecStore.Read(projectRoot, appSpecPath)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, err
 	}
@@ -304,10 +322,10 @@ func buildCompareAndSetAppDefinitionPlan(
 	return projectstate.PersistedMutationPlan{
 		NextDocument: nextDocument,
 		ApplyExternalChanges: func() error {
-			return appspec.Write(projectRoot, appSpecPath, nextAppSpec)
+			return appSpecStore.Write(projectRoot, appSpecPath, nextAppSpec)
 		},
 		RollbackExternalChanges: func() error {
-			return rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec)
+			return rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec, appSpecStore)
 		},
 	}, nil
 }
@@ -326,17 +344,21 @@ func assertAppDefinitionExpectedOldValueMatches(settingID string, expectedOldVal
 	}
 }
 
-func resolveCurrentAppSpecForMetadataUpdate(projectRoot string, appDefinition AppDefinition) (string, any, error) {
+func resolveCurrentAppSpecForMetadataUpdate(
+	projectRoot string,
+	appDefinition AppDefinition,
+	appSpecStore appspec.Store,
+) (string, any, error) {
 	targetPath := appDefinition.AppSpecPath
 	if strings.TrimSpace(targetPath) == "" {
-		targetPath = appspec.DefaultPath()
+		targetPath = appSpecStore.DefaultPath()
 	}
-	normalizedPath, err := appspec.NormalizePath(projectRoot, targetPath)
+	normalizedPath, err := appSpecStore.NormalizePath(projectRoot, targetPath)
 	if err != nil {
 		return "", nil, err
 	}
 
-	currentAppSpec, err := appspec.Read(projectRoot, normalizedPath)
+	currentAppSpec, err := appSpecStore.Read(projectRoot, normalizedPath)
 	if err != nil {
 		return "", nil, err
 	}

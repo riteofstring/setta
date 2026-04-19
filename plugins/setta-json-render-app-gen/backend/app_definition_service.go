@@ -5,6 +5,9 @@ import (
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
-func NewAppDefinitionService(runtime *projectstate.Runtime) appdefinition.Runtime {
-	return appdefinition.NewAppDefinitionService(runtime)
+func NewAppDefinitionService(
+	runtime *projectstate.Runtime,
+	pluginID string,
+) appdefinition.Runtime {
+	return appdefinition.NewAppDefinitionService(runtime, pluginID)
 }

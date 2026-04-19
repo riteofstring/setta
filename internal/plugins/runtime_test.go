@@ -250,6 +250,62 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *tes
 	)
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	activePluginID := "acme-active-app-provider"
+	pendingRestartPluginID := "acme-pending-restart-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         activePluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":       true,
+			"appPreviewUi":         true,
+			"appDeploymentRuntime": true,
+		},
+	})
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         pendingRestartPluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":       true,
+			"appPreviewUi":         true,
+			"appDeploymentRuntime": true,
+		},
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds":               []string{activePluginID, pendingRestartPluginID},
+		"pendingRestartBackendPluginIds": []string{pendingRestartPluginID},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusActive,
+		stringPointer(activePluginID),
+		[]string{activePluginID},
+		nil,
+		nil,
+		nil,
+	)
+	if appSubsystem.PluginID != activePluginID {
+		t.Fatalf("expected active app subsystem provider %q, got %#v", activePluginID, appSubsystem.PluginID)
+	}
+}
+
 func TestServiceRuntimeAppSubsystemCapabilitiesTreatInvalidProviderAsUnavailable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-invalid-app-provider"

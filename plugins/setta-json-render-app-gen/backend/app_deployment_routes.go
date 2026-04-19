@@ -22,6 +22,7 @@ type appDeploymentVersionRouteParams struct {
 func RegisterAppDeploymentRoutes(
 	router chi.Router,
 	deps httpapi.DeploymentRouteDependencies,
+	pluginID string,
 ) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -50,7 +51,7 @@ func RegisterAppDeploymentRoutes(
 		appSessionRouter,
 		"getAppDeploymentState",
 		httpapi.RouteAppDeploymentState,
-		appDeploymentStateHandler(deps.Deployment),
+		appDeploymentStateHandler(deps.Deployment, pluginID),
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("Load the default project state and app definition for an app deployment session."),
 		httpapi.WithOpenAPIPathParams[appDeploymentVersionRouteParams](),
@@ -60,7 +61,7 @@ func RegisterAppDeploymentRoutes(
 		appSessionRouter,
 		"getAppDeploymentProjectConfig",
 		httpapi.RouteAppDeploymentProjectConfig,
-		appDeploymentProjectConfigHandler(deps.Deployment),
+		appDeploymentProjectConfigHandler(deps.Deployment, pluginID),
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("Load a specific project config and app definition from an app deployment session."),
 		httpapi.WithOpenAPIPathParams[appDeploymentVersionRouteParams](),
@@ -91,7 +92,10 @@ func currentAppDeploymentSessionHandler(runtime *deployments.Runtime) http.Handl
 	}
 }
 
-func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
+func appDeploymentStateHandler(
+	runtime *deployments.Runtime,
+	pluginID string,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !httpapi.RequireDeploymentMatch(w, r, runtime, "App") {
 			return
@@ -102,14 +106,18 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-
 		projectState, err := projectview.DefaultSingleConfig(snapshot.Document)
 		if err != nil {
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		storedAppDefinition := appdefinition.StoredDocumentAppDefinitionRaw(snapshot.Document)
-		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, storedAppDefinition)
+		storedAppDefinition := appdefinition.StorageForPlugin(pluginID).
+			StoredDocumentAppDefinitionRaw(snapshot.Document)
+		appSpec, err := LoadPublishedAppSpecFromRuntime(
+			runtime,
+			storedAppDefinition,
+			pluginID,
+		)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -129,7 +137,10 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 	}
 }
 
-func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.HandlerFunc {
+func appDeploymentProjectConfigHandler(
+	runtime *deployments.Runtime,
+	pluginID string,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !httpapi.RequireDeploymentMatch(w, r, runtime, "App") {
 			return
@@ -163,8 +174,13 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		storedAppDefinition := appdefinition.StoredDocumentAppDefinitionRaw(snapshot.Document)
-		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, storedAppDefinition)
+		storedAppDefinition := appdefinition.StorageForPlugin(pluginID).
+			StoredDocumentAppDefinitionRaw(snapshot.Document)
+		appSpec, err := LoadPublishedAppSpecFromRuntime(
+			runtime,
+			storedAppDefinition,
+			pluginID,
+		)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return

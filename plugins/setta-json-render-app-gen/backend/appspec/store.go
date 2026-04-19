@@ -7,31 +7,44 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"setta/internal/statefs"
 )
 
 const defaultFileMode = 0o644
-const pluginAppSpecRoot = "plugins/setta-json-render-app-gen/app_specs"
+const defaultProviderPluginID = "setta-json-render-app-gen"
 
-func RootPath() string {
-	return pluginAppSpecRoot
+type Store struct {
+	pluginID string
 }
 
-func JoinPath(name string) string {
-	return path.Join(pluginAppSpecRoot, name)
+func ForPlugin(pluginID string) Store {
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		trimmedPluginID = defaultProviderPluginID
+	}
+	return Store{pluginID: trimmedPluginID}
 }
 
-func DefaultPath() string {
-	return JoinPath("app.json")
+func (s Store) RootPath() string {
+	return path.Join("plugins", s.pluginID, "app_specs")
 }
 
-func ResolvePath(root string, appSpecPath string) (string, error) {
+func (s Store) JoinPath(name string) string {
+	return path.Join(s.RootPath(), name)
+}
+
+func (s Store) DefaultPath() string {
+	return s.JoinPath("app.json")
+}
+
+func (s Store) ResolvePath(root string, appSpecPath string) (string, error) {
 	resolvedRoot, err := statefs.NormalizePath(root, "")
 	if err != nil {
 		return "", fmt.Errorf("resolve app spec root: %w", err)
 	}
-	appSpecsRoot := filepath.Join(resolvedRoot, filepath.FromSlash(pluginAppSpecRoot))
+	appSpecsRoot := filepath.Join(resolvedRoot, filepath.FromSlash(s.RootPath()))
 	resolvedPath, err := statefs.NormalizePath(appSpecPath, resolvedRoot)
 	if err != nil {
 		return "", err
@@ -40,19 +53,19 @@ func ResolvePath(root string, appSpecPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf(
 			"app spec path must live under %q in the project root: %w",
-			pluginAppSpecRoot,
+			s.RootPath(),
 			err,
 		)
 	}
 	return resolvedPath, nil
 }
 
-func NormalizePath(root string, appSpecPath string) (string, error) {
+func (s Store) NormalizePath(root string, appSpecPath string) (string, error) {
 	resolvedRoot, err := statefs.NormalizePath(root, "")
 	if err != nil {
 		return "", fmt.Errorf("resolve app spec root: %w", err)
 	}
-	resolvedPath, err := ResolvePath(resolvedRoot, appSpecPath)
+	resolvedPath, err := s.ResolvePath(resolvedRoot, appSpecPath)
 	if err != nil {
 		return "", err
 	}
@@ -63,8 +76,8 @@ func NormalizePath(root string, appSpecPath string) (string, error) {
 	return filepath.ToSlash(relativePath), nil
 }
 
-func Read(root string, appSpecPath string) (any, error) {
-	resolvedPath, err := ResolvePath(root, appSpecPath)
+func (s Store) Read(root string, appSpecPath string) (any, error) {
+	resolvedPath, err := s.ResolvePath(root, appSpecPath)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +105,8 @@ func Read(root string, appSpecPath string) (any, error) {
 	return payload, nil
 }
 
-func Write(root string, appSpecPath string, appSpec any) error {
-	resolvedPath, err := ResolvePath(root, appSpecPath)
+func (s Store) Write(root string, appSpecPath string, appSpec any) error {
+	resolvedPath, err := s.ResolvePath(root, appSpecPath)
 	if err != nil {
 		return err
 	}
@@ -108,6 +121,34 @@ func Write(root string, appSpecPath string, appSpec any) error {
 		return fmt.Errorf("write app spec: %w", err)
 	}
 	return nil
+}
+
+func RootPath() string {
+	return ForPlugin("").RootPath()
+}
+
+func JoinPath(name string) string {
+	return ForPlugin("").JoinPath(name)
+}
+
+func DefaultPath() string {
+	return ForPlugin("").DefaultPath()
+}
+
+func ResolvePath(root string, appSpecPath string) (string, error) {
+	return ForPlugin("").ResolvePath(root, appSpecPath)
+}
+
+func NormalizePath(root string, appSpecPath string) (string, error) {
+	return ForPlugin("").NormalizePath(root, appSpecPath)
+}
+
+func Read(root string, appSpecPath string) (any, error) {
+	return ForPlugin("").Read(root, appSpecPath)
+}
+
+func Write(root string, appSpecPath string, appSpec any) error {
+	return ForPlugin("").Write(root, appSpecPath, appSpec)
 }
 
 func isEmptyJSONValue(value any) bool {

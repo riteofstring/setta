@@ -19,6 +19,7 @@ type AppDeploymentIDERouteDependencies struct {
 	ProjectState *projectstate.Runtime
 	Catalog      *deployments.Catalog
 	AppPublisher deployments.AppPublishService
+	PluginID     string
 }
 
 type appDeploymentNameRouteParams struct {

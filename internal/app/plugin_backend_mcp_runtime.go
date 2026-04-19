@@ -102,9 +102,8 @@ func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 	if len(registrations) == 0 {
 		return nil
 	}
-	mcpRegistrations := appSubsystemMCPToolRegistrations(registrations)
-	r.registrations = append(r.registrations, mcpRegistrations...)
-	r.toolNames = append(r.toolNames, toolNamesForRegistrations(mcpRegistrations)...)
+	r.registrations = append(r.registrations, registrations...)
+	r.toolNames = append(r.toolNames, toolNamesForRegistrations(registrations)...)
 	return nil
 }
 
@@ -137,23 +136,6 @@ func toolNamesForRegistrations(
 		names = append(names, name)
 	}
 	return names
-}
-
-func appSubsystemMCPToolRegistrations(
-	registrations []appsubsystem.MCPToolRegistration,
-) []mcpx.ToolRegistration {
-	if len(registrations) == 0 {
-		return nil
-	}
-	converted := make([]mcpx.ToolRegistration, 0, len(registrations))
-	for _, registration := range registrations {
-		converted = append(converted, mcpx.ToolRegistration{
-			Spec:         registration.Spec,
-			InputSchema:  registration.InputSchema,
-			OutputSchema: registration.OutputSchema,
-		})
-	}
-	return converted
 }
 
 func (r *pluginBackendMCPRuntime) buildServerConfigs(
