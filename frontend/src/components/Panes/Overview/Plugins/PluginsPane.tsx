@@ -1,9 +1,12 @@
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
   disablePlugin,
   enablePlugin,
   installPlugin,
   rescanPlugins,
+  restartLanguageServer,
   rollbackPlugin,
+  setLanguageServerSelection,
   uninstallPlugin,
   updatePlugin,
   writePluginConfig,
@@ -28,6 +31,7 @@ import { C } from "utils/c";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
+  LanguageServerSelectionStatus,
   PluginBlockedCapability,
   PluginInstallerBackend,
   PluginInstallResponse,
@@ -37,7 +41,9 @@ import type {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import {
+  LanguageServerSelectionSeverityEnum,
   PluginInstallerBackendEnum,
+  PluginRuntimeStateEnum,
   PluginScopeEnum,
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
@@ -94,6 +100,8 @@ type PluginsPaneRuntimeSummary = {
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
 const EMPTY_PLUGIN_COMMANDS: readonly PluginCommandSummary[] = [];
 const DEFAULT_PLUGIN_SERVER_MODE: PluginServerMode = "ide";
+const PYTHON_LANGUAGE_ID = "python";
+const PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID = "__python_lsp_none__";
 const cachedFormattedCapabilitiesText = new WeakMap<string[], string>();
 const cachedCapabilitiesTooltipText = new WeakMap<string[], string>();
 const cachedFormattedBlockedCapabilitiesText = new WeakMap<
@@ -104,6 +112,31 @@ const cachedBlockedCapabilitiesTooltipText = new WeakMap<
   PluginBlockedCapability[],
   string
 >();
+
+function buildPythonLanguageServerOptions(
+  selectionStatus: LanguageServerSelectionStatus | null,
+): Array<{ id: string; name: string }> {
+  const options = [
+    {
+      id: PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID,
+      name: "No Python language server",
+    },
+  ];
+  const providers = selectionStatus?.availableProviders ?? [];
+  for (const provider of providers) {
+    if (provider.pluginId.trim() === "") {
+      continue;
+    }
+    options.push({
+      id: provider.pluginId,
+      name: provider.available
+        ? provider.name
+        : `${provider.name} (unavailable)`,
+    });
+  }
+  return options;
+}
+
 function pluginListEntryCardRuntimeStateEqual(
   a: PluginListEntryCardRuntimeState,
   b: PluginListEntryCardRuntimeState,
@@ -387,21 +420,128 @@ function PluginsPaneActionStatusNotice({
   );
 }
 
+function getLanguageServerSelectionNoticeClassName(
+  selectionStatus: LanguageServerSelectionStatus | null,
+): string {
+  if (
+    selectionStatus?.severity === LanguageServerSelectionSeverityEnum.success
+  ) {
+    return "border-green-200 bg-green-50 text-green-800 dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-200";
+  }
+  if (
+    selectionStatus?.severity === LanguageServerSelectionSeverityEnum.warning
+  ) {
+    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200";
+  }
+  return "border-setta-200 bg-setta-50/70 text-setta-700 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
+}
+
+function normalizePythonLanguageServerSelectionValue(
+  nextValue: string | null,
+): string | null {
+  return nextValue === PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID ||
+    nextValue === null
+    ? null
+    : nextValue;
+}
+
+function PythonLanguageServerSection({
+  selectionStatus,
+  disabled,
+  selectionBusy,
+  restartBusy,
+  onSelectPythonLanguageServer,
+  onRestartLanguageServer,
+}: {
+  selectionStatus: LanguageServerSelectionStatus | null;
+  disabled: boolean;
+  selectionBusy: boolean;
+  restartBusy: boolean;
+  onSelectPythonLanguageServer: (pluginId: string | null) => Promise<void>;
+  onRestartLanguageServer: () => Promise<void>;
+}) {
+  const pythonLanguageServerOptions = useMemo(
+    () => buildPythonLanguageServerOptions(selectionStatus),
+    [selectionStatus],
+  );
+  const comboboxValue =
+    selectionStatus?.selectedPluginId ?? PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID;
+  const noticeClassName =
+    getLanguageServerSelectionNoticeClassName(selectionStatus);
+
+  return (
+    <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+            Python Language Server
+          </h3>
+          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+            Workspace selection and health come from backend-owned plugin
+            runtime state.
+          </p>
+        </div>
+        {selectionStatus?.restartRequired ? (
+          <ActionButton
+            label="Restart Language Server"
+            onClick={onRestartLanguageServer}
+            disabled={disabled || restartBusy}
+            testId="python-language-server-restart"
+          />
+        ) : null}
+      </div>
+      <div className="mt-2">
+        <IdNameCombobox
+          allItems={[
+            {
+              groupName: "Python language server",
+              items: pythonLanguageServerOptions,
+            },
+          ]}
+          value={comboboxValue}
+          onSelectedItemChange={(nextValue) =>
+            onSelectPythonLanguageServer(
+              normalizePythonLanguageServerSelectionValue(nextValue),
+            )
+          }
+          placeholder="Select a Python language server"
+          outerDivClasses="w-full"
+          inputDivId="python-language-server-selector"
+          variant="pane"
+          bg=""
+          isDisabled={disabled || selectionBusy}
+        />
+      </div>
+      <section
+        data-testid="python-language-server-selection-summary"
+        className={`mt-2 rounded border p-2 text-[11px] ${noticeClassName}`}
+      >
+        {selectionStatus?.message ??
+          "Python language-server status is unavailable."}
+      </section>
+    </section>
+  );
+}
+
 function ActivePluginsSection({
   pluginListEntries,
   isSettingsProject,
+  pythonSelectionStatus,
   writeActionsLocked,
   isAnyPluginActionBusy,
   runEnablePlugin,
   runDisablePlugin,
+  selectPythonLanguageServer,
   runAction,
 }: {
   pluginListEntries: PluginListEntry[];
   isSettingsProject: boolean;
+  pythonSelectionStatus: LanguageServerSelectionStatus | null;
   writeActionsLocked: boolean;
   isAnyPluginActionBusy: (pluginId: string) => boolean;
   runEnablePlugin: (pluginId: string) => Promise<void>;
   runDisablePlugin: (pluginId: string) => Promise<void>;
+  selectPythonLanguageServer: (pluginId: string) => Promise<void>;
   runAction: <T>(
     actionKey: string,
     actionLabel: string,
@@ -424,10 +564,12 @@ function ActivePluginsSection({
               key={buildPluginListEntryCardKey(plugin)}
               plugin={plugin}
               isSettingsProject={isSettingsProject}
+              pythonSelectionStatus={pythonSelectionStatus}
               writeActionsLocked={writeActionsLocked}
               isAnyPluginActionBusy={isAnyPluginActionBusy}
               runEnablePlugin={runEnablePlugin}
               runDisablePlugin={runDisablePlugin}
+              selectPythonLanguageServer={selectPythonLanguageServer}
               runAction={runAction}
             />
           ))}
@@ -556,6 +698,9 @@ export function PluginsPane() {
     pluginsPaneRuntimeSummaryEqual,
   );
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
+  const pythonSelectionStatus = usePluginRuntimeStore(
+    (state) => state.languageServerSelectionsByLanguage[PYTHON_LANGUAGE_ID],
+  );
   const currentProjectConfigName = useProjectState(
     (state) => state.projectConfig.name,
   );
@@ -652,6 +797,55 @@ export function PluginsPane() {
           typeof disablePlugin
         >[0]),
       ),
+    );
+  }
+  async function onSelectPythonLanguageServer(pluginId: string | null) {
+    if (writeActionsLocked) {
+      return;
+    }
+    if ((pythonSelectionStatus?.selectedPluginId ?? null) === pluginId) {
+      return;
+    }
+    const response = await runAction(
+      "python-language-server-selection",
+      "Save Python language server selection",
+      async () =>
+        callOpenAPI(
+          setLanguageServerSelection({
+            body: {
+              language: PYTHON_LANGUAGE_ID,
+              pluginId: pluginId,
+            },
+          } as Parameters<typeof setLanguageServerSelection>[0]),
+        ),
+      {
+        refreshRuntimeOnSuccess: true,
+      },
+    );
+    if (!response) {
+      return;
+    }
+    const message =
+      pluginId === null
+        ? "Python language server selection saved."
+        : `Python language server selection saved. "${pluginId}" will be used after the next language-server restart.`;
+    setActionStatus({
+      type: "success",
+      message,
+    });
+    addTemporaryNotification(message, "info");
+  }
+  async function onRestartLanguageServer() {
+    if (writeActionsLocked) {
+      return;
+    }
+    await runAction(
+      "restart-language-server",
+      "Restart language server",
+      async () => callOpenAPI(restartLanguageServer()),
+      {
+        refreshRuntimeOnSuccess: true,
+      },
     );
   }
   function renderStatusRowAction(entry: PluginStatusEntry) {
@@ -805,6 +999,14 @@ export function PluginsPane() {
         restartRequiredPluginIds={restartRequiredPluginIds}
         restartActionPlan={restartActionPlan}
       />
+      <PythonLanguageServerSection
+        selectionStatus={pythonSelectionStatus ?? null}
+        disabled={writeActionsLocked}
+        selectionBusy={isActionBusy("python-language-server-selection")}
+        restartBusy={isActionBusy("restart-language-server")}
+        onSelectPythonLanguageServer={onSelectPythonLanguageServer}
+        onRestartLanguageServer={onRestartLanguageServer}
+      />
       <PluginsPaneInstallSection
         sourceSpec={sourceSpec}
         scope={scope}
@@ -824,10 +1026,14 @@ export function PluginsPane() {
       <ActivePluginsSection
         pluginListEntries={pluginListEntries}
         isSettingsProject={isSettingsProject}
+        pythonSelectionStatus={pythonSelectionStatus ?? null}
         writeActionsLocked={writeActionsLocked}
         isAnyPluginActionBusy={isAnyPluginActionBusy}
         runEnablePlugin={runEnablePlugin}
         runDisablePlugin={runDisablePlugin}
+        selectPythonLanguageServer={async (pluginId: string) => {
+          await onSelectPythonLanguageServer(pluginId);
+        }}
         runAction={runAction}
       />
       <PluginDiscoveryStatusSection
@@ -840,16 +1046,47 @@ export function PluginsPane() {
 type PluginListEntryCardProps = {
   plugin: PluginListEntry;
   isSettingsProject: boolean;
+  pythonSelectionStatus: LanguageServerSelectionStatus | null;
   writeActionsLocked: boolean;
   isAnyPluginActionBusy: (pluginId: string) => boolean;
   runEnablePlugin: (pluginId: string) => Promise<void>;
   runDisablePlugin: (pluginId: string) => Promise<void>;
+  selectPythonLanguageServer: (pluginId: string) => Promise<void>;
   runAction: <T>(
     actionKey: string,
     actionLabel: string,
     operation: () => Promise<ResponseDataAndStatus<T>>,
   ) => Promise<ResponseDataAndStatus<T> | null>;
 };
+
+function buildPluginToggleLabel(
+  pluginStatus: PluginStatusEntry | null,
+): "Enable" | "Disable" {
+  return pluginStatus == null ||
+    pluginStatus.state === PluginRuntimeStateEnum.disabled
+    ? "Enable"
+    : "Disable";
+}
+
+function buildPythonPluginSelectionState(
+  pluginId: string,
+  pythonSelectionStatus: LanguageServerSelectionStatus | null,
+): {
+  isSelectedForPython: boolean;
+  canUseForPython: boolean;
+} {
+  const selectedPythonPlugin = pythonSelectionStatus?.selectedPluginId ?? null;
+  const isSelectedForPython = selectedPythonPlugin === pluginId;
+  const canUseForPython =
+    !isSelectedForPython &&
+    (pythonSelectionStatus?.availableProviders ?? []).some(
+      (provider) => provider.available && provider.pluginId === pluginId,
+    );
+  return {
+    isSelectedForPython,
+    canUseForPython,
+  };
+}
 
 function PluginSourceGuidanceNotices({
   pluginId,
@@ -1235,8 +1472,12 @@ function PluginListEntryCardView({
   panes,
   paneButtonsDisabled,
   paneUnavailableMessage,
+  isSelectedForPython,
+  canUseForPython,
+  pluginToggleLabel,
   onEnablePlugin,
   onDisablePlugin,
+  onUseForPython,
   onUpdate,
   onRollback,
   onUninstall,
@@ -1258,8 +1499,12 @@ function PluginListEntryCardView({
   panes: readonly PluginPaneSummary[];
   paneButtonsDisabled: boolean;
   paneUnavailableMessage: string | null;
+  isSelectedForPython: boolean;
+  canUseForPython: boolean;
+  pluginToggleLabel: "Enable" | "Disable";
   onEnablePlugin: () => void;
   onDisablePlugin: () => void;
+  onUseForPython: () => void;
   onUpdate: () => void;
   onRollback: () => void;
   onUninstall: () => void;
@@ -1276,24 +1521,37 @@ function PluginListEntryCardView({
             scope={plugin.sourceScopeLabel} source={plugin.canonicalSourceKey}
           </p>
         </div>
-        {plugin.restartRequired ? (
-          <span className="rounded bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
-            restart required
-          </span>
-        ) : null}
+        <div className="flex flex-wrap justify-end gap-1">
+          {isSelectedForPython ? (
+            <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+              Python selected
+            </span>
+          ) : null}
+          {plugin.restartRequired ? (
+            <span className="rounded bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
+              restart required
+            </span>
+          ) : null}
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-1">
         <ActionButton
-          label="Enable"
-          onClick={onEnablePlugin}
+          label={pluginToggleLabel}
+          onClick={
+            pluginToggleLabel === "Enable" ? onEnablePlugin : onDisablePlugin
+          }
           disabled={pluginActionDisabled}
+          testId={`plugin-card-toggle-${plugin.pluginId}`}
         />
-        <ActionButton
-          label="Disable"
-          onClick={onDisablePlugin}
-          disabled={pluginActionDisabled}
-        />
+        {canUseForPython ? (
+          <ActionButton
+            label="Use for Python"
+            onClick={onUseForPython}
+            disabled={pluginActionDisabled}
+            testId={`plugin-card-use-python-${plugin.pluginId}`}
+          />
+        ) : null}
         <ActionButton
           label="Update"
           onClick={onUpdate}
@@ -1351,10 +1609,12 @@ function PluginListEntryCardView({
 function PluginListEntryCard({
   plugin,
   isSettingsProject,
+  pythonSelectionStatus,
   writeActionsLocked,
   isAnyPluginActionBusy,
   runEnablePlugin,
   runDisablePlugin,
+  selectPythonLanguageServer,
   runAction,
 }: PluginListEntryCardProps) {
   const runtimeState = usePluginRuntimeStore(
@@ -1380,6 +1640,9 @@ function PluginListEntryCard({
   const effectiveCapabilities =
     pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
   const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
+  const pluginToggleLabel = buildPluginToggleLabel(pluginStatus);
+  const { isSelectedForPython, canUseForPython } =
+    buildPythonPluginSelectionState(plugin.pluginId, pythonSelectionStatus);
   const { commandUnavailableMessage, paneUnavailableMessage } = useMemo(
     () =>
       resolvePluginCapabilitySummary({
@@ -1413,11 +1676,17 @@ function PluginListEntryCard({
       panes={panes}
       paneButtonsDisabled={paneButtonsDisabled}
       paneUnavailableMessage={paneUnavailableMessage}
+      isSelectedForPython={isSelectedForPython}
+      canUseForPython={canUseForPython}
+      pluginToggleLabel={pluginToggleLabel}
       onEnablePlugin={() => {
         void runEnablePlugin(plugin.pluginId);
       }}
       onDisablePlugin={() => {
         void runDisablePlugin(plugin.pluginId);
+      }}
+      onUseForPython={() => {
+        void selectPythonLanguageServer(plugin.pluginId);
       }}
       onUpdate={() => {
         void runUpdatePluginAction(plugin, runAction);
@@ -2062,7 +2331,7 @@ function ActionButton({
   testId,
 }: {
   label: string;
-  onClick: () => Promise<void>;
+  onClick: () => void | Promise<void>;
   disabled: boolean;
   testId?: string;
 }) {
