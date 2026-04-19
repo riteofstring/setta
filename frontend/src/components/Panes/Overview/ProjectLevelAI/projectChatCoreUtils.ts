@@ -64,6 +64,8 @@ export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
   "Custom slash commands are unavailable until native command authority is loaded for this project.";
 export const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
+export const HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE =
+  'This turn used app generation. Enable the first-party plugin "setta-json-render-app-gen" to edit or replay it.';
 
 export type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
@@ -107,6 +109,19 @@ export function getProjectChatBlockedReasonMessage(
     return "This thread's saved LLM config is unavailable. You can continue chatting after choosing any valid model.";
   }
   return "This thread hit a terminal hydration error. You can still continue chatting from the current state.";
+}
+
+export function getHistoricalAppGenerationEditReplayBlockedReason({
+  messageState,
+  replaySupported,
+}: {
+  messageState: ChatAppGenerationMessageState | null | undefined;
+  replaySupported: boolean;
+}): string | null {
+  if (messageState?.mode == null || replaySupported) {
+    return null;
+  }
+  return HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
 }
 
 export function buildProjectChatHydrationCacheKey({
