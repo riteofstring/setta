@@ -133,7 +133,7 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
     expect(section.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(section.hidden).toBe(true);
     expect(section.display).toBe("none");
-    expect(section.childElementCount).toBe(0);
+    expect(section.childElementCount).toBeGreaterThan(0);
   }
 
   const restoredState = zoomStates.after;

@@ -140,6 +140,14 @@ test("settings All Settings motion-aware dense probe reports real viewport-motio
   expect(metrics.motionHiddenBodies.totalMotionBodyRootCount).toBeGreaterThan(0);
   expect(metrics.motionHiddenBodies.peakHiddenBodyCount).toBeGreaterThan(0);
   expect(metrics.motionHiddenBodies.settledHiddenBodyCount).toBe(0);
+  expect(metrics.motionHiddenSubtreeChurn.hiddenTransitionSectionCount).toBe(
+    metrics.motionHiddenSubtreeChurn.observedRootCount,
+  );
+  expect(metrics.motionHiddenSubtreeChurn.restoredTransitionSectionCount).toBe(
+    metrics.motionHiddenSubtreeChurn.observedRootCount,
+  );
+  expect(metrics.motionHiddenSubtreeChurn.subtreeAddedElementCount).toBe(0);
+  expect(metrics.motionHiddenSubtreeChurn.subtreeRemovedElementCount).toBe(0);
 });
 
 async function clickFitViewIfVisible(page: Page): Promise<void> {

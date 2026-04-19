@@ -8,7 +8,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `036`: `motion_hidden_subtree_churn_attributed_continue`.
+- Decision for the 2026-04-20 checkpoint after run `037`: `motion_hidden_body_retention_landed_continue`.
 - Recent progress is real:
   - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
@@ -18,6 +18,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `034` removed one concrete retained-canvas redraw/re-measure path on the canonical `settings-section__browserSectionDefault` lane by keeping enabled backdrop measurement observers wired through `viewportInteractionActive` instead of tearing them down and recreating them on every motion toggle
   - run `035` removed the remaining mutation-driven observer refresh churn on that same lane by deferring subtree-triggered backdrop observer refresh until `viewportInteractionActive` settles instead of rebuilding `ResizeObserver` graphs while measurements are suspended
   - run `036` attributed the remaining dense-band interaction churn on that same lane to the motion-hidden section-body path by extending the live dense probe to count subtree detach/restore mutations; one normalized gesture still hid and restored all `45` motion-body roots and removed plus re-added `4230` element descendants
+  - run `037` landed the first product slice on that motion-hidden body frontier by keeping hidden section bodies mounted under their `display: none` roots; the fresh dense rerun kept all `45` hide/restore transitions but dropped motion-body subtree churn to `0` child-list mutations and `0` removed/added descendants while the browser/prompt/language-server overlay proof kept `childElementCount 2` during motion
 - Diminishing returns are now visible:
   - runs `023`, `025`, `026`, `027`, `028`, and `029` all landed safe reducer work yet settled back into the same dense `~43ms` / `~5.8-6.0s` band, so the default micro-reducer lane is closed
   - run `031` closes `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport / guessed trace pass
@@ -25,18 +26,69 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `034` closes the specific backdrop observer-churn lane here; the live motion proof stayed green, but the restarted dense rerun (`raf.meanMs 44.82`, `longTasks.totalMs 6544`) did not unlock a new whole-scene win, so do not spend the next pass on more `SectionShellBackdropCanvas` observer polish by inertia
   - run `035` closes the remaining backdrop mutation-refresh sub-lane too; the live motion proof stayed green, but the current-runtime dense rerun (`raf.meanMs 46.36`, `longTasks.totalMs 6719`) still did not unlock a new whole-scene win, so do not spend the next pass on more `SectionShellBackdropCanvas` observer-timing polish
   - run `036` closes the current attribution question about whether the remaining band is still paying real motion-hidden subtree churn: it is, so do not spend the next automated pass on another observer-only or harness-only re-measurement of the same lane
+  - run `037` closes the motion-hidden body detach / restore lane itself on the live canary; do not spend the next automated pass on another keep-mounted refactor, another subtree-churn attribution rerun, or another hidden-body mount/unmount micro-pass on the same path
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
-  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, or another backdrop-observer micro-pass on the same measurement families
+  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, or another motion-hidden body detach/reattach rerun on the same measurement families
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - the next real step should be a product slice that reduces motion-hidden subtree detach / restore churn on the live canary instead of another attribution pass
+  - the next real step should attribute or remove the remaining frame-time cost after motion-hidden subtree churn is gone, instead of reopening that now-closed body retention lane
   - current concrete candidate:
-    - avoid fully tearing down and rebuilding inactive motion-hidden section bodies during viewport interaction on the canonical browser lane
-  - keep snapshot invalidation/reuse or retained-scene redraw/paint invalidation as secondary candidates only if the motion-hidden product slice proves insufficient
+    - isolate remaining retained-graph redraw / re-measure / snapshot invalidation cost on the canonical browser lane now that motion-hidden subtree churn is zero
+  - keep retained-scene redraw/paint invalidation or snapshot invalidation/reuse as the primary candidates from here; the motion-hidden product slice is already landed
   - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
+
+- The motion-hidden body retention slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-hidden-body-retention-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now keeps `CanvasSectionBody` mounted while the motion-hidden root is hidden with `display: none`
+    - the representative container/unit tests now assert that hidden motion-body roots keep their section body mounted instead of returning `null`
+    - the browser retained-text overlay probe now asserts that the hidden browser/prompt/language-server roots keep `childElementCount 2` during motion, and the dense probe now locks the expected post-fix subtree churn at zero add/remove counts
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `canvasCount: 1`
+    - `raf.meanMs: 49.16`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 83.3`
+    - `raf.maxMs: 833.22`
+    - `longTasks.count: 16`
+    - `longTasks.totalMs: 4139`
+    - `longTasks.maxMs: 834`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+    - `motionHiddenSubtreeChurn.observedRootCount: 45`
+    - `motionHiddenSubtreeChurn.hiddenTransitionSectionCount: 45`
+    - `motionHiddenSubtreeChurn.restoredTransitionSectionCount: 45`
+    - `motionHiddenSubtreeChurn.childListMutationCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeRemovedElementCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeAddedElementCount: 0`
+  - focused motion proof on the same runtime recorded:
+    - before motion: `hiddenHeaderControlsCount 0`, `hiddenBodyCount 0`, and each checked browser/prompt/language-server target kept `childElementCount 2` with `display: block`
+    - during one checked zoom interaction: `hiddenHeaderControlsCount 45`, `hiddenBodyCount 45`, and each checked target kept `childElementCount 2` while `display: none`
+    - after settle: `hiddenHeaderControlsCount 0`, `hiddenBodyCount 0`, and each checked target restored `display: block` with the same `childElementCount 2`
+  - interpretation:
+    - this closes the measured motion-hidden subtree detach / restore lane on the live canary; hidden-body wrappers still hide during motion, but they no longer remove and rebuild inactive section-body descendants
+    - treat the dense timing band as still noisy in headless mode: the same rerun materially improved long-task totals while `raf.meanMs` regressed, so this is structural product progress rather than a new whole-scene checkpoint
+    - the next pass should inspect the remaining retained-graph frame cost now that subtree churn is gone instead of reopening the motion-hidden body lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: `11 passed`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check:
+    - attempted in a fresh headless DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+    - `/settings` mounted, `All Settings` stayed active, `.react-flow__node` count was `46`, and `section[data-section-id="settings-section__browserSectionDefault"]` existed
+    - after `fit view`, the target section bounding rect still measured off-screen to the right (`x=1711.46`, `y=222.26`, `width=62.09`, `height=13.05`) inside a `1600x1200` viewport, so the graph surface could not be visually confirmed on a trustworthy on-screen canary state
+    - treat the visual gate for this slice as `deferred_visual_gate` instead of product regression evidence; the transport worked, but headless CDP did not reach a trustworthy visual target state
 
 - The motion-hidden subtree churn attribution slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-hidden-subtree-churn-attribution-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

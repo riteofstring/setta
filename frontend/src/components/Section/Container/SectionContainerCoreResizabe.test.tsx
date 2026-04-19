@@ -337,7 +337,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
     expect(markup).toContain('style="display:none"');
-    expect(markup).not.toContain('data-testid="mock-code-area"');
+    expect(markup).toContain('data-testid="mock-code-area"');
   });
 
   it("hides shared shell bodies during viewport interaction on the canvas path", () => {
@@ -358,7 +358,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
     expect(markup).toContain('style="display:none"');
-    expect(markup).not.toContain('data-testid="mock-callable-area"');
+    expect(markup).toContain('data-testid="mock-callable-area"');
   });
 
   it("hides shared resting-text bodies during viewport interaction on the canvas path", () => {
@@ -381,7 +381,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-shell-hidden="true"');
     expect(markup).toContain('style="display:none"');
-    expect(markup).not.toContain('data-testid="mock-browser-area"');
+    expect(markup).toContain('data-testid="mock-browser-area"');
   });
 
   it("keeps the active shared shell body visible during viewport interaction", () => {
@@ -470,7 +470,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
     expect(markup).toContain('style="display:none"');
-    expect(markup).not.toContain('data-testid="mock-code-area"');
+    expect(markup).toContain('data-testid="mock-code-area"');
   });
 
   it("keeps the active shared settings dropdown body visible during viewport interaction", () => {

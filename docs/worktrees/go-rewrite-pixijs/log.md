@@ -155,6 +155,48 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 037
+
+- Landed the motion-hidden body retention slice on the canonical `settings-section__browserSectionDefault` lane instead of reopening the attribution or observer-only lanes.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now keeps `CanvasSectionBody` mounted while the motion-hidden root is hidden with `display: none`, so viewport interaction no longer swaps hidden section bodies to `null`.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now asserts the representative hidden motion-body roots still contain their section body markup, while the focused browser retained-text overlay spec now asserts the hidden browser/prompt/language-server targets keep `childElementCount 2` during motion.
+- `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts` now locks the expected post-fix motion-body subtree churn at zero add/remove counts.
+- Fresh dense evidence on the current `3068/8068` runtime:
+  - `documentNodeCount 5494`
+  - `buttonCount 47`
+  - `raf.meanMs 49.16`
+  - `raf.p95Ms 83.3`
+  - `longTasks.totalMs 4139`
+  - `longTasks.maxMs 834`
+  - `motionHiddenBodies.totalMotionBodyRootCount 45`
+  - `motionHiddenSubtreeChurn.hiddenTransitionSectionCount 45`
+  - `motionHiddenSubtreeChurn.restoredTransitionSectionCount 45`
+  - `motionHiddenSubtreeChurn.childListMutationCount 0`
+  - `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`
+  - `motionHiddenSubtreeChurn.subtreeAddedElementCount 0`
+- Focused overlay proof on the same runtime:
+  - before motion each checked browser/prompt/language-server target kept `childElementCount 2` with `display: block`
+  - during one checked zoom interaction all `45` motion-hidden bodies still hid, and each checked target kept `childElementCount 2` while `display: none`
+  - after settle those targets restored `display: block` with the same `childElementCount 2`
+- Interpretation:
+  - this closes the measured motion-hidden subtree detach / restore lane on the live canary
+  - the same headless rerun materially improved long-task totals, but `raf.meanMs` remained noisy/regressed, so treat this as structural product progress rather than a new dense checkpoint
+  - next frontier is the remaining retained-graph frame cost after subtree churn removal, not another hidden-body mount/unmount pass
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: `11 passed`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+- CDP visual check:
+  - attempted in a fresh headless DevTools sub-agent with a fresh bootstrap URL
+  - `/settings` mounted, `All Settings` stayed active, `.react-flow__node` count was `46`, and `settings-section__browserSectionDefault` existed
+  - after `fit view`, the target section still measured off-screen to the right inside the `1600x1200` headless viewport, so the graph surface could not be visually confirmed on a trustworthy on-screen state
+  - treat this slice as `deferred_visual_gate`, not as proof of a renderer regression
+- Next frontier: stay on the canonical browser lane and attribute or remove the remaining retained-graph frame cost now that motion-hidden subtree churn is zero.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 - direct wheel zoom transform fast path
 
 - Summary:
