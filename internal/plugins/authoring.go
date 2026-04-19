@@ -279,7 +279,7 @@ func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable b
 	}
 	defer s.releaseInstallTargetPathReservationLocked(prepared.targetPath)
 
-	hadBackendBefore, hadLanguageServerOnlyBefore, err := s.prepareLinkTargetLocked(prepared, force)
+	hadBackendBefore, err := s.prepareLinkTargetLocked(prepared, force)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
@@ -290,12 +290,7 @@ func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable b
 	if err := s.recordLinkedInstallLocked(prepared, enable); err != nil {
 		return PluginInstallResponse{}, err
 	}
-	restartRequired, err := s.updateLinkRestartStateLocked(
-		prepared.manifest,
-		prepared.manifest.ID,
-		prepared.manifest.Backend != nil || hadBackendBefore,
-		hadLanguageServerOnlyBefore,
-	)
+	restartRequired, err := s.updateLinkRestartStateLocked(prepared.manifest.ID, prepared.manifest.Backend != nil || hadBackendBefore)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
@@ -321,31 +316,30 @@ func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable b
 	}, nil
 }
 
-func (s *Service) prepareLinkTargetLocked(prepared preparedLinkSource, force bool) (bool, bool, error) {
+func (s *Service) prepareLinkTargetLocked(prepared preparedLinkSource, force bool) (bool, error) {
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return false, false, err
+		return false, err
 	}
 	existingEntry := findDiscoveredPlugin(snapshot.Plugins, prepared.manifest.ID, prepared.scope)
 	hadBackendBefore := existingEntry.PluginID != "" && existingEntry.HasBackend()
-	hadLanguageServerOnlyBefore := entryHasLanguageServerOnlyBackendRuntime(existingEntry)
 
 	if err := os.MkdirAll(filepath.Dir(prepared.targetPath), 0o755); err != nil {
-		return false, false, fmt.Errorf("create plugin target parent %s: %w", prepared.targetPath, err)
+		return false, fmt.Errorf("create plugin target parent %s: %w", prepared.targetPath, err)
 	}
 	if err := s.ensureTargetPathAvailableLocked(prepared.targetPath, force); err != nil {
-		return false, false, err
+		return false, err
 	}
 	if !targetExists(prepared.targetPath) {
-		return hadBackendBefore, hadLanguageServerOnlyBefore, nil
+		return hadBackendBefore, nil
 	}
 	if err := s.backupExistingPluginLocked(prepared.manifest.ID, prepared.scope, prepared.targetPath); err != nil {
-		return false, false, err
+		return false, err
 	}
 	if err := removePluginTarget(prepared.targetPath); err != nil {
-		return false, false, err
+		return false, err
 	}
-	return hadBackendBefore, hadLanguageServerOnlyBefore, nil
+	return hadBackendBefore, nil
 }
 
 func (s *Service) recordLinkedInstallLocked(prepared preparedLinkSource, enable bool) error {
@@ -367,15 +361,9 @@ func (s *Service) recordLinkedInstallLocked(prepared preparedLinkSource, enable 
 	return nil
 }
 
-func (s *Service) updateLinkRestartStateLocked(
-	manifest PluginManifest,
-	pluginID string,
-	restartRequired bool,
-	hadLanguageServerOnlyBefore bool,
-) (bool, error) {
+func (s *Service) updateLinkRestartStateLocked(pluginID string, restartRequired bool) (bool, error) {
 	if restartRequired {
-		languageServerOnly := s.pendingRestartLanguageServerOnlyForManifest(&manifest, hadLanguageServerOnlyBefore)
-		if err := s.addPendingRestartBackendIDLocked(pluginID, languageServerOnly); err != nil {
+		if err := s.addPendingRestartBackendIDLocked(pluginID); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -655,11 +643,25 @@ func (s *Service) validateSettaVersionRange(manifest PluginManifest) error {
 }
 
 func validatePluginConfigSchemaFile(pluginRoot string, manifest PluginManifest) error {
-	document, ok, err := loadPluginConfigSchemaAuthoringDocument(pluginRoot, manifest)
-	if err == nil || !ok {
+	if strings.TrimSpace(manifest.ConfigSchemaPath) == "" {
+		return nil
+	}
+	schemaPath, err := resolveAuthoringPath(pluginRoot, manifest.ConfigSchemaPath, "Invalid configSchemaPath")
+	if err != nil {
 		return err
 	}
-	return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid config schema JSON at: %s", document.Path)
+	content, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return fmt.Errorf("read plugin config schema %s: %w", schemaPath, err)
+	}
+	var payload any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid config schema JSON at: %s", schemaPath)
+	}
+	if _, ok := payload.(map[string]any); !ok {
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Config schema must be a JSON object: %s", schemaPath)
+	}
+	return nil
 }
 
 func (s *Service) validateMetadataIdentity(pluginRoot string, manifest PluginManifest) error {
@@ -858,7 +860,6 @@ func scaffoldContentTemplate(root string) error {
 
 func buildInitTemplatePyproject(pluginID string, manifest PluginManifest) string {
 	var builder strings.Builder
-	pluginRoot := strings.TrimSpace(pluginID)
 	builder.WriteString("[build-system]\n" +
 		"requires = [\"setuptools>=68\", \"wheel\"]\n" +
 		"build-backend = \"setuptools.build_meta\"\n\n" +
@@ -871,17 +872,17 @@ func buildInitTemplatePyproject(pluginID string, manifest PluginManifest) string
 		"[tool.setuptools]\n" +
 		"py-modules = []\n\n" +
 		"[tool.setuptools.data-files]\n" +
-		fmt.Sprintf("%q = [\"setta.plugin.json\", \"README.md\"]\n", pluginRoot))
+		"\".\" = [\"setta.plugin.json\", \"README.md\"]\n")
 	if manifest.Backend != nil {
-		builder.WriteString(fmt.Sprintf("%q = [\"backend/*\"]\n", pluginRoot+"/backend"))
+		builder.WriteString("\"backend\" = [\"backend/*\"]\n")
 	}
 	if manifest.Frontend != nil {
-		builder.WriteString(fmt.Sprintf("%q = [\"frontend/dist/*\"]\n", pluginRoot+"/frontend/dist"))
+		builder.WriteString("\"frontend/dist\" = [\"frontend/dist/*\"]\n")
 	}
 	if manifest.Content != nil {
-		builder.WriteString(fmt.Sprintf("%q = [\"content/blueprints/*\"]\n", pluginRoot+"/content/blueprints"))
-		builder.WriteString(fmt.Sprintf("%q = [\"content/project_templates/*\"]\n", pluginRoot+"/content/project_templates"))
-		builder.WriteString(fmt.Sprintf("%q = [\"content/prompts/*\"]\n", pluginRoot+"/content/prompts"))
+		builder.WriteString("\"content/blueprints\" = [\"content/blueprints/*\"]\n")
+		builder.WriteString("\"content/project_templates\" = [\"content/project_templates/*\"]\n")
+		builder.WriteString("\"content/prompts\" = [\"content/prompts/*\"]\n")
 	}
 	return builder.String()
 }

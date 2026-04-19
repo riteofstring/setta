@@ -73,15 +73,14 @@ func (r *pluginBackendMCPRuntime) buildServerConfigs(
 			continue
 		}
 
-		launch, err := plugins.ResolvePluginBackendLaunch(entry.SourcePath, *entry.Manifest, buildRoot)
+		executablePath, err := plugins.BuildGoBackendExecutable(entry.SourcePath, *entry.Manifest, buildRoot)
 		if err != nil {
 			return nil, err
 		}
 		serverID := pluginBackendMCPServerID(entry.PluginID)
 		serverConfigs[serverID] = mcpx.ServerConfig{
 			Transport: mcpx.TransportStdio,
-			Command:   launch.Command,
-			Args:      append([]string(nil), launch.Args...),
+			Command:   executablePath,
 			CWD:       entry.SourcePath,
 		}
 		r.serverIDs[serverID] = struct{}{}
