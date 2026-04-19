@@ -76,6 +76,30 @@ describe("appSubsystemFrontendSdk", () => {
     expect(frontendHost.subscribeRuntimeContext(() => undefined)).toBeTypeOf(
       "function",
     );
+    expect(frontendHost.getAppDeploymentSession()).toBeNull();
+    expect(frontendHost.getServerModeState()).toEqual({
+      mode: null,
+      modeResolved: false,
+      modeError: null,
+    });
+    expect(() => frontendHost.setAppDeploymentSession(null)).not.toThrow();
+    expect(() =>
+      frontendHost.incrementAppDeploymentSessionRunCount(),
+    ).not.toThrow();
+    expect(() =>
+      frontendHost.setServerModeState({
+        mode: "app",
+        modeResolved: true,
+        modeError: null,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      frontendHost.setProjectLoadState({
+        projectIsLoading: true,
+        projectIs404: false,
+      }),
+    ).not.toThrow();
+    expect(() => frontendHost.resetProjectRuntimeState()).not.toThrow();
     expect(() => frontendHost.notify({ message: "hello" })).not.toThrow();
   });
 

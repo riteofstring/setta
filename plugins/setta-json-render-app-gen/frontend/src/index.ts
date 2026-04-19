@@ -78,8 +78,11 @@ export const appSubsystemFrontendRegistration: AppSubsystemFrontendRegistration 
       applyAppSpecPatchPreviewDeltaToStore,
       clearAppSpecPatchPreviewStream,
       clearAllAppSpecPatchPreviewStreams,
-      initializeAppSessionFromCurrentDeployment,
-      resetAppSessionState,
+      initializeAppSessionFromCurrentDeployment: (host, options) =>
+        initializeAppSessionFromCurrentDeployment(host, options),
+      resetAppSessionState: (host) => {
+        resetAppSessionState(host);
+      },
       processAppProjectStateUpdateFromBackend,
       resetProjectState: () => {
         clearAllAppSpecPatchPreviewStreams();

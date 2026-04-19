@@ -10,17 +10,19 @@ import {
   useAppSubsystemPreviewEnabled,
   useAppSubsystemPreviewSurface,
 } from "plugins/appSubsystem";
-import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
+import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
   AppSubsystemRendererHost,
   EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
 } from "plugins/appSubsystemRendererHost";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
+import { useMemo } from "react";
 import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
+import { resetProjectStores } from "state/utils";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
 import { UIPage } from "./Project/UiPage";
@@ -37,6 +39,13 @@ export function MainContainerCore({
 }: MainContainerCoreProps) {
   const isAppPreviewEnabled = useAppSubsystemPreviewEnabled();
   const appPreviewSurface = useAppSubsystemPreviewSurface();
+  const appSubsystemHost = useMemo(
+    () =>
+      createRuntimeAppSubsystemFrontendHost({
+        resetProjectRuntimeState: resetProjectStores,
+      }),
+    [],
+  );
   useCodeMirrorStyleLoader(doneLoading, is404);
   useAddMouseLocationListener();
   useAIFollowViewport();
@@ -61,7 +70,7 @@ export function MainContainerCore({
           <AppSubsystemRendererHost
             renderer={appPreviewSurface.renderer}
             props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
-            host={DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST}
+            host={appSubsystemHost}
             className="h-full w-full"
             testId="app-subsystem-preview-surface"
           />
