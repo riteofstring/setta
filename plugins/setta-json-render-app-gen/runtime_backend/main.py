@@ -3,67 +3,20 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
-from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
-from setta.types.generated.go_shared_constants import (
-    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID,
-    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH,
-    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION,
-    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE,
-    LOCAL_CORE_COMMAND_GET_APP_DEFINITION,
-    LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION,
-    LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH,
-    LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE,
-    LOCAL_CORE_COMMAND_SET_APP_DEFINITION,
-    LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION,
-    LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION,
-    LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION,
-    LOCAL_CORE_PROTOCOL_VERSION,
+from setta.plugin_runtime import (
+    APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION,
+    LocalCoreCommandError,
+    listener_endpoint_names,
+    local_core_command_for_listener_endpoint,
+    run_local_core_command,
 )
 
 BACKEND_PROBE_ARG = "--setta-plugin-backend-probe"
 BACKEND_RUNTIME_ARG = "--setta-plugin-backend-runtime"
-APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = 1
-
-LISTENER_ENDPOINT_GET_APP_DEFINITION = "appsubsystem_get_app_definition"
-LISTENER_ENDPOINT_GET_EFFECTIVE_APP_DEFINITION = (
-    "appsubsystem_get_effective_app_definition"
-)
-LISTENER_ENDPOINT_GET_EFFECTIVE_APP_SPEC_PATH = (
-    "appsubsystem_get_effective_app_spec_path"
-)
-LISTENER_ENDPOINT_GET_EFFECTIVE_APP_THEME_MODE = (
-    "appsubsystem_get_effective_app_theme_mode"
-)
-LISTENER_ENDPOINT_VALIDATE_APP_DEFINITION = "appsubsystem_validate_app_definition"
-LISTENER_ENDPOINT_SET_APP_DEFINITION = "appsubsystem_set_app_definition"
-LISTENER_ENDPOINT_STREAM_APP_DEFINITION = "appsubsystem_stream_app_definition"
-LISTENER_ENDPOINT_UPDATE_APP_DEFINITION = "appsubsystem_update_app_definition"
-LISTENER_ENDPOINT_COMPARE_AND_SET_CATALOG_ID = "appsubsystem_compare_and_set_catalog_id"
-LISTENER_ENDPOINT_COMPARE_AND_SET_SPEC_VERSION = (
-    "appsubsystem_compare_and_set_spec_version"
-)
-LISTENER_ENDPOINT_COMPARE_AND_SET_SPEC_PATH = "appsubsystem_compare_and_set_spec_path"
-LISTENER_ENDPOINT_COMPARE_AND_SET_THEME_MODE = "appsubsystem_compare_and_set_theme_mode"
-
-
-class LocalCoreCommandError(RuntimeError):
-    def __init__(
-        self,
-        message: str,
-        *,
-        code: str | None = None,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.details = details or {}
 
 
 def write_json(payload: object) -> None:
@@ -91,41 +44,7 @@ def _plugin_id() -> str:
 
 
 def _listener_endpoints() -> list[dict[str, str]]:
-    return [
-        {"name": LISTENER_ENDPOINT_GET_APP_DEFINITION},
-        {"name": LISTENER_ENDPOINT_GET_EFFECTIVE_APP_DEFINITION},
-        {"name": LISTENER_ENDPOINT_GET_EFFECTIVE_APP_SPEC_PATH},
-        {"name": LISTENER_ENDPOINT_GET_EFFECTIVE_APP_THEME_MODE},
-        {"name": LISTENER_ENDPOINT_VALIDATE_APP_DEFINITION},
-        {"name": LISTENER_ENDPOINT_SET_APP_DEFINITION},
-        {"name": LISTENER_ENDPOINT_STREAM_APP_DEFINITION},
-        {"name": LISTENER_ENDPOINT_UPDATE_APP_DEFINITION},
-        {"name": LISTENER_ENDPOINT_COMPARE_AND_SET_CATALOG_ID},
-        {"name": LISTENER_ENDPOINT_COMPARE_AND_SET_SPEC_VERSION},
-        {"name": LISTENER_ENDPOINT_COMPARE_AND_SET_SPEC_PATH},
-        {"name": LISTENER_ENDPOINT_COMPARE_AND_SET_THEME_MODE},
-    ]
-
-
-def _listener_command(endpoint_name: str) -> str:
-    commands = {
-        LISTENER_ENDPOINT_GET_APP_DEFINITION: LOCAL_CORE_COMMAND_GET_APP_DEFINITION,
-        LISTENER_ENDPOINT_GET_EFFECTIVE_APP_DEFINITION: LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION,
-        LISTENER_ENDPOINT_GET_EFFECTIVE_APP_SPEC_PATH: LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH,
-        LISTENER_ENDPOINT_GET_EFFECTIVE_APP_THEME_MODE: LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE,
-        LISTENER_ENDPOINT_VALIDATE_APP_DEFINITION: LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION,
-        LISTENER_ENDPOINT_SET_APP_DEFINITION: LOCAL_CORE_COMMAND_SET_APP_DEFINITION,
-        LISTENER_ENDPOINT_STREAM_APP_DEFINITION: LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION,
-        LISTENER_ENDPOINT_UPDATE_APP_DEFINITION: LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION,
-        LISTENER_ENDPOINT_COMPARE_AND_SET_CATALOG_ID: LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID,
-        LISTENER_ENDPOINT_COMPARE_AND_SET_SPEC_VERSION: LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION,
-        LISTENER_ENDPOINT_COMPARE_AND_SET_SPEC_PATH: LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH,
-        LISTENER_ENDPOINT_COMPARE_AND_SET_THEME_MODE: LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE,
-    }
-    try:
-        return commands[endpoint_name]
-    except KeyError as error:
-        raise KeyError(f"unknown listener endpoint {endpoint_name!r}") from error
+    return [{"name": name} for name in listener_endpoint_names()]
 
 
 def _request_context(request: dict[str, Any]) -> dict[str, Any]:
@@ -158,102 +77,13 @@ def _local_core_payload(
     }
 
 
-def _run_local_core_command(command_name: str, payload: dict[str, Any]) -> Any:
-    command, command_cwd = resolve_go_cli_command()
-    env = {**os.environ, **resolve_go_cli_env(command_cwd)}
-    process = subprocess.Popen(
-        [*command, "sdk-local-core"],
-        cwd=command_cwd,
-        env=env,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    try:
-        handshake = json.loads(_read_local_core_line(process))
-        protocol_version = handshake.get("protocolVersion")
-        if protocol_version != LOCAL_CORE_PROTOCOL_VERSION:
-            raise RuntimeError(
-                "Setta local core protocol mismatch: "
-                f"plugin={LOCAL_CORE_PROTOCOL_VERSION} local_core={protocol_version}"
-            )
-
-        if process.stdin is None:
-            raise RuntimeError("Setta local core stdin is unavailable")
-        json.dump(
-            {
-                "callId": uuid4().hex,
-                "commandName": command_name,
-                "payload": payload,
-            },
-            process.stdin,
-        )
-        process.stdin.write("\n")
-        process.stdin.flush()
-
-        result = json.loads(_read_local_core_line(process))
-        if result.get("ok"):
-            return result.get("result")
-
-        details = result.get("details")
-        if not isinstance(details, dict):
-            details = {}
-        raw_code = details.get("code")
-        code = (
-            raw_code.strip() if isinstance(raw_code, str) and raw_code.strip() else None
-        )
-        raise LocalCoreCommandError(
-            str(result.get("error") or "Setta local core command failed"),
-            code=code,
-            details=details,
-        )
-    finally:
-        _terminate_local_core_process(process)
-
-
-def _read_local_core_line(process: subprocess.Popen[str]) -> str:
-    if process.stdout is None:
-        raise RuntimeError("Setta local core stdout is unavailable")
-    line = process.stdout.readline()
-    if line:
-        return line
-
-    stderr_text = ""
-    if process.stderr is not None:
-        stderr_text = process.stderr.read().strip()
-    returncode = process.poll()
-    if returncode is None:
-        raise RuntimeError("Setta local core closed stdout unexpectedly")
-    if stderr_text:
-        raise RuntimeError(f"Setta local core exited before responding: {stderr_text}")
-    raise RuntimeError(
-        f"Setta local core exited before responding (exit code {returncode})"
-    )
-
-
-def _terminate_local_core_process(process: subprocess.Popen[str]) -> None:
-    for pipe in (process.stdin, process.stdout, process.stderr):
-        if pipe is not None:
-            pipe.close()
-    if process.poll() is not None:
-        return
-    process.terminate()
-    try:
-        process.wait(timeout=1)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait(timeout=1)
-
-
 def _handle_listener_endpoint(request: dict[str, Any]) -> dict[str, Any]:
     endpoint_name = str(request.get("endpointName", "")).strip()
     request_context = _request_context(request)
     payload = _request_payload(request)
-    command_name = _listener_command(endpoint_name)
     try:
-        result = _run_local_core_command(
-            command_name,
+        result = run_local_core_command(
+            local_core_command_for_listener_endpoint(endpoint_name),
             _local_core_payload(request_context, payload),
         )
     except LocalCoreCommandError as error:
