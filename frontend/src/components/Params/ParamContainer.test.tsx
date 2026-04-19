@@ -15,13 +15,6 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  canvasOwnedSectionId: null as string | null,
-  graphSurfaceImplementation: "legacy-dom" as
-    | "canvas-shell-underlay"
-    | "legacy-dom",
-}));
-
 vi.mock("components/Utils/FloatingBox", () => ({
   getFloatingBoxHandlers: () => ({}),
 }));
@@ -40,18 +33,6 @@ vi.mock("./ParamItems/ParamInput", () => ({
 
 vi.mock("./ResizeHandle", () => ({
   ResizeHandle: () => <div data-testid="resize-handle" />,
-}));
-
-vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
-  useGraphSurfaceImplementation: () => mocks.graphSurfaceImplementation,
-}));
-
-vi.mock("forks/xyflow/core/container/sectionShellCanvasOwnership", () => ({
-  isCanvasOwnedSectionLightweightParamLabel: () => false,
-  isCanvasOwnedSectionLightweightNestedChildren: () => false,
-  isCanvasOwnedSectionNestedGuide: (candidateSectionId: string) =>
-    candidateSectionId === mocks.canvasOwnedSectionId,
-  isCanvasOwnedSectionLightweightResizeHandle: () => false,
 }));
 
 type RenderedParamContainer = {
@@ -129,8 +110,6 @@ describe("ParamContainer", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
-    mocks.canvasOwnedSectionId = null;
-    mocks.graphSurfaceImplementation = "legacy-dom";
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -248,26 +227,6 @@ describe("ParamContainer", () => {
         "section-args-nested-key-value",
       );
       expect(rendered.host.textContent).toContain("param-child");
-    } finally {
-      await unmountRenderedParamContainer(rendered);
-    }
-  });
-
-  it("marks nested child guides as canvas-owned on the canary canvas path", async () => {
-    mocks.canvasOwnedSectionId = sectionId;
-    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
-
-    const rendered = await renderParamContainer({
-      isNestedParam: false,
-      paramChildren: ["param-child"],
-    });
-
-    try {
-      const nestedGuide = rendered.host.querySelector(
-        '[data-canvas-owned-nested-guide="true"]',
-      );
-      expect(nestedGuide).not.toBeNull();
-      expect(nestedGuide?.className).toContain("before:opacity-0");
     } finally {
       await unmountRenderedParamContainer(rendered);
     }

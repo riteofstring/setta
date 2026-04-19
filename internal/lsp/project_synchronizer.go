@@ -45,6 +45,10 @@ type ProjectSynchronizer struct {
 	logger                      *slog.Logger
 }
 
+type languageAvailabilityChecker interface {
+	hasLanguage(string) bool
+}
+
 type generatedCallableDiagnosticsState struct {
 	undefinedSections map[string]struct{}
 	mismatchSections  map[string]struct{}
@@ -74,15 +78,7 @@ func (s *ProjectSynchronizer) MaterializeDocument(ctx context.Context, document 
 	if s == nil {
 		return nil
 	}
-
-	documents, err := s.buildDocuments(document)
-	if err != nil {
-		return err
-	}
-	if err := s.service.SyncDocuments(ctx, documents); err != nil {
-		return err
-	}
-	return s.reconcileGeneratedDiagnosticsState(document)
+	return s.materializeDocument(ctx, document, false)
 }
 
 func (s *ProjectSynchronizer) Restart(ctx context.Context, document projectstate.Document) error {
@@ -92,7 +88,32 @@ func (s *ProjectSynchronizer) Restart(ctx context.Context, document projectstate
 	if err := s.service.Close(ctx); err != nil {
 		return err
 	}
-	return s.MaterializeDocument(ctx, document)
+	// Force one versioned refresh after reopening unchanged documents so stale
+	// diagnostics are replaced when language-server sessions are rebuilt.
+	return s.materializeDocument(ctx, document, true)
+}
+
+func (s *ProjectSynchronizer) materializeDocument(
+	ctx context.Context,
+	document projectstate.Document,
+	forceRefresh bool,
+) error {
+	documents, err := s.buildDocuments(document)
+	if err != nil {
+		return err
+	}
+	if err := s.service.SyncDocuments(ctx, documents); err != nil {
+		return err
+	}
+	if forceRefresh && len(documents) != 0 {
+		if err := s.service.RefreshDocuments(ctx, documents); err != nil {
+			return err
+		}
+	}
+	if err := s.clearUnavailableDiagnostics(document); err != nil {
+		return err
+	}
+	return s.reconcileGeneratedDiagnosticsState(document)
 }
 
 func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document projectstate.Document, projectID string) error {
@@ -516,6 +537,51 @@ func sortedSyncedDocumentPaths(documents map[string]SyncedDocument) []string {
 	}
 	sort.Strings(paths)
 	return paths
+}
+
+func (s *ProjectSynchronizer) clearUnavailableDiagnostics(document projectstate.Document) error {
+	if s == nil || s.diagnostics == nil {
+		return nil
+	}
+
+	pythonAvailable := s.hasLanguage("python")
+	projectIDs := make([]string, 0, len(document.Projects))
+	for projectID := range document.Projects {
+		projectIDs = append(projectIDs, projectID)
+	}
+	sort.Strings(projectIDs)
+
+	for _, projectID := range projectIDs {
+		project := document.Projects[projectID]
+		sectionFiles, err := project.ActiveCodeSectionFiles()
+		if err != nil {
+			return fmt.Errorf("lsp: project %q active code sections: %w", project.ID, err)
+		}
+		for _, sectionFile := range sectionFiles {
+			if s.hasLanguage(string(sectionFile.Language)) {
+				continue
+			}
+			s.diagnostics.UpdateCodeSection(projectID, sectionFile.SectionID, nil)
+		}
+		if pythonAvailable {
+			continue
+		}
+		s.diagnostics.ClearGeneratedDocument(projectID, projectstate.GeneratedDiagnosticsDocumentCode)
+		s.diagnostics.ClearGeneratedDocument(projectID, projectstate.GeneratedDiagnosticsDocumentMetadata)
+		s.clearGeneratedCallableState(projectID)
+	}
+	return nil
+}
+
+func (s *ProjectSynchronizer) hasLanguage(languageID string) bool {
+	if s == nil || s.service == nil {
+		return false
+	}
+	checker, ok := s.service.(languageAvailabilityChecker)
+	if !ok {
+		return true
+	}
+	return checker.hasLanguage(languageID)
 }
 
 func toPythonGeneratedDiagnostics(diagnostics []Diagnostic) []codegen.PythonGeneratedDiagnostic {
