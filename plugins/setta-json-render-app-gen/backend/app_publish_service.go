@@ -9,6 +9,6 @@ func NewAppPublishService(
 	options deployments.AppPublisherOptions,
 	service projectstate.AppDefinitionRuntime,
 ) (deployments.AppPublishService, error) {
-	options.AppDefinitionService = service
+	options.ContentService = NewAppDeploymentPublishContent(service)
 	return deployments.NewAppPublisher(options)
 }
