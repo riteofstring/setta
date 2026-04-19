@@ -1,5 +1,4 @@
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
-import type appSubsystemFrontendRegistrationExport from "plugins/appSubsystemHostAdapter";
 import { type ComponentType } from "react";
 import { PluginRuntimeResponse } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -50,8 +49,8 @@ type AppSubsystemFrontendRegistration = {
 };
 
 type AppSubsystemFrontendAdapterModule = {
-  default?: typeof appSubsystemFrontendRegistrationExport;
-  appSubsystemFrontendRegistration?: typeof appSubsystemFrontendRegistrationExport;
+  default?: AppSubsystemFrontendRegistration;
+  appSubsystemFrontendRegistration?: AppSubsystemFrontendRegistration;
 };
 
 type AppSubsystemFrontendStatus =
@@ -399,7 +398,7 @@ export async function syncAppSubsystemFrontendRegistration(
 
   try {
     const module = (await import(
-      "plugins/appSubsystemHostAdapter"
+      "../../../plugins/setta-json-render-app-gen/frontend/src/index"
     )) as AppSubsystemFrontendAdapterModule;
     if (loadSequence !== appSubsystemFrontendLoadSequence) {
       return;

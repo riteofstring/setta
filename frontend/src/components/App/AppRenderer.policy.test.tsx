@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -14,6 +13,7 @@ import {
   createTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import {
   AppActionContext,

@@ -183,8 +183,6 @@ export const useProjectState = withProjectState(
   ),
 );
 
-export { useAppDefinition } from "plugins/appSubsystemDefinitionState";
-
 type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
