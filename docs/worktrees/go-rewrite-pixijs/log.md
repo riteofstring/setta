@@ -5773,3 +5773,28 @@ LOOP_TERMINAL_MARKER: none
     - treat this as repeated headless verification ambiguity, not as standalone proof of a new renderer regression
 - Next frontier: land one bounded product slice that reduces motion-hidden subtree detach / restore churn on the canonical browser lane; do not spend the next automated pass on another observer-only or harness-only rerun of the same question.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 038
+
+- Landed the post-motion retained-detail measure-flush guard on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now preserves a pending settle flush only when a retained-detail measurement RAF was already queued before `viewportInteractionActive` suspended measurements, instead of forcing every enabled detail family to remeasure after every interaction settle.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now adds focused coverage that stubs `requestAnimationFrame(...)` and proves interaction start/settle without any observer-driven invalidation does not schedule extra retained-detail measurement frames.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-post-motion-measure-flush-guard-rerun.md` with the current evidence: `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 57.98`, `raf.p95Ms 100`, `longTasks.totalMs 5196`, `motionHiddenBodies.totalMotionBodyRootCount 45`, and `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`.
+- Interpretation:
+  - this closes the unconditional post-motion retained-detail remeasure flush path itself on the canonical browser lane
+  - the fresh dense rerun stayed noisy and worse than the current clean checkpoint, so this is structural invalidation cleanup rather than a new whole-scene performance baseline
+  - the next pass should move to another retained-scene redraw / paint / snapshot invalidation candidate instead of reopening observer timing, motion-hidden body retention, or settle-flush bookkeeping on the same lane
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - reached `http://127.0.0.1:3068/settings` with `All Settings` active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were present on-screen
+    - the graph surface was rendered and not blank/transparent, and there was no obvious detached shell/body artifact on that lane
+- Next frontier: stay on the canonical browser lane and isolate another retained-scene redraw / paint / snapshot invalidation source now that observer churn, subtree churn, and the unconditional settle flush are all closed.
+LOOP_TERMINAL_MARKER: none

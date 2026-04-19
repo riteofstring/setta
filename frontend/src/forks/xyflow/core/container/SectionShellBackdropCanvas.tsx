@@ -1003,7 +1003,8 @@ function useCanvasOwnedMeasuredArray<T extends Array<unknown>>({
     }
 
     if (suspendMeasurements) {
-      pendingMeasurementRef.current = true;
+      pendingMeasurementRef.current =
+        pendingMeasurementRef.current || animationFrameIdRef.current !== 0;
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
         animationFrameIdRef.current = 0;

@@ -356,6 +356,84 @@ describe("SectionShellBackdropCanvas", () => {
     expect(MutationObserverMock.disconnectCount).toBe(0);
   });
 
+  it("does not flush backdrop measurements after interaction settles without invalidation", async () => {
+    class ResizeObserverMock {
+      constructor(...args: [ResizeObserverCallback]) {
+        void args;
+      }
+
+      disconnect = vi.fn();
+      observe = vi.fn();
+      unobserve = vi.fn();
+    }
+
+    class MutationObserverMock {
+      constructor(...args: [MutationCallback]) {
+        void args;
+      }
+
+      disconnect = vi.fn();
+      observe = vi.fn();
+      takeRecords = vi.fn(() => []);
+    }
+
+    const requestAnimationFrameSpy = vi.fn((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.stubGlobal("MutationObserver", MutationObserverMock);
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrameSpy);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const section = document.createElement("section");
+    section.dataset.sectionId = BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+    section.innerHTML =
+      '<div data-canvas-owned-resting-text="true">Browser</div>';
+    document.body.appendChild(section);
+
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+          createNode({
+            id: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+            position: { x: 10, y: 20 },
+            width: 100,
+          }),
+        ],
+      ]),
+    });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      viewportInteractionActive: false,
+    });
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(createElement(SectionShellBackdropCanvas));
+    });
+
+    const baselineFrameCount = requestAnimationFrameSpy.mock.calls.length;
+    expect(baselineFrameCount).toBeGreaterThan(0);
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: true });
+    });
+
+    expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(baselineFrameCount);
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: false });
+    });
+
+    expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(baselineFrameCount);
+  });
+
   it("defers backdrop observer refresh caused by subtree mutations until interaction settles", async () => {
     class ResizeObserverMock {
       static instanceCount = 0;
