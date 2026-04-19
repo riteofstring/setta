@@ -37,10 +37,17 @@ let mockProjectState: MockProjectState = {
   },
   projectChatWindowing: createProjectChatWindowingState(),
 };
+const mockSectionImpl = {
+  type: SectionTypeEnum.Code,
+  isMinimized: false,
+  metaControlStyle: false,
+};
+let mockEmbeddedTerminal: { isTerminalMinimized: boolean } | null = null;
 let root: Root | null = null;
 let mockSectionHeaderMotionHiddenInteractionActive = false;
 let mockSectionHeaderRenderCount = 0;
 let mockBrowserAreaRenderCount = 0;
+let mockCodeAreaRenderCount = 0;
 let mockCustomResizableRenderCount = 0;
 let mockSectionContainerCoreResizableRenderCount = 0;
 
@@ -165,12 +172,8 @@ vi.mock("components/Utils/Resizable/CustomResizable", () => ({
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
-  getCurrEffectiveSectionImpl: () => ({
-    type: SectionTypeEnum.Code,
-    isMinimized: false,
-    metaControlStyle: false,
-  }),
-  getEmbeddedAttachedTerminalForCodeSection: () => null,
+  getCurrEffectiveSectionImpl: () => mockSectionImpl,
+  getEmbeddedAttachedTerminalForCodeSection: () => mockEmbeddedTerminal,
 }));
 
 vi.mock("state/actions/uiTypes/utils", () => ({
@@ -314,9 +317,10 @@ vi.mock("./utils", () => ({
 }));
 
 vi.mock("../Layouts/CodeArea", () => ({
-  CodeArea: ({ sectionId }: { sectionId: string }) => (
-    <div data-testid="mock-code-area">code:{sectionId}</div>
-  ),
+  CodeArea: ({ sectionId }: { sectionId: string }) => {
+    mockCodeAreaRenderCount += 1;
+    return <div data-testid="mock-code-area">code:{sectionId}</div>;
+  },
   GenPythonCodeArea: () => <div data-testid="mock-gen-python-code-area" />,
   GenPythonMetadataArea: () => (
     <div data-testid="mock-gen-python-metadata-area" />
@@ -394,6 +398,10 @@ describe("SectionContainerCoreResizable", () => {
       },
       projectChatWindowing: createProjectChatWindowingState(),
     };
+    mockSectionImpl.type = SectionTypeEnum.Code;
+    mockSectionImpl.isMinimized = false;
+    mockSectionImpl.metaControlStyle = false;
+    mockEmbeddedTerminal = null;
     mockCanvasState.activeSectionId = null;
     mockCanvasState.graphSurfaceImplementation = "legacy-dom";
     setMockViewportInteractionActive(false);
@@ -403,6 +411,7 @@ describe("SectionContainerCoreResizable", () => {
     mockSectionHeaderMotionHiddenInteractionActive = false;
     mockSectionHeaderRenderCount = 0;
     mockBrowserAreaRenderCount = 0;
+    mockCodeAreaRenderCount = 0;
     mockCustomResizableRenderCount = 0;
     mockSectionContainerCoreResizableRenderCount = 0;
   });
@@ -870,5 +879,49 @@ describe("SectionContainerCoreResizable", () => {
     ).toBeNull();
     expect(bodyRoot.getAttribute("style")).toBeNull();
     expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
+  });
+
+  it("keeps chrome and body cold when only the resizable surface terminal passthrough changes", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(
+        <SectionContainerCoreResizable
+          sectionId="settings-section__backend"
+          sectionTypeName={SectionTypeEnum.Code}
+          isInOtherProjectConfigs={false}
+          isUserView={false}
+          positionAndSizeLocked={false}
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
+    expect(mockCustomResizableRenderCount).toBe(1);
+    expect(mockSectionHeaderRenderCount).toBe(1);
+    expect(mockCodeAreaRenderCount).toBe(1);
+
+    mockEmbeddedTerminal = { isTerminalMinimized: false };
+
+    await act(async () => {
+      root?.render(
+        <SectionContainerCoreResizable
+          sectionId="settings-section__backend"
+          sectionTypeName={SectionTypeEnum.Code}
+          isInOtherProjectConfigs={false}
+          isUserView={false}
+          positionAndSizeLocked={false}
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(2);
+    expect(mockCustomResizableRenderCount).toBe(2);
+    expect(mockSectionHeaderRenderCount).toBe(1);
+    expect(mockCodeAreaRenderCount).toBe(1);
   });
 });

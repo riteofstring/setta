@@ -6046,3 +6046,22 @@ LOOP_TERMINAL_MARKER: none
     - the graph surface was mounted and nonblank, `browserSectionDefault` was present, and there was no obvious detached shell/body or gross visual regression on that lane
 - Next frontier: run one bounded evidence slice on `SectionContainerCoreResizable` and its immediate children to determine whether any remaining local prop-fanout path still exists beyond the removed viewport and active-section render subscriptions; if that evidence cannot name a credible product slice, stop for human replan.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 048
+
+- Completed the bounded `SectionContainerCoreResizable` evidence pass requested by run `047` on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now keeps mutable section-impl and embedded-terminal mocks plus a `CodeArea` render counter, and it proves that flipping the surface-only `hasEmbeddedTerminal` snapshot rerenders `SectionContainerCoreResizable` plus `CustomResizable` without rerendering the section header or code body.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-local-prop-fanout-evidence.md`, which records the paired code inspection result: the remaining immediate inputs are already split between the memoized resizable surface, chrome, and body paths, and the only obvious cross-path left (`positionAndSizeLocked`) is not part of the measured dense pan/zoom hotspot.
+- Interpretation:
+  - the immediate local `SectionContainerCoreResizable` prop-fanout lane is now closed for this hotspot
+  - another memo-only or prop-plumbing pass inside this file would be churn unless a fresh attribution pass names a different high-frequency prop
+  - per the active handoff rule, automation should stop for human replan instead of reopening `SectionContainerCoreResizable`, `SectionShellBackdropCanvas`, `ZoomPane`, or motion-hidden DOM-sync micro-lanes by inertia
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+- CDP visual check:
+  - not rerun because this iteration changed only the focused regression/evidence layer and did not change live renderer behavior
+- Next frontier: human replan to choose a new attribution/product frontier outside the now-closed immediate `SectionContainerCoreResizable` prop-fanout lane.
+LOOP_TERMINAL_MARKER: replan_required
