@@ -9,6 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appdefinition"
 	appdefinitionhttp "setta/internal/appsubsystem/appdefinitionhttp"
+	appdeploymenthttp "setta/internal/appsubsystem/appdeploymenthttp"
+	"setta/internal/appsubsystem/apppublish"
 	"setta/internal/appsubsystem/appspec"
 	neutralappuisettings "setta/internal/appsubsystem/appuisettings"
 	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
@@ -111,17 +113,16 @@ func BuildFrontendAPIRouteRegistrations(
 		}, nil
 	}
 
-	provider, err := BackendProviderForCapabilities(capabilities)
+	deploymentRegistrations, err := buildDeploymentFrontendRouteRegistrations(
+		options,
+		capabilities.PluginID,
+	)
 	if err != nil {
 		return httpapi.FrontendAPIRouteRegistrations{}, err
 	}
-	if provider == nil {
-		return httpapi.FrontendAPIRouteRegistrations{}, nil
-	}
-	deploymentRegistrations := provider.BuildFrontendAPIRouteRegistrations(options)
 	return httpapi.FrontendAPIRouteRegistrations{
 		Project:    projectRegistrations,
-		Deployment: deploymentRegistrations.Deployment,
+		Deployment: deploymentRegistrations,
 	}, nil
 }
 
@@ -155,6 +156,41 @@ func buildProjectFrontendRouteRegistrations(
 		})
 	}
 	return contributions, nil
+}
+
+func buildDeploymentFrontendRouteRegistrations(
+	options FrontendRouteRegistrationOptions,
+	pluginID string,
+) ([]httpapi.FrontendAPIRouteContribution, error) {
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		return nil, appdefinition.ErrPluginIDRequired
+	}
+
+	appDeploymentIDE := appdeploymenthttp.IDERouteDependencies{
+		ModePolicy:   options.ShareDeploymentIDE.ModePolicy,
+		ProjectState: options.ShareDeploymentIDE.ProjectState,
+		Catalog:      options.ShareDeploymentIDE.Catalog,
+		AppPublisher: options.AppDeploymentIDEPublisher,
+	}
+	return []httpapi.FrontendAPIRouteContribution{
+		{
+			Family: "app deployment",
+			Register: func(router chi.Router) error {
+				return appdeploymenthttp.RegisterDeploymentRoutes(
+					router,
+					options.AppDeployment,
+					trimmedPluginID,
+				)
+			},
+		},
+		{
+			Family: "app deployment ide",
+			Register: func(router chi.Router) error {
+				return appdeploymenthttp.RegisterIDERoutes(router, appDeploymentIDE)
+			},
+		},
+	}, nil
 }
 
 func BuildMCPToolRegistrations(
@@ -202,14 +238,14 @@ func NewAppPublishService(
 	options deployments.AppPublisherOptions,
 	projectRuntime *projectstate.Runtime,
 ) (deployments.AppPublishService, error) {
-	provider, err := BackendProviderForCapabilities(capabilities)
-	if err != nil {
-		return nil, err
-	}
-	if provider == nil {
+	if !capabilities.PluginEnabled || !capabilities.AppDeploymentRuntime {
 		return nil, nil
 	}
-	return provider.NewAppPublishService(options, projectRuntime)
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	if pluginID == "" {
+		return nil, appdefinition.ErrPluginIDRequired
+	}
+	return apppublish.NewService(options, projectRuntime, pluginID)
 }
 
 func DeploymentTypeRegistration(
@@ -218,14 +254,7 @@ func DeploymentTypeRegistration(
 	if err := requireAppModeRuntimeCapabilities(capabilities); err != nil {
 		return deployments.TypeRegistration{}, err
 	}
-	provider, err := BackendProviderForCapabilities(capabilities)
-	if err != nil {
-		return deployments.TypeRegistration{}, err
-	}
-	if provider == nil {
-		return deployments.TypeRegistration{}, ErrBackendProviderUnregistered
-	}
-	return provider.DeploymentTypeRegistration(), nil
+	return AppDeploymentTypeRegistration(), nil
 }
 
 func backendProviderByPluginID(pluginID string) (BackendProvider, error) {
