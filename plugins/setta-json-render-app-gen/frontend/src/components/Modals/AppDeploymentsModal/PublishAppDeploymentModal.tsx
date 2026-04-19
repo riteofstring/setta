@@ -1,6 +1,7 @@
 import {
   callOpenAPI,
   checkIfFileExists,
+  createRandomName,
   createDefaultAppPolicy,
   type Policy,
   listAppDeployments,
@@ -26,7 +27,6 @@ import {
   useAppSubsystemFrontendHost,
   useAppSubsystemProjectContext,
 } from "../../../appSubsystemFrontendHostContext";
-import { createRandomName } from "utils/idNameCreation";
 
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type AppPolicyOverridesInput = Policy;

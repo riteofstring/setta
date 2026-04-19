@@ -1,12 +1,20 @@
 import {
+  buildTextBlockTypographyScale,
+  CODEMIRROR_TOOLTIP_PARENT_ID,
   createAppSubsystemFrontendHost,
+  createRandomName,
   createSingleConfig,
   getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrentEffectiveSectionImpl,
   getCurrentSectionVariantId,
   getParamDisplayNameIfPresent,
   isAppSubsystemFrontendRegistration,
+  NO_PAN_CLASS_NAME,
   registerAppSubsystemPlugin,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  shouldShowPasswordReveal,
+  type DropzoneStatelessAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it, vi } from "vitest";
 
@@ -300,5 +308,35 @@ describe("appSubsystemFrontendSdk", () => {
     expect(
       getParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
     ).toBe("Fallback Param Name");
+  });
+
+  it("re-exports narrow helper surfaces needed by plugin frontends", () => {
+    const attachment: DropzoneStatelessAttachment = {
+      kind: "text",
+      name: "notes.txt",
+      text: "hello",
+    };
+
+    expect(CODEMIRROR_TOOLTIP_PARENT_ID).toBe("setta-codemirror-tooltips");
+    expect(NO_PAN_CLASS_NAME).toBe("nopan");
+    expect(SETTA_PREVENT_SECTION_ACTIVE_CSS).toBe(
+      "setta-prevent-section-active-css",
+    );
+    expect(SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION).toBe(
+      "setta-prevent-arrow-keys-moving-section",
+    );
+    expect(buildTextBlockTypographyScale(20)).toEqual({
+      bodyPx: 20,
+      codePx: 18.4,
+      h1Px: 40,
+      h2Px: 32,
+      h3Px: 27,
+      h4Px: 23.6,
+      h5Px: 20.8,
+      h6Px: 19,
+    });
+    expect(shouldShowPasswordReveal({ value: "", hasSecret: true })).toBe(true);
+    expect(createRandomName()).toMatch(/^[a-z]+_[a-z]+$/);
+    expect(attachment.text).toBe("hello");
   });
 });
