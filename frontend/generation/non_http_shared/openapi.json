@@ -8896,6 +8896,16 @@
           },
           "pluginId": {
             "type": "string"
+          },
+          "providerSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginAppSubsystemProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -8933,6 +8943,61 @@
         ],
         "title": "PluginAppSubsystemFeatureManifest",
         "type": "object"
+      },
+      "PluginAppSubsystemProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginAppSubsystemProviderSelectionStatusKind"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "conflictingPluginIds"
+        ],
+        "title": "PluginAppSubsystemProviderSelection",
+        "type": "object"
+      },
+      "PluginAppSubsystemProviderSelectionStatusKind": {
+        "enum": [
+          "no_provider",
+          "disabled_provider",
+          "invalid_provider",
+          "active",
+          "provider_conflict"
+        ],
+        "title": "PluginAppSubsystemProviderSelectionStatusKind",
+        "type": "string"
       },
       "PluginBackendManifest": {
         "additionalProperties": false,
@@ -10046,6 +10111,16 @@
       "PluginStatusResponse": {
         "additionalProperties": false,
         "properties": {
+          "appSubsystemSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginAppSubsystemProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "languageServerSelections": {
             "items": {
               "$ref": "#/components/schemas/LanguageServerSelectionStatus"

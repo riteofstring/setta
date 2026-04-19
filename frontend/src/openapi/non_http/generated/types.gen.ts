@@ -3771,6 +3771,7 @@ type PluginAppSubsystemCapabilities = {
   appPreviewUi: boolean;
   pluginEnabled: boolean;
   pluginId: string;
+  providerSelection?: PluginAppSubsystemProviderSelection | null;
 };
 
 /**
@@ -3782,6 +3783,28 @@ type PluginAppSubsystemFeatureManifest = {
   appGenerationChatModes: boolean;
   appPreviewUi: boolean;
 };
+
+/**
+ * PluginAppSubsystemProviderSelection
+ */
+type PluginAppSubsystemProviderSelection = {
+  activePluginIds: null | Array<string>;
+  conflictingPluginIds: null | Array<string>;
+  disabledPluginIds: null | Array<string>;
+  invalidPluginIds: null | Array<string>;
+  selectedPluginId?: null | string;
+  status: PluginAppSubsystemProviderSelectionStatusKind;
+};
+
+/**
+ * PluginAppSubsystemProviderSelectionStatusKind
+ */
+type PluginAppSubsystemProviderSelectionStatusKind =
+  | "no_provider"
+  | "disabled_provider"
+  | "invalid_provider"
+  | "active"
+  | "provider_conflict";
 
 /**
  * PluginBackendManifest
@@ -4238,6 +4261,7 @@ export type PluginStatusEntry = {
  * PluginStatusResponse
  */
 export type PluginStatusResponse = {
+  appSubsystemSelection?: PluginAppSubsystemProviderSelection | null;
   languageServerSelections: null | Array<LanguageServerSelectionStatus>;
   plugins: null | Array<PluginStatusEntry>;
   restartCapability: PluginRestartCapability;

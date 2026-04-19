@@ -368,6 +368,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(appspec.PatchPolicy{}):                                               "PatchPolicy",
 	reflect.TypeOf(plugins.PluginAppSubsystemCapabilities{}):                            "PluginAppSubsystemCapabilities",
 	reflect.TypeOf(plugins.PluginAppSubsystemFeatureManifest{}):                         "PluginAppSubsystemFeatureManifest",
+	reflect.TypeOf(plugins.PluginAppSubsystemProviderSelection{}):                       "PluginAppSubsystemProviderSelection",
+	reflect.TypeOf(plugins.PluginAppSubsystemProviderSelectionStatusKind("")):           "PluginAppSubsystemProviderSelectionStatusKind",
 	reflect.TypeOf(plugins.PluginBackendManifest{}):                                     "PluginBackendManifest",
 	reflect.TypeOf(plugins.PluginBlockedCapability{}):                                   "PluginBlockedCapability",
 	reflect.TypeOf(plugins.PluginBlockedCapabilityReason("")):                           "PluginBlockedCapabilityReason",

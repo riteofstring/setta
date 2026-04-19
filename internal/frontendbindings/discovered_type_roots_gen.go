@@ -44,6 +44,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginUninstallResponse{}),
 		reflect.TypeOf(plugins.PluginUpdateResponse{}),
 		reflect.TypeOf(plugins.PluginRollbackResponse{}),
+		reflect.TypeOf(plugins.PluginAppSubsystemProviderSelectionStatusKind("")),
+		reflect.TypeOf(plugins.PluginAppSubsystemProviderSelection{}),
 		reflect.TypeOf(plugins.PluginAppSubsystemCapabilities{}),
 		reflect.TypeOf(plugins.PluginFeatureCapabilities{}),
 		reflect.TypeOf(plugins.PluginFrontendDescriptor{}),

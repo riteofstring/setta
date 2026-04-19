@@ -13,9 +13,7 @@ type appSubsystemCapabilityState struct {
 
 func newAppSubsystemCapabilityState() *appSubsystemCapabilityState {
 	return &appSubsystemCapabilityState{
-		capabilities: plugins.PluginAppSubsystemCapabilities{
-			PluginID: plugins.AppSubsystemPluginID,
-		},
+		capabilities: plugins.AppSubsystemCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{}),
 	}
 }
 
@@ -41,9 +39,7 @@ func (s *appSubsystemCapabilityState) SetFromSnapshot(
 
 func (s *appSubsystemCapabilityState) AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities {
 	if s == nil {
-		return plugins.PluginAppSubsystemCapabilities{
-			PluginID: plugins.AppSubsystemPluginID,
-		}
+		return plugins.AppSubsystemCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()

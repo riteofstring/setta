@@ -101,11 +101,12 @@ type PluginStatusEntry struct {
 }
 
 type PluginStatusResponse struct {
-	SchemaVersion            int                             `json:"schemaVersion"`
-	ServerMode               config.Mode                     `json:"serverMode"`
-	RestartCapability        PluginRestartCapability         `json:"restartCapability"`
-	Plugins                  []PluginStatusEntry             `json:"plugins"`
-	LanguageServerSelections []LanguageServerSelectionStatus `json:"languageServerSelections"`
+	SchemaVersion            int                                  `json:"schemaVersion"`
+	ServerMode               config.Mode                          `json:"serverMode"`
+	RestartCapability        PluginRestartCapability              `json:"restartCapability"`
+	AppSubsystemSelection    *PluginAppSubsystemProviderSelection `json:"appSubsystemSelection,omitempty"`
+	Plugins                  []PluginStatusEntry                  `json:"plugins"`
+	LanguageServerSelections []LanguageServerSelectionStatus      `json:"languageServerSelections"`
 }
 
 type RestartRequiredResponse struct {
@@ -246,6 +247,7 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRes
 		SchemaVersion:            pluginStatusSchemaVersion,
 		ServerMode:               snapshot.ServerMode,
 		RestartCapability:        capability,
+		AppSubsystemSelection:    stringPointerSelection(AppSubsystemProviderSelectionFromSnapshot(snapshot)),
 		Plugins:                  entries,
 		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
