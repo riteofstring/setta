@@ -2491,10 +2491,14 @@ func initializeAppMCPServer(
 		return nil
 	}
 	mcpServer, err := mcpx.NewServer(mcpx.ServerOptions{
-		Logger:        logger,
-		Registry:      base.mcpToolRegistry,
-		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		ProjectState:  projectServices.projectRuntime,
+		Logger:                       logger,
+		Registry:                     base.mcpToolRegistry,
+		WorkspaceRoot:                cfg.Paths.WorkspaceRoot,
+		ProjectState:                 projectServices.projectRuntime,
+		SkipDefaultAppSubsystemTools: true,
+		ContributedToolRegistrations: mcpx.BuildAppSubsystemToolRegistrations(
+			projectServices.projectRuntime,
+		),
 		AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
 			return broadcastFrontendProjectStateUpdate(
 				ctx,
