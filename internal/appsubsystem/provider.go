@@ -6,7 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appdefinition"
+	appdefinitionhttp "setta/internal/appsubsystem/appdefinitionhttp"
 	"setta/internal/appsubsystem/appspec"
 	neutralappuisettings "setta/internal/appsubsystem/appuisettings"
 	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
@@ -95,16 +97,64 @@ func BuildFrontendAPIRouteRegistrations(
 	if options.Capabilities == nil {
 		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
-	provider, err := BackendProviderForCapabilities(
-		options.Capabilities.AppSubsystemCapabilities(),
-	)
+	capabilities := options.Capabilities.AppSubsystemCapabilities()
+	if !capabilities.PluginEnabled {
+		return httpapi.FrontendAPIRouteRegistrations{}, nil
+	}
+	projectRegistrations, err := buildProjectFrontendRouteRegistrations(options, capabilities)
+	if err != nil {
+		return httpapi.FrontendAPIRouteRegistrations{}, err
+	}
+	if !capabilities.AppDeploymentRuntime {
+		return httpapi.FrontendAPIRouteRegistrations{
+			Project: projectRegistrations,
+		}, nil
+	}
+
+	provider, err := BackendProviderForCapabilities(capabilities)
 	if err != nil {
 		return httpapi.FrontendAPIRouteRegistrations{}, err
 	}
 	if provider == nil {
 		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
-	return provider.BuildFrontendAPIRouteRegistrations(options), nil
+	deploymentRegistrations := provider.BuildFrontendAPIRouteRegistrations(options)
+	return httpapi.FrontendAPIRouteRegistrations{
+		Project:    projectRegistrations,
+		Deployment: deploymentRegistrations.Deployment,
+	}, nil
+}
+
+func buildProjectFrontendRouteRegistrations(
+	options FrontendRouteRegistrationOptions,
+	capabilities plugins.PluginAppSubsystemCapabilities,
+) ([]httpapi.FrontendAPIRouteContribution, error) {
+	contributions := []httpapi.FrontendAPIRouteContribution{}
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	if capabilities.AppAuthoringUI {
+		if pluginID == "" {
+			return nil, appdefinition.ErrPluginIDRequired
+		}
+		contributions = append(contributions, httpapi.FrontendAPIRouteContribution{
+			Family: "app definition",
+			Register: func(router chi.Router) error {
+				return appdefinitionhttp.RegisterRoutes(router, appdefinitionhttp.RouteDependencies{
+					ModePolicy:   options.ModePolicy,
+					ProjectState: options.ProjectState,
+					PluginID:     pluginID,
+				})
+			},
+		})
+	}
+	if capabilities.AppGenerationChatModes {
+		contributions = append(contributions, httpapi.FrontendAPIRouteContribution{
+			Family: "app generation skill",
+			Register: func(router chi.Router) error {
+				return httpapi.RegisterAppGenSkillRoutes(router, options.AppGenSkill)
+			},
+		})
+	}
+	return contributions, nil
 }
 
 func BuildMCPToolRegistrations(
