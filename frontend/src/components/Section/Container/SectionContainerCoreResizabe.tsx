@@ -15,7 +15,7 @@ import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
-import { useIsSectionUIActive } from "state/activeSectionUI";
+import { useActiveSectionUI } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
@@ -206,32 +206,29 @@ function applyMotionHiddenCanvasDomState({
       }
       node.classList.add("section-resize-handle");
       node.removeAttribute("data-setta-motion-hidden-resize-handle");
-    });
+  });
+}
+
+function getIsSectionUIActiveFromState(sectionId: string) {
+  return useActiveSectionUI.getState().activeIds.includes(sectionId);
 }
 
 function useSyncMotionHiddenCanvasDomState({
-  isSectionUIActive,
   motionHiddenRoot,
   sectionId,
 }: {
-  isSectionUIActive: boolean;
   motionHiddenRoot: boolean;
   sectionId: string;
 }) {
-  const isSectionUIActiveRef = React.useRef(isSectionUIActive);
-  isSectionUIActiveRef.current = isSectionUIActive;
-
   React.useLayoutEffect(() => {
-    const applyMotionState = (
-      viewportInteractionActive = useReactFlow.getState().viewportInteractionActive,
-    ) => {
+    const applyMotionState = () => {
       applyMotionHiddenCanvasDomState({
         sectionId,
         motionHiddenRoot,
         motionHidden:
           motionHiddenRoot &&
-          viewportInteractionActive &&
-          !isSectionUIActiveRef.current,
+          useReactFlow.getState().viewportInteractionActive &&
+          !getIsSectionUIActiveFromState(sectionId),
       });
     };
 
@@ -243,19 +240,26 @@ function useSyncMotionHiddenCanvasDomState({
 
     const unsubscribeViewportInteractionActive = useReactFlow.subscribe(
       (state) => state.viewportInteractionActive,
-      (
-        nextViewportInteractionActive,
-        previousViewportInteractionActive,
-      ) => {
+      (nextViewportInteractionActive, previousViewportInteractionActive) => {
         if (nextViewportInteractionActive === previousViewportInteractionActive) {
           return;
         }
-        applyMotionState(nextViewportInteractionActive);
+        applyMotionState();
+      },
+    );
+    const unsubscribeSectionUIActive = useActiveSectionUI.subscribe(
+      (state) => state.activeIds.includes(sectionId),
+      (nextIsSectionUIActive, previousIsSectionUIActive) => {
+        if (nextIsSectionUIActive === previousIsSectionUIActive) {
+          return;
+        }
+        applyMotionState();
       },
     );
 
     return () => {
       unsubscribeViewportInteractionActive();
+      unsubscribeSectionUIActive();
       applyMotionHiddenCanvasDomState({
         sectionId,
         motionHiddenRoot,
@@ -263,17 +267,6 @@ function useSyncMotionHiddenCanvasDomState({
       });
     };
   }, [motionHiddenRoot, sectionId]);
-
-  React.useLayoutEffect(() => {
-    applyMotionHiddenCanvasDomState({
-      sectionId,
-      motionHiddenRoot,
-      motionHidden:
-        motionHiddenRoot &&
-        useReactFlow.getState().viewportInteractionActive &&
-        !isSectionUIActive,
-    });
-  }, [isSectionUIActive, motionHiddenRoot, sectionId]);
 }
 
 function getSectionContainerResizableSnapshot(
@@ -650,7 +643,7 @@ function _SectionContainerCoreResizable({
   const metaControlLayoutClassName =
     chromeMode === "meta-control" ? "grid-cols-1 grid-rows-1" : undefined;
   const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const isSectionUIActive = useIsSectionUIActive(sectionId);
+  const isSectionUIActive = getIsSectionUIActiveFromState(sectionId);
   const { motionHidden, motionHiddenRoot } = resolveMotionHiddenCanvasState({
     graphSurfaceImplementation,
     isSectionUIActive,
@@ -660,7 +653,6 @@ function _SectionContainerCoreResizable({
   useSyncMotionHiddenCanvasDomState({
     sectionId,
     motionHiddenRoot,
-    isSectionUIActive,
   });
 
   const resizableChildren = React.useMemo(

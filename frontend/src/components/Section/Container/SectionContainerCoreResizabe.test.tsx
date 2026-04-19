@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
-import { act, type ReactNode } from "react";
+import React, { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -42,16 +42,33 @@ let mockSectionHeaderMotionHiddenInteractionActive = false;
 let mockSectionHeaderRenderCount = 0;
 let mockBrowserAreaRenderCount = 0;
 let mockCustomResizableRenderCount = 0;
+let mockSectionContainerCoreResizableRenderCount = 0;
 
 const mockReactFlowSubscriptions = new Set<{
   currentValue: unknown;
   listener: (nextValue: unknown, previousValue: unknown) => void;
   selector: (state: { viewportInteractionActive: boolean }) => unknown;
 }>();
+const mockActiveSectionStoreListeners = new Set<() => void>();
+const mockActiveSectionSubscriptions = new Set<{
+  currentValue: unknown;
+  equalityFn?: (left: unknown, right: unknown) => boolean;
+  listener: (nextValue: unknown, previousValue: unknown) => void;
+  selector: (state: { activeIds: string[] }) => unknown;
+}>();
 
 function getMockReactFlowState() {
   return {
     viewportInteractionActive: mockCanvasState.viewportInteractionActive,
+  };
+}
+
+function getMockActiveSectionUIState() {
+  return {
+    activeIds:
+      mockCanvasState.activeSectionId === null
+        ? []
+        : [mockCanvasState.activeSectionId],
   };
 }
 
@@ -61,6 +78,26 @@ function setMockViewportInteractionActive(nextViewportInteractionActive: boolean
   for (const subscription of mockReactFlowSubscriptions) {
     const nextValue = subscription.selector(nextState);
     if (Object.is(nextValue, subscription.currentValue)) {
+      continue;
+    }
+    const previousValue = subscription.currentValue;
+    subscription.currentValue = nextValue;
+    subscription.listener(nextValue, previousValue);
+  }
+}
+
+function setMockActiveSectionId(nextActiveSectionId: string | null) {
+  mockCanvasState.activeSectionId = nextActiveSectionId;
+  const nextState = getMockActiveSectionUIState();
+  for (const listener of mockActiveSectionStoreListeners) {
+    listener();
+  }
+  for (const subscription of mockActiveSectionSubscriptions) {
+    const nextValue = subscription.selector(nextState);
+    const valuesEqual = subscription.equalityFn
+      ? subscription.equalityFn(nextValue, subscription.currentValue)
+      : Object.is(nextValue, subscription.currentValue);
+    if (valuesEqual) {
       continue;
     }
     const previousValue = subscription.currentValue;
@@ -141,7 +178,10 @@ vi.mock("state/actions/uiTypes/utils", () => ({
 }));
 
 vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
-  useGraphSurfaceImplementation: () => mockCanvasState.graphSurfaceImplementation,
+  useGraphSurfaceImplementation: () => {
+    mockSectionContainerCoreResizableRenderCount += 1;
+    return mockCanvasState.graphSurfaceImplementation;
+  },
 }));
 
 vi.mock("forks/xyflow/core/store", () => ({
@@ -170,8 +210,42 @@ vi.mock("forks/xyflow/core/store", () => ({
 }));
 
 vi.mock("state/activeSectionUI", () => ({
+  useActiveSectionUI: Object.assign(
+    (selector: (state: { activeIds: string[] }) => unknown) =>
+      React.useSyncExternalStore(
+        (listener) => {
+          mockActiveSectionStoreListeners.add(listener);
+          return () => {
+            mockActiveSectionStoreListeners.delete(listener);
+          };
+        },
+        () => selector(getMockActiveSectionUIState()),
+        () => selector(getMockActiveSectionUIState()),
+      ),
+    {
+      getState: () => getMockActiveSectionUIState(),
+      subscribe: (
+        selector: (state: { activeIds: string[] }) => unknown,
+        listener: (nextValue: unknown, previousValue: unknown) => void,
+        options?: {
+          equalityFn?: (left: unknown, right: unknown) => boolean;
+        },
+      ) => {
+        const subscription = {
+          selector,
+          listener,
+          currentValue: selector(getMockActiveSectionUIState()),
+          equalityFn: options?.equalityFn,
+        };
+        mockActiveSectionSubscriptions.add(subscription);
+        return () => {
+          mockActiveSectionSubscriptions.delete(subscription);
+        };
+      },
+    },
+  ),
   useIsSectionUIActive: (sectionId: string) =>
-    mockCanvasState.activeSectionId === sectionId,
+    getMockActiveSectionUIState().activeIds.includes(sectionId),
 }));
 
 vi.mock("state/definitions", () => ({
@@ -324,10 +398,13 @@ describe("SectionContainerCoreResizable", () => {
     mockCanvasState.graphSurfaceImplementation = "legacy-dom";
     setMockViewportInteractionActive(false);
     mockReactFlowSubscriptions.clear();
+    mockActiveSectionStoreListeners.clear();
+    mockActiveSectionSubscriptions.clear();
     mockSectionHeaderMotionHiddenInteractionActive = false;
     mockSectionHeaderRenderCount = 0;
     mockBrowserAreaRenderCount = 0;
     mockCustomResizableRenderCount = 0;
+    mockSectionContainerCoreResizableRenderCount = 0;
   });
 
   afterEach(() => {
@@ -339,6 +416,8 @@ describe("SectionContainerCoreResizable", () => {
     root = null;
     document.body.innerHTML = "";
     mockReactFlowSubscriptions.clear();
+    mockActiveSectionStoreListeners.clear();
+    mockActiveSectionSubscriptions.clear();
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
@@ -608,7 +687,7 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="mock-code-area"');
   });
 
-  it("skips resizable, chrome, and body rerenders when active-section changes do not change motion-hidden props", async () => {
+  it("skips section-container, resizable, chrome, and body rerenders when active-section changes do not change motion-hidden state", async () => {
     mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
 
     const host = document.createElement("div");
@@ -628,25 +707,16 @@ describe("SectionContainerCoreResizable", () => {
       );
     });
 
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
     expect(mockCustomResizableRenderCount).toBe(1);
     expect(mockSectionHeaderRenderCount).toBe(1);
     expect(mockBrowserAreaRenderCount).toBe(1);
 
-    mockCanvasState.activeSectionId = "settings-section__browserSectionDefault";
-
     await act(async () => {
-      root?.render(
-        <SectionContainerCoreResizable
-          sectionId="settings-section__browserSectionDefault"
-          sectionTypeName={SectionTypeEnum.Browser}
-          isInOtherProjectConfigs={false}
-          isUserView={false}
-          positionAndSizeLocked={false}
-          hasSectionStyleTheme={false}
-        />,
-      );
+      setMockActiveSectionId("settings-section__browserSectionDefault");
     });
 
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
     expect(mockCustomResizableRenderCount).toBe(1);
     expect(mockSectionHeaderRenderCount).toBe(1);
     expect(mockBrowserAreaRenderCount).toBe(1);
@@ -726,5 +796,35 @@ describe("SectionContainerCoreResizable", () => {
         '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
       ),
     ).not.toBeNull();
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
+    expect(mockSectionHeaderRenderCount).toBe(1);
+
+    await act(async () => {
+      setMockActiveSectionId("settings-section__browserSectionDefault");
+    });
+
+    expect(
+      sectionRoot.getAttribute("data-canvas-owned-motion-shell-hidden"),
+    ).toBeNull();
+    expect(
+      sectionRoot.getAttribute("data-canvas-owned-motion-resize-handles-hidden"),
+    ).toBeNull();
+    expect(
+      sectionRoot.querySelector(
+        '[data-canvas-owned-motion-body-hidden="true"]',
+      ),
+    ).toBeNull();
+    expect(
+      sectionRoot.querySelector(
+        '[data-canvas-owned-motion-header-controls-hidden="true"]',
+      ),
+    ).toBeNull();
+    expect(
+      sectionRoot.querySelector(
+        '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
+      ),
+    ).toBeNull();
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
+    expect(mockSectionHeaderRenderCount).toBe(1);
   });
 });

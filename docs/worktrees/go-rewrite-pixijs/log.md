@@ -5998,3 +5998,27 @@ LOOP_TERMINAL_MARKER: none
     - the graph surface was mounted and nonblank, `browserSectionDefault` was present, and there was no obvious detached shell/body or gross visual regression on that lane
 - Next frontier: stay on the canonical browser lane and isolate another remaining `SectionContainerCoreResizable` active-section or non-viewport prop-fanout path beyond the stabilized `CustomResizable` handoff; if one bounded evidence pass still cannot name it, stop for human replan.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 046
+
+- Landed the `SectionContainerCoreResizable` active-section DOM-sync slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now removes the direct `useIsSectionUIActive(...)` render subscription from the section container itself and instead reads the current active-section snapshot from `useActiveSectionUI.getState()` while mirroring later active-section flips through the existing motion-hidden DOM-sync effect.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now mocks the active-section store as a real external store, counts section-container renders in addition to the existing resizable/header/body counters, proves that no-op active-section flips stay off the React render path, and proves that active-section changes during viewport motion restore the motion-hidden DOM attrs without rerendering the section render path, although the focused vitest run remains blocked by the pre-existing repo `html-encoding-sniffer` ESM failure before collection.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-active-section-dom-sync-rerun.md` with the current evidence: `documentNodeCount 5494`, `raf.meanMs 42.71`, `longTasks.totalMs 2994`, `peakMotion.graphSurfaceMenuTriggerCount 1`, `peakMotion.graphSurfaceSectionResizeHandleCount 3`, and `hiddenResizeHandleRootCount 45`.
+- Interpretation:
+  - this closes the direct `SectionContainerCoreResizable` active-section render-subscription sub-lane without reopening the motion-hidden shell/body, menu, or resize-handle contracts
+  - the trusted live motion inventory stayed intact on the canonical lane, and the dense rerun came back slightly better than the last two active-section boundary slices while still living in the same noisy whole-scene band
+  - the next pass should stay on `SectionContainerCoreResizable` only if one bounded evidence slice can still name another immediate local prop-fanout path beyond the removed viewport and active-section render subscriptions plus the stabilized `CustomResizable` handoff; otherwise stop for human replan instead of reopening the same lane
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-013/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - reached `/settings` with `All Settings` visually active and chat chrome normalized away
+    - the graph surface was mounted and nonblank, `browserSectionDefault` was present, and there was no obvious detached shell/body or gross visual regression on that lane
+- Next frontier: run one bounded evidence slice on `SectionContainerCoreResizable` and its immediate children to determine whether any remaining local prop-fanout path still exists beyond the removed viewport and active-section render subscriptions; if that evidence cannot name a credible product slice, stop for human replan.
+LOOP_TERMINAL_MARKER: none
