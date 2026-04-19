@@ -21,10 +21,5 @@ func OpenAppDeploymentRuntime(
 	ctx context.Context,
 	options deployments.RuntimeOptions,
 ) (*deployments.Runtime, error) {
-	runtime, err := deployments.Open(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-	runtime.SetAppDeploymentRuntimeContent(NewAppDeploymentRuntimeContent())
-	return runtime, nil
+	return deployments.Open(ctx, options)
 }
