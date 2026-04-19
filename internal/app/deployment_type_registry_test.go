@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"setta/internal/appsubsystem"
@@ -33,13 +34,13 @@ func TestNewDeploymentTypeRegistryIncludesPluginAppRegistration(t *testing.T) {
 	}
 }
 
-func TestNewDeploymentTypeRegistryRequiresAppSubsystemPluginForAppMode(t *testing.T) {
+func TestNewDeploymentTypeRegistryRequiresAppSubsystemProviderForAppMode(t *testing.T) {
 	t.Parallel()
 
 	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
 	_, err := NewDeploymentTypeRegistry(cfg)
-	if !errors.Is(err, appsubsystem.ErrAppModePluginRequired) {
-		t.Fatalf("expected app mode plugin-required error, got %v", err)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected app mode provider-required error, got %v", err)
 	}
 }
 
@@ -82,5 +83,35 @@ func TestNewDeploymentTypeRegistryRejectsUnregisteredProvider(t *testing.T) {
 	_, err := NewDeploymentTypeRegistry(cfg)
 	if !errors.Is(err, appsubsystem.ErrBackendProviderUnregistered) {
 		t.Fatalf("expected unregistered app subsystem provider error, got %v", err)
+	}
+}
+
+func TestNewDeploymentTypeRegistryRejectsConflictingActiveProviders(t *testing.T) {
+	t.Parallel()
+
+	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
+	enableAppDeploymentRuntimePluginWithID(
+		t,
+		cfg.Paths.DeploymentRoot,
+		plugins.AppSubsystemPluginID,
+		"acme.app-provider-b",
+	)
+	enableAppDeploymentRuntimePluginWithID(
+		t,
+		cfg.Paths.DeploymentRoot,
+		plugins.AppSubsystemPluginID,
+		"acme.app-provider-a",
+	)
+	writeAppJSON(t, filepath.Join(cfg.Paths.DeploymentRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds": []string{"acme.app-provider-b", "acme.app-provider-a"},
+	})
+
+	_, err := NewDeploymentTypeRegistry(cfg)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected app mode provider-required error, got %v", err)
+	}
+	expectedErr := `app mode requires a single active app subsystem provider with app deployment runtime support: multiple app subsystem providers are active ("acme.app-provider-a", "acme.app-provider-b"); disable all but one`
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("expected exact provider-conflict error %q, got %v", expectedErr, err)
 	}
 }

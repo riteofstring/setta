@@ -65,7 +65,7 @@ export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
 export const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
 export const HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE =
-  'This turn used app generation. Enable the first-party plugin "setta-json-render-app-gen" to edit or replay it.';
+  "This turn used app generation. Enable an app subsystem provider with app-generation chat-mode support to edit or replay it.";
 
 export type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
