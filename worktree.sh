@@ -91,7 +91,7 @@ worktree_sh_impl() {
     echo "Running dev install in ${worktree_path}..."
     (
       cd "${worktree_path}"
-      ./dev_install.sh
+      . ./dev_install.sh
     )
   done
 }

@@ -62,6 +62,7 @@ describe("plugin runtime bootstrap", () => {
       statusMessage: null,
       schemaVersion: null,
       serverMode: null,
+      appSubsystemCapabilities: null,
       restartCapability: null,
       pluginListById: {},
       sortedPluginListEntries: [],
