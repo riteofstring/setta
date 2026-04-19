@@ -7,11 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/plugins"
 	"setta/internal/realtime"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
-	appsubsystemuisettings "setta/plugins/setta-json-render-app-gen/backend/appuisettings"
 )
 
 type uiSettingToolErrorResult struct {
@@ -503,17 +501,10 @@ func resolveScopedUISettingRegistry(
 }
 
 func buildScopedUISettingEntryBuilders(server *Server) []uisettings.RuntimeEntryBuilder {
-	if server == nil || server.appDefinitionService == nil {
+	if server == nil || len(server.contributedUISettingBuilders) == 0 {
 		return nil
 	}
-	return []uisettings.RuntimeEntryBuilder{
-		func(runtime plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
-			if runtime.FeatureCapabilities == nil || !runtime.FeatureCapabilities.AppSubsystem.PluginEnabled {
-				return nil, nil
-			}
-			return appsubsystemuisettings.BuildEntries(server.appDefinitionService)
-		},
-	}
+	return append([]uisettings.RuntimeEntryBuilder(nil), server.contributedUISettingBuilders...)
 }
 
 func buildProjectAISettingProviders(server *Server) uisettings.ProjectAISettingProviders {
