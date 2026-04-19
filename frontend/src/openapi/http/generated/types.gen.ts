@@ -105,22 +105,6 @@ export type AppgenskillsUpsertCustomSkillResponse = {
   skillId: string;
 };
 
-export type AppspecAppCapabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-export type AppspecAppValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
-};
-
 export type ArtifactsArtifactSaveResult = {
   backupPath?: string;
   id: string;
@@ -2946,6 +2930,16 @@ export type ProjectstateAppDefinition = {
   theme?: unknown;
 };
 
+export type ProjectstateAppDefinitionCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
 export type ProjectstateAppDefinitionMutationResult = {
   appDefinition?: ProjectstateAppDefinition;
   appSpec: unknown;
@@ -2956,10 +2950,16 @@ export type ProjectstateAppDefinitionReadResult = {
   appSpec: unknown;
 };
 
+export type ProjectstateAppDefinitionValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
 export type ProjectstateAppDefinitionValidationResult = {
-  capabilities: AppspecAppCapabilities;
-  errors: Array<AppspecAppValidationIssue> | null;
-  warnings: Array<AppspecAppValidationIssue> | null;
+  capabilities: ProjectstateAppDefinitionCapabilities;
+  errors: Array<ProjectstateAppDefinitionValidationIssue> | null;
+  warnings: Array<ProjectstateAppDefinitionValidationIssue> | null;
 };
 
 export type ProjectstateAppRoute = {

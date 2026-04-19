@@ -22,7 +22,10 @@ func TestAppDefinitionServiceCompareAndSetMetadataNoopsAreSideEffectFreeOnFreshP
 	defaultCatalogID := appspec.DefaultCatalogID
 	defaultSpecVersion := "v1"
 	defaultSpecPath := appspec.DefaultPath()
-	defaultThemeMode := projectstate.EffectiveAppThemeMode(initialSnapshot.Document)
+	defaultThemeMode, err := service.GetEffectiveAppThemeMode(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app theme mode: %v", err)
+	}
 
 	catalogSnapshot, catalogResult, err := service.CompareAndSetAppDefinitionCatalogID(
 		context.Background(),

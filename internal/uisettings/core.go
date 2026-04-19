@@ -204,8 +204,12 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				Mutability:  MutabilityWritable,
 				ValueSchema: nonEmptyStringSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppDefinition(document).CatalogID
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				definition, err := runtime.GetEffectiveAppDefinition(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return definition.CatalogID, nil
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
@@ -226,8 +230,12 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				Mutability:  MutabilityWritable,
 				ValueSchema: nonEmptyStringSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppDefinition(document).AppSpecVersion
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				definition, err := runtime.GetEffectiveAppDefinition(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return definition.AppSpecVersion, nil
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
@@ -248,8 +256,8 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				Mutability:  MutabilityWritable,
 				ValueSchema: nonEmptyStringSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppSpecPath(document)
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				return runtime.GetEffectiveAppSpecPath(ctx)
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
@@ -270,8 +278,8 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				Mutability:  MutabilityWritable,
 				ValueSchema: themeModeSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppThemeMode(document)
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				return runtime.GetEffectiveAppThemeMode(ctx)
 			}),
 			normalizeOptionalThemeModeWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
@@ -321,9 +329,12 @@ func readProjectValue(runtime CoreProjectState, selectValue func(*projectstate.P
 	}
 }
 
-func readDocumentValue(runtime CoreProjectState, selectValue func(projectstate.Document) any) ReadFunc {
-	return func(_ context.Context, _ string) (any, error) {
-		return selectValue(runtime.Snapshot().Document), nil
+func readAppDefinitionValue(
+	runtime projectstate.AppDefinitionRuntime,
+	read func(context.Context, projectstate.AppDefinitionRuntime) (any, error),
+) ReadFunc {
+	return func(ctx context.Context, _ string) (any, error) {
+		return read(ctx, runtime)
 	}
 }
 

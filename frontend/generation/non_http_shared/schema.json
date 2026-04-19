@@ -603,38 +603,6 @@
       ],
       "additionalProperties": false
     },
-    "AppCapabilities": {
-      "type": "object",
-      "properties": {
-        "catalogId": {
-          "type": "string"
-        },
-        "catalogVersion": {
-          "type": "string"
-        },
-        "appSpecVersion": {
-          "type": "string"
-        },
-        "themeSchemaVersion": {
-          "type": "string"
-        },
-        "features": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "boolean"
-          }
-        }
-      },
-      "title": "AppCapabilities",
-      "required": [
-        "catalogId",
-        "catalogVersion",
-        "appSpecVersion",
-        "themeSchemaVersion",
-        "features"
-      ],
-      "additionalProperties": false
-    },
     "AppDefinition": {
       "type": "object",
       "properties": {
@@ -698,6 +666,38 @@
       "title": "AppDefinition",
       "additionalProperties": false
     },
+    "AppDefinitionCapabilities": {
+      "type": "object",
+      "properties": {
+        "catalogId": {
+          "type": "string"
+        },
+        "catalogVersion": {
+          "type": "string"
+        },
+        "appSpecVersion": {
+          "type": "string"
+        },
+        "themeSchemaVersion": {
+          "type": "string"
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      },
+      "title": "AppDefinitionCapabilities",
+      "required": [
+        "catalogId",
+        "catalogVersion",
+        "appSpecVersion",
+        "themeSchemaVersion",
+        "features"
+      ],
+      "additionalProperties": false
+    },
     "AppDefinitionMutationResult": {
       "type": "object",
       "properties": {
@@ -740,6 +740,25 @@
       ],
       "additionalProperties": false
     },
+    "AppDefinitionValidationIssue": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "elementKey": {
+          "type": "string"
+        },
+        "elementType": {
+          "type": "string"
+        }
+      },
+      "title": "AppDefinitionValidationIssue",
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    },
     "AppDefinitionValidationResult": {
       "type": "object",
       "properties": {
@@ -749,7 +768,7 @@
             "array"
           ],
           "items": {
-            "$ref": "#/$defs/AppValidationIssue"
+            "$ref": "#/$defs/AppDefinitionValidationIssue"
           }
         },
         "warnings": {
@@ -758,11 +777,11 @@
             "array"
           ],
           "items": {
-            "$ref": "#/$defs/AppValidationIssue"
+            "$ref": "#/$defs/AppDefinitionValidationIssue"
           }
         },
         "capabilities": {
-          "$ref": "#/$defs/AppCapabilities"
+          "$ref": "#/$defs/AppDefinitionCapabilities"
         }
       },
       "title": "AppDefinitionValidationResult",
@@ -799,25 +818,6 @@
       "title": "AppRoute",
       "required": [
         "path"
-      ],
-      "additionalProperties": false
-    },
-    "AppValidationIssue": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "type": "string"
-        },
-        "elementKey": {
-          "type": "string"
-        },
-        "elementType": {
-          "type": "string"
-        }
-      },
-      "title": "AppValidationIssue",
-      "required": [
-        "message"
       ],
       "additionalProperties": false
     },
