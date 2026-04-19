@@ -6227,3 +6227,31 @@ LOOP_TERMINAL_MARKER: none
   - this was used only to close the hidden-input oracle; no product source changes from the local activator experiment were kept
 - Next frontier: stay on the canonical `settings-section__browserSectionDefault` lane and choose either one stronger shared scene-authority / graph-surface ownership primitive or a deeper scene-level activator / hit-test primitive instead of reopening hidden-input, shell, or row fallback retries on chat.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 054
+
+- Closed one more bounded fallback on the repeated canvas-owned resting-text activator blocker and recorded the result in `perf/reports/frontend/2026-04-20_settings-all-settings-row-body-activator-fallback-blocker-report.md`.
+- Tried a local `ParamContainer` row-body click activator experiment, then reverted it before finishing the iteration after the live runtime evidence showed the DOM-row fallback does not solve the visible retained-graph click path.
+- Focused live Playwright rerun on the current `3068/8068` runtime failed under the temporary experiment:
+  - `frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts` coordinate clicks on the visible chat label area still did not surface inline CodeMirror for `permissionMode`
+  - `frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts` coordinate clicks on the visible shortcuts label area still did not replace the hidden input with the live editor for `advancedSearchShortcut`
+- One direct headless runtime probe showed why the fallback is insufficient on the current renderer path:
+  - chat row rect was only about `8.52px x 11.70px`, the label rect about `6.60px x 2px`, and the hidden input rect only `0.32px` wide
+  - shortcuts row rect was only about `1.20px x 11.70px`, the label rect about `5.40px x 2px`, and the hidden input rect had `width=0`
+  - `document.elementFromPoint(...)` at the chat label-center probe returned `.react-flow__pane`, not the row or label
+  - the shortcuts label-center probe was already offscreen after fit-view normalization
+- Interpretation:
+  - close DOM-row / row-label live click retries as untrustworthy on this lane
+  - do not spend the next automated pass on another `ParamContainer` row `onClick` / `onMouseDown` proxy, another visible-label click replay, or another coordinate click retry against the same hidden DOM anchors
+  - the next frontier is now explicitly a pane-level or scene-level hit-test primitive that can translate visible retained-graph clicks into the intended param row
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.test.tsx tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts`
+    - result: passed during the temporary experiment before the source was reverted
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-006/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts --reporter=line --workers=1`
+    - result: failed under the temporary row-body activator experiment; visible label / coordinate clicks still did not surface inline CodeMirror on either lane, so the source was reverted before finishing the iteration
+- CDP visual check:
+  - not rerun because no source changes from this experiment were kept
+- Next frontier: keep `settings-section__chatSectionDefault` only as the blocker reproduction target and land a pane-level or scene-level canvas-owned resting-text activator / hit-test primitive instead of reopening DOM-row live-click retries.
+LOOP_TERMINAL_MARKER: none
