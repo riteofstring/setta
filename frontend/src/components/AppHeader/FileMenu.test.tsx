@@ -8,7 +8,9 @@ import { FileMenu } from "./FileMenu";
 
 const { useAppSubsystemAppDeploymentModalMock } = vi.hoisted(() => {
   type AppDeploymentModalRegistration = {
-    component: () => null;
+    renderer: {
+      mount: () => void;
+    };
   } | null;
   return {
     useAppSubsystemAppDeploymentModalMock: vi.fn<
@@ -65,7 +67,7 @@ describe("FileMenu", () => {
 
   it("shows the app deployment entry when the app subsystem modal is registered", () => {
     useAppSubsystemAppDeploymentModalMock.mockReturnValue({
-      component: () => null,
+      renderer: { mount: () => undefined },
     });
 
     const markup = renderToStaticMarkup(<FileMenu />);
