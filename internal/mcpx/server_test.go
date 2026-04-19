@@ -9305,13 +9305,12 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	if options.ProjectState == nil {
 		options.ProjectState = projectRuntime
 	}
-	if options.AppDefinitionService == nil && projectRuntime != nil {
-		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
-	}
 	if !options.SkipDefaultAppSubsystemTools &&
-		options.AppDefinitionService != nil &&
+		projectRuntime != nil &&
 		len(options.ContributedToolRegistrations) == 0 {
-		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(options.AppDefinitionService)
+		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime),
+		)
 	}
 	if options.LSPDiagnostics == nil {
 		options.LSPDiagnostics = openScopedTestLSPDiagnosticsRegistry()

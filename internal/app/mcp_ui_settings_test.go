@@ -16,7 +16,9 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
+	"setta/internal/plugins"
 	"setta/internal/realtime"
+	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/wsapi"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
@@ -134,14 +136,19 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	}
 }
 
-func TestAppIDEMCPServerExposesAppUISettingsWhenAppPluginEnabled(t *testing.T) {
+func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	installAppRepoPlugin(t, cfg, "setta-json-render-app-gen")
-	writeEnabledAppPluginState(t, cfg, "setta-json-render-app-gen")
+	installAppRepoPluginAsID(
+		t,
+		cfg,
+		plugins.AppSubsystemPluginID,
+		appsubsystemprovider.PluginID,
+	)
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {

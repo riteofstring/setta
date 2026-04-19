@@ -145,11 +145,10 @@ func newAppDefinitionToolRouteServer(
 	if options.SectionNames == nil && projectRuntime != nil {
 		options.SectionNames = routeSectionNameService{runtime: projectRuntime}
 	}
-	if options.AppDefinitionService == nil && projectRuntime != nil {
-		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
-	}
-	if len(options.ContributedToolRegistrations) == 0 && options.AppDefinitionService != nil {
-		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(options.AppDefinitionService)
+	if len(options.ContributedToolRegistrations) == 0 && projectRuntime != nil {
+		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime),
+		)
 	}
 	server, err := mcpx.NewServer(options)
 	if err != nil {

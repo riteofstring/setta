@@ -7,6 +7,8 @@ import (
 	"setta/internal/httpapi"
 	settamcpx "setta/internal/mcpx"
 	"setta/internal/projectstate"
+	"setta/internal/uisettings"
+	settajsonrenderappgenbackendappuisettings "setta/plugins/setta-json-render-app-gen/backend/appuisettings"
 	settajsonrenderappgenbackendchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
@@ -39,6 +41,17 @@ func (backendProvider) BuildMCPToolRegistrations(
 	}
 	return convertAppSubsystemMCPToolRegistrations(
 		BuildMCPToolRegistrations(NewAppDefinitionService(projectRuntime)),
+	)
+}
+
+func (backendProvider) BuildScopedUISettingEntries(
+	projectRuntime *projectstate.Runtime,
+) ([]uisettings.RuntimeEntry, error) {
+	if projectRuntime == nil {
+		return nil, nil
+	}
+	return settajsonrenderappgenbackendappuisettings.BuildEntries(
+		NewAppDefinitionService(projectRuntime),
 	)
 }
 
