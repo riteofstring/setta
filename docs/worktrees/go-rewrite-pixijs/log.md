@@ -155,6 +155,58 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 054
+
+- Item: Move the dominant untouched `settings-section__shortcuts` text family onto the shared canvas-owned resting-text path.
+- Status: `done`
+- Details:
+  - Started from the fresh post-`Gate Type` dense hotspot evidence instead of reopening any closed `gui`, `backend`, `sectionSizingPolicy`, kwargs, menu-trigger, param-filter, color-input, or state-machine-gate activator lane.
+  - A fresh live inventory showed the next highest-payoff untouched dense family was `settings-section__shortcuts` with `62` non-lightweight `*-ParamInput` roots at rest, far above the next remaining section families.
+  - That made the correct bounded slice a section-family resting-text move on the dominant untouched body/value surface, not another activator cleanup.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__shortcuts` in the shared canvas-owned resting-text lane and gives it lightweight text-underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__shortcuts` directly so the retained scene paints its resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts`
+  - The live structural contract now holds on the dense `All Settings` surface for the shortcuts lane:
+    - canonical target section: `settings-section__shortcuts`
+    - canonical target row: `ParamContainer-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut`
+    - target input id: `settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput`
+    - `sectionPresent: true`
+    - `totalParamInputs: 62`
+    - `canvasOwnedRestingTextCount: 62`
+    - `lightweightRestingTextCount: 62`
+    - `highlightSpanCount: 0`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-shortcuts-resting-text-rerun.md`.
+  - Dense rerun outcome versus the prior post-`Gate Type` hotspot report:
+    - `documentNodeCount`: `8163 -> 7981`
+    - `inputCount`: `2 -> 2`
+    - `buttonCount`: `39 -> 39`
+    - `raf.meanMs`: `100.83 -> 99.34`
+    - `raf.p95Ms`: `183.4 -> 183.4`
+    - `longTasks.totalMs`: `16261 -> 15984`
+  - Interpretation:
+    - this was a real dense mounted row-value reduction, not a reopened activator family hop
+    - the dominant untouched shortcuts text family is now closed at its useful ownership boundary
+    - the next pass should stay on the remaining dense text/value surface instead of reopening any closed activator lane
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-004/worktree-ai.log -- tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.3s)` on the live worktree runtime with `documentNodeCount: 7981`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done:
+  - fresh bootstrap URL used from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__shortcuts"]` was present on the live surface
+  - the target `Advanced Search Shortcut` row resolved to `Mod + P` on the canvas path after an explicit readable viewport override
+  - direct DOM focus on `#settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut-ParamInput` surfaced the inline editor `#CodeMirror-settings-section__shortcuts-settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut` in place with no blank/detached DOM jump observed
+  - caveat: headless CDP still did not produce a clean human-readable resting-row screenshot at that zoom level, so the resting-state confirmation relied partly on DOM-backed row text after the explicit viewport override
+- Next action:
+  - start the next iteration from `perf/reports/frontend/2026-04-19_settings-all-settings-shortcuts-resting-text-rerun.md` and target the next highest-payoff dense text/value surface instead of reopening any closed activator or shortcuts follow-up lane
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 056
 
 - Item: Convert the remaining `settings-section__stateMachineGateSectionDefault` `Gate Type` combobox/search row to the generic canvas-owned resting dropdown path.

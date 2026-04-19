@@ -11,6 +11,7 @@ import {
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
   isCanvasOwnedSectionLightweightColorInput,
@@ -158,9 +159,20 @@ describe("sectionShellCanvasOwnership", () => {
       ),
     ).toBe(true);
     expect(
+      isCanvasOwnedSectionRestingTextSection(
+        SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       }),
     ).toBe(true);
     expect(
@@ -439,10 +451,15 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the section sizing policy dense lane for lightweight text underlines", () => {
+  it("targets the dense resting-text lanes for lightweight text underlines", () => {
     expect(
       isCanvasOwnedSectionLightweightTextUnderline(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(

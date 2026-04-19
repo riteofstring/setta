@@ -5,6 +5,7 @@ import {
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -323,6 +324,36 @@ describe("ParamUI canvas-owned resting text", () => {
         sectionId={SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
         paramInfoId="settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight"
         value="100000"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+      true,
+    );
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+      true,
+    );
+    expect(
+      mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+    ).toContain("opacity-0");
+    expect(markup).toContain('data-canvas-owned-underline="true"');
+    expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+  });
+
+  it("hides shortcuts resting text on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.TextParam,
+      defaultVal: "",
+    };
+
+    const markup = renderToStaticMarkup(
+      <ParamUI
+        sectionId={SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
+        paramInfoId="settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut"
+        value="Mod + P"
         onChange={() => undefined}
       />,
     );

@@ -30,6 +30,7 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
@@ -1422,6 +1423,9 @@ export default function SectionShellBackdropCanvas() {
   const sectionSizingPolicyNode = nodes.get(
     SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
+  const shortcutsNode = nodes.get(
+    SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const stateMachineGateNode = nodes.get(
     STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   );
@@ -1452,6 +1456,12 @@ export default function SectionShellBackdropCanvas() {
       sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       viewportScale,
     });
+  const shortcutsMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: shortcutsNode?.height,
+    nodeWidth: shortcutsNode?.width,
+    sectionId: SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const stateMachineGateMeasurements =
     useCanvasOwnedSectionBackdropMeasurements({
       nodeHeight: stateMachineGateNode?.height,
@@ -1467,6 +1477,7 @@ export default function SectionShellBackdropCanvas() {
         globalVariablesMeasurements,
       [SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         sectionSizingPolicyMeasurements,
+      [SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: shortcutsMeasurements,
       [STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]:
         stateMachineGateMeasurements,
     }),
@@ -1475,6 +1486,7 @@ export default function SectionShellBackdropCanvas() {
       dictMeasurements,
       globalVariablesMeasurements,
       sectionSizingPolicyMeasurements,
+      shortcutsMeasurements,
       stateMachineGateMeasurements,
     ],
   );
