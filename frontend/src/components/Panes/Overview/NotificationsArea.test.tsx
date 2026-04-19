@@ -8,11 +8,11 @@ import {
   useNotifications,
   useProjectState,
 } from "state/definitions";
+import { createAppNotification } from "state/types/notifications";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import {
-  createNotification,
   createProjectConfig,
   NotificationTypeEnum,
 } from "utils/generatedTypes";
@@ -108,10 +108,11 @@ describe("NotificationsArea", () => {
   it("loads notifications through the Go route for the active project", async () => {
     openAPI.getNotifications.mockResolvedValue({
       data: [
-        createNotification({
+        createAppNotification({
           id: "notif-1",
           type: NotificationTypeEnum.warning,
           message: "Save needed",
+          projectConfigId: "project-1",
           timestamp: "2026-03-12T10:00:00Z",
           read_status: false,
           temporary: false,

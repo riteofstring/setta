@@ -1,5 +1,3 @@
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
@@ -164,21 +162,12 @@ function resolveSectionStyleVars(
 function getSectionShellStyle(
   sectionStyleVars: React.CSSProperties | undefined,
   viewportInteractionActive: boolean,
-  canvasOwnedShell: boolean,
 ) {
-  const baseStyle = canvasOwnedShell
-    ? {
-        ...sectionStyleVars,
-        backgroundColor: "transparent",
-        borderColor: "transparent",
-      }
-    : sectionStyleVars;
-
   if (!viewportInteractionActive) {
-    return baseStyle;
+    return sectionStyleVars;
   }
   return {
-    ...baseStyle,
+    ...sectionStyleVars,
     willChange: "transform",
     transform: "translateZ(0)",
     backfaceVisibility: "hidden",
@@ -281,10 +270,6 @@ function _SectionContainerCore({
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const canvasOwnedShell =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionShell(sectionId);
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
@@ -303,7 +288,6 @@ function _SectionContainerCore({
   const sectionShellStyle = getSectionShellStyle(
     sectionStyleVars,
     viewportInteractionActive,
-    canvasOwnedShell,
   );
   const edgeHandleMode = getSectionEdgeHandleMode({
     hideAgenticEdgeHandles,
@@ -319,7 +303,6 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      data-canvas-owned-shell={canvasOwnedShell ? "true" : undefined}
       style={sectionShellStyle}
     >
       <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />

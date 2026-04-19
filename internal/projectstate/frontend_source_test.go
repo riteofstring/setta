@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -188,6 +189,74 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	_, err := document.Normalized()
 	if !errors.Is(err, ErrFrontendPayloadInvalid) {
 		t.Fatalf("expected invalid frontend payload error, got %v", err)
+	}
+}
+
+func TestDocumentNormalizedRejectsNonObjectAppDefinitionDataBindings(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	document.AppDefinition.DataBindings = mustRawJSON(t, `["not","an","object"]`)
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object appDefinition.dataBindings to fail normalization")
+	}
+	if !strings.Contains(err.Error(), "appDefinition.dataBindings") {
+		t.Fatalf("expected appDefinition.dataBindings error, got %v", err)
+	}
+}
+
+func TestDocumentNormalizedRejectsNonObjectAppDefinitionActions(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	document.AppDefinition.Actions = mustRawJSON(t, `["not","an","object"]`)
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object appDefinition.actions to fail normalization")
+	}
+	if !strings.Contains(err.Error(), "appDefinition.actions") {
+		t.Fatalf("expected appDefinition.actions error, got %v", err)
+	}
+}
+
+func TestDocumentNormalizedRejectsNonObjectSectionSharedModifier(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	project := document.Projects["project-alpha"]
+	section := project.Sections["section-main"]
+	section.SharedModifier = mustRawJSON(t, `["not","an","object"]`)
+	project.Sections["section-main"] = section
+	document.Projects["project-alpha"] = project
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object section sharedModifier to fail normalization")
+	}
+	if !strings.Contains(err.Error(), `section "section-main" sharedModifier`) {
+		t.Fatalf("expected section sharedModifier error, got %v", err)
+	}
+}
+
+func TestDocumentNormalizedRejectsNonObjectSectionVariantModifier(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	project := document.Projects["project-alpha"]
+	variant := project.SectionVariants["variant-main"]
+	variant.Modifier = mustRawJSON(t, `["not","an","object"]`)
+	project.SectionVariants["variant-main"] = variant
+	document.Projects["project-alpha"] = project
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object section variant modifier to fail normalization")
+	}
+	if !strings.Contains(err.Error(), `section variant "variant-main" modifier`) {
+		t.Fatalf("expected section variant modifier error, got %v", err)
 	}
 }
 
