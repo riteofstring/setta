@@ -11,7 +11,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appspec"
-	"setta/internal/appsubsystemproviders/builtin/appdefinitionhttp"
 	"setta/internal/chatattachments"
 	"setta/internal/config"
 	"setta/internal/modes"
@@ -802,14 +801,6 @@ func TestSettaOpenAPISchemaNameUsesPluginOwnedAppschemaPrefixes(t *testing.T) {
 		typ  reflect.Type
 		want string
 	}{
-		{
-			typ:  reflect.TypeOf(appdefinitionhttp.SetAppDefinitionRequest{}),
-			want: "AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest",
-		},
-		{
-			typ:  reflect.TypeOf(appdefinitionhttp.ValidateAppDefinitionRequest{}),
-			want: "AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest",
-		},
 		{
 			typ:  reflect.TypeOf(appspec.AppCapabilities{}),
 			want: "AppsubsystemAppspecAppCapabilities",
