@@ -13,7 +13,6 @@ import {
   resolveAuthoritativeContextTelemetry,
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
-import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystemRuntime";
 import {
   getRunInputString,
   getRunLastUpdatedMs,
@@ -44,6 +43,7 @@ import {
 } from "utils/conversationSearch";
 import {
   AgentRun,
+  AppGenerationModeEnum,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -64,8 +64,6 @@ export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
   "Custom slash commands are unavailable until native command authority is loaded for this project.";
 export const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
-export const HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE =
-  'This turn used app generation. Enable the first-party plugin "setta-json-render-app-gen" to edit or replay it.';
 
 export type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
@@ -109,19 +107,6 @@ export function getProjectChatBlockedReasonMessage(
     return "This thread's saved LLM config is unavailable. You can continue chatting after choosing any valid model.";
   }
   return "This thread hit a terminal hydration error. You can still continue chatting from the current state.";
-}
-
-export function getHistoricalAppGenerationEditReplayBlockedReason({
-  messageState,
-  replaySupported,
-}: {
-  messageState: ChatAppGenerationMessageState | null | undefined;
-  replaySupported: boolean;
-}): string | null {
-  if (messageState?.mode == null || replaySupported) {
-    return null;
-  }
-  return HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
 }
 
 export function buildProjectChatHydrationCacheKey({
@@ -266,7 +251,6 @@ function appendUniqueSlashCommands({
 
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
-  appGenerationSlashCommands = [],
   discoveredAgentNativeSlashCommands,
   executableAgentNativeSlashCommands = discoveredAgentNativeSlashCommands,
   customCommandsExecutable = true,
@@ -275,7 +259,6 @@ export function resolveProjectChatComposerSlashCommandSets({
   showSearchExecutionControl,
 }: {
   customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
-  appGenerationSlashCommands?: ChatSlashCommandDefinition[];
   discoveredAgentNativeSlashCommands: string[];
   executableAgentNativeSlashCommands?: string[];
   customCommandsExecutable?: boolean;
@@ -290,13 +273,13 @@ export function resolveProjectChatComposerSlashCommandSets({
     model: true,
     permissions: showPermissionExecutionControl,
     search: showSearchExecutionControl,
-    appGenerationCommands: appGenerationSlashCommands,
+    appGenerationModes: true,
   });
   const globallyReservedManagedCommands = buildChatSlashCommands({
     model: true,
     permissions: true,
     search: true,
-    appGenerationCommands: appGenerationSlashCommands,
+    appGenerationModes: true,
   });
   const customCommandDefinitions = buildCustomPromptSlashCommandDefinitions(
     customProjectChatSlashCommands,
@@ -859,9 +842,7 @@ function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
   return [];
 }
 
-export function extractUserPromptText(
-  message: BaseChatMessageUnion,
-): string | null {
+function extractUserPromptText(message: BaseChatMessageUnion): string | null {
   if (message.role !== ChatRoleEnum.user) {
     return null;
   }
@@ -892,7 +873,7 @@ export function extractUserPromptText(
   return textParts.join("\n");
 }
 
-export function getMessageAttachments(
+function getMessageAttachments(
   message: BaseChatMessageUnion,
 ): Array<ChatFileAttachment> {
   if ("attachments" in message && Array.isArray(message.attachments)) {
@@ -910,9 +891,8 @@ export function hasRetainedImageAttachmentFromImageModeThread(
       return false;
     }
     if (
-      !appSubsystemModeRequiresImageAttachment(
-        appGenerationByMessageId[message.id]?.mode,
-      )
+      appGenerationByMessageId[message.id]?.mode !==
+      AppGenerationModeEnum.json_render_with_image
     ) {
       return false;
     }

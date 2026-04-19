@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 )
 
@@ -501,6 +502,21 @@ func (r *Runtime) HasDeploymentListenerHandle(sessionID string, projectID string
 	defer r.listener.mu.Unlock()
 	_, ok := r.listener.handles[key]
 	return ok
+}
+
+func (r *Runtime) LoadAppSpec(appDefinition *projectstate.AppDefinition) (any, error) {
+	if r == nil {
+		return nil, ErrRuntimeRequired
+	}
+	if appDefinition == nil {
+		return nil, nil
+	}
+
+	appSpecPath := strings.TrimSpace(appDefinition.AppSpecPath)
+	if appSpecPath == "" {
+		return nil, nil
+	}
+	return appspec.Read(r.paths.DeploymentRoot, appSpecPath)
 }
 
 func (r *Runtime) SessionRunCount(sessionID string) (int, error) {

@@ -148,32 +148,6 @@ func TestWalkInternalPackagePathsSkipsHiddenAndTestdata(t *testing.T) {
 	}
 }
 
-func TestWalkPackagePathsIncludesPluginPackagesForFrontendValueDiscovery(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "alpha"), "alpha.go")
-	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "plugins", "setta-json-render-app-gen", "backend"), "frontend_value_exports.go")
-
-	packages, err := walkPackagePaths(
-		repoRoot,
-		filepath.Join(repoRoot, "internal"),
-		filepath.Join(repoRoot, "plugins"),
-	)
-	if err != nil {
-		t.Fatalf("walk package paths: %v", err)
-	}
-	if !reflect.DeepEqual(
-		packages,
-		[]string{
-			"setta/internal/alpha",
-			"setta/plugins/setta-json-render-app-gen/backend",
-		},
-	) {
-		t.Fatalf("unexpected package paths %#v", packages)
-	}
-}
-
 func writeGeneratorPackageFile(t *testing.T, dir string, name string) {
 	t.Helper()
 
