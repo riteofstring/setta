@@ -58,7 +58,7 @@ func buildProjectFrontendRouteContributions(
 func buildDeploymentFrontendRouteContributions(
 	options FrontendRouteRegistrationOptions,
 ) []httpapi.FrontendAPIRouteContribution {
-	appDeploymentIDE := httpapi.AppDeploymentIDERouteDependencies{
+	appDeploymentIDE := AppDeploymentIDERouteDependencies{
 		ModePolicy:   options.API.ShareDeploymentIDE.ModePolicy,
 		ProjectState: options.API.ShareDeploymentIDE.ProjectState,
 		Catalog:      options.API.ShareDeploymentIDE.Catalog,
@@ -74,7 +74,7 @@ func buildDeploymentFrontendRouteContributions(
 		{
 			Family: "app deployment ide",
 			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppDeploymentIDERoutes(router, appDeploymentIDE)
+				return RegisterAppDeploymentIDERoutes(router, appDeploymentIDE)
 			},
 		},
 	}

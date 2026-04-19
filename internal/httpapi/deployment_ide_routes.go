@@ -27,13 +27,6 @@ type ShareDeploymentIDERouteDependencies struct {
 	SharePublisher deployments.SharePublishService
 }
 
-type AppDeploymentIDERouteDependencies struct {
-	ModePolicy   modes.Policy
-	ProjectState *projectstate.Runtime
-	Catalog      *deployments.Catalog
-	AppPublisher deployments.AppPublishService
-}
-
 type DeploymentMetadataResponse struct {
 	DeploymentName     string    `json:"deploymentName"`
 	DeploymentVersion  string    `json:"deploymentVersion"`
@@ -50,14 +43,6 @@ type PublishShareDeploymentRequest struct {
 	SharePolicyOverrides *deployments.SharePolicyOverrides `json:"sharePolicyOverrides"`
 	ListenerEntrypoint   string                            `json:"listenerEntrypoint"`
 	ListenerEnabled      *bool                             `json:"listenerEnabled"`
-}
-
-type PublishAppDeploymentRequest struct {
-	DeploymentName     string                          `json:"deploymentName"`
-	ProjectConfigID    string                          `json:"projectConfigId"`
-	AppPolicyOverrides *deployments.AppPolicyOverrides `json:"appPolicyOverrides"`
-	ListenerEntrypoint string                          `json:"listenerEntrypoint"`
-	ListenerEnabled    *bool                           `json:"listenerEnabled"`
 }
 
 func RegisterShareDeploymentIDERoutes(
@@ -113,59 +98,6 @@ func RegisterShareDeploymentIDERoutes(
 	return nil
 }
 
-func RegisterAppDeploymentIDERoutes(
-	router chi.Router,
-	deps AppDeploymentIDERouteDependencies,
-) error {
-	if err := validateAppDeploymentIDERouteDependencies(router, deps); err != nil {
-		return err
-	}
-	if !deps.ModePolicy.IsIDE() {
-		return nil
-	}
-
-	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
-	registerOpenAPIGet[[]DeploymentMetadataResponse](
-		ideRouter,
-		"listAppDeployments",
-		RouteAppDeployments,
-		listDeploymentMetadataHandler(deps.Catalog, deployments.TypeApp),
-		withOpenAPITags("App Deployments"),
-		withOpenAPISummary("List published app deployments."),
-		withOpenAPIModeRequirement("ide"),
-	)
-	registerOpenAPIGet[[]DeploymentMetadataResponse](
-		ideRouter,
-		"listAppDeploymentVersions",
-		RouteAppDeploymentVersions,
-		listDeploymentVersionMetadataHandler(deps.Catalog, deployments.TypeApp),
-		withOpenAPITags("App Deployments"),
-		withOpenAPISummary("List published versions for an app deployment."),
-		withOpenAPIPathParams[deploymentNameRouteParams](),
-		withOpenAPIModeRequirement("ide"),
-	)
-	registerOpenAPIGet[DeploymentMetadataResponse](
-		ideRouter,
-		"getAppDeploymentLatest",
-		RouteAppDeploymentLatest,
-		latestDeploymentMetadataHandler(deps.Catalog, deployments.TypeApp),
-		withOpenAPITags("App Deployments"),
-		withOpenAPISummary("Get the latest published version for an app deployment."),
-		withOpenAPIPathParams[deploymentNameRouteParams](),
-		withOpenAPIModeRequirement("ide"),
-	)
-	registerOpenAPIPost[PublishAppDeploymentRequest, DeploymentMetadataResponse](
-		ideRouter,
-		"publishAppDeployment",
-		RouteAppDeployments,
-		publishAppDeploymentHandler(deps.ProjectState, deps.AppPublisher),
-		withOpenAPITags("App Deployments"),
-		withOpenAPISummary("Publish the current project config as an app deployment."),
-		withOpenAPIModeRequirement("ide"),
-	)
-	return nil
-}
-
 func validateShareDeploymentIDERouteDependencies(
 	router chi.Router,
 	deps ShareDeploymentIDERouteDependencies,
@@ -180,22 +112,6 @@ func validateShareDeploymentIDERouteDependencies(
 		return err
 	}
 	return validateShareDeploymentIDEPublisherDependencies(deps, documentOnly)
-}
-
-func validateAppDeploymentIDERouteDependencies(
-	router chi.Router,
-	deps AppDeploymentIDERouteDependencies,
-) error {
-	documentOnly, err := validateDeploymentIDEBaseDependencies(
-		router,
-		deps.ModePolicy,
-		deps.ProjectState,
-		deps.Catalog,
-	)
-	if err != nil || !deps.ModePolicy.IsIDE() {
-		return err
-	}
-	return validateAppDeploymentIDEPublisherDependencies(deps, documentOnly)
 }
 
 func validateDeploymentIDEBaseDependencies(
@@ -226,16 +142,6 @@ func validateShareDeploymentIDEPublisherDependencies(
 ) error {
 	if deps.SharePublisher == nil && !documentOnly {
 		return fmt.Errorf("share deployment publisher is required in ide mode")
-	}
-	return nil
-}
-
-func validateAppDeploymentIDEPublisherDependencies(
-	deps AppDeploymentIDERouteDependencies,
-	documentOnly bool,
-) error {
-	if deps.AppPublisher == nil && !documentOnly {
-		return fmt.Errorf("app deployment publisher is required in ide mode")
 	}
 	return nil
 }
@@ -309,40 +215,6 @@ func publishShareDeploymentHandler(
 	}
 }
 
-func publishAppDeploymentHandler(
-	projectState *projectstate.Runtime,
-	publisher deployments.AppPublishService,
-) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeStrictJSONBody[PublishAppDeploymentRequest](r)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
-			return
-		}
-
-		projectConfigID := strings.TrimSpace(payload.ProjectConfigID)
-		if projectConfigID == "" {
-			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
-			return
-		}
-
-		result, err := publisher.Publish(r.Context(), deployments.AppPublishRequest{
-			ProjectState:       projectState,
-			ProjectID:          projectConfigID,
-			DeploymentName:     payload.DeploymentName,
-			PolicyOverrides:    payload.AppPolicyOverrides,
-			ListenerEntrypoint: strings.TrimSpace(payload.ListenerEntrypoint),
-			ListenerEnabled:    listenerEnabledOrDefault(payload.ListenerEnabled),
-		})
-		if err != nil {
-			handleDeploymentPublishError(w, r, err)
-			return
-		}
-
-		writeJSON(w, http.StatusOK, deploymentMetadataResponseFromMetadata(result.Metadata))
-	}
-}
-
 func deploymentMetadataResponses(entries []deployments.Metadata) []DeploymentMetadataResponse {
 	responses := make([]DeploymentMetadataResponse, 0, len(entries))
 	for _, entry := range entries {
@@ -397,14 +269,6 @@ func handleDeploymentPublishError(w http.ResponseWriter, r *http.Request, err er
 		writeError(w, r, http.StatusBadRequest, "invalid_deployment_name", err.Error())
 	case errors.Is(err, deployments.ErrDeploymentRunSnapshotModeNeverDenied), errors.Is(err, deployments.ErrPolicyRunSnapshotModeInvalid):
 		writeError(w, r, http.StatusBadRequest, "invalid_deployment_policy", err.Error())
-	case errors.Is(err, deployments.ErrAppPublishAppDefinitionMissing):
-		writeError(w, r, http.StatusBadRequest, "app_definition_required", err.Error())
-	case errors.Is(err, deployments.ErrAppPublishAppSpecPathRequired):
-		writeError(w, r, http.StatusBadRequest, "app_spec_path_required", err.Error())
-	case errors.Is(err, deployments.ErrAppPublishAppSpecNotFound):
-		writeError(w, r, http.StatusBadRequest, "app_spec_not_found", err.Error())
-	case errors.Is(err, deployments.ErrAppPublishAppSpecInvalid):
-		writeError(w, r, http.StatusBadRequest, "invalid_app_spec", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
