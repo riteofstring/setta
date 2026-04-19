@@ -115,11 +115,7 @@ func (r *Runtime) persistSnapshotDeferred(ctx context.Context, snapshot Snapshot
 	return r.persistSnapshotSerialized(ctx, snapshot, true)
 }
 
-func (r *Runtime) persistSnapshotSerialized(
-	ctx context.Context,
-	snapshot Snapshot,
-	deferred bool,
-) error {
+func (r *Runtime) persistSnapshotSerialized(ctx context.Context, snapshot Snapshot, deferred bool) error {
 	if r.savePolicy != SavePolicyPersist || r.saveFn == nil {
 		return nil
 	}
@@ -134,39 +130,26 @@ func (r *Runtime) persistSnapshotSerialized(
 	}
 	r.persistStateMu.Unlock()
 
-	return r.recordPersistSnapshotResult(snapshot, deferred, r.persistSnapshot(ctx, snapshot))
-}
+	err := r.persistSnapshot(ctx, snapshot)
 
-func (r *Runtime) recordPersistSnapshotResult(
-	snapshot Snapshot,
-	deferred bool,
-	err error,
-) error {
 	r.persistStateMu.Lock()
 	defer r.persistStateMu.Unlock()
 
-	if persistSnapshotErrorCommitted(err) && snapshot.Revision > r.persistedRevision {
-		r.persistedRevision = snapshot.Revision
+	if err == nil {
+		if snapshot.Revision > r.persistedRevision {
+			r.persistedRevision = snapshot.Revision
+		}
+		if snapshot.Revision >= r.deferredPersistErrVersion {
+			r.deferredPersistErr = nil
+			r.deferredPersistErrVersion = 0
+		}
+		return nil
 	}
-	switch {
-	case err == nil:
-		r.clearDeferredPersistErrorLocked(snapshot.Revision)
-	case deferred:
+	if deferred {
 		r.deferredPersistErr = err
 		r.deferredPersistErrVersion = snapshot.Revision
-	case snapshot.Revision >= r.deferredPersistErrVersion &&
-		persistSnapshotErrorCommitted(err):
-		r.clearDeferredPersistErrorLocked(snapshot.Revision)
 	}
 	return err
-}
-
-func (r *Runtime) clearDeferredPersistErrorLocked(revision uint64) {
-	if revision < r.deferredPersistErrVersion {
-		return
-	}
-	r.deferredPersistErr = nil
-	r.deferredPersistErrVersion = 0
 }
 
 func (r *Runtime) deferredPersistError() error {

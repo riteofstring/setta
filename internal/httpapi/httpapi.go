@@ -616,10 +616,6 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
-func WriteJSON(w http.ResponseWriter, status int, payload any) {
-	writeJSON(w, status, payload)
-}
-
 func writeError(w http.ResponseWriter, r *http.Request, status int, code string, message string) {
 	writeJSON(w, status, errorResponse{
 		Error: errorDetail{
@@ -630,16 +626,8 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 	})
 }
 
-func WriteError(w http.ResponseWriter, r *http.Request, status int, code string, message string) {
-	writeError(w, r, status, code, message)
-}
-
 func writeDetail(w http.ResponseWriter, status int, detail any) {
 	writeJSON(w, status, map[string]any{"detail": detail})
-}
-
-func WriteDetail(w http.ResponseWriter, status int, detail any) {
-	writeDetail(w, status, detail)
 }
 
 func writeValidationError(w http.ResponseWriter, status int, message string) {
@@ -648,10 +636,6 @@ func writeValidationError(w http.ResponseWriter, status int, message string) {
 		Message:    message,
 		Data:       nil,
 	})
-}
-
-func WriteValidationError(w http.ResponseWriter, status int, message string) {
-	writeValidationError(w, status, message)
 }
 
 type rawJSONBodyContextKey struct{}
@@ -679,10 +663,6 @@ func decodeJSONBody[T any](r *http.Request) (T, error) {
 		return payload, err
 	}
 	return payload, nil
-}
-
-func DecodeJSONBody[T any](r *http.Request) (T, error) {
-	return decodeJSONBody[T](r)
 }
 
 func rawJSONBodyFromRequest(r *http.Request) []byte {

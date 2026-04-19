@@ -136,7 +136,6 @@ cd "${repo_root}"
 
 declare -a python_files=()
 declare -a frontend_eslint_files=()
-declare -a frontend_boundary_files=()
 declare -a go_files=()
 declare -a go_packages=()
 
@@ -148,7 +147,6 @@ while IFS= read -r file_path; do
     python_files+=("${file_path}")
   fi
   if quality_is_frontend_candidate "${file_path}"; then
-    frontend_boundary_files+=("${file_path}")
     frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
   fi
   if quality_is_go_candidate "${file_path}"; then
@@ -182,12 +180,10 @@ fi
 if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
   echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
   pnpm -C frontend exec eslint \
-    --no-warn-ignored \
     --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
     --rule 'max-depth:["error",4]' \
     --rule 'max-params:["error",5]' \
     -- "${frontend_eslint_files[@]}" || status=1
-  node ./frontend/scripts/check_import_boundaries.mjs -- "${frontend_boundary_files[@]}" || status=1
 fi
 
 if [[ ${#go_files[@]} -gt 0 ]]; then

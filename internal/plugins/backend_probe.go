@@ -506,16 +506,14 @@ func normalizeBackendLanguageServerRegistration(pluginRoot string, pluginID stri
 		return PluginRegisteredLanguageServer{}, err
 	}
 	settingsKey := normalizeBackendLanguageServerSettingsKey(registration.SettingsKey)
-	runtimeSearchPathsKey := normalizeBackendLanguageServerSettingsKey(registration.RuntimeSearchPathsKey)
 
 	return PluginRegisteredLanguageServer{
-		PluginID:              strings.TrimSpace(pluginID),
-		Name:                  name,
-		Language:              language,
-		Command:               command,
-		Args:                  append([]string(nil), args...),
-		SettingsKey:           cloneOptionalString(settingsKey),
-		RuntimeSearchPathsKey: cloneOptionalString(runtimeSearchPathsKey),
+		PluginID:    strings.TrimSpace(pluginID),
+		Name:        name,
+		Language:    language,
+		Command:     command,
+		Args:        append([]string(nil), args...),
+		SettingsKey: cloneOptionalString(settingsKey),
 	}, nil
 }
 
@@ -614,9 +612,6 @@ func ensureSinglePluginLanguageServerImplementation(registrations []PluginRegist
 			return fmt.Errorf("language servers must share one implementation per plugin")
 		}
 		if !optionalStringsEqual(baseline.SettingsKey, registration.SettingsKey) {
-			return fmt.Errorf("language servers must share one implementation per plugin")
-		}
-		if !optionalStringsEqual(baseline.RuntimeSearchPathsKey, registration.RuntimeSearchPathsKey) {
 			return fmt.Errorf("language servers must share one implementation per plugin")
 		}
 	}

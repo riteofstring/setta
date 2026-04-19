@@ -4,12 +4,6 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
-import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
-import {
-  AppSubsystemRendererHost,
-  EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
-} from "plugins/appSubsystemRendererHost";
 import {
   usePluginPaneTabs,
   type PluginPaneIconName,
@@ -35,7 +29,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { resetProjectStores } from "state/utils";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   APP_MENU_Z_INDEX_CLASS_NAME,
@@ -55,6 +48,7 @@ import {
   TabButton,
 } from "../paneFns";
 import { getPaneMinimumWidth } from "../paneLayout";
+import { AppConfigPane } from "./App/AppConfigPane";
 import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
@@ -114,15 +108,19 @@ const OVERVIEW_TAB_CONTENT = {
     />
   ),
   [OverviewTabNameEnum.Git]: () => <GitPane />,
+  [OverviewTabNameEnum.App]: () => <AppConfigPane />,
   [OverviewTabNameEnum.RunInstructions]: () => <RunInstructions />,
   [OverviewTabNameEnum.ViewModes]: () => <ViewingEditingMode />,
   [OverviewTabNameEnum.Notifications]: () => <NotificationsArea />,
   [OverviewTabNameEnum.ProjectAIChat]: () => <ProjectChat />,
   [OverviewTabNameEnum.ProjectAISettings]: () => <ProjectAISettings />,
-} as const satisfies Record<
-  Exclude<OverviewTabName, typeof OverviewTabNameEnum.App>,
-  () => ReactElement
->;
+} as const satisfies Record<OverviewTabName, () => ReactElement>;
+const JSON_RENDER_OVERVIEW_QUICK_INFO = {
+  title:
+    "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
+  moreMenu:
+    "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
+};
 
 type OverviewAvailability = {
   showFileBrowserTab: boolean;
@@ -170,7 +168,6 @@ export function Overview() {
     width: x.overviewWidth,
   }));
   const pluginPaneTabs = usePluginPaneTabs();
-  const appOverviewTab = useAppSubsystemOverviewTab();
   const pluginPaneTabByKey = useMemo(() => {
     const values: Record<string, PluginPaneTabEntry> = {};
     for (const pluginPaneTab of pluginPaneTabs) {
@@ -182,11 +179,7 @@ export function Overview() {
     isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
-  const availability = getOverviewAvailability(
-    isDeploymentMode,
-    allowLLM,
-    appOverviewTab !== null,
-  );
+  const availability = getOverviewAvailability(isDeploymentMode, allowLLM);
   const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
   const effectiveTabName = resolveEffectiveOverviewTabName(
     selectedTabName,
@@ -217,7 +210,6 @@ export function Overview() {
       <OverviewRail
         commonProps={commonProps}
         pluginPaneTabs={pluginPaneTabs}
-        appOverviewTab={appOverviewTab}
         availability={availability}
         vis={vis}
         effectiveTabName={effectiveTabName}
@@ -237,7 +229,6 @@ export function Overview() {
           <TabsVisible
             selectedTabName={effectiveTabName}
             selectedPluginPaneTab={effectivePluginPaneTab}
-            appOverviewTab={appOverviewTab}
           />
         )}
       </PaneContainer>
@@ -248,15 +239,14 @@ export function Overview() {
 function getOverviewAvailability(
   isDeploymentMode: boolean,
   allowLLM: boolean,
-  hasAppOverviewTab: boolean,
 ): OverviewAvailability {
   const showAuthoringTabs = !isDeploymentMode;
   return {
     showFileBrowserTab: showAuthoringTabs,
     showGitTab: showAuthoringTabs,
-    showAppTab: showAuthoringTabs && hasAppOverviewTab,
+    showAppTab: showAuthoringTabs,
     showLLMTabs: showAuthoringTabs || allowLLM,
-    showMoreAppTab: showAuthoringTabs && hasAppOverviewTab,
+    showMoreAppTab: showAuthoringTabs,
   };
 }
 
@@ -387,7 +377,6 @@ function buildOverviewRailTabs(
 
 function buildOverviewMoreMenuItems(
   showMoreAppTab: boolean,
-  appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null,
 ): OverviewMoreMenuItem[] {
   const items: OverviewMoreMenuItem[] = [
     {
@@ -401,11 +390,11 @@ function buildOverviewMoreMenuItems(
       ),
     },
   ];
-  if (showMoreAppTab && appOverviewTab) {
+  if (showMoreAppTab) {
     items.push({
       key: OverviewTabNameEnum.App,
       tabName: OverviewTabNameEnum.App,
-      label: appOverviewTab.moreMenuLabel,
+      label: "JSON Render",
       icon: (
         <i className="w-3 opacity-80">
           <TbLayoutDashboard />
@@ -441,7 +430,6 @@ function getMoreMenuButtonClasses(
 function OverviewRail({
   commonProps,
   pluginPaneTabs,
-  appOverviewTab,
   availability,
   vis,
   effectiveTabName,
@@ -450,7 +438,6 @@ function OverviewRail({
 }: {
   commonProps: OverviewTabButtonCommonProps;
   pluginPaneTabs: PluginPaneTabEntry[];
-  appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null;
   availability: OverviewAvailability;
   vis: boolean;
   effectiveTabName: OverviewTabKey;
@@ -462,16 +449,11 @@ function OverviewRail({
     availability,
     hasUnreadHighSeverityBackendLogs,
   );
-  const moreMenuItems = buildOverviewMoreMenuItems(
-    availability.showMoreAppTab,
-    appOverviewTab,
-  );
+  const moreMenuItems = buildOverviewMoreMenuItems(availability.showMoreAppTab);
   const moreMenuItemClasses =
     "mx-1 flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs text-setta-700 hover:bg-setta-600 hover:text-white active:bg-blue-100 dark:text-setta-200 dark:hover:bg-setta-900 dark:hover:text-white active:dark:bg-blue-950";
   const isAppMoreMenuTitle =
-    vis &&
-    effectiveTabName === OverviewTabNameEnum.App &&
-    appOverviewTab !== null;
+    vis && effectiveTabName === OverviewTabNameEnum.App;
 
   return (
     <div
@@ -501,7 +483,9 @@ function OverviewRail({
               data-testid="overview-tab-more"
               aria-label="More"
               title={
-                isAppMoreMenuTitle ? appOverviewTab?.moreMenuQuickInfo : "More"
+                isAppMoreMenuTitle
+                  ? JSON_RENDER_OVERVIEW_QUICK_INFO.moreMenu
+                  : "More"
               }
               {...getFloatingBoxHandlers({ content: "More" })}
             >
@@ -540,19 +524,17 @@ function OverviewRail({
 function TabsVisible({
   selectedTabName,
   selectedPluginPaneTab,
-  appOverviewTab,
 }: {
   selectedTabName: OverviewTabKey;
   selectedPluginPaneTab: PluginPaneTabEntry | null;
-  appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null;
 }) {
   const title = selectedPluginPaneTab
     ? selectedPluginPaneTab.title
     : resolveOverviewTitle(selectedTabName);
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   const titleQuickInfo =
-    selectedTabName === OverviewTabNameEnum.App && appOverviewTab
-      ? appOverviewTab.titleQuickInfo
+    selectedTabName === OverviewTabNameEnum.App
+      ? JSON_RENDER_OVERVIEW_QUICK_INFO.title
       : undefined;
   return (
     <div
@@ -583,7 +565,6 @@ function TabsVisible({
       <TabContent
         selectedTabName={selectedTabName}
         selectedPluginPaneTab={selectedPluginPaneTab}
-        appOverviewTab={appOverviewTab}
       />
     </div>
   );
@@ -592,19 +573,10 @@ function TabsVisible({
 function TabContent({
   selectedTabName,
   selectedPluginPaneTab,
-  appOverviewTab,
 }: {
   selectedTabName: OverviewTabKey;
   selectedPluginPaneTab: PluginPaneTabEntry | null;
-  appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null;
 }) {
-  const appSubsystemHost = useMemo(
-    () =>
-      createRuntimeAppSubsystemFrontendHost({
-        resetProjectRuntimeState: resetProjectStores,
-      }),
-    [],
-  );
   if (selectedPluginPaneTab) {
     return (
       <PluginOverviewPane
@@ -613,20 +585,7 @@ function TabContent({
       />
     );
   }
-  if (selectedTabName === OverviewTabNameEnum.App && appOverviewTab) {
-    return (
-      <AppSubsystemRendererHost
-        renderer={appOverviewTab.renderer}
-        props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
-        host={appSubsystemHost}
-        className="h-full min-h-0 w-full"
-        testId="app-subsystem-overview-tab"
-      />
-    );
-  }
-  return OVERVIEW_TAB_CONTENT[
-    getOverviewBaseTabName(selectedTabName) as keyof typeof OVERVIEW_TAB_CONTENT
-  ]();
+  return OVERVIEW_TAB_CONTENT[getOverviewBaseTabName(selectedTabName)]();
 }
 
 function resolveOverviewTitle(selectedTabName: OverviewTabKey): string {

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
-	"setta/internal/appsubsystem"
 	"setta/internal/artifacts"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
@@ -73,46 +71,6 @@ func TestAppOpensDeploymentRuntimeForShareMode(t *testing.T) {
 	}
 	if !app.shareSessions.HasSession("share-a") {
 		t.Fatal("expected share-session store to expose created deployment session")
-	}
-}
-
-func TestAppOpensDeploymentRuntimeForAppMode(t *testing.T) {
-	t.Parallel()
-
-	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
-	enableAppDeploymentRuntimePlugin(t, cfg.Paths.DeploymentRoot)
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if app.deployment == nil {
-		t.Fatal("expected deployment runtime in app mode")
-	}
-	if app.deployment.Manifest().DeploymentType != deployments.TypeApp {
-		t.Fatalf("expected app deployment manifest type, got %q", app.deployment.Manifest().DeploymentType)
-	}
-	if app.shareSessions == nil {
-		t.Fatal("expected app mode to expose deployment-backed share sessions")
-	}
-}
-
-func TestAppRejectsAppModeWithoutAppSubsystemProvider(t *testing.T) {
-	t.Parallel()
-
-	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
-	_, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
-		t.Fatalf("expected app mode provider-required error, got %v", err)
-	}
-	expectedErr := "app mode requires a single active app subsystem provider with app deployment runtime support: no app subsystem provider is active"
-	if err == nil || err.Error() != expectedErr {
-		t.Fatalf("expected exact app mode provider-required error %q, got %v", expectedErr, err)
 	}
 }
 
@@ -445,7 +403,7 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 
 	deploymentRoot := t.TempDir()
 	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
-	writeAppDeploymentFixture(t, deploymentRoot, deployments.TypeShare)
+	writeAppDeploymentFixture(t, deploymentRoot)
 
 	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
 	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
@@ -595,26 +553,13 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 
 func testDeploymentConfig(t *testing.T, mode config.Mode) config.Config {
 	t.Helper()
-	return testDeploymentConfigWithType(t, mode, deployments.TypeShare)
-}
-
-func testDeploymentConfigWithType(
-	t *testing.T,
-	mode config.Mode,
-	deploymentType deployments.Type,
-) config.Config {
-	t.Helper()
 
 	tmpDir := t.TempDir()
 	workspaceRoot := filepath.Join(tmpDir, "workspace")
 	settaHome := filepath.Join(tmpDir, ".setta")
 	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
-	deploymentName := "demo-share"
-	if deploymentType == deployments.TypeApp {
-		deploymentName = "demo-app"
-	}
-	deploymentRoot := filepath.Join(tmpDir, "deployments", deploymentName, "v2")
-	runtimeRoot := filepath.Join(tmpDir, "deployment_runtime", deploymentName, "v2")
+	deploymentRoot := filepath.Join(tmpDir, "deployments", "demo-share", "v2")
+	runtimeRoot := filepath.Join(tmpDir, "deployment_runtime", "demo-share", "v2")
 
 	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
 		t.Fatalf("mkdir workspace: %v", err)
@@ -623,7 +568,7 @@ func testDeploymentConfigWithType(
 		t.Fatalf("mkdir setta home: %v", err)
 	}
 
-	writeAppDeploymentFixture(t, deploymentRoot, deploymentType)
+	writeAppDeploymentFixture(t, deploymentRoot)
 
 	return config.Config{
 		Server: config.Server{
@@ -646,17 +591,9 @@ func testDeploymentConfigWithType(
 	}
 }
 
-func writeAppDeploymentFixture(
-	t *testing.T,
-	deploymentRoot string,
-	deploymentType deployments.Type,
-) {
+func writeAppDeploymentFixture(t *testing.T, deploymentRoot string) {
 	t.Helper()
 
-	deploymentName := "demo-share"
-	if deploymentType == deployments.TypeApp {
-		deploymentName = "demo-app"
-	}
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-beta",
@@ -674,43 +611,13 @@ func writeAppDeploymentFixture(
 	writeAppProjectDocument(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
 	writeAppJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
 		"version":                1,
-		"deploymentName":         deploymentName,
-		"deploymentType":         deploymentType,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
 		"defaultProjectConfigId": "project-alpha",
 		"deploymentVersion":      "v2",
 	})
 	writeAppJSON(t, filepath.Join(deploymentRoot, "policy.json"), map[string]any{
 		"allowRun": true,
-	})
-}
-
-func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string) {
-	t.Helper()
-
-	enableAppDeploymentRuntimePluginWithID(
-		t,
-		deploymentRoot,
-		plugins.AppSubsystemPluginID,
-		plugins.AppSubsystemPluginID,
-	)
-}
-
-func enableAppDeploymentRuntimePluginWithID(
-	t *testing.T,
-	deploymentRoot string,
-	sourcePluginID string,
-	targetPluginID string,
-) {
-	t.Helper()
-
-	repoRoot := appTestRepoRoot(t)
-	pluginRoot := filepath.Join(deploymentRoot, ".setta_plugins", targetPluginID)
-	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", sourcePluginID), pluginRoot)
-	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
-		payload["id"] = targetPluginID
-	})
-	writeAppJSON(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
-		"enabledPluginIds": []string{targetPluginID},
 	})
 }
 

@@ -20,14 +20,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
+	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type routePythonPackageProvider struct {
@@ -208,10 +207,15 @@ func TestMCPToolCallRouteRejectsNonObjectArgumentsAtTransportBoundary(t *testing
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -268,10 +272,15 @@ func TestMCPToolCallRouteRejectsLegacyInvokeLinkedChatTool(t *testing.T) {
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1403,11 +1412,16 @@ func TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs(t *testing.
 		"chat-section":    "13",
 		"allowed-section": "14",
 	})
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1481,10 +1495,15 @@ func TestMCPToolCallRouteSupportsAutoLayoutTopLevelSections(t *testing.T) {
 	beforeBlocked := project.TopLevelSections["blocked-section"]
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1566,11 +1585,16 @@ func TestMCPToolCallRouteAutoLayoutTopLevelSectionsAcceptsTemporaryIDs(t *testin
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1639,10 +1663,15 @@ func TestMCPToolCallRouteSupportsSetShowParamDisplayNames(t *testing.T) {
 	}
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1707,11 +1736,16 @@ func TestMCPToolCallRouteSetShowParamDisplayNamesAcceptsTemporaryIDs(t *testing.
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1764,10 +1798,15 @@ func TestMCPToolCallRouteSupportsSetSectionTagColor(t *testing.T) {
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1830,11 +1869,16 @@ func TestMCPToolCallRouteSetSectionTagColorAcceptsTemporaryIDs(t *testing.T) {
 		"chat-section":    "13",
 		"allowed-section": "14",
 	})
-	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1895,9 +1939,6 @@ func TestMCPToolCallRouteSupportsSetSectionStyleColor(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -1970,9 +2011,6 @@ func TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2037,9 +2075,6 @@ func TestMCPToolCallRouteSupportsSetSectionParamFilter(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2112,9 +2147,6 @@ func TestMCPToolCallRouteSetSectionParamFilterAcceptsTemporaryIDs(t *testing.T) 
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2181,9 +2213,6 @@ func TestMCPToolCallRouteSupportsSetMetaControlShowSectionTitle(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2258,9 +2287,6 @@ func TestMCPToolCallRouteSetMetaControlShowSectionTitleAcceptsTemporaryIDs(t *te
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2666,16 +2692,11 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	appDefinitionService := appdefinition.NewAppDefinitionService(
-		projectRuntime,
-		plugins.AppSubsystemPluginID,
-	)
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:                t.TempDir(),
-		ProjectState:                 projectRuntime,
-		SectionNames:                 routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics:               diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(appDefinitionService),
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2706,7 +2727,7 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 				"root":{"key":"root","type":"Stack"},
 				"elements":{}
 			},
-			"appSpecPath":"`+appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")+`",
+			"appSpecPath":"app_specs/custom.json",
 			"appSpecVersion":"v2",
 			"catalogId":"setta.app.default",
 			"theme":{"mode":"dark"}
@@ -2726,19 +2747,15 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
+	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	if !reflect.DeepEqual(storedSpec, result["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", result["appSpec"], storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(
-		t,
-		appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
-	)
-	if storedAppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
-		t.Fatalf("expected persisted app definition after route mutation, got %#v", storedAppDefinition)
+	if projectRuntime.Snapshot().Document.AppDefinition == nil || projectRuntime.Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected persisted app definition after route mutation, got %#v", projectRuntime.Snapshot().Document.AppDefinition)
 	}
 }
 
@@ -2746,12 +2763,14 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
@@ -2759,9 +2778,6 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2805,10 +2821,10 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
 	appDefinition := mustStructuredMapForRoute(t, result["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
 	}
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -2821,12 +2837,14 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
@@ -2839,9 +2857,6 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2884,7 +2899,7 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -2903,9 +2918,6 @@ func TestMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2993,9 +3005,6 @@ func TestMCPToolCallRouteValidateAppDefinitionAcceptsTemporaryIDs(t *testing.T) 
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3050,21 +3059,16 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	appDefinitionService := appdefinition.NewAppDefinitionService(
-		projectRuntime,
-		plugins.AppSubsystemPluginID,
-	)
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:                t.TempDir(),
-		ProjectState:                 projectRuntime,
-		SectionNames:                 routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics:               diagnostics,
-		TemporaryIDMapPath:           temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(appDefinitionService),
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3111,7 +3115,7 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3124,7 +3128,7 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -3136,7 +3140,9 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
@@ -3144,9 +3150,6 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3199,7 +3202,7 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	if props["direction"] != "column" {
 		t.Fatalf("expected preserved direction column, got %#v", props["direction"])
 	}
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3212,7 +3215,7 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -3223,7 +3226,9 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
@@ -3236,9 +3241,6 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3282,7 +3284,7 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3309,9 +3311,6 @@ func TestMCPToolCallRouteCompareAndSetShowParamDisplayNames(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3374,9 +3373,6 @@ func TestMCPToolCallRouteCompareAndSetWatchCodeEnabledReturnsMutationFailed(t *t
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -6141,9 +6137,6 @@ func TestMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
-		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime, plugins.AppSubsystemPluginID),
-		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)

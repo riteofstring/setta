@@ -100,36 +100,6 @@ func installFirstPartyTyPackageManagerPluginInSearchPath(t *testing.T, sitePacka
 	)
 }
 
-func installBuiltFirstPartyPackageManagerPluginInSearchPath(
-	t *testing.T,
-	sitePackages string,
-	pluginID string,
-) string {
-	t.Helper()
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	stagingRoot := filepath.Join(t.TempDir(), pluginID)
-	copyBackendCodegenFixtureDir(
-		t,
-		filepath.Join(repoRoot, "plugins", pluginID),
-		stagingRoot,
-	)
-	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, t.TempDir(), stagingRoot)
-	runTestCommand(
-		t,
-		repoRoot,
-		mustNewPythonRuntime(t).InterpreterPath(),
-		"-m",
-		"pip",
-		"install",
-		"--no-deps",
-		"--target",
-		sitePackages,
-		wheelPath,
-	)
-	return filepath.Join(sitePackages, pluginID)
-}
-
 func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
 	t.Helper()
 

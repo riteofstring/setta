@@ -120,104 +120,6 @@ func TestRollbackRefreshTransitionRestoresLanguageServerSettings(t *testing.T) {
 	}
 }
 
-func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *testing.T) {
-	service, _ := newPluginRuntimeRefreshTestService(t)
-	previousRuntime := &pluginBackendMCPRuntime{toolNames: []string{"existing_tool"}}
-	capabilities := newAppSubsystemCapabilityState()
-	capabilities.Set(plugins.PluginAppSubsystemCapabilities{
-		PluginID:      "setta-fixture-app-provider",
-		PluginEnabled: true,
-		AppPreviewUI:  true,
-	})
-	refresher := &pluginBackendRuntimeRefresher{
-		service:                  service,
-		runtime:                  previousRuntime,
-		appSubsystemCapabilities: capabilities,
-		refreshAppHandler: func() error {
-			return context.Canceled
-		},
-	}
-
-	_, err := newPluginMutationRuntimeService(service, refresher, capabilities).Rescan()
-	if err == nil {
-		t.Fatal("expected handler refresh failure")
-	}
-	if refresher.runtime != previousRuntime {
-		t.Fatalf("expected runtime to roll back to previous instance, got %#v", refresher.runtime)
-	}
-	currentCapabilities := capabilities.AppSubsystemCapabilities()
-	if !currentCapabilities.PluginEnabled || currentCapabilities.PluginID != "setta-fixture-app-provider" || !currentCapabilities.AppPreviewUI {
-		t.Fatalf("expected app subsystem capabilities to roll back, got %#v", currentCapabilities)
-	}
-}
-
-func TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError(
-	t *testing.T,
-) {
-	service, settaFilesRoot := newPluginRuntimeRefreshTestService(t)
-	if err := os.WriteFile(
-		filepath.Join(settaFilesRoot, "plugins_state.json"),
-		[]byte("{\n  \"pendingRestartBackendPluginIds\": [\"setta-fixture-backend\"],\n  \"pendingRestartLanguageServerOnlyPluginIds\": [\"setta-fixture-backend\"]\n}\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write pending restart plugin state: %v", err)
-	}
-
-	previousRuntime := &pluginBackendMCPRuntime{toolNames: []string{"existing_tool"}}
-	previousSpecs := []lsp.LanguageServerSpec{
-		{
-			PluginID:   "setta-fixture-backend",
-			LanguageID: "fixturedsl",
-			Command:    "python",
-			Settings:   map[string]any{},
-		},
-	}
-	capabilities := newAppSubsystemCapabilityState()
-	capabilities.Set(plugins.PluginAppSubsystemCapabilities{
-		PluginID:             "setta-fixture-app-provider",
-		PluginEnabled:        true,
-		AppDeploymentRuntime: true,
-	})
-	refresher := &pluginBackendRuntimeRefresher{
-		service:                  service,
-		runtime:                  previousRuntime,
-		lspSpecs:                 cloneLanguageServerSpecs(previousSpecs),
-		appliedLSPSpecs:          cloneLanguageServerSpecs(previousSpecs),
-		appSubsystemCapabilities: capabilities,
-		refreshAppHandler: func() error {
-			return context.Canceled
-		},
-	}
-
-	_, err := refresher.Refresh(context.Background())
-	if err == nil {
-		t.Fatal("expected handler refresh failure")
-	}
-	if refresher.runtime != previousRuntime {
-		t.Fatalf("expected runtime to roll back to previous instance, got %#v", refresher.runtime)
-	}
-	if !languageServerSpecSlicesEqual(refresher.lspSpecs, previousSpecs) {
-		t.Fatalf("expected lsp specs to remain unchanged, got %#v", refresher.lspSpecs)
-	}
-	if !languageServerSpecSlicesEqual(refresher.appliedLSPSpecs, previousSpecs) {
-		t.Fatalf("expected applied lsp specs to remain unchanged, got %#v", refresher.appliedLSPSpecs)
-	}
-	state, err := service.BackendRuntimeRefreshState()
-	if err != nil {
-		t.Fatalf("load backend runtime refresh state: %v", err)
-	}
-	if len(state.PendingRestartBackendPluginIDs) != 1 || state.PendingRestartBackendPluginIDs[0] != "setta-fixture-backend" {
-		t.Fatalf("expected pending backend ids to be restored, got %#v", state.PendingRestartBackendPluginIDs)
-	}
-	if len(state.PendingRestartLanguageServerOnlyPluginIDs) != 1 || state.PendingRestartLanguageServerOnlyPluginIDs[0] != "setta-fixture-backend" {
-		t.Fatalf("expected pending language-server-only ids to be restored, got %#v", state.PendingRestartLanguageServerOnlyPluginIDs)
-	}
-	currentCapabilities := capabilities.AppSubsystemCapabilities()
-	if !currentCapabilities.PluginEnabled || currentCapabilities.PluginID != "setta-fixture-app-provider" || !currentCapabilities.AppDeploymentRuntime {
-		t.Fatalf("expected app subsystem capabilities to roll back, got %#v", currentCapabilities)
-	}
-}
-
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) {
 	refresher := &pluginBackendRuntimeRefresher{
 		appliedLSPSpecs: []lsp.LanguageServerSpec{
@@ -246,31 +148,6 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 	if len(status.Plugins[0].AppliedLanguageServerLanguages) != 1 || status.Plugins[0].AppliedLanguageServerLanguages[0] != "python" {
 		t.Fatalf("expected applied python status, got %#v", status.Plugins[0].AppliedLanguageServerLanguages)
 	}
-}
-
-func newPluginRuntimeRefreshTestService(t *testing.T) (*plugins.Service, string) {
-	t.Helper()
-
-	root := t.TempDir()
-	workspaceRoot := filepath.Join(root, "workspace")
-	settaFilesRoot := filepath.Join(root, "setta_files")
-	settaHome := filepath.Join(root, ".setta")
-	for _, path := range []string{workspaceRoot, settaFilesRoot, settaHome} {
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", path, err)
-		}
-	}
-
-	service, err := plugins.NewService(plugins.ServiceOptions{
-		WorkspaceRoot:  workspaceRoot,
-		SettaFilesRoot: settaFilesRoot,
-		SettaHome:      settaHome,
-		ServerMode:     "ide",
-	})
-	if err != nil {
-		t.Fatalf("new plugin service: %v", err)
-	}
-	return service, settaFilesRoot
 }
 
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusForInvalidEntry(t *testing.T) {
