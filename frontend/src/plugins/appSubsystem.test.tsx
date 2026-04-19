@@ -3,6 +3,7 @@ import {
   type AppSubsystemFrontendRegistrationsByPluginId,
   appSubsystemModeRequiresImageAttachment,
   applyAppDefinitionStructuredContentToStore,
+  buildDefaultAppSpecPath,
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
   getAppSubsystemFrontendRuntimeState,
   resetAppSubsystemFrontendRuntimeState,
@@ -244,6 +245,13 @@ describe("appSubsystem", () => {
     expect(
       renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
     ).toContain("plain_chat:plain_chat=Plain chat,json_render=JSON Render");
+  });
+
+  it("builds a provider-scoped default app spec path", () => {
+    const providerPluginId = "acme.third-party-app-provider";
+    expect(buildDefaultAppSpecPath(providerPluginId)).toBe(
+      `plugins/${providerPluginId}/app_specs/app.json`,
+    );
   });
 
   it("routes structured app-definition updates through the runtime adapter", async () => {

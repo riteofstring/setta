@@ -593,6 +593,10 @@ func copyDirectoryTree(sourceRoot string, destRoot string) error {
 	return filepath.WalkDir(sourceRoot, copier.walk)
 }
 
+func CopyDirectoryTree(sourceRoot string, destRoot string) error {
+	return copyDirectoryTree(sourceRoot, destRoot)
+}
+
 func resolveDirectoryDigestRoot(root string) (string, error) {
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {

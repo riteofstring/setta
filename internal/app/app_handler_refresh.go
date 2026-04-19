@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 
 	"setta/internal/appsubsystem"
@@ -53,11 +54,37 @@ func currentAppPublishService(handlerDeps appHandlerDeps) (deployments.AppPublis
 	if handlerDeps.appSubsystemCapabilities != nil {
 		capabilities = handlerDeps.appSubsystemCapabilities.AppSubsystemCapabilities()
 	}
+	pluginSourcePath, err := currentAppPublishProviderSourcePath(handlerDeps, capabilities.PluginID)
+	if err != nil {
+		return nil, err
+	}
 	return appsubsystem.NewAppPublishService(capabilities, deployments.AppPublisherOptions{
-		Catalog:        handlerDeps.deploymentCatalog,
-		SettaFilesRoot: handlerDeps.cfg.Paths.SettaFilesRoot,
-		WorkspaceRoot:  handlerDeps.cfg.Paths.WorkspaceRoot,
+		Catalog:          handlerDeps.deploymentCatalog,
+		SettaFilesRoot:   handlerDeps.cfg.Paths.SettaFilesRoot,
+		WorkspaceRoot:    handlerDeps.cfg.Paths.WorkspaceRoot,
+		PluginSourcePath: pluginSourcePath,
 	}, handlerDeps.projectRuntime)
+}
+
+func currentAppPublishProviderSourcePath(
+	handlerDeps appHandlerDeps,
+	pluginID string,
+) (string, error) {
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" || handlerDeps.pluginRuntime == nil || handlerDeps.pluginRuntime.service == nil {
+		return "", nil
+	}
+	snapshot, err := handlerDeps.pluginRuntime.service.Rescan()
+	if err != nil {
+		return "", err
+	}
+	for _, entry := range snapshot.Plugins {
+		if entry.PluginID != trimmedPluginID {
+			continue
+		}
+		return entry.SourcePath, nil
+	}
+	return "", nil
 }
 
 type swappableHandler struct {

@@ -2,16 +2,24 @@ package settajsonrenderappgenbackend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"setta/internal/deployments"
+	"setta/internal/plugins"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type appPublisher struct {
-	share          *deployments.SharePublisher
-	contentService appDeploymentContentService
+	share            *deployments.SharePublisher
+	contentService   appDeploymentContentService
+	pluginID         string
+	pluginSourcePath string
+	storage          appdefinition.DocumentStorage
 }
 
 type preparedAppPublish struct {
@@ -24,6 +32,7 @@ type preparedAppPublish struct {
 func NewAppPublishService(
 	options deployments.AppPublisherOptions,
 	service appdefinition.Runtime,
+	pluginID string,
 ) (deployments.AppPublishService, error) {
 	sharePublisher, err := deployments.NewSharePublisher(deployments.SharePublisherOptions{
 		Catalog:        options.Catalog,
@@ -35,8 +44,14 @@ func NewAppPublishService(
 		return nil, err
 	}
 	return &appPublisher{
-		share:          sharePublisher,
-		contentService: appDeploymentContentService{appDefinitionService: service},
+		share: sharePublisher,
+		contentService: appDeploymentContentService{
+			appDefinitionService: service,
+			appSpecStore:         appspec.ForPlugin(pluginID),
+		},
+		pluginID:         strings.TrimSpace(pluginID),
+		pluginSourcePath: strings.TrimSpace(options.PluginSourcePath),
+		storage:          appdefinition.StorageForPlugin(pluginID),
 	}, nil
 }
 
@@ -109,12 +124,12 @@ func (p *appPublisher) prepareAppPublish(
 	appDefinition, appSpec, targetAppSpecPath, err := p.contentService.PreparePublishedAppDefinition(
 		ctx,
 		p.share.SettaFilesRoot(),
-		appdefinition.StoredDocumentAppDefinitionRaw(preparedProject.PublishedDocument),
+		p.storage.StoredDocumentAppDefinitionRaw(preparedProject.PublishedDocument),
 	)
 	if err != nil {
 		return preparedAppPublish{}, err
 	}
-	preparedProject.PublishedDocument = appdefinition.WithStoredDocumentAppDefinition(
+	preparedProject.PublishedDocument = p.storage.WithStoredDocumentAppDefinition(
 		preparedProject.PublishedDocument,
 		appDefinition,
 	)
@@ -168,6 +183,34 @@ func (p *appPublisher) writeAppPublishOutput(
 		prepared.appSpec,
 	); err != nil {
 		return fmt.Errorf("write deployment app spec: %w", err)
+	}
+	if err := p.packageProviderPlugin(deploymentRoot); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *appPublisher) packageProviderPlugin(deploymentRoot string) error {
+	if p == nil || strings.TrimSpace(p.pluginID) == "" || strings.TrimSpace(p.pluginSourcePath) == "" {
+		return deployments.ErrAppPublishProviderSourceRequired
+	}
+	targetRoot := filepath.Join(deploymentRoot, ".setta_plugins", p.pluginID)
+	if err := plugins.CopyDirectoryTree(p.pluginSourcePath, targetRoot); err != nil {
+		return fmt.Errorf("package app deployment provider %q: %w", p.pluginID, err)
+	}
+	pluginsStatePayload, err := json.MarshalIndent(plugins.PluginsStateFile{
+		EnabledPluginIDs: []string{p.pluginID},
+	}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal deployment plugins state: %w", err)
+	}
+	pluginsStatePayload = append(pluginsStatePayload, '\n')
+	if err := os.WriteFile(
+		filepath.Join(deploymentRoot, "plugins_state.json"),
+		pluginsStatePayload,
+		0o644,
+	); err != nil {
+		return fmt.Errorf("write deployment plugins state: %w", err)
 	}
 	return nil
 }

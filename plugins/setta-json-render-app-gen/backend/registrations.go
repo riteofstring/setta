@@ -11,15 +11,16 @@ import (
 
 func BuildFrontendAPIRouteRegistrations(
 	options appsubsystem.FrontendRouteRegistrationOptions,
+	pluginID string,
 ) httpapi.FrontendAPIRouteRegistrations {
 	return httpapi.FrontendAPIRouteRegistrations{
 		Project: wrapFrontendRouteContributions(
-			buildProjectFrontendRouteContributions(options),
+			buildProjectFrontendRouteContributions(options, pluginID),
 			options.Capabilities,
 			appSubsystemProjectRoutesAvailable,
 		),
 		Deployment: wrapFrontendRouteContributions(
-			buildDeploymentFrontendRouteContributions(options),
+			buildDeploymentFrontendRouteContributions(options, pluginID),
 			options.Capabilities,
 			appSubsystemDeploymentRoutesAvailable,
 		),
@@ -28,6 +29,7 @@ func BuildFrontendAPIRouteRegistrations(
 
 func buildProjectFrontendRouteContributions(
 	options appsubsystem.FrontendRouteRegistrationOptions,
+	pluginID string,
 ) []httpapi.FrontendAPIRouteContribution {
 	return []httpapi.FrontendAPIRouteContribution{
 		{
@@ -36,6 +38,7 @@ func buildProjectFrontendRouteContributions(
 				return RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
 					ModePolicy:   options.ModePolicy,
 					ProjectState: options.ProjectState,
+					PluginID:     pluginID,
 				})
 			},
 		},
@@ -50,18 +53,20 @@ func buildProjectFrontendRouteContributions(
 
 func buildDeploymentFrontendRouteContributions(
 	options appsubsystem.FrontendRouteRegistrationOptions,
+	pluginID string,
 ) []httpapi.FrontendAPIRouteContribution {
 	appDeploymentIDE := AppDeploymentIDERouteDependencies{
 		ModePolicy:   options.ShareDeploymentIDE.ModePolicy,
 		ProjectState: options.ShareDeploymentIDE.ProjectState,
 		Catalog:      options.ShareDeploymentIDE.Catalog,
 		AppPublisher: options.AppDeploymentIDEPublisher,
+		PluginID:     pluginID,
 	}
 	return []httpapi.FrontendAPIRouteContribution{
 		{
 			Family: "app deployment",
 			Register: func(router chi.Router) error {
-				return RegisterAppDeploymentRoutes(router, options.AppDeployment)
+				return RegisterAppDeploymentRoutes(router, options.AppDeployment, pluginID)
 			},
 		},
 		{

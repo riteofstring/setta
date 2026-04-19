@@ -827,7 +827,10 @@ func mustNewScopedRegistry(t *testing.T, options ScopedRegistryOptions) *Registr
 func mustNewAppScopedRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceRoot string) *Registry {
 	t.Helper()
 
-	service := appdefinition.NewAppDefinitionService(runtime)
+	service := appdefinition.NewAppDefinitionService(
+		runtime,
+		plugins.AppSubsystemPluginID,
+	)
 	return mustNewScopedRegistry(t, ScopedRegistryOptions{
 		Runtime:       runtime,
 		WorkspaceRoot: workspaceRoot,
@@ -1029,7 +1032,10 @@ func effectiveAppMetadata(
 ) (appdefinition.AppDefinition, string, string) {
 	t.Helper()
 
-	service := appdefinition.NewAppDefinitionService(runtime)
+	service := appdefinition.NewAppDefinitionService(
+		runtime,
+		plugins.AppSubsystemPluginID,
+	)
 	definition, err := service.GetEffectiveAppDefinition(context.Background())
 	if err != nil {
 		t.Fatalf("get effective app definition: %v", err)

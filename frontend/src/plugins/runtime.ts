@@ -13,6 +13,7 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 import {
+  beginAppSubsystemFrontendRegistrationLoad,
   resetAppSubsystemFrontendRuntimeState,
   syncAppSubsystemFrontendRegistration,
 } from "./appSubsystem";
@@ -223,6 +224,9 @@ export async function refreshPluginRuntime(): Promise<void> {
 export async function receivePluginRuntimeUpdate(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
+  beginAppSubsystemFrontendRegistrationLoad(
+    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+  );
   queuedPluginRuntimeResponse = runtimeResponse;
   if (pluginRuntimeLoadPromise) {
     return pluginRuntimeLoadPromise;
@@ -270,6 +274,8 @@ async function applyPluginRuntimeResponse(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
   const previousState = usePluginRuntimeStore.getState();
+  const appSubsystemCapabilities =
+    runtimeResponse.featureCapabilities?.appSubsystem ?? null;
   const listData = runtimeResponse.list;
   const statusData = runtimeResponse.status;
   const pluginListById = mapPluginListById(
@@ -317,6 +323,8 @@ async function applyPluginRuntimeResponse(
     }
     runPluginCleanup(pluginId);
   }
+
+  beginAppSubsystemFrontendRegistrationLoad(appSubsystemCapabilities);
 
   await runWithConcurrencyLimit(
     frontendLoadCandidates,
@@ -382,8 +390,7 @@ async function applyPluginRuntimeResponse(
     statusMessage: null,
     schemaVersion: listData.schemaVersion,
     serverMode: listData.serverMode,
-    appSubsystemCapabilities:
-      runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+    appSubsystemCapabilities,
     restartCapability: listData.restartCapability,
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
@@ -404,7 +411,7 @@ async function applyPluginRuntimeResponse(
   }));
 
   await syncAppSubsystemFrontendRegistration(
-    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+    appSubsystemCapabilities,
     appSubsystemRegistrationsByPluginId,
   );
 }

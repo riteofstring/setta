@@ -221,7 +221,7 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 			continue
 		}
 		switch entry.State {
-		case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart:
+		case PluginRuntimeStateActive:
 			resolution.selection.ActivePluginIDs = append(resolution.selection.ActivePluginIDs, entry.PluginID)
 			activeProviders = append(activeProviders, runtimeAppSubsystemProviderCandidate{
 				pluginID: entry.PluginID,
