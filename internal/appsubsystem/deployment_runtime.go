@@ -2,13 +2,18 @@ package appsubsystem
 
 import (
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/plugins"
 )
 
-var ErrAppModePluginRequired = errors.New(`App mode requires the first-party plugin "setta-json-render-app-gen" to be enabled.`)
+var ErrAppModeProviderRequired = errors.New(
+	"app mode requires a single active app subsystem provider with app deployment runtime support",
+)
 
 type DeploymentRuntimeOptions struct {
 	Mode           config.Mode
@@ -57,7 +62,7 @@ func requireAppModeRuntimeCapabilities(
 	if capabilities.PluginEnabled && capabilities.AppDeploymentRuntime {
 		return nil
 	}
-	return ErrAppModePluginRequired
+	return appModeProviderRequirementError(capabilities)
 }
 
 func LoadAppSubsystemCapabilities(
@@ -83,4 +88,79 @@ func LoadAppSubsystemCapabilities(
 		return plugins.PluginAppSubsystemCapabilities{}, err
 	}
 	return plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot), nil
+}
+
+func appModeProviderRequirementError(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+) error {
+	selection := capabilities.ProviderSelection
+	if selection == nil {
+		return fmt.Errorf("%w: no app subsystem provider is active", ErrAppModeProviderRequired)
+	}
+
+	switch selection.Status {
+	case plugins.PluginAppSubsystemProviderSelectionStatusDisabledProvider:
+		return fmt.Errorf(
+			"%w: installed app subsystem providers are disabled (%s)",
+			ErrAppModeProviderRequired,
+			quotedPluginIDList(selection.DisabledPluginIDs),
+		)
+	case plugins.PluginAppSubsystemProviderSelectionStatusInvalidProvider:
+		return fmt.Errorf(
+			"%w: installed app subsystem providers are invalid (%s)",
+			ErrAppModeProviderRequired,
+			quotedPluginIDList(selection.InvalidPluginIDs),
+		)
+	case plugins.PluginAppSubsystemProviderSelectionStatusConflict:
+		return fmt.Errorf(
+			"%w: multiple app subsystem providers are active (%s); disable all but one",
+			ErrAppModeProviderRequired,
+			quotedPluginIDList(selection.ConflictingPluginIDs),
+		)
+	case plugins.PluginAppSubsystemProviderSelectionStatusActive:
+		pluginID := strings.TrimSpace(capabilities.PluginID)
+		if pluginID == "" && selection.SelectedPluginID != nil {
+			pluginID = strings.TrimSpace(*selection.SelectedPluginID)
+		}
+		if pluginID != "" {
+			return fmt.Errorf(
+				"%w: app subsystem provider %q does not declare app deployment runtime support",
+				ErrAppModeProviderRequired,
+				pluginID,
+			)
+		}
+		return fmt.Errorf(
+			"%w: the selected app subsystem provider does not declare app deployment runtime support",
+			ErrAppModeProviderRequired,
+		)
+	case plugins.PluginAppSubsystemProviderSelectionStatusNoProvider:
+		fallthrough
+	default:
+		return fmt.Errorf("%w: no app subsystem provider is active", ErrAppModeProviderRequired)
+	}
+}
+
+func quotedPluginIDList(pluginIDs []string) string {
+	if len(pluginIDs) == 0 {
+		return "none"
+	}
+
+	normalized := make([]string, 0, len(pluginIDs))
+	for _, pluginID := range pluginIDs {
+		trimmed := strings.TrimSpace(pluginID)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	if len(normalized) == 0 {
+		return "none"
+	}
+
+	sort.Strings(normalized)
+	quoted := make([]string, 0, len(normalized))
+	for _, pluginID := range normalized {
+		quoted = append(quoted, fmt.Sprintf("%q", pluginID))
+	}
+	return strings.Join(quoted, ", ")
 }

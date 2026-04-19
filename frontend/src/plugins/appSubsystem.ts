@@ -172,6 +172,68 @@ function hasFrontendSurfaceAvailability(
   );
 }
 
+function quotedPluginIDs(pluginIDs: string[] | undefined): string {
+  const normalized = (pluginIDs ?? [])
+    .map((pluginID) => pluginID.trim())
+    .filter((pluginID) => pluginID.length > 0)
+    .sort();
+  if (normalized.length === 0) {
+    return "none";
+  }
+  return normalized.map((pluginID) => `"${pluginID}"`).join(", ");
+}
+
+function buildProviderListUnavailableMessage(
+  reason: string,
+  pluginIDs: string[] | undefined,
+  suffix = ".",
+): string {
+  return `App mode is unavailable because ${reason}: ${quotedPluginIDs(pluginIDs)}${suffix}`;
+}
+
+function buildSelectedProviderMissingDeploymentRuntimeMessage(
+  capabilities: AppSubsystemCapabilities | null,
+): string {
+  const pluginID = capabilities?.pluginId?.trim() || "";
+  if (pluginID) {
+    return `App mode is unavailable because app subsystem provider "${pluginID}" does not declare app deployment runtime support.`;
+  }
+  return "App mode is unavailable because the selected app subsystem provider does not declare app deployment runtime support.";
+}
+
+export function getAppSubsystemDeploymentRuntimeUnavailableMessage(
+  capabilities: AppSubsystemCapabilities | null,
+): string {
+  const selection = capabilities?.providerSelection;
+  if (!selection) {
+    return "App mode is unavailable because no app subsystem provider is active.";
+  }
+
+  switch (selection.status) {
+    case "disabled_provider":
+      return buildProviderListUnavailableMessage(
+        "installed app subsystem providers are disabled",
+        selection.disabledPluginIds,
+      );
+    case "invalid_provider":
+      return buildProviderListUnavailableMessage(
+        "installed app subsystem providers are invalid",
+        selection.invalidPluginIds,
+      );
+    case "provider_conflict":
+      return buildProviderListUnavailableMessage(
+        "multiple app subsystem providers are active",
+        selection.conflictingPluginIds,
+        ". Disable all but one.",
+      );
+    case "active":
+      return buildSelectedProviderMissingDeploymentRuntimeMessage(capabilities);
+    case "no_provider":
+    default:
+      return "App mode is unavailable because no app subsystem provider is active.";
+  }
+}
+
 function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
   return typeof value === "function";
 }

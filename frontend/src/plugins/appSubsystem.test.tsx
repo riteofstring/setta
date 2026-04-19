@@ -3,6 +3,7 @@ import {
   type AppSubsystemFrontendRegistrationsByPluginId,
   appSubsystemModeRequiresImageAttachment,
   applyAppDefinitionStructuredContentToStore,
+  getAppSubsystemDeploymentRuntimeUnavailableMessage,
   getAppSubsystemFrontendRuntimeState,
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
@@ -282,5 +283,50 @@ describe("appSubsystem", () => {
         "App subsystem provider setta-json-render-app-gen did not register frontend surfaces through the plugin host.",
       registration: null,
     });
+  });
+
+  it("formats app-mode unavailability from provider conflicts", () => {
+    expect(
+      getAppSubsystemDeploymentRuntimeUnavailableMessage({
+        pluginId: "",
+        pluginEnabled: false,
+        appAuthoringUi: false,
+        appPreviewUi: false,
+        appGenerationChatModes: false,
+        appDeploymentRuntime: false,
+        providerSelection: {
+          status: "provider_conflict",
+          activePluginIds: ["acme.app-provider-b", "acme.app-provider-a"],
+          disabledPluginIds: [],
+          invalidPluginIds: [],
+          conflictingPluginIds: ["acme.app-provider-b", "acme.app-provider-a"],
+        },
+      }),
+    ).toBe(
+      'App mode is unavailable because multiple app subsystem providers are active: "acme.app-provider-a", "acme.app-provider-b". Disable all but one.',
+    );
+  });
+
+  it("formats app-mode unavailability when the selected provider lacks deployment runtime support", () => {
+    expect(
+      getAppSubsystemDeploymentRuntimeUnavailableMessage({
+        pluginId: "acme.active-app-provider",
+        pluginEnabled: true,
+        appAuthoringUi: true,
+        appPreviewUi: true,
+        appGenerationChatModes: true,
+        appDeploymentRuntime: false,
+        providerSelection: {
+          status: "active",
+          selectedPluginId: "acme.active-app-provider",
+          activePluginIds: ["acme.active-app-provider"],
+          disabledPluginIds: [],
+          invalidPluginIds: [],
+          conflictingPluginIds: [],
+        },
+      }),
+    ).toBe(
+      'App mode is unavailable because app subsystem provider "acme.active-app-provider" does not declare app deployment runtime support.',
+    );
   });
 });

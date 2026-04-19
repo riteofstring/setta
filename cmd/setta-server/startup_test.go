@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -371,7 +372,7 @@ func TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
 	}
 }
 
-func TestEmitAppStartupOutputRequiresAppSubsystemPlugin(t *testing.T) {
+func TestEmitAppStartupOutputRequiresAppSubsystemProvider(t *testing.T) {
 	t.Parallel()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -399,10 +400,14 @@ func TestEmitAppStartupOutputRequiresAppSubsystemPlugin(t *testing.T) {
 		appStartupDependencies{},
 	)
 	if err == nil {
-		t.Fatal("expected app startup output to require app subsystem plugin")
+		t.Fatal("expected app startup output to require an app subsystem provider")
 	}
-	if err.Error() != appsubsystem.ErrAppModePluginRequired.Error() {
-		t.Fatalf("expected exact plugin-required error %q, got %v", appsubsystem.ErrAppModePluginRequired.Error(), err)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected ErrAppModeProviderRequired, got %v", err)
+	}
+	expectedErr := "app mode requires a single active app subsystem provider with app deployment runtime support: no app subsystem provider is active"
+	if err.Error() != expectedErr {
+		t.Fatalf("expected exact provider-required error %q, got %v", expectedErr, err)
 	}
 }
 

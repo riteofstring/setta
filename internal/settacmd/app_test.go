@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/appsubsystem"
 	"setta/internal/deployments"
 	"setta/internal/plugins"
 )
@@ -298,8 +297,9 @@ func TestRunAppRequiresEnabledAppSubsystemPlugin(t *testing.T) {
 	if code := ExitCode(err); code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
 	}
-	if got := DisplayError(err); got != appsubsystem.ErrAppModePluginRequired.Error() {
-		t.Fatalf("expected exact plugin-required error %q, got %q", appsubsystem.ErrAppModePluginRequired.Error(), got)
+	expectedErr := "app mode requires a single active app subsystem provider with app deployment runtime support: no app subsystem provider is active"
+	if got := DisplayError(err); got != expectedErr {
+		t.Fatalf("expected exact provider-required error %q, got %q", expectedErr, got)
 	}
 }
 
