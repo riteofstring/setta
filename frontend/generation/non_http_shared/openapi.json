@@ -9728,6 +9728,9 @@
           "pluginId": {
             "type": "string"
           },
+          "runtimeSearchPathsKey": {
+            "type": ["null", "string"]
+          },
           "settingsKey": {
             "type": ["null", "string"]
           }
