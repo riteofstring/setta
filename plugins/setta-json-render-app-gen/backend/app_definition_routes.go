@@ -10,6 +10,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
@@ -27,7 +28,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Get the built-in standalone app component catalog."),
 	)
-	httpapi.RegisterOpenAPIPost[appdefinitionhttp.GetAppDefinitionRequest, projectstate.AppDefinitionReadResult](
+	httpapi.RegisterOpenAPIPost[appdefinitionhttp.GetAppDefinitionRequest, appdefinition.ReadResult](
 		router,
 		"getAppDefinition",
 		httpapi.RouteGetAppDefinition,
@@ -36,7 +37,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		httpapi.WithOpenAPISummary("Load the current app definition and resolved app spec."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
 	)
-	httpapi.RegisterOpenAPIPost[appdefinitionhttp.ValidateAppDefinitionRequest, projectstate.AppDefinitionValidationResult](
+	httpapi.RegisterOpenAPIPost[appdefinitionhttp.ValidateAppDefinitionRequest, appdefinition.ValidationResult](
 		router,
 		"validateAppDefinition",
 		httpapi.RouteValidateAppDefinition,
@@ -45,7 +46,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		httpapi.WithOpenAPISummary("Validate an app definition payload against the current catalog."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
 	)
-	httpapi.RegisterOpenAPIPost[appdefinitionhttp.SetAppDefinitionRequest, projectstate.AppDefinitionMutationResult](
+	httpapi.RegisterOpenAPIPost[appdefinitionhttp.SetAppDefinitionRequest, appdefinition.MutationResult](
 		router,
 		"setAppDefinition",
 		httpapi.RouteSetAppDefinition,
@@ -135,7 +136,7 @@ func getAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			writeAppDefinitionRouteError(w, r, err)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, result)
+		httpapi.WriteJSON(w, http.StatusOK, appdefinition.FromProjectStateReadResult(result))
 	}
 }
 
@@ -165,7 +166,7 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 				AppSpec:        payload.AppSpec,
 				AppSpecVersion: payload.AppSpecVersion,
 				CatalogID:      payload.CatalogID,
-				Routes:         payload.Routes,
+				Routes:         appdefinition.RoutesPointerToProjectState(payload.Routes),
 				DataBindings:   payload.DataBindings,
 				Actions:        payload.Actions,
 				Theme:          payload.Theme,
@@ -176,7 +177,7 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 			writeAppDefinitionRouteError(w, r, err)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, result)
+		httpapi.WriteJSON(w, http.StatusOK, appdefinition.FromProjectStateValidationResult(result))
 	}
 }
 
@@ -207,7 +208,7 @@ func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 				AppSpecPath:    payload.AppSpecPath,
 				AppSpecVersion: payload.AppSpecVersion,
 				CatalogID:      payload.CatalogID,
-				Routes:         payload.Routes,
+				Routes:         appdefinition.RoutesPointerToProjectState(payload.Routes),
 				DataBindings:   payload.DataBindings,
 				Actions:        payload.Actions,
 				Theme:          payload.Theme,
@@ -218,7 +219,7 @@ func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			writeAppDefinitionRouteError(w, r, err)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, result)
+		httpapi.WriteJSON(w, http.StatusOK, appdefinition.FromProjectStateMutationResult(result))
 	}
 }
 
