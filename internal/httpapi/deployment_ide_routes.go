@@ -281,10 +281,12 @@ func isInvalidDeploymentNameError(err error) bool {
 }
 
 func deploymentTypeLabel(deploymentType deployments.Type) string {
-	switch deploymentType {
-	case deployments.TypeApp:
-		return "App"
-	default:
-		return "Share"
+	label := strings.TrimSpace(string(deploymentType))
+	if label == "" {
+		return "Deployment"
 	}
+	if len(label) == 1 {
+		return strings.ToUpper(label)
+	}
+	return strings.ToUpper(label[:1]) + label[1:]
 }
