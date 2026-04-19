@@ -36,7 +36,7 @@ const CLUSTER_TARGETS: ClusterTarget[] = [
   },
 ];
 
-test("canvas shell path owns the code-like resting-text cluster", async ({
+test("canvas shell path owns the code-like shell and resting-text cluster", async ({
   page,
 }, testInfo) => {
   await ensureAppReady(page);
@@ -58,9 +58,10 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
   for (const target of CLUSTER_TARGETS) {
     const inputId = `${target.sectionId}-${target.paramInfoId}-ParamInput`;
     const editorId = `CodeMirror-${target.sectionId}-${target.paramInfoId}`;
+    const targetRowId = `ParamContainer-${target.sectionId}-${target.paramInfoId}`;
 
     await page.waitForFunction(
-      ({ inputId, sectionId }) => {
+      ({ inputId, sectionId, targetRowId }) => {
         const canvas = document.querySelector<HTMLCanvasElement>(
           ".react-flow__section-shell-backdrop canvas",
         );
@@ -68,9 +69,11 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
           `section[data-section-id="${sectionId}"]`,
         );
         const input = document.getElementById(inputId);
+        const targetRow = document.getElementById(targetRowId);
         return (
           section instanceof HTMLElement &&
           input instanceof HTMLElement &&
+          targetRow instanceof HTMLElement &&
           canvas instanceof HTMLCanvasElement &&
           canvas.clientWidth > 0 &&
           canvas.clientHeight > 0 &&
@@ -81,6 +84,7 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
       {
         inputId,
         sectionId: target.sectionId,
+        targetRowId,
       },
     );
 
@@ -88,11 +92,13 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
       ({
         inputId,
         sectionId,
+        targetRowId,
       }) => {
         const section = document.querySelector<HTMLElement>(
           `section[data-section-id="${sectionId}"]`,
         );
         const input = document.getElementById(inputId);
+        const targetRow = document.getElementById(targetRowId);
         const canvas = document.querySelector<HTMLCanvasElement>(
           ".react-flow__section-shell-backdrop canvas",
         );
@@ -104,6 +110,9 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
         }
         if (!(input instanceof HTMLElement)) {
           throw new Error(`Missing input ${inputId}`);
+        }
+        if (!(targetRow instanceof HTMLElement)) {
+          throw new Error(`Missing row ${targetRowId}`);
         }
         if (!(canvas instanceof HTMLCanvasElement)) {
           throw new Error("Missing retained shell canvas");
@@ -163,6 +172,7 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
         const canvasScaleY = canvas.height / canvas.clientHeight;
         const nodeRect = node.getBoundingClientRect();
         const inputRect = input.getBoundingClientRect();
+        const rowRect = targetRow.getBoundingClientRect();
         const sectionHeader =
           section.querySelector<HTMLElement>("header.section-title");
 
@@ -229,9 +239,16 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
             .filter((id) => id.length > 0),
         );
         const inputOffsetX = (inputRect.left - nodeRect.left) / viewportScale;
-        const inputOffsetY = (inputRect.top - nodeRect.top) / viewportScale;
-        const inputWidth = inputRect.width / viewportScale;
-        const inputHeight = inputRect.height / viewportScale;
+        const rowOffsetX = (rowRect.left - nodeRect.left) / viewportScale;
+        const rowOffsetY = (rowRect.top - nodeRect.top) / viewportScale;
+        const rowWidth = rowRect.width / viewportScale;
+        const rowHeight = rowRect.height / viewportScale;
+        const shell = document.getElementById(`${sectionId}-CustomResizable`);
+        if (!(shell instanceof HTMLElement)) {
+          throw new Error(`Missing shell ${sectionId}`);
+        }
+        const sectionStyle = window.getComputedStyle(section);
+        const shellStyle = window.getComputedStyle(shell);
         const bodySampleX =
           (nodeX - canvasLeft + 24 / viewportScale) * canvasScaleX;
         const bodySampleY =
@@ -240,17 +257,28 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
             ((sectionHeader?.offsetHeight ?? 0) + 32) / viewportScale) *
           canvasScaleY;
         const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
+        const headerSampleX =
+          (nodeX - canvasLeft + Math.max(24 / viewportScale, inputOffsetX * 0.5)) *
+          canvasScaleX;
+        const headerSampleY =
+          (nodeY -
+            canvasTop +
+            Math.max(8 / viewportScale, (sectionHeader?.offsetHeight ?? 0) * 0.5)) *
+          canvasScaleY;
+        const headerPixel = sampleCanvasPixel(headerSampleX, headerSampleY);
 
         return {
           bodyPixel,
           canvasOwnedRestingTextCount: section.querySelectorAll(
             '[data-canvas-owned-resting-text="true"]',
           ).length,
-          inputDistinctPixelCount: countPixelsDifferentFromReferenceInCanvasRect(
-            (nodeX - canvasLeft + inputOffsetX) * canvasScaleX,
-            (nodeY - canvasTop + inputOffsetY) * canvasScaleY,
-            inputWidth * canvasScaleX,
-            inputHeight * canvasScaleY,
+          dataCanvasOwnedShell: section.dataset.canvasOwnedShell ?? null,
+          headerPixel,
+          rowDistinctPixelCount: countPixelsDifferentFromReferenceInCanvasRect(
+            (nodeX - canvasLeft + rowOffsetX) * canvasScaleX,
+            (nodeY - canvasTop + rowOffsetY) * canvasScaleY,
+            rowWidth * canvasScaleX,
+            rowHeight * canvasScaleY,
             bodyPixel,
           ),
           inputHighlightSpanCount: input.querySelectorAll(".cm-line span").length,
@@ -262,6 +290,9 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
           ).length,
           liveInputCount: section.querySelectorAll("input, textarea, .cm-editor")
             .length,
+          resizableCanvasOwnedShell: shell.dataset.canvasOwnedShell ?? null,
+          sectionBackgroundColor: sectionStyle.backgroundColor,
+          shellBackgroundColor: shellStyle.backgroundColor,
           underlineCount: section.querySelectorAll(
             '[data-canvas-owned-underline="true"]',
           ).length,
@@ -271,6 +302,7 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
       {
         inputId,
         sectionId: target.sectionId,
+        targetRowId,
       },
     );
 
@@ -285,7 +317,11 @@ test("canvas shell path owns the code-like resting-text cluster", async ({
     expect(restingTextState.inputOpacity).toBe("0");
     expect(restingTextState.lightweightOwnershipFlag).toBe("true");
     expect(restingTextState.inputHighlightSpanCount).toBe(0);
-    expect(restingTextState.inputDistinctPixelCount).toBeGreaterThan(0);
+    expect(restingTextState.dataCanvasOwnedShell).toBe("true");
+    expect(restingTextState.resizableCanvasOwnedShell).toBe("true");
+    expect(restingTextState.sectionBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(restingTextState.shellBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(restingTextState.headerPixel).not.toBe("0,0,0,0");
 
     inventories.push({
       ...restingTextState,

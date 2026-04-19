@@ -154,6 +154,61 @@ Record:
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
+## 2026-04-20 - code-like shell ownership cluster
+
+- Summary:
+  - Promoted `settings-section__buttonParamCodeObjDefault` and `settings-section__codeSectionDefault` from resting-text-only ownership to full canvas-owned shell ownership on the retained `canvas-shell-underlay` path while keeping the existing code-like resting-text/editor handoff intact.
+  - Updated the focused code-like cluster probe so it now checks transparent DOM shells plus canvas-painted headers for the button/code/prompt cluster and still verifies each canonical dummy row swaps to one live editor on focus.
+- Files:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `frontend/tests/e2e/settings/settings-all-settings-code-like-resting-text-cluster.spec.ts`
+  - `perf/reports/frontend/2026-04-20_settings-all-settings-code-like-shell-ownership-cluster-rerun.md`
+- Canonical target section:
+  - `settings-section__buttonParamCodeObjDefault`
+- Sibling proof sections:
+  - `settings-section__codeSectionDefault`
+  - `settings-section__promptSectionDefault`
+- Live canary result on the worktree runtime:
+  - focused cluster probe:
+    - `buttonParamCodeObjDefault`, `codeSectionDefault`, and `promptSectionDefault` each exposed `data-canvas-owned-shell="true"` on both the section root and `CustomResizable`
+    - all three sections kept transparent DOM shell backgrounds and non-transparent retained-canvas header pixels
+    - each section kept `lightweightRestingTextCount 9`, `underlineCount 9`, and `liveInputCount 0` at rest
+    - each canonical dummy input still swapped to one live editor on focus
+  - motion-aware dense rerun:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.56`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1199.9`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6069`
+    - `longTasks.maxMs: 3620`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a broader graph-surface ownership move than the earlier single-section shell canaries because the retained canvas now owns the idle shell frame for the existing code-like cluster instead of only the prompt sibling
+  - the dense canary stayed broadly flat versus the current viewport-persistence checkpoint (`raf.meanMs 43.28 -> 43.56`, `longTasks.totalMs 6076 -> 6069`), so keep the checkpoint but retain this ownership expansion
+  - close this code-like shell lane here and return the next default pass to a broader trace-backed renderer-main JS / GC reducer or the stronger graph-surface step
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-code-like-resting-text-cluster.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - result: `1 passed`, `27` tests
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-021/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-code-like-resting-text-cluster.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (51.4s)`
+  - CDP visual check:
+    - result: passed in a fresh headless DevTools sub-agent after normalizing to `All Settings` with `fit view`
+    - `buttonParamCodeObjDefault`, `codeSectionDefault`, and `promptSectionDefault` were present on the graph surface with no obvious blank or detached shell/body artifact
+    - visible workspace noise was limited to the normal Setta frame chrome
+- Next action:
+  - return to the broader `settings-section__browserSectionDefault` renderer-main JS / GC lane or the stronger graph-surface step instead of widening another shell sibling by inertia
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-20 - ZoomPane transform RAF coalescing
 
 - Summary:

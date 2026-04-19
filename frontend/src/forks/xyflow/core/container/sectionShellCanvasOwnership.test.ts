@@ -63,7 +63,7 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable, dict, global variables, browser, and prompt settings shell canaries", () => {
+  it("targets the callable, dict, global variables, browser, button/code, and prompt settings shell canaries", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
@@ -73,6 +73,12 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(PROMPT_CANVAS_OWNED_SECTION_SHELL_ID),
@@ -1064,17 +1070,22 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
   });
 
-  it("keeps lightweight nested children on the shared resting-text lane without widening the shell-owned browser or prompt canaries", () => {
+  it("keeps lightweight nested children on the shared resting-text lane without widening the shell-owned browser, button/code, or prompt canaries", () => {
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
     ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(false);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
