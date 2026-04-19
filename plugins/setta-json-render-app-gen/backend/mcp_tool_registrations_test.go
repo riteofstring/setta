@@ -36,6 +36,22 @@ func (stubAppDefinitionRuntime) UpdateAppDefinition(context.Context, any) (proje
 	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
 }
 
+func (stubAppDefinitionRuntime) CompareAndSetAppDefinitionCatalogID(context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (stubAppDefinitionRuntime) CompareAndSetAppDefinitionSpecVersion(context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (stubAppDefinitionRuntime) CompareAndSetAppDefinitionSpecPath(context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func (stubAppDefinitionRuntime) CompareAndSetAppDefinitionThemeMode(context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
 func TestBuildMCPToolRegistrationsKeepsFrozenToolSet(t *testing.T) {
 	t.Parallel()
 
