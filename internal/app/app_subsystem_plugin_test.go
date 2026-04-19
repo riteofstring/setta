@@ -328,6 +328,64 @@ func TestAppSubsystemPackageManagerPluginEnabledRestoresBackendRoutesAndTools(t 
 	assertAppSubsystemToolPresence(t, app, true)
 }
 
+func TestAppSubsystemUnknownIDPackageManagerPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerPluginAsID(
+		t,
+		sitePackages,
+		plugins.AppSubsystemPluginID,
+		unknownAppSubsystemPluginID,
+	)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
+	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := appSubsystemPluginTestAuthCookie(t, app)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemToolPresence(t, app, true)
+}
+
 func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -547,18 +605,32 @@ func installAppRepoPluginAsID(
 func installAppPackageManagerPlugin(t *testing.T, sitePackages string, pluginID string) {
 	t.Helper()
 
+	installAppPackageManagerPluginAsID(t, sitePackages, pluginID, pluginID)
+}
+
+func installAppPackageManagerPluginAsID(
+	t *testing.T,
+	sitePackages string,
+	sourcePluginID string,
+	targetPluginID string,
+) {
+	t.Helper()
+
 	repoRoot := appTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, pluginID)
-	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
+	pluginRoot := filepath.Join(sitePackages, targetPluginID)
+	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", sourcePluginID), pluginRoot)
 	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
 		t.Fatalf("remove copied plugin build dir: %v", err)
 	}
+	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["id"] = targetPluginID
+	})
 
-	distInfoName := strings.ReplaceAll(pluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoName := strings.ReplaceAll(targetPluginID, "-", "_") + "-0.1.0.dist-info"
 	distInfoRoot := filepath.Join(sitePackages, distInfoName)
 	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
 		"Metadata-Version: 2.1",
-		"Name: " + pluginID,
+		"Name: " + targetPluginID,
 		"Version: 0.1.0",
 		"Summary: Setta app subsystem plugin",
 		"",
