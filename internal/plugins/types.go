@@ -225,6 +225,7 @@ type DiscoveredPlugin struct {
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
 	RegisteredStaticDirs        []PluginRegisteredStaticDir
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint
+	appSubsystemBackend         *backendProbeAppSubsystemBackendRegistration
 }
 
 func (p DiscoveredPlugin) HasBackend() bool {
