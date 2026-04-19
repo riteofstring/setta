@@ -37,6 +37,8 @@ func codeObjImplPayloadDefaults(payload map[string]any, impl CodeObjectImpl) map
 	switch codeObjType {
 	case "CodeCallable", "NestedParam":
 		defaults["children"] = []any{}
+	case "DropdownParam":
+		defaults["choices"] = []any{}
 	}
 	return defaults
 }
@@ -47,6 +49,11 @@ func normalizeCodeObjImplPayloadCollections(payload map[string]any, fallbackType
 		children, ok := payload["children"].([]any)
 		if !ok || children == nil {
 			payload["children"] = []any{}
+		}
+	case "DropdownParam":
+		choices, ok := payload["choices"].([]any)
+		if !ok || choices == nil {
+			payload["choices"] = []any{}
 		}
 	}
 }
