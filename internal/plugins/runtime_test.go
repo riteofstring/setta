@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/config"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
@@ -88,6 +89,111 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	if statusEntry.SourceScopeLabel != "workspace" {
 		t.Fatalf("expected workspace source scope label, got %#v", statusEntry.SourceScopeLabel)
 	}
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if appSubsystem.PluginID != appSubsystemPluginID {
+		t.Fatalf("expected app subsystem plugin id %q, got %q", appSubsystemPluginID, appSubsystem.PluginID)
+	}
+	if appSubsystem.PluginEnabled {
+		t.Fatalf("expected app subsystem plugin disabled without fixture plugin, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected app subsystem surfaces unavailable without plugin, got %#v", appSubsystem)
+	}
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	installRuntimeAppSubsystemFixture(t, roots, false, map[string]any{
+		"appAuthoringUi":         true,
+		"appPreviewUi":           true,
+		"appGenerationChatModes": true,
+		"appDeploymentRuntime":   true,
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if appSubsystem.PluginEnabled {
+		t.Fatalf("expected disabled app subsystem plugin to stay unavailable, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected disabled app subsystem surfaces unavailable, got %#v", appSubsystem)
+	}
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	installRuntimeAppSubsystemFixture(t, roots, true, map[string]any{
+		"appAuthoringUi":         true,
+		"appPreviewUi":           true,
+		"appGenerationChatModes": false,
+		"appDeploymentRuntime":   false,
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if !appSubsystem.PluginEnabled {
+		t.Fatalf("expected enabled app subsystem plugin, got %#v", appSubsystem)
+	}
+	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI {
+		t.Fatalf("expected enabled app authoring and preview surfaces, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected disabled chat-mode/runtime surfaces to stay false, got %#v", appSubsystem)
+	}
+}
+
+func installRuntimeAppSubsystemFixture(
+	t *testing.T,
+	roots filesystemResolverTestRoots,
+	enabledByDefault bool,
+	appSubsystem map[string]any,
+) string {
+	t.Helper()
+
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), appSubsystemPluginID)
+	if err := os.Rename(pluginRoot, targetRoot); err != nil {
+		t.Fatalf("rename plugin root %s -> %s: %v", pluginRoot, targetRoot, err)
+	}
+	rewritePluginManifest(t, targetRoot, func(payload map[string]any) {
+		payload["id"] = appSubsystemPluginID
+		payload["name"] = "Setta JSON Render App Gen"
+		payload["enabledByDefault"] = enabledByDefault
+		payload["featureCapabilities"] = map[string]any{
+			"appSubsystem": appSubsystem,
+		}
+	})
+	return targetRoot
 }
 
 // Content descriptor scans should ignore symlinked directory loops until a real file appears.
@@ -678,7 +784,7 @@ func TestServiceRuntimeBlocksLanguageServerCapabilityByModePolicy(t *testing.T) 
 				t.Fatalf("expected mode-policy block, got %#v", statusEntry.BlockedCapabilities[0].Reason)
 			}
 
-			specs, err := service.LanguageServerSpecs(context.Background())
+			specs, err := service.LanguageServerSpecs(context.Background(), nil)
 			if err != nil {
 				t.Fatalf("load language server specs: %v", err)
 			}
@@ -891,7 +997,9 @@ func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing
 	if len(runtimeResponse.Status.Plugins) != 1 {
 		t.Fatalf("expected one runtime status plugin, got %#v", runtimeResponse.Status.Plugins)
 	}
-	languageServerSpecs, err := service.LanguageServerSpecs(context.Background())
+	languageServerSpecs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": stringPointer("setta-fixture-backend"),
+	})
 	if err != nil {
 		t.Fatalf("load language server specs after link refresh: %v", err)
 	}
@@ -927,7 +1035,9 @@ func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing
 	if len(runtimeResponse.List.Plugins) != 0 || len(runtimeResponse.Status.Plugins) != 0 {
 		t.Fatalf("expected backend registrations to clear after uninstall refresh, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
 	}
-	languageServerSpecs, err = service.LanguageServerSpecs(context.Background())
+	languageServerSpecs, err = service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": stringPointer("setta-fixture-backend"),
+	})
 	if err != nil {
 		t.Fatalf("load language server specs after uninstall refresh: %v", err)
 	}
@@ -1066,7 +1176,7 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenBackendProbeTimesOut(t *test
 	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
 		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
 	}
-	if !strings.Contains(statusEntry.Errors[0].Message, "Go backend runtime probe timed out") {
+	if !strings.Contains(statusEntry.Errors[0].Message, "Plugin backend runtime probe timed out") {
 		t.Fatalf("expected backend probe timeout message, got %#v", statusEntry.Errors[0].Message)
 	}
 }
@@ -1106,6 +1216,115 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenGoModuleDependencyIsMissing(
 	}
 	if len(statusEntry.Errors) != 1 {
 		t.Fatalf("expected one backend dependency error, got %#v", statusEntry.Errors)
+	}
+	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
+	}
+}
+
+func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *testing.T) {
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages := firstPartyBasedpyrightSitePackages(t)
+	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one first-party package-manager plugin, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
+	}
+
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.PluginID != "setta-basedpyright" || statusEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active first-party package-manager plugin, got %#v", statusEntry)
+	}
+	if len(statusEntry.RegisteredLanguageServers) != 1 || statusEntry.RegisteredLanguageServers[0].Language != "python" {
+		t.Fatalf("expected one python language server registration, got %#v", statusEntry.RegisteredLanguageServers)
+	}
+}
+
+func TestServiceRuntimeKeepsCurrentConfigAcrossUsableDuplicatePromotion(t *testing.T) {
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	if err := service.store.SavePluginsState(PluginsStateFile{
+		PluginConfigByID: map[string]any{
+			pluginConfigKey("setta-basedpyright", PluginScopeSettaFiles): map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{"/tmp/custom"},
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save package-manager config state: %v", err)
+	}
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 {
+		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
+	}
+	entry := runtimeResponse.List.Plugins[0]
+	if entry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected workspace duplicate to be primary, got %#v", entry.SourceScope)
+	}
+	basedpyrightSettings, ok := entry.Config.CurrentConfig["basedpyright"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected runtime current config root, got %#v", entry.Config.CurrentConfig)
+	}
+	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected runtime analysis config, got %#v", basedpyrightSettings["analysis"])
+	}
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok || len(extraPaths) != 1 || extraPaths[0] != "/tmp/custom" {
+		t.Fatalf("expected promoted workspace runtime config to keep lower-precedence extraPaths, got %#v", analysis["extraPaths"])
+	}
+}
+
+func TestServiceRuntimeMarksFirstPartyBasedpyrightInvalidWhenDefaultInterpreterLacksBasedpyright(t *testing.T) {
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 {
+		t.Fatalf("expected invalid basedpyright plugin to stay out of the runtime list, got %#v", runtimeResponse.List.Plugins)
+	}
+
+	statusEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-basedpyright", PluginRuntimeStateInvalid)
+	if len(statusEntry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected invalid basedpyright plugin to expose no language server registrations, got %#v", statusEntry.RegisteredLanguageServers)
+	}
+	if len(statusEntry.Errors) != 1 {
+		t.Fatalf("expected one backend probe error, got %#v", statusEntry.Errors)
 	}
 	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
 		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])

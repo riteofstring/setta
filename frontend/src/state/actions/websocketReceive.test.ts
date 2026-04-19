@@ -29,6 +29,7 @@ const {
   getListenerCoverageMock,
   getLatestProjectStateMock,
   getLatestLspDiagnosticsMock,
+  receivePluginRuntimeUpdateMock,
   uploadBinaryMock,
 } = vi.hoisted(() => ({
   routeGetAuthRefreshStatusMock: vi.fn(),
@@ -36,6 +37,7 @@ const {
   getListenerCoverageMock: vi.fn(),
   getLatestProjectStateMock: vi.fn(),
   getLatestLspDiagnosticsMock: vi.fn(),
+  receivePluginRuntimeUpdateMock: vi.fn(),
   uploadBinaryMock: vi.fn(),
 }));
 vi.mock("openapi/http", () => ({
@@ -50,6 +52,9 @@ vi.mock("openapi/http/result", () => ({
   callOpenAPI: function <T>(promise: Promise<T>) {
     return promise;
   },
+}));
+vi.mock("plugins/runtime", () => ({
+  receivePluginRuntimeUpdate: receivePluginRuntimeUpdateMock,
 }));
 vi.mock("state/actions/lspDiagnostics", () => ({
   processLspDiagnostics: vi.fn(),
@@ -746,6 +751,55 @@ describe("openWebSocket", () => {
         timeoutMs: 0,
       }),
     ).resolves.toBe("frontend-handshake");
+  });
+  it("routes backend plugin-runtime websocket updates into the plugin runtime store", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { getAuthRefreshStatus } = await import("openapi/http");
+    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    const runtimePayload = {
+      schemaVersion: 1,
+      list: {
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "programmatic",
+          command: null,
+          reason: null,
+        },
+        plugins: [],
+      },
+      status: {
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "programmatic",
+          command: null,
+          reason: null,
+        },
+        plugins: [],
+        languageServerSelections: [],
+      },
+    };
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-plugin-runtime",
+        messageType: WebsocketMessageTypeEnum.UpdatePluginRuntime,
+        content: runtimePayload,
+      }),
+    });
+
+    expect(receivePluginRuntimeUpdateMock).toHaveBeenCalledWith(runtimePayload);
   });
   it("clears affinity immediately on socket replacement and ignores stale socket identity events", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
