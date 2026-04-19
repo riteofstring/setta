@@ -202,7 +202,7 @@ func TestDocumentNormalizedPreservesOpaqueAppDefinitionPayload(t *testing.T) {
 	document := newFrontendSourceTestDocument(t)
 	document.AppDefinition = mustRawJSON(
 		t,
-		`{"appSpecVersion":"v1","catalogId":"setta.app.default","appSpecPath":"app_specs/app.json","routes":[{"path":"   ","name":"  Home  ","rootKey":" root "}],"dataBindings":["not","an","object"],"actions":["not","an","object"],"theme":{"colors":{"bg":"white"}},"assets":[{"type":"image","path":"hero.png"}]}`,
+		`{"appSpecVersion":"v1","catalogId":"setta.app.default","appSpecPath":"plugins/setta-json-render-app-gen/app_specs/app.json","routes":[{"path":"   ","name":"  Home  ","rootKey":" root "}],"dataBindings":["not","an","object"],"actions":["not","an","object"],"theme":{"colors":{"bg":"white"}},"assets":[{"type":"image","path":"hero.png"}]}`,
 	)
 
 	normalized, err := document.Normalized()
@@ -282,7 +282,7 @@ func newFrontendSourceTestDocument(t *testing.T) Document {
 		AppDefinition: mustMarshalStoredAppDefinition(t, AppDefinition{
 			AppSpecVersion: "v1",
 			CatalogID:      "setta.app.default",
-			AppSpecPath:    "app_specs/app.json",
+			AppSpecPath:    "plugins/setta-json-render-app-gen/app_specs/app.json",
 			Routes: []AppRoute{
 				{Path: "/", Name: "Home", RootKey: "root"},
 			},

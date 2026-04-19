@@ -5,15 +5,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"setta/internal/statefs"
 )
 
 const defaultFileMode = 0o644
+const pluginAppSpecRoot = "plugins/setta-json-render-app-gen/app_specs"
+
+func RootPath() string {
+	return pluginAppSpecRoot
+}
+
+func JoinPath(name string) string {
+	return path.Join(pluginAppSpecRoot, name)
+}
 
 func DefaultPath() string {
-	return filepath.ToSlash(filepath.Join("app_specs", "app.json"))
+	return JoinPath("app.json")
 }
 
 func ResolvePath(root string, appSpecPath string) (string, error) {
@@ -21,14 +31,18 @@ func ResolvePath(root string, appSpecPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve app spec root: %w", err)
 	}
-	appSpecsRoot := filepath.Join(resolvedRoot, "app_specs")
+	appSpecsRoot := filepath.Join(resolvedRoot, filepath.FromSlash(pluginAppSpecRoot))
 	resolvedPath, err := statefs.NormalizePath(appSpecPath, resolvedRoot)
 	if err != nil {
 		return "", err
 	}
 	resolvedPath, err = statefs.EnsureWithinRoot(appSpecsRoot, resolvedPath, "app spec path")
 	if err != nil {
-		return "", fmt.Errorf("app spec path must live under the app_specs folder in the project root: %w", err)
+		return "", fmt.Errorf(
+			"app spec path must live under %q in the project root: %w",
+			pluginAppSpecRoot,
+			err,
+		)
 	}
 	return resolvedPath, nil
 }

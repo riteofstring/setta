@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"setta/internal/mcpx"
@@ -258,8 +259,11 @@ func buildAppDefinitionToolRegistrations(
 						"description": "Full JSON Render app spec to persist.",
 					},
 					"appSpecPath": map[string]any{
-						"type":        "string",
-						"description": "Optional app-spec file path. Defaults to the existing configured path or app_specs/app.json.",
+						"type": "string",
+						"description": fmt.Sprintf(
+							"Optional app-spec file path. Defaults to the existing configured path or %s.",
+							appspec.DefaultPath(),
+						),
 					},
 					"appSpecVersion": map[string]any{
 						"type":        "string",
@@ -340,8 +344,11 @@ func buildAppDefinitionToolRegistrations(
 						"description": "Newline-delimited JSON patch operations using the bounded /root and /elements/... pointer format.",
 					},
 					"appSpecPath": map[string]any{
-						"type":        "string",
-						"description": "Optional app-spec file path override. Defaults to the existing configured path or app_specs/app.json.",
+						"type": "string",
+						"description": fmt.Sprintf(
+							"Optional app-spec file path override. Defaults to the existing configured path or %s.",
+							appspec.DefaultPath(),
+						),
 					},
 					"baseAppSpec": map[string]any{
 						"type":        "object",
