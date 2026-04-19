@@ -5,7 +5,7 @@ import type {
   Policy,
   RunSnapshotMode,
 } from "./openapi";
-import { createSettingsState } from "./openapi";
+import { createSettingsState, createSingleConfig } from "./openapi";
 
 export const APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION = 1;
 
@@ -46,6 +46,11 @@ export type AppSubsystemRuntimeContext = {
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
 };
 
+export type AppSubsystemProjectStateSnapshot =
+  GetLatestProjectStateResponse["projectState"] & {
+    previewSectionVariantMap: Record<string, string>;
+  };
+
 export type AppSubsystemProjectLoadState = {
   projectIsLoading: boolean;
   projectIs404: boolean;
@@ -68,6 +73,10 @@ export type AppSubsystemFrontendHost = {
   subscribeProjectContext: (
     listener: (context: AppSubsystemProjectContext) => void,
   ) => () => void;
+  getProjectStateSnapshot: () => AppSubsystemProjectStateSnapshot;
+  subscribeProjectStateSnapshot: (
+    listener: (projectState: AppSubsystemProjectStateSnapshot) => void,
+  ) => () => void;
   getRuntimeContext: () => AppSubsystemRuntimeContext;
   subscribeRuntimeContext: (
     listener: (context: AppSubsystemRuntimeContext) => void,
@@ -78,6 +87,9 @@ export type AppSubsystemFrontendHost = {
   ) => void;
   incrementAppDeploymentSessionRunCount: () => void;
   getServerModeState: () => AppSubsystemServerModeState;
+  subscribeServerModeState: (
+    listener: (serverMode: AppSubsystemServerModeState) => void,
+  ) => () => void;
   setServerModeState: (serverMode: AppSubsystemServerModeState) => void;
   setProjectLoadState: (loadState: AppSubsystemProjectLoadState) => void;
   resetProjectRuntimeState: () => void;
@@ -102,6 +114,11 @@ const EMPTY_APP_SUBSYSTEM_RUNTIME_CONTEXT = Object.freeze({
   runSnapshotModeByProjectConfigId: {},
 }) satisfies AppSubsystemRuntimeContext;
 
+const EMPTY_APP_SUBSYSTEM_PROJECT_STATE_SNAPSHOT = Object.freeze({
+  ...createSingleConfig(),
+  previewSectionVariantMap: {},
+}) as AppSubsystemProjectStateSnapshot;
+
 const EMPTY_APP_SUBSYSTEM_SERVER_MODE_STATE = Object.freeze({
   mode: null,
   modeResolved: false,
@@ -117,12 +134,15 @@ export function createAppSubsystemFrontendHost(
     notify: () => undefined,
     getProjectContext: () => EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT,
     subscribeProjectContext: () => () => undefined,
+    getProjectStateSnapshot: () => EMPTY_APP_SUBSYSTEM_PROJECT_STATE_SNAPSHOT,
+    subscribeProjectStateSnapshot: () => () => undefined,
     getRuntimeContext: () => EMPTY_APP_SUBSYSTEM_RUNTIME_CONTEXT,
     subscribeRuntimeContext: () => () => undefined,
     getAppDeploymentSession: () => null,
     setAppDeploymentSession: () => undefined,
     incrementAppDeploymentSessionRunCount: () => undefined,
     getServerModeState: () => EMPTY_APP_SUBSYSTEM_SERVER_MODE_STATE,
+    subscribeServerModeState: () => () => undefined,
     setServerModeState: () => undefined,
     setProjectLoadState: () => undefined,
     resetProjectRuntimeState: () => undefined,

@@ -4,6 +4,7 @@ import {
   type AppSubsystemFrontendHost,
   type AppSubsystemNotification,
   type AppSubsystemProjectContext,
+  type AppSubsystemProjectStateSnapshot,
   type AppSubsystemRuntimeContext,
   type AppSubsystemServerModeState,
 } from "@setta/app-subsystem-frontend-sdk";
@@ -77,6 +78,18 @@ function buildAppSubsystemRuntimeContext(): AppSubsystemRuntimeContext {
     defaultRunSnapshotMode: settingsState.backend.runSnapshotMode,
     runSnapshotModeByProjectConfigId: {
       ...localStorageState.runSnapshotModeByProjectConfigId,
+    },
+  };
+}
+
+function buildAppSubsystemProjectStateSnapshot(): AppSubsystemProjectStateSnapshot {
+  const { previewSectionVariantMap, reset, ...projectState } =
+    useProjectState.getState();
+  void reset;
+  return {
+    ...projectState,
+    previewSectionVariantMap: {
+      ...previewSectionVariantMap,
     },
   };
 }
@@ -181,12 +194,21 @@ function sameAppSubsystemRuntimeContext(
 const appSubsystemProjectContextListeners = new Set<
   (projectContext: AppSubsystemProjectContext) => void
 >();
+const appSubsystemProjectStateSnapshotListeners = new Set<
+  (projectState: AppSubsystemProjectStateSnapshot) => void
+>();
 const appSubsystemRuntimeContextListeners = new Set<
   (runtimeContext: AppSubsystemRuntimeContext) => void
 >();
+const appSubsystemServerModeStateListeners = new Set<
+  (serverMode: AppSubsystemServerModeState) => void
+>();
 
 let currentAppSubsystemProjectContext = buildAppSubsystemProjectContext();
+let currentAppSubsystemProjectStateSnapshot =
+  buildAppSubsystemProjectStateSnapshot();
 let currentAppSubsystemRuntimeContext = buildAppSubsystemRuntimeContext();
+let currentAppSubsystemServerModeState = buildAppSubsystemServerModeState();
 
 function syncAppSubsystemProjectContext(): void {
   const nextProjectContext = buildAppSubsystemProjectContext();
@@ -201,6 +223,14 @@ function syncAppSubsystemProjectContext(): void {
   currentAppSubsystemProjectContext = nextProjectContext;
   for (const listener of appSubsystemProjectContextListeners) {
     listener(nextProjectContext);
+  }
+}
+
+function syncAppSubsystemProjectStateSnapshot(): void {
+  currentAppSubsystemProjectStateSnapshot =
+    buildAppSubsystemProjectStateSnapshot();
+  for (const listener of appSubsystemProjectStateSnapshotListeners) {
+    listener(currentAppSubsystemProjectStateSnapshot);
   }
 }
 
@@ -220,11 +250,40 @@ function syncAppSubsystemRuntimeContext(): void {
   }
 }
 
+function sameAppSubsystemServerModeState(
+  left: AppSubsystemServerModeState,
+  right: AppSubsystemServerModeState,
+): boolean {
+  return (
+    left.mode === right.mode &&
+    left.modeResolved === right.modeResolved &&
+    left.modeError === right.modeError
+  );
+}
+
+function syncAppSubsystemServerModeState(): void {
+  const nextServerModeState = buildAppSubsystemServerModeState();
+  if (
+    sameAppSubsystemServerModeState(
+      currentAppSubsystemServerModeState,
+      nextServerModeState,
+    )
+  ) {
+    return;
+  }
+  currentAppSubsystemServerModeState = nextServerModeState;
+  for (const listener of appSubsystemServerModeStateListeners) {
+    listener(nextServerModeState);
+  }
+}
+
 useProjectState.subscribe(syncAppSubsystemProjectContext);
+useProjectState.subscribe(syncAppSubsystemProjectStateSnapshot);
 useAllProjectMetadata.subscribe(syncAppSubsystemProjectContext);
 useShareSession.subscribe(syncAppSubsystemRuntimeContext);
 useLocalStorage.subscribe(syncAppSubsystemRuntimeContext);
 useSettings.subscribe(syncAppSubsystemRuntimeContext);
+useServerMode.subscribe(syncAppSubsystemServerModeState);
 
 function addAppSubsystemNotification(
   notification: AppSubsystemNotification,
@@ -250,6 +309,15 @@ export function createRuntimeAppSubsystemFrontendHost(
         appSubsystemProjectContextListeners.delete(listener);
       };
     },
+    getProjectStateSnapshot: () => currentAppSubsystemProjectStateSnapshot,
+    subscribeProjectStateSnapshot: (
+      listener: (projectState: AppSubsystemProjectStateSnapshot) => void,
+    ) => {
+      appSubsystemProjectStateSnapshotListeners.add(listener);
+      return () => {
+        appSubsystemProjectStateSnapshotListeners.delete(listener);
+      };
+    },
     getRuntimeContext: () => currentAppSubsystemRuntimeContext,
     subscribeRuntimeContext: (
       listener: (runtimeContext: AppSubsystemRuntimeContext) => void,
@@ -263,7 +331,15 @@ export function createRuntimeAppSubsystemFrontendHost(
     setAppDeploymentSession: setAppSubsystemDeploymentSession,
     incrementAppDeploymentSessionRunCount:
       incrementAppSubsystemDeploymentSessionRunCount,
-    getServerModeState: buildAppSubsystemServerModeState,
+    getServerModeState: () => currentAppSubsystemServerModeState,
+    subscribeServerModeState: (
+      listener: (serverMode: AppSubsystemServerModeState) => void,
+    ) => {
+      appSubsystemServerModeStateListeners.add(listener);
+      return () => {
+        appSubsystemServerModeStateListeners.delete(listener);
+      };
+    },
     setServerModeState: (serverMode) => {
       useServerMode.setState(serverMode);
     },
