@@ -26,6 +26,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/boundcode"
 	"setta/internal/chatattachments"
+	"setta/internal/chatmodes"
 	"setta/internal/chatsections"
 	"setta/internal/codegen"
 	"setta/internal/config"
@@ -1011,6 +1012,7 @@ func initializeIDEAgentServices(
 	cfg config.Config,
 	logger *slog.Logger,
 	modePolicy modes.Policy,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 	settaServerURL string,
 	currentSession *auth.CurrentSession,
 	authService *auth.Service,
@@ -1031,6 +1033,10 @@ func initializeIDEAgentServices(
 	if !modePolicy.IsIDE() || projectRuntime == nil {
 		return services, nil
 	}
+	appGenerationModes, err := newAppGenerationModeResolver(appSubsystemCapabilities)
+	if err != nil {
+		return ideAgentServices{}, err
+	}
 	if err := initializeIDEAgentStoresAndConfigs(cfg, settaServerURL, websocketHub, &services); err != nil {
 		return ideAgentServices{}, err
 	}
@@ -1046,6 +1052,7 @@ func initializeIDEAgentServices(
 		terminalService,
 		mcpClient,
 		attachmentService,
+		appGenerationModes,
 		&services,
 	); err != nil {
 		return ideAgentServices{}, err
@@ -1065,6 +1072,7 @@ func initializeIDEAgentServices(
 		backendLogService,
 		promptTemplateStore,
 		agentProfileStore,
+		appGenerationModes,
 		&services,
 	); err != nil {
 		return ideAgentServices{}, err
@@ -1202,6 +1210,7 @@ func initializeIDEManagedAgentServices(
 	terminalService *terminals.Service,
 	mcpClient *mcpx.Client,
 	attachmentService *chatattachments.Service,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
 	managedLiveRuntime := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
@@ -1241,13 +1250,14 @@ func initializeIDEManagedAgentServices(
 		return err
 	}
 	services.managedChatService, err = managedchat.NewService(managedchat.ServiceOptions{
-		ProjectState: projectRuntime,
-		Runs:         services.agentRunStore,
-		Engines:      services.engineStore,
-		LLM:          services.llmRuntime,
-		Starter:      services.agentRunRuntime,
-		Live:         managedLiveRuntime,
-		Stopper:      services.agentRunRuntime,
+		ProjectState:       projectRuntime,
+		Runs:               services.agentRunStore,
+		Engines:            services.engineStore,
+		LLM:                services.llmRuntime,
+		Starter:            services.agentRunRuntime,
+		Live:               managedLiveRuntime,
+		Stopper:            services.agentRunRuntime,
+		AppGenerationModes: appGenerationModes,
 	})
 	if err != nil {
 		return err
@@ -1415,6 +1425,7 @@ func initializeIDEExternalAgentServices(
 	backendLogService *backendlogs.Service,
 	promptTemplateStore *prompttemplates.Store,
 	agentProfileStore *agentprofiles.Store,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
 	if err := initializeIDEExternalRuntimeServices(
@@ -1430,6 +1441,7 @@ func initializeIDEExternalAgentServices(
 		attachmentService,
 		backendLogService,
 		agentProfileStore,
+		appGenerationModes,
 		services,
 	); err != nil {
 		return err
@@ -1458,6 +1470,7 @@ func initializeIDEExternalRuntimeServices(
 	attachmentService *chatattachments.Service,
 	backendLogService *backendlogs.Service,
 	agentProfileStore *agentprofiles.Store,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
 	followService, err := externalagents.NewFollowService(externalagents.FollowServiceOptions{
@@ -1519,16 +1532,17 @@ func initializeIDEExternalRuntimeServices(
 	})
 	services.externalAgentExecutor = externalAgentExecutor
 	services.externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
-		ProjectState:   projectRuntime,
-		Engines:        services.engineStore,
-		Runs:           services.agentRunStore,
-		Profiles:       agentProfileStore,
-		Configs:        services.externalConfigStore,
-		Runtime:        services.externalAgentRuntime,
-		Preflight:      services.externalPreflight,
-		Attachments:    attachmentService,
-		Executor:       externalAgentExecutor,
-		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		ProjectState:       projectRuntime,
+		Engines:            services.engineStore,
+		Runs:               services.agentRunStore,
+		Profiles:           agentProfileStore,
+		Configs:            services.externalConfigStore,
+		Runtime:            services.externalAgentRuntime,
+		Preflight:          services.externalPreflight,
+		Attachments:        attachmentService,
+		Executor:           externalAgentExecutor,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		AppGenerationModes: appGenerationModes,
 	})
 	return err
 }
@@ -2321,6 +2335,7 @@ func initializeAppRuntimeServices(
 	base appBaseServices,
 	projectServices projectServices,
 	workspaceServices appWorkspaceServices,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 ) (appRuntimeServices, error) {
 	services := appRuntimeServices{
 		uiSettingRevealResults: realtime.NewUISettingRevealResultHub(),
@@ -2330,6 +2345,7 @@ func initializeAppRuntimeServices(
 		cfg,
 		logger,
 		modePolicy,
+		appSubsystemCapabilities,
 		base.settaServerURL,
 		base.currentSession,
 		base.authService,
@@ -2564,17 +2580,11 @@ func initializeAppPlatformServices(
 	projectServices projectServices,
 	workspaceServices appWorkspaceServices,
 	runtimeServices appRuntimeServices,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 ) (appPlatformServices, error) {
 	services := appPlatformServices{
 		pluginRouteService:       projectServices.pluginRouteService,
-		appSubsystemCapabilities: newAppSubsystemCapabilityState(),
-	}
-	if projectServices.pluginMutationService != nil {
-		snapshot, err := projectServices.pluginMutationService.Rescan()
-		if err != nil {
-			return appPlatformServices{}, err
-		}
-		services.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+		appSubsystemCapabilities: appSubsystemCapabilities,
 	}
 	if err := initializeAppDeploymentPublishers(cfg, modePolicy, &services); err != nil {
 		return appPlatformServices{}, err
@@ -2823,6 +2833,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	appSubsystemCapabilities, err := initializeAppSubsystemCapabilities(projectServices)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
+		return nil, err
+	}
 	runtimeServices, err := initializeAppRuntimeServices(
 		cfg,
 		logger,
@@ -2830,6 +2845,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		baseServices,
 		projectServices,
 		workspaceServices,
+		appSubsystemCapabilities,
 	)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
@@ -2843,6 +2859,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectServices,
 		workspaceServices,
 		runtimeServices,
+		appSubsystemCapabilities,
 	)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
