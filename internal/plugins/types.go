@@ -88,12 +88,13 @@ type PluginRegisteredCodegenTarget struct {
 }
 
 type PluginRegisteredLanguageServer struct {
-	PluginID    string   `json:"pluginId"`
-	Name        string   `json:"name"`
-	Language    string   `json:"language"`
-	Command     string   `json:"command"`
-	Args        []string `json:"args"`
-	SettingsKey *string  `json:"settingsKey,omitempty"`
+	PluginID              string   `json:"pluginId"`
+	Name                  string   `json:"name"`
+	Language              string   `json:"language"`
+	Command               string   `json:"command"`
+	Args                  []string `json:"args"`
+	SettingsKey           *string  `json:"settingsKey,omitempty"`
+	RuntimeSearchPathsKey *string  `json:"runtimeSearchPathsKey,omitempty" ts_skip:"true"`
 }
 
 type PluginRegisteredUISetting struct {

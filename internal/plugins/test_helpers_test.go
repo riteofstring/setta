@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
-	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
+	pluginFixturePythonEnv       = "SETTA_PLUGIN_FIXTURE_PYTHON"
+	pluginFixtureLSPScriptEnv    = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
+	pluginFixtureRuntimePathsEnv = "SETTA_PLUGIN_FIXTURE_RUNTIME_SEARCH_PATHS_KEY"
 )
 
 type filesystemPluginScope string
