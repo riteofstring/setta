@@ -3,37 +3,6 @@ import { buildShareSessionHeaders } from "utils/shareSessionHeaders";
 import { buildBackendURL } from "utils/transportUrlCore";
 import { client } from "./generated/client.gen";
 
-function requestMethodSupportsBody(method: string): boolean {
-  const normalizedMethod = method.trim().toUpperCase();
-  return normalizedMethod !== "GET" && normalizedMethod !== "HEAD";
-}
-
-async function buildResolvedRequest(
-  request: Request,
-  resolvedURL: string,
-): Promise<Request> {
-  const headers = new Headers(request.headers);
-  const init: RequestInit = {
-    method: request.method,
-    headers,
-    cache: request.cache,
-    credentials: request.credentials,
-    integrity: request.integrity,
-    keepalive: request.keepalive,
-    mode: request.mode,
-    redirect: request.redirect,
-    referrer: request.referrer,
-    referrerPolicy: request.referrerPolicy,
-    signal: request.signal,
-  };
-  if (requestMethodSupportsBody(request.method)) {
-    // Chromium can fail body-carrying cross-origin rewrites when cloning a
-    // Request directly into another Request with a new URL.
-    init.body = await request.clone().arrayBuffer();
-  }
-  return new Request(resolvedURL, init);
-}
-
 function resolveOpenAPIBaseURL(): string {
   if (typeof location === "undefined") {
     return "http://localhost";
@@ -50,7 +19,7 @@ async function fetchOpenAPIRequest(
   const resolvedURL = buildBackendURL(
     `${requestURL.pathname}${requestURL.search}`,
   );
-  const nextRequest = await buildResolvedRequest(request, resolvedURL);
+  const nextRequest = new Request(resolvedURL, request);
   const shareHeaders = buildShareSessionHeaders();
   for (const [key, value] of Object.entries(shareHeaders)) {
     nextRequest.headers.set(key, value);
