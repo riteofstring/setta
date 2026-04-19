@@ -1,5 +1,7 @@
 import type {
+  GetAppDeploymentCurrentSessionResponses,
   GetLatestProjectStateResponse,
+  HttpapiServerModeResponse,
   Policy,
   RunSnapshotMode,
 } from "./openapi";
@@ -44,6 +46,20 @@ export type AppSubsystemRuntimeContext = {
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
 };
 
+export type AppSubsystemProjectLoadState = {
+  projectIsLoading: boolean;
+  projectIs404: boolean;
+};
+
+export type AppSubsystemServerModeState = {
+  mode: HttpapiServerModeResponse["mode"] | null;
+  modeResolved: boolean;
+  modeError: string | null;
+};
+
+export type AppSubsystemDeploymentSession =
+  GetAppDeploymentCurrentSessionResponses[200];
+
 export type AppSubsystemFrontendHost = {
   apiVersion: typeof APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION;
   closeModal: () => void;
@@ -56,6 +72,15 @@ export type AppSubsystemFrontendHost = {
   subscribeRuntimeContext: (
     listener: (context: AppSubsystemRuntimeContext) => void,
   ) => () => void;
+  getAppDeploymentSession: () => AppSubsystemDeploymentSession | null;
+  setAppDeploymentSession: (
+    session: AppSubsystemDeploymentSession | null,
+  ) => void;
+  incrementAppDeploymentSessionRunCount: () => void;
+  getServerModeState: () => AppSubsystemServerModeState;
+  setServerModeState: (serverMode: AppSubsystemServerModeState) => void;
+  setProjectLoadState: (loadState: AppSubsystemProjectLoadState) => void;
+  resetProjectRuntimeState: () => void;
 };
 
 const EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT = Object.freeze({
@@ -77,6 +102,12 @@ const EMPTY_APP_SUBSYSTEM_RUNTIME_CONTEXT = Object.freeze({
   runSnapshotModeByProjectConfigId: {},
 }) satisfies AppSubsystemRuntimeContext;
 
+const EMPTY_APP_SUBSYSTEM_SERVER_MODE_STATE = Object.freeze({
+  mode: null,
+  modeResolved: false,
+  modeError: null,
+}) satisfies AppSubsystemServerModeState;
+
 export function createAppSubsystemFrontendHost(
   overrides: Partial<AppSubsystemFrontendHost> = {},
 ): AppSubsystemFrontendHost {
@@ -88,6 +119,13 @@ export function createAppSubsystemFrontendHost(
     subscribeProjectContext: () => () => undefined,
     getRuntimeContext: () => EMPTY_APP_SUBSYSTEM_RUNTIME_CONTEXT,
     subscribeRuntimeContext: () => () => undefined,
+    getAppDeploymentSession: () => null,
+    setAppDeploymentSession: () => undefined,
+    incrementAppDeploymentSessionRunCount: () => undefined,
+    getServerModeState: () => EMPTY_APP_SUBSYSTEM_SERVER_MODE_STATE,
+    setServerModeState: () => undefined,
+    setProjectLoadState: () => undefined,
+    resetProjectRuntimeState: () => undefined,
     ...overrides,
   };
 }
@@ -181,9 +219,10 @@ export type AppSubsystemFrontendController = {
   clearAppSpecPatchPreviewStream?: (toolCallId: string) => void;
   clearAllAppSpecPatchPreviewStreams?: () => void;
   initializeAppSessionFromCurrentDeployment?: (
+    host: AppSubsystemFrontendHost,
     options?: AppSubsystemSessionInitializationOptions,
   ) => Promise<boolean>;
-  resetAppSessionState?: () => void;
+  resetAppSessionState?: (host: AppSubsystemFrontendHost) => void;
   processAppProjectStateUpdateFromBackend?: (
     payload: GetLatestProjectStateResponse,
   ) => void;

@@ -13,6 +13,7 @@ import {
   processAppProjectStateUpdateFromBackend,
   resetAppSessionState,
 } from "plugins/appSubsystem";
+import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
 import { receivePluginRuntimeUpdate } from "plugins/runtime";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
@@ -580,7 +581,7 @@ async function handleShareSessionRecovery() {
     : "Share session expired. Refresh to continue.";
   if (shareSessionRecoveryAttempts >= SHARE_SESSION_RECOVERY_MAX_ATTEMPTS) {
     if (isAppMode) {
-      resetAppSessionState();
+      resetAppSessionState(DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST);
     } else {
       resetShareSessionState();
     }
@@ -590,16 +591,19 @@ async function handleShareSessionRecovery() {
   shareSessionRecoveryInFlight = true;
   shareSessionRecoveryAttempts += 1;
   const recovered = isAppMode
-    ? await initializeAppSessionFromCurrentDeployment({
-        forceNewSession: true,
-      })
+    ? await initializeAppSessionFromCurrentDeployment(
+        DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
+        {
+          forceNewSession: true,
+        },
+      )
     : await initializeShareSessionFromCurrentDeployment({
         forceNewSession: true,
       });
   shareSessionRecoveryInFlight = false;
   if (!recovered) {
     if (isAppMode) {
-      resetAppSessionState();
+      resetAppSessionState(DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST);
     } else {
       resetShareSessionState();
     }
