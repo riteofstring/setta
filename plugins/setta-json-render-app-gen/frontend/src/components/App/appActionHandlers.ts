@@ -1,19 +1,23 @@
 import {
+  type AppSubsystemFrontendHost,
+  type AppSubsystemRuntimeContext,
   callOpenAPI,
   getAttachmentDownloadUrl,
+  res200,
+  resolveRunRequest,
   runCode,
 } from "@setta/app-subsystem-frontend-sdk";
 import { useAppConfigs } from "../../appSubsystemProjectState";
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import {
+  useAppSubsystemFrontendHost,
+  useAppSubsystemRuntimeContext,
+} from "../../appSubsystemFrontendHostContext";
+import {
   ensureAppProjectConfigLoaded,
   incrementAppSessionRunCount,
   resetAppDeployment,
 } from "../../state/actions/app";
-import { addTemporaryNotification } from "state/actions/notifications";
-import { useLocalStorage, useSettings } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { resolveRunRequest } from "utils/runCapabilities";
 import type { AppActionDefinitions } from "./appBindings";
 import { resolveActionType } from "./appBindings";
 import { buildAppBinaryDownloadUrl } from "./appTransport";
@@ -235,22 +239,24 @@ async function loadConfigState(
 function resolveAppRunSnapshotMode(
   configId: string,
   deploymentMode: boolean,
+  runtimeContext: AppSubsystemRuntimeContext,
 ): string {
   if (deploymentMode) {
     return "";
   }
   const runSnapshotOverride =
-    useLocalStorage.getState().runSnapshotModeByProjectConfigId[configId];
+    runtimeContext.runSnapshotModeByProjectConfigId[configId];
   if (runSnapshotOverride !== undefined) {
     return runSnapshotOverride;
   }
-  return useSettings.getState().backend.runSnapshotMode;
+  return runtimeContext.defaultRunSnapshotMode;
 }
 
 function buildRunRequestBody(
   runParams: PreparedRunParams,
   executionSectionId: string,
   deploymentMode: boolean,
+  runtimeContext: AppSubsystemRuntimeContext,
 ): Parameters<typeof runCode>[0]["body"] {
   return {
     cliId: "",
@@ -260,6 +266,7 @@ function buildRunRequestBody(
     runSnapshotMode: resolveAppRunSnapshotMode(
       runParams.configId,
       deploymentMode,
+      runtimeContext,
     ),
     sectionId: executionSectionId,
     sectionVariantOverrides: runParams.sectionVariantOverrides ?? {},
@@ -271,6 +278,7 @@ async function submitRunRequest(
   runParams: PreparedRunParams,
   executionSectionId: string,
   deploymentMode: boolean,
+  runtimeContext: AppSubsystemRuntimeContext,
 ): Promise<boolean> {
   try {
     const res = await callOpenAPI(
@@ -279,6 +287,7 @@ async function submitRunRequest(
           runParams,
           executionSectionId,
           deploymentMode,
+          runtimeContext,
         ),
       }),
     );
@@ -338,18 +347,26 @@ function resolveRunStartCheck(args: {
   return { notification: null, shouldContinue: true };
 }
 
-function notifyRunUnavailable(message?: string | null): null {
-  addTemporaryNotification(message ?? "Run is unavailable.");
+function notify(frontendHost: AppSubsystemFrontendHost, message: string): void {
+  frontendHost.notify({ message });
+}
+
+function notifyRunUnavailable(
+  frontendHost: AppSubsystemFrontendHost,
+  message?: string | null,
+): null {
+  notify(frontendHost, message ?? "Run is unavailable.");
   return null;
 }
 
 async function prepareRunExecution(
   params: Record<string, unknown> | undefined,
   args: RunHandlerArgs,
+  frontendHost: AppSubsystemFrontendHost,
 ): Promise<PreparedRunExecution | null> {
   const preparedRun = prepareRunParams(params, args.fallbackConfigId);
   if (!preparedRun.value) {
-    return notifyRunUnavailable(preparedRun.error);
+    return notifyRunUnavailable(frontendHost, preparedRun.error);
   }
   const policyError = resolveRunPolicyError(
     preparedRun.value,
@@ -357,12 +374,12 @@ async function prepareRunExecution(
     args.allowVariantChanges,
   );
   if (policyError) {
-    addTemporaryNotification(policyError);
+    notify(frontendHost, policyError);
     return null;
   }
   const configState = await loadConfigState(preparedRun.value.configId);
   if (!configState) {
-    addTemporaryNotification("Failed to load project config.");
+    notify(frontendHost, "Failed to load project config.");
     return null;
   }
   const runRequest = resolveRunRequest(
@@ -370,7 +387,7 @@ async function prepareRunExecution(
     preparedRun.value.requestedSectionId,
   );
   if (!runRequest.canRun) {
-    return notifyRunUnavailable(runRequest.disabledReason);
+    return notifyRunUnavailable(frontendHost, runRequest.disabledReason);
   }
   return {
     runParams: preparedRun.value,
@@ -381,15 +398,17 @@ async function prepareRunExecution(
 async function executeRunHandler(
   params: Record<string, unknown> | undefined,
   args: RunHandlerArgs,
+  frontendHost: AppSubsystemFrontendHost,
+  runtimeContext: AppSubsystemRuntimeContext,
 ): Promise<void> {
   const runStartCheck = resolveRunStartCheck(args);
   if (!runStartCheck.shouldContinue) {
     if (runStartCheck.notification) {
-      addTemporaryNotification(runStartCheck.notification);
+      notify(frontendHost, runStartCheck.notification);
     }
     return;
   }
-  const preparedRun = await prepareRunExecution(params, args);
+  const preparedRun = await prepareRunExecution(params, args, frontendHost);
   if (!preparedRun) {
     return;
   }
@@ -398,17 +417,23 @@ async function executeRunHandler(
       preparedRun.runParams,
       preparedRun.executionSectionId,
       args.deploymentMode,
+      runtimeContext,
     ),
   );
   if (!didRun) {
-    addTemporaryNotification("Run failed.");
+    notify(frontendHost, "Run failed.");
     return;
   }
   recordSuccessfulRun(args.deploymentMode, args.setLocalRunCount);
 }
 
-function createRunHandler(args: RunHandlerArgs): AppActionHandler {
-  return (params) => executeRunHandler(params, args);
+function createRunHandler(
+  args: RunHandlerArgs,
+  frontendHost: AppSubsystemFrontendHost,
+  runtimeContext: AppSubsystemRuntimeContext,
+): AppActionHandler {
+  return (params) =>
+    executeRunHandler(params, args, frontendHost, runtimeContext);
 }
 
 function triggerDownload(url: string, filename?: string) {
@@ -445,59 +470,65 @@ async function requestDownloadUrl(
 }
 
 function createResetHandler(
-  sharePolicy: unknown,
+  deploymentMode: boolean,
   setLocalRunCount: Dispatch<SetStateAction<number>>,
 ): () => Promise<void> {
   return async () => {
     setLocalRunCount(0);
-    if (sharePolicy) {
+    if (deploymentMode) {
       await resetAppDeployment();
     }
   };
 }
 
-function createDownloadArtifactHandler(args: {
-  allowFileDownloads: boolean;
-  fallbackConfigId: string | null;
-}): (
+function createDownloadArtifactHandler(
+  args: {
+    allowFileDownloads: boolean;
+    fallbackConfigId: string | null;
+  },
+  frontendHost: AppSubsystemFrontendHost,
+): (
   artifactId?: string | null,
   filename?: string | null,
   configId?: string | null,
 ) => Promise<void> {
   return async (artifactId, filename, configId) => {
     if (!args.allowFileDownloads) {
-      addTemporaryNotification("File downloads are disabled by policy.");
+      notify(frontendHost, "File downloads are disabled by policy.");
       return;
     }
     if (!artifactId) {
-      addTemporaryNotification("Missing artifact id for download.");
+      notify(frontendHost, "Missing artifact id for download.");
       return;
     }
     const resolvedConfigId = configId ?? args.fallbackConfigId;
     if (!resolvedConfigId) {
-      addTemporaryNotification("Missing project config for download.");
+      notify(frontendHost, "Missing project config for download.");
       return;
     }
     const url = await requestDownloadUrl(artifactId, resolvedConfigId);
     if (!url) {
-      addTemporaryNotification("Failed to start download.");
+      notify(frontendHost, "Failed to start download.");
       return;
     }
     triggerDownload(url, filename ?? undefined);
   };
 }
 
-function createDownloadBinaryHandler(args: {
-  allowFileDownloads: boolean;
-  shareSessionId: string | null;
-}): (contentId?: string | null, filename?: string | null) => void {
+function createDownloadBinaryHandler(
+  args: {
+    allowFileDownloads: boolean;
+    shareSessionId: string | null;
+  },
+  frontendHost: AppSubsystemFrontendHost,
+): (contentId?: string | null, filename?: string | null) => void {
   return (contentId, filename) => {
     if (!args.allowFileDownloads) {
-      addTemporaryNotification("File downloads are disabled by policy.");
+      notify(frontendHost, "File downloads are disabled by policy.");
       return;
     }
     if (!contentId) {
-      addTemporaryNotification("Missing file content id for download.");
+      notify(frontendHost, "Missing file content id for download.");
       return;
     }
     const url = new URL(
@@ -507,16 +538,19 @@ function createDownloadBinaryHandler(args: {
   };
 }
 
-function createOpenExternalLinkHandler(args: {
-  allowExternalLinks: boolean;
-}): (url?: string | null) => void {
+function createOpenExternalLinkHandler(
+  args: {
+    allowExternalLinks: boolean;
+  },
+  frontendHost: AppSubsystemFrontendHost,
+): (url?: string | null) => void {
   return (url) => {
     if (!args.allowExternalLinks) {
-      addTemporaryNotification("External links are disabled by policy.");
+      notify(frontendHost, "External links are disabled by policy.");
       return;
     }
     if (!url) {
-      addTemporaryNotification("Missing link url.");
+      notify(frontendHost, "Missing link url.");
       return;
     }
     if (typeof window !== "undefined") {
@@ -640,8 +674,6 @@ function buildActionHandlers(
 export function useAppActionHandlers(args: {
   actionDefinitions: AppActionDefinitions;
   fallbackConfigId: string | null;
-  shareSessionId: string | null;
-  sharePolicy: unknown;
   allowFileDownloads: boolean;
   allowExternalLinks: boolean;
   allowRun: boolean;
@@ -654,20 +686,27 @@ export function useAppActionHandlers(args: {
   setIsRunning: Dispatch<SetStateAction<boolean>>;
   setLocalRunCount: Dispatch<SetStateAction<number>>;
 }): Record<string, AppActionHandler> {
+  const frontendHost = useAppSubsystemFrontendHost();
+  const runtimeContext = useAppSubsystemRuntimeContext();
+
   const handleRun = useMemo(
     () =>
-      createRunHandler({
-        fallbackConfigId: args.fallbackConfigId,
-        allowRun: args.allowRun,
-        allowParamChanges: args.allowParamChanges,
-        allowVariantChanges: args.allowVariantChanges,
-        allowMultipleRuns: args.allowMultipleRuns,
-        effectiveRunCount: args.effectiveRunCount,
-        deploymentMode: args.deploymentMode,
-        isRunning: args.isRunning,
-        setIsRunning: args.setIsRunning,
-        setLocalRunCount: args.setLocalRunCount,
-      }),
+      createRunHandler(
+        {
+          fallbackConfigId: args.fallbackConfigId,
+          allowRun: args.allowRun,
+          allowParamChanges: args.allowParamChanges,
+          allowVariantChanges: args.allowVariantChanges,
+          allowMultipleRuns: args.allowMultipleRuns,
+          effectiveRunCount: args.effectiveRunCount,
+          deploymentMode: args.deploymentMode,
+          isRunning: args.isRunning,
+          setIsRunning: args.setIsRunning,
+          setLocalRunCount: args.setLocalRunCount,
+        },
+        frontendHost,
+        runtimeContext,
+      ),
     [
       args.allowMultipleRuns,
       args.allowParamChanges,
@@ -679,34 +718,45 @@ export function useAppActionHandlers(args: {
       args.isRunning,
       args.setIsRunning,
       args.setLocalRunCount,
+      frontendHost,
+      runtimeContext,
     ],
   );
   const handleReset = useMemo(
-    () => createResetHandler(args.sharePolicy, args.setLocalRunCount),
-    [args.setLocalRunCount, args.sharePolicy],
+    () => createResetHandler(args.deploymentMode, args.setLocalRunCount),
+    [args.deploymentMode, args.setLocalRunCount],
   );
   const handleDownloadArtifact = useMemo(
     () =>
-      createDownloadArtifactHandler({
-        allowFileDownloads: args.allowFileDownloads,
-        fallbackConfigId: args.fallbackConfigId,
-      }),
-    [args.allowFileDownloads, args.fallbackConfigId],
+      createDownloadArtifactHandler(
+        {
+          allowFileDownloads: args.allowFileDownloads,
+          fallbackConfigId: args.fallbackConfigId,
+        },
+        frontendHost,
+      ),
+    [args.allowFileDownloads, args.fallbackConfigId, frontendHost],
   );
   const handleDownloadBinary = useMemo(
     () =>
-      createDownloadBinaryHandler({
-        allowFileDownloads: args.allowFileDownloads,
-        shareSessionId: args.shareSessionId,
-      }),
-    [args.allowFileDownloads, args.shareSessionId],
+      createDownloadBinaryHandler(
+        {
+          allowFileDownloads: args.allowFileDownloads,
+          shareSessionId: runtimeContext.shareSessionId,
+        },
+        frontendHost,
+      ),
+    [args.allowFileDownloads, frontendHost, runtimeContext.shareSessionId],
   );
   const handleOpenExternalLink = useMemo(
     () =>
-      createOpenExternalLinkHandler({
-        allowExternalLinks: args.allowExternalLinks,
-      }),
-    [args.allowExternalLinks],
+      createOpenExternalLinkHandler(
+        {
+          allowExternalLinks: args.allowExternalLinks,
+        },
+        frontendHost,
+      ),
+    [args.allowExternalLinks, frontendHost],
   );
   return useMemo(
     () =>

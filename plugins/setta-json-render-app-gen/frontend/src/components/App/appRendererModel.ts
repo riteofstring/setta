@@ -1,10 +1,12 @@
+import {
+  resolveAppPolicy,
+  resolveMainRunRequest,
+  type Policy,
+} from "@setta/app-subsystem-frontend-sdk";
 import { useMemo, useState } from "react";
 import { useAppConfigs } from "../../appSubsystemProjectState";
-import { useShareSession } from "state/definitions";
-import { resolveAppPolicy } from "utils/deploymentPolicies";
-import type { Policy } from "utils/generatedTypes";
 import type { AppDefinition } from "../../appSubsystemContracts";
-import { resolveMainRunRequest } from "utils/runCapabilities";
+import { useAppSubsystemRuntimeContext } from "../../appSubsystemFrontendHostContext";
 import {
   resolveAppRunState,
   useAppActionHandlers,
@@ -92,10 +94,9 @@ export function useAppRendererModel(
   args: AppRendererModelArgs,
 ): AppRendererModel {
   const fallbackConfigId = args.defaultConfigId ?? null;
-  const sharePolicy = useShareSession((state) => state.sharePolicy);
-  const shareSessionId = useShareSession((state) => state.shareSessionId);
-  const deploymentMode = useShareSession((state) => state.isDeploymentMode);
-  const sessionRunCount = useShareSession((state) => state.sessionRunCount);
+  const { isAppDeploymentMode, sessionRunCount, sharePolicy } =
+    useAppSubsystemRuntimeContext();
+  const deploymentMode = isAppDeploymentMode;
   const resolvedPolicy = resolveAppPolicy(args.appPolicy ?? sharePolicy);
   const resolvedTheme = useMemo(
     () => resolveAppTheme(args.appDefinition?.theme),
@@ -134,8 +135,6 @@ export function useAppRendererModel(
   const actionHandlers = useAppActionHandlers({
     actionDefinitions,
     fallbackConfigId,
-    shareSessionId,
-    sharePolicy,
     allowFileDownloads: policyState.allowFileDownloads,
     allowExternalLinks: policyState.allowExternalLinks,
     allowRun: resolvedPolicy.allowRun,
