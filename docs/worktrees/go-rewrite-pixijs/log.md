@@ -4789,3 +4789,51 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the named `browserSectionDefault` motion-shell micro-lane closed and choose the next bounded pass on renderer-main JS/GC cost, or escalate to the broader Pixi-owned graph-surface step if no larger JS reduction is viable
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 084
+
+- Item: Freeze spreadsheet editor `flowZoom` during active viewport interaction on `settings-section__spreadsheetSectionDefault`.
+- Status: `done`
+- Details:
+  - Chose one bounded production slice on the active viewport-interaction JS lane instead of reopening another closed section-family ownership pass.
+  - Updated `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx` to snapshot the current React Flow zoom and keep the spreadsheet editor `flowZoom` prop stable while `viewportInteractionActive` is true, then resync it when interaction settles.
+  - Added focused proof in `frontend/src/components/Section/Layouts/SpreadsheetArea.test.tsx` that the editor keeps the prior zoom during active interaction and catches up after settle.
+  - Added the durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-spreadsheet-flowzoom-freeze-rerun.md`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5494`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 44.12`
+      - `raf.p50Ms: 33.3`
+      - `raf.p95Ms: 50`
+      - `raf.maxMs: 1216.6`
+      - `longTasks.count: 8`
+      - `longTasks.totalMs: 6044`
+      - `longTasks.maxMs: 3520`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this is a bounded spreadsheet-specific rerender suppression slice on the broader viewport-interaction JS lane, not a new whole-scene perf milestone
+    - the dense canary stayed broadly flat versus the latest viewport-persistence checkpoint (`raf.meanMs 43.28 -> 44.12`, `longTasks.totalMs 6076 -> 6044`), so the larger `browserSectionDefault` renderer-main JS/GC frontier remains open
+    - keep the spreadsheet sub-lane closed unless a fresh visible spreadsheet-surface defect appears; the next default pass should return to a broader viewport-interaction JS/GC reduction or the stronger graph-surface step
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Layouts/SpreadsheetArea.tsx src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-011/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.4s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+    - result: blocked by the pre-existing repo jsdom dependency/runtime issue before test collection: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active
+  - `settings-section__spreadsheetSectionDefault` remained visible and intact
+  - one bounded fit-view adjustment showed no obvious blank or detached artifact around the spreadsheet section
+- Next action:
+  - return to the broader `browserSectionDefault` viewport-interaction JS/GC lane and choose one bounded reduction that can plausibly move the whole-scene dense metrics, or escalate to the stronger graph-surface step if no such slice is viable
+LOOP_TERMINAL_MARKER: none

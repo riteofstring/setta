@@ -8,6 +8,43 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The spreadsheet `flowZoom` interaction-freeze slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-spreadsheet-flowzoom-freeze-rerun.md`.
+  - canonical target section: `settings-section__spreadsheetSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.tsx` now snapshots the current React Flow zoom and freezes the spreadsheet editor `flowZoom` prop while `viewportInteractionActive` is true, then resynchronizes once interaction settles
+    - `frontend/src/components/Section/Layouts/SpreadsheetArea.test.tsx` now contains focused coverage proving the spreadsheet editor keeps the previous zoom during active interaction and catches up after settle
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 44.12`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1216.6`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6044`
+    - `longTasks.maxMs: 3520`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded spreadsheet-specific rerender suppression slice on the broader viewport-interaction JS lane, not a new whole-scene perf breakthrough
+    - the dense canary stayed broadly flat versus the latest viewport-persistence checkpoint (`raf.meanMs 43.28 -> 44.12`, `longTasks.totalMs 6076 -> 6044`), so keep the larger `browserSectionDefault` renderer-main JS/GC frontier open
+    - close this spreadsheet sub-lane unless a fresh visible spreadsheet-surface defect appears; do not mistake it for the next default frontier
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Layouts/SpreadsheetArea.tsx src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-011/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.4s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Layouts/SpreadsheetArea.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized the surface to `All Settings`
+    - `settings-section__spreadsheetSectionDefault` was visible and intact
+    - after one bounded fit-view adjustment there was no obvious blank or detached artifact around the spreadsheet section
 - The viewport-persistence interaction-deferral slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
