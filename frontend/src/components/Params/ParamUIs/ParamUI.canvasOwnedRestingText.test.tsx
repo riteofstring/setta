@@ -1,6 +1,7 @@
 import {
   BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
+  DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
@@ -354,6 +355,36 @@ describe("ParamUI canvas-owned resting text", () => {
         sectionId={SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
         paramInfoId="settings-codeobj__shortcuts__shortcuts__advancedSearchShortcut"
         value="Mod + P"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+      true,
+    );
+    expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+      true,
+    );
+    expect(
+      mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+    ).toContain("opacity-0");
+    expect(markup).toContain('data-canvas-owned-underline="true"');
+    expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+  });
+
+  it("hides draw-section resting text on the canvas path", () => {
+    mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.TextParam,
+      defaultVal: "",
+    };
+
+    const markup = renderToStaticMarkup(
+      <ParamUI
+        sectionId={DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID}
+        paramInfoId="settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx"
+        value="0"
         onChange={() => undefined}
       />,
     );

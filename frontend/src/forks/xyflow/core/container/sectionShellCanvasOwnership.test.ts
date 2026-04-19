@@ -8,6 +8,7 @@ import {
   isCanvasOwnedSectionArgsLabelRestingText,
   CANVAS_OWNED_SECTION_SHELL_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -164,9 +165,20 @@ describe("sectionShellCanvasOwnership", () => {
       ),
     ).toBe(true);
     expect(
+      isCanvasOwnedSectionRestingTextSection(
+        DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       }),
     ).toBe(true);
     expect(
@@ -455,6 +467,11 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightTextUnderline(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(

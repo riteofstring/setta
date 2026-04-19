@@ -157,6 +157,56 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-19 054
 
+- Item: Move `settings-section__drawSectionDefault` onto the shared retained-canvas resting-text lane.
+- Status: `done`
+- Details:
+  - Started from the fresh post-shortcuts section ranking instead of reopening any closed activator lane.
+  - The live `All Settings` inventory made the next bounded dense body/value slice clear:
+    - `settings-section__drawSectionDefault` had `14` untouched `ParamInput` roots
+    - after this slice, the next untouched section family is `settings-section__chatSectionDefault` at `13`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__drawSectionDefault` in the shared resting-text lane and gives it lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures the draw section directly so the retained scene can paint those resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-draw-resting-text.spec.ts`
+  - The fresh draw-section inventory now proves the lane contract:
+    - `sectionPresent: true`
+    - `totalParamInputs: 14`
+    - `canvasOwnedRestingTextCount: 14`
+    - `lightweightRestingTextCount: 14`
+    - `lightweightUnderlineCount: 14`
+    - `highlightSpanCount: 0`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-draw-resting-text-rerun.md`.
+  - Dense rerun outcome versus the prior shortcuts report:
+    - `documentNodeCount`: `7981 -> 7937`
+    - `inputCount`: `2 -> 2`
+    - `buttonCount`: `39 -> 39`
+    - `raf.meanMs`: `99.34 -> 101.02`
+    - `raf.p95Ms`: `183.4 -> 183.4`
+    - `longTasks.totalMs`: `15984 -> 16270`
+  - Interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened kwargs/menu/filter/color/dropdown/switch hop
+    - the draw lane is now closed at its useful ownership boundary
+    - the motion numbers stayed noisy, so treat this as a DOM-cost reduction prerequisite rather than a new motion win
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-draw-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-005/worktree-ai.log -- tests/e2e/settings/settings-all-settings-draw-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (59.2s)` on the live worktree runtime with `documentNodeCount: 7937`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__drawSectionDefault"]` was present on the live surface
+  - the `Active Layer Idx` row looked intact at rest on the canvas path
+  - focusing `#settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx-ParamInput` surfaced `#CodeMirror-settings-section__drawSectionDefault-settings-codeobj__drawSectionDefault__drawSectionDefault__activeLayerIdx` in place with no blank/detached jump
+  - caveat: existing React/Downshift console warnings were present during the CDP pass, but no visible overlay or draw-section regression surfaced
+- Next action:
+  - start the next iteration from the post-draw section ranking and target `settings-section__chatSectionDefault` as the next shared resting-text/body slice unless a broader shared resting-value primitive now shows a stronger payoff
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 054
+
 - Item: Move the dominant untouched `settings-section__shortcuts` text family onto the shared canvas-owned resting-text path.
 - Status: `done`
 - Details:
