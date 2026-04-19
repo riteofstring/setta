@@ -2325,3 +2325,66 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - start the next iteration from the fresh post-browser ranking and target the remaining `9`-row untouched cluster (`settings-section__buttonParamCodeObjDefault`, `settings-section__codeSectionDefault`, `settings-section__promptSectionDefault`) unless a broader shared resting-value primitive now shows a clearer payoff
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 060
+
+- Item: Move the remaining shared `7`-row chat-windowing/dropzone/plugin cluster onto the canvas-owned resting-text lane.
+- Status: `done`
+- Details:
+  - Checked the recent iteration pattern before coding: the last few passes were still shared resting-text moves, so this slice only continued that family because the handoff's highest-payoff untouched mounted row-value surface was still the explicit `7`-row triple:
+    - `settings-section__chatWindowing`
+    - `settings-section__dropzoneParamCodeObjDefault`
+    - `settings-section__pluginSectionDefault`
+  - Used one live inventory probe first to pin real canonical targets instead of guessing ids:
+    - canonical target section: `settings-section__chatWindowing`
+    - sibling sections in the same bounded slice:
+      - `settings-section__dropzoneParamCodeObjDefault`
+      - `settings-section__pluginSectionDefault`
+    - canonical target inputs:
+      - `#settings-section__chatWindowing-settings-codeobj__chatWindowing__chatWindowing__shortcuts__canvasToggle-ParamInput`
+      - `#settings-section__dropzoneParamCodeObjDefault-settings-codeobj__dropzoneParamCodeObjDefault__dropzoneParamCodeObjDefault__placeholder-ParamInput`
+      - `#settings-section__pluginSectionDefault-settings-codeobj__pluginSectionDefault__pluginSectionDefault__size__width-ParamInput`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes all three sections in the shared canvas-owned resting-text lane and gives them lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures all three sections directly so the retained scene can paint their resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster.spec.ts`
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster-rerun.md`.
+  - The deterministic focused probe proved the full cluster now rides the lightweight path:
+    - `settings-section__chatWindowing`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__dropzoneParamCodeObjDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__pluginSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - note: the extra non-lightweight root in each section is a pre-existing canvas-owned text root elsewhere in the section, not a surviving live target row
+  - A bounded self-recovery was required during verification:
+    - the first `run-playwright-against-runtime.sh` attempt failed before any product assertion because it set `SETTA_AUTH_COOKIE_NAME` to a workspace-scoped prefix while the recovered storage state contained `setta_auth_<sessionId>`
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` recovered the worktree runtime on frontend `3069` / backend `8069`
+    - rerunning both probes manually with fresh bootstrap tokens from `./scripts/dev-runtime-info.sh` and no `SETTA_AUTH_COOKIE_NAME` override passed; treat the earlier auth-cookie miss as harness noise, not product evidence
+  - Dense rerun outcome on the recovered runtime:
+    - `documentNodeCount: 7701`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 103.53`
+    - `raf.p95Ms: 200.1`
+    - `longTasks.totalMs: 16599`
+  - Interpretation:
+    - this closes the remaining shared `7`-row pure-text cluster at its useful ownership boundary
+    - the section-scoped ownership proof is authoritative, but the recovered-session dense rerun reopened extra non-target workspace chrome, so the global DOM/button deltas are smoke-only rather than a clean apples-to-apples benchmark versus the prior `7670 / 2 / 39` checkpoint
+    - the next frontier should not be another generic shared resting-text harvest by inertia; it should either be a date/time-specific ownership move or a broader primitive with clearer dense-scene payoff
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/.)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3069/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (57.2s)` on the recovered live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && RUNTIME_JSON="$(./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/.)" && SETTA_BACKEND_ORIGIN="$(node -pe 'JSON.parse(process.argv[1]).backendUrl' "$RUNTIME_JSON")" && SETTA_BOOTSTRAP_TOKEN="$(node -pe 'new URL(JSON.parse(process.argv[1]).bootstrapUrl).hash.split("token=")[1]' "$RUNTIME_JSON")" && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL="http://127.0.0.1:3069/" SETTA_BACKEND_ORIGIN="$SETTA_BACKEND_ORIGIN" SETTA_BOOTSTRAP_TOKEN="$SETTA_BOOTSTRAP_TOKEN" setta_run_pnpm "$PWD" -C frontend exec playwright test tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (41.4s)` on the recovered live worktree runtime with `documentNodeCount: 7701`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done:
+  - current runtime verified at `http://127.0.0.1:3069/settings`
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__chatWindowing`, `settings-section__dropzoneParamCodeObjDefault`, and `settings-section__pluginSectionDefault` were present
+  - the canonical `canvasToggle`, `Drop a file here`, and `Width` rows looked intact at rest on the canvas path
+  - focusing each canonical `ParamInput` root surfaced an inline editor in place with no blank or detached jump
+- Next action:
+  - start the next iteration by deciding whether `settings-section__dateParamCodeObjDefault` / `settings-section__timeParamCodeObjDefault` justify a dedicated date/time-specific ownership lane, unless a broader shared primitive now shows a clearer dense-scene payoff
+LOOP_TERMINAL_MARKER: none

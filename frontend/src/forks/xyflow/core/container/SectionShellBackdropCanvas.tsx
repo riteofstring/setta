@@ -30,13 +30,16 @@ import {
   BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1435,6 +1438,12 @@ export default function SectionShellBackdropCanvas() {
   );
   const drawNode = nodes.get(DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const chatNode = nodes.get(CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const chatWindowingNode = nodes.get(
+    CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const dropzoneParamNode = nodes.get(
+    DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const shortcutsNode = nodes.get(
     SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
@@ -1444,6 +1453,9 @@ export default function SectionShellBackdropCanvas() {
   );
   const genPythonMetadataNode = nodes.get(
     GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const pluginSectionNode = nodes.get(
+    PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
   const buttonParamNode = nodes.get(
     BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1496,6 +1508,18 @@ export default function SectionShellBackdropCanvas() {
     sectionId: CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const chatWindowingMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: chatWindowingNode?.height,
+    nodeWidth: chatWindowingNode?.width,
+    sectionId: CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const dropzoneParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: dropzoneParamNode?.height,
+    nodeWidth: dropzoneParamNode?.width,
+    sectionId: DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const shortcutsMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: shortcutsNode?.height,
     nodeWidth: shortcutsNode?.width,
@@ -1521,6 +1545,12 @@ export default function SectionShellBackdropCanvas() {
       sectionId: GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       viewportScale,
     });
+  const pluginSectionMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: pluginSectionNode?.height,
+    nodeWidth: pluginSectionNode?.width,
+    sectionId: PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const buttonParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: buttonParamNode?.height,
     nodeWidth: buttonParamNode?.width,
@@ -1568,12 +1598,18 @@ export default function SectionShellBackdropCanvas() {
         sectionSizingPolicyMeasurements,
       [DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: drawMeasurements,
       [CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: chatMeasurements,
+      [CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        chatWindowingMeasurements,
+      [DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        dropzoneParamMeasurements,
       [SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: shortcutsMeasurements,
       [BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: browserMeasurements,
       [GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         genPythonCodeMeasurements,
       [GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         genPythonMetadataMeasurements,
+      [PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        pluginSectionMeasurements,
       [BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         buttonParamMeasurements,
       [CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
@@ -1593,10 +1629,13 @@ export default function SectionShellBackdropCanvas() {
       sectionSizingPolicyMeasurements,
       drawMeasurements,
       chatMeasurements,
+      chatWindowingMeasurements,
+      dropzoneParamMeasurements,
       shortcutsMeasurements,
       browserMeasurements,
       genPythonCodeMeasurements,
       genPythonMetadataMeasurements,
+      pluginSectionMeasurements,
       buttonParamMeasurements,
       codeSectionMeasurements,
       guiMeasurements,

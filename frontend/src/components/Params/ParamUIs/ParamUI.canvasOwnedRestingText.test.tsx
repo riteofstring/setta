@@ -4,13 +4,16 @@ import {
   BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -583,6 +586,58 @@ describe("ParamUI canvas-owned resting text", () => {
     },
   ])(
     "hides the code-like cluster resting text on the canvas path for $sectionId",
+    ({ paramInfoId, sectionId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: CodeObjTypeEnum.TextParam,
+        defaultVal: "",
+      };
+
+      const markup = renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(
+        mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText,
+      ).toBe(true);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+        true,
+      );
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+    },
+  );
+
+  it.each([
+    {
+      paramInfoId:
+        "settings-codeobj__chatWindowing__chatWindowing__shortcuts__canvasToggle",
+      sectionId: CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "Shift + Esc",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__dropzoneParamCodeObjDefault__dropzoneParamCodeObjDefault__placeholder",
+      sectionId: DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "Drop a file here",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__pluginSectionDefault__pluginSectionDefault__size__width",
+      sectionId: PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "auto",
+    },
+  ])(
+    "hides the chat-windowing/dropzone/plugin resting-text cluster on the canvas path for $sectionId",
     ({ paramInfoId, sectionId, value }) => {
       mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
       mocks.state.codeObjImpl = {
