@@ -111,6 +111,13 @@ type ZoomFilterParams = {
   zoomOnScroll: boolean;
 };
 
+type ViewportEventMetadata = {
+  button: number;
+  classNameMatches: Record<string, boolean | undefined>;
+  isMacOS: boolean;
+  targetElement: Element | null;
+};
+
 const defaultZoomPaneProps = {
   zoomOnScroll: true,
   zoomOnPinch: true,
@@ -134,19 +141,41 @@ const defaultZoomPaneProps = {
   | "preventScrolling"
 >;
 
+const viewportEventMetadataCache = new WeakMap<Event, ViewportEventMetadata>();
+
+function getViewportEventMetadata(event: Event): ViewportEventMetadata {
+  const cachedMetadata = viewportEventMetadataCache.get(event);
+  if (cachedMetadata) {
+    return cachedMetadata;
+  }
+
+  const target = event.target;
+  const metadata: ViewportEventMetadata = {
+    button: "button" in event ? event.button : 0,
+    classNameMatches: Object.create(null) as Record<string, boolean | undefined>,
+    isMacOS: isMacOs(),
+    targetElement: target instanceof Element ? target : null,
+  };
+  viewportEventMetadataCache.set(event, metadata);
+  return metadata;
+}
+
 const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
   }
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return false;
+  const metadata = getViewportEventMetadata(event);
+  const cachedMatch = metadata.classNameMatches[className];
+  if (typeof cachedMatch === "boolean") {
+    return cachedMatch;
   }
-  return target.closest(`.${className}`) !== null;
+  const nextMatch = metadata.targetElement?.closest(`.${className}`) !== null;
+  metadata.classNameMatches[className] = nextMatch;
+  return nextMatch;
 };
 
 const getEventButton = (event: ZoomFilterEvent): number =>
-  "button" in event ? event.button : 0;
+  getViewportEventMetadata(event).button;
 
 const isPointerStartEvent = (eventType: string): boolean =>
   eventType === "mousedown" || eventType === "touchstart";
@@ -194,8 +223,8 @@ export function resetViewportInteractionState({
   });
 }
 
-const wheelDelta = (event: WheelEvent) => {
-  const factor = event.ctrlKey && isMacOs() ? 10 : 1;
+const wheelDelta = (event: WheelEvent, isMacOS: boolean) => {
+  const factor = event.ctrlKey && isMacOS ? 10 : 1;
 
   return getWheelDelta(event, factor);
 };
@@ -333,7 +362,7 @@ function handlePinchZoomWheelEvent({
 
   startWheelZoomBurst(interactionRefs);
   const point = pointer(event);
-  const pinchDelta = wheelDelta(event);
+  const pinchDelta = wheelDelta(event, isMacOS);
   const zoom = currentZoom * Math.pow(2, pinchDelta);
   scaleTo(d3Selection, zoom, point, event);
   scheduleWheelZoomBurstEnd(interactionRefs);
@@ -421,7 +450,7 @@ function shouldSkipDefaultWheelHandler({
   return !isPinchZoomWheelEvent({
     event,
     zoomOnPinch,
-    isMacOS: isMacOs(),
+    isMacOS: getViewportEventMetadata(event).isMacOS,
   });
 }
 
@@ -518,7 +547,7 @@ function blocksNoWheelTarget({
   return !isPinchZoomWheelEvent({
     event,
     zoomOnPinch,
-    isMacOS: isMacOs(),
+    isMacOS: getViewportEventMetadata(event).isMacOS,
   });
 }
 

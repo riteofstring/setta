@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { useMisc, useNodeInternals, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import * as utils from "utils/utils";
 import { PanOnScrollModeEnum, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import initialState from "../store/initialState";
@@ -157,6 +158,32 @@ describe("shouldAllowZoomFilterEvent", () => {
         zoomOnScroll: true,
       }),
     ).toBe(false);
+  });
+
+  it("allows ctrl-wheel pinch zoom on nowheel targets when mac pinch zoom is enabled", () => {
+    const isMacOsMock = vi.spyOn(utils, "isMacOs").mockReturnValue(true);
+    const target = appendTargetWithClass("nowheel");
+    const event = withEventTarget(
+      new WheelEvent("wheel", {
+        ctrlKey: true,
+        deltaY: -120,
+      }),
+      target,
+    );
+
+    expect(
+      shouldAllowZoomFilterEvent({
+        event,
+        panOnDrag: true,
+        panOnScroll: false,
+        userSelectionActive: false,
+        zoomOnDoubleClick: true,
+        zoomOnPinch: true,
+        zoomOnScroll: false,
+      }),
+    ).toBe(true);
+
+    isMacOsMock.mockRestore();
   });
 
   it("blocks viewport gestures while drag sorting is active", () => {

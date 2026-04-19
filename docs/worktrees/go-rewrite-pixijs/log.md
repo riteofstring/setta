@@ -154,6 +154,56 @@ Record:
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
+## 2026-04-20 - ZoomPane wheel event metadata cache
+
+- Summary:
+  - Cached per-event target/class matches, normalized button values, and `isMacOs()` results inside `ZoomPane` so the zoom filter and active wheel handlers stop rescanning the same DOM ancestry on the same wheel event.
+  - Added focused `ZoomPane` coverage for the mac pinch-zoom override on a `nowheel` target so the refactor keeps the existing wheel semantics.
+- Files:
+  - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+  - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+  - `perf/reports/frontend/2026-04-20_settings-all-settings-zoompane-wheel-event-metadata-cache-rerun.md`
+- Canonical target section:
+  - `settings-section__browserSectionDefault`
+- Sibling proof sections:
+  - `settings-section__promptSectionDefault`
+  - `settings-section__languageServer`
+- Live canary result on the worktree runtime:
+  - motion-aware dense rerun:
+    - `documentNodeCount: 5496`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 44.26`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 33.4`
+    - `raf.maxMs: 1099.85`
+    - `longTasks.count: 9`
+    - `longTasks.totalMs: 6060`
+    - `longTasks.maxMs: 3610`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a bounded wheel-event JS cleanup on the active renderer-main lane, not a new dense-scene breakthrough
+  - the checked canary stayed visually clean and the dense probe remained in the same runtime band, so the cache is safe but not the missing whole-scene reducer behind the current `EventDispatch` + GC hotspot
+  - close this wheel-event metadata sub-lane here instead of polishing it further by inertia
+  - the next default frontier should move back to a stronger viewport-interaction JS/GC reducer or the broader Pixi-owned graph-surface step rather than another small `ZoomPane` micro-pass
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/ZoomPane.test.ts`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-019/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.4s)`
+  - CDP visual check:
+    - verified in a fresh headless DevTools sub-agent on `/settings` with `All Settings` active after `fit view`
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were present on the graph surface
+    - no obvious blank or detached shell/body artifact was visible
+- Next action:
+  - return to a stronger viewport-interaction JS/GC reducer or escalate to the broader Pixi-owned graph-surface step; do not spend the next default pass on another small `ZoomPane` cache/micro-pass
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-20 - motion-hidden section resize handle suppression
 
 - Summary:
