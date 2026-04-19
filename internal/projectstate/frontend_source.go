@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 var (
@@ -26,7 +25,6 @@ var (
 	ErrViewModeIDKeyMismatch        = errors.New("view mode id must match its map key")
 	ErrViewModeNotFound             = errors.New("view mode was not found in project")
 	ErrFrontendPayloadInvalid       = errors.New("frontend payload JSON must be valid")
-	ErrAppRoutePathRequired         = errors.New("app route path is required")
 )
 
 type RawJSON = json.RawMessage
@@ -196,18 +194,6 @@ func (i CodeObjectImpl) Clone() CodeObjectImpl {
 	return cloned
 }
 
-func (r AppRoute) Normalized() (AppRoute, error) {
-	normalized := AppRoute{
-		Path:    strings.TrimSpace(r.Path),
-		Name:    strings.TrimSpace(r.Name),
-		RootKey: strings.TrimSpace(r.RootKey),
-	}
-	if normalized.Path == "" {
-		return AppRoute{}, ErrAppRoutePathRequired
-	}
-	return normalized, nil
-}
-
 func (d AppDefinition) Clone() AppDefinition {
 	cloned := d
 	cloned.Routes = append([]AppRoute(nil), d.Routes...)
@@ -216,47 +202,6 @@ func (d AppDefinition) Clone() AppDefinition {
 	cloned.Theme = cloneRawJSON(d.Theme)
 	cloned.Assets = cloneRawJSON(d.Assets)
 	return cloned
-}
-
-func (d AppDefinition) Normalized() (AppDefinition, error) {
-	normalized := d.Clone()
-	normalized.AppSpecVersion = strings.TrimSpace(normalized.AppSpecVersion)
-	normalized.CatalogID = strings.TrimSpace(normalized.CatalogID)
-	normalized.AppSpecPath = strings.TrimSpace(normalized.AppSpecPath)
-
-	var err error
-	normalized.DataBindings, err = normalizeRawJSONObject(
-		normalized.DataBindings,
-		"appDefinition.dataBindings",
-	)
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Actions, err = normalizeRawJSONObject(
-		normalized.Actions,
-		"appDefinition.actions",
-	)
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Theme, err = normalizeRawJSON(normalized.Theme, "appDefinition.theme")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-	normalized.Assets, err = normalizeRawJSON(normalized.Assets, "appDefinition.assets")
-	if err != nil {
-		return AppDefinition{}, err
-	}
-
-	for index, route := range normalized.Routes {
-		normalizedRoute, err := route.Normalized()
-		if err != nil {
-			return AppDefinition{}, fmt.Errorf("normalize app route %d: %w", index, err)
-		}
-		normalized.Routes[index] = normalizedRoute
-	}
-
-	return normalized, nil
 }
 
 func cloneViewport(viewport *Viewport) *Viewport {
