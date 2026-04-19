@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appdefinition"
@@ -16,20 +15,14 @@ import (
 )
 
 type RouteDependencies struct {
-	ModePolicy   modes.Policy
-	ProjectState *projectstate.Runtime
-	PluginID     string
+	ModePolicy modes.Policy
+	Service    appdefinition.Runtime
 }
 
 func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if strings.TrimSpace(deps.PluginID) == "" {
-		return appdefinition.ErrPluginIDRequired
-	}
-	service := appdefinition.NewAppDefinitionService(deps.ProjectState, deps.PluginID)
-
 	httpapi.RegisterOpenAPIGet[AppCatalogResponse](
 		router,
 		"getAppCatalog",
@@ -42,7 +35,7 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 		router,
 		"getAppDefinition",
 		httpapi.RouteGetAppDefinition,
-		getAppDefinitionHandler(deps.ModePolicy, service),
+		getAppDefinitionHandler(deps.ModePolicy, deps.Service),
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Load the current app definition and resolved app spec."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
@@ -51,7 +44,7 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 		router,
 		"validateAppDefinition",
 		httpapi.RouteValidateAppDefinition,
-		validateAppDefinitionHandler(deps.ModePolicy, service),
+		validateAppDefinitionHandler(deps.ModePolicy, deps.Service),
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Validate an app definition payload against the current catalog."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
@@ -60,7 +53,7 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 		router,
 		"setAppDefinition",
 		httpapi.RouteSetAppDefinition,
-		setAppDefinitionHandler(deps.ModePolicy, service),
+		setAppDefinitionHandler(deps.ModePolicy, deps.Service),
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Persist a standalone app definition."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),

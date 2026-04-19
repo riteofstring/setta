@@ -379,9 +379,12 @@ export type BackendLogEvent = {
 type BackendRequestContext = {
   hasAuth: boolean;
   projectConfigId?: string;
+  runtimeRoot?: string;
   serverMode: Mode;
   sessionId?: string;
+  settaFilesRoot?: string;
   shareSessionId?: string;
+  workspaceRoot?: string;
 };
 
 /**

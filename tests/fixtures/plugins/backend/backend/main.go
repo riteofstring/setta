@@ -29,6 +29,9 @@ type backendRequestContext struct {
 	SessionID       string `json:"sessionId,omitempty"`
 	ShareSessionID  string `json:"shareSessionId,omitempty"`
 	ProjectConfigID string `json:"projectConfigId,omitempty"`
+	WorkspaceRoot   string `json:"workspaceRoot,omitempty"`
+	SettaFilesRoot  string `json:"settaFilesRoot,omitempty"`
+	RuntimeRoot     string `json:"runtimeRoot,omitempty"`
 }
 
 type backendRuntimeRequest struct {

@@ -1005,10 +1005,11 @@ func (r *pluginBackendRuntimeRefresher) languageServerSpecsForSelections(
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
 	return newPluginBackendMCPRuntime(ctx, pluginBackendMCPRuntimeOptions{
-		Logger:         r.logger,
-		RuntimeRoot:    r.runtimeRoot,
-		Snapshot:       snapshot,
-		ProjectRuntime: r.projectState,
+		Logger:                 r.logger,
+		RuntimeRoot:            r.runtimeRoot,
+		Snapshot:               snapshot,
+		ProjectRuntime:         r.projectState,
+		BackendListenerInvoker: r.service,
 	})
 }
 

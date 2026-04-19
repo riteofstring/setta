@@ -14,6 +14,7 @@ import (
 
 const (
 	disallowedAppSubsystemGoImportPrefix    = "setta/plugins/setta-json-render-app-gen/"
+	disallowedBuiltinProviderImportPrefix   = "setta/internal/appsubsystemproviders/builtin"
 	disallowedAppSubsystemFrontendReference = "plugins/setta-json-render-app-gen/"
 )
 
@@ -111,7 +112,10 @@ func scanHostGoImports(
 		}
 		for _, spec := range file.Imports {
 			importPath := strings.Trim(spec.Path.Value, `"`)
-			if !strings.HasPrefix(importPath, disallowedAppSubsystemGoImportPrefix) {
+			switch {
+			case strings.HasPrefix(importPath, disallowedAppSubsystemGoImportPrefix):
+			case strings.HasPrefix(importPath, disallowedBuiltinProviderImportPrefix):
+			default:
 				continue
 			}
 			relativePath, relErr := filepath.Rel(repoRoot, path)

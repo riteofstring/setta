@@ -28,6 +28,19 @@ class _LocalCoreProcessState:
     handshake: LocalCoreVersionHandshake
 
 
+class LocalCoreCommandError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
 class LocalCoreClient:
     def __init__(self) -> None:
         self._state: _LocalCoreProcessState | None = None
@@ -37,19 +50,30 @@ class LocalCoreClient:
         self,
         request: LocalCoreRenderRealtimeDependencyValuesRequest,
     ) -> LocalCoreRenderRealtimeDependencyValuesResult:
+        raw_result = await self.run_command(
+            LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
+            request.model_dump(mode="json"),
+        )
+        return LocalCoreRenderRealtimeDependencyValuesResult.model_validate(raw_result)
+
+    async def run_command(
+        self,
+        command_name: str,
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
         async with self._lock:
             state = await asyncio.to_thread(self._ensure_started)
             envelope = LocalCoreCommandEnvelope(
                 callId=uuid4().hex,
-                commandName=LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
-                payload=request.model_dump(mode="json"),
+                commandName=command_name,
+                payload=payload or {},
             )
             raw_result = await asyncio.to_thread(
                 self._send_command_locked,
                 state,
                 envelope,
             )
-        return LocalCoreRenderRealtimeDependencyValuesResult.model_validate(raw_result)
+        return raw_result
 
     def close(self) -> None:
         state = self._state
@@ -105,7 +129,18 @@ class LocalCoreClient:
         result_line = self._read_line(process)
         result = LocalCoreResultEnvelope.model_validate_json(result_line)
         if not result.ok:
-            raise RuntimeError(result.error or "Setta local core command failed")
+            details = result.details or {}
+            raw_code = details.get("code")
+            code = (
+                raw_code.strip()
+                if isinstance(raw_code, str) and raw_code.strip()
+                else None
+            )
+            raise LocalCoreCommandError(
+                result.error or "Setta local core command failed",
+                code=code,
+                details=details,
+            )
         return result.result
 
     def _read_line(self, process: subprocess.Popen[str]) -> str:

@@ -16,8 +16,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appdeploymenthttp"
 	"setta/internal/appsubsystem/appspec"
-	"setta/internal/appsubsystemproviders/builtin/appdeploymenthttp"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
