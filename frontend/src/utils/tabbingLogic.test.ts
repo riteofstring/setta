@@ -4,8 +4,11 @@ import { useSectionRefs } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearPendingSectionSearchFocus,
   clearPendingSectionTextFocus,
+  focusOnSectionSearch,
   focusOnSectionTextInput,
+  isPendingSectionSearchFocus,
   isPendingSectionTextFocus,
 } from "./tabbingLogic";
 
@@ -29,10 +32,52 @@ describe("tabbingLogic", () => {
   });
 
   afterEach(() => {
+    clearPendingSectionSearchFocus(SECTION_ID);
     clearPendingSectionTextFocus(SECTION_ID);
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
     resetProjectStores();
+  });
+
+  it("retries callable search focus until the search input mounts", () => {
+    const retries: FrameRequestCallback[] = [];
+    const requestAnimationFrameMock = vi.fn(
+      (callback: FrameRequestCallback) => {
+        retries.push(callback);
+        return 1;
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrameMock);
+
+    focusOnSectionSearch(SECTION_ID);
+
+    expect(isPendingSectionSearchFocus(SECTION_ID)).toBe(true);
+    expect(requestAnimationFrameMock).toHaveBeenCalledTimes(1);
+
+    const search = document.createElement("input");
+    search.id = `${SECTION_ID}-search`;
+    document.body.appendChild(search);
+    const retry = retries[0];
+    if (retry) {
+      retry(0);
+    }
+
+    expect(document.activeElement).toBe(search);
+    expect(isPendingSectionSearchFocus(SECTION_ID)).toBe(false);
+  });
+
+  it("focuses a mounted callable search input without scheduling a retry", () => {
+    const requestAnimationFrameMock = vi.fn(() => 1);
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrameMock);
+    const search = document.createElement("input");
+    search.id = `${SECTION_ID}-search`;
+    document.body.appendChild(search);
+
+    focusOnSectionSearch(SECTION_ID);
+
+    expect(document.activeElement).toBe(search);
+    expect(isPendingSectionSearchFocus(SECTION_ID)).toBe(false);
+    expect(requestAnimationFrameMock).not.toHaveBeenCalled();
   });
 
   it("schedules a retry when the section text input is not mounted yet", () => {

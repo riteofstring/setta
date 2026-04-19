@@ -28,9 +28,6 @@ const mocks = vi.hoisted(() => ({
     isDeploymentMode: false,
     canEditParams: true,
     waitingForResult: false,
-    graphSurfaceImplementation: "legacy-dom" as
-      | "canvas-shell-underlay"
-      | "legacy-dom",
   },
   textInputProps: vi.fn(),
   dateTimeProps: vi.fn(),
@@ -64,10 +61,6 @@ vi.mock("state/hooks/lsp", () => ({
 
 vi.mock("state/hooks/share", () => ({
   useShareCapabilities: () => ({ canEditParams: mocks.state.canEditParams }),
-}));
-
-vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
-  useGraphSurfaceImplementation: () => mocks.state.graphSurfaceImplementation,
 }));
 
 vi.mock("utils/paramValue", () => ({
@@ -275,7 +268,6 @@ describe("ParamUI", () => {
     mocks.state.isDeploymentMode = false;
     mocks.state.canEditParams = true;
     mocks.state.waitingForResult = false;
-    mocks.state.graphSurfaceImplementation = "legacy-dom";
     mocks.textInputProps.mockReset();
     mocks.dateTimeProps.mockReset();
     mocks.sliderProps.mockReset();

@@ -148,6 +148,7 @@ const pluginStatusEntryComparisonKeys = [
   "sourceDigestSha256",
   "shadowedBySourcePath",
   "enablementSource",
+  "appliedLanguageServerLanguages",
   "restartRequired",
 ] as const satisfies readonly (keyof PluginStatusEntry)[];
 
@@ -783,14 +784,8 @@ function mapPrimaryStatusByPluginId(
 ): Record<string, PluginStatusEntry> {
   const pluginStatusById: Record<string, PluginStatusEntry> = {};
   for (const entry of statusEntries) {
-    const existing = pluginStatusById[entry.pluginId];
-    if (!existing) {
+    if (!(entry.pluginId in pluginStatusById)) {
       pluginStatusById[entry.pluginId] = entry;
-      continue;
-    }
-    if (existing.shadowedBySourcePath && !entry.shadowedBySourcePath) {
-      pluginStatusById[entry.pluginId] = entry;
-      continue;
     }
   }
   return hasSameRecordValueReferences(
