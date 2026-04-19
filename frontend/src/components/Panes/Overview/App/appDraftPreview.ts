@@ -1,4 +1,4 @@
-export type AppThemeMode = "auto" | "light" | "dark";
+type AppThemeMode = "auto" | "light" | "dark";
 
 type DraftParseResult<T> =
   | { ok: true; value: T }
