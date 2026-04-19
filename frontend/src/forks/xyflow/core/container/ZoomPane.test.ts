@@ -439,4 +439,148 @@ describe("getViewportInteractionActiveValue", () => {
       host.remove();
     }
   });
+
+  it("coalesces interaction-driven zoom transforms until the next animation frame", async () => {
+    const queuedFrames: Array<{
+      callback: FrameRequestCallback;
+      id: number;
+    }> = [];
+    let nextFrameId = 1;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(
+      (callback: FrameRequestCallback) => {
+        const id = nextFrameId++;
+        queuedFrames.push({ callback, id });
+        return id;
+      },
+    );
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frameId) => {
+      const frameIndex = queuedFrames.findIndex((frame) => frame.id === frameId);
+      if (frameIndex >= 0) {
+        queuedFrames.splice(frameIndex, 1);
+      }
+    });
+
+    const { host, root } = await renderZoomPane();
+
+    try {
+      const d3Zoom = useReactFlow.getState().d3Zoom;
+      if (!d3Zoom) {
+        throw new Error("Expected ZoomPane to initialize d3 zoom state.");
+      }
+
+      const zoomHandler = d3Zoom.on("zoom");
+      if (typeof zoomHandler !== "function") {
+        throw new Error("Expected ZoomPane to register a zoom handler.");
+      }
+
+      await act(async () => {
+        zoomHandler({
+          sourceEvent: new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: -120,
+          }),
+          transform: { x: 10, y: 20, k: 1.2 },
+        });
+        zoomHandler({
+          sourceEvent: new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: -80,
+          }),
+          transform: { x: 30, y: 40, k: 1.4 },
+        });
+      });
+
+      expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
+      expect(queuedFrames).toHaveLength(1);
+
+      await act(async () => {
+        const nextFrame = queuedFrames.shift();
+        if (!nextFrame) {
+          throw new Error("Expected one queued animation frame.");
+        }
+        nextFrame.callback(16);
+      });
+
+      expect(useReactFlow.getState().transform).toEqual([30, 40, 1.4]);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("flushes a queued wheel transform synchronously when the gesture ends", async () => {
+    const queuedFrames: Array<{
+      callback: FrameRequestCallback;
+      id: number;
+    }> = [];
+    let nextFrameId = 1;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(
+      (callback: FrameRequestCallback) => {
+        const id = nextFrameId++;
+        queuedFrames.push({ callback, id });
+        return id;
+      },
+    );
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frameId) => {
+      const frameIndex = queuedFrames.findIndex((frame) => frame.id === frameId);
+      if (frameIndex >= 0) {
+        queuedFrames.splice(frameIndex, 1);
+      }
+    });
+
+    const { host, root } = await renderZoomPane();
+
+    try {
+      const d3Zoom = useReactFlow.getState().d3Zoom;
+      if (!d3Zoom) {
+        throw new Error("Expected ZoomPane to initialize d3 zoom state.");
+      }
+
+      const zoomHandler = d3Zoom.on("zoom");
+      const endHandler = d3Zoom.on("end");
+      if (
+        typeof zoomHandler !== "function" ||
+        typeof endHandler !== "function"
+      ) {
+        throw new Error(
+          "Expected ZoomPane to register zoom lifecycle handlers.",
+        );
+      }
+
+      const endEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: -120,
+      });
+
+      await act(async () => {
+        zoomHandler({
+          sourceEvent: endEvent,
+          transform: { x: 15, y: 25, k: 1.3 },
+        });
+      });
+
+      expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
+      expect(queuedFrames).toHaveLength(1);
+
+      await act(async () => {
+        endHandler({
+          sourceEvent: endEvent,
+          transform: { x: 15, y: 25, k: 1.3 },
+        });
+      });
+
+      expect(useReactFlow.getState().transform).toEqual([15, 25, 1.3]);
+      expect(queuedFrames).toHaveLength(0);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });

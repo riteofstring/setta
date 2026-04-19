@@ -3,7 +3,13 @@ import { pointer, select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useAIFollow, useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
@@ -68,6 +74,15 @@ type ViewportInteractionRefs = {
 type ViewportInteractionCleanupRefs = ViewportInteractionRefs & {
   panScrollTimeout: { current: ReturnType<typeof setTimeout> | undefined };
   wheelZoomTimeout: { current: ReturnType<typeof setTimeout> | undefined };
+};
+
+type ViewportTransform = ReactFlowState["transform"];
+
+type ViewportTransformFrameHandle = ReturnType<typeof setTimeout> | number;
+
+type QueuedViewportTransformUpdateRefs = {
+  frameId: { current: ViewportTransformFrameHandle | null };
+  pendingTransform: { current: ViewportTransform | null };
 };
 
 type PanOnScrollDelta = {
@@ -204,6 +219,102 @@ function syncViewportInteractionActive({
   });
 }
 
+function areViewportTransformsEqual(
+  left: ViewportTransform,
+  right: ViewportTransform,
+): boolean {
+  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
+}
+
+function commitViewportTransform(nextTransform: ViewportTransform) {
+  const currentTransform = useReactFlow.getState().transform;
+  if (areViewportTransformsEqual(currentTransform, nextTransform)) {
+    return;
+  }
+
+  useReactFlow.setState({
+    transform: nextTransform,
+  });
+}
+
+function requestViewportTransformFrame(callback: FrameRequestCallback) {
+  if (
+    typeof window !== "undefined" &&
+    typeof window.requestAnimationFrame === "function"
+  ) {
+    return window.requestAnimationFrame(callback);
+  }
+
+  return setTimeout(() => callback(Date.now()), 16);
+}
+
+function cancelViewportTransformFrame(
+  frameId: ViewportTransformFrameHandle | null,
+) {
+  if (frameId === null) {
+    return;
+  }
+
+  if (
+    typeof window !== "undefined" &&
+    typeof window.cancelAnimationFrame === "function"
+  ) {
+    window.cancelAnimationFrame(frameId as number);
+    return;
+  }
+
+  clearTimeout(frameId);
+}
+
+function queueViewportTransformUpdate(
+  transformRefs: QueuedViewportTransformUpdateRefs,
+  nextTransform: ViewportTransform,
+) {
+  transformRefs.pendingTransform.current = nextTransform;
+  if (transformRefs.frameId.current !== null) {
+    return;
+  }
+
+  transformRefs.frameId.current = requestViewportTransformFrame(() => {
+    transformRefs.frameId.current = null;
+    const pendingTransform = transformRefs.pendingTransform.current;
+    transformRefs.pendingTransform.current = null;
+    if (!pendingTransform) {
+      return;
+    }
+
+    commitViewportTransform(pendingTransform);
+  });
+}
+
+function flushViewportTransformUpdate(
+  transformRefs: QueuedViewportTransformUpdateRefs,
+  nextTransform?: ViewportTransform,
+) {
+  if (nextTransform) {
+    transformRefs.pendingTransform.current = nextTransform;
+  }
+
+  cancelViewportTransformFrame(transformRefs.frameId.current);
+  transformRefs.frameId.current = null;
+
+  const pendingTransform = transformRefs.pendingTransform.current;
+  transformRefs.pendingTransform.current = null;
+  if (!pendingTransform) {
+    return;
+  }
+
+  commitViewportTransform(pendingTransform);
+}
+
+function clearViewportTransformUpdate(
+  transformRefs: QueuedViewportTransformUpdateRefs,
+) {
+  cancelViewportTransformFrame(transformRefs.frameId.current);
+  transformRefs.frameId.current = null;
+  transformRefs.pendingTransform.current = null;
+}
+
 export function resetViewportInteractionState({
   isPanScrolling,
   isWheelZooming,
@@ -221,6 +332,17 @@ export function resetViewportInteractionState({
     paneDragging: false,
     viewportInteractionActive: false,
   });
+}
+
+function shouldQueueViewportTransformEvent(
+  sourceEvent: ZoomSourceEvent | null | undefined,
+): boolean {
+  return (
+    sourceEvent?.type === "mousemove" ||
+    sourceEvent?.type === "pointermove" ||
+    sourceEvent?.type === "touchmove" ||
+    sourceEvent?.type === "wheel"
+  );
 }
 
 const wheelDelta = (event: WheelEvent, isMacOS: boolean) => {
@@ -779,6 +901,16 @@ function useViewportInteractionCleanup({
   ]);
 }
 
+function useViewportTransformCleanup(
+  viewportTransformRefs: QueuedViewportTransformUpdateRefs,
+) {
+  useEffect(() => {
+    return () => {
+      clearViewportTransformUpdate(viewportTransformRefs);
+    };
+  }, [viewportTransformRefs]);
+}
+
 function useZoomWheelBehavior({
   d3Selection,
   d3Zoom,
@@ -885,12 +1017,14 @@ function useZoomLifecycleHandlers({
   isWheelZooming,
   isZoomingOrPanning,
   userSelectionActive,
+  viewportTransformRefs,
 }: {
   d3Zoom: ReactFlowState["d3Zoom"];
   isPanScrolling: ViewportInteractionRefs["isPanScrolling"];
   isWheelZooming: ViewportInteractionRefs["isWheelZooming"];
   isZoomingOrPanning: ViewportInteractionRefs["isZoomingOrPanning"];
   userSelectionActive: boolean;
+  viewportTransformRefs: QueuedViewportTransformUpdateRefs;
 }) {
   useEffect(() => {
     if (!d3Zoom) {
@@ -933,11 +1067,21 @@ function useZoomLifecycleHandlers({
       if (useAIFollow.getState().isFollowTransitioning && event.sourceEvent) {
         return;
       }
-      useReactFlow.setState({
-        transform: [event.transform.x, event.transform.y, event.transform.k],
-      });
+      const nextTransform: ViewportTransform = [
+        event.transform.x,
+        event.transform.y,
+        event.transform.k,
+      ];
+      const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
+
+      if (shouldQueueViewportTransformEvent(sourceEvent)) {
+        queueViewportTransformUpdate(viewportTransformRefs, nextTransform);
+        return;
+      }
+
+      flushViewportTransformUpdate(viewportTransformRefs, nextTransform);
     });
-  }, [d3Zoom, isZoomingOrPanning, userSelectionActive]);
+  }, [d3Zoom, isZoomingOrPanning, userSelectionActive, viewportTransformRefs]);
 
   useEffect(() => {
     if (!d3Zoom) {
@@ -945,6 +1089,12 @@ function useZoomLifecycleHandlers({
     }
 
     d3Zoom.on("end", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
+      flushViewportTransformUpdate(viewportTransformRefs, [
+        event.transform.x,
+        event.transform.y,
+        event.transform.k,
+      ]);
+
       const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
       if (!sourceEvent || sourceEvent.internal) {
         return;
@@ -965,7 +1115,13 @@ function useZoomLifecycleHandlers({
         isZoomingOrPanning,
       });
     });
-  }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
+  }, [
+    d3Zoom,
+    isPanScrolling,
+    isWheelZooming,
+    isZoomingOrPanning,
+    viewportTransformRefs,
+  ]);
 }
 
 function useZoomFilterBinding({
@@ -1085,6 +1241,10 @@ const ZoomPane = (props: ZoomPaneProps) => {
   const isWheelZooming = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
   const wheelZoomTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const viewportTransformFrame = useRef<ViewportTransformFrameHandle | null>(
+    null,
+  );
+  const pendingViewportTransform = useRef<ViewportTransform | null>(null);
   const interactionRefs: ViewportInteractionCleanupRefs = {
     isPanScrolling,
     isWheelZooming,
@@ -1092,8 +1252,16 @@ const ZoomPane = (props: ZoomPaneProps) => {
     panScrollTimeout,
     wheelZoomTimeout,
   };
+  const viewportTransformRefs = useMemo<QueuedViewportTransformUpdateRefs>(
+    () => ({
+      frameId: viewportTransformFrame,
+      pendingTransform: pendingViewportTransform,
+    }),
+    [],
+  );
   useZoomPaneInit(zoomPane, translateExtent);
   useViewportInteractionCleanup(interactionRefs);
+  useViewportTransformCleanup(viewportTransformRefs);
   useZoomWheelBehavior({
     d3Selection,
     d3Zoom,
@@ -1113,6 +1281,7 @@ const ZoomPane = (props: ZoomPaneProps) => {
     isWheelZooming,
     isZoomingOrPanning,
     userSelectionActive,
+    viewportTransformRefs,
   });
   useZoomFilterBinding({
     d3Zoom,

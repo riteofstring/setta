@@ -8,6 +8,49 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The ZoomPane transform RAF-coalescing slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-zoompane-transform-raf-coalescing-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` now queues the latest interaction-driven D3 zoom transform into one pending animation-frame write instead of synchronously pushing a fresh `useReactFlow.setState({ transform })` on every raw wheel / drag / pinch event
+    - non-interaction transforms still flush immediately so programmatic camera changes keep their existing semantics
+    - `zoom end` now flushes the last queued transform synchronously so the final interaction position is committed even when the gesture settles before the queued frame runs
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts` now covers both next-frame coalescing and the synchronous end-of-gesture flush behavior
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5496`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.97`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1166.59`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5992`
+    - `longTasks.maxMs: 3508`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded whole-scene event-pacing cleanup on the active renderer-main JS / GC lane, not a new dense-scene breakthrough
+    - the checked canary stayed visually clean and the dense probe remained in the same runtime band, so the coalesced transform path is safe to keep
+    - the frame-time checkpoint did not materially beat the current best whole-scene report, so close this `ZoomPane` sub-lane here instead of spending another default pass on event-pacing polish
+    - the next default frontier should return to a larger trace-backed renderer-main reducer or escalate to the broader Pixi-owned graph-surface step
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-020/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (41.0s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/ZoomPane.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent on `/settings` with `All Settings` active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible
+    - no blank graph, detached shell/body artifact, or other gross visual breakage was visible
+
 - The ZoomPane wheel-event metadata cache slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-zoompane-wheel-event-metadata-cache-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
