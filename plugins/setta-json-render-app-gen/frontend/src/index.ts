@@ -21,6 +21,14 @@ import {
 } from "./state/actions/app";
 import { processAppProjectStateUpdateFromBackend } from "./state/actions/appProjectState";
 
+export const apiVersion = 1;
+
+export function register(host: unknown): void {
+  // Phase B packaging exposes a valid runtime-managed frontend module shape
+  // before Phase C moves app-subsystem UI registration into the generic host.
+  void host;
+}
+
 export const appSubsystemFrontendRegistration = {
   overviewTab: {
     component: AppConfigPane,
