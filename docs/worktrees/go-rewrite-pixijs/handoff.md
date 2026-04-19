@@ -16,18 +16,63 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
   - run `025` replaced the default d3 wheel-zoom dispatch with a direct constrained transform fast path while keeping the checked wheel-motion and visual canaries intact
   - run `026` cut retained-canvas measurement fanout by gating callable-only temporary height keys and section detail observers behind a per-section measurement plan instead of wiring every measurement family into every canvas-owned section
+  - run `027` removed one trace-backed param-tree / lodash fanout by memoizing the `ParamDndList` duplicate-index selector per section while keeping the dense canary in the same `~42-43ms` band
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
   - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
+  - run `027` also stayed in the same dense band, so close the duplicate-index selector micro-lane here instead of spending another pass on narrow selector-cache follow-ups
   - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - choose exactly one bounded frontier for the next default pass:
-    - a trace-backed whole-scene reducer tied to the renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`
+    - a trace-backed whole-scene reducer tied to the remaining renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`, preferably one shared param-family or selector path still named by the wheel profile such as `GroupContainer` edge-strip label work
     - or a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
-  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
+  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
 
 ## Current status
+
+- The param duplicate-index selector cache slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-param-duplicate-index-selector-cache-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/params/paramDuplicateIndex.ts` now exports `createParamDuplicateIndexSelector(sectionId)` with a section-scoped cache keyed to the top-level param-shape references that actually affect duplicate-name resolution
+    - unchanged param graph references now reuse the previous duplicate-index result instead of rebuilding `buildParamParentMap(...)` and duplicate buckets on unrelated project-state publications
+    - `frontend/src/components/Params/ParamDndList.tsx` now uses that memoized selector with default reference equality instead of rebuilding the duplicate index under `_.isEqual(...)`
+    - `frontend/src/state/actions/params/paramDuplicateIndex.test.ts` now locks both cache reuse for unrelated project-config changes and cache invalidation on real param-name edits
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 42.86`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1150`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5889`
+    - `longTasks.maxMs: 3507`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a safe shared selector-path reducer on the active renderer-main JS / GC lane, not a new dense-scene breakthrough
+    - the dense canary stayed in the current best `~42-43ms` / `~5.8-5.9s` band, so keep the selector cache but close this micro-lane here
+    - the next default pass should move to the next shared param-family / selector hotspot still named by the wheel profile or to the broader graph-surface ownership step instead of reopening another narrow selector cache follow-up
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamDndList.tsx src/state/actions/params/paramDuplicateIndex.ts src/state/actions/params/paramDuplicateIndex.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/actions/params/paramDuplicateIndex.test.ts`
+      - result: `1 passed`, `2` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-027/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.3s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized to `/settings` with `All Settings` active and `fit view` applied
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on the graph surface
+    - no obvious blank graph or detached shell/body artifact was visible
 
 - The retained-canvas backdrop measurement-plan gating slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-measurement-plan-gating-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

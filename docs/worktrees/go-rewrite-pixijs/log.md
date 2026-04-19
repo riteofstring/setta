@@ -5577,3 +5577,12 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after `fit view`; `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible with no obvious blank graph or detached shell/body artifact.
 - Next frontier: choose the next trace-backed shared viewport-interaction reducer or a broader family/shared-primitive ownership step instead of reopening shell-sibling or backdrop-observer micro-lanes.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 027
+
+- Landed a trace-backed duplicate-index selector cache on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/state/actions/params/paramDuplicateIndex.ts` now exports `createParamDuplicateIndexSelector(sectionId)`, and `frontend/src/components/Params/ParamDndList.tsx` uses that memoized per-section selector instead of rebuilding the duplicate index under `_.isEqual(...)` on unrelated project-state updates.
+- Verification: eslint passed; `vitest run src/state/actions/params/paramDuplicateIndex.test.ts` passed with `2` tests; Playwright `settings-all-settings-motion-aware-dense.spec.ts` passed on the run-027 runtime with dense metrics `raf.meanMs 42.86`, `longTasks.totalMs 5889`, and `documentNodeCount 5498`.
+- CDP visual check: done in a fresh headless DevTools sub-agent after `fit view`; `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible with no obvious blank graph or detached shell/body artifact.
+- Next frontier: move to the next shared param-family / selector hotspot still named by the wheel profile, or escalate to the broader graph-surface ownership step instead of reopening another narrow selector-cache micro-pass.
+LOOP_TERMINAL_MARKER: none
