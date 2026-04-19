@@ -5835,6 +5835,19 @@
         "required": ["apiKeys", "expectedRevision"],
         "type": "object"
       },
+      "HttpapiSetLanguageServerSelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["language", "pluginId"],
+        "type": "object"
+      },
       "HttpapiSetListRootViewModeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7983,6 +7996,69 @@
         ],
         "type": "object"
       },
+      "PluginsLanguageServerProviderOption": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId", "name", "available"],
+        "type": "object"
+      },
+      "PluginsLanguageServerSelectionStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "appliedPluginId": {
+            "type": ["string", "null"]
+          },
+          "availableProviders": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsLanguageServerProviderOption"
+            },
+            "type": ["array", "null"]
+          },
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": ["string", "null"]
+          },
+          "selectionState": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "selectionState",
+          "status",
+          "severity",
+          "message",
+          "selectedPluginId",
+          "appliedPluginId",
+          "availableProviders",
+          "restartRequired"
+        ],
+        "type": "object"
+      },
       "PluginsPluginBlockedCapability": {
         "additionalProperties": false,
         "properties": {
@@ -8360,6 +8436,34 @@
         ],
         "type": "object"
       },
+      "PluginsPluginRegisteredLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "command": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "settingsKey": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId", "name", "language", "command", "args"],
+        "type": "object"
+      },
       "PluginsPluginRegisteredListenerEndpoint": {
         "additionalProperties": false,
         "properties": {
@@ -8462,6 +8566,12 @@
       "PluginsPluginStatusEntry": {
         "additionalProperties": false,
         "properties": {
+          "appliedLanguageServerLanguages": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
           "blockedCapabilities": {
             "items": {
               "$ref": "#/components/schemas/PluginsPluginBlockedCapability"
@@ -8507,6 +8617,12 @@
           "registeredCodegenTargets": {
             "items": {
               "$ref": "#/components/schemas/PluginsPluginRegisteredCodegenTarget"
+            },
+            "type": ["array", "null"]
+          },
+          "registeredLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginRegisteredLanguageServer"
             },
             "type": ["array", "null"]
           },
@@ -8580,6 +8696,7 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
+          "registeredLanguageServers",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
@@ -8593,6 +8710,12 @@
       "PluginsPluginStatusResponse": {
         "additionalProperties": false,
         "properties": {
+          "languageServerSelections": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsLanguageServerSelectionStatus"
+            },
+            "type": ["array", "null"]
+          },
           "plugins": {
             "items": {
               "$ref": "#/components/schemas/PluginsPluginStatusEntry"
@@ -8614,7 +8737,8 @@
           "schemaVersion",
           "serverMode",
           "restartCapability",
-          "plugins"
+          "plugins",
+          "languageServerSelections"
         ],
         "type": "object"
       },
@@ -11275,6 +11399,62 @@
         ],
         "type": "object"
       },
+      "SettingsstateFrontendSettingsChatWindowing": {
+        "additionalProperties": false,
+        "properties": {
+          "autoCreateInitialChat": {
+            "type": "boolean"
+          },
+          "restorePriorStateOnUnmaximize": {
+            "type": "boolean"
+          },
+          "shortcuts": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsChatWindowingShortcuts"
+          }
+        },
+        "required": [
+          "autoCreateInitialChat",
+          "restorePriorStateOnUnmaximize",
+          "shortcuts"
+        ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsChatWindowingShortcuts": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasToggle": {
+            "type": "string"
+          },
+          "maximizeFocused": {
+            "type": "string"
+          },
+          "minimizeFocused": {
+            "type": "string"
+          },
+          "snapBottom": {
+            "type": "string"
+          },
+          "snapLeft": {
+            "type": "string"
+          },
+          "snapRight": {
+            "type": "string"
+          },
+          "snapTop": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "canvasToggle",
+          "maximizeFocused",
+          "minimizeFocused",
+          "snapLeft",
+          "snapRight",
+          "snapTop",
+          "snapBottom"
+        ],
+        "type": "object"
+      },
       "SettingsstateFrontendSettingsGUI": {
         "additionalProperties": false,
         "properties": {
@@ -11384,6 +11564,19 @@
           "transitionDuration",
           "sectionTagColorChoices"
         ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "selectedByLanguage": {
+            "additionalProperties": {
+              "type": ["string", "null"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["selectedByLanguage"],
         "type": "object"
       },
       "SettingsstateFrontendSettingsShortcuts": {
@@ -11648,12 +11841,14 @@
           "backend": {
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsBackend"
           },
+          "chatWindowing": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsChatWindowing"
+          },
           "gui": {
             "$ref": "#/components/schemas/SettingsstateFrontendSettingsGUI"
           },
           "languageServer": {
-            "additionalProperties": {},
-            "type": "object"
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsLanguageServer"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicy"
@@ -11666,6 +11861,7 @@
           "shortcuts",
           "gui",
           "backend",
+          "chatWindowing",
           "sectionSizingPolicy",
           "languageServer"
         ],
@@ -19687,6 +19883,47 @@
         },
         "tags": ["Project"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/setLanguageServerSelection": {
+      "post": {
+        "operationId": "setLanguageServerSelection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSetLanguageServerSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Select or disable the language-server plugin for a language in workspace settings.",
+        "tags": ["Settings"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
       }
     },
     "/setListRootViewMode": {
