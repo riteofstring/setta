@@ -68,7 +68,7 @@ func buildDeploymentFrontendRouteContributions(
 		{
 			Family: "app deployment",
 			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppDeploymentRoutes(router, options.API.AppDeployment)
+				return RegisterAppDeploymentRoutes(router, options.API.AppDeployment)
 			},
 		},
 		{
