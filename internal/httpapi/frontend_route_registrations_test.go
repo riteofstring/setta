@@ -1,9 +1,17 @@
 package httpapi
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+)
+
+const (
+	testContributedProjectRoutePath    = "/testContributedProjectRoute"
+	testContributedProjectOperationID  = "testContributedProjectRoute"
+	testContributedDeploymentRoutePath = "/testContributedDeploymentRoute"
+	testContributedDeploymentOperation = "testContributedDeploymentRoute"
 )
 
 func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContributions(t *testing.T) {
@@ -49,46 +57,48 @@ func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContribution
 	}
 }
 
-func buildAppSubsystemRegistrationsForTest(
-	deps FrontendAPIRouteDependencies,
+func buildContributedRouteRegistrationsForTest(
+	_ FrontendAPIRouteDependencies,
 ) FrontendAPIRouteRegistrations {
 	return FrontendAPIRouteRegistrations{
 		Project: []FrontendAPIRouteContribution{
 			{
-				Family: "app definition",
+				Family: "test contributed project",
 				Register: func(router chi.Router) error {
-					return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
-				},
-			},
-			{
-				Family: "app generation skill",
-				Register: func(router chi.Router) error {
-					return RegisterAppGenSkillRoutes(router, deps.AppGenSkill)
+					RegisterOpenAPIGet[openAPIJSONNull](
+						router,
+						testContributedProjectOperationID,
+						testContributedProjectRoutePath,
+						func(w http.ResponseWriter, r *http.Request) {
+							WriteJSON(w, 200, nil)
+						},
+						WithOpenAPITags("Contributed Test"),
+					)
+					return nil
 				},
 			},
 		},
 		Deployment: []FrontendAPIRouteContribution{
 			{
-				Family: "app deployment",
+				Family: "test contributed deployment",
 				Register: func(router chi.Router) error {
-					return RegisterAppDeploymentRoutes(router, deps.AppDeployment)
-				},
-			},
-			{
-				Family: "app deployment ide",
-				Register: func(router chi.Router) error {
-					return RegisterAppDeploymentIDERoutes(router, AppDeploymentIDERouteDependencies{
-						ModePolicy:   deps.ShareDeploymentIDE.ModePolicy,
-						ProjectState: deps.ShareDeploymentIDE.ProjectState,
-						Catalog:      deps.ShareDeploymentIDE.Catalog,
-					})
+					RegisterOpenAPIPostNoRequest[openAPIJSONNull](
+						router,
+						testContributedDeploymentOperation,
+						testContributedDeploymentRoutePath,
+						func(w http.ResponseWriter, r *http.Request) {
+							WriteJSON(w, 200, nil)
+						},
+						WithOpenAPITags("Contributed Test"),
+					)
+					return nil
 				},
 			},
 		},
 	}
 }
 
-func TestAppSubsystemFrontendRouteRegistrationsRestoreFrozenRoutes(t *testing.T) {
+func TestFrontendRouteRegistrationsRestoreContributedRoutes(t *testing.T) {
 	deps, err := newOpenAPIDocumentRouteDependencies[FrontendAPIRouteDependencies](frontendOpenAPIDocumentModeOverrides)
 	if err != nil {
 		t.Fatalf("build openapi deps: %v", err)
@@ -97,17 +107,17 @@ func TestAppSubsystemFrontendRouteRegistrationsRestoreFrozenRoutes(t *testing.T)
 
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
-	registrations := buildAppSubsystemRegistrationsForTest(deps)
-	if len(registrations.Project) != 2 {
-		t.Fatalf("expected two project contributions, got %#v", registrations.Project)
+	registrations := buildContributedRouteRegistrationsForTest(deps)
+	if len(registrations.Project) != 1 {
+		t.Fatalf("expected one project contribution, got %#v", registrations.Project)
 	}
-	if len(registrations.Deployment) != 2 {
-		t.Fatalf("expected two deployment contributions, got %#v", registrations.Deployment)
+	if len(registrations.Deployment) != 1 {
+		t.Fatalf("expected one deployment contribution, got %#v", registrations.Deployment)
 	}
-	if registrations.Project[0].Family != "app definition" || registrations.Project[1].Family != "app generation skill" {
+	if registrations.Project[0].Family != "test contributed project" {
 		t.Fatalf("unexpected project contribution family %#v", registrations.Project)
 	}
-	if registrations.Deployment[0].Family != "app deployment" || registrations.Deployment[1].Family != "app deployment ide" {
+	if registrations.Deployment[0].Family != "test contributed deployment" {
 		t.Fatalf("unexpected deployment contribution families %#v", registrations.Deployment)
 	}
 	if err := RegisterFrontendAPIRoutes(router, deps, registrations); err != nil {
@@ -125,21 +135,11 @@ func TestAppSubsystemFrontendRouteRegistrationsRestoreFrozenRoutes(t *testing.T)
 	}
 
 	for _, routePath := range []string{
-		RouteGetAppDefinition,
-		RouteSetAppDefinition,
-		RouteValidateAppDefinition,
-		RouteGetAppGenSkills,
-		RouteGetAppGenSkillContent,
-		RouteUpsertAppGenCustomSkill,
-		RouteAppDeployments,
-		RouteAppDeploymentVersions,
-		RouteAppDeploymentLatest,
-		RouteAppDeploymentCurrentSession,
-		RouteAppDeploymentProjectConfig,
-		RouteAppDeploymentState,
+		testContributedProjectRoutePath,
+		testContributedDeploymentRoutePath,
 	} {
 		if document.Paths[routePath] == nil {
-			t.Fatalf("expected %s to be restored through app subsystem contributions", routePath)
+			t.Fatalf("expected %s to be restored through contributed route registrations", routePath)
 		}
 	}
 }
@@ -170,27 +170,17 @@ func TestBuildFrontendHTTPOpenAPIDocumentLeavesAppSubsystemRoutesOutWithoutRegis
 	}
 }
 
-func TestBuildFrontendHTTPOpenAPIDocumentIncludesAppSubsystemRouteContributions(t *testing.T) {
+func TestBuildFrontendHTTPOpenAPIDocumentIncludesContributedRoutes(t *testing.T) {
 	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
-		buildAppSubsystemRegistrationsForTest,
+		buildContributedRouteRegistrationsForTest,
 	)
 	if err != nil {
 		t.Fatalf("build frontend openapi document: %v", err)
 	}
 
 	for _, routePath := range []string{
-		RouteGetAppDefinition,
-		RouteSetAppDefinition,
-		RouteValidateAppDefinition,
-		RouteGetAppGenSkills,
-		RouteGetAppGenSkillContent,
-		RouteUpsertAppGenCustomSkill,
-		RouteAppDeployments,
-		RouteAppDeploymentVersions,
-		RouteAppDeploymentLatest,
-		RouteAppDeploymentCurrentSession,
-		RouteAppDeploymentProjectConfig,
-		RouteAppDeploymentState,
+		testContributedProjectRoutePath,
+		testContributedDeploymentRoutePath,
 	} {
 		if document.Paths[routePath] == nil {
 			t.Fatalf("expected %s in frontend openapi document", routePath)
