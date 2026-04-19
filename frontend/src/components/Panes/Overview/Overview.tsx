@@ -4,7 +4,14 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
+import {
+  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
+  useAppSubsystemOverviewTab,
+} from "plugins/appSubsystem";
+import {
+  AppSubsystemRendererHost,
+  EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
+} from "plugins/appSubsystemRendererHost";
 import {
   usePluginPaneTabs,
   type PluginPaneIconName,
@@ -601,8 +608,15 @@ function TabContent({
     );
   }
   if (selectedTabName === OverviewTabNameEnum.App && appOverviewTab) {
-    const AppOverviewComponent = appOverviewTab.component;
-    return <AppOverviewComponent />;
+    return (
+      <AppSubsystemRendererHost
+        renderer={appOverviewTab.renderer}
+        props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
+        host={DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST}
+        className="h-full min-h-0 w-full"
+        testId="app-subsystem-overview-tab"
+      />
+    );
   }
   return OVERVIEW_TAB_CONTENT[
     getOverviewBaseTabName(selectedTabName) as keyof typeof OVERVIEW_TAB_CONTENT

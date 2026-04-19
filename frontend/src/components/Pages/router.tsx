@@ -9,11 +9,16 @@ import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import {
+  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
   useAppSubsystemAppModeRoute,
   useAppSubsystemFrontendStatus,
   useAppSubsystemFrontendStatusMessage,
 } from "plugins/appSubsystem";
+import {
+  AppSubsystemRendererHost,
+  EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
+} from "plugins/appSubsystemRendererHost";
 import {
   usePluginRuntimeBootstrap,
   usePluginRuntimeStore,
@@ -276,8 +281,15 @@ function AppModeRouteElement() {
   const appModeRoute = useAppSubsystemAppModeRoute();
 
   if (appModeRoute) {
-    const AppModeRouteComponent = appModeRoute.component;
-    return <AppModeRouteComponent />;
+    return (
+      <AppSubsystemRendererHost
+        renderer={appModeRoute.renderer}
+        props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
+        host={DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST}
+        className="contents"
+        testId="app-subsystem-app-mode-route"
+      />
+    );
   }
 
   if (

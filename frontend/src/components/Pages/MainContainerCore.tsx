@@ -7,9 +7,14 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import {
+  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
   useAppSubsystemPreviewEnabled,
   useAppSubsystemPreviewSurface,
 } from "plugins/appSubsystem";
+import {
+  AppSubsystemRendererHost,
+  EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
+} from "plugins/appSubsystemRendererHost";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import {
   useAIFollowViewport,
@@ -47,15 +52,19 @@ export function MainContainerCore({
     return <NotFound />;
   }
 
-  const AppPreviewComponent = appPreviewSurface?.component;
-
   return (
     <>
       <Overview />
       <UiEditor />
       <GridWrapper>
-        {isAppPreviewEnabled && AppPreviewComponent ? (
-          <AppPreviewComponent />
+        {isAppPreviewEnabled && appPreviewSurface ? (
+          <AppSubsystemRendererHost
+            renderer={appPreviewSurface.renderer}
+            props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
+            host={DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST}
+            className="h-full w-full"
+            testId="app-subsystem-preview-surface"
+          />
         ) : (
           <UIPage />
         )}

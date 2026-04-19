@@ -294,13 +294,15 @@ function buildAppSubsystemRegistrationDelta(
       [pluginId]: {
         pluginId,
         overviewTab: {
-          component: () => null,
+          renderer: { mount: () => undefined },
           titleQuickInfo: `${pluginId} overview`,
           moreMenuQuickInfo: `${pluginId} quick info`,
           moreMenuLabel: pluginId,
         },
-        applyAppDefinitionStructuredContentToStore: applyStructuredContent,
-        processAppProjectStateUpdateFromBackend: processProjectStateUpdate,
+        controller: {
+          applyAppDefinitionStructuredContentToStore: applyStructuredContent,
+          processAppProjectStateUpdateFromBackend: processProjectStateUpdate,
+        },
       },
     },
     sectionKinds: {},
@@ -1312,29 +1314,33 @@ describe("plugin runtime helpers", () => {
           "export function register(host) {\n" +
           "  host.registerAppSubsystem({\n" +
           "    overviewTab: {\n" +
-          "      component: function OverviewTab() { return null; },\n" +
+          "      renderer: { mount() {} },\n" +
           "      titleQuickInfo: 'Acme provider quick info',\n" +
           "      moreMenuQuickInfo: 'Open Acme app configuration.',\n" +
           "      moreMenuLabel: 'Acme App'\n" +
           "    },\n" +
-          "    previewSurface: { component: function PreviewSurface() { return null; } },\n" +
-          "    appModeRoute: { component: function AppModeRoute() { return null; } },\n" +
-          "    appDeploymentModal: { component: function AppDeploymentModal() { return null; } },\n" +
-          "    slashCommands: [{\n" +
-          "      command: '/acme-app',\n" +
-          "      action: 'acme_app',\n" +
-          "      summary: 'Generate an Acme app.',\n" +
-          "      promptTemplate: 'Generate an Acme app.'\n" +
-          "    }],\n" +
-          "    imageRequiredModes: ['image_mode'],\n" +
-          "    customSlashCommandModes: {\n" +
-          "      options: [\n" +
-          "        { id: 'plain_chat', name: 'Plain chat' },\n" +
-          "        { id: 'image_mode', name: 'Image mode' }\n" +
-          "      ],\n" +
-          "      defaultMode: 'plain_chat'\n" +
+          "    previewSurface: { renderer: { mount() {} } },\n" +
+          "    appModeRoute: { renderer: { mount() {} } },\n" +
+          "    appDeploymentModal: { renderer: { mount() {} } },\n" +
+          "    chat: {\n" +
+          "      slashCommands: [{\n" +
+          "        command: '/acme-app',\n" +
+          "        action: 'acme_app',\n" +
+          "        summary: 'Generate an Acme app.',\n" +
+          "        promptTemplate: 'Generate an Acme app.'\n" +
+          "      }],\n" +
+          "      imageRequiredModes: ['image_mode'],\n" +
+          "      customSlashCommandModes: {\n" +
+          "        options: [\n" +
+          "          { id: 'plain_chat', name: 'Plain chat' },\n" +
+          "          { id: 'image_mode', name: 'Image mode' }\n" +
+          "        ],\n" +
+          "        defaultMode: 'plain_chat'\n" +
+          "      }\n" +
           "    },\n" +
-          "    getPreviewEnabled: function() { return true; }\n" +
+          "    controller: {\n" +
+          "      getPreviewEnabled: function() { return true; }\n" +
+          "    }\n" +
           "  });\n" +
           "}\n",
       );
