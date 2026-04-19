@@ -1,7 +1,7 @@
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { AppGenerationModeEnum } from "utils/generatedTypes";
 
-type AppGenerationSlashCommandAction =
+export type AppGenerationSlashCommandAction =
   | "app_json_render"
   | "app_json_render_with_image"
   | "app_prompt_builder"
@@ -67,15 +67,13 @@ export function buildAppGenerationSlashCommandDefinitions(): Array<{
   action: AppGenerationSlashCommandAction;
   summary: string;
   promptTemplate: string;
-  appGenerationMode: AppGenerationMode;
 }> {
   return APP_GENERATION_SLASH_COMMANDS.map(
-    ({ command, action, mode, summary, promptTemplate }) => ({
+    ({ command, action, summary, promptTemplate }) => ({
       command,
       action,
       summary,
       promptTemplate,
-      appGenerationMode: mode,
     }),
   );
 }

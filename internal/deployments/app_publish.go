@@ -9,27 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
 
 var (
-	ErrAppPublisherRequired             = errors.New("app deployment publisher is required")
-	ErrAppPublishContentServiceRequired = errors.New("app deployment publish content service is required")
-	ErrAppPublishProjectStateRequired   = errors.New("app deployment publish project runtime is required")
-	ErrAppPublishAppDefinitionMissing   = errors.New("app definition is required to publish an app deployment")
-	ErrAppPublishAppSpecPathRequired    = errors.New("app spec path is required to publish an app deployment")
-	ErrAppPublishAppSpecNotFound        = errors.New("app spec was not found for app deployment publish")
-	ErrAppPublishAppSpecInvalid         = errors.New("app spec is invalid for app deployment publish")
+	ErrAppPublisherRequired           = errors.New("app deployment publisher is required")
+	ErrAppPublishProjectStateRequired = errors.New("app deployment publish project runtime is required")
+	ErrAppPublishAppDefinitionMissing = errors.New("app definition is required to publish an app deployment")
+	ErrAppPublishAppSpecPathRequired  = errors.New("app spec path is required to publish an app deployment")
+	ErrAppPublishAppSpecNotFound      = errors.New("app spec was not found for app deployment publish")
+	ErrAppPublishAppSpecInvalid       = errors.New("app spec is invalid for app deployment publish")
 )
 
-type AppPublisherOptions struct {
-	Catalog        *Catalog
-	SettaFilesRoot string
-	WorkspaceRoot  string
-	Now            func() time.Time
-	ContentService AppDeploymentPublishContent
-}
+type AppPublisherOptions = SharePublisherOptions
 
 type AppPolicyOverrides = SharePolicyOverrides
 
@@ -50,7 +44,7 @@ type AppPublishResult struct {
 }
 
 type AppPublishValidationError struct {
-	Issues []projectstate.AppDefinitionValidationIssue
+	Issues []appspec.AppValidationIssue
 }
 
 func (e *AppPublishValidationError) Error() string {
@@ -84,8 +78,7 @@ func (e *AppPublishValidationError) Unwrap() error {
 }
 
 type AppPublisher struct {
-	share          *SharePublisher
-	contentService AppDeploymentPublishContent
+	share *SharePublisher
 }
 
 type preparedAppPublish struct {
@@ -99,22 +92,11 @@ type preparedAppPublish struct {
 }
 
 func NewAppPublisher(options AppPublisherOptions) (*AppPublisher, error) {
-	if options.ContentService == nil {
-		return nil, ErrAppPublishContentServiceRequired
-	}
-	sharePublisher, err := NewSharePublisher(SharePublisherOptions{
-		Catalog:        options.Catalog,
-		SettaFilesRoot: options.SettaFilesRoot,
-		WorkspaceRoot:  options.WorkspaceRoot,
-		Now:            options.Now,
-	})
+	sharePublisher, err := NewSharePublisher(options)
 	if err != nil {
 		return nil, err
 	}
-	return &AppPublisher{
-		share:          sharePublisher,
-		contentService: options.ContentService,
-	}, nil
+	return &AppPublisher{share: sharePublisher}, nil
 }
 
 func (p *AppPublisher) Publish(ctx context.Context, request AppPublishRequest) (AppPublishResult, error) {
@@ -170,11 +152,7 @@ func (p *AppPublisher) prepareAppPublish(
 	}
 	document.DefaultProjectID = project.ID
 
-	appDefinition, appSpec, targetAppSpecPath, err := p.contentService.PreparePublishedAppDefinition(
-		ctx,
-		p.share.settaFilesRoot,
-		document.AppDefinition,
-	)
+	appDefinition, appSpec, targetAppSpecPath, err := p.preparePublishedAppDefinition(ctx, request.ProjectState, document.AppDefinition)
 	if err != nil {
 		return preparedAppPublish{}, err
 	}
@@ -238,7 +216,7 @@ func (p *AppPublisher) writeAppPublishOutput(
 	if err := store.Save(ctx, prepared.publishedDocument); err != nil {
 		return fmt.Errorf("save deployment project: %w", err)
 	}
-	if err := p.contentService.WritePublishedAppSpec(deploymentRoot, prepared.targetAppSpecPath, prepared.appSpec); err != nil {
+	if err := appspec.Write(deploymentRoot, prepared.targetAppSpecPath, prepared.appSpec); err != nil {
 		return fmt.Errorf("write deployment app spec: %w", err)
 	}
 	for relativePath, payload := range prepared.structuredDataPayloads {
@@ -275,6 +253,49 @@ func (p *AppPublisher) buildAppPublishMetadata(
 		PolicyPath:          filepath.Join(allocation.DeploymentRoot, "policy.json"),
 		DeploymentVersionNo: mustParseDeploymentVersion(allocation.DeploymentVersion),
 	}
+}
+
+func (p *AppPublisher) preparePublishedAppDefinition(
+	ctx context.Context,
+	runtime *projectstate.Runtime,
+	appDefinition *projectstate.AppDefinition,
+) (*projectstate.AppDefinition, any, string, error) {
+	if appDefinition == nil {
+		return nil, nil, "", ErrAppPublishAppDefinitionMissing
+	}
+
+	current := appDefinition.Clone()
+	if strings.TrimSpace(current.AppSpecPath) == "" {
+		return nil, nil, "", ErrAppPublishAppSpecPathRequired
+	}
+
+	projectRoot := p.share.settaFilesRoot
+	targetAppSpecPath, err := appspec.NormalizePath(projectRoot, current.AppSpecPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("%w: %v", ErrAppPublishAppSpecInvalid, err)
+	}
+	appSpec, err := appspec.Read(projectRoot, current.AppSpecPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("%w: %v", ErrAppPublishAppSpecInvalid, err)
+	}
+	if appSpec == nil {
+		return nil, nil, "", ErrAppPublishAppSpecNotFound
+	}
+
+	validationResult, err := runtime.ValidateAppDefinition(ctx, projectstate.ValidateAppDefinitionInput{
+		AppSpec: appSpec,
+	})
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if len(validationResult.Errors) != 0 {
+		return nil, nil, "", &AppPublishValidationError{
+			Issues: append([]appspec.AppValidationIssue(nil), validationResult.Errors...),
+		}
+	}
+
+	current.AppSpecPath = targetAppSpecPath
+	return &current, appSpec, targetAppSpecPath, nil
 }
 
 func applyAppPolicyOverrides(overrides *AppPolicyOverrides) (Policy, error) {

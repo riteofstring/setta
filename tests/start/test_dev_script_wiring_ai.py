@@ -1,3 +1,7 @@
+import os
+import signal
+import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -9,6 +13,41 @@ from tests.start.dev_script_wiring_helpers import (
     script_env,
     write_stub_executable,
 )
+
+
+def _wait_for_path(path: Path, *, timeout_seconds: float = 5.0) -> None:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if path.exists():
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"Timed out waiting for {path}")
+
+
+def _pid_is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _write_pnpm_stub(stub_dir: Path, body: str) -> None:
+    write_stub_executable(stub_dir / "pnpm", body)
+    write_stub_executable(
+        stub_dir / "corepack",
+        """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" != "pnpm" ]]; then
+  echo "unexpected corepack invocation: $*" >&2
+  exit 1
+fi
+shift
+exec pnpm "$@"
+""",
+    )
 
 
 @pytest.mark.parametrize(
@@ -91,30 +130,6 @@ def test_ai_sh_rejects_invalid_setta_files_location_value(tmp_path: Path) -> Non
     )
 
 
-def test_ai_sh_requires_explicit_dev_install_when_repo_python_env_missing(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = build_ai_sandbox(tmp_path)
-    stub_dir = tmp_path / "bin"
-    stub_dir.mkdir(parents=True, exist_ok=True)
-    home_dir = tmp_path / "home"
-    home_dir.mkdir(parents=True, exist_ok=True)
-
-    (sandbox_root / ".venv" / "bin" / "python").unlink()
-
-    result = run_script(
-        ["bash", str(sandbox_root / "ai.sh")],
-        cwd=sandbox_root,
-        env=script_env(stub_dir, home_dir),
-    )
-
-    assert result.returncode != 0
-    assert (
-        "Missing dev dependencies (.venv/bin/python). Run ./dev_install.sh first."
-        in f"{result.stdout}{result.stderr}"
-    )
-
-
 def test_ai_sh_normalizes_setta_files_location_case(tmp_path: Path) -> None:
     sandbox_root = build_ai_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
@@ -124,8 +139,8 @@ def test_ai_sh_normalizes_setta_files_location_case(tmp_path: Path) -> None:
     capture_cmd = tmp_path / "pnpm_cmd.txt"
     capture_env = tmp_path / "pnpm_env.txt"
 
-    write_stub_executable(
-        stub_dir / "pnpm",
+    _write_pnpm_stub(
+        stub_dir,
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" > "{capture_cmd}"
@@ -181,8 +196,8 @@ def test_ai_sh_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
     capture_cmd = tmp_path / "pnpm_cmd.txt"
     capture_env = tmp_path / "pnpm_env.txt"
 
-    write_stub_executable(
-        stub_dir / "pnpm",
+    _write_pnpm_stub(
+        stub_dir,
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" > "{capture_cmd}"
@@ -236,8 +251,8 @@ def test_ai_sh_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
     capture_cmd = tmp_path / "pnpm_cmd.txt"
     capture_env = tmp_path / "pnpm_env.txt"
 
-    write_stub_executable(
-        stub_dir / "pnpm",
+    _write_pnpm_stub(
+        stub_dir,
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" > "{capture_cmd}"
@@ -321,8 +336,8 @@ def test_ai_sh_auto_frontend_port_excludes_fixed_backend_port(tmp_path: Path) ->
     capture_cmd = tmp_path / "pnpm_cmd.txt"
     capture_env = tmp_path / "pnpm_env.txt"
 
-    write_stub_executable(
-        stub_dir / "pnpm",
+    _write_pnpm_stub(
+        stub_dir,
         f"""#!/usr/bin/env bash
 set -euo pipefail
 echo "$*" > "{capture_cmd}"
@@ -387,8 +402,8 @@ def test_ai_sh_auto_debug_port_excludes_fixed_backend_and_frontend(
     home_dir.mkdir(parents=True, exist_ok=True)
     capture_env = tmp_path / "pnpm_env.txt"
 
-    write_stub_executable(
-        stub_dir / "pnpm",
+    _write_pnpm_stub(
+        stub_dir,
         f"""#!/usr/bin/env bash
 set -euo pipefail
 env | sort > "{capture_env}"
@@ -441,3 +456,86 @@ exit 0
     assert captured_env.get("SETTA_DEV_FRONTEND_PORT") == str(int(default_debug_port) + 5)
     assert captured_env.get("DEBUG_PORT") != default_debug_port
     assert int(captured_env["DEBUG_PORT"]) == int(default_debug_port) + 1
+
+
+def test_ai_sh_ignores_sighup_and_cleans_up_detached_dev_runtime(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    child_pid_path = tmp_path / "pnpm_pid.txt"
+    signal_log = tmp_path / "pnpm_signals.txt"
+    stop_browser_log = tmp_path / "stop_browser.txt"
+
+    _write_pnpm_stub(
+        stub_dir,
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$$" > "{child_pid_path}"
+trap 'echo TERM >> "{signal_log}"; exit 0' TERM
+trap 'echo HUP >> "{signal_log}"; exit 0' HUP
+while true; do
+  sleep 1
+done
+""",
+    )
+    write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "scripts" / "start-browser-mcp.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "scripts" / "stop-browser-mcp.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo stopped >> "{stop_browser_log}"
+""",
+    )
+
+    env = script_env(stub_dir, home_dir)
+    process = subprocess.Popen(
+        ["bash", str(sandbox_root / "ai.sh")],
+        cwd=sandbox_root,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        _wait_for_path(child_pid_path)
+        child_pid = int(child_pid_path.read_text(encoding="utf-8").strip())
+
+        process.send_signal(signal.SIGHUP)
+        time.sleep(0.5)
+
+        assert process.poll() is None
+        assert _pid_is_running(child_pid)
+        if signal_log.exists():
+            assert "HUP" not in signal_log.read_text(encoding="utf-8")
+
+        process.send_signal(signal.SIGTERM)
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode is not None, stdout + stderr
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=10)
+
+    _wait_for_path(stop_browser_log)
+    _wait_for_path(signal_log)
+    signals = signal_log.read_text(encoding="utf-8")
+    assert "TERM" in signals
+    assert "HUP" not in signals

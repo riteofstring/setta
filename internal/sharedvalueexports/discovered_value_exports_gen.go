@@ -10,16 +10,15 @@ import (
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	uisettings "setta/internal/uisettings"
-	backend "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 func DiscoveredValueExports() []ValueExport {
 	return []ValueExport{
 		{
 			Name: "AppSpecPatchPolicyConfig",
-			Type: reflect.TypeOf(backend.FrontendValueAppSpecPatchPolicyConfig()),
+			Type: reflect.TypeOf(httpapi.FrontendValueAppSpecPatchPolicyConfig()),
 			Value: func() any {
-				return backend.FrontendValueAppSpecPatchPolicyConfig()
+				return httpapi.FrontendValueAppSpecPatchPolicyConfig()
 			},
 		},
 		{
@@ -41,13 +40,6 @@ func DiscoveredValueExports() []ValueExport {
 			Type: reflect.TypeOf(httpapi.FrontendValueC()),
 			Value: func() any {
 				return httpapi.FrontendValueC()
-			},
-		},
-		{
-			Name: "ChangeParamImplUIConfig",
-			Type: reflect.TypeOf(projectstate.FrontendValueChangeParamImplUIConfig()),
-			Value: func() any {
-				return projectstate.FrontendValueChangeParamImplUIConfig()
 			},
 		},
 		{
