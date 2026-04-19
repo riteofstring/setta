@@ -176,15 +176,15 @@ func NewAppPublishService(
 func DeploymentTypeRegistration(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 ) (deployments.TypeRegistration, error) {
-	if !capabilities.PluginEnabled || !capabilities.AppDeploymentRuntime {
-		return deployments.TypeRegistration{}, ErrAppModePluginRequired
+	if err := requireAppModeRuntimeCapabilities(capabilities); err != nil {
+		return deployments.TypeRegistration{}, err
 	}
 	provider, err := BackendProviderForCapabilities(capabilities)
 	if err != nil {
 		return deployments.TypeRegistration{}, err
 	}
 	if provider == nil {
-		return deployments.TypeRegistration{}, ErrAppModePluginRequired
+		return deployments.TypeRegistration{}, ErrBackendProviderUnregistered
 	}
 	return provider.DeploymentTypeRegistration(), nil
 }
