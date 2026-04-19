@@ -1,6 +1,4 @@
 import { useDndMode } from "forks/dnd-kit/dndState";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import { setSectionSizes } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
@@ -106,8 +104,6 @@ export function CustomResizable({
   allowPointerEventsDuringDnd = false,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
-  motionCanvasOwnedShell = false,
-  motionCanvasOwnedShellRoot = false,
   children,
   as,
 }) {
@@ -124,8 +120,6 @@ export function CustomResizable({
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
-      motionCanvasOwnedShell={motionCanvasOwnedShell}
-      motionCanvasOwnedShellRoot={motionCanvasOwnedShellRoot}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
@@ -147,8 +141,6 @@ function CustomResizableCore({
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
-  motionCanvasOwnedShell = false,
-  motionCanvasOwnedShellRoot = false,
   minHeight,
   maxHeight,
   minWidth,
@@ -330,8 +322,6 @@ function CustomResizableCore({
       maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
-      motionCanvasOwnedShell={motionCanvasOwnedShell}
-      motionCanvasOwnedShellRoot={motionCanvasOwnedShellRoot}
       heightResizable={heightResizable}
       widthResizable={widthResizable}
       positionAndSizeLocked={positionAndSizeLocked}
@@ -361,8 +351,6 @@ function CustomResizableSuperCore({
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
-  motionCanvasOwnedShell = false,
-  motionCanvasOwnedShellRoot = false,
   size,
   minHeight,
   maxHeight,
@@ -407,12 +395,8 @@ function CustomResizableSuperCore({
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const canvasOwnedShell =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    (isCanvasOwnedSectionShell(sectionId) || motionCanvasOwnedShell);
   const inputClasses = getSectionSurfaceClassName({
-    bgColor: canvasOwnedShell ? "bg-transparent" : bgColor,
+    bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
     shouldDisablePointerEvents,
@@ -420,7 +404,6 @@ function CustomResizableSuperCore({
     frameClassName,
     layoutClassName: layoutClassNameToUse,
     metaHoverZIndexClassName: metaHoverZIndexClass,
-    hideFrameBorder: canvasOwnedShell,
   });
   const { handleStyles, handleClasses, handleWrapperClassName } =
     getResizableHandleConfig({
@@ -478,13 +461,6 @@ function CustomResizableSuperCore({
       handleWrapperClass={handleWrapperClassName}
       enable={enable}
       className={inputClasses}
-      data-canvas-owned-shell={canvasOwnedShell ? "true" : undefined}
-      data-canvas-owned-motion-shell-hidden={
-        motionCanvasOwnedShell ? "true" : undefined
-      }
-      data-canvas-owned-motion-shell-root={
-        motionCanvasOwnedShellRoot ? "true" : undefined
-      }
       handleStyles={handleStyles}
       handleClasses={handleClasses}
       grid={snapToGrid ? snapGrid : null}

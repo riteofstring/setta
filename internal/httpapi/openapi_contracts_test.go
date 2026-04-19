@@ -155,6 +155,18 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		t.Fatalf("expected loadSettings request body to be omitted, got %#v", loadSettings.RequestBody)
 	}
 
+	setLanguageServerSelection := document.Paths[RouteSetLanguageServerSelection].Post
+	if setLanguageServerSelection == nil {
+		t.Fatalf("expected %s post operation", RouteSetLanguageServerSelection)
+	}
+	if setLanguageServerSelection.RequestBody == nil {
+		t.Fatalf("expected setLanguageServerSelection request body to be documented")
+	}
+	setLanguageServerSelectionSchema := setLanguageServerSelection.Responses["200"].Content["application/json"].Schema
+	if setLanguageServerSelectionSchema.Type != "null" {
+		t.Fatalf("setLanguageServerSelection response schema type = %q, want %q", setLanguageServerSelectionSchema.Type, "null")
+	}
+
 	getLlmConfig := document.Paths[RouteLLMConfig].Get
 	if getLlmConfig == nil {
 		t.Fatalf("expected %s get operation", RouteLLMConfig)

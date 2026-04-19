@@ -2,7 +2,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { textFieldCompletion } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -13,8 +13,6 @@ import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 export function TextInputCodeMirror({
-  canvasOwnedRestingText = false,
-  canvasOwnedUnderline = false,
   sectionId,
   paramInfoId,
   value,
@@ -77,8 +75,6 @@ export function TextInputCodeMirror({
     <>
       {!realIsInitialized && (
         <DummyCodeMirror
-          canvasOwnedRestingText={canvasOwnedRestingText}
-          canvasOwnedUnderline={canvasOwnedUnderline}
           divId={dummyDivId}
           code={value}
           onMouseDownCapture={localOnMouseDownCapture}
@@ -92,59 +88,31 @@ export function TextInputCodeMirror({
         />
       )}
       {activationEvent && (
-        <ActiveCodeMirrorRoot
-          canvasOwnedUnderline={canvasOwnedUnderline}
+        <CoreCodeMirror
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
           className={realCodeClassName}
-        >
-          <CoreCodeMirror
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            value={value}
-            defaultVal={defaultVal}
-            onChange={onChange}
-            className={canvasOwnedUnderline ? "" : realCodeClassName}
-            singleLine={singleLine}
-            wrapLines={wrapLines}
-            keyComboActions={keyComboActions}
-            onEscape={onEscape}
-            onTab={onTab}
-            onBlur={localOnBlur}
-            initialEvent={activationEvent}
-            realIsInitialized={realIsInitialized}
-            setRealIsInitialized={setRealIsInitialized}
-            theme={theme}
-            language={language}
-            autocomplete={autocomplete}
-            isKeyName={isKeyName}
-            tooltipParentDivId={tooltipParentDivId}
-            completionsFn={completionsFn}
-          />
-        </ActiveCodeMirrorRoot>
+          singleLine={singleLine}
+          wrapLines={wrapLines}
+          keyComboActions={keyComboActions}
+          onEscape={onEscape}
+          onTab={onTab}
+          onBlur={localOnBlur}
+          initialEvent={activationEvent}
+          realIsInitialized={realIsInitialized}
+          setRealIsInitialized={setRealIsInitialized}
+          theme={theme}
+          language={language}
+          autocomplete={autocomplete}
+          isKeyName={isKeyName}
+          tooltipParentDivId={tooltipParentDivId}
+          completionsFn={completionsFn}
+        />
       )}
     </>
-  );
-}
-
-function ActiveCodeMirrorRoot({
-  canvasOwnedUnderline,
-  children,
-  className,
-}: {
-  canvasOwnedUnderline: boolean;
-  children: ReactNode;
-  className: string;
-}) {
-  if (!canvasOwnedUnderline) {
-    return children;
-  }
-
-  return (
-    <div
-      className={className}
-      data-canvas-owned-underline="true"
-    >
-      {children}
-    </div>
   );
 }
 function resolveTooltipParentDivId(
