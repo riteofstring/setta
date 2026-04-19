@@ -4,16 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppPublisherRequiresAppDefinition(t *testing.T) {
@@ -23,7 +21,7 @@ func TestAppPublisherRequiresAppDefinition(t *testing.T) {
 	workspaceRoot := t.TempDir()
 
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, simpleProjectDocument(false))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 17, 0, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 0, 0, 0, time.UTC))
 
 	_, err := publisher.Publish(context.Background(), AppPublishRequest{
 		ProjectState:   runtime,
@@ -42,7 +40,7 @@ func TestAppPublisherRequiresConfiguredAppSpecPath(t *testing.T) {
 	workspaceRoot := t.TempDir()
 
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{}))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 17, 10, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 10, 0, 0, time.UTC))
 
 	_, err := publisher.Publish(context.Background(), AppPublishRequest{
 		ProjectState:   runtime,
@@ -71,7 +69,7 @@ func TestAppPublisherRejectsInvalidStoredAppSpec(t *testing.T) {
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 17, 20, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 20, 0, 0, time.UTC))
 
 	_, err := publisher.Publish(context.Background(), AppPublishRequest{
 		ProjectState:   runtime,
@@ -108,7 +106,7 @@ func TestAppPublisherPublishesRelativeAppSpecPathWithAppPolicyDefaults(t *testin
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 17, 30, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 30, 0, 0, time.UTC))
 
 	result, err := publisher.Publish(context.Background(), AppPublishRequest{
 		ProjectState:   runtime,
@@ -180,7 +178,7 @@ func TestAppPublisherPublishesAbsoluteAppSpecPathAsDeploymentRelativePath(t *tes
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
 		AppSpecPath: absoluteAppSpecPath,
 	}))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 17, 40, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 40, 0, 0, time.UTC))
 
 	result, err := publisher.Publish(context.Background(), AppPublishRequest{
 		ProjectState:   runtime,
@@ -223,7 +221,7 @@ func TestAppPublisherRejectsRunSnapshotModeNever(t *testing.T) {
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 17, 50, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 17, 50, 0, 0, time.UTC))
 
 	never := RunSnapshotModeNever
 	_, err := publisher.Publish(context.Background(), AppPublishRequest{
@@ -259,7 +257,7 @@ func TestAppPublisherCopiesListenerEntrypoint(t *testing.T) {
 	runtime, _, _ := openSharePublishRuntime(t, settaFilesRoot, appPublishDocument(&projectstate.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, runtime, time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC))
+	publisher := openTestAppPublisher(t, settaFilesRoot, workspaceRoot, time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC))
 
 	result, err := publisher.Publish(context.Background(), AppPublishRequest{
 		ProjectState:       runtime,
@@ -287,13 +285,7 @@ func TestAppPublisherCopiesListenerEntrypoint(t *testing.T) {
 	}
 }
 
-func openTestAppPublisher(
-	t *testing.T,
-	settaFilesRoot string,
-	workspaceRoot string,
-	runtime *projectstate.Runtime,
-	publishedAt time.Time,
-) *AppPublisher {
+func openTestAppPublisher(t *testing.T, settaFilesRoot string, workspaceRoot string, publishedAt time.Time) *AppPublisher {
 	t.Helper()
 
 	catalogRoot, err := DefaultCatalogRoot(settaFilesRoot)
@@ -305,10 +297,9 @@ func openTestAppPublisher(
 		t.Fatalf("new deployment catalog: %v", err)
 	}
 	publisher, err := NewAppPublisher(AppPublisherOptions{
-		Catalog:              catalog,
-		SettaFilesRoot:       settaFilesRoot,
-		WorkspaceRoot:        workspaceRoot,
-		AppDefinitionService: testAppDefinitionService{runtime: runtime},
+		Catalog:        catalog,
+		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
 		Now: func() time.Time {
 			return publishedAt
 		},
@@ -317,138 +308,6 @@ func openTestAppPublisher(
 		t.Fatalf("new app publisher: %v", err)
 	}
 	return publisher
-}
-
-type testAppDefinitionService struct {
-	runtime *projectstate.Runtime
-}
-
-func (s testAppDefinitionService) GetAppDefinition(_ context.Context) (projectstate.AppDefinitionReadResult, error) {
-	return projectstate.AppDefinitionReadResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) ValidateAppDefinition(
-	_ context.Context,
-	input projectstate.ValidateAppDefinitionInput,
-) (projectstate.AppDefinitionValidationResult, error) {
-	current := projectstate.AppDefinition{}
-	if s.runtime != nil && s.runtime.Snapshot().Document.AppDefinition != nil {
-		current = s.runtime.Snapshot().Document.AppDefinition.Clone()
-	}
-	if strings.TrimSpace(current.AppSpecVersion) == "" {
-		current.AppSpecVersion = "v1"
-	}
-	if strings.TrimSpace(current.CatalogID) == "" {
-		current.CatalogID = appspec.DefaultCatalogID
-	}
-
-	definition, err := testAppspecDefinition(current)
-	if err != nil {
-		return projectstate.AppDefinitionValidationResult{}, err
-	}
-	validationErrors, warnings := appspec.ValidateDefinitionPayload(input.AppSpec, definition)
-	if validationErrors == nil {
-		validationErrors = []appspec.AppValidationIssue{}
-	}
-	if warnings == nil {
-		warnings = []appspec.AppValidationIssue{}
-	}
-	return projectstate.AppDefinitionValidationResult{
-		Errors:       validationErrors,
-		Warnings:     warnings,
-		Capabilities: appspec.BuildCapabilities(definition),
-	}, nil
-}
-
-func (s testAppDefinitionService) SetAppDefinition(_ context.Context, _ projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) StreamAppDefinition(_ context.Context, _ projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) UpdateAppDefinition(_ context.Context, _ any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionCatalogID(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionSpecVersion(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionSpecPath(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func testAppspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {
-	dataBindings, err := testDecodeAppDefinitionJSONObject(definition.DataBindings, "appDefinition.dataBindings")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	actions, err := testDecodeAppDefinitionJSONObject(definition.Actions, "appDefinition.actions")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	theme, err := testDecodeAppDefinitionJSONObject(definition.Theme, "appDefinition.theme")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	assets, err := testDecodeAppDefinitionJSONArray(definition.Assets, "appDefinition.assets")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	return appspec.Definition{
-		AppSpecVersion: definition.AppSpecVersion,
-		CatalogID:      definition.CatalogID,
-		ActionMap:      actions,
-		DataBindings:   dataBindings,
-		Theme:          theme,
-		Assets:         assets,
-	}, nil
-}
-
-func testDecodeAppDefinitionJSONObject(raw projectstate.RawJSON, field string) (map[string]any, error) {
-	if len(strings.TrimSpace(string(raw))) == 0 {
-		return nil, nil
-	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("decode %s: %w", field, err)
-	}
-	if value == nil {
-		return nil, nil
-	}
-	object, ok := value.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("%s must be a JSON object", field)
-	}
-	return object, nil
-}
-
-func testDecodeAppDefinitionJSONArray(raw projectstate.RawJSON, field string) ([]any, error) {
-	if len(strings.TrimSpace(string(raw))) == 0 {
-		return nil, nil
-	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("decode %s: %w", field, err)
-	}
-	if value == nil {
-		return nil, nil
-	}
-	array, ok := value.([]any)
-	if !ok {
-		return nil, fmt.Errorf("%s must be a JSON array", field)
-	}
-	return array, nil
 }
 
 func appPublishDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {

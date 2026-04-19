@@ -52,16 +52,6 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	if !strings.Contains(string(workflowPayload), "setta plugins validate .") {
 		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
 	}
-	pyprojectPayload, err := os.ReadFile(filepath.Join(pluginRoot, "pyproject.toml"))
-	if err != nil {
-		t.Fatalf("read scaffold pyproject: %v", err)
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta-init-fixture\" = [\"setta.plugin.json\", \"README.md\"]") {
-		t.Fatalf("expected scaffold pyproject to package plugin manifest under a plugin-specific root, got %q", string(pyprojectPayload))
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta-init-fixture/backend\" = [\"backend/*\"]") {
-		t.Fatalf("expected scaffold pyproject to package backend assets under a plugin-specific root, got %q", string(pyprojectPayload))
-	}
 
 	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
 	if err != nil {
@@ -370,95 +360,9 @@ func TestReadPackageMetadataOptionalReadsDistInfoMetadata(t *testing.T) {
 		t.Fatalf("write metadata: %v", err)
 	}
 
-	name, version := readPackageMetadataOptional(pluginRoot, "")
+	name, version := readPackageMetadataOptional(pluginRoot)
 	if name != "setta-fixture" || version != "1.2.3" {
 		t.Fatalf("expected package metadata from dist-info, got name=%q version=%q", name, version)
-	}
-}
-
-func TestReadPackageMetadataOptionalPrefersMatchingDistInfoWhenDependenciesExist(t *testing.T) {
-	pluginRoot := t.TempDir()
-	dependencyDistInfoRoot := filepath.Join(pluginRoot, "basedpyright-1.31.0.dist-info")
-	if err := os.MkdirAll(dependencyDistInfoRoot, 0o755); err != nil {
-		t.Fatalf("mkdir dependency dist-info root: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(dependencyDistInfoRoot, "METADATA"),
-		[]byte("Metadata-Version: 2.4\nName: basedpyright\nVersion: 1.31.0\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write dependency metadata: %v", err)
-	}
-	pluginDistInfoRoot := filepath.Join(pluginRoot, "setta_basedpyright-0.1.0.dist-info")
-	if err := os.MkdirAll(pluginDistInfoRoot, 0o755); err != nil {
-		t.Fatalf("mkdir plugin dist-info root: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(pluginDistInfoRoot, "METADATA"),
-		[]byte("Metadata-Version: 2.4\nName: setta-basedpyright\nVersion: 0.1.0\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write plugin metadata: %v", err)
-	}
-
-	name, version := readPackageMetadataOptional(pluginRoot, "setta-basedpyright")
-	if name != "setta-basedpyright" || version != "0.1.0" {
-		t.Fatalf("expected matching package metadata, got name=%q version=%q", name, version)
-	}
-}
-
-func TestReadPackageMetadataOptionalReturnsEmptyWhenExpectedPackageIDMissing(t *testing.T) {
-	pluginRoot := t.TempDir()
-	dependencyDistInfoRoot := filepath.Join(pluginRoot, "basedpyright-1.31.0.dist-info")
-	if err := os.MkdirAll(dependencyDistInfoRoot, 0o755); err != nil {
-		t.Fatalf("mkdir dependency dist-info root: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(dependencyDistInfoRoot, "METADATA"),
-		[]byte("Metadata-Version: 2.4\nName: basedpyright\nVersion: 1.31.0\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write dependency metadata: %v", err)
-	}
-
-	name, version := readPackageMetadataOptional(pluginRoot, "setta-basedpyright")
-	if name != "" || version != "" {
-		t.Fatalf("expected empty package metadata when expected package id is missing, got name=%q version=%q", name, version)
-	}
-}
-
-func TestValidateMetadataIdentityFromRootsFallsBackToPyprojectWhenExpectedDistInfoMissing(t *testing.T) {
-	pluginRoot := t.TempDir()
-	dependencyDistInfoRoot := filepath.Join(pluginRoot, "basedpyright-1.31.0.dist-info")
-	if err := os.MkdirAll(dependencyDistInfoRoot, 0o755); err != nil {
-		t.Fatalf("mkdir dependency dist-info root: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(dependencyDistInfoRoot, "METADATA"),
-		[]byte("Metadata-Version: 2.4\nName: basedpyright\nVersion: 1.31.0\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write dependency metadata: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(pluginRoot, "pyproject.toml"),
-		[]byte(strings.Join([]string{
-			"[project]",
-			`name = "setta-basedpyright"`,
-			`version = "0.1.0"`,
-			"",
-		}, "\n")),
-		0o644,
-	); err != nil {
-		t.Fatalf("write pyproject metadata: %v", err)
-	}
-
-	err := validateMetadataIdentityFromRoots(pluginRoot, pluginRoot, PluginManifest{
-		ID:      "setta-basedpyright",
-		Version: "0.1.0",
-	})
-	if err != nil {
-		t.Fatalf("expected pyproject fallback metadata validation to succeed, got %v", err)
 	}
 }
 
@@ -517,24 +421,6 @@ func TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions(t *testing.T
 		if err := os.WriteFile(filepath.Join(pluginRoot, filepath.FromSlash(manifest.ConfigSchemaPath)), []byte("{not-json"), 0o644); err != nil {
 			t.Fatalf("write invalid config schema: %v", err)
 		}
-		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
-		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
-	})
-
-	t.Run("unresolvable config schema ref", func(t *testing.T) {
-		pluginRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
-		manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
-		if err != nil {
-			t.Fatalf("load manifest: %v", err)
-		}
-		if strings.TrimSpace(manifest.ConfigSchemaPath) == "" {
-			t.Fatalf("expected config schema path in full scaffold")
-		}
-		writeJSONFile(t, filepath.Join(pluginRoot, filepath.FromSlash(manifest.ConfigSchemaPath)), map[string]any{
-			"$schema": "https://json-schema.org/draft/2020-12/schema",
-			"type":    "object",
-			"$ref":    "#/$defs/missing",
-		})
 		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
 		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
 	})

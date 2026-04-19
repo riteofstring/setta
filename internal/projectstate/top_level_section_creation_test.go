@@ -130,27 +130,6 @@ func TestProjectCreateTopLevelSectionCreatesMetaControlParamAndHonorsExplicitPos
 	}
 }
 
-func TestProjectCreateTopLevelSectionSeedsIFrameCodeDefault(t *testing.T) {
-	t.Parallel()
-
-	project := testCreateTopLevelSectionProject(t)
-
-	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
-		ImplType: "IFrame",
-	}, DefaultStructuralMutationSettings())
-	if err != nil {
-		t.Fatalf("create iframe top level section: %v", err)
-	}
-
-	payload, err := effectiveSectionPayload(project, result.SectionID, project.SectionVariantMap[result.SectionID])
-	if err != nil {
-		t.Fatalf("effective iframe payload: %v", err)
-	}
-	if got := payloadStringField(payload, "code"); got != "" {
-		t.Fatalf("expected iframe code default to be empty string, got %q", got)
-	}
-}
-
 func TestProjectCreateTopLevelSectionReturnsPanHintWhenViewportTooNarrow(t *testing.T) {
 	t.Parallel()
 

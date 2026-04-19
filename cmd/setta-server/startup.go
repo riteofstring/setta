@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"setta/internal/app"
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -37,6 +36,12 @@ type deploymentStartupDependencies struct {
 	envLookup    func(string) (string, bool)
 	stdinIsTTY   func() bool
 	hasGUI       func(func(string) (string, bool)) bool
+}
+
+type deploymentStartupSpec struct {
+	modeName       string
+	deploymentType deployments.Type
+	urlLabel       string
 }
 
 type shareStartupDependencies = deploymentStartupDependencies
@@ -168,33 +173,33 @@ func processHasGUI(envLookup func(string) (string, bool)) bool {
 }
 
 func emitShareStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps shareStartupDependencies) error {
-	return emitRegisteredDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, string(config.ModeShare))
+	return emitDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, deploymentStartupSpec{
+		modeName:       "share",
+		deploymentType: deployments.TypeShare,
+		urlLabel:       "Share URL",
+	})
 }
 
 func emitAppStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps appStartupDependencies) error {
-	return emitRegisteredDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, string(config.ModeApp))
+	return emitDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, deploymentStartupSpec{
+		modeName:       "app",
+		deploymentType: deployments.TypeApp,
+		urlLabel:       "App URL",
+	})
 }
 
-func emitRegisteredDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps deploymentStartupDependencies, modeName string) error {
-	typeRegistry, err := app.NewDeploymentTypeRegistry()
-	if err != nil {
-		return err
-	}
-	return emitDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, typeRegistry, modeName)
-}
-
-func emitDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps deploymentStartupDependencies, typeRegistry *deployments.TypeRegistry, modeName string) error {
+func emitDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps deploymentStartupDependencies, spec deploymentStartupSpec) error {
 	if listener == nil {
-		return fmt.Errorf("%s listener is required", modeName)
+		return fmt.Errorf("%s listener is required", spec.modeName)
 	}
 	deps = withDeploymentStartupDefaults(deps)
-	registration, manifest, deploymentURL, err := prepareDeploymentStartup(cfg, listener, deps, typeRegistry, modeName)
+	manifest, deploymentURL, err := prepareDeploymentStartup(cfg, listener, deps, spec)
 	if err != nil {
 		return err
 	}
-	warnIfPublicDeploymentHost(stderr, registration.Startup.ModeName, cfg.Server.Host)
+	warnIfPublicDeploymentHost(stderr, spec.modeName, cfg.Server.Host)
 	maybeAutoOpenDeploymentURL(noOpen, deps, deploymentURL, stderr)
-	return writeDeploymentStartupMessage(stdout, registration, manifest, deploymentURL)
+	return writeDeploymentStartupMessage(stdout, spec, manifest, deploymentURL)
 }
 
 func withDeploymentStartupDefaults(deps deploymentStartupDependencies) deploymentStartupDependencies {
@@ -216,20 +221,19 @@ func withDeploymentStartupDefaults(deps deploymentStartupDependencies) deploymen
 	return deps
 }
 
-func prepareDeploymentStartup(cfg config.Config, listener net.Listener, deps deploymentStartupDependencies, typeRegistry *deployments.TypeRegistry, modeName string) (deployments.TypeRegistration, deployments.Manifest, string, error) {
+func prepareDeploymentStartup(cfg config.Config, listener net.Listener, deps deploymentStartupDependencies, spec deploymentStartupSpec) (deployments.Manifest, string, error) {
 	manifest, err := deps.loadManifest(cfg.Paths.DeploymentRoot)
 	if err != nil {
-		return deployments.TypeRegistration{}, deployments.Manifest{}, "", err
+		return deployments.Manifest{}, "", err
 	}
-	registration, err := typeRegistry.ResolveStartupRegistration(modeName, manifest)
+	if manifest.DeploymentType != spec.deploymentType {
+		return deployments.Manifest{}, "", fmt.Errorf("deployment is not a %s deployment: %s/%s", spec.modeName, manifest.DeploymentName, manifest.DeploymentVersion)
+	}
+	deploymentURL, err := buildDeploymentURL(cfg.Server.Host, listener, spec.modeName)
 	if err != nil {
-		return deployments.TypeRegistration{}, deployments.Manifest{}, "", err
+		return deployments.Manifest{}, "", err
 	}
-	deploymentURL, err := buildDeploymentURL(cfg.Server.Host, listener, registration.Startup.ModeName)
-	if err != nil {
-		return deployments.TypeRegistration{}, deployments.Manifest{}, "", err
-	}
-	return registration, manifest, deploymentURL, nil
+	return manifest, deploymentURL, nil
 }
 
 func warnIfPublicDeploymentHost(stderr io.Writer, modeName string, host string) {
@@ -253,17 +257,17 @@ func maybeAutoOpenDeploymentURL(noOpen bool, deps deploymentStartupDependencies,
 	}
 }
 
-func writeDeploymentStartupMessage(stdout io.Writer, registration deployments.TypeRegistration, manifest deployments.Manifest, deploymentURL string) error {
+func writeDeploymentStartupMessage(stdout io.Writer, spec deploymentStartupSpec, manifest deployments.Manifest, deploymentURL string) error {
 	if stdout == nil {
 		return nil
 	}
 	_, err := fmt.Fprintf(
 		stdout,
 		"Starting %s backend for %s/%s\n%s: %s\n",
-		registration.Startup.ModeName,
+		spec.modeName,
 		manifest.DeploymentName,
 		manifest.DeploymentVersion,
-		registration.Startup.URLLabel,
+		spec.urlLabel,
 		deploymentURL,
 	)
 	return err
