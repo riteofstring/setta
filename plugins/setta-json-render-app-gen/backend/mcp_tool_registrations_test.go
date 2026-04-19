@@ -20,6 +20,18 @@ func (stubAppDefinitionRuntime) GetAppDefinition(context.Context) (projectstate.
 	return projectstate.AppDefinitionReadResult{}, nil
 }
 
+func (stubAppDefinitionRuntime) GetEffectiveAppDefinition(context.Context) (projectstate.AppDefinition, error) {
+	return projectstate.AppDefinition{}, nil
+}
+
+func (stubAppDefinitionRuntime) GetEffectiveAppSpecPath(context.Context) (string, error) {
+	return "", nil
+}
+
+func (stubAppDefinitionRuntime) GetEffectiveAppThemeMode(context.Context) (string, error) {
+	return "", nil
+}
+
 func (stubAppDefinitionRuntime) ValidateAppDefinition(context.Context, projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error) {
 	return projectstate.AppDefinitionValidationResult{}, nil
 }

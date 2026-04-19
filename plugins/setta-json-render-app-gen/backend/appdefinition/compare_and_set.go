@@ -112,7 +112,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 		expectedOldValue,
 		normalizedPath,
 		func(document projectstate.Document) string {
-			return projectstate.EffectiveAppSpecPath(document)
+			return effectiveAppSpecPath(document)
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
 			current := effectiveAppDefinition(document)
@@ -153,7 +153,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 		expectedOldValue,
 		themeMode,
 		func(document projectstate.Document) string {
-			return projectstate.EffectiveAppThemeMode(document)
+			return effectiveAppThemeMode(document)
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
 			current := effectiveAppDefinition(document)

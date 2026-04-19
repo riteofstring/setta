@@ -252,9 +252,7 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 
 	runtime := openCoreRegistryRuntime(t)
 	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
-	expectedAppDefinition := projectstate.EffectiveAppDefinition(runtime.Snapshot().Document)
-	expectedAppSpecPath := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document)
-	expectedThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
+	expectedAppDefinition, expectedAppSpecPath, expectedThemeMode := effectiveAppMetadata(t, runtime)
 
 	catalogID, err := registry.ReadValue(context.Background(), "project-alpha", "core.app.catalog_id")
 	if err != nil {
@@ -700,7 +698,7 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	if value != nextSpecPath {
 		t.Fatalf("expected app spec path %q after write, got %#v", nextSpecPath, value)
 	}
-	if got := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document); got != nextSpecPath {
+	if _, got, _ := effectiveAppMetadata(t, runtime); got != nextSpecPath {
 		t.Fatalf("expected effective app spec path %q, got %q", nextSpecPath, got)
 	}
 }
@@ -749,7 +747,7 @@ func TestRegistryWriteValueAppThemeModeRoundTripsOnFreshProject(t *testing.T) {
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
 	registry := mustNewCoreRegistry(t, runtime, root)
-	expectedOldThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
+	_, _, expectedOldThemeMode := effectiveAppMetadata(t, runtime)
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -838,4 +836,26 @@ func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.R
 		}
 	})
 	return runtime
+}
+
+func effectiveAppMetadata(
+	t *testing.T,
+	runtime *projectstate.Runtime,
+) (projectstate.AppDefinition, string, string) {
+	t.Helper()
+
+	service := appdefinition.NewAppDefinitionService(runtime)
+	definition, err := service.GetEffectiveAppDefinition(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app definition: %v", err)
+	}
+	specPath, err := service.GetEffectiveAppSpecPath(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app spec path: %v", err)
+	}
+	themeMode, err := service.GetEffectiveAppThemeMode(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app theme mode: %v", err)
+	}
+	return definition, specPath, themeMode
 }
