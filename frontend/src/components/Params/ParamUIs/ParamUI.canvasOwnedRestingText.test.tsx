@@ -392,6 +392,58 @@ describe("ParamUI canvas-owned resting text", () => {
   it.each([
     {
       paramInfoId:
+        "settings-codeobj__stateMachineEndSectionDefault__stateMachineEndSectionDefault__size__height",
+      sectionId: "settings-section__stateMachineEndSectionDefault",
+      value: "96",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__listRootSectionDefault__listRootSectionDefault__styleColor",
+      sectionId: "settings-section__listRootSectionDefault",
+      value: "null",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__terminalSectionDefault__terminalSectionDefault__tagColor",
+      sectionId: "settings-section__terminalSectionDefault",
+      value: "null",
+    },
+  ])(
+    "hides the shared size/style/tag resting-text cluster on $sectionId",
+    ({ paramInfoId, sectionId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: CodeObjTypeEnum.TextParam,
+        defaultVal: "",
+      };
+
+      const markup = renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText).toBe(
+        true,
+      );
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+        true,
+      );
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+    },
+  );
+
+  it.each([
+    {
+      paramInfoId:
         "settings-codeobj__spreadsheetSectionDefault__spreadsheetSectionDefault__activeSheet",
       sectionId: SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       value: "null",

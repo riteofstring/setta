@@ -22,6 +22,7 @@ import {
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -415,6 +416,22 @@ describe("sectionShellCanvasOwnership", () => {
         "settings-section__stateMachineStartSectionDefault",
       ),
     ).toBe(false);
+  });
+
+  it("targets the shared size/style/tag cluster for lightweight resting text without widening label text", () => {
+    for (const sectionId of SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS) {
+      expect(isCanvasOwnedSectionRestingTextSection(sectionId)).toBe(true);
+      expect(
+        isCanvasOwnedSectionRestingText({
+          codeObjType: CodeObjTypeEnum.TextParam,
+          sectionId,
+        }),
+      ).toBe(true);
+      expect(isCanvasOwnedSectionLightweightTextUnderline(sectionId)).toBe(
+        true,
+      );
+      expect(isCanvasOwnedSectionParamLabelRestingText(sectionId)).toBe(false);
+    }
   });
 
   it("targets param-label resting text inside the owned canary sections", () => {

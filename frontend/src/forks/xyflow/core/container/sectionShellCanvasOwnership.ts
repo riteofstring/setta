@@ -25,6 +25,17 @@ export const TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__taskBoardSectionDefault";
 export const STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__stateMachineStartSectionDefault";
+export const SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
+  "settings-section__stateMachineEndSectionDefault",
+  "settings-section__listRootSectionDefault",
+  "settings-section__chartSectionDefault",
+  "settings-section__groupSectionDefault",
+  "settings-section__terminalSectionDefault",
+  "settings-section__imageSectionDefault",
+  "settings-section__socialSectionDefault",
+  "settings-section__metaControlSectionDefault",
+  "settings-section__iFrameSectionDefault",
+] as const;
 export const BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__browserSectionDefault";
 export const GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
@@ -70,6 +81,7 @@ export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  ...SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
   BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -92,6 +104,8 @@ const CANVAS_OWNED_SECTION_SHELL_ID_SET = new Set<string>(
 const CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET = new Set<string>(
   CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
 );
+const SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET =
+  new Set<string>(SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS);
 const CANVAS_OWNED_PARAM_LABEL_RESTING_TEXT_SECTION_ID_SET = new Set<string>([
   ...CANVAS_OWNED_SECTION_SHELL_IDS,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -265,6 +279,9 @@ export function isCanvasOwnedSectionLightweightTextUnderline(
     sectionId === SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
+    SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET.has(
+      sectionId,
+    ) ||
     sectionId === BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||

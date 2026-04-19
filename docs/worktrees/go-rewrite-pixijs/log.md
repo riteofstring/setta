@@ -157,6 +157,57 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-19 065
 
+- Item: Move the shared size/style/tag settings value family onto the retained resting-text lane.
+- Status: `done`
+- Details:
+  - Reused the fresh whole-scene remaining-value ranking instead of reopening another local section/text lane by inertia.
+  - Chose one bounded shared-family slice with a real dense-scene payoff:
+    - canonical target section: `settings-section__stateMachineEndSectionDefault`
+    - sibling proof sections checked in the same slice:
+      - `settings-section__listRootSectionDefault`
+      - `settings-section__terminalSectionDefault`
+  - Landed the ownership move at the current retained-text boundary:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now defines `SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS`
+    - that shared cluster currently covers `stateMachineEndSectionDefault`, `listRootSectionDefault`, `chartSectionDefault`, `groupSectionDefault`, `terminalSectionDefault`, `imageSectionDefault`, `socialSectionDefault`, `metaControlSectionDefault`, and `iFrameSectionDefault`
+    - those sections now ride the existing retained resting-text + lightweight underline path for the repeated `Size` / `Height` / `Width` / `Style Color` / `Tag Color` family
+    - actual param-label text stays DOM-visible because `isCanvasOwnedSectionParamLabelRestingText(...)` was intentionally not widened
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - added focused probe `frontend/tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts`
+    - recorded dense rerun `perf/reports/frontend/2026-04-19_settings-all-settings-shared-size-style-tag-resting-text-cluster-rerun.md`
+  - The focused probe proved the shared family rides the retained path on the live surface:
+    - `settings-section__stateMachineEndSectionDefault`: `lightweightRestingTextCount 6`, `underlineCount 6`, canonical `Height` row focused inline with no second click
+    - `settings-section__listRootSectionDefault`: `lightweightRestingTextCount 6`, `underlineCount 6`, canonical `Style Color` row focused inline with no second click
+    - `settings-section__terminalSectionDefault`: `lightweightRestingTextCount 4`, `underlineCount 4`, canonical `Tag Color` row focused inline with no second click
+  - Dense rerun outcome on the current runtime:
+    - `documentNodeCount: 6962`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 52`
+    - `raf.meanMs: 99.44`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15955`
+  - Interpretation:
+    - this is a real shared-family reduction from the latest remaining-value ranking, not another small section-local hop
+    - the dense mounted surface moved from `7088` to `6962`
+    - the global `input` / `button` totals still carry workspace-chrome noise, so the authoritative proof is the focused cluster summary plus the dense node-count drop
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (58.5s)` on the live worktree runtime with `documentNodeCount: 6962`, `inputCount: 4`, and `buttonCount: 52`
+- CDP visual check is done:
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was present
+  - no crash/error overlay was visible
+  - `settings-section__stateMachineEndSectionDefault`, `settings-section__listRootSectionDefault`, and `settings-section__terminalSectionDefault` were present and intact on the canvas path
+  - the canonical `Height`, `Style Color`, and `Tag Color` rows still looked intact after the DOM resting text was made transparent
+- Next action:
+  - keep the shared size/style/tag lane closed unless a fresh visible defect appears, then rerun the whole-scene remaining-value ranking from the new `6962` checkpoint and choose between the `languageServer` outlier and the next remaining shared family from refreshed evidence
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 065
+
 - Item: Refresh the whole-scene ranking of the remaining dense non-lightweight value surface before choosing another product lane.
 - Status: `done`
 - Details:

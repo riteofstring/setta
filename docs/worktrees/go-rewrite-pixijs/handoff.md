@@ -1813,6 +1813,44 @@ That leaves one primary architectural move:
       - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
       - no crash/error overlay was visible
       - `settings-section__languageServer` and `settings-section__stateMachineEndSectionDefault` were present on the live surface/DOM
+21. The shared `Size` / `Height` / `Width` / `Style Color` / `Tag Color` resting-text family is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shared-size-style-tag-resting-text-cluster-rerun.md`:
+    - canonical target section: `settings-section__stateMachineEndSectionDefault`
+    - sibling proof sections checked in the same bounded slice:
+      - `settings-section__listRootSectionDefault`
+      - `settings-section__terminalSectionDefault`
+    - the ownership move stays at the existing retained-text boundary instead of widening label text or dropdown behavior:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats the top repeated settings family as a shared retained resting-text + lightweight underline cluster via `SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS`
+      - that cluster currently covers `stateMachineEndSectionDefault`, `listRootSectionDefault`, `chartSectionDefault`, `groupSectionDefault`, `terminalSectionDefault`, `imageSectionDefault`, `socialSectionDefault`, `metaControlSectionDefault`, and `iFrameSectionDefault`
+      - actual param-label text on those sections stays DOM-visible because `isCanvasOwnedSectionParamLabelRestingText(...)` was not widened
+    - focused proof now exists in `frontend/tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts`:
+      - `settings-section__stateMachineEndSectionDefault`: `lightweightRestingTextCount 6`, `underlineCount 6`, canonical `Height` row focused inline with no second click
+      - `settings-section__listRootSectionDefault`: `lightweightRestingTextCount 6`, `underlineCount 6`, canonical `Style Color` row focused inline with no second click
+      - `settings-section__terminalSectionDefault`: `lightweightRestingTextCount 4`, `underlineCount 4`, canonical `Tag Color` row focused inline with no second click
+    - focused verification passed:
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-007/worktree-ai.log -- tests/e2e/settings/settings-all-settings-size-style-tag-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+        - result: `2 passed (58.5s)` on the live worktree runtime
+    - dense rerun on the same noisy runtime moved to:
+      - `documentNodeCount: 6962`
+      - `inputCount: 4`
+      - `buttonCount: 52`
+      - `raf.meanMs: 99.44`
+      - `raf.p95Ms: 183.4`
+      - `longTasks.totalMs: 15955`
+    - interpretation:
+      - this is a real shared-family reduction from the latest remaining-value ranking, not another small section-local hop
+      - the authoritative proof is the focused cluster summary plus the dense `documentNodeCount` drop from `7088` to `6962`
+      - `input` / `button` totals still carry workspace-chrome noise, so treat this as a shared-family ownership proof plus smoke-level dense checkpoint rather than a new clean interactive-core benchmark
+    - CDP visual check is done:
+      - `/settings` loaded cleanly with `All Settings` active
+      - exactly one `.react-flow__section-shell-backdrop canvas` was present
+      - no crash/error overlay was visible
+      - `settings-section__stateMachineEndSectionDefault`, `settings-section__listRootSectionDefault`, and `settings-section__terminalSectionDefault` were present and intact on the canvas path
+      - the canonical `Height`, `Style Color`, and `Tag Color` rows still looked intact after the DOM resting text was made transparent
+    - next default pass:
+      - keep this shared size/style/tag lane closed unless a fresh visible defect appears
+      - rerun the whole-scene remaining-value ranking from the new `6962` checkpoint, then choose between the `languageServer` outlier and the next remaining shared family only from that refreshed evidence
 
 ## First product frontier
 
