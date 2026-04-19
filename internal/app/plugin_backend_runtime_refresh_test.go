@@ -162,3 +162,42 @@ func TestRefreshedAppliedLanguageServerSpecsKeepsOnlyPreviouslyAppliedSelections
 		t.Fatalf("expected refreshed spec to pick updated applied-plugin args, got %#v", refreshed[0].Args)
 	}
 }
+
+func expectRefreshedAppliedLanguageServerSpecsKeepAppliedSelection(t *testing.T, selected []lsp.LanguageServerSpec) {
+	t.Helper()
+
+	applied := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp.py"},
+		},
+	}
+
+	refreshed := refreshedAppliedLanguageServerSpecs(applied, selected, "setta-fixture-backend")
+	if len(refreshed) != 1 {
+		t.Fatalf("expected applied spec to remain pending until restart, got %#v", refreshed)
+	}
+	if refreshed[0].PluginID != "setta-fixture-backend" || refreshed[0].LanguageID != "fixturedsl" {
+		t.Fatalf("unexpected refreshed spec identity %#v", refreshed[0])
+	}
+	if len(refreshed[0].Args) != 1 || refreshed[0].Args[0] != "fixture-lsp.py" {
+		t.Fatalf("expected applied spec to remain unchanged, got %#v", refreshed[0].Args)
+	}
+}
+
+func TestRefreshedAppliedLanguageServerSpecsKeepsClearedSelectionPendingUntilRestart(t *testing.T) {
+	expectRefreshedAppliedLanguageServerSpecsKeepAppliedSelection(t, nil)
+}
+
+func TestRefreshedAppliedLanguageServerSpecsKeepsSwitchedSelectionPendingUntilRestart(t *testing.T) {
+	expectRefreshedAppliedLanguageServerSpecsKeepAppliedSelection(t, []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend-alt",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp-alt.py"},
+		},
+	})
+}

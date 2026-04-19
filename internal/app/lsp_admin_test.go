@@ -17,11 +17,17 @@ type stubProjectLSPAdmin struct {
 	restartCalls   int
 	typeCheckCalls int
 	restartErr     error
+	restartErrs    []error
 	typeCheckErr   error
 }
 
 func (s *stubProjectLSPAdmin) Restart(_ context.Context, _ projectstate.Document) error {
 	s.restartCalls++
+	if len(s.restartErrs) != 0 {
+		err := s.restartErrs[0]
+		s.restartErrs = s.restartErrs[1:]
+		return err
+	}
 	return s.restartErr
 }
 
@@ -64,12 +70,18 @@ type recordingProjectSyncer struct {
 	refreshCalls int
 	closeCalls   int
 	syncErr      error
+	syncErrs     []error
 	refreshErr   error
 	closeErr     error
 }
 
 func (s *recordingProjectSyncer) SyncDocuments(context.Context, map[string]lsp.SyncedDocument) error {
 	s.syncCalls++
+	if len(s.syncErrs) != 0 {
+		err := s.syncErrs[0]
+		s.syncErrs = s.syncErrs[1:]
+		return err
+	}
 	return s.syncErr
 }
 
@@ -193,7 +205,7 @@ func TestWorkspaceLSPAdminRestartRollsBackRuntimeWhenProjectRestartFails(t *test
 	t.Parallel()
 
 	restartErr := errors.New("restart failed")
-	projectAdmin := &stubProjectLSPAdmin{restartErr: restartErr}
+	projectAdmin := &stubProjectLSPAdmin{restartErrs: []error{restartErr, nil}}
 	runtime := &stubRuntimeLSPRefresher{hasSpecs: true}
 	admin := newWorkspaceLSPAdmin(projectAdmin, runtime)
 
@@ -206,6 +218,9 @@ func TestWorkspaceLSPAdminRestartRollsBackRuntimeWhenProjectRestartFails(t *test
 	}
 	if runtime.commitCalls != 0 {
 		t.Fatalf("expected no runtime commit after restart failure, got %d", runtime.commitCalls)
+	}
+	if projectAdmin.restartCalls != 2 {
+		t.Fatalf("expected failed restart to re-materialize project state once after rollback, got %d calls", projectAdmin.restartCalls)
 	}
 }
 

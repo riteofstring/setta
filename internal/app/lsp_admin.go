@@ -46,7 +46,7 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 		}
 	}
 	if err := a.projectAdmin.Restart(ctx, document); err != nil {
-		return a.rollbackLanguageServers(ctx, err)
+		return a.rollbackLanguageServers(ctx, document, err)
 	}
 	if a.runtime != nil {
 		if err := a.runtime.CommitAppliedLanguageServerPlugins(ctx); err != nil {
@@ -59,12 +59,19 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 	return nil
 }
 
-func (a *workspaceLSPAdmin) rollbackLanguageServers(ctx context.Context, cause error) error {
-	if cause == nil || a == nil || a.runtime == nil {
+func (a *workspaceLSPAdmin) rollbackLanguageServers(ctx context.Context, document projectstate.Document, cause error) error {
+	if cause == nil || a == nil {
 		return cause
 	}
-	if rollbackErr := a.runtime.RollbackLanguageServers(ctx); rollbackErr != nil {
-		return errors.Join(cause, rollbackErr)
+	if a.runtime != nil {
+		if rollbackErr := a.runtime.RollbackLanguageServers(ctx); rollbackErr != nil {
+			return errors.Join(cause, rollbackErr)
+		}
+	}
+	if a.projectAdmin != nil {
+		if restoreErr := a.projectAdmin.Restart(ctx, document); restoreErr != nil {
+			return errors.Join(cause, restoreErr)
+		}
 	}
 	return cause
 }

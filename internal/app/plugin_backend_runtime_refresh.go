@@ -494,8 +494,12 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	}
 
 	r.mu.Lock()
+	previousLSPSpecs := r.appliedLSPSpecs
 	r.appliedLSPSpecs = cloneLanguageServerSpecs(r.lspSpecs)
-	pluginIDs := appliedLanguageServerPluginIDs(r.appliedLSPSpecs)
+	allAppliedSpecs := make([]lsp.LanguageServerSpec, 0, len(previousLSPSpecs)+len(r.appliedLSPSpecs))
+	allAppliedSpecs = append(allAppliedSpecs, previousLSPSpecs...)
+	allAppliedSpecs = append(allAppliedSpecs, r.appliedLSPSpecs...)
+	pluginIDs := appliedLanguageServerPluginIDs(allAppliedSpecs)
 	r.mu.Unlock()
 	if len(pluginIDs) == 0 || r.service == nil {
 		return nil
@@ -828,6 +832,7 @@ func refreshedAppliedLanguageServerSpecs(
 		languageID := strings.ToLower(strings.TrimSpace(spec.LanguageID))
 		updated, ok := selectedByLanguage[languageID]
 		if !ok {
+			next = append(next, spec)
 			continue
 		}
 		next = append(next, updated)
