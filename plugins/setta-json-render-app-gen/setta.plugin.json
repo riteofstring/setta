@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-json-render-app-gen",
+  "name": "Setta JSON Render App Generation",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": false,
+  "featureCapabilities": {
+    "appSubsystem": {
+      "appAuthoringUi": false,
+      "appPreviewUi": false,
+      "appGenerationChatModes": false,
+      "appDeploymentRuntime": false
+    }
+  },
+  "capabilities": []
+}

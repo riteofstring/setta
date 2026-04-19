@@ -8865,6 +8865,64 @@
         "title": "PatchPolicy",
         "type": "object"
       },
+      "PluginAppSubsystemCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appAuthoringUi": {
+            "type": "boolean"
+          },
+          "appDeploymentRuntime": {
+            "type": "boolean"
+          },
+          "appGenerationChatModes": {
+            "type": "boolean"
+          },
+          "appPreviewUi": {
+            "type": "boolean"
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "appAuthoringUi",
+          "appPreviewUi",
+          "appGenerationChatModes",
+          "appDeploymentRuntime"
+        ],
+        "title": "PluginAppSubsystemCapabilities",
+        "type": "object"
+      },
+      "PluginAppSubsystemFeatureManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "appAuthoringUi": {
+            "type": "boolean"
+          },
+          "appDeploymentRuntime": {
+            "type": "boolean"
+          },
+          "appGenerationChatModes": {
+            "type": "boolean"
+          },
+          "appPreviewUi": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "appAuthoringUi",
+          "appPreviewUi",
+          "appGenerationChatModes",
+          "appDeploymentRuntime"
+        ],
+        "title": "PluginAppSubsystemFeatureManifest",
+        "type": "object"
+      },
       "PluginBackendManifest": {
         "additionalProperties": false,
         "properties": {
@@ -9027,6 +9085,34 @@
         },
         "required": ["code", "message"],
         "title": "PluginErrorInfo",
+        "type": "object"
+      },
+      "PluginFeatureCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSubsystem": {
+            "$ref": "#/components/schemas/PluginAppSubsystemCapabilities"
+          }
+        },
+        "required": ["appSubsystem"],
+        "title": "PluginFeatureCapabilities",
+        "type": "object"
+      },
+      "PluginFeatureCapabilitiesManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "appSubsystem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginAppSubsystemFeatureManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "PluginFeatureCapabilitiesManifest",
         "type": "object"
       },
       "PluginFrontendDescriptor": {
@@ -9446,6 +9532,16 @@
           "enabledByDefault": {
             "type": "boolean"
           },
+          "featureCapabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginFeatureCapabilitiesManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "frontend": {
             "anyOf": [
               {
@@ -9715,6 +9811,16 @@
       "PluginRuntimeResponse": {
         "additionalProperties": false,
         "properties": {
+          "featureCapabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginFeatureCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "list": {
             "$ref": "#/components/schemas/PluginListResponse"
           },
