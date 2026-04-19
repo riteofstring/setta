@@ -7498,115 +7498,6 @@
       ],
       "additionalProperties": false
     },
-    "LanguageServerProviderOption": {
-      "type": "object",
-      "properties": {
-        "pluginId": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "available": {
-          "type": "boolean"
-        }
-      },
-      "title": "LanguageServerProviderOption",
-      "required": [
-        "pluginId",
-        "name",
-        "available"
-      ],
-      "additionalProperties": false
-    },
-    "LanguageServerSelectionSeverity": {
-      "type": "string",
-      "title": "LanguageServerSelectionSeverity",
-      "enum": [
-        "default",
-        "warning",
-        "success"
-      ]
-    },
-    "LanguageServerSelectionState": {
-      "type": "string",
-      "title": "LanguageServerSelectionState",
-      "enum": [
-        "unset",
-        "disabled",
-        "selected"
-      ]
-    },
-    "LanguageServerSelectionStatus": {
-      "type": "object",
-      "properties": {
-        "language": {
-          "type": "string"
-        },
-        "selectionState": {
-          "$ref": "#/$defs/LanguageServerSelectionState"
-        },
-        "status": {
-          "$ref": "#/$defs/LanguageServerSelectionStatusKind"
-        },
-        "severity": {
-          "$ref": "#/$defs/LanguageServerSelectionSeverity"
-        },
-        "message": {
-          "type": "string"
-        },
-        "selectedPluginId": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "appliedPluginId": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "availableProviders": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/LanguageServerProviderOption"
-          }
-        },
-        "restartRequired": {
-          "type": "boolean"
-        }
-      },
-      "title": "LanguageServerSelectionStatus",
-      "required": [
-        "language",
-        "selectionState",
-        "status",
-        "severity",
-        "message",
-        "selectedPluginId",
-        "appliedPluginId",
-        "availableProviders",
-        "restartRequired"
-      ],
-      "additionalProperties": false
-    },
-    "LanguageServerSelectionStatusKind": {
-      "type": "string",
-      "title": "LanguageServerSelectionStatusKind",
-      "enum": [
-        "unselected",
-        "disabled",
-        "no_available_providers",
-        "selected_unavailable",
-        "selected_incompatible",
-        "pending_restart",
-        "active"
-      ]
-    },
     "LauncherManagementTransportRoutes": {
       "type": "object",
       "properties": {
@@ -11592,23 +11483,6 @@
         "pending_restart"
       ]
     },
-    "PluginRuntimeUpdateMessage": {
-      "type": "object",
-      "properties": {
-        "messageType": {
-          "$ref": "#/$defs/WebsocketMessageType"
-        },
-        "content": {
-          "$ref": "#/$defs/PluginRuntimeResponse"
-        }
-      },
-      "title": "PluginRuntimeUpdateMessage",
-      "required": [
-        "messageType",
-        "content"
-      ],
-      "additionalProperties": false
-    },
     "PluginScope": {
       "type": "string",
       "title": "PluginScope",
@@ -11734,24 +11608,6 @@
             "$ref": "#/$defs/PluginRegisteredCodegenTarget"
           }
         },
-        "registeredLanguageServers": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/PluginRegisteredLanguageServer"
-          }
-        },
-        "appliedLanguageServerLanguages": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
         "registeredBackendRoutes": {
           "type": [
             "null",
@@ -11824,7 +11680,6 @@
         "blockedCapabilities",
         "components",
         "registeredCodegenTargets",
-        "registeredLanguageServers",
         "registeredBackendRoutes",
         "registeredStaticDirs",
         "registeredListenerEndpoints",
@@ -11855,15 +11710,6 @@
           "items": {
             "$ref": "#/$defs/PluginStatusEntry"
           }
-        },
-        "languageServerSelections": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/LanguageServerSelectionStatus"
-          }
         }
       },
       "title": "PluginStatusResponse",
@@ -11871,8 +11717,7 @@
         "schemaVersion",
         "serverMode",
         "restartCapability",
-        "plugins",
-        "languageServerSelections"
+        "plugins"
       ],
       "additionalProperties": false
     },
@@ -12001,15 +11846,6 @@
             "type": "string"
           }
         },
-        "pendingRestartLanguageServerOnlyPluginIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
         "pluginConfigById": {
           "type": "object",
           "additionalProperties": true
@@ -12020,7 +11856,6 @@
         "enabledPluginIds",
         "disabledPluginIds",
         "pendingRestartBackendPluginIds",
-        "pendingRestartLanguageServerOnlyPluginIds",
         "pluginConfigById"
       ],
       "additionalProperties": false
@@ -13897,7 +13732,6 @@
         "/setGenCodeSuffix",
         "/setGroupOverflowMode",
         "/setImageAreaImagePath",
-        "/setLanguageServerSelection",
         "/setListRootViewMode",
         "/setMetaControlShowSectionTitle",
         "/setParamEnteredValue",
@@ -14203,7 +14037,6 @@
         "SET_GEN_CODE_SUFFIX",
         "SET_GROUP_OVERFLOW_MODE",
         "SET_IMAGE_AREA_IMAGE_PATH",
-        "SET_LANGUAGE_SERVER_SELECTION",
         "SET_LIST_ROOT_VIEW_MODE",
         "SET_META_CONTROL_SHOW_SECTION_TITLE",
         "SET_PARAM_ENTERED_VALUE",
@@ -14509,7 +14342,6 @@
         "SET_GEN_CODE_SUFFIX",
         "SET_GROUP_OVERFLOW_MODE",
         "SET_IMAGE_AREA_IMAGE_PATH",
-        "SET_LANGUAGE_SERVER_SELECTION",
         "SET_LIST_ROOT_VIEW_MODE",
         "SET_META_CONTROL_SHOW_SECTION_TITLE",
         "SET_PARAM_ENTERED_VALUE",
@@ -16475,25 +16307,6 @@
       ],
       "additionalProperties": false
     },
-    "SettingsLanguageServer": {
-      "type": "object",
-      "properties": {
-        "selectedByLanguage": {
-          "type": "object",
-          "additionalProperties": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "title": "SettingsLanguageServer",
-      "required": [
-        "selectedByLanguage"
-      ],
-      "additionalProperties": false
-    },
     "SettingsManagedBlock": {
       "type": "object",
       "properties": {
@@ -16801,7 +16614,8 @@
           "$ref": "#/$defs/SectionSizingPolicy"
         },
         "languageServer": {
-          "$ref": "#/$defs/SettingsLanguageServer"
+          "type": "object",
+          "additionalProperties": true
         }
       },
       "title": "SettingsState",
@@ -20964,7 +20778,6 @@
         "TranscriptionProfilesUpdated",
         "UpdateFrontendProjectState",
         "UpdateSettings",
-        "UpdatePluginRuntime",
         "ReturnRenameRefactorResults",
         "BackendLogEvent"
       ]

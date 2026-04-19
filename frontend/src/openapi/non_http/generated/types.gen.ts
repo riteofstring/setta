@@ -2615,52 +2615,6 @@ export type LSPDiagnosticsPayload = {
 };
 
 /**
- * LanguageServerProviderOption
- */
-type LanguageServerProviderOption = {
-  available: boolean;
-  name: string;
-  pluginId: string;
-};
-
-/**
- * LanguageServerSelectionSeverity
- */
-type LanguageServerSelectionSeverity = "default" | "warning" | "success";
-
-/**
- * LanguageServerSelectionState
- */
-type LanguageServerSelectionState = "unset" | "disabled" | "selected";
-
-/**
- * LanguageServerSelectionStatus
- */
-export type LanguageServerSelectionStatus = {
-  appliedPluginId: null | string;
-  availableProviders: null | Array<LanguageServerProviderOption>;
-  language: string;
-  message: string;
-  restartRequired: boolean;
-  selectedPluginId: null | string;
-  selectionState: LanguageServerSelectionState;
-  severity: LanguageServerSelectionSeverity;
-  status: LanguageServerSelectionStatusKind;
-};
-
-/**
- * LanguageServerSelectionStatusKind
- */
-type LanguageServerSelectionStatusKind =
-  | "unselected"
-  | "disabled"
-  | "no_available_providers"
-  | "selected_unavailable"
-  | "selected_incompatible"
-  | "pending_restart"
-  | "active";
-
-/**
  * LauncherManagementTransportRoutes
  */
 type LauncherManagementTransportRoutes = {
@@ -4134,14 +4088,6 @@ type PluginRuntimeState =
   | "pending_restart";
 
 /**
- * PluginRuntimeUpdateMessage
- */
-type PluginRuntimeUpdateMessage = {
-  content: PluginRuntimeResponse;
-  messageType: WebsocketMessageType;
-};
-
-/**
  * PluginScope
  */
 export type PluginScope = "workspace" | "setta_files" | "global";
@@ -4165,7 +4111,6 @@ type PluginSourceTrustStatus = "unverified";
  * PluginStatusEntry
  */
 export type PluginStatusEntry = {
-  appliedLanguageServerLanguages?: null | Array<string>;
   blockedCapabilities: null | Array<PluginBlockedCapability>;
   canonicalSourceKey: string;
   components: null | Array<string>;
@@ -4176,7 +4121,6 @@ export type PluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: null | Array<PluginRegisteredBackendRoute>;
   registeredCodegenTargets: null | Array<PluginRegisteredCodegenTarget>;
-  registeredLanguageServers: null | Array<PluginRegisteredLanguageServer>;
   registeredListenerEndpoints: null | Array<PluginRegisteredListenerEndpoint>;
   registeredStaticDirs: null | Array<PluginRegisteredStaticDir>;
   requestedCapabilities: null | Array<string>;
@@ -4197,7 +4141,6 @@ export type PluginStatusEntry = {
  * PluginStatusResponse
  */
 export type PluginStatusResponse = {
-  languageServerSelections: null | Array<LanguageServerSelectionStatus>;
   plugins: null | Array<PluginStatusEntry>;
   restartCapability: PluginRestartCapability;
   schemaVersion: number;
@@ -4246,7 +4189,6 @@ type PluginsStateFile = {
   disabledPluginIds: null | Array<string>;
   enabledPluginIds: null | Array<string>;
   pendingRestartBackendPluginIds: null | Array<string>;
-  pendingRestartLanguageServerOnlyPluginIds: null | Array<string>;
   pluginConfigById: {
     [key: string]: unknown;
   };
@@ -4996,7 +4938,6 @@ type Route =
   | "/setGenCodeSuffix"
   | "/setGroupOverflowMode"
   | "/setImageAreaImagePath"
-  | "/setLanguageServerSelection"
   | "/setListRootViewMode"
   | "/setMetaControlShowSectionTitle"
   | "/setParamEnteredValue"
@@ -5802,15 +5743,6 @@ export type SettingsGUI = {
 };
 
 /**
- * SettingsLanguageServer
- */
-export type SettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: null | string;
-  };
-};
-
-/**
  * SettingsManagedBlock
  */
 type SettingsManagedBlock = {
@@ -5904,7 +5836,9 @@ export type SettingsState = {
   backend: SettingsBackend;
   chatWindowing: SettingsChatWindowing;
   gui: SettingsGUI;
-  languageServer: SettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: SectionSizingPolicy;
   shortcuts: SettingsShortcuts;
 };
@@ -7344,7 +7278,6 @@ export type WebsocketMessageType =
   | "TranscriptionProfilesUpdated"
   | "UpdateFrontendProjectState"
   | "UpdateSettings"
-  | "UpdatePluginRuntime"
   | "ReturnRenameRefactorResults"
   | "BackendLogEvent";
 

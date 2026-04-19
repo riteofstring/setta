@@ -28,11 +28,11 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
+  type DictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
   SectionTypeEnum,
-  type DictSectionImpl,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
 type ParamNameInputProps = {

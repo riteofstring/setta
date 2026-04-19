@@ -41,9 +41,9 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
+  type DictSectionImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
-  type DictSectionImpl,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";

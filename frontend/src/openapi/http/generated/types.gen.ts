@@ -1917,11 +1917,6 @@ export type HttpapiSetLlmapiKeysRequest = {
   expectedRevision: number;
 };
 
-export type HttpapiSetLanguageServerSelectionRequest = {
-  language: string;
-  pluginId: string | null;
-};
-
 export type HttpapiSetListRootViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
@@ -2674,24 +2669,6 @@ export type NotificationsNotification = {
   type: string;
 };
 
-export type PluginsLanguageServerProviderOption = {
-  available: boolean;
-  name: string;
-  pluginId: string;
-};
-
-export type PluginsLanguageServerSelectionStatus = {
-  appliedPluginId: string | null;
-  availableProviders: Array<PluginsLanguageServerProviderOption> | null;
-  language: string;
-  message: string;
-  restartRequired: boolean;
-  selectedPluginId: string | null;
-  selectionState: string;
-  severity: string;
-  status: string;
-};
-
 export type PluginsPluginBlockedCapability = {
   capability: string;
   reason: string;
@@ -2809,15 +2786,6 @@ export type PluginsPluginRegisteredCodegenTarget = {
   targetId: string;
 };
 
-export type PluginsPluginRegisteredLanguageServer = {
-  args: Array<string> | null;
-  command: string;
-  language: string;
-  name: string;
-  pluginId: string;
-  settingsKey?: string;
-};
-
 export type PluginsPluginRegisteredListenerEndpoint = {
   name: string;
 };
@@ -2854,7 +2822,6 @@ export type PluginsPluginRuntimeResponse = {
 };
 
 export type PluginsPluginStatusEntry = {
-  appliedLanguageServerLanguages?: Array<string> | null;
   blockedCapabilities: Array<PluginsPluginBlockedCapability> | null;
   canonicalSourceKey: string;
   components: Array<string> | null;
@@ -2865,7 +2832,6 @@ export type PluginsPluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: Array<PluginsPluginRegisteredBackendRoute> | null;
   registeredCodegenTargets: Array<PluginsPluginRegisteredCodegenTarget> | null;
-  registeredLanguageServers: Array<PluginsPluginRegisteredLanguageServer> | null;
   registeredListenerEndpoints: Array<PluginsPluginRegisteredListenerEndpoint> | null;
   registeredStaticDirs: Array<PluginsPluginRegisteredStaticDir> | null;
   requestedCapabilities: Array<string> | null;
@@ -2883,7 +2849,6 @@ export type PluginsPluginStatusEntry = {
 };
 
 export type PluginsPluginStatusResponse = {
-  languageServerSelections: Array<PluginsLanguageServerSelectionStatus> | null;
   plugins: Array<PluginsPluginStatusEntry> | null;
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
@@ -3802,12 +3767,6 @@ export type SettingsstateFrontendSettingsGui = {
   zoomOnScroll: boolean;
 };
 
-export type SettingsstateFrontendSettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: string | null;
-  };
-};
-
 export type SettingsstateFrontendSettingsShortcuts = {
   advancedSearchShortcut: string;
   commandPaletteShortcut: string;
@@ -3877,7 +3836,9 @@ export type SettingsstateFrontendSettingsState = {
   backend: SettingsstateFrontendSettingsBackend;
   chatWindowing: SettingsstateFrontendSettingsChatWindowing;
   gui: SettingsstateFrontendSettingsGui;
-  languageServer: SettingsstateFrontendSettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: ProjectstateFrontendSectionSizingPolicy;
   shortcuts: SettingsstateFrontendSettingsShortcuts;
 };
@@ -9313,33 +9274,6 @@ export type SetImageAreaImagePathResponses = {
 
 export type SetImageAreaImagePathResponse =
   SetImageAreaImagePathResponses[keyof SetImageAreaImagePathResponses];
-
-export type SetLanguageServerSelectionData = {
-  body: HttpapiSetLanguageServerSelectionRequest;
-  path?: never;
-  query?: never;
-  url: "/setLanguageServerSelection";
-};
-
-export type SetLanguageServerSelectionErrors = {
-  /**
-   * Error
-   */
-  default: HttpapiErrorResponse;
-};
-
-export type SetLanguageServerSelectionError =
-  SetLanguageServerSelectionErrors[keyof SetLanguageServerSelectionErrors];
-
-export type SetLanguageServerSelectionResponses = {
-  /**
-   * OK
-   */
-  200: null;
-};
-
-export type SetLanguageServerSelectionResponse =
-  SetLanguageServerSelectionResponses[keyof SetLanguageServerSelectionResponses];
 
 export type SetListRootViewModeData = {
   body: HttpapiSetListRootViewModeRequest;

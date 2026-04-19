@@ -313,7 +313,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(realtime.ProjectStateUpdateContent{}),
 		reflect.TypeOf(realtime.ProjectStateUpdateMessage{}),
 		reflect.TypeOf(realtime.SettingsUpdateMessage{}),
-		reflect.TypeOf(realtime.PluginRuntimeUpdateMessage{}),
 		reflect.TypeOf(realtime.RenameReferenceDependencyKey{}),
 		reflect.TypeOf(realtime.RenameReferenceChangedValue{}),
 		reflect.TypeOf(realtime.RenameRefactorBroadcastContent{}),

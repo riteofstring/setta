@@ -1785,89 +1785,6 @@
       "schemaRef": "#/$defs/LSPDiagnosticsPayload"
     },
     {
-      "name": "LanguageServerProviderOption",
-      "kind": "model",
-      "schemaRef": "#/$defs/LanguageServerProviderOption"
-    },
-    {
-      "name": "LanguageServerSelectionSeverity",
-      "kind": "enum",
-      "schemaRef": "#/$defs/LanguageServerSelectionSeverity",
-      "enumValues": [
-        {
-          "name": "default",
-          "value": "default"
-        },
-        {
-          "name": "warning",
-          "value": "warning"
-        },
-        {
-          "name": "success",
-          "value": "success"
-        }
-      ]
-    },
-    {
-      "name": "LanguageServerSelectionState",
-      "kind": "enum",
-      "schemaRef": "#/$defs/LanguageServerSelectionState",
-      "enumValues": [
-        {
-          "name": "unset",
-          "value": "unset"
-        },
-        {
-          "name": "disabled",
-          "value": "disabled"
-        },
-        {
-          "name": "selected",
-          "value": "selected"
-        }
-      ]
-    },
-    {
-      "name": "LanguageServerSelectionStatus",
-      "kind": "model",
-      "schemaRef": "#/$defs/LanguageServerSelectionStatus"
-    },
-    {
-      "name": "LanguageServerSelectionStatusKind",
-      "kind": "enum",
-      "schemaRef": "#/$defs/LanguageServerSelectionStatusKind",
-      "enumValues": [
-        {
-          "name": "unselected",
-          "value": "unselected"
-        },
-        {
-          "name": "disabled",
-          "value": "disabled"
-        },
-        {
-          "name": "no_available_providers",
-          "value": "no_available_providers"
-        },
-        {
-          "name": "selected_unavailable",
-          "value": "selected_unavailable"
-        },
-        {
-          "name": "selected_incompatible",
-          "value": "selected_incompatible"
-        },
-        {
-          "name": "pending_restart",
-          "value": "pending_restart"
-        },
-        {
-          "name": "active",
-          "value": "active"
-        }
-      ]
-    },
-    {
       "name": "LauncherManagementTransportRoutes",
       "kind": "model",
       "schemaRef": "#/$defs/LauncherManagementTransportRoutes"
@@ -2914,11 +2831,6 @@
           "value": "pending_restart"
         }
       ]
-    },
-    {
-      "name": "PluginRuntimeUpdateMessage",
-      "kind": "model",
-      "schemaRef": "#/$defs/PluginRuntimeUpdateMessage"
     },
     {
       "name": "PluginScope",
@@ -4187,10 +4099,6 @@
           "value": "/setImageAreaImagePath"
         },
         {
-          "name": "SET_LANGUAGE_SERVER_SELECTION",
-          "value": "/setLanguageServerSelection"
-        },
-        {
           "name": "SET_LIST_ROOT_VIEW_MODE",
           "value": "/setListRootViewMode"
         },
@@ -5353,11 +5261,6 @@
       "name": "SettingsGUI",
       "kind": "model",
       "schemaRef": "#/$defs/SettingsGUI"
-    },
-    {
-      "name": "SettingsLanguageServer",
-      "kind": "model",
-      "schemaRef": "#/$defs/SettingsLanguageServer"
     },
     {
       "name": "SettingsManagedBlock",
@@ -6555,10 +6458,6 @@
           "value": "UpdateSettings"
         },
         {
-          "name": "UpdatePluginRuntime",
-          "value": "UpdatePluginRuntime"
-        },
-        {
           "name": "ReturnRenameRefactorResults",
           "value": "ReturnRenameRefactorResults"
         },
@@ -7677,11 +7576,6 @@
       "name": "SET_IMAGE_AREA_IMAGE_PATH",
       "path": "/setImageAreaImagePath",
       "sourceConstant": "RouteSetImageAreaImagePath"
-    },
-    {
-      "name": "SET_LANGUAGE_SERVER_SELECTION",
-      "path": "/setLanguageServerSelection",
-      "sourceConstant": "RouteSetLanguageServerSelection"
     },
     {
       "name": "SET_LIST_ROOT_VIEW_MODE",
@@ -9959,13 +9853,6 @@
     },
     {
       "profile": "frontend",
-      "type": "SettingsLanguageServer",
-      "value": {
-        "selectedByLanguage": {}
-      }
-    },
-    {
-      "profile": "frontend",
       "type": "SettingsShortcuts",
       "value": {
         "advancedSearchShortcut": "Mod + P",
@@ -10126,7 +10013,16 @@
           "zoomOnScroll": true
         },
         "languageServer": {
-          "selectedByLanguage": {}
+          "basedpyright": {
+            "analysis": {
+              "diagnosticSeverityOverrides": {
+                "reportSelfClsParameterName": "none",
+                "reportUnannotatedClassAttribute": "none",
+                "reportUnknownMemberType": "none",
+                "reportUnknownVariableType": "none"
+              }
+            }
+          }
         },
         "sectionSizingPolicy": {
           "byType": {

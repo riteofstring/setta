@@ -10,10 +10,10 @@ Default setup:
 ./dev_install.sh
 ```
 
-Activate the repo Python environment when you need direct Python/package commands:
+If you also need the Python SDK/package tooling in this checkout:
 
 ```bash
-source activate.sh
+. ./dev_install_python.sh
 ```
 
 If you changed dependency manifests and need to refresh lockfiles on purpose:

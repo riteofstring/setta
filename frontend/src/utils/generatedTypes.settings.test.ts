@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { createSettingsState } from "./generatedTypes";
+import { describe, expect, it } from "vitest";
 
 describe("createSettingsState", () => {
   it("merges chat windowing defaults for partial overrides", () => {
@@ -14,25 +14,5 @@ describe("createSettingsState", () => {
       ...defaults,
       restorePriorStateOnUnmaximize: false,
     });
-  });
-
-  it("merges languageServer defaults for partial overrides", () => {
-    const state = createSettingsState({
-      languageServer: {},
-    });
-
-    expect(state.languageServer.selectedByLanguage).toEqual({});
-  });
-
-  it("preserves explicit null languageServer selections", () => {
-    const state = createSettingsState({
-      languageServer: {
-        selectedByLanguage: {
-          python: null,
-        },
-      },
-    });
-
-    expect(state.languageServer.selectedByLanguage.python).toBeNull();
   });
 });

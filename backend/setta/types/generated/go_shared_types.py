@@ -1187,7 +1187,6 @@ class Route(StrEnum):
     SET_GEN_CODE_SUFFIX = "/setGenCodeSuffix"
     SET_GROUP_OVERFLOW_MODE = "/setGroupOverflowMode"
     SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"
-    SET_LANGUAGE_SERVER_SELECTION = "/setLanguageServerSelection"
     SET_LIST_ROOT_VIEW_MODE = "/setListRootViewMode"
     SET_META_CONTROL_SHOW_SECTION_TITLE = "/setMetaControlShowSectionTitle"
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"

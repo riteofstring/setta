@@ -59,8 +59,8 @@ import {
   TranscriptionProfile,
   type BackendLogEvent,
   type BrushStrokeMapping,
-  type ChartDataMapping,
   type ChatDictationMode,
+  type ChartDataMapping,
   type DrawAreaLayerItemTransformMapping,
   type ImageMapping,
 } from "utils/generatedTypes";
