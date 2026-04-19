@@ -22,6 +22,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { useAppSubsystemFrontendHost } from "../../appSubsystemFrontendHostContext";
 import {
   useAppConfigs,
   type AppConfigState,
@@ -642,6 +643,7 @@ function useAppConfigLoadState(
   resolvedConfigId: string | null,
   configState: AppConfigState | null,
 ) {
+  const frontendHost = useAppSubsystemFrontendHost();
   const serverMode = useServerMode((x) => x.mode);
   const modeResolved = useServerMode((x) => x.modeResolved);
   React.useEffect(() => {
@@ -651,8 +653,8 @@ function useAppConfigLoadState(
     if (!modeResolved || serverMode !== "app" || configState) {
       return;
     }
-    void ensureAppProjectConfigLoaded(resolvedConfigId);
-  }, [configState, modeResolved, resolvedConfigId, serverMode]);
+    void ensureAppProjectConfigLoaded(frontendHost, resolvedConfigId);
+  }, [configState, frontendHost, modeResolved, resolvedConfigId, serverMode]);
   return { modeResolved, serverMode };
 }
 type ResolvedParamInputBindingResult = ResolvedParamBindingState & {
@@ -962,14 +964,15 @@ function Card({ element, children }: AppComponentProps) {
   );
 }
 function ConfigScope({ element, children }: AppComponentProps) {
+  const frontendHost = useAppSubsystemFrontendHost();
   const props = resolveElementProps(element);
   const configId = resolveNullableStringProp(props.configId);
   const className = resolveStringProp(props.className);
   React.useEffect(() => {
     if (configId) {
-      void ensureAppProjectConfigLoaded(configId);
+      void ensureAppProjectConfigLoaded(frontendHost, configId);
     }
-  }, [configId]);
+  }, [configId, frontendHost]);
   const content = className ? (
     <div className={className}>{children}</div>
   ) : (

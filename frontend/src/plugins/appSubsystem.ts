@@ -2,6 +2,7 @@ import {
   type AppSubsystemAppDeploymentModalRegistration,
   type AppSubsystemAppModeRouteRegistration,
   type AppSubsystemCustomSlashCommandModeOption,
+  type AppSubsystemFrontendHost,
   type AppSubsystemFrontendRegistration,
   type AppSubsystemOverviewTabRegistration,
   type AppSubsystemPatchPreviewDelta,
@@ -76,7 +77,7 @@ type AppSubsystemPendingOperation =
       kind: "processAppProjectStateUpdate";
       payload: GetLatestProjectStateResponse;
     }
-  | { kind: "resetAppSessionState" };
+  | { kind: "resetAppSessionState"; host: AppSubsystemFrontendHost };
 
 const pendingAppSubsystemOperationsByCapabilitySignature = new Map<
   string,
@@ -356,8 +357,12 @@ const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
   },
   resetAppSessionState: (
     registration: AppSubsystemFrontendRegistration,
+    operation: Extract<
+      AppSubsystemPendingOperation,
+      { kind: "resetAppSessionState" }
+    >,
   ): void => {
-    registration.controller?.resetAppSessionState?.();
+    registration.controller?.resetAppSessionState?.(operation.host);
   },
 } as const;
 
@@ -993,6 +998,7 @@ export function clearAllAppSpecPatchPreviewStreams(): void {
 }
 
 export async function initializeAppSessionFromCurrentDeployment(
+  frontendHost: AppSubsystemFrontendHost,
   options: {
     forceNewSession?: boolean;
   } = {},
@@ -1004,14 +1010,17 @@ export async function initializeAppSessionFromCurrentDeployment(
     return false;
   }
   return registration.controller.initializeAppSessionFromCurrentDeployment(
+    frontendHost,
     options,
   );
 }
 
-export function resetAppSessionState(): void {
+export function resetAppSessionState(
+  frontendHost: AppSubsystemFrontendHost,
+): void {
   const registration = getAppSubsystemLoadedRegistration();
   if (registration?.controller?.resetAppSessionState) {
-    registration.controller.resetAppSessionState();
+    registration.controller.resetAppSessionState(frontendHost);
     return;
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
@@ -1020,6 +1029,7 @@ export function resetAppSessionState(): void {
   }
   enqueuePendingAppSubsystemOperation(capabilitySignature, {
     kind: "resetAppSessionState",
+    host: frontendHost,
   });
 }
 

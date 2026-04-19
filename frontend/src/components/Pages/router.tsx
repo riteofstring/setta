@@ -14,7 +14,7 @@ import {
   useAppSubsystemFrontendStatus,
   useAppSubsystemFrontendStatusMessage,
 } from "plugins/appSubsystem";
-import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
+import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
   AppSubsystemRendererHost,
   EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
@@ -24,7 +24,7 @@ import {
   usePluginRuntimeStore,
 } from "plugins/runtime";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
 import {
@@ -32,6 +32,7 @@ import {
   useServerMode,
   useSettings,
 } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
@@ -269,6 +270,13 @@ function AppModeUnavailableRoute({ message }: { message: string }) {
 
 function AppModeRouteElement() {
   usePluginRuntimeBootstrap(true);
+  const appSubsystemHost = useMemo(
+    () =>
+      createRuntimeAppSubsystemFrontendHost({
+        resetProjectRuntimeState: resetProjectStores,
+      }),
+    [],
+  );
   const runtimeStatus = usePluginRuntimeStore((state) => state.status);
   const runtimeStatusMessage = usePluginRuntimeStore(
     (state) => state.statusMessage,
@@ -285,7 +293,7 @@ function AppModeRouteElement() {
       <AppSubsystemRendererHost
         renderer={appModeRoute.renderer}
         props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
-        host={DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST}
+        host={appSubsystemHost}
         className="contents"
         testId="app-subsystem-app-mode-route"
       />

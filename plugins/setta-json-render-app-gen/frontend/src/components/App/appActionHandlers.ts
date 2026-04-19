@@ -228,8 +228,9 @@ function resolveRunPolicyError(
 
 async function loadConfigState(
   configId: string,
+  frontendHost: AppSubsystemFrontendHost,
 ): Promise<AppConfigState | null> {
-  const loaded = await ensureAppProjectConfigLoaded(configId);
+  const loaded = await ensureAppProjectConfigLoaded(frontendHost, configId);
   if (!loaded) {
     return null;
   }
@@ -311,10 +312,11 @@ async function runWithProgress(
 
 function recordSuccessfulRun(
   deploymentMode: boolean,
+  frontendHost: AppSubsystemFrontendHost,
   setLocalRunCount: Dispatch<SetStateAction<number>>,
 ) {
   if (deploymentMode) {
-    incrementAppSessionRunCount();
+    incrementAppSessionRunCount(frontendHost);
     return;
   }
   setLocalRunCount((count) => count + 1);
@@ -377,7 +379,10 @@ async function prepareRunExecution(
     notify(frontendHost, policyError);
     return null;
   }
-  const configState = await loadConfigState(preparedRun.value.configId);
+  const configState = await loadConfigState(
+    preparedRun.value.configId,
+    frontendHost,
+  );
   if (!configState) {
     notify(frontendHost, "Failed to load project config.");
     return null;
@@ -424,7 +429,7 @@ async function executeRunHandler(
     notify(frontendHost, "Run failed.");
     return;
   }
-  recordSuccessfulRun(args.deploymentMode, args.setLocalRunCount);
+  recordSuccessfulRun(args.deploymentMode, frontendHost, args.setLocalRunCount);
 }
 
 function createRunHandler(
@@ -471,12 +476,13 @@ async function requestDownloadUrl(
 
 function createResetHandler(
   deploymentMode: boolean,
+  frontendHost: AppSubsystemFrontendHost,
   setLocalRunCount: Dispatch<SetStateAction<number>>,
 ): () => Promise<void> {
   return async () => {
     setLocalRunCount(0);
     if (deploymentMode) {
-      await resetAppDeployment();
+      await resetAppDeployment(frontendHost);
     }
   };
 }
@@ -723,8 +729,13 @@ export function useAppActionHandlers(args: {
     ],
   );
   const handleReset = useMemo(
-    () => createResetHandler(args.deploymentMode, args.setLocalRunCount),
-    [args.deploymentMode, args.setLocalRunCount],
+    () =>
+      createResetHandler(
+        args.deploymentMode,
+        frontendHost,
+        args.setLocalRunCount,
+      ),
+    [args.deploymentMode, args.setLocalRunCount, frontendHost],
   );
   const handleDownloadArtifact = useMemo(
     () =>

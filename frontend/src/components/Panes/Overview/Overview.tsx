@@ -5,7 +5,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
 import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
-import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
+import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
   AppSubsystemRendererHost,
   EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
@@ -35,6 +35,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
+import { resetProjectStores } from "state/utils";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   APP_MENU_Z_INDEX_CLASS_NAME,
@@ -597,6 +598,13 @@ function TabContent({
   selectedPluginPaneTab: PluginPaneTabEntry | null;
   appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null;
 }) {
+  const appSubsystemHost = useMemo(
+    () =>
+      createRuntimeAppSubsystemFrontendHost({
+        resetProjectRuntimeState: resetProjectStores,
+      }),
+    [],
+  );
   if (selectedPluginPaneTab) {
     return (
       <PluginOverviewPane
@@ -610,7 +618,7 @@ function TabContent({
       <AppSubsystemRendererHost
         renderer={appOverviewTab.renderer}
         props={EMPTY_APP_SUBSYSTEM_RENDERER_PROPS}
-        host={DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST}
+        host={appSubsystemHost}
         className="h-full min-h-0 w-full"
         testId="app-subsystem-overview-tab"
       />
