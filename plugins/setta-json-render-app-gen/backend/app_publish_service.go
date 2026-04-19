@@ -7,6 +7,7 @@ import (
 
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type appPublisher struct {
@@ -109,12 +110,15 @@ func (p *appPublisher) prepareAppPublish(
 	appDefinition, appSpec, targetAppSpecPath, err := p.contentService.PreparePublishedAppDefinition(
 		ctx,
 		p.share.SettaFilesRoot(),
-		preparedProject.PublishedDocument.AppDefinition,
+		appdefinition.StoredDocumentAppDefinitionRaw(preparedProject.PublishedDocument),
 	)
 	if err != nil {
 		return preparedAppPublish{}, err
 	}
-	preparedProject.PublishedDocument.AppDefinition = appDefinition
+	preparedProject.PublishedDocument = appdefinition.WithStoredDocumentAppDefinition(
+		preparedProject.PublishedDocument,
+		appDefinition,
+	)
 
 	policy, err := applyAppPolicyOverrides(request.PolicyOverrides)
 	if err != nil {

@@ -54,7 +54,7 @@ func EncodeStoredAppDefinition(
 }
 
 func effectiveAppDefinition(document projectstate.Document) (projectstate.AppDefinition, error) {
-	current, err := DecodeStoredAppDefinition(document.AppDefinition)
+	current, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(document))
 	if err != nil {
 		return projectstate.AppDefinition{}, err
 	}

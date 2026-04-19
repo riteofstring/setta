@@ -52,3 +52,19 @@ func mustDecodeStoredAppDefinition(
 	}
 	return definition
 }
+
+func storedDocumentAppDefinition(
+	t *testing.T,
+	document projectstate.Document,
+) *projectstate.AppDefinition {
+	t.Helper()
+
+	return mustDecodeStoredAppDefinition(t, appdefinitionpkg.StoredDocumentAppDefinitionRaw(document))
+}
+
+func withStoredDocumentAppDefinition(
+	document projectstate.Document,
+	raw projectstate.RawJSON,
+) projectstate.Document {
+	return appdefinitionpkg.WithStoredDocumentAppDefinition(document, raw)
+}

@@ -12,6 +12,8 @@ import (
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
+const appSubsystemPluginDataKey = "setta-json-render-app-gen"
+
 func setTestAppDefinition(
 	t *testing.T,
 	runtime *Runtime,
@@ -23,7 +25,7 @@ func setTestAppDefinition(
 	if err != nil {
 		t.Fatalf("project root: %v", err)
 	}
-	current := runtime.Snapshot().Document.AppDefinition
+	current := runtime.Snapshot().Document.PluginData[appSubsystemPluginDataKey]
 	metadata := AppDefinition{}
 	if len(current) != 0 {
 		metadata = mustDecodeStoredAppDefinition(t, current)
@@ -75,7 +77,10 @@ func setTestAppDefinition(
 	}
 	_, err = runtime.MutatePersistedWithContext(context.Background(), func(document Document) (PersistedMutationPlan, error) {
 		next := document.Clone()
-		next.AppDefinition = mustMarshalStoredAppDefinition(t, metadata)
+		if next.PluginData == nil {
+			next.PluginData = map[string]RawJSON{}
+		}
+		next.PluginData[appSubsystemPluginDataKey] = mustMarshalStoredAppDefinition(t, metadata)
 		appSpec := input.AppSpec
 		return PersistedMutationPlan{
 			NextDocument: next,
