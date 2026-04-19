@@ -1,4 +1,4 @@
-import type { GetLatestProjectStateResponse } from "openapi/http";
+import type { GetLatestProjectStateResponse } from "@setta/app-subsystem-frontend-sdk";
 import { useAppConfigs } from "../../appSubsystemProjectState";
 
 export function processAppProjectStateUpdateFromBackend(

@@ -1,4 +1,4 @@
-import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
+import type { AppSubsystemChatSlashCommandDefinition } from "@setta/app-subsystem-frontend-sdk";
 import {
   AppGenerationModeEnum,
   AppSubsystemChatUIConfig,
@@ -29,7 +29,7 @@ function requireAppGenerationMode(value: string): AppGenerationMode {
   return value as AppGenerationMode;
 }
 
-const APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
+const APP_SUBSYSTEM_SLASH_COMMANDS: AppSubsystemChatSlashCommandDefinition[] =
   AppSubsystemChatUIConfig.slashCommands.map((entry) => ({
     command: entry.command,
     action: entry.action,
@@ -60,13 +60,13 @@ if (
   );
 }
 
-export function buildAppGenerationSlashCommandDefinitions(): ChatSlashCommandDefinition[] {
+export function buildAppGenerationSlashCommandDefinitions(): AppSubsystemChatSlashCommandDefinition[] {
   return APP_SUBSYSTEM_SLASH_COMMANDS.map((entry) => ({ ...entry }));
 }
 
 export function getAppGenerationSlashCommandByAction(
   action: string,
-): ChatSlashCommandDefinition | null {
+): AppSubsystemChatSlashCommandDefinition | null {
   return (
     APP_SUBSYSTEM_SLASH_COMMANDS.find((entry) => entry.action === action) ??
     null

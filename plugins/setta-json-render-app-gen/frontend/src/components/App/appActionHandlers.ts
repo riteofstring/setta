@@ -1,5 +1,8 @@
-import { getAttachmentDownloadUrl, runCode } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+import {
+  callOpenAPI,
+  getAttachmentDownloadUrl,
+  runCode,
+} from "@setta/app-subsystem-frontend-sdk";
 import { useAppConfigs } from "../../appSubsystemProjectState";
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import {
