@@ -538,7 +538,7 @@ function createDownloadBinaryHandler(
       return;
     }
     const url = new URL(
-      buildAppBinaryDownloadUrl(contentId, args.shareSessionId),
+      buildAppBinaryDownloadUrl(contentId, args.shareSessionId, frontendHost),
     );
     triggerDownload(url.toString(), filename ?? undefined);
   };

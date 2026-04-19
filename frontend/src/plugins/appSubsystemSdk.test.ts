@@ -1,4 +1,5 @@
 import {
+  buildBinaryDownloadUrl,
   buildTextBlockTypographyScale,
   CODEMIRROR_TOOLTIP_PARENT_ID,
   createAppSubsystemFrontendHost,
@@ -338,5 +339,12 @@ describe("appSubsystemFrontendSdk", () => {
     expect(shouldShowPasswordReveal({ value: "", hasSecret: true })).toBe(true);
     expect(createRandomName()).toMatch(/^[a-z]+_[a-z]+$/);
     expect(attachment.text).toBe("hello");
+  });
+
+  it("builds binary download urls from explicit server-mode input", () => {
+    const url = new URL(buildBinaryDownloadUrl("artifact-1", "share-1", null));
+
+    expect(url.pathname).toBe("/binary/artifact-1");
+    expect(url.searchParams.get("shareSessionId")).toBe("share-1");
   });
 });
