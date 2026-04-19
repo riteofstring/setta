@@ -335,53 +335,6 @@
         ],
         "type": "object"
       },
-      "AppspecAppCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "catalogVersion": {
-            "type": "string"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object"
-          },
-          "themeSchemaVersion": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "catalogId",
-          "catalogVersion",
-          "appSpecVersion",
-          "themeSchemaVersion",
-          "features"
-        ],
-        "type": "object"
-      },
-      "AppspecAppValidationIssue": {
-        "additionalProperties": false,
-        "properties": {
-          "elementKey": {
-            "type": "string"
-          },
-          "elementType": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": ["message"],
-        "type": "object"
-      },
       "ArtifactsArtifactSaveResult": {
         "additionalProperties": false,
         "properties": {
@@ -8905,6 +8858,37 @@
         },
         "type": "object"
       },
+      "ProjectstateAppDefinitionCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "themeSchemaVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogId",
+          "catalogVersion",
+          "appSpecVersion",
+          "themeSchemaVersion",
+          "features"
+        ],
+        "type": "object"
+      },
       "ProjectstateAppDefinitionMutationResult": {
         "additionalProperties": false,
         "properties": {
@@ -8927,21 +8911,37 @@
         "required": ["appSpec"],
         "type": "object"
       },
+      "ProjectstateAppDefinitionValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "elementKey": {
+            "type": "string"
+          },
+          "elementType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "type": "object"
+      },
       "ProjectstateAppDefinitionValidationResult": {
         "additionalProperties": false,
         "properties": {
           "capabilities": {
-            "$ref": "#/components/schemas/AppspecAppCapabilities"
+            "$ref": "#/components/schemas/ProjectstateAppDefinitionCapabilities"
           },
           "errors": {
             "items": {
-              "$ref": "#/components/schemas/AppspecAppValidationIssue"
+              "$ref": "#/components/schemas/ProjectstateAppDefinitionValidationIssue"
             },
             "type": ["array", "null"]
           },
           "warnings": {
             "items": {
-              "$ref": "#/components/schemas/AppspecAppValidationIssue"
+              "$ref": "#/components/schemas/ProjectstateAppDefinitionValidationIssue"
             },
             "type": ["array", "null"]
           }

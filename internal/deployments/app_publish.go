@@ -51,7 +51,7 @@ type AppPublishResult struct {
 }
 
 type AppPublishValidationError struct {
-	Issues []appspec.AppValidationIssue
+	Issues []projectstate.AppDefinitionValidationIssue
 }
 
 func (e *AppPublishValidationError) Error() string {
@@ -308,7 +308,7 @@ func (p *AppPublisher) preparePublishedAppDefinition(
 	}
 	if len(validationResult.Errors) != 0 {
 		return nil, nil, "", &AppPublishValidationError{
-			Issues: append([]appspec.AppValidationIssue(nil), validationResult.Errors...),
+			Issues: append([]projectstate.AppDefinitionValidationIssue(nil), validationResult.Errors...),
 		}
 	}
 

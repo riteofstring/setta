@@ -7,6 +7,9 @@ import "context"
 // expected to own the semantics behind these operations.
 type AppDefinitionRuntime interface {
 	GetAppDefinition(ctx context.Context) (AppDefinitionReadResult, error)
+	GetEffectiveAppDefinition(ctx context.Context) (AppDefinition, error)
+	GetEffectiveAppSpecPath(ctx context.Context) (string, error)
+	GetEffectiveAppThemeMode(ctx context.Context) (string, error)
 	ValidateAppDefinition(ctx context.Context, input ValidateAppDefinitionInput) (AppDefinitionValidationResult, error)
 	SetAppDefinition(ctx context.Context, input SetAppDefinitionInput) (Snapshot, AppDefinitionMutationResult, error)
 	StreamAppDefinition(ctx context.Context, input StreamAppDefinitionInput) (Snapshot, AppDefinitionMutationResult, error)

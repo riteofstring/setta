@@ -13,6 +13,7 @@ import (
 )
 
 const defaultAppSpecVersion = "v1"
+const defaultAppThemeMode = "auto"
 
 type AppDefinitionService struct {
 	runtime *projectstate.Runtime
@@ -55,6 +56,36 @@ func (s *AppDefinitionService) GetAppDefinition(
 	return result, nil
 }
 
+func (s *AppDefinitionService) GetEffectiveAppDefinition(
+	ctx context.Context,
+) (projectstate.AppDefinition, error) {
+	_ = ctx
+	if s == nil || s.runtime == nil {
+		return projectstate.AppDefinition{}, projectstate.ErrRuntimeClosed
+	}
+	return effectiveAppDefinition(s.runtime.Snapshot().Document), nil
+}
+
+func (s *AppDefinitionService) GetEffectiveAppSpecPath(
+	ctx context.Context,
+) (string, error) {
+	_ = ctx
+	if s == nil || s.runtime == nil {
+		return "", projectstate.ErrRuntimeClosed
+	}
+	return effectiveAppSpecPath(s.runtime.Snapshot().Document), nil
+}
+
+func (s *AppDefinitionService) GetEffectiveAppThemeMode(
+	ctx context.Context,
+) (string, error) {
+	_ = ctx
+	if s == nil || s.runtime == nil {
+		return "", projectstate.ErrRuntimeClosed
+	}
+	return effectiveAppThemeMode(s.runtime.Snapshot().Document), nil
+}
+
 func (s *AppDefinitionService) ValidateAppDefinition(
 	ctx context.Context,
 	input projectstate.ValidateAppDefinitionInput,
@@ -83,9 +114,9 @@ func (s *AppDefinitionService) ValidateAppDefinition(
 	}
 
 	return projectstate.AppDefinitionValidationResult{
-		Errors:       validationErrors,
-		Warnings:     warnings,
-		Capabilities: appspec.BuildCapabilities(validationDefinition),
+		Errors:       projectstateValidationIssues(validationErrors),
+		Warnings:     projectstateValidationIssues(warnings),
+		Capabilities: projectstateValidationCapabilities(appspec.BuildCapabilities(validationDefinition)),
 	}, nil
 }
 
@@ -421,6 +452,26 @@ func effectiveAppDefinition(document projectstate.Document) projectstate.AppDefi
 	return current
 }
 
+func effectiveAppSpecPath(document projectstate.Document) string {
+	current := effectiveAppDefinition(document)
+	if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
+		return trimmed
+	}
+	return appspec.DefaultPath()
+}
+
+func effectiveAppThemeMode(document projectstate.Document) string {
+	current := effectiveAppDefinition(document)
+	theme, err := decodeAppDefinitionJSONObject(current.Theme, "appDefinition.theme")
+	if err != nil || theme == nil {
+		return defaultAppThemeMode
+	}
+	if mode, ok := theme["mode"].(string); ok && strings.TrimSpace(mode) != "" {
+		return mode
+	}
+	return defaultAppThemeMode
+}
+
 func applyValidateAppDefinitionInput(
 	current projectstate.AppDefinition,
 	input projectstate.ValidateAppDefinitionInput,
@@ -523,6 +574,40 @@ func appspecDefinition(definition projectstate.AppDefinition) (appspec.Definitio
 		Theme:          theme,
 		Assets:         assets,
 	}, nil
+}
+
+func projectstateValidationIssues(
+	issues []appspec.AppValidationIssue,
+) []projectstate.AppDefinitionValidationIssue {
+	if len(issues) == 0 {
+		return []projectstate.AppDefinitionValidationIssue{}
+	}
+
+	converted := make([]projectstate.AppDefinitionValidationIssue, 0, len(issues))
+	for _, issue := range issues {
+		converted = append(converted, projectstate.AppDefinitionValidationIssue{
+			Message:     issue.Message,
+			ElementKey:  issue.ElementKey,
+			ElementType: issue.ElementType,
+		})
+	}
+	return converted
+}
+
+func projectstateValidationCapabilities(
+	capabilities appspec.AppCapabilities,
+) projectstate.AppDefinitionCapabilities {
+	features := make(map[string]bool, len(capabilities.Features))
+	for key, enabled := range capabilities.Features {
+		features[key] = enabled
+	}
+	return projectstate.AppDefinitionCapabilities{
+		CatalogID:          capabilities.CatalogID,
+		CatalogVersion:     capabilities.CatalogVersion,
+		AppSpecVersion:     capabilities.AppSpecVersion,
+		ThemeSchemaVersion: capabilities.ThemeSchemaVersion,
+		Features:           features,
+	}
 }
 
 func marshalAppDefinitionRawJSON(value any, field string) (projectstate.RawJSON, error) {
