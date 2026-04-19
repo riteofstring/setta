@@ -26,6 +26,7 @@ import {
   toGraphSpaceLength,
 } from "./sectionShellBackdropMeasurementMath";
 import {
+  BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
@@ -1510,6 +1511,7 @@ export default function SectionShellBackdropCanvas() {
   );
   const codeSectionNode = nodes.get(CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const dateParamNode = nodes.get(DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const backendNode = nodes.get(BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const guiNode = nodes.get(GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID);
   const promptSectionNode = nodes.get(
     PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1693,6 +1695,12 @@ export default function SectionShellBackdropCanvas() {
     sectionId: DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const backendMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: backendNode?.height,
+    nodeWidth: backendNode?.width,
+    sectionId: BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const guiMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: guiNode?.height,
     nodeWidth: guiNode?.width,
@@ -1776,6 +1784,7 @@ export default function SectionShellBackdropCanvas() {
         codeSectionMeasurements,
       [DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         dateParamMeasurements,
+      [BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: backendMeasurements,
       [GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]: guiMeasurements,
       [PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         promptSectionMeasurements,
@@ -1815,6 +1824,7 @@ export default function SectionShellBackdropCanvas() {
       textAreaParamMeasurements,
       codeSectionMeasurements,
       dateParamMeasurements,
+      backendMeasurements,
       guiMeasurements,
       promptSectionMeasurements,
       textBlockMeasurements,

@@ -157,6 +157,68 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-19 067
 
+- Item: Land the backend plain text-value resting-text lane, rerank the whole scene, and check whether the motion gate still justifies default automation.
+- Status: `done`
+- Details:
+  - Extended the existing retained resting-text ownership path onto `settings-section__backend` plain text-value rows while keeping backend excluded from the lightweight switch value-shell boundary.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats backend text-like params as canvas-owned resting text plus lightweight underline, and `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__backend` on the retained scene path.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-backend-resting-text.spec.ts`
+  - Focused backend canary on the live surface recorded:
+    - `lightweightRestingTextCount: 3`
+    - `underlineCount: 3`
+    - `liveEditorCount: 0`
+    - `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell` each exposed `data-canvas-owned-resting-text-lightweight="true"` with computed `opacity: 0`
+    - first-click activation on `Default Terminal Shell` mounted exactly one live editor inline
+    - `remainingLightweightRestingTextCount: 2` after activation
+    - the focused row rect stayed stable with no measurable change in `x`, `y`, `width`, or `height`
+  - Fresh whole-scene ranking on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 18`
+    - `totalRemainingValueElementCount: 27`
+    - `settings-section__backend` remains the top local survivor, but only at `9` remaining value elements across `9` rows and every listed survivor is already `lightweightSwitch` with only `div.section-value` left in DOM
+    - `settings-section__gui` is next at `8` remaining value elements across `4` color-input wrapper rows
+    - `settings-section__nestedParamCodeObjDefault` is now the highest non-lightweight text/value survivor at `6` remaining value elements across `3` rows
+  - Fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6704`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.22`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15021`
+  - Compared against the prior `languageServer` frontier slice:
+    - `totalRemainingValueRowCount: 21 -> 18`
+    - `totalRemainingValueElementCount: 39 -> 27`
+    - `documentNodeCount: 6713 -> 6704`
+    - `raf.meanMs: 94.13 -> 94.22`
+    - `raf.p95Ms: 166.8 -> 183.4`
+    - `longTasks.totalMs: 14856 -> 15021`
+  - Interpretation:
+    - this product slice closes the backend plain text-value lane
+    - the remaining backend surface is now the already-lightweight switch family, not the old plain text rows
+    - dense motion still did not materially improve on this pass, so together with the previous `languageServer` frontier slice the plan's explicit "stop and replan" condition is now met
+    - do not keep default automation on more survivor-family harvesting without a stronger resting-body / overlay design decision
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-backend-resting-text.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-014/worktree-ai.log -- tests/e2e/settings/settings-all-settings-backend-resting-text.spec.ts --reporter=line --workers=1`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-014/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts --reporter=line --workers=1`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-014/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__backend` was present on the graph surface
+  - `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell` all looked intact at rest
+  - caveat: `Default Terminal Shell` rendered `aria-disabled` in the headless CDP session, so that visual pass could not safely prove inline activation there; no blank or detached jump was observed
+- Next action:
+  - stop default automation and replan around a stronger resting-body / overlay primitive before taking another survivor-family slice
+LOOP_TERMINAL_MARKER: replan_required
+
+## 2026-04-19 067
+
 - Item: Land the `languageServer` nested diagnostic resting-text lane on the existing retained canvas path.
 - Status: `done`
 - Details:

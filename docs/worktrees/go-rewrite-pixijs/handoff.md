@@ -9,6 +9,61 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The `backend` plain text-value lane is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-backend-resting-text-rerun.md`.
+  - canonical target section: `settings-section__backend`
+  - focused proof rows:
+    - `settings-codeobj__backend__backend__autobackupFreq`
+    - `settings-codeobj__backend__backend__autobackupKeepLastN`
+    - `settings-codeobj__backend__backend__defaultTerminalShell`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats `settings-section__backend` as canvas-owned resting text plus lightweight text underline while keeping backend excluded from the lightweight switch value-shell boundary
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__backend` on the retained resting-text scene path
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-backend-resting-text.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - at rest, `settings-section__backend` now reports:
+      - `lightweightRestingTextCount: 3`
+      - `underlineCount: 3`
+      - `liveEditorCount: 0`
+    - `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell` each expose `data-canvas-owned-resting-text-lightweight="true"` with computed `opacity: 0`
+    - first-click activation on `Default Terminal Shell` mounted exactly one live editor in place
+    - after activation, `remainingLightweightRestingTextCount` dropped from `3` to `2`
+    - the focused row rect stayed stable with no measurable change in `x`, `y`, `width`, or `height`
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 18`
+    - `totalRemainingValueElementCount: 27`
+    - `settings-section__backend` remains the top local survivor, but only at `9` remaining value elements across `9` rows and every listed survivor is already `lightweightSwitch` with just `div.section-value` still left in DOM
+    - `settings-section__gui` is next at `8` remaining value elements across `4` color-input wrapper rows
+    - `settings-section__nestedParamCodeObjDefault` is now the highest non-lightweight text/value survivor at `6` remaining value elements across `3` rows
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6704`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.22`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15021`
+  - compared against the prior `languageServer` rerun:
+    - `totalRemainingValueRowCount: 21 -> 18`
+    - `totalRemainingValueElementCount: 39 -> 27`
+    - `documentNodeCount: 6713 -> 6704`
+    - `raf.meanMs: 94.13 -> 94.22`
+    - `raf.p95Ms: 166.8 -> 183.4`
+    - `longTasks.totalMs: 14856 -> 15021`
+  - interpretation:
+    - this closes the backend plain text-value lane as product code instead of reopening the older backend dropdown lane or widening the switch-shell boundary again
+    - the backend section is no longer blocked on plain text rows; its remaining surface is now the already-lightweight switch family
+    - however, dense motion still did not materially improve on this pass; combined with the previous `languageServer` frontier slice, the plan's explicit replan trigger is now met
+    - stop default family-by-family harvesting here and replan around a stronger resting-body / overlay primitive before opening another survivor-family lane
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - `settings-section__backend` was present on the graph surface
+    - `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell` all looked intact at rest
+    - caveat: `Default Terminal Shell` rendered `aria-disabled` in the headless CDP session, so that visual pass could not safely prove inline activation there; no blank or detached jump was observed
 - The `languageServer` nested diagnostic resting-text lane is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-language-server-nested-resting-text-rerun.md`.
   - canonical target section: `settings-section__languageServer`
   - focused leaf proof row:

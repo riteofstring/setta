@@ -251,6 +251,11 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionRestingTextSection(
+        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
         TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
@@ -386,6 +391,12 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       }),
     ).toBe(true);
     expect(
@@ -894,6 +905,11 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightTextUnderline(
         GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
     ).toBe(true);
     expect(

@@ -91,10 +91,12 @@ export const STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__stateMachineGateSectionDefault";
 export const GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   "settings-section__gui";
+export const BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
+  "settings-section__backend";
 export const BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
-  "settings-section__backend";
+  BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 export const BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID =
-  "settings-section__backend";
+  BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 const SETTINGS_SECTION_ID_PREFIX = "settings-section__";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
@@ -125,6 +127,7 @@ export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
 ] as const;
@@ -279,7 +282,10 @@ export function isCanvasOwnedSectionLightweightSwitch({
 export function isCanvasOwnedSectionLightweightSwitchValueShell(
   sectionId: string,
 ) {
-  return isCanvasOwnedSectionRestingTextSection(sectionId);
+  return (
+    sectionId !== BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID &&
+    isCanvasOwnedSectionRestingTextSection(sectionId)
+  );
 }
 
 export function isCanvasOwnedSectionLightweightParamFilter(sectionId: string) {
@@ -341,6 +347,7 @@ export function isCanvasOwnedSectionLightweightTextUnderline(
     sectionId === PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
+    sectionId === BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
     sectionId === TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID
   );
 }
