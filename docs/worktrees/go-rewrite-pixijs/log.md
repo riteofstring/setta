@@ -6459,6 +6459,32 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier: keep `settings-section__chatSectionDefault` as the blocker reproduction target, use `settings-section__browserSectionDefault` / `columnWidth` as the current on-screen control lane, and instrument or simplify the live hit-box publication / consumption path itself instead of reopening another pane-level timing tweak.
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-21 run 063
+
+- Item: Close the spent `settings-section__chatSectionDefault` pane-consumer lane with one narrower geometry report before stopping for human replan.
+- Status: `replan_required`
+- Details:
+  - Added one append-only blocker report: `perf/reports/frontend/2026-04-21_settings-all-settings-chat-pane-activator-geometry-replan-report.md`.
+  - This pass kept the scope intentionally narrow and landed no product source changes after the live evidence sharpened the blocker instead of opening another speculative pane fix.
+  - Fresh headless `@playwright/test` node probes against the current `3068/8068` runtime showed:
+    - `browser.columnWidth` still opens inline CodeMirror from a real pane click and remains the only trustworthy green control lane
+    - `chat.permissionMode` still fails from its current pane-owned center point (`x≈709.36`, `y≈156.95`) even though the matching hidden anchor is unique in the DOM
+    - that same live chat click point maps to no containing measured section nodes through `useNodeInternals.getState().x`
+  - Interpretation:
+    - the remaining blocker is now better described as missing scene-authoritative activator geometry rather than another small pane routing bug
+    - do not spend the next automated pass on another pane capture timing tweak, another node-bounds section filter, another client/flow coordinate adjustment, or another hidden-anchor-center retry on this same lane
+    - the correct next step is a human architectural replan around a stronger visible-hit publication or scene-owned activation primitive
+- Verification:
+  - `./scripts/dev-runtime-info.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.XodLT2/loop-001/run-001/worktree-ai.log`
+    - result: returned fresh one-shot bootstrap URLs for the live `3068/8068` worktree runtime used by the blocker probes
+  - headless `@playwright/test` node probes against fresh bootstrap URLs
+    - result: `browser.columnWidth` still mounted inline CodeMirror from a real pane click, while `chat.permissionMode` still failed from its current pane-owned center point and the matching flow point still belonged to no containing measured section nodes
+- CDP visual check:
+  - not run because no product UI source changes were landed in this iteration
+- Next action:
+  - stop the autonomous loop for a human architectural decision on scene-authoritative activator geometry before spending another iteration on the same chat pane lane
+LOOP_TERMINAL_MARKER: replan_required
+
 ## 2026-04-21 run 062
 
 - Item: Retry the canonical `settings-section__chatSectionDefault` / `chat.permissionMode` lane through the existing pane-capture consumer path and stop the loop if one bounded retry still cannot produce a real visible-click handoff.
