@@ -24,12 +24,11 @@ type pythonPayloadFieldSpec struct {
 }
 
 type pythonEndpointMethodSpec struct {
-	ConstantName          string
-	EndpointName          string
-	MethodName            string
-	RequestName           string
-	ResponseType          string
-	ResponseValidationArg string
+	ConstantName string
+	EndpointName string
+	MethodName   string
+	RequestName  string
+	ResponseType string
 }
 
 func BuildPythonClient() (GeneratedPythonClient, error) {
@@ -55,12 +54,11 @@ func BuildPythonClient() (GeneratedPythonClient, error) {
 			importSet[strings.TrimSpace(line)] = struct{}{}
 		}
 		endpoints = append(endpoints, pythonEndpointMethodSpec{
-			ConstantName:          pythonEndpointConstantName(spec.EndpointName),
-			EndpointName:          spec.EndpointName,
-			MethodName:            spec.MethodName,
-			RequestName:           requestName,
-			ResponseType:          spec.ResponseType,
-			ResponseValidationArg: pythonResponseValidationArg(spec.ResponseType),
+			ConstantName: pythonEndpointConstantName(spec.EndpointName),
+			EndpointName: spec.EndpointName,
+			MethodName:   spec.MethodName,
+			RequestName:  requestName,
+			ResponseType: spec.ResponseType,
 		})
 	}
 
@@ -246,14 +244,6 @@ func pythonEndpointConstantName(endpointName string) string {
 	return "ROUTER_ENDPOINT_" + strings.Join(upperParts, "_")
 }
 
-func pythonResponseValidationArg(responseType string) string {
-	trimmed := strings.TrimSpace(responseType)
-	if trimmed == "None" {
-		return "type(None)"
-	}
-	return trimmed
-}
-
 func renderPythonClientModule(
 	generatedHeader string,
 	importLines []string,
@@ -264,7 +254,6 @@ func renderPythonClientModule(
 	builder.WriteString(generatedHeader)
 	builder.WriteString("\n\n")
 	builder.WriteString("from typing import Awaitable, Callable, NotRequired, TypedDict\n")
-	builder.WriteString("from pydantic import TypeAdapter\n")
 	if len(importLines) > 0 {
 		builder.WriteString("\n")
 		for _, line := range importLines {
@@ -325,9 +314,7 @@ func writePythonEndpointMethod(builder *strings.Builder, endpoint pythonEndpoint
 	builder.WriteString(") -> ")
 	builder.WriteString(endpoint.ResponseType)
 	builder.WriteString(":\n")
-	builder.WriteString("        return TypeAdapter(")
-	builder.WriteString(endpoint.ResponseValidationArg)
-	builder.WriteString(").validate_python(await self._caller(")
+	builder.WriteString("        return await self._caller(")
 	builder.WriteString(endpoint.ConstantName)
-	builder.WriteString(", payload))\n")
+	builder.WriteString(", payload)\n")
 }

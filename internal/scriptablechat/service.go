@@ -68,7 +68,7 @@ type Chat struct {
 	LastUpdated     time.Time        `json:"lastUpdated" py_import:"from setta.utils.timestamps import get_now_timestamp" py_default:"Field(default_factory=get_now_timestamp)"`
 	LLMConfig       llmconfig.Config `json:"llmConfig" py_type:"LLMConfig"`
 	ProjectConfigID *string          `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
-	Messages        []map[string]any `json:"messages" shared_schema_items_ref:"BaseChatMessageUnion" py_type:"list[BaseChatMessageUnion]" py_default:"Field(default_factory=list)"`
+	Messages        []map[string]any `json:"messages" shared_schema_items_ref:"BaseChatMessageUnion"`
 	SystemPrompt    *string          `json:"systemPrompt"`
 }
 

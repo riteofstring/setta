@@ -42,6 +42,7 @@ type ParamSwitchProps = {
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  lightweightNestedLeafRows?: boolean;
 };
 
 type RealParamSwitchState = {
@@ -282,6 +283,76 @@ function resolveParamBackgroundClass({
   return resolveParamSelectionClass(hasSectionStyleTheme);
 }
 
+function shouldFlattenLightweightNestedLeafRow({
+  bg,
+  border,
+  dndEnabled,
+  hasChildren,
+  isKwarg,
+  lightweightNestedLeafRows,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  hasChildren: boolean;
+  isKwarg: boolean;
+  lightweightNestedLeafRows: boolean;
+}) {
+  return (
+    lightweightNestedLeafRows &&
+    !hasChildren &&
+    shouldFlattenLightweightRowBody({
+      bg,
+      border,
+      dndEnabled,
+      isKwarg,
+    })
+  );
+}
+
+function shouldFlattenLightweightNestedGroupRow({
+  bg,
+  border,
+  dndEnabled,
+  hasChildren,
+  isKwarg,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  hasChildren: boolean;
+  isKwarg: boolean;
+}) {
+  return (
+    hasChildren &&
+    shouldFlattenLightweightRowBody({
+      bg,
+      border,
+      dndEnabled,
+      isKwarg,
+    })
+  );
+}
+
+function shouldFlattenLightweightRowBody({
+  bg,
+  border,
+  dndEnabled,
+  isKwarg,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  isKwarg: boolean;
+}) {
+  return (
+    !isKwarg &&
+    !dndEnabled &&
+    bg === "transition-colors rounded-sm" &&
+    border === ""
+  );
+}
+
 function resolveParamBorderClass({
   hasError,
   isFocusedSearchResult,
@@ -398,6 +469,7 @@ function SortableRealParamSwitchRow({
   listKey,
   paramChildren,
   label,
+  lightweightNestedLeafRows = false,
   ...props
 }: ParamSwitchProps & {
   bg: string;
@@ -444,6 +516,21 @@ function SortableRealParamSwitchRow({
   return (
     <ParamContainer
       {...props}
+      flattenLightweightNestedLeafRow={shouldFlattenLightweightNestedLeafRow({
+        bg: props.bg,
+        border: props.border,
+        dndEnabled,
+        hasChildren: hasNested,
+        isKwarg: props.isKwarg,
+        lightweightNestedLeafRows,
+      })}
+      flattenLightweightNestedGroupRow={shouldFlattenLightweightNestedGroupRow({
+        bg: props.bg,
+        border: props.border,
+        dndEnabled,
+        hasChildren: hasNested,
+        isKwarg: props.isKwarg,
+      })}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       listKey={listKey}
