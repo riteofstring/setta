@@ -14,6 +14,7 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -759,6 +760,12 @@ describe("ParamUI canvas-owned resting text", () => {
         "settings-codeobj__promptSectionDefault__promptSectionDefault__format",
       sectionId: PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       value: "Jinja",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__languageServer__languageServer__basedpyright__analysis__diagnosticSeverityOverrides__reportUnknownVariableType",
+      sectionId: LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "none",
     },
   ])(
     "hides the code-like cluster resting text on the canvas path for $sectionId",

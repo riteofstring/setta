@@ -9,6 +9,55 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The `languageServer` nested diagnostic resting-text lane is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-language-server-nested-resting-text-rerun.md`.
+  - canonical target section: `settings-section__languageServer`
+  - focused leaf proof row:
+    - `settings-codeobj__languageServer__languageServer__basedpyright__analysis__diagnosticSeverityOverrides__reportUnknownVariableType`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats `settings-section__languageServer` as canvas-owned resting text, canvas-owned resting param-label text, lightweight nested children, and lightweight text underline
+    - the existing `frontend/src/components/Params/ParamUIs/ParamUI.tsx` text path and `frontend/src/components/Params/ParamContainer.tsx` nested-child path pick up that ownership without a new renderer branch
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-language-server-resting-text.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - at rest, `settings-section__languageServer` now reports:
+      - `lightweightRestingTextCount: 4`
+      - `underlineCount: 4`
+      - `nestedGuideLightweightCount: 3`
+      - `nestedGuideWrapperDivCount: 0`
+      - `liveEditorCount: 0`
+    - first-click activation on `Report Unknown Variable Type` mounted exactly one live CodeMirror editor in place
+    - after activation, `remainingLightweightRestingTextCount` dropped from `4` to `3`
+    - the focused row rect stayed stable within `<= 2px` on `x`, `y`, `width`, and `height`
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 21`
+    - `totalRemainingValueElementCount: 39`
+    - `settings-section__languageServer` no longer appears in the top whole-scene remaining-value ranking
+    - the new top remaining section is now `settings-section__backend` with `21` remaining value elements across `12` rows
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6713`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.13`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 14856`
+  - compared against the prior retained-boundary rerun:
+    - `totalRemainingValueRowCount: 28 -> 21`
+    - `totalRemainingValueElementCount: 87 -> 39`
+    - `documentNodeCount: 6728 -> 6713`
+    - `raf.meanMs: 94.6 -> 94.13`
+    - `longTasks.totalMs: 15117 -> 14856`
+  - interpretation:
+    - this closes the single-section `languageServer` fallback lane as product code instead of continuing another repeated switch-shell or resting-text family harvest
+    - the next default frontier is now the `settings-section__backend` plain text-value rows such as `Auto Backup Freq`, `Auto Backup Keep Last N`, and `Default Terminal Shell`
+    - `settings-section__gui` remains a smaller local survivor, but its remaining surface is a different color-input wrapper/icon primitive and should stay secondary until the backend text-value lane is evaluated
+  - CDP visual check is deferred:
+    - two fresh headless CDP sub-agent attempts reached the live worktree runtime
+    - both attempts could confirm the target DOM exists, but neither could produce a trustworthy visual view of the `Basedpyright -> Analysis -> Diagnostic Severity Overrides` chain or the inline editor transition
+    - treat this slice as `deferred_visual_gate` rather than a passed visual confirmation
 - The retained resting-text switch value-shell boundary is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-resting-text-switch-value-shell-boundary-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof section: `settings-section__promptSectionDefault`

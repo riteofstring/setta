@@ -157,6 +157,65 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-19 067
 
+- Item: Land the `languageServer` nested diagnostic resting-text lane on the existing retained canvas path.
+- Status: `done`
+- Details:
+  - Reused the current section-id ownership seams instead of adding a new renderer branch.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats `settings-section__languageServer` as:
+    - canvas-owned resting text
+    - canvas-owned resting param-label text
+    - lightweight nested children
+    - lightweight text underline
+  - The live product behavior stayed on the existing generic paths:
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` picked up the leaf text rows through the retained resting-text branch
+    - `frontend/src/components/Params/ParamContainer.tsx` dropped the extra nested-child wrapper through the existing lightweight nested-children path
+  - Focused section proof landed in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-language-server-resting-text.spec.ts`
+  - Focused live worktree proof on `settings-section__languageServer`:
+    - at rest:
+      - `lightweightRestingTextCount: 4`
+      - `underlineCount: 4`
+      - `nestedGuideLightweightCount: 3`
+      - `nestedGuideWrapperDivCount: 0`
+      - `liveEditorCount: 0`
+    - first-click activation on `Report Unknown Variable Type` mounted exactly one live editor
+    - the focused row stayed stable within `<= 2px` on `x`, `y`, `width`, and `height`
+  - Fresh whole-scene rerank after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 21`
+    - `totalRemainingValueElementCount: 39`
+    - `settings-section__languageServer` dropped out of the top remaining-value ranking entirely
+    - `settings-section__backend` is now the top remaining section with `21` elements across `12` rows
+  - Fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6713`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.13`
+    - `raf.p95Ms: 166.8`
+    - `longTasks.totalMs: 14856`
+  - Interpretation:
+    - this closes the `languageServer` fallback lane as product code instead of continuing another repeated family harvest
+    - the next default frontier is now the `settings-section__backend` plain text-value lane
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - result: `2 passed` with `68` tests green
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-013/worktree-ai.log -- tests/e2e/settings/settings-all-settings-language-server-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.9s)` on the live worktree runtime
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-013/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (55.7s)` with the rerank and dense metrics recorded above
+- CDP visual check is deferred:
+  - two fresh headless CDP sub-agent attempts reached the live worktree runtime
+  - both attempts confirmed the target DOM exists but could not produce a trustworthy visual view of the `Basedpyright -> Analysis -> Diagnostic Severity Overrides` chain or the inline editor transition
+  - record this iteration as `deferred_visual_gate`, not as a passed visual confirmation
+- Next action:
+  - land one bounded backend plain text-value slice on `settings-section__backend` and rerun the whole-scene ranking plus dense baseline to confirm the next global drop
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 067
+
 - Item: Move lightweight switch value-shell flattening to the retained resting-text ownership boundary.
 - Status: `done`
 - Details:
