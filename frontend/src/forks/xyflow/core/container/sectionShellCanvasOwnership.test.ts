@@ -39,6 +39,7 @@ import {
   isCanvasOwnedSectionLightweightNestedChildren,
   isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightMenuTrigger,
+  isCanvasOwnedSectionMotionHiddenBody,
   isCanvasOwnedSectionLightweightParamFilter,
   isCanvasOwnedSectionLightweightSwitchValueShell,
   isCanvasOwnedSectionLightweightSwitchTrack,
@@ -489,6 +490,17 @@ describe("sectionShellCanvasOwnership", () => {
       );
       expect(isCanvasOwnedSectionParamLabelRestingText(sectionId)).toBe(true);
     }
+  });
+
+  it("targets the shared param-codeobj cluster for motion-hidden body suppression", () => {
+    for (const sectionId of SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS) {
+      expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
+    }
+    expect(
+      isCanvasOwnedSectionMotionHiddenBody(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(false);
   });
 
   it("targets param-label resting text across the current settings resting-text boundary", () => {

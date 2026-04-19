@@ -155,6 +155,49 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 077
+
+- Item: Land a motion-time body overlay on the shared param-codeobj canvas-owned settings family.
+- Status: `done`
+- Details:
+  - Chose a real inactive-row overlay slice instead of another closed resting-text/value cleanup pass.
+  - Added `isCanvasOwnedSectionMotionHiddenBody(...)` in `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` for the shared param-codeobj family.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so eligible shared param-codeobj bodies render with `data-canvas-owned-motion-body-root="true"` and flip to `visibility: hidden` with `data-canvas-owned-motion-body-hidden="true"` while `viewportInteractionActive` is active and the section is not currently active.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-param-codeobj-motion-body-overlay.spec.ts`
+  - Live canary result on the current worktree runtime:
+    - blank pane point used by the probe: `x=24`, `y=60`
+    - initial state:
+      - `hiddenBodyCount: 0`
+      - rotary and slider motion-body roots visible
+    - during one renderer wheel-zoom interaction:
+      - `hiddenBodyCount: 10`
+      - rotary and slider motion-body roots hidden
+      - both target wrappers computed `visibility: hidden`
+    - after the interaction settled:
+      - `hiddenBodyCount: 0`
+      - rotary and slider motion-body roots visible again
+  - Interpretation:
+    - this is a real motion-time inactive-row overlay primitive on the shared param-codeobj family, not another at-rest value seam
+    - the existing transform-only dense baseline probe does not drive `viewportInteractionActive`, so it cannot measure this slice yet
+    - the next bounded frontier should be a motion-aware dense probe adaptation or companion probe that drives real viewport interaction before widening the overlay family again
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-param-codeobj-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-param-codeobj-motion-body-overlay.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (22.8s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - exactly one retained graph canvas was mounted
+  - `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault` were visually intact at rest
+  - a simple `zoom in` followed by `fit view` left the graph intact with no obvious blank or detached artifact around the target sections
+- Next action:
+  - adapt or add one dense `settings` -> `All Settings` probe that drives real viewport interaction so the new motion-body overlay primitive can be measured against the branch baseline before deciding whether to widen it
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 076
 
 - Item: Move the final `nestedParamCodeObjDefault` resting row-body/value lane onto the retained canvas path.

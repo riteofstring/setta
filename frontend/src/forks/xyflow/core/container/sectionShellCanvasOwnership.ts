@@ -375,6 +375,12 @@ export function isCanvasOwnedSectionLightweightTextUnderline(
   );
 }
 
+export function isCanvasOwnedSectionMotionHiddenBody(sectionId: string) {
+  return SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET.has(
+    sectionId,
+  );
+}
+
 export function isCanvasOwnedSectionNestedGuide(sectionId: string) {
   return (
     isCanvasOwnedSectionShell(sectionId) ||
