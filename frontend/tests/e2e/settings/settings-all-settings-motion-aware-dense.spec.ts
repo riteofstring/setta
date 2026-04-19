@@ -45,6 +45,17 @@ type MotionHiddenBodyStats = {
   totalMotionBodyRootCount: number;
 };
 
+type MotionHiddenSubtreeChurnStats = {
+  childListMutationCount: number;
+  hiddenTransitionSectionCount: number;
+  hiddenTransitionSectionIds: string[];
+  observedRootCount: number;
+  restoredTransitionSectionCount: number;
+  restoredTransitionSectionIds: string[];
+  subtreeAddedElementCount: number;
+  subtreeRemovedElementCount: number;
+};
+
 type MotionAwareDenseMetrics = {
   blankPanePoint: BlankPanePoint;
   viewModeName: string;
@@ -63,6 +74,7 @@ type MotionAwareDenseMetrics = {
   raf: DeltaStats;
   longTasks: LongTaskStats;
   motionHiddenBodies: MotionHiddenBodyStats;
+  motionHiddenSubtreeChurn: MotionHiddenSubtreeChurnStats;
 };
 
 test("settings All Settings motion-aware dense probe reports real viewport-motion metrics", async ({
@@ -197,9 +209,24 @@ async function measureAllSettingsMotionAwareDense(
     const readHiddenBodyCount = (): number =>
       document.querySelectorAll('[data-canvas-owned-motion-body-hidden="true"]')
         .length;
+    const countElementNodes = (nodes: Iterable<Node>): number => {
+      let count = 0;
+      for (const node of nodes) {
+        if (!(node instanceof Element)) {
+          continue;
+        }
+        count += 1 + node.querySelectorAll("*").length;
+      }
+      return count;
+    };
 
     const flowNodes = Array.from(
       document.querySelectorAll<HTMLElement>(".react-flow__node"),
+    );
+    const motionBodyRoots = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-canvas-owned-motion-body-root="true"]',
+      ),
     );
     const projectChatChromeCount = [
       '[data-testid="project-chat-floating-window"]',
@@ -243,14 +270,51 @@ async function measureAllSettingsMotionAwareDense(
     }
 
     const viewportStart = parseTransform();
-    const totalMotionBodyRootCount = document.querySelectorAll(
-      '[data-canvas-owned-motion-body-root="true"]',
-    ).length;
+    const totalMotionBodyRootCount = motionBodyRoots.length;
     const rafDeltas: number[] = [];
     const totalFrames = 120;
     let motionSampleCount = 0;
     let motionHiddenBodyPeakCount = 0;
     let motionHiddenBodyFrames = 0;
+    let motionHiddenSubtreeMutationCount = 0;
+    let motionHiddenSubtreeAddedElementCount = 0;
+    let motionHiddenSubtreeRemovedElementCount = 0;
+    const hiddenTransitionSectionIds = new Set<string>();
+    const restoredTransitionSectionIds = new Set<string>();
+    const motionBodyObservers = motionBodyRoots.map((root) => {
+      const sectionId =
+        root.closest<HTMLElement>("section[data-section-id]")?.dataset
+          .sectionId ?? null;
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type === "attributes") {
+            if (!sectionId) {
+              continue;
+            }
+            if (root.dataset.canvasOwnedMotionBodyHidden === "true") {
+              hiddenTransitionSectionIds.add(sectionId);
+            } else {
+              restoredTransitionSectionIds.add(sectionId);
+            }
+            continue;
+          }
+
+          motionHiddenSubtreeMutationCount += 1;
+          motionHiddenSubtreeAddedElementCount += countElementNodes(
+            record.addedNodes,
+          );
+          motionHiddenSubtreeRemovedElementCount += countElementNodes(
+            record.removedNodes,
+          );
+        }
+      });
+      observer.observe(root, {
+        attributeFilter: ["data-canvas-owned-motion-body-hidden"],
+        attributes: true,
+        childList: true,
+      });
+      return observer;
+    });
 
     await new Promise<void>((resolve) => {
       let frame = 0;
@@ -307,6 +371,9 @@ async function measureAllSettingsMotionAwareDense(
       window.requestAnimationFrame(() => resolve());
     });
 
+    for (const observer of motionBodyObservers) {
+      observer.disconnect();
+    }
     longTaskObserver?.disconnect();
 
     const sortedDeltas = [...rafDeltas].sort((left, right) => left - right);
@@ -376,6 +443,19 @@ async function measureAllSettingsMotionAwareDense(
         peakHiddenBodyCount: motionHiddenBodyPeakCount,
         settledHiddenBodyCount: readHiddenBodyCount(),
         totalMotionBodyRootCount,
+      },
+      motionHiddenSubtreeChurn: {
+        childListMutationCount: motionHiddenSubtreeMutationCount,
+        hiddenTransitionSectionCount: hiddenTransitionSectionIds.size,
+        hiddenTransitionSectionIds: [...hiddenTransitionSectionIds].slice(0, 8),
+        observedRootCount: motionBodyRoots.length,
+        restoredTransitionSectionCount: restoredTransitionSectionIds.size,
+        restoredTransitionSectionIds: [...restoredTransitionSectionIds].slice(
+          0,
+          8,
+        ),
+        subtreeAddedElementCount: motionHiddenSubtreeAddedElementCount,
+        subtreeRemovedElementCount: motionHiddenSubtreeRemovedElementCount,
       },
     };
   }, blankPanePoint);

@@ -8,7 +8,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `035`: `observer_refresh_slice_done_continue_retained_graph_attribution`.
+- Decision for the 2026-04-20 checkpoint after run `036`: `motion_hidden_subtree_churn_attributed_continue`.
 - Recent progress is real:
   - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
@@ -17,24 +17,69 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `033` refreshed the stale row-body/article-chrome frontier on the live run-033 runtime: the rerank recorded `totalRemainingRowCount 0`, `totalRemainingVisibleElementCount 0`, and `commonRemainingKinds []` while the paired dense probe stayed in the same `~43ms` band (`documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 42.99`, `longTasks.totalMs 6094`)
   - run `034` removed one concrete retained-canvas redraw/re-measure path on the canonical `settings-section__browserSectionDefault` lane by keeping enabled backdrop measurement observers wired through `viewportInteractionActive` instead of tearing them down and recreating them on every motion toggle
   - run `035` removed the remaining mutation-driven observer refresh churn on that same lane by deferring subtree-triggered backdrop observer refresh until `viewportInteractionActive` settles instead of rebuilding `ResizeObserver` graphs while measurements are suspended
+  - run `036` attributed the remaining dense-band interaction churn on that same lane to the motion-hidden section-body path by extending the live dense probe to count subtree detach/restore mutations; one normalized gesture still hid and restored all `45` motion-body roots and removed plus re-added `4230` element descendants
 - Diminishing returns are now visible:
   - runs `023`, `025`, `026`, `027`, `028`, and `029` all landed safe reducer work yet settled back into the same dense `~43ms` / `~5.8-6.0s` band, so the default micro-reducer lane is closed
   - run `031` closes `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport / guessed trace pass
   - run `033` closes the queued row-body/article-chrome survivor lane as stale on the current runtime, so another shell/body cleanup pass from the April 19 ranking would also be churn
   - run `034` closes the specific backdrop observer-churn lane here; the live motion proof stayed green, but the restarted dense rerun (`raf.meanMs 44.82`, `longTasks.totalMs 6544`) did not unlock a new whole-scene win, so do not spend the next pass on more `SectionShellBackdropCanvas` observer polish by inertia
   - run `035` closes the remaining backdrop mutation-refresh sub-lane too; the live motion proof stayed green, but the current-runtime dense rerun (`raf.meanMs 46.36`, `longTasks.totalMs 6719`) still did not unlock a new whole-scene win, so do not spend the next pass on more `SectionShellBackdropCanvas` observer-timing polish
+  - run `036` closes the current attribution question about whether the remaining band is still paying real motion-hidden subtree churn: it is, so do not spend the next automated pass on another observer-only or harness-only re-measurement of the same lane
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
   - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, or another backdrop-observer micro-pass on the same measurement families
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - the next real step must either:
-    - attribute the remaining `~43ms` / `~6s` band to one concrete retained-graph / renderer-side path on the live canary
-    - or land one broader canvas-side structural slice only if existing evidence already points to that path
-  - default retained-graph candidates are snapshot invalidation/reuse beyond the now-closed observer-timing paths, retained-scene redraw/paint invalidation, or motion-hidden-body orchestration that still fires even with the visible row-body frontier at zero
-  - treat the run-033 transparent headless canvas sample as verification ambiguity unless a more trustworthy visual path reproduces it; do not let that one sample force a rollback by itself
+  - the next real step should be a product slice that reduces motion-hidden subtree detach / restore churn on the live canary instead of another attribution pass
+  - current concrete candidate:
+    - avoid fully tearing down and rebuilding inactive motion-hidden section bodies during viewport interaction on the canonical browser lane
+  - keep snapshot invalidation/reuse or retained-scene redraw/paint invalidation as secondary candidates only if the motion-hidden product slice proves insufficient
+  - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
+
+- The motion-hidden subtree churn attribution slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-hidden-subtree-churn-attribution-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - implementation shape:
+    - no product runtime code changed in this iteration; the dense Playwright probe now observes each `[data-canvas-owned-motion-body-root="true"]` wrapper during one normalized gesture and records hide / restore transitions plus subtree add/remove counts
+    - the probe watches only the motion-body roots themselves, not the full document subtree, so this should be treated as attribution instrumentation rather than as a new clean checkpoint
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `canvasCount: 1`
+    - `raf.meanMs: 44.96`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1233.2`
+    - `longTasks.count: 7`
+    - `longTasks.totalMs: 6299`
+    - `longTasks.maxMs: 3805`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+    - `motionHiddenSubtreeChurn.observedRootCount: 45`
+    - `motionHiddenSubtreeChurn.hiddenTransitionSectionCount: 45`
+    - `motionHiddenSubtreeChurn.restoredTransitionSectionCount: 45`
+    - `motionHiddenSubtreeChurn.childListMutationCount: 180`
+    - `motionHiddenSubtreeChurn.subtreeRemovedElementCount: 4230`
+    - `motionHiddenSubtreeChurn.subtreeAddedElementCount: 4230`
+  - interpretation:
+    - the remaining dense-band interaction work is still paying full motion-hidden subtree detach / restore churn on the live canary; this is now a concrete product frontier rather than a guess
+    - the clean whole-scene checkpoint remains `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md`; this slice is attribution evidence, not the new baseline
+    - the next pass should land product code on motion-hidden subtree reuse or another bounded way to avoid rebuilding the inactive section-body forest during viewport interaction
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (42.6s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent on the current `3068/8068` runtime
+    - consumed a fresh bootstrap URL, normalized to `/settings` with `All Settings` active, confirmed `browserSectionDefault`, and used `fit view` once
+    - the single mounted canvas again sampled as transparent / visually unclear in headless CDP while no obvious detached shell/body artifact appeared
+    - treat this as repeated headless verification ambiguity, not as proof of a new renderer regression by itself
 
 - The backdrop mutation-refresh deferral slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-mutation-refresh-deferral-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

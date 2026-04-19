@@ -5706,3 +5706,28 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL; `/settings` mounted with `All Settings` active, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on a rendered graph surface, and there was no obvious blank/transparent canvas or detached shell/body artifact.
 - Next frontier: close the remaining `SectionShellBackdropCanvas` observer-timing lane and move to another retained-graph candidate such as retained-scene paint invalidation, snapshot invalidation/reuse beyond observer timing, or motion-hidden-body orchestration that still dominates the start/end interaction outlier.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 036
+
+- Landed a bounded attribution slice on the canonical `settings-section__browserSectionDefault` lane by extending the live dense probe to count motion-hidden subtree detach / restore churn during one normalized viewport gesture.
+- `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts` now observes each `[data-canvas-owned-motion-body-root="true"]` wrapper directly and records:
+  - hide / restore transitions by section id
+  - wrapper child-list mutation count
+  - total element descendants removed from and re-added to those wrappers
+- The fresh dense rerun on the current `3068/8068` runtime recorded `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 44.96`, `longTasks.totalMs 6299`, `motionHiddenBodies.totalMotionBodyRootCount 45`, `motionHiddenSubtreeChurn.hiddenTransitionSectionCount 45`, `motionHiddenSubtreeChurn.restoredTransitionSectionCount 45`, `motionHiddenSubtreeChurn.childListMutationCount 180`, `motionHiddenSubtreeChurn.subtreeRemovedElementCount 4230`, and `motionHiddenSubtreeChurn.subtreeAddedElementCount 4230`.
+- Interpretation:
+  - the remaining dense-band interaction work is still paying full inactive section-body subtree detach / restore churn on the live canary
+  - this closes the current attribution question for the motion-hidden lane, so the next pass should be product code on subtree reuse or another bounded way to avoid rebuilding that inactive body forest during viewport interaction
+  - keep `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the clean whole-scene checkpoint; this instrumentation rerun is evidence, not a new canonical baseline
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (42.6s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - `/settings` mounted with `All Settings` active, `browserSectionDefault` was present, and `fit view` was applied once
+    - the single mounted graph canvas again sampled as transparent / visually unclear in headless CDP while no obvious detached shell/body artifact appeared
+    - treat this as repeated headless verification ambiguity, not as standalone proof of a new renderer regression
+- Next frontier: land one bounded product slice that reduces motion-hidden subtree detach / restore churn on the canonical browser lane; do not spend the next automated pass on another observer-only or harness-only rerun of the same question.
+LOOP_TERMINAL_MARKER: none
