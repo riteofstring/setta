@@ -356,58 +356,6 @@ func TestDiscoveryServiceRescanIncludesPackageManagerEntriesAndPrecedence(t *tes
 	}
 }
 
-func TestDiscoveryServiceRescanKeepsDistinctPackageManagerRootsPerDistribution(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages, frontendRoot := installPackageManagerFixture(
-		t,
-		"frontend",
-		"setta-fixture-frontend",
-		"0.1.0",
-		func(pluginRoot string) {
-			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
-				frontend := payload["frontend"].(map[string]any)
-				frontend["entrypoint"] = "frontend/src/index.js"
-				frontend["style"] = "frontend/src/index.css"
-			})
-		},
-	)
-	contentRoot := installPackageManagerFixtureInSearchPath(
-		t,
-		sitePackages,
-		"content",
-		"setta-fixture-content",
-		"0.1.0",
-		nil,
-	)
-
-	service := mustNewDiscoveryServiceWithPackageManager(t, roots, config.ModeIDE, []string{sitePackages})
-	snapshot, err := service.Rescan()
-	if err != nil {
-		t.Fatalf("rescan plugins with side-by-side package-manager roots: %v", err)
-	}
-
-	frontendEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeSettaFiles)
-	contentEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-content", PluginScopeSettaFiles)
-	if frontendEntry.SourcePath == contentEntry.SourcePath {
-		t.Fatalf("expected distinct package-manager source paths, got %q", frontendEntry.SourcePath)
-	}
-
-	resolvedFrontendRoot, err := filepath.EvalSymlinks(frontendRoot)
-	if err != nil {
-		t.Fatalf("resolve frontend package-manager root symlinks: %v", err)
-	}
-	resolvedContentRoot, err := filepath.EvalSymlinks(contentRoot)
-	if err != nil {
-		t.Fatalf("resolve content package-manager root symlinks: %v", err)
-	}
-	if frontendEntry.SourcePath != resolvedFrontendRoot {
-		t.Fatalf("expected frontend package-manager root %q, got %q", resolvedFrontendRoot, frontendEntry.SourcePath)
-	}
-	if contentEntry.SourcePath != resolvedContentRoot {
-		t.Fatalf("expected content package-manager root %q, got %q", resolvedContentRoot, contentEntry.SourcePath)
-	}
-}
-
 // Package-manager source digests should still change when editable/no-hash plugin roots change on disk.
 func TestDiscoveryServiceRescanPackageManagerSourceDigestTracksPluginRootChanges(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

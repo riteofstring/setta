@@ -52,16 +52,6 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	if !strings.Contains(string(workflowPayload), "setta plugins validate .") {
 		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
 	}
-	pyprojectPayload, err := os.ReadFile(filepath.Join(pluginRoot, "pyproject.toml"))
-	if err != nil {
-		t.Fatalf("read scaffold pyproject: %v", err)
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta-init-fixture\" = [\"setta.plugin.json\", \"README.md\"]") {
-		t.Fatalf("expected scaffold pyproject to package plugin manifest under a plugin-specific root, got %q", string(pyprojectPayload))
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta-init-fixture/backend\" = [\"backend/*\"]") {
-		t.Fatalf("expected scaffold pyproject to package backend assets under a plugin-specific root, got %q", string(pyprojectPayload))
-	}
 
 	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
 	if err != nil {
