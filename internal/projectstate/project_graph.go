@@ -98,7 +98,7 @@ type Section struct {
 	VariantIDs       []string `json:"variantIds,omitempty"`
 	DefaultVariantID string   `json:"defaultVariantId,omitempty"`
 	ParentSectionID  string   `json:"parentSectionId,omitempty"`
-	SharedModifier   RawJSON  `json:"sharedModifier,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
+	SharedModifier   RawJSON  `json:"sharedModifier,omitempty"`
 	UnsharedKeys     []string `json:"unsharedKeys,omitempty"`
 }
 
@@ -114,7 +114,7 @@ type SectionVariant struct {
 	Name             string   `json:"name,omitempty"`
 	ImplID           string   `json:"implId"`
 	NonPresetImplIDs []string `json:"nonPresetImplIds,omitempty"`
-	Modifier         RawJSON  `json:"modifier,omitempty" ts_type:"Record<string, unknown>" shared_schema_map_value_ref:"RawMessage"`
+	Modifier         RawJSON  `json:"modifier,omitempty"`
 	IsFrozen         bool     `json:"isFrozen,omitempty"`
 }
 
@@ -638,7 +638,7 @@ func (p *Project) normalizeSection(sectionKey string, section Section) (Section,
 	if err := p.validateSectionParent(section); err != nil {
 		return Section{}, err
 	}
-	sharedModifier, err := normalizeRawJSONObject(
+	sharedModifier, err := normalizeRawJSON(
 		section.SharedModifier,
 		fmt.Sprintf("section %q sharedModifier", section.ID),
 	)
@@ -708,10 +708,7 @@ func (p *Project) normalizeSectionVariants() error {
 		if _, ok := p.SectionImpls[variant.ImplID]; !ok {
 			return fmt.Errorf("%w: variant=%q impl=%q", ErrSectionImplNotFound, variant.ID, variant.ImplID)
 		}
-		modifier, err := normalizeRawJSONObject(
-			variant.Modifier,
-			fmt.Sprintf("section variant %q modifier", variant.ID),
-		)
+		modifier, err := normalizeRawJSON(variant.Modifier, fmt.Sprintf("section variant %q modifier", variant.ID))
 		if err != nil {
 			return err
 		}

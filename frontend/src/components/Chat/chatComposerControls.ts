@@ -6,6 +6,12 @@ import {
   ProjectChatUIConfig,
   type ChatPermissionMode,
 } from "utils/generatedTypes";
+import {
+  buildAppGenerationSlashCommandDefinitions,
+  getAppGenerationSlashCommandByAction,
+  resolveAppGenerationModeForSlashAction,
+  type AppGenerationSlashCommandAction,
+} from "./appGenerationSlashCommands";
 
 const CHAT_PERMISSION_MODES = ProjectChatUIConfig.permissionModeOptions.map(
   (option) => option.value,
@@ -17,14 +23,6 @@ const CHAT_PERMISSION_MODE_SUMMARY =
     : CHAT_PERMISSION_MODES[0] ?? "";
 
 export type ChatPermissionModeValue = ChatPermissionMode;
-
-type ManagedBuiltInSlashCommandAction =
-  | "new"
-  | "resume"
-  | "model"
-  | "permissions"
-  | "search"
-  | "help";
 
 export type ManagedChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
@@ -91,10 +89,15 @@ function resolveToggleArg(
 }
 
 export type ChatSlashCommandAction =
-  | ManagedBuiltInSlashCommandAction
+  | "new"
+  | "resume"
+  | AppGenerationSlashCommandAction
+  | "model"
+  | "permissions"
+  | "search"
+  | "help"
   | "custom_prompt"
-  | "native_prompt"
-  | (string & {});
+  | "native_prompt";
 
 export type ChatSlashCommandDefinition = {
   command: string;
@@ -102,16 +105,23 @@ export type ChatSlashCommandDefinition = {
   summary: string;
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
-  requiresImageAttachment?: boolean;
   unavailableFeedback?: string;
 };
+
+type ManagedChatSlashCommandAction = Exclude<
+  ChatSlashCommandAction,
+  "custom_prompt" | "native_prompt"
+>;
+
+type ManagedNonAppSlashCommandAction = Exclude<
+  ManagedChatSlashCommandAction,
+  AppGenerationSlashCommandAction
+>;
 
 type ChatSlashCommandInput = {
   action: ChatSlashCommandAction;
   args: string[];
   promptTemplate?: string;
-  appGenerationMode?: AppGenerationMode | null;
-  requiresImageAttachment?: boolean;
 };
 
 type ChatSlashCommandExecutionResult =
@@ -131,7 +141,6 @@ type ParsedSlashCommand = {
   rawSuffix: string;
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
-  requiresImageAttachment?: boolean;
   unavailableFeedback?: string;
 };
 
@@ -139,7 +148,7 @@ type ChatSlashCommandCapabilities = {
   model?: boolean;
   permissions?: boolean;
   search?: boolean;
-  appGenerationCommands?: ChatSlashCommandDefinition[];
+  appGenerationModes?: boolean;
 };
 
 type ManagedChatSlashCommandArgs = {
@@ -159,7 +168,7 @@ type ManagedChatSlashCommandArgs = {
 };
 
 const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
-  ManagedBuiltInSlashCommandAction,
+  ManagedNonAppSlashCommandAction,
   ChatSlashCommandDefinition
 > = {
   new: { command: "/new", action: "new", summary: "Start a new chat thread." },
@@ -219,8 +228,8 @@ export function buildChatSlashCommands(
   ];
   appendSlashCommandsIfEnabled(
     commands,
-    (capabilities.appGenerationCommands?.length ?? 0) > 0,
-    capabilities.appGenerationCommands ?? [],
+    capabilities.appGenerationModes ?? false,
+    buildAppGenerationSlashCommandDefinitions(),
   );
   appendSlashCommandIfEnabled(
     commands,
@@ -307,22 +316,19 @@ function executeSearchSlashCommand({
   return { feedback: `Search ${nextValue ? "enabled" : "disabled"}.` };
 }
 
-function executeAppGenerationSlashCommand({
-  command,
-  slashCommands,
-}: Pick<
-  ManagedChatSlashCommandArgs,
-  "command" | "slashCommands"
->): ChatSlashCommandExecutionResult {
-  if (!command.appGenerationMode || !command.promptTemplate?.trim()) {
+function executeAppGenerationSlashCommand(
+  command: ChatSlashCommandInput,
+): ChatSlashCommandExecutionResult {
+  const nextMode = resolveAppGenerationModeForSlashAction(command.action);
+  const appGenerationCommand = getAppGenerationSlashCommandByAction(
+    command.action,
+  );
+  if (!nextMode || !appGenerationCommand || !command.promptTemplate?.trim()) {
     return false;
   }
-  const registeredCommand =
-    slashCommands.find((entry) => entry.action === command.action)?.command ??
-    "app command";
   return {
-    appGenerationMode: command.appGenerationMode,
-    feedback: `Submitted ${registeredCommand}.`,
+    appGenerationMode: nextMode,
+    feedback: `Submitted ${appGenerationCommand.command}.`,
     submitPromptTemplate: true,
   };
 }
@@ -339,6 +345,17 @@ function executeModelSlashCommand(
   };
 }
 
+function isAppGenerationSlashCommandAction(
+  action: ChatSlashCommandAction,
+): action is AppGenerationSlashCommandAction {
+  return (
+    action === "app_json_render" ||
+    action === "app_json_render_with_image" ||
+    action === "app_prompt_builder" ||
+    action === "app_mcp_server"
+  );
+}
+
 export async function executeManagedChatSlashCommand({
   command,
   slashCommands,
@@ -351,12 +368,12 @@ export async function executeManagedChatSlashCommand({
   searchEnabled,
   onSetSearchEnabled,
 }: ManagedChatSlashCommandArgs): Promise<ChatSlashCommandExecutionResult> {
-  if (command.appGenerationMode) {
-    return executeAppGenerationSlashCommand({ command, slashCommands });
+  if (isAppGenerationSlashCommandAction(command.action)) {
+    return executeAppGenerationSlashCommand(command);
   }
 
   const handlers: Record<
-    Exclude<ManagedBuiltInSlashCommandAction, "help">,
+    Exclude<ManagedNonAppSlashCommandAction, "help">,
     () =>
       | Promise<ChatSlashCommandExecutionResult>
       | ChatSlashCommandExecutionResult
@@ -390,16 +407,11 @@ export async function executeManagedChatSlashCommand({
     };
   }
 
-  if (
-    command.action !== "model" &&
-    command.action !== "new" &&
-    command.action !== "permissions" &&
-    command.action !== "resume" &&
-    command.action !== "search"
-  ) {
+  const handler = handlers[command.action];
+  if (!handler) {
     return false;
   }
-  return await handlers[command.action]();
+  return await handler();
 }
 
 export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
@@ -462,7 +474,6 @@ export function buildCustomPromptSlashCommandDefinitions(
       appGenerationMode: parseAppGenerationMode(
         customCommand.appGenerationMode,
       ),
-      requiresImageAttachment: false,
     });
   }
   return normalized;
@@ -539,12 +550,6 @@ function buildParsedSlashCommand(
   }
   if (Object.prototype.hasOwnProperty.call(definition, "appGenerationMode")) {
     parsedCommand.appGenerationMode = definition.appGenerationMode ?? null;
-  }
-  if (
-    Object.prototype.hasOwnProperty.call(definition, "requiresImageAttachment")
-  ) {
-    parsedCommand.requiresImageAttachment =
-      definition.requiresImageAttachment === true;
   }
   if (definition.unavailableFeedback) {
     parsedCommand.unavailableFeedback = definition.unavailableFeedback;

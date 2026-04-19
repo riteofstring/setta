@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  LanguageServerSelectionStatus,
   PluginListEntry,
   PluginListResponse,
   PluginRestartCapability,
@@ -12,10 +11,6 @@ import {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
-import {
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "./appSubsystemRuntime";
 import { type PluginPaneIconName } from "./paneIcons";
 import type {
   PluginFrontendError,
@@ -77,19 +72,11 @@ type PluginRuntimeStore = {
   statusMessage: string | null;
   schemaVersion: number | null;
   serverMode: PluginServerMode | null;
-  appSubsystemCapabilities:
-    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
-    | null;
   restartCapability: PluginRestartCapability | null;
   pluginListById: Record<string, PluginListEntry>;
   sortedPluginListEntries: PluginListEntry[];
   pluginStatusById: Record<string, PluginStatusEntry>;
   statusEntries: PluginStatusEntry[];
-  languageServerSelectionsByLanguage: Record<
-    string,
-    LanguageServerSelectionStatus
-  >;
-  languageServerSelections: LanguageServerSelectionStatus[];
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
   sortedSectionKinds: RegisteredPluginSectionKind[];
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
@@ -106,14 +93,11 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusMessage: null,
   schemaVersion: null,
   serverMode: null,
-  appSubsystemCapabilities: null,
   restartCapability: null,
   pluginListById: {},
   sortedPluginListEntries: [],
   pluginStatusById: {},
   statusEntries: [],
-  languageServerSelectionsByLanguage: {},
-  languageServerSelections: [],
   sectionKindsByKey: {},
   sortedSectionKinds: [],
   panesByPluginId: {},
@@ -164,20 +148,8 @@ const pluginStatusEntryComparisonKeys = [
   "sourceDigestSha256",
   "shadowedBySourcePath",
   "enablementSource",
-  "appliedLanguageServerLanguages",
   "restartRequired",
 ] as const satisfies readonly (keyof PluginStatusEntry)[];
-
-const languageServerSelectionStatusComparisonKeys = [
-  "language",
-  "selectionState",
-  "severity",
-  "status",
-  "message",
-  "selectedPluginId",
-  "appliedPluginId",
-  "restartRequired",
-] as const satisfies readonly (keyof LanguageServerSelectionStatus)[];
 
 const effectiveCapabilityDigestByPluginListEntry = new WeakMap<
   PluginListEntry,
@@ -189,7 +161,6 @@ const effectiveCapabilityDigestByStatusEntry = new WeakMap<
 >();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 let pluginRuntimeRefreshQueued = false;
-let queuedPluginRuntimeResponse: PluginRuntimeResponse | null = null;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
 
 export const usePluginRuntimeStore = createWithEqualityFn<PluginRuntimeStore>(
@@ -208,21 +179,8 @@ export function usePluginRuntimeBootstrap(enabled: boolean): void {
 }
 
 export async function refreshPluginRuntime(): Promise<void> {
-  pluginRuntimeRefreshQueued = true;
   if (pluginRuntimeLoadPromise) {
-    return pluginRuntimeLoadPromise;
-  }
-  pluginRuntimeLoadPromise = runQueuedPluginRuntimeRefreshes().finally(() => {
-    pluginRuntimeLoadPromise = null;
-  });
-  return pluginRuntimeLoadPromise;
-}
-
-export async function receivePluginRuntimeUpdate(
-  runtimeResponse: PluginRuntimeResponse,
-): Promise<void> {
-  queuedPluginRuntimeResponse = runtimeResponse;
-  if (pluginRuntimeLoadPromise) {
+    pluginRuntimeRefreshQueued = true;
     return pluginRuntimeLoadPromise;
   }
   pluginRuntimeLoadPromise = runQueuedPluginRuntimeRefreshes().finally(() => {
@@ -232,19 +190,14 @@ export async function receivePluginRuntimeUpdate(
 }
 
 async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
-  while (queuedPluginRuntimeResponse !== null || pluginRuntimeRefreshQueued) {
-    if (queuedPluginRuntimeResponse !== null) {
-      const runtimeResponse = queuedPluginRuntimeResponse;
-      queuedPluginRuntimeResponse = null;
-      await applyPluginRuntimeResponse(runtimeResponse);
-      continue;
-    }
+  do {
     pluginRuntimeRefreshQueued = false;
     await loadPluginRuntime();
-  }
+  } while (pluginRuntimeRefreshQueued);
 }
 
 async function loadPluginRuntime(): Promise<void> {
+  const previousState = usePluginRuntimeStore.getState();
   usePluginRuntimeStore.setState((state) => ({
     ...state,
     status: "loading",
@@ -261,15 +214,9 @@ async function loadPluginRuntime(): Promise<void> {
     return;
   }
 
-  await applyPluginRuntimeResponse(runtimeResponse.data);
-}
+  const listData = runtimeResponse.data.list;
+  const statusData = runtimeResponse.data.status;
 
-async function applyPluginRuntimeResponse(
-  runtimeResponse: PluginRuntimeResponse,
-): Promise<void> {
-  const previousState = usePluginRuntimeStore.getState();
-  const listData = runtimeResponse.list;
-  const statusData = runtimeResponse.status;
   const pluginListById = mapPluginListById(
     listData,
     previousState.pluginListById,
@@ -282,15 +229,6 @@ async function applyPluginRuntimeResponse(
     statusEntries,
     previousState.pluginStatusById,
   );
-  const languageServerSelections = mapLanguageServerSelectionStatuses(
-    statusData.languageServerSelections ?? [],
-    previousState.languageServerSelections,
-  );
-  const languageServerSelectionsByLanguage =
-    mapLanguageServerSelectionStatusByLanguage(
-      languageServerSelections,
-      previousState.languageServerSelectionsByLanguage,
-    );
   const registryAccumulator: PluginRegistryAccumulator = {
     sectionKinds: {},
     panes: {},
@@ -373,15 +311,11 @@ async function applyPluginRuntimeResponse(
     statusMessage: null,
     schemaVersion: listData.schemaVersion,
     serverMode: listData.serverMode,
-    appSubsystemCapabilities:
-      runtimeResponse.featureCapabilities?.appSubsystem ?? null,
     restartCapability: listData.restartCapability,
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
     pluginStatusById,
     statusEntries,
-    languageServerSelectionsByLanguage,
-    languageServerSelections,
     sectionKindsByKey: registryAccumulator.sectionKinds,
     sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
@@ -392,15 +326,10 @@ async function applyPluginRuntimeResponse(
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
     frontendErrorsByPluginId,
   }));
-
-  await syncAppSubsystemFrontendRegistration(
-    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
-  );
 }
 
 function setPluginRuntimeLoadError(message: string): void {
   clearPluginRuntimeSideEffects();
-  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState((state) =>
     buildClearedRuntimeState(state, {
       status: "error",
@@ -422,14 +351,11 @@ function buildClearedRuntimeState(
     statusMessage: options.statusMessage,
     schemaVersion: null,
     serverMode: null,
-    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
-    languageServerSelectionsByLanguage: {},
-    languageServerSelections: [],
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -814,58 +740,6 @@ function mapStatusEntries(
   return canReusePreviousArray ? previousStatusEntries : mappedEntries;
 }
 
-function mapLanguageServerSelectionStatuses(
-  statuses: LanguageServerSelectionStatus[],
-  previousStatuses: LanguageServerSelectionStatus[],
-): LanguageServerSelectionStatus[] {
-  if (statuses.length === 0) {
-    return previousStatuses.length === 0 ? previousStatuses : [];
-  }
-  const previousStatusesByLanguage = new Map<
-    string,
-    LanguageServerSelectionStatus
-  >();
-  for (const status of previousStatuses) {
-    previousStatusesByLanguage.set(status.language, status);
-  }
-  const mappedStatuses: LanguageServerSelectionStatus[] = [];
-  let canReusePreviousArray = previousStatuses.length === statuses.length;
-  for (let index = 0; index < statuses.length; index += 1) {
-    const nextStatus = statuses[index];
-    const previousStatus = previousStatusesByLanguage.get(nextStatus.language);
-    if (
-      previousStatus &&
-      canReuseLanguageServerSelectionStatus(nextStatus, previousStatus)
-    ) {
-      mappedStatuses.push(previousStatus);
-      if (previousStatuses[index] !== previousStatus) {
-        canReusePreviousArray = false;
-      }
-      continue;
-    }
-    mappedStatuses.push(nextStatus);
-    canReusePreviousArray = false;
-  }
-  return canReusePreviousArray ? previousStatuses : mappedStatuses;
-}
-
-function canReuseLanguageServerSelectionStatus(
-  status: LanguageServerSelectionStatus,
-  previousStatus: LanguageServerSelectionStatus,
-): boolean {
-  return (
-    hasSameFieldValues(
-      status,
-      previousStatus,
-      languageServerSelectionStatusComparisonKeys,
-    ) &&
-    hasSameJsonValue(
-      status.availableProviders ?? [],
-      previousStatus.availableProviders ?? [],
-    )
-  );
-}
-
 function buildPluginStatusEntryStableKey(entry: PluginStatusEntry): string {
   return `${entry.pluginId}\u0000${entry.sourceScope}\u0000${entry.sourcePath}`;
 }
@@ -909,8 +783,14 @@ function mapPrimaryStatusByPluginId(
 ): Record<string, PluginStatusEntry> {
   const pluginStatusById: Record<string, PluginStatusEntry> = {};
   for (const entry of statusEntries) {
-    if (!(entry.pluginId in pluginStatusById)) {
+    const existing = pluginStatusById[entry.pluginId];
+    if (!existing) {
       pluginStatusById[entry.pluginId] = entry;
+      continue;
+    }
+    if (existing.shadowedBySourcePath && !entry.shadowedBySourcePath) {
+      pluginStatusById[entry.pluginId] = entry;
+      continue;
     }
   }
   return hasSameRecordValueReferences(
@@ -919,23 +799,6 @@ function mapPrimaryStatusByPluginId(
   )
     ? previousPluginStatusById
     : pluginStatusById;
-}
-
-function mapLanguageServerSelectionStatusByLanguage(
-  statuses: LanguageServerSelectionStatus[],
-  previousSelectionsByLanguage: Record<string, LanguageServerSelectionStatus>,
-): Record<string, LanguageServerSelectionStatus> {
-  const selectionsByLanguage: Record<string, LanguageServerSelectionStatus> =
-    {};
-  for (const status of statuses) {
-    selectionsByLanguage[status.language] = status;
-  }
-  return hasSameRecordValueReferences(
-    selectionsByLanguage,
-    previousSelectionsByLanguage,
-  )
-    ? previousSelectionsByLanguage
-    : selectionsByLanguage;
 }
 
 function deriveSortedRuntimeViews({

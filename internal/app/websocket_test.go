@@ -29,7 +29,6 @@ import (
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
 	"setta/internal/observability"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
 	"setta/internal/realtime"
@@ -477,143 +476,6 @@ func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	}
 }
 
-func TestAppSetLanguageServerSelectionBroadcastsUpdatePluginRuntime(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
-	prepareAppPluginLanguageServerFixture(t)
-	installAppLanguageServerOnlyFixturePlugin(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	selectedPluginID := "setta-fixture-backend"
-	requestBody, err := json.Marshal(httpapi.SetLanguageServerSelectionRequest{
-		Language: "fixturedsl",
-		PluginID: &selectedPluginID,
-	})
-	if err != nil {
-		t.Fatalf("marshal set language server selection request: %v", err)
-	}
-	request, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteSetLanguageServerSelection,
-		strings.NewReader(string(requestBody)),
-	)
-	if err != nil {
-		t.Fatalf("new set language server selection request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("post set language server selection: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdatePluginRuntime, 6)
-	var websocketPayload plugins.PluginRuntimeResponse
-	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
-		t.Fatalf("decode websocket plugin runtime payload: %v", err)
-	}
-	selection := mustFindAppLanguageServerSelectionStatus(t, websocketPayload.Status.LanguageServerSelections, "fixturedsl")
-	if selection.Status != plugins.LanguageServerSelectionStatusPendingRestart {
-		t.Fatalf("expected pending restart selection status, got %#v", selection)
-	}
-	if !selection.RestartRequired {
-		t.Fatalf("expected restart required selection status, got %#v", selection)
-	}
-	if selection.SelectedPluginID == nil || *selection.SelectedPluginID != "setta-fixture-backend" {
-		t.Fatalf("expected selected plugin setta-fixture-backend, got %#v", selection.SelectedPluginID)
-	}
-}
-
-func TestAppRestartLanguageServerBroadcastsUpdatePluginRuntime(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
-	prepareAppPluginLanguageServerFixture(t)
-	installAppLanguageServerOnlyFixturePlugin(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	response := restartAppLanguageServer(t, server.URL, authCookie)
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdatePluginRuntime, 4)
-	var websocketPayload plugins.PluginRuntimeResponse
-	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
-		t.Fatalf("decode websocket plugin runtime payload: %v", err)
-	}
-	selection := mustFindAppLanguageServerSelectionStatus(t, websocketPayload.Status.LanguageServerSelections, "fixturedsl")
-	if selection.Status != plugins.LanguageServerSelectionStatusActive {
-		t.Fatalf("expected active selection status after restart, got %#v", selection)
-	}
-	if selection.RestartRequired {
-		t.Fatalf("expected restart requirement to clear after restart, got %#v", selection)
-	}
-	if selection.AppliedPluginID == nil || *selection.AppliedPluginID != "setta-fixture-backend" {
-		t.Fatalf("expected applied plugin setta-fixture-backend, got %#v", selection.AppliedPluginID)
-	}
-}
-
 func TestAppPromptTemplateMutationsBroadcastPromptTemplatesUpdated(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -782,7 +644,7 @@ func TestAppPromptTemplateWatcherBroadcastsFileChangesAndParseFailures(t *testin
 		realtime.ListenerMessageType(realtime.WebsocketMessageTypeBackendLogEvent),
 		6,
 	)
-	var event backendlogs.BackendLogEvent
+	var event backendlogs.Event
 	if err := json.Unmarshal(logEnvelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}
@@ -5683,7 +5545,7 @@ func TestAppRunCodeBroadcastsBackendLogEvent(t *testing.T) {
 		4,
 	)
 
-	var event backendlogs.BackendLogEvent
+	var event backendlogs.Event
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}
