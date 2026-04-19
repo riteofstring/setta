@@ -64,16 +64,105 @@ func TestAppDefinitionServiceGetEffectiveMetadataDefaults(t *testing.T) {
 	}
 }
 
+func TestAppDefinitionServiceGetAppDefinitionNormalizesLegacyPersistedMetadata(t *testing.T) {
+	t.Parallel()
+
+	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
+	service := appDefinitionServiceForTest(runtime)
+
+	appSpec := map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+		},
+		"elements": map[string]any{},
+	}
+	if err := appspec.Write(root, "app_specs/custom.json", appSpec); err != nil {
+		t.Fatalf("write app spec: %v", err)
+	}
+	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		next := document.Clone()
+		next.AppDefinition = &projectstate.AppDefinition{
+			AppSpecVersion: " v2 ",
+			CatalogID:      " " + appspec.DefaultCatalogID + " ",
+			AppSpecPath:    " app_specs/custom.json ",
+			Routes: []projectstate.AppRoute{
+				{Path: " / ", Name: " Home ", RootKey: " root "},
+			},
+			DataBindings: projectstate.RawJSON(` {"title":"hello"} `),
+			Actions:      projectstate.RawJSON(` {"submit":{"type":"run"}} `),
+			Theme:        projectstate.RawJSON(` {"mode":"dark"} `),
+			Assets:       projectstate.RawJSON(` [{"type":"image","path":"hero.png"}] `),
+		}
+		return next, nil
+	}); err != nil {
+		t.Fatalf("mutate legacy app definition payload: %v", err)
+	}
+
+	result, err := service.GetAppDefinition(context.Background())
+	if err != nil {
+		t.Fatalf("get normalized legacy app definition: %v", err)
+	}
+	if result.AppDefinition == nil {
+		t.Fatal("expected app definition metadata")
+	}
+	if result.AppDefinition.AppSpecVersion != "v2" {
+		t.Fatalf("expected trimmed app spec version v2, got %q", result.AppDefinition.AppSpecVersion)
+	}
+	if result.AppDefinition.CatalogID != appspec.DefaultCatalogID {
+		t.Fatalf("expected trimmed catalog id %q, got %q", appspec.DefaultCatalogID, result.AppDefinition.CatalogID)
+	}
+	if result.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected trimmed app spec path app_specs/custom.json, got %q", result.AppDefinition.AppSpecPath)
+	}
+	if len(result.AppDefinition.Routes) != 1 {
+		t.Fatalf("expected one normalized route, got %#v", result.AppDefinition.Routes)
+	}
+	if result.AppDefinition.Routes[0].Path != "/" || result.AppDefinition.Routes[0].Name != "Home" || result.AppDefinition.Routes[0].RootKey != "root" {
+		t.Fatalf("expected normalized route metadata, got %#v", result.AppDefinition.Routes[0])
+	}
+	if !reflect.DeepEqual(result.AppSpec, appSpec) {
+		t.Fatalf("expected stored app spec %#v, got %#v", appSpec, result.AppSpec)
+	}
+}
+
+func TestAppDefinitionServiceRejectsInvalidLegacyPersistedMetadata(t *testing.T) {
+	t.Parallel()
+
+	_, runtime := openPersistedPluginAppDefinitionRuntime(t)
+	service := appDefinitionServiceForTest(runtime)
+
+	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		next := document.Clone()
+		next.AppDefinition = &projectstate.AppDefinition{
+			AppSpecVersion: "v1",
+			CatalogID:      appspec.DefaultCatalogID,
+			DataBindings:   projectstate.RawJSON(`["not","an","object"]`),
+		}
+		return next, nil
+	}); err != nil {
+		t.Fatalf("mutate invalid legacy app definition payload: %v", err)
+	}
+
+	_, err := service.GetEffectiveAppDefinition(context.Background())
+	if err == nil {
+		t.Fatal("expected invalid legacy app definition payload to fail in plugin service")
+	}
+	if !strings.Contains(err.Error(), "appDefinition.dataBindings") {
+		t.Fatalf("expected appDefinition.dataBindings error, got %v", err)
+	}
+}
+
 func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	t.Parallel()
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	service := appDefinitionServiceForTest(runtime)
 
-	appSpecVersion := "v2"
-	catalogID := appspec.DefaultCatalogID
-	absoluteAppSpecPath := filepath.Join(root, "app_specs", "custom.json")
-	routes := []projectstate.AppRoute{{Path: "/", Name: "Home", RootKey: "root"}}
+	appSpecVersion := " v2 "
+	catalogID := " " + appspec.DefaultCatalogID + " "
+	absoluteAppSpecPath := "  " + filepath.Join(root, "app_specs", "custom.json") + "  "
+	routes := []projectstate.AppRoute{{Path: " / ", Name: " Home ", RootKey: " root "}}
 	dataBindings := map[string]any{"title": map[string]any{"text": "hello"}}
 	actions := map[string]any{"customRun": map[string]any{"type": "run"}}
 	theme := map[string]any{"mode": "dark"}
@@ -112,6 +201,12 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	}
 	if result.AppDefinition.CatalogID != appspec.DefaultCatalogID {
 		t.Fatalf("expected catalog id %q, got %q", appspec.DefaultCatalogID, result.AppDefinition.CatalogID)
+	}
+	if len(result.AppDefinition.Routes) != 1 {
+		t.Fatalf("expected one normalized route, got %#v", result.AppDefinition.Routes)
+	}
+	if result.AppDefinition.Routes[0].Path != "/" || result.AppDefinition.Routes[0].Name != "Home" || result.AppDefinition.Routes[0].RootKey != "root" {
+		t.Fatalf("expected normalized route metadata, got %#v", result.AppDefinition.Routes[0])
 	}
 	if snapshot.Document.AppDefinition == nil || snapshot.Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
 		t.Fatalf("expected snapshot app definition with normalized path, got %#v", snapshot.Document.AppDefinition)
