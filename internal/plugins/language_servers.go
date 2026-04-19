@@ -362,6 +362,21 @@ func selectedLanguageServerSpecs(specs []lsp.LanguageServerSpec, selectedByLangu
 		return []lsp.LanguageServerSpec{}
 	}
 
+	specsByLanguageAndPlugin := indexLanguageServerSpecsByLanguageAndPlugin(specs)
+
+	selectedSpecs := make([]lsp.LanguageServerSpec, 0, len(selectedByLanguage))
+	for rawLanguage, selectedPluginID := range selectedByLanguage {
+		spec, ok := selectedLanguageServerSpecForLanguage(specsByLanguageAndPlugin, rawLanguage, selectedPluginID)
+		if !ok {
+			continue
+		}
+		selectedSpecs = append(selectedSpecs, spec)
+	}
+	sortLanguageServerSpecs(selectedSpecs)
+	return selectedSpecs
+}
+
+func indexLanguageServerSpecsByLanguageAndPlugin(specs []lsp.LanguageServerSpec) map[string]map[string]lsp.LanguageServerSpec {
 	specsByLanguageAndPlugin := map[string]map[string]lsp.LanguageServerSpec{}
 	for _, spec := range specs {
 		language := strings.ToLower(strings.TrimSpace(spec.LanguageID))
@@ -374,23 +389,24 @@ func selectedLanguageServerSpecs(specs []lsp.LanguageServerSpec, selectedByLangu
 		}
 		specsByLanguageAndPlugin[language][pluginID] = spec
 	}
+	return specsByLanguageAndPlugin
+}
 
-	selectedSpecs := make([]lsp.LanguageServerSpec, 0, len(selectedByLanguage))
-	for rawLanguage, selectedPluginID := range selectedByLanguage {
-		if selectedPluginID == nil {
-			continue
-		}
-		language := strings.ToLower(strings.TrimSpace(rawLanguage))
-		pluginID := strings.TrimSpace(*selectedPluginID)
-		if language == "" || pluginID == "" {
-			continue
-		}
-		spec, ok := specsByLanguageAndPlugin[language][pluginID]
-		if !ok {
-			continue
-		}
-		selectedSpecs = append(selectedSpecs, spec)
+func selectedLanguageServerSpecForLanguage(
+	specsByLanguageAndPlugin map[string]map[string]lsp.LanguageServerSpec,
+	rawLanguage string,
+	selectedPluginID *string,
+) (lsp.LanguageServerSpec, bool) {
+	if selectedPluginID == nil {
+		return lsp.LanguageServerSpec{}, false
 	}
-	sortLanguageServerSpecs(selectedSpecs)
-	return selectedSpecs
+
+	language := strings.ToLower(strings.TrimSpace(rawLanguage))
+	pluginID := strings.TrimSpace(*selectedPluginID)
+	if language == "" || pluginID == "" {
+		return lsp.LanguageServerSpec{}, false
+	}
+
+	spec, ok := specsByLanguageAndPlugin[language][pluginID]
+	return spec, ok
 }

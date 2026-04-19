@@ -293,32 +293,50 @@ func pluginConfigSchemaPathFromFileURIForOS(uri *url.URL, goos string) (string, 
 		return "", fmt.Errorf("plugin config schema refs must use local files: %s", uri.String())
 	}
 
-	host := strings.TrimSpace(uri.Host)
-	if strings.EqualFold(host, "localhost") {
-		host = ""
-	}
-	path := uri.Path
-
-	if goos == "windows" {
-		switch {
-		case host != "":
-			path = `\\` + host + windowsPathFromSlash(path)
-		case len(path) >= 3 && path[0] == '/' && path[2] == ':':
-			path = windowsPathFromSlash(path[1:])
-		default:
-			path = windowsPathFromSlash(path)
-		}
-	} else {
-		if host != "" {
-			path = "//" + host + path
-		}
-		path = filepath.FromSlash(path)
-	}
+	host := normalizePluginConfigSchemaFileURIHost(uri.Host)
+	path := pluginConfigSchemaPathFromFileURIForTargetOS(host, uri.Path, goos)
 
 	if strings.TrimSpace(path) == "" {
 		return "", fmt.Errorf("plugin config schema path is empty")
 	}
 	return filepath.Clean(path), nil
+}
+
+func normalizePluginConfigSchemaFileURIHost(host string) string {
+	trimmedHost := strings.TrimSpace(host)
+	if strings.EqualFold(trimmedHost, "localhost") {
+		return ""
+	}
+	return trimmedHost
+}
+
+func pluginConfigSchemaPathFromFileURIForTargetOS(host string, path string, goos string) string {
+	if goos == "windows" {
+		return pluginConfigSchemaPathFromWindowsFileURI(host, path)
+	}
+	return pluginConfigSchemaPathFromNonWindowsFileURI(host, path)
+}
+
+func pluginConfigSchemaPathFromWindowsFileURI(host string, path string) string {
+	switch {
+	case host != "":
+		return `\\` + host + windowsPathFromSlash(path)
+	case hasWindowsDriveLetterPrefix(path):
+		return windowsPathFromSlash(path[1:])
+	default:
+		return windowsPathFromSlash(path)
+	}
+}
+
+func pluginConfigSchemaPathFromNonWindowsFileURI(host string, path string) string {
+	if host != "" {
+		path = "//" + host + path
+	}
+	return filepath.FromSlash(path)
+}
+
+func hasWindowsDriveLetterPrefix(path string) bool {
+	return len(path) >= 3 && path[0] == '/' && path[2] == ':'
 }
 
 func windowsPathFromSlash(path string) string {

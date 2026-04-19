@@ -11,15 +11,7 @@ func LanguageServerSelectedByLanguage(document Document) (map[string]*string, er
 		return nil, err
 	}
 
-	languageServerBranch, ok, err := objectField(normalized, "languageServer")
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return map[string]*string{}, nil
-	}
-
-	selectedByLanguageBranch, ok, err := objectField(languageServerBranch, "selectedByLanguage")
+	selectedByLanguageBranch, ok, err := languageServerSelectedByLanguageBranch(normalized)
 	if err != nil {
 		return nil, err
 	}
@@ -27,27 +19,7 @@ func LanguageServerSelectedByLanguage(document Document) (map[string]*string, er
 		return map[string]*string{}, nil
 	}
 
-	selectedByLanguage := make(map[string]*string, len(selectedByLanguageBranch))
-	for language, rawSelection := range selectedByLanguageBranch {
-		normalizedLanguage := normalizeLanguageServerSelectionLanguage(language)
-		if normalizedLanguage == "" {
-			return nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is not a valid language", ErrSettingsValueInvalid, language)
-		}
-		if rawSelection == nil {
-			selectedByLanguage[normalizedLanguage] = nil
-			continue
-		}
-		pluginID, ok := rawSelection.(string)
-		if !ok {
-			return nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is not null or string", ErrSettingsValueInvalid, language)
-		}
-		trimmedPluginID := strings.TrimSpace(pluginID)
-		if trimmedPluginID == "" {
-			return nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is empty", ErrSettingsValueInvalid, language)
-		}
-		selectedByLanguage[normalizedLanguage] = stringPointer(trimmedPluginID)
-	}
-	return selectedByLanguage, nil
+	return normalizeLanguageServerSelections(selectedByLanguageBranch)
 }
 
 func LanguageServerSelectionForLanguage(document Document, language string) (*string, bool, error) {
@@ -117,6 +89,54 @@ func SetLanguageServerSelection(document Document, language string, selection *s
 	}
 
 	return next.Normalized()
+}
+
+func languageServerSelectedByLanguageBranch(document Document) (map[string]any, bool, error) {
+	languageServerBranch, ok, err := objectField(document, "languageServer")
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	selectedByLanguageBranch, ok, err := objectField(languageServerBranch, "selectedByLanguage")
+	if err != nil {
+		return nil, false, err
+	}
+	return selectedByLanguageBranch, ok, nil
+}
+
+func normalizeLanguageServerSelections(selectedByLanguageBranch map[string]any) (map[string]*string, error) {
+	selectedByLanguage := make(map[string]*string, len(selectedByLanguageBranch))
+	for language, rawSelection := range selectedByLanguageBranch {
+		normalizedLanguage, selection, err := normalizeLanguageServerSelectionEntry(language, rawSelection)
+		if err != nil {
+			return nil, err
+		}
+		selectedByLanguage[normalizedLanguage] = selection
+	}
+	return selectedByLanguage, nil
+}
+
+func normalizeLanguageServerSelectionEntry(language string, rawSelection any) (string, *string, error) {
+	normalizedLanguage := normalizeLanguageServerSelectionLanguage(language)
+	if normalizedLanguage == "" {
+		return "", nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is not a valid language", ErrSettingsValueInvalid, language)
+	}
+	if rawSelection == nil {
+		return normalizedLanguage, nil, nil
+	}
+
+	pluginID, ok := rawSelection.(string)
+	if !ok {
+		return "", nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is not null or string", ErrSettingsValueInvalid, language)
+	}
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	if trimmedPluginID == "" {
+		return "", nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is empty", ErrSettingsValueInvalid, language)
+	}
+	return normalizedLanguage, stringPointer(trimmedPluginID), nil
 }
 
 func ensureLanguageServerSelectedByLanguageBranch(document Document) map[string]any {

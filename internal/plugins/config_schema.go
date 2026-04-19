@@ -304,41 +304,68 @@ func resolvePluginConfigSchemaRefURI(schemaPath string, ref string) (*url.URL, e
 }
 
 func resolvePluginConfigSchemaJSONPointer(root any, fragment string) (any, error) {
-	if fragment == "" {
-		return root, nil
-	}
-	decodedFragment, err := url.PathUnescape(fragment)
+	decodedFragment, err := decodePluginConfigSchemaJSONPointerFragment(fragment)
 	if err != nil {
 		return nil, err
 	}
 	if decodedFragment == "" {
 		return root, nil
 	}
-	if !strings.HasPrefix(decodedFragment, "/") {
-		return nil, fmt.Errorf("unsupported plugin config schema ref fragment: %s", fragment)
-	}
 
 	current := root
-	for _, rawSegment := range strings.Split(decodedFragment[1:], "/") {
-		segment := strings.ReplaceAll(strings.ReplaceAll(rawSegment, "~1", "/"), "~0", "~")
-		switch typed := current.(type) {
-		case map[string]any:
-			next, ok := typed[segment]
-			if !ok {
-				return nil, fmt.Errorf("plugin config schema ref target not found: %s", fragment)
-			}
-			current = next
-		case []any:
-			index, err := strconv.Atoi(segment)
-			if err != nil || index < 0 || index >= len(typed) {
-				return nil, fmt.Errorf("plugin config schema ref target not found: %s", fragment)
-			}
-			current = typed[index]
-		default:
-			return nil, fmt.Errorf("plugin config schema ref target not found: %s", fragment)
+	for _, segment := range pluginConfigSchemaJSONPointerSegments(decodedFragment) {
+		next, err := resolvePluginConfigSchemaJSONPointerSegment(current, segment, fragment)
+		if err != nil {
+			return nil, err
 		}
+		current = next
 	}
 	return current, nil
+}
+
+func decodePluginConfigSchemaJSONPointerFragment(fragment string) (string, error) {
+	if fragment == "" {
+		return "", nil
+	}
+	decodedFragment, err := url.PathUnescape(fragment)
+	if err != nil {
+		return "", err
+	}
+	if decodedFragment == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(decodedFragment, "/") {
+		return "", fmt.Errorf("unsupported plugin config schema ref fragment: %s", fragment)
+	}
+	return decodedFragment, nil
+}
+
+func pluginConfigSchemaJSONPointerSegments(decodedFragment string) []string {
+	rawSegments := strings.Split(decodedFragment[1:], "/")
+	segments := make([]string, 0, len(rawSegments))
+	for _, rawSegment := range rawSegments {
+		segments = append(segments, strings.ReplaceAll(strings.ReplaceAll(rawSegment, "~1", "/"), "~0", "~"))
+	}
+	return segments
+}
+
+func resolvePluginConfigSchemaJSONPointerSegment(current any, segment string, fragment string) (any, error) {
+	switch typed := current.(type) {
+	case map[string]any:
+		next, ok := typed[segment]
+		if !ok {
+			return nil, fmt.Errorf("plugin config schema ref target not found: %s", fragment)
+		}
+		return next, nil
+	case []any:
+		index, err := strconv.Atoi(segment)
+		if err != nil || index < 0 || index >= len(typed) {
+			return nil, fmt.Errorf("plugin config schema ref target not found: %s", fragment)
+		}
+		return typed[index], nil
+	default:
+		return nil, fmt.Errorf("plugin config schema ref target not found: %s", fragment)
+	}
 }
 
 func mergePluginConfigSchemaDefaultValues(base any, overlay any) any {

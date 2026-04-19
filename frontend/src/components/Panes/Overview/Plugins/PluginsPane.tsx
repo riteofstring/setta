@@ -1455,6 +1455,148 @@ async function runUninstallPluginAction(
   );
 }
 
+type PluginListEntryCardViewProps = {
+  plugin: PluginListEntry;
+  pluginActionDisabled: boolean;
+  packageManagerManaged: boolean;
+  linkedLocalSource: boolean;
+  packageManagerGuidance: string;
+  isSettingsProject: boolean;
+  runAction: PluginListEntryCardProps["runAction"];
+  requestedCapabilities: string[];
+  effectiveCapabilities: string[];
+  blockedCapabilities: PluginBlockedCapability[];
+  commands: readonly PluginCommandSummary[];
+  commandUnavailableMessage: string | null;
+  frontendError: PluginListEntryCardRuntimeState["frontendError"];
+  panes: readonly PluginPaneSummary[];
+  paneButtonsDisabled: boolean;
+  paneUnavailableMessage: string | null;
+  isSelectedForPython: boolean;
+  canUseForPython: boolean;
+  pluginToggleLabel: "Enable" | "Disable";
+  onEnablePlugin: () => void;
+  onDisablePlugin: () => void;
+  onUseForPython: () => void;
+  onUpdate: () => void;
+  onRollback: () => void;
+  onUninstall: () => void;
+  onOpenPane: (paneId: string) => void;
+};
+
+function PluginListEntryCardHeader({
+  plugin,
+  isSelectedForPython,
+}: Pick<PluginListEntryCardViewProps, "plugin" | "isSelectedForPython">) {
+  return (
+    <header className="mb-1 flex items-start justify-between gap-2">
+      <div>
+        <h4 className="font-mono text-xs font-semibold text-setta-900 dark:text-setta-100">
+          {plugin.pluginId}@{plugin.version}
+        </h4>
+        <p className="text-[11px] text-setta-500 dark:text-setta-400">
+          scope={plugin.sourceScopeLabel} source={plugin.canonicalSourceKey}
+        </p>
+      </div>
+      <PluginListEntryCardBadges
+        isSelectedForPython={isSelectedForPython}
+        restartRequired={plugin.restartRequired}
+      />
+    </header>
+  );
+}
+
+function PluginListEntryCardBadges({
+  isSelectedForPython,
+  restartRequired,
+}: {
+  isSelectedForPython: boolean;
+  restartRequired: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      {isSelectedForPython ? (
+        <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+          Python selected
+        </span>
+      ) : null}
+      {restartRequired ? (
+        <span className="rounded bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
+          restart required
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function PluginListEntryCardActions({
+  pluginId,
+  pluginToggleLabel,
+  pluginActionDisabled,
+  packageManagerManaged,
+  linkedLocalSource,
+  canUseForPython,
+  onEnablePlugin,
+  onDisablePlugin,
+  onUseForPython,
+  onUpdate,
+  onRollback,
+  onUninstall,
+}: {
+  pluginId: string;
+  pluginToggleLabel: "Enable" | "Disable";
+  pluginActionDisabled: boolean;
+  packageManagerManaged: boolean;
+  linkedLocalSource: boolean;
+  canUseForPython: boolean;
+  onEnablePlugin: () => void;
+  onDisablePlugin: () => void;
+  onUseForPython: () => void;
+  onUpdate: () => void;
+  onRollback: () => void;
+  onUninstall: () => void;
+}) {
+  const toggleAction =
+    pluginToggleLabel === "Enable" ? onEnablePlugin : onDisablePlugin;
+  const updateAndRollbackDisabled =
+    pluginActionDisabled || packageManagerManaged || linkedLocalSource;
+  const uninstallDisabled = pluginActionDisabled || packageManagerManaged;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      <ActionButton
+        label={pluginToggleLabel}
+        onClick={toggleAction}
+        disabled={pluginActionDisabled}
+        testId={`plugin-card-toggle-${pluginId}`}
+      />
+      {canUseForPython ? (
+        <ActionButton
+          label="Use for Python"
+          onClick={onUseForPython}
+          disabled={pluginActionDisabled}
+          testId={`plugin-card-use-python-${pluginId}`}
+        />
+      ) : null}
+      <ActionButton
+        label="Update"
+        onClick={onUpdate}
+        disabled={updateAndRollbackDisabled}
+      />
+      <ActionButton
+        label="Rollback"
+        onClick={onRollback}
+        disabled={updateAndRollbackDisabled}
+      />
+      <ActionButton
+        label="Uninstall"
+        onClick={onUninstall}
+        disabled={uninstallDisabled}
+      />
+    </div>
+  );
+}
+
 function PluginListEntryCardView({
   plugin,
   pluginActionDisabled,
@@ -1482,96 +1624,27 @@ function PluginListEntryCardView({
   onRollback,
   onUninstall,
   onOpenPane,
-}: {
-  plugin: PluginListEntry;
-  pluginActionDisabled: boolean;
-  packageManagerManaged: boolean;
-  linkedLocalSource: boolean;
-  packageManagerGuidance: string;
-  isSettingsProject: boolean;
-  runAction: PluginListEntryCardProps["runAction"];
-  requestedCapabilities: string[];
-  effectiveCapabilities: string[];
-  blockedCapabilities: PluginBlockedCapability[];
-  commands: readonly PluginCommandSummary[];
-  commandUnavailableMessage: string | null;
-  frontendError: PluginListEntryCardRuntimeState["frontendError"];
-  panes: readonly PluginPaneSummary[];
-  paneButtonsDisabled: boolean;
-  paneUnavailableMessage: string | null;
-  isSelectedForPython: boolean;
-  canUseForPython: boolean;
-  pluginToggleLabel: "Enable" | "Disable";
-  onEnablePlugin: () => void;
-  onDisablePlugin: () => void;
-  onUseForPython: () => void;
-  onUpdate: () => void;
-  onRollback: () => void;
-  onUninstall: () => void;
-  onOpenPane: (paneId: string) => void;
-}) {
+}: PluginListEntryCardViewProps) {
   return (
     <article className="rounded border border-setta-200 bg-setta-50/60 p-2 dark:border-setta-800 dark:bg-setta-950/40">
-      <header className="mb-1 flex items-start justify-between gap-2">
-        <div>
-          <h4 className="font-mono text-xs font-semibold text-setta-900 dark:text-setta-100">
-            {plugin.pluginId}@{plugin.version}
-          </h4>
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            scope={plugin.sourceScopeLabel} source={plugin.canonicalSourceKey}
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-1">
-          {isSelectedForPython ? (
-            <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-              Python selected
-            </span>
-          ) : null}
-          {plugin.restartRequired ? (
-            <span className="rounded bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
-              restart required
-            </span>
-          ) : null}
-        </div>
-      </header>
-
-      <div className="flex flex-wrap gap-1">
-        <ActionButton
-          label={pluginToggleLabel}
-          onClick={
-            pluginToggleLabel === "Enable" ? onEnablePlugin : onDisablePlugin
-          }
-          disabled={pluginActionDisabled}
-          testId={`plugin-card-toggle-${plugin.pluginId}`}
-        />
-        {canUseForPython ? (
-          <ActionButton
-            label="Use for Python"
-            onClick={onUseForPython}
-            disabled={pluginActionDisabled}
-            testId={`plugin-card-use-python-${plugin.pluginId}`}
-          />
-        ) : null}
-        <ActionButton
-          label="Update"
-          onClick={onUpdate}
-          disabled={
-            pluginActionDisabled || packageManagerManaged || linkedLocalSource
-          }
-        />
-        <ActionButton
-          label="Rollback"
-          onClick={onRollback}
-          disabled={
-            pluginActionDisabled || packageManagerManaged || linkedLocalSource
-          }
-        />
-        <ActionButton
-          label="Uninstall"
-          onClick={onUninstall}
-          disabled={pluginActionDisabled || packageManagerManaged}
-        />
-      </div>
+      <PluginListEntryCardHeader
+        plugin={plugin}
+        isSelectedForPython={isSelectedForPython}
+      />
+      <PluginListEntryCardActions
+        pluginId={plugin.pluginId}
+        pluginToggleLabel={pluginToggleLabel}
+        pluginActionDisabled={pluginActionDisabled}
+        packageManagerManaged={packageManagerManaged}
+        linkedLocalSource={linkedLocalSource}
+        canUseForPython={canUseForPython}
+        onEnablePlugin={onEnablePlugin}
+        onDisablePlugin={onDisablePlugin}
+        onUseForPython={onUseForPython}
+        onUpdate={onUpdate}
+        onRollback={onRollback}
+        onUninstall={onUninstall}
+      />
       <PluginSourceGuidanceNotices
         pluginId={plugin.pluginId}
         packageManagerManaged={packageManagerManaged}
