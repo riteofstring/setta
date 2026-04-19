@@ -213,7 +213,7 @@ export function isCanvasOwnedSectionLightweightResizeHandle(sectionId: string) {
 }
 
 export function isCanvasOwnedSectionLightweightParamLabel(sectionId: string) {
-  return isCanvasOwnedSectionRestingTextSection(sectionId);
+  return isSettingsSectionId(sectionId);
 }
 
 export function isCanvasOwnedSectionLightweightNestedChildren(

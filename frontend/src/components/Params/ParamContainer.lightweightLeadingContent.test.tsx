@@ -65,11 +65,11 @@ vi.mock("./ParamDndContext", () => ({
 import { ParamContainer } from "./ParamContainer";
 
 describe("ParamContainer lightweight leading content", () => {
-  it("uses the param label element itself as the key column root on the shared owned canvas lanes", () => {
+  it("uses the param label element itself as the key column root on the canvas path", () => {
     mocks.graphSurfaceImplementation = "canvas-shell-underlay";
     mocks.lightweightParamLabelSectionIds = new Set([
-      "section-sizing-policy",
       "settings-section__shortcuts",
+      "settings-section__spreadsheetSectionDefault",
     ]);
 
     function LightweightLabel(props: {
@@ -94,7 +94,7 @@ describe("ParamContainer lightweight leading content", () => {
 
     const markup = renderToStaticMarkup(
       <ParamContainer
-        sectionId="section-sizing-policy"
+        sectionId="settings-section__spreadsheetSectionDefault"
         paramInfoId="param-current"
         requiredParamIdsToPaths={{}}
         onResizeStart={() => undefined}
@@ -118,10 +118,11 @@ describe("ParamContainer lightweight leading content", () => {
     );
   });
 
-  it("keeps the legacy wrapper for non-owned sections", () => {
+  it("keeps the legacy wrapper for non-settings sections", () => {
     mocks.graphSurfaceImplementation = "canvas-shell-underlay";
     mocks.lightweightParamLabelSectionIds = new Set([
       "settings-section__shortcuts",
+      "settings-section__spreadsheetSectionDefault",
     ]);
 
     function LightweightLabel(props: {
@@ -145,7 +146,7 @@ describe("ParamContainer lightweight leading content", () => {
 
     const markup = renderToStaticMarkup(
       <ParamContainer
-        sectionId="settings-section__spreadsheetSectionDefault"
+        sectionId="round_lime-section__callable"
         paramInfoId="param-current"
         requiredParamIdsToPaths={{}}
         onResizeStart={() => undefined}

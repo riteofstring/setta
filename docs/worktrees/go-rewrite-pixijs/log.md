@@ -2531,3 +2531,61 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - start the next iteration from a fresh whole-scene ranking of the remaining mounted row/body DOM and choose the next broader shared primitive or ownership seam; do not spend the next default pass on another label-wrapper or section-local cleanup hop
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 063
+
+- Item: Generalize the lightweight param-label root across all settings sections without widening actual canvas-owned label text.
+- Status: `done`
+- Details:
+  - Started from a fresh whole-scene inventory instead of extending the old per-section label allowlist by inertia. The live `All Settings` ranking showed a broader repeated primitive still remained across untouched settings sections:
+    - `settings-section__spreadsheetSectionDefault`: `labelCount 14`, `legacyLeadingContentWrapperCount 14`
+    - `settings-section__taskBoardSectionDefault`: `labelCount 11`, `legacyLeadingContentWrapperCount 11`
+    - `settings-section__stateMachineStartSectionDefault`: `labelCount 11`, `legacyLeadingContentWrapperCount 11`
+  - Chose one bounded shared ownership slice rather than another value-family lane:
+    - canonical target section: `settings-section__stateMachineStartSectionDefault`
+    - sibling proof sections in the same slice:
+      - `settings-section__spreadsheetSectionDefault`
+      - `settings-section__taskBoardSectionDefault`
+    - canonical target row/editor:
+      - `ParamContainer-settings-section__stateMachineStartSectionDefault-settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label`
+      - `CodeMirror-settings-section__stateMachineStartSectionDefault-settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label`
+  - Landed the shared ownership move:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats lightweight param-label roots as a `settings-section__*` rule instead of the older measured-section allowlist
+    - actual canvas-owned label text remains restricted to the existing resting-text-owned sections through `isCanvasOwnedSectionParamLabelRestingText(...)`
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx`
+    - added focused probe `frontend/tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+    - recorded dense rerun `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-generalization-rerun.md`
+  - The focused probe proved the generalized wrapper collapse on the live surface:
+    - `settings-section__spreadsheetSectionDefault`: `rowCount 15`, `labelCount 14`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 14`
+    - `settings-section__taskBoardSectionDefault`: `rowCount 12`, `labelCount 11`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 11`
+    - `settings-section__stateMachineStartSectionDefault`: `rowCount 12`, `labelCount 11`, `legacyLeadingContentWrapperCount 0`, `lightweightParamLabelCount 11`
+    - the canonical `Label` root stayed DOM-visible (`opacity: 1`) and clicking it surfaced the inline editor in the same row with no blank or detached jump
+  - Dense rerun outcome on the current runtime:
+    - `documentNodeCount: 7155`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 96.36`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15485`
+  - Interpretation:
+    - this takes the shared lightweight param-label primitive to its real settings ownership boundary instead of reopening another section-local value lane
+    - actual canvas-owned label text did not widen with this slice, so non-owned settings labels still render visibly in DOM while the extra wrapper disappears
+    - the authoritative proof is the untouched-section cluster summary plus the dense `documentNodeCount` drop to `7155`
+    - the global `input` / `button` counts still carry non-target workspace-chrome noise, so treat this as a strong dense-surface checkpoint rather than a new clean interactive-core benchmark
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx src/components/Params/ParamItems/ParamTextLabel.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightLeadingContent.test.tsx tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-004/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-param-label-generalization.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (58.7s)` on the live worktree runtime with `documentNodeCount: 7155`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done:
+  - fresh authenticated page at `http://127.0.0.1:3068/settings`
+  - `All Settings` was active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash overlay was visible
+  - `settings-section__spreadsheetSectionDefault`, `settings-section__taskBoardSectionDefault`, and `settings-section__stateMachineStartSectionDefault` were present
+  - the canonical `Label` row on `settings-section__stateMachineStartSectionDefault` looked intact at rest with visible DOM text
+  - clicking that label surfaced the inline CodeMirror editor in the same row with no blank or detached jump
+- Next action:
+  - keep the shared lightweight param-label lane closed again and return to a fresh whole-scene ranking of the remaining dense row/body/value DOM instead of taking another label-wrapper or section-local follow-up
+LOOP_TERMINAL_MARKER: none

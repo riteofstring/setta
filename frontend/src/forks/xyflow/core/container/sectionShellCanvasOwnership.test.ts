@@ -614,7 +614,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the measured resting-text sections for lightweight param labels", () => {
+  it("targets settings sections for lightweight param labels", () => {
     expect(
       isCanvasOwnedSectionLightweightParamLabel(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -639,6 +639,14 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionLightweightParamLabel(
         BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel(
+        "settings-section__spreadsheetSectionDefault",
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightParamLabel("round_lime-section__callable"),
     ).toBe(false);
   });
 
