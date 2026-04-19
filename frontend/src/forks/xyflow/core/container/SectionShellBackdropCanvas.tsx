@@ -27,11 +27,14 @@ import {
 } from "./sectionShellBackdropMeasurementMath";
 import {
   BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
@@ -1432,6 +1435,13 @@ export default function SectionShellBackdropCanvas() {
     SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
   const browserNode = nodes.get(BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const buttonParamNode = nodes.get(
+    BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const codeSectionNode = nodes.get(CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const promptSectionNode = nodes.get(
+    PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const stateMachineGateNode = nodes.get(
     STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   );
@@ -1486,6 +1496,24 @@ export default function SectionShellBackdropCanvas() {
     sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const buttonParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: buttonParamNode?.height,
+    nodeWidth: buttonParamNode?.width,
+    sectionId: BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const codeSectionMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: codeSectionNode?.height,
+    nodeWidth: codeSectionNode?.width,
+    sectionId: CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const promptSectionMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: promptSectionNode?.height,
+    nodeWidth: promptSectionNode?.width,
+    sectionId: PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const stateMachineGateMeasurements =
     useCanvasOwnedSectionBackdropMeasurements({
       nodeHeight: stateMachineGateNode?.height,
@@ -1505,6 +1533,12 @@ export default function SectionShellBackdropCanvas() {
       [CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: chatMeasurements,
       [SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: shortcutsMeasurements,
       [BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: browserMeasurements,
+      [BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        buttonParamMeasurements,
+      [CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        codeSectionMeasurements,
+      [PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        promptSectionMeasurements,
       [STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID]:
         stateMachineGateMeasurements,
     }),
@@ -1517,6 +1551,9 @@ export default function SectionShellBackdropCanvas() {
       chatMeasurements,
       shortcutsMeasurements,
       browserMeasurements,
+      buttonParamMeasurements,
+      codeSectionMeasurements,
+      promptSectionMeasurements,
       stateMachineGateMeasurements,
     ],
   );

@@ -1,12 +1,15 @@
 import {
   BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
@@ -464,6 +467,58 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(markup).toContain('data-canvas-owned-underline="true"');
     expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
   });
+
+  it.each([
+    {
+      paramInfoId:
+        "settings-codeobj__buttonParamCodeObjDefault__buttonParamCodeObjDefault__label",
+      sectionId: BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "Trigger",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__codeSectionDefault__codeSectionDefault__codeLanguage",
+      sectionId: CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "python",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__promptSectionDefault__promptSectionDefault__format",
+      sectionId: PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "Jinja",
+    },
+  ])(
+    "hides the code-like cluster resting text on the canvas path for $sectionId",
+    ({ paramInfoId, sectionId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: CodeObjTypeEnum.TextParam,
+        defaultVal: "",
+      };
+
+      const markup = renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(
+        mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText,
+      ).toBe(true);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+        true,
+      );
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+    },
+  );
 
   it("uses the canvas-owned resting dropdown path for section sizing policy size-mode controls", () => {
     mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
