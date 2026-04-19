@@ -20,15 +20,11 @@ Use these first for day-to-day work.
   - Prefers worktree-derived backend/frontend/CDP ports and auto-selects free ports when collisions occur.
   - Uses the same default dev paths as `start.sh`.
   - Accepts the same runtime path flags as `start.sh`.
-  - Safe for Codex to start directly when temporary CDP/browser verification is needed.
-  - If Codex starts it for temporary verification, cleanup should stop the `./ai.sh` session, not just browser MCP. Use `./kill.sh` as the repo-scoped fallback.
   - Wrapper over `scripts/ai.sh`.
 - `./aireset.sh`
   - Wipes the resolved active state root, then runs `./ai.sh`.
   - Uses the same default dev paths as `start.sh`.
   - Accepts the same runtime path flags as `start.sh` (except `--force` / `--yes`).
-  - Prefer only when Codex needs a clean reset before browser verification.
-  - Cleanup has the same requirement as `./ai.sh`: stop the session, not only the browser MCP helper.
 - `./kill.sh`
   - Stops dev processes + browser MCP helpers.
   - Wrapper over `scripts/kill-setta.sh`.
@@ -54,22 +50,31 @@ Use these first for day-to-day work.
   - Formats Python via Ruff (requires env activation; see notes below).
 - `./check_quality.sh`
   - Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
-  - Defaults to the current git changes relative to `HEAD` plus untracked files so it works before staging or committing.
-  - Use `--staged` when you intentionally want to verify only the staged set.
-  - Python: `ruff check` plus `C901` complexity checks, failing at complexity `>= 10`.
-  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files, failing at complexity `>= 10` (`max-depth` `4`, `max-params` `5` still apply separately).
-  - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files, failing at complexity `>= 12`.
-  - Supports `--all`, `--git-changes`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
+  - Defaults to staged files so it is usable as a pre-commit gate even while the repo has legacy complexity debt.
+  - Python: `ruff check` plus `C901` complexity checks (default max complexity `9`).
+  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `9`, `max-depth` `4`, `max-params` `5`).
+  - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `9`).
+  - Shell: repo-local shell-function complexity checks on changed `*.sh` files outside test trees (default max complexity `10`).
+  - Supports `--all`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
 - `./check_types.sh`
   - Runs full-repo type checks across Go, Python, and frontend TypeScript.
   - Go: compile-only `go test -run '^$' -count=1 ./...` through the pinned repo Go toolchain.
   - Python: `ty check` across all tracked repo Python files after env activation.
   - Frontend: `pnpm -C frontend typecheck` (`tsc --noEmit`).
   - Supports `--go`, `--python`, and `--frontend` to limit the run to selected language groups.
+- `./ralph.sh`
+  - Starts the Ralph supervisor by default.
+  - Supports `--raw-loop` to bypass the supervisor and run the inner loop directly.
+- `./ralph-stop.sh`
+  - Requests a clean Ralph stop after the current successful iteration.
+- `./ralph-watch.sh`
+  - Reattaches to the active detached Ralph log stream after reconnects.
+  - Follows the current supervisor loop log automatically and switches when Ralph rolls to a new `loop-XXX` directory.
+  - Use `--once` to print the current active log path and its latest buffered output without following.
 - `./report_quality_hotspots.sh`
-  - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
-  - Defaults to the top `20` hotspots per language section and uses the same default threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
-  - Supports `--top`, `--python-min`, `--frontend-min`, and `--go-min` to narrow the report.
+  - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, frontend, and shell.
+  - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
+  - Supports `--top`, `--python-min`, `--frontend-min`, `--go-min`, and `--shell-min` to narrow the report.
   - Intended for cleanup planning and hotspot discovery, not commit gating.
 - `./build.sh`
   - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
@@ -87,13 +92,15 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop default local setup (frozen Python env with the `defaults`, `source`, and `dev` extras; Go toolchain readiness; frozen frontend deps; frozen sidecars).
+  - One-stop default local setup (Go toolchain readiness + frozen frontend deps + frozen sidecars).
+- `./dev_install_python.sh`
+  - Opt-in setup for Python tooling with a frozen `uv` sync, then runs the default local dev install.
 - `./update_dependencies.sh`
   - Explicit dependency refresh path for Python and pnpm lockfiles.
   - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, refreshes both pnpm lockfiles, verifies their npm publish dates against the repo minimum age, then installs from them.
 - `./init_env.sh`
   - Checks that `uv.lock` is current, then syncs the Python environment without rewriting the lockfile.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `defaults`, `source`, and `dev` extras for repo workflows.
+  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `source` and `dev` extras for repo workflows.
   - When `supply_chain_policy.env` is present, also verifies the locked Python artifacts are at least the configured age.
 - `./audit_supply_chain.sh`
   - Runs `pip-audit`, `govulncheck`, Python/Go/pnpm release-age checks, and `pnpm audit` for both `frontend/` and the sidecar package.
@@ -114,7 +121,6 @@ These are used by the top-level wrappers or for advanced workflows.
   - Automatically finds the next free backend/frontend ports if the preferred ports are already in use.
   - Modes: `start`, `startr`, `reset`.
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
-  - Requires `./dev_install.sh` first and fails fast instead of auto-installing missing deps.
   - Supports runtime identity flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
 - `./scripts/reset-setta-state.sh`
   - Resolves the active Setta state root and deletes it.
@@ -145,14 +151,14 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
-  - Requires `./dev_install.sh` first and fails fast instead of auto-installing missing deps.
-  - On exit it stops browser MCP helpers automatically and kills the owned dev process.
-  - If you start browser MCP separately, use `./scripts/stop-browser-mcp.sh --devtools` for cleanup.
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
   - Browser MCP utilities.
   - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.
 - `./scripts/bootstrap-url.sh`
   - Prints a bootstrap URL for a running session.
+- `./scripts/check_quality_for_git_changes.sh`
+  - Runs `./check_quality.sh --files ...` against the current git diff plus untracked files instead of the default staged-file set.
+  - Useful for loops and pre-commit flows that need to quality-check the actual touched files before staging or committing.
 - `./scripts/run-codex-authority-cleanup-loop.sh`
   - Specialized Codex loop for Go-as-source-of-truth cleanup work.
   - Starts a fresh Codex session every iteration, defaults to yolo mode, and stops only after Codex emits an explicit clean-stop sentinel.
@@ -160,16 +166,16 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-codex-authority-sequenced-loop.sh`
   - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
   - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
-  - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
-  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
+  - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `9`, frontend `9`, Go `9`, shell `10`.
+  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
-  - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires an agent-started or developer-started browser session.
+  - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires a developer-started browser session.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
   - Specialized Codex loop for fixing only actionable runtime bugs that are surfaced by type errors instead of broad repo type backlog cleanup.
   - Starts a fresh Codex session every iteration, seeds a single-phase runtime-bug checklist plus audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs to build a filtered `runtime-break-shortlist.md` rather than handing Codex the full raw checker dump.
   - The shortlist is tiered, and the loop is told to stay on `Tier 1` until it is fixed or explicitly disproven in the audit.
   - Forces Codex to record concrete production evidence plus a one-sentence supported-flow runtime failure before editing code, and deprioritizes `tsc`-only import/export churn, helper-generic noise, request-nullability cleanup, and test-only typing unless they are proven to break a supported flow after a successful build.
-  - Requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable runtime bugs under the loop rubric.
+  - Requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable runtime bugs under the loop rubric.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
@@ -181,6 +187,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - Specialized Codex loop for migrating the remaining non-HTTP Go-owned TS/Python shared model generation onto a schema + semantic-sidecar path.
   - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Seeds a schema-migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, forbids tautological metadata tests and inventory shuffles, and stops after sustained plateau rather than churning tiny cleanups forever.
+- `./scripts/watch-ralph.sh`
+  - Underlying detached-log watcher used by `./ralph-watch.sh`.
+  - Reads Ralph runtime-state files and follows the active supervisor or raw-loop log.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
 

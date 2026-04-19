@@ -4,7 +4,6 @@ from setta.llm.chat_toolkit.section_sync import (
 )
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
-    ChatSectionState,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
@@ -23,21 +22,6 @@ from setta.types.generated.go_shared_types import (
 
 
 class TestChatSectionSync:
-    def test_default_generated_state_is_stream_syncable(self) -> None:
-        started = apply_stream_delta(
-            state=ChatSectionState(),
-            chunk=MessageStartEvent(
-                type=StreamingEventType.message_start,
-                message=AssistantChatMessage(
-                    id="assistant-1",
-                    content=[MessageTextContent(type="text", text="hello")],
-                ).model_dump(mode="python"),
-            ),
-        )
-
-        assert started.waitingForResponse
-        assert started.messages[0].id == "assistant-1"
-
     def test_message_start_and_text_delta(self) -> None:
         state = build_chat_section_state(messages=[], input_text="draft")
         assistant = AssistantChatMessage(

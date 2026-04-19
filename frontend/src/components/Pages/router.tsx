@@ -8,17 +8,8 @@ import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
-import {
-  useAppSubsystemAppModeRoute,
-  useAppSubsystemFrontendStatus,
-  useAppSubsystemFrontendStatusMessage,
-} from "plugins/appSubsystemRuntime";
-import {
-  usePluginRuntimeBootstrap,
-  usePluginRuntimeStore,
-} from "plugins/runtime";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
 import {
@@ -52,6 +43,16 @@ import { MainContainer } from "./Project/MainContainer";
 import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
 import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
 import { APP_ROUTE_IDS } from "./routeConfig";
+
+const LazyAppWrapper = lazy(async () => {
+  const mod = await import("components/Pages/App/AppWrapper");
+  return { default: mod.AppWrapper };
+});
+
+const LazyAppMainContainer = lazy(async () => {
+  const mod = await import("components/Pages/App/AppMainContainer");
+  return { default: mod.AppMainContainer };
+});
 
 function GridContainer({ children }: { children: ReactNode }) {
   return (
@@ -246,57 +247,15 @@ const shareProjectRouteElement = (
   </ShareWrapper>
 );
 
-function AppModeUnavailableRoute({ message }: { message: string }) {
-  return (
-    <AppShell isLoading={false} loadingContent={null}>
-      <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-10">
-        <div className="w-full max-w-xl rounded-2xl border border-setta-200 bg-white p-6 text-setta-900 shadow-sm dark:border-setta-800 dark:bg-setta-950 dark:text-setta-50">
-          <h1 className="text-base font-semibold">App Mode Unavailable</h1>
-          <p className="mt-2 text-sm text-setta-600 dark:text-setta-300">
-            {message}
-          </p>
-        </div>
-      </div>
-    </AppShell>
-  );
-}
-
-function AppModeRouteElement() {
-  usePluginRuntimeBootstrap(true);
-  const runtimeStatus = usePluginRuntimeStore((state) => state.status);
-  const runtimeStatusMessage = usePluginRuntimeStore(
-    (state) => state.statusMessage,
-  );
-  const appSubsystemStatus = useAppSubsystemFrontendStatus();
-  const appSubsystemStatusMessage = useAppSubsystemFrontendStatusMessage();
-  const appModeRoute = useAppSubsystemAppModeRoute();
-
-  if (appModeRoute) {
-    const AppModeRouteComponent = appModeRoute.component;
-    return <AppModeRouteComponent />;
-  }
-
-  if (
-    runtimeStatus === "idle" ||
-    runtimeStatus === "loading" ||
-    appSubsystemStatus === "loading"
-  ) {
-    return <LoadingSpinner />;
-  }
-
-  const message =
-    runtimeStatus === "error"
-      ? runtimeStatusMessage ??
-        "Failed to load the plugin runtime for app mode."
-      : appSubsystemStatus === "error"
-        ? appSubsystemStatusMessage ??
-          "Failed to load the app subsystem frontend registration."
-        : 'App mode is unavailable because the first-party plugin "setta-json-render-app-gen" is not enabled.';
-
-  return <AppModeUnavailableRoute message={message} />;
-}
-
-const appRouteElement = <AppModeRouteElement />;
+const appRouteElement = (
+  <Suspense fallback={<LoadingSpinner />}>
+    <LazyAppWrapper>
+      {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
+        <LazyAppMainContainer doneLoading={doneLoading} is404={is404} />
+      )}
+    </LazyAppWrapper>
+  </Suspense>
+);
 
 const shareHomeRouteElement = (
   <ShareWrapper mode="home">
