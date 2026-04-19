@@ -4,6 +4,7 @@ import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
   DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
+  doesAppSubsystemModeRequireImageAttachment,
   getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
 } from "./appSubsystemChatUi";
@@ -98,5 +99,17 @@ describe("appSubsystemChatUi", () => {
       { id: "prompt_builder", name: "Prompt Builder" },
       { id: "mcp_server", name: "MCP Server" },
     ]);
+  });
+
+  it("marks only the plugin-owned image mode as requiring an attachment", () => {
+    expect(doesAppSubsystemModeRequireImageAttachment("json_render")).toBe(
+      false,
+    );
+    expect(
+      doesAppSubsystemModeRequireImageAttachment("json_render_with_image"),
+    ).toBe(true);
+    expect(doesAppSubsystemModeRequireImageAttachment("prompt_builder")).toBe(
+      false,
+    );
   });
 });
