@@ -256,24 +256,37 @@ Use this order unless a fresh measurement disproves it:
 
 ## Current sequencing checkpoint
 
-As of the 2026-04-18 serious-gains replan checkpoint:
+As of the 2026-04-19 resting-body replan checkpoint:
 
-- The retained-canvas direction is real, not speculative: the normalized dense chain moved the branch from the durable baseline of `9553` / `92` / `521` (`documentNodeCount` / `inputs` / `buttons`) and `raf.meanMs 204.93` / `raf.p95Ms 216.7` / `longTasks.totalMs 36337` to the current best checkpoint of `8182` / `55` / `463` and `raf.meanMs 102.98` / `raf.p95Ms 200` / `longTasks.totalMs 16654`.
-- Those are meaningful gains, but they are still not good enough for the branch goal: `settings` -> `All Settings` pan/zoom remains poor in absolute terms, and most sampled frames still miss the `33.3ms` budget.
-- The callable, dict, GlobalVariables, `sectionSizingPolicy`, `gui`, backend ordinary-dropdown, and backend switch-family micro-lanes should all be treated as closed at their current ownership boundaries unless a fresh visible defect appears.
-- The next frontier is no longer another section-local cleanup lane. The remaining problem is the still-large cross-section interactive-core plateau on `All Settings`, not a lack of one more wrapper, label, underline, or section-specific control hop.
+- The retained-canvas direction is real, not speculative: the normalized dense chain moved the branch from the durable baseline of `9553` / `92` / `521` (`documentNodeCount` / `inputs` / `buttons`) and `raf.meanMs 204.93` / `raf.p95Ms 216.7` / `longTasks.totalMs 36337` to the current best clean checkpoint of `7670` / `2` / `39` and `raf.meanMs 102.6` / `raf.p95Ms 183.4` / `longTasks.totalMs 16510`.
+- The later recovered-runtime `7701` / `4` / `53` report remains useful only as section-scoped ownership proof for the chat-windowing/dropzone/plugin slice; do not treat it as the new apples-to-apples benchmark because extra non-target workspace chrome reopened during recovery.
+- Those gains are still not good enough for the branch goal: `settings` -> `All Settings` pan/zoom remains poor in absolute terms, and the branch still misses the `33.3ms` budget on far too many frames.
+- The callable, dict, GlobalVariables, `sectionSizingPolicy`, `gui`, backend ordinary-dropdown, backend switch-family, shared activator, and generic resting-text family micro-lanes should all be treated as closed at their current ownership boundaries unless a fresh visible defect appears.
+- The remaining problem is no longer the old interactive-core plateau. The dominant remaining cost is the dense resting section-body / row-value DOM that still moves under viewport transforms across `All Settings`.
+- The recent frontier chain proved where the next win is not:
+  - the retained switch value-shell boundary moved the remaining value surface to `87` elements across `28` rows at `documentNodeCount 6728`
+  - the `languageServer` slice moved that remaining surface again to `39` / `21` at `documentNodeCount 6713`
+  - the backend plain-text slice moved it again to `27` / `18` at `documentNodeCount 6704`
+  - but dense motion stayed flat-to-worse across the last two frontier passes (`raf.mean 94.13 -> 94.22`, `raf.p95 166.8 -> 183.4`, `longTasks.total 14856 -> 15021`)
+- Therefore the branch has exhausted survivor-family harvesting as the default strategy. The next step must remove row-body/layout cost from motion, not just another text/value leaf from the DOM tree.
 
 Required order from here:
 
 1. Start each new default pass from the whole `settings` -> `All Settings` dense scene, not from a previously closed micro-lane.
 2. Pick only one of these two frontier classes by default:
-   - the largest remaining shared interactive-core primitive that can cut the global plateau across multiple sections at once
-   - the single highest-payoff remaining dense section family only if its live controls clearly dominate the current inventory
-3. Prefer a broader shared lightweight action-button or value/editor primitive over another section-specific dropdown/switch/wrapper cleanup whenever both are available.
-4. Land a new code slice only if the inventory suggests it can materially move the dense probe, the global `input` / `button` plateau, or both. Convenience cleanups and local polish are not enough.
-5. After every such slice, rerun the normalized dense `settings` -> `All Settings` probe against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` and compare against the current best checkpoint `8182` / `55` / `463` with `raf.meanMs 102.98`, `raf.p95Ms 200`, and `longTasks.totalMs 16654`.
-6. If a proposed slice does not plausibly move those global numbers before the code is written, stop and replan instead of letting the loop continue by inertia.
-7. If two consecutive frontier slices fail to materially improve absolute dense-scene motion, stop default automation and replan around a stronger overlay/activation architecture rather than continuing family-by-family harvesting.
+   - a stronger shared resting row-body / value-shell primitive or ownership seam that can remove remaining `div.section-value`, `single-cell-container`, switch shell, or similar row-body DOM across multiple sections at once
+   - a stronger inactive-row overlay primitive only if that is the smallest viable way to stop paying row-body layout/paint during motion
+3. Prefer a broader shared row-body/value-shell primitive over another section-specific resting-text, date/time, dropdown, switch, or wrapper cleanup whenever both are available.
+4. First candidate order for the next restart:
+   - shared lightweight-switch row-body / value-shell ownership, where rows are already `lightweightSwitch` and the remaining cost is the visible `div.section-value` shell
+   - shared lightweight color-input row-body / value-shell ownership, where the remaining cost is the `div.section-value.single-cell-container` plus icon shell
+   - if neither of those is viable on the current boundary, a stronger inactive-row-body overlay primitive for the highest remaining non-lightweight family
+5. Land a new code slice only if the inventory suggests it can materially move the dense probe, the remaining section-body/value DOM, or both. Convenience cleanups and local polish are not enough.
+6. Do not reopen closed survivor-family lanes by default just because they still appear in the ranking. They now count only as evidence for the stronger primitive choice, not as the product slice themselves.
+7. After every such slice, rerun the normalized dense `settings` -> `All Settings` probe against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` and compare against the current best clean checkpoint `7670` / `2` / `39` with `raf.meanMs 102.6`, `raf.p95Ms 183.4`, and `longTasks.totalMs 16510`.
+8. If a proposed slice does not plausibly move those global numbers or the dense section-body/value surface before the code is written, stop and replan instead of letting the loop continue by inertia.
+9. If one stronger row-body/value-shell pass still fails to materially improve absolute dense-scene motion, escalate immediately to a larger inactive-row overlay decision instead of continuing family-by-family harvesting.
+10. Do not take another generic shared resting-text harvest, and do not open a date/time-specific lane by default, unless a fresh whole-scene inventory proves that move is now the highest-payoff dense frontier.
 
 Do not reopen closed section-specific chrome ownership lanes for routine follow-up, and do not let Ralph treat the current triple-digit frame times as success just because the branch is better than baseline.
 
