@@ -19,7 +19,6 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
@@ -33,7 +32,7 @@ func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -102,7 +101,7 @@ func TestRegisterDeploymentRoutesReusesExistingShareSessionFromHeader(t *testing
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -150,7 +149,7 @@ func TestRegisterDeploymentRoutesReplacesUnknownShareSessionID(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -198,7 +197,7 @@ func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
 		Info:       stubInfoService{mode: "app", info: RuntimeInfo{Mode: "app"}},
 		ModePolicy: modes.NewPolicy(config.ModeApp),
 		Register: func(r chi.Router) {
-			if err := RegisterAppDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeApp),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -761,20 +760,10 @@ func newDeploymentRouteTestHandler(t *testing.T, mode config.Mode, deploymentRun
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			deps := DeploymentRouteDependencies{
+			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
 				Deployment: deploymentRuntime,
-			}
-			var err error
-			switch mode {
-			case config.ModeShare:
-				err = RegisterShareDeploymentRoutes(r, deps)
-			case config.ModeApp:
-				err = RegisterAppDeploymentRoutes(r, deps)
-			default:
-				err = RegisterDeploymentRoutes(r, deps)
-			}
-			if err != nil {
+			}); err != nil {
 				t.Fatalf("register deployment routes: %v", err)
 			}
 		},
@@ -888,9 +877,6 @@ func newHTTPTestDeploymentRuntimeWithOptions(t *testing.T, opts httpTestDeployme
 	if err != nil {
 		t.Fatalf("open deployment runtime: %v", err)
 	}
-	if opts.Mode == config.ModeApp {
-		deploymentRuntime.SetAppDeploymentRuntimeContent(httpTestAppDeploymentRuntimeContent{})
-	}
 	t.Cleanup(func() {
 		if err := deploymentRuntime.Close(); err != nil {
 			t.Fatalf("close deployment runtime: %v", err)
@@ -941,18 +927,6 @@ func writeHTTPDeploymentFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write deployment file: %v", err)
 	}
-}
-
-type httpTestAppDeploymentRuntimeContent struct{}
-
-func (httpTestAppDeploymentRuntimeContent) LoadPublishedAppSpec(
-	deploymentRoot string,
-	appDefinition *projectstate.AppDefinition,
-) (any, error) {
-	if appDefinition == nil {
-		return nil, nil
-	}
-	return appspec.Read(deploymentRoot, appDefinition.AppSpecPath)
 }
 
 func waitForHTTPDeploymentListenerHandleCount(t *testing.T, runtime *deployments.Runtime, expected int) {

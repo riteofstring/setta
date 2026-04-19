@@ -15,8 +15,7 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Refresh frontend/python/go typecheck logs and the runtime-break shortlist before every iteration
-- Stop only when the refreshed shortlist has no actionable runtime-bug findings left
+- Stop only when Codex explicitly reports that no actionable runtime bugs surfaced by type errors remain
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the saved checklist/audit state
 
 Options:
@@ -55,6 +54,7 @@ yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 complete_exit_code="42"
+complete_stop_sentinel="CODEX_LOOP_STOP: SEVERE_TYPECHECK_AUDITED_STOP"
 codex_extra_args=()
 default_codex_extra_args=(
   --config
@@ -224,6 +224,22 @@ fi
 
 mkdir -p "${output_dir}" "${state_dir}"
 
+frontend_typecheck_command="$(
+  shell_join \
+    "./check_types.sh" \
+    --frontend
+)"
+python_typecheck_command="$(
+  shell_join \
+    "./check_types.sh" \
+    --python
+)"
+go_typecheck_command="$(
+  shell_join \
+    "./check_types.sh" \
+    --go
+)"
+
 checklist_file="${state_dir}/checklist.md"
 prompt_file="${state_dir}/prompt.md"
 severe_type_audit_file="${state_dir}/severe-type-audit.md"
@@ -231,26 +247,67 @@ runtime_break_shortlist_file="${state_dir}/runtime-break-shortlist.md"
 frontend_typecheck_file="${state_dir}/frontend-typecheck.txt"
 python_typecheck_file="${state_dir}/python-typecheck.txt"
 go_typecheck_file="${state_dir}/go-typecheck.txt"
+status_file="${state_dir}/status.txt"
+head_file="${state_dir}/last-observed-head.txt"
+runtime_break_shortlist_command="$(
+  shell_join \
+    "python3" \
+    "${ROOT_DIR}/scripts/build-runtime-break-shortlist.py" \
+    --repo-root "${ROOT_DIR}" \
+    --frontend-typecheck "${frontend_typecheck_file}" \
+    --python-typecheck "${python_typecheck_file}" \
+    --go-typecheck "${go_typecheck_file}" \
+    --output "${runtime_break_shortlist_file}"
+)"
 
 if [[ ! -f "${severe_type_audit_file}" ]]; then
   cat > "${severe_type_audit_file}" <<EOF
 # Runtime Bug Audit
 
-Keep this file compact and overwrite stale notes instead of appending a diary.
+Keep this file compact and current-state only.
+Overwrite stale notes instead of appending an iteration diary.
 
-## Current shortlist snapshot
+## Severity rubric
+- Critical for this loop:
+  - the type error indicates a concrete supported-flow runtime break, crash, dropped message, broken dispatch path, invalid live request/response shape, or app-start failure
+  - missing runtime properties, enum members, discriminants, or handler-map keys that production code actively uses on the live path
+  - generated-contract drift that proves live runtime wiring is broken
+- Duplication policy:
+  - Do not introduce duplicate code or logic merely to satisfy the type checker.
+  - Before adding a local type, helper, wrapper, adapter, or normalizer, first reuse an existing authoritative type or helper if one already exists.
+  - If the only problem is that an owner-side helper type is private, prefer exporting and reusing it from the owner module instead of re-declaring the same shape locally.
+  - If a normalization boundary is genuinely unavoidable because two owner surfaces are materially different, keep it minimal, make it the only such boundary for that concept, and record the reason briefly in this audit.
+- Usually not critical for this loop:
+  - frontend \`tsc\`-only failures that do not imply a bundled runtime break on a supported flow
+  - missing or renamed imports, exports, or symbols unless you can show value-level runtime use and a concrete live failure
+  - exactOptionalPropertyTypes or nullability churn that does not indicate runtime breakage
+  - test-only fixture typing or helper typing backlog
+  - contract precision or owner/generated narrowing drift that does not imply a concrete runtime failure on supported flows
+  - request or response typing mismatches where the existing runtime payload shape is already accepted and works in production code
+  - broad legacy typing backlog that is not required to land the current runtime-break fix
+
+## Current actionable runtime-break findings
 
 ## Current target
 
-## Concrete runtime failure
+## Production evidence
+- Record exact non-test file references and the concrete type errors that show the target hits a supported production path.
+- If this section is blank, do not edit code.
 
-## Evidence
+## Failure mode
+- State the concrete supported-flow runtime failure in one or two sentences.
+- Example shape: "When the app receives real message X, handler key Y is missing, so dispatch breaks."
+- Frontend \`tsc\`-only failures or theoretical build issues do not count by themselves.
+- If you cannot state a concrete runtime failure mode, the target is not actionable for this loop.
 
-## Owner surface to change
+## High-risk contract surfaces checked
+- Before completion, explicitly audit high-risk shared-contract and runtime-dispatch surfaces that can evade raw typecheck output.
 
-## Verification
+## Deferred non-critical or test-only backlog
 
-## Deferred shortlist items
+## Completion basis
+- Completion means no actionable runtime bugs surfaced by type errors remain under the rubric above.
+- Non-critical type backlog may remain and should stay listed briefly here instead of consuming loop iterations.
 EOF
 fi
 
@@ -259,7 +316,7 @@ if [[ ! -f "${runtime_break_shortlist_file}" ]]; then
 # Runtime-Break Shortlist
 
 No shortlist has been generated yet.
-The pre-iteration wrapper refreshes this file before each Codex iteration.
+Run ${runtime_break_shortlist_command} after refreshing the saved typecheck outputs.
 EOF
 fi
 
@@ -270,52 +327,157 @@ if [[ ! -f "${checklist_file}" ]]; then
 Keep this file accurate while the loop runs.
 
 Rules:
-- This loop uses type checking as a bug finder, not as a target list to clear.
-- The pre-iteration wrapper refreshes ${frontend_typecheck_file}, ${python_typecheck_file}, ${go_typecheck_file}, and ${runtime_break_shortlist_file}.
-- Use ${runtime_break_shortlist_file} as the lead queue.
-- Update ${severe_type_audit_file} before editing code.
-- Fix one shortlist item or one tightly related cluster per iteration.
-- Prefer owner-side fixes and regeneration.
-- Missing export/import diagnostics only count when the symbol survives emitted JS. Unbound names only count when the missing identifier survives emitted JS. Type-only churn is not a runtime bug.
-- Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, type-only re-export shims, handwritten compatibility helpers, hard-coded generator inventories, or duplicated logic when an authoritative owner surface already exists.
-- Run focused verification plus ./gcf.sh and ./check_quality.sh before every commit.
-- Every non-stop iteration ends with a clean worktree and a commit whose message starts with codex-typefix:.
+- This loop has one phase only: fix actionable runtime bugs surfaced by type errors.
+- Treat ${severe_type_audit_file} as the current severity source of truth.
+- Mark an item \`[x]\` only after a fresh audit or verification proves it.
+- Do not delete items.
+- The latest saved frontend typecheck output should live at: ${frontend_typecheck_file}
+- The latest saved Python typecheck output should live at: ${python_typecheck_file}
+- The latest saved runtime-break shortlist should live at: ${runtime_break_shortlist_file}
+- Save Go typecheck output to: ${go_typecheck_file} when Go changes or before declaring completion.
+
+## Phase 1: Fix Runtime Bugs Surfaced By Type Errors
+- [ ] Refresh ${frontend_typecheck_file} with ${frontend_typecheck_command} at the start of every iteration and save stdout/stderr there.
+- [ ] Refresh ${python_typecheck_file} with ${python_typecheck_command} at the start of every iteration and save stdout/stderr there.
+- [ ] Refresh ${runtime_break_shortlist_file} with ${runtime_break_shortlist_command} immediately after refreshing the saved typecheck outputs.
+- [ ] Update ${severe_type_audit_file} on every iteration with only the current actionable runtime-break findings, current target, and brief deferred non-critical backlog needed for triage.
+- [ ] Before editing code, fill in `Production evidence` and `Failure mode` in ${severe_type_audit_file}. Do not start edits while either section is blank.
+- [ ] Use ${runtime_break_shortlist_file} as the primary lead queue. Use the raw saved typecheck outputs only as supporting detail and fallback input.
+- [ ] Choose one highest-leverage runtime-break error or tightly related runtime-break error cluster and fix it fully before moving on.
+- [ ] If ${runtime_break_shortlist_file} contains `Tier 1`, pick from Tier 1 only. Do not work on Tier 2 or Tier 3 while Tier 1 remains unexplained.
+- [ ] Prefer non-test production-file breakages first. Do not start with test-only errors unless the same production break is already identified and being fixed in the same iteration.
+- [ ] Prioritize missing runtime enum/object members, missing discriminants, broken handler-map keys, and live payload-shape mismatches ahead of generic request/nullability/helper typing issues.
+- [ ] Do not work on plain frontend \`tsc\`-only import/export/name errors unless ${severe_type_audit_file} proves they will break a supported runtime path after a successful build.
+- [ ] Do not skip a higher-tier shortlist item unless ${severe_type_audit_file} records why it is blocked, already disproven, or lower leverage than the chosen target.
+- [ ] If the chosen target is a request/response nullability issue or OpenAPI helper typing issue, prove the concrete runtime rejection or broken behavior first. If a focused test shows the current runtime already works, abandon that target as non-critical.
+- [ ] Do not introduce duplicate code or logic to satisfy the type checker. Reuse existing authoritative types and helpers first; if an owner-side helper type is private, export and reuse it instead of copying its shape locally.
+- [ ] Manually audit high-risk shared-contract and dispatch surfaces that can evade raw typecheck output, especially generated enums or unions used by runtime handler maps.
+- [ ] When generated artifacts are implicated, fix the owner inputs and regenerate instead of manually editing generated files.
+- [ ] Run focused verification and the relevant language type checks for the code you changed.
+- [ ] Before every non-stop commit, run \`./gcf.sh\` and \`./scripts/check_quality_for_git_changes.sh\`.
+- [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-typefix:\`.
+
+## Completion
+- [ ] Mark completion only after a fresh audit plus fresh saved typecheck outputs show no remaining actionable runtime bugs surfaced by type errors under the rubric, and the high-risk shared-contract/dispatch audit is also clean. Non-critical backlog may remain.
 EOF
 fi
 
 cat > "${prompt_file}" <<EOF
-Goal: use type checking as a bug finder. Fix only type errors that point to a real runtime bug. Do not try to clear the whole type backlog.
+You are running inside an automated Codex loop for this repository.
 
-Read in order:
+Mission:
+Complete the single phase of this loop:
+fix only actionable runtime bugs in the repo that are surfaced by type errors, without burning time on non-bug type backlog.
+
+Read first, in this order:
 - ${ROOT_DIR}/AGENTS.md
-- ${ROOT_DIR}/docs/reference/generation-contracts.md
+- ${ROOT_DIR}/docs/guides/dev-scripts.md
+- ${ROOT_DIR}/docs/reference/go-backed-python.md
+- \`git log --oneline --decorate -n 15\`
 - ${checklist_file}
-- ${runtime_break_shortlist_file}
-- ${severe_type_audit_file}
-- git log --oneline --decorate -n 10
+- ${runtime_break_shortlist_file} if it exists
+- ${severe_type_audit_file} if it exists
+- the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
 
-Rules:
-- Start from the highest shortlist tier.
-- Before editing, update the audit with the target, concrete runtime failure, exact evidence, and owner surface.
-- If you cannot explain the runtime failure clearly, skip that item and record why.
-- Fix one shortlist item or one tightly related cluster per iteration.
-- Missing export/import diagnostics count only when the symbol survives emitted JS. Unbound names count only when the missing identifier survives emitted JS. Type-only churn is not a runtime bug.
-- Prefer owner-side fixes and regeneration over local compatibility patches.
-- Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, structural shadow types, type-only re-export shims, handwritten compatibility helpers, or hard-coded generator inventories when an owner surface already exists.
-- Do not hand-edit generated files.
-- Run focused verification for the bug you changed. Before any commit, run the relevant type checks for touched code, then run ./gcf.sh, then run ./check_quality.sh.
-- If you make repo changes, end with a clean worktree and a commit message starting with codex-typefix:.
-- Do not declare the loop complete yourself. The loop stops when the refreshed shortlist is empty.
+Severity rubric:
+- Count an error as actionable for this loop only when it indicates a concrete supported-flow runtime break or app-start failure.
+- Typical actionable examples:
+  - missing runtime properties, enum members, discriminants, or handler-map keys that production code actively uses on the live path
+  - generated contract drift that breaks protocol dispatch, handler maps, or other live runtime wiring
+  - request/response type errors where the current code would send or depend on a payload shape that the live runtime path cannot actually handle
+- Type errors are leads, not the goal. Only fix them when they point to a real runtime bug.
+- Duplication policy for this loop:
+  - Do not introduce duplicate code or logic merely to silence type errors.
+  - Before adding a local type, helper, wrapper, adapter, or normalizer, first search for an existing authoritative type or helper and reuse it.
+  - If the only issue is that an owner-side helper type is private, export and reuse it from the owner module instead of re-declaring the same structure locally.
+  - If two owner surfaces are genuinely different and a normalization boundary is unavoidable, keep it minimal, keep exactly one such boundary for that concept, and record the reason in ${severe_type_audit_file}.
+- Usually not actionable for this loop:
+  - frontend \`tsc\`-only import/export/name failures that would not change bundled runtime behavior on a supported flow
+  - Go or Python compile/import issues unless you can tie them to a concrete supported-flow runtime failure instead of a tooling-only failure
+  - exactOptionalPropertyTypes, nullability, or narrowing churn that does not indicate runtime breakage
+  - test-only fixture typing, helper typing, or broad legacy test backlog
+  - contract precision drift, union narrowing drift, or owner/generated type drift that does not imply a concrete runtime failure
+  - request/response typing mismatches where the existing live payload still decodes and the supported app flow still works
+  - broad repo type backlog that is not required to land the current runtime-break fix
+- Strongly deprioritize by default:
+  - generic `callOpenAPI` / `ResponseDataAndStatus` / promise-union assignability noise
+  - request optionality or `null` acceptance cleanups unless the live handler demonstrably rejects or misinterprets the payload
+  - tests that only prove a type-cleanup target, rather than exposing a supported-flow failure
+- If an error is ambiguous, do not fix it in this loop unless you can explain the concrete runtime failure path in ${severe_type_audit_file}.
+- Typecheck outputs are candidate generators only. Some runtime-break regressions can evade raw typecheck output or be masked by generated types/tests.
+
+Execution rules for every iteration:
+- Treat the checklist at ${checklist_file} and the audit at ${severe_type_audit_file} as the source of truth.
+- Start each iteration by refreshing the saved typecheck outputs:
+  - run ${frontend_typecheck_command} and save stdout/stderr to ${frontend_typecheck_file}
+  - run ${python_typecheck_command} and save stdout/stderr to ${python_typecheck_file}
+- After refreshing the saved typecheck outputs, run ${runtime_break_shortlist_command} to refresh ${runtime_break_shortlist_file}.
+- Run ${go_typecheck_command} and save stdout/stderr to ${go_typecheck_file} whenever you touch Go code or before declaring completion.
+- After refreshing outputs, update ${severe_type_audit_file} so it reflects only current actionable runtime-break findings and the brief deferred non-critical backlog relevant to triage.
+- Before editing code, fill in `Production evidence` and `Failure mode` in ${severe_type_audit_file}. If you cannot do that concretely, pick a different target.
+- Use ${runtime_break_shortlist_file} as the primary lead queue. Treat the raw saved typecheck outputs as supporting evidence, not as a blanket requirement to fix every reported issue.
+- Pick one actionable runtime-break error or tightly related runtime-break cluster that you can complete confidently in this session.
+- Start from the highest-tier entries in ${runtime_break_shortlist_file}. If you skip a higher-tier item, record the concrete reason in ${severe_type_audit_file} before touching code.
+- If ${runtime_break_shortlist_file} contains `Tier 1`, do not work on Tier 2 or Tier 3 until the audit records why Tier 1 is blocked, disproven, or already resolved by the chosen fix.
+- Use the shortlist to focus first on non-test production files with high-confidence runtime signals such as missing generated runtime enum/object members, missing discriminants, broken handler-map keys, or payload shapes the live path cannot actually handle.
+- Do not start an iteration with test-only errors or lower-signal helper-generic noise while higher-signal production breakages remain unresolved in the saved outputs.
+- Do not work on plain frontend \`tsc\`-only import/export/name drift unless the audit proves a supported runtime path would still break after a successful frontend build.
+- Prefer owner-side fixes and regeneration over papering over generated outputs or adding compatibility wrappers.
+- Prefer exporting and reusing authoritative helper types over copying the same union or object shape into another file.
+- Do not create duplicate app-local types or logic when an existing owner type or helper can be reused directly.
+- Do not add or adjust tests first. Fix the production owner/code path first, then update or add the minimum focused test coverage needed to lock in the runtime-break fix.
+- In addition to reading typecheck outputs, manually audit high-risk shared-contract surfaces that often evade raw typecheck logs:
+  - generated enums and unions used by runtime dispatch maps
+  - owner/generated contract pairs where live runtime string constants can diverge from generated unions
+  - frontend handler maps whose computed keys depend on generated enum members
+  - Any drift that can leave production-path runtime dispatch unable to handle real owner-side messages or payloads must block completion.
+- Do not hand-edit generated files. If a generated file is wrong, fix the owner and regenerate.
+- Run focused verification for the behavior you changed.
+- Do not use Chrome DevTools, browser MCP, or other browser-driven verification in this loop. This is a runtime-bug loop using static/type signals; prefer generation, focused tests, and direct runtime checks.
+- Before every non-stop commit, run the relevant language type checks for the code you touched, then run \`./gcf.sh\`, then run \`./scripts/check_quality_for_git_changes.sh\`.
+- When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
+- Treat \`No supported files to check.\` from \`./scripts/check_quality_for_git_changes.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
+- If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-typefix:\`.
+- Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.
+
+Runtime-break-only discipline:
+- Do not spend an iteration fixing broad non-critical type backlog just because it appears in the saved typecheck outputs.
+- It is acceptable to leave non-critical type errors in place when they do not indicate runtime breakage and do not block the current runtime-break fix.
+- If you must touch a little non-critical typing to land a runtime-break fix cleanly, keep that spillover minimal and targeted.
+- Production code and shared contract surfaces matter more than test-only typing.
+- If a runtime-break issue originates in shared contracts, generated frontend types, or Go-owned Python surfaces, fix the authoritative owner and regenerate downstream artifacts before cleanup.
+- A type-only duplication that papers over an existing authoritative helper or shape is not an acceptable fix for this loop.
+- If a focused test or local runtime check demonstrates that the current behavior already works on the supported path, treat that as evidence the target is non-critical for this loop and back out instead of doubling down on the cleanup.
+
+Completion rule:
+- If a fresh audit plus fresh saved typecheck outputs and high-risk shared-contract audit show no remaining actionable runtime bugs surfaced by type errors under the rubric, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
+  ${complete_stop_sentinel}
+
+Completion discipline:
+- Any session that does not emit the stop sentinel must either produce a new clean commit or leave the repo unchanged while advancing the checklist and audit state needed for the next runtime-break fix.
+- Never end the session with uncommitted, unstaged, or untracked repo changes.
 EOF
+
+if [[ ! -f "${status_file}" ]]; then
+  printf 'pending\n' > "${status_file}"
+fi
+
+if [[ ! -f "${head_file}" ]]; then
+  git -C "${ROOT_DIR}" rev-parse HEAD > "${head_file}"
+fi
 
 pre_iteration_command="$(
   shell_join \
-    "${ROOT_DIR}/scripts/codex-severe-typecheck-loop-pre-iteration.sh" \
+    "${ROOT_DIR}/scripts/codex-authority-cleanup-loop-check.sh" \
     --root-dir "${ROOT_DIR}" \
     --output-dir "${output_dir}" \
     --state-dir "${state_dir}" \
     --complete-exit-code "${complete_exit_code}" \
+    --sentinel "${complete_stop_sentinel}" \
+    --progress-file "${checklist_file}" \
+    --progress-file "${severe_type_audit_file}" \
+    --progress-file "${runtime_break_shortlist_file}" \
     --allow-clean-failures "3"
 )"
 
