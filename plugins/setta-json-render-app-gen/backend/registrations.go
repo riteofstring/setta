@@ -21,15 +21,14 @@ type FrontendRouteRegistrationOptions struct {
 func BuildFrontendAPIRouteRegistrations(
 	options FrontendRouteRegistrationOptions,
 ) httpapi.FrontendAPIRouteRegistrations {
-	base := httpapi.BuildAppSubsystemFrontendAPIRouteRegistrations(options.API)
 	return httpapi.FrontendAPIRouteRegistrations{
 		Project: wrapFrontendRouteContributions(
-			base.Project,
+			buildProjectFrontendRouteContributions(options.API),
 			options.Capabilities,
 			appSubsystemProjectRoutesAvailable,
 		),
 		Deployment: wrapFrontendRouteContributions(
-			base.Deployment,
+			buildDeploymentFrontendRouteContributions(options.API),
 			options.Capabilities,
 			appSubsystemDeploymentRoutesAvailable,
 		),
@@ -40,6 +39,44 @@ func BuildMCPToolRegistrations(
 	projectState mcpx.AppSubsystemProjectStateProvider,
 ) []mcpx.ToolRegistration {
 	return mcpx.BuildAppSubsystemToolRegistrations(projectState)
+}
+
+func buildProjectFrontendRouteContributions(
+	deps httpapi.FrontendAPIRouteDependencies,
+) []httpapi.FrontendAPIRouteContribution {
+	return []httpapi.FrontendAPIRouteContribution{
+		{
+			Family: "app definition",
+			Register: func(router chi.Router) error {
+				return httpapi.RegisterAppDefinitionRoutes(router, deps.AppDefinition)
+			},
+		},
+		{
+			Family: "app generation skill",
+			Register: func(router chi.Router) error {
+				return httpapi.RegisterAppGenSkillRoutes(router, deps.AppGenSkill)
+			},
+		},
+	}
+}
+
+func buildDeploymentFrontendRouteContributions(
+	deps httpapi.FrontendAPIRouteDependencies,
+) []httpapi.FrontendAPIRouteContribution {
+	return []httpapi.FrontendAPIRouteContribution{
+		{
+			Family: "app deployment",
+			Register: func(router chi.Router) error {
+				return httpapi.RegisterAppDeploymentRoutes(router, deps.AppDeployment)
+			},
+		},
+		{
+			Family: "app deployment ide",
+			Register: func(router chi.Router) error {
+				return httpapi.RegisterAppDeploymentIDERoutes(router, deps.DeploymentIDE)
+			},
+		},
+	}
 }
 
 func wrapFrontendRouteContributions(
