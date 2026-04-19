@@ -77,7 +77,11 @@ func buildAppSubsystemRegistrationsForTest(
 			{
 				Family: "app deployment ide",
 				Register: func(router chi.Router) error {
-					return RegisterAppDeploymentIDERoutes(router, deps.DeploymentIDE)
+					return RegisterAppDeploymentIDERoutes(router, AppDeploymentIDERouteDependencies{
+						ModePolicy:   deps.ShareDeploymentIDE.ModePolicy,
+						ProjectState: deps.ShareDeploymentIDE.ProjectState,
+						Catalog:      deps.ShareDeploymentIDE.Catalog,
+					})
 				},
 			},
 		},
