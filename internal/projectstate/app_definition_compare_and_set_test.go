@@ -256,12 +256,10 @@ func TestRuntimeCompareAndSetAppDefinitionThemeModePreservesThemePayload(t *test
 		"className": "app-shell",
 		"mode":      "light",
 	}
-	if _, _, err := runtime.SetAppDefinition(context.Background(), SetAppDefinitionInput{
+	setTestAppDefinition(t, runtime, SetAppDefinitionInput{
 		AppSpec: appSpec,
 		Theme:   &theme,
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	expectedOldValue := "light"
 	_, result, err := runtime.CompareAndSetAppDefinitionThemeMode(
