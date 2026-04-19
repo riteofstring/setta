@@ -2,95 +2,19 @@ package app
 
 import (
 	"strings"
-	"sync"
 	"testing"
 
 	"setta/internal/agentruns"
-	"setta/internal/appsubsystem"
 	"setta/internal/chatmodes"
-	"setta/internal/deployments"
-	"setta/internal/httpapi"
-	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
 	"setta/internal/testutil/appsubsystemprovider"
-	"setta/internal/uisettings"
 )
 
 const (
-	testProviderAMode = "provider_a_mode"
-	testProviderBMode = "provider_b_mode"
-	testProviderAID   = "setta-test-app-provider-a"
-	testProviderBID   = "setta-test-app-provider-b"
+	testProviderAID = "setta-test-app-provider-a"
+	testProviderBID = "setta-test-app-provider-b"
+	customMode      = "provider_a_mode"
 )
-
-var registerAppGenerationModeTestProvidersOnce sync.Once
-
-type appGenerationModeTestProvider struct {
-	contributions []chatmodes.AppGenerationModeContribution
-}
-
-func (p appGenerationModeTestProvider) BuildFrontendAPIRouteRegistrations(
-	appsubsystem.FrontendRouteRegistrationOptions,
-) httpapi.FrontendAPIRouteRegistrations {
-	return httpapi.FrontendAPIRouteRegistrations{}
-}
-
-func (p appGenerationModeTestProvider) BuildMCPToolRegistrations(
-	*projectstate.Runtime,
-) []mcpx.ToolRegistration {
-	return nil
-}
-
-func (p appGenerationModeTestProvider) BuildScopedUISettingEntries(
-	*projectstate.Runtime,
-) ([]uisettings.RuntimeEntry, error) {
-	return nil, nil
-}
-
-func (p appGenerationModeTestProvider) AppGenerationModeContributions() []chatmodes.AppGenerationModeContribution {
-	return append([]chatmodes.AppGenerationModeContribution(nil), p.contributions...)
-}
-
-func (p appGenerationModeTestProvider) NewAppPublishService(
-	deployments.AppPublisherOptions,
-	*projectstate.Runtime,
-) (deployments.AppPublishService, error) {
-	return nil, nil
-}
-
-func (p appGenerationModeTestProvider) DeploymentTypeRegistration() deployments.TypeRegistration {
-	return deployments.TypeRegistration{}
-}
-
-func registerAppGenerationModeTestProviders() {
-	registerAppGenerationModeTestProvidersOnce.Do(func() {
-		appsubsystem.RegisterBackendProvider(testProviderAID, appGenerationModeTestProvider{
-			contributions: []chatmodes.AppGenerationModeContribution{
-				{
-					Mode: testProviderAMode,
-					PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
-						return "provider A prompt"
-					},
-				},
-			},
-		})
-		appsubsystem.RegisterBackendProvider(testProviderBID, appGenerationModeTestProvider{
-			contributions: []chatmodes.AppGenerationModeContribution{
-				{
-					Mode:                 testProviderBMode,
-					AllowsReferenceImage: true,
-					PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
-						if options.ReferenceImageURL == nil {
-							return "provider B prompt"
-						}
-						return "provider B prompt with reference image URL: " + *options.ReferenceImageURL
-					},
-				},
-			},
-		})
-	})
-}
 
 func TestNewAppGenerationModeResolverUsesUnknownProviderContributions(t *testing.T) {
 	capabilities := newAppSubsystemCapabilityState()
@@ -159,9 +83,7 @@ func TestNewAppGenerationModeResolverTracksCapabilityChangesAfterConstruction(t 
 	}
 }
 
-func TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch(t *testing.T) {
-	registerAppGenerationModeTestProviders()
-
+func TestNewAppGenerationModeResolverUsesGenericModesAcrossProviderSwitch(t *testing.T) {
 	capabilities := newAppSubsystemCapabilityState()
 	capabilities.Set(plugins.PluginAppSubsystemCapabilities{
 		PluginID:               testProviderAID,
@@ -174,13 +96,14 @@ func TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch(t *testing.T
 		t.Fatalf("newAppGenerationModeResolver returned error: %v", err)
 	}
 
-	modeA := testProviderAMode
-	normalized, ok := resolver.NormalizeOptionalMode(&modeA)
-	if !ok || normalized == nil || *normalized != modeA {
-		t.Fatalf("expected provider A mode to normalize, got ok=%t normalized=%v", ok, normalized)
+	if normalized, ok := resolver.NormalizeOptionalMode(stringPointer(customMode)); ok || normalized != nil {
+		t.Fatalf("expected custom provider mode to stay unavailable, got ok=%t normalized=%v", ok, normalized)
 	}
-	if prompt := resolver.BuildPrompt(&modeA, chatmodes.AppGenerationPromptOptions{}); prompt != "provider A prompt" {
-		t.Fatalf("expected provider A prompt, got %q", prompt)
+
+	mode := string(agentruns.AppGenerationModeJSONRenderWithImage)
+	normalized, ok := resolver.NormalizeOptionalMode(&mode)
+	if !ok || normalized == nil || *normalized != mode {
+		t.Fatalf("expected generic app mode to normalize for provider A, got ok=%t normalized=%v", ok, normalized)
 	}
 
 	capabilities.Set(plugins.PluginAppSubsystemCapabilities{
@@ -189,24 +112,23 @@ func TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch(t *testing.T
 		AppGenerationChatModes: true,
 	})
 
-	if normalized, ok := resolver.NormalizeOptionalMode(&modeA); ok || normalized != nil {
-		t.Fatalf("expected provider A mode to stop normalizing after switch, got ok=%t normalized=%v", ok, normalized)
+	if normalized, ok := resolver.NormalizeOptionalMode(stringPointer(customMode)); ok || normalized != nil {
+		t.Fatalf("expected custom provider mode to stay unavailable after switch, got ok=%t normalized=%v", ok, normalized)
 	}
 
-	modeB := testProviderBMode
-	normalized, ok = resolver.NormalizeOptionalMode(&modeB)
-	if !ok || normalized == nil || *normalized != modeB {
-		t.Fatalf("expected provider B mode to normalize after switch, got ok=%t normalized=%v", ok, normalized)
+	normalized, ok = resolver.NormalizeOptionalMode(&mode)
+	if !ok || normalized == nil || *normalized != mode {
+		t.Fatalf("expected generic app mode to normalize after provider switch, got ok=%t normalized=%v", ok, normalized)
 	}
-	if !resolver.AllowsReferenceImage(&modeB) {
-		t.Fatalf("expected provider B mode to allow reference images after switch")
+	if !resolver.AllowsReferenceImage(&mode) {
+		t.Fatalf("expected generic image mode to allow reference images after switch")
 	}
 	referenceImageURL := "https://example.com/reference.png"
-	prompt := resolver.BuildPrompt(&modeB, chatmodes.AppGenerationPromptOptions{
+	prompt := resolver.BuildPrompt(&mode, chatmodes.AppGenerationPromptOptions{
 		ReferenceImageURL: &referenceImageURL,
 	})
-	if !strings.Contains(prompt, "provider B prompt with reference image URL") {
-		t.Fatalf("expected provider B prompt after switch, got %q", prompt)
+	if !strings.Contains(prompt, "Reference image URL: https://example.com/reference.png") {
+		t.Fatalf("expected generic prompt after switch, got %q", prompt)
 	}
 }
 
@@ -228,4 +150,8 @@ func TestNewAppGenerationModeResolverTreatsUnavailableProviderAsNoop(t *testing.
 	if ok || normalized != nil {
 		t.Fatalf("expected unavailable provider mode to fail closed, got ok=%t normalized=%v", ok, normalized)
 	}
+}
+
+func stringPointer(value string) *string {
+	return &value
 }
