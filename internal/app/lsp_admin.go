@@ -17,6 +17,7 @@ type projectLSPAdmin interface {
 type runtimeLSPRefresher interface {
 	RefreshLanguageServers(context.Context) error
 	HasConfiguredLanguageServers() bool
+	CommitAppliedLanguageServerPlugins(context.Context) error
 }
 
 type workspaceLSPAdmin struct {
@@ -49,7 +50,15 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 			return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
 		}
 	}
-	return a.projectAdmin.Restart(ctx, document)
+	if err := a.projectAdmin.Restart(ctx, document); err != nil {
+		return err
+	}
+	if a.runtime != nil {
+		if err := a.runtime.CommitAppliedLanguageServerPlugins(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *workspaceLSPAdmin) TypeCheckProject(ctx context.Context, document projectstate.Document, projectID string) error {

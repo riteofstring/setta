@@ -15,6 +15,7 @@ let selectedPythonPlugin: string | null | undefined;
 let runtimeStatus: "idle" | "loading" | "loaded" | "error";
 let serverMode: "ide" | "share" | "app" | null;
 let pluginStatusById: Record<string, PluginStatusEntry>;
+let statusEntries: PluginStatusEntry[];
 let isDeploymentMode: boolean;
 
 const onOverviewTabClickMock = vi.fn();
@@ -29,12 +30,14 @@ vi.mock("plugins/runtime", () => ({
       status: "idle" | "loading" | "loaded" | "error";
       serverMode: "ide" | "share" | "app" | null;
       pluginStatusById: Record<string, PluginStatusEntry>;
+      statusEntries: PluginStatusEntry[];
     }) => unknown,
   ) =>
     selector({
       status: runtimeStatus,
       serverMode,
       pluginStatusById,
+      statusEntries,
     }),
 }));
 
@@ -121,6 +124,7 @@ describe("LanguageServerStatusBanner", () => {
     runtimeStatus = "loaded";
     serverMode = "ide";
     pluginStatusById = {};
+    statusEntries = [];
     isDeploymentMode = false;
     onOverviewTabClickMock.mockReset();
   });
@@ -166,6 +170,41 @@ describe("LanguageServerStatusBanner", () => {
     }
   });
 
+  it("warns when Python remains applied after the selection is cleared", async () => {
+    selectedPythonPlugin = null;
+    statusEntries = [
+      buildPluginStatusEntry({
+        pluginId: "setta-basedpyright",
+        appliedLanguageServerLanguages: ["python"],
+        registeredLanguageServers: [
+          {
+            pluginId: "setta-basedpyright",
+            name: "Python LSP",
+            language: "python",
+            command: "/bin/pyright",
+            args: ["--stdio"],
+            settingsKey: "basedpyright",
+          },
+        ],
+      }),
+    ];
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain("Restart is still required before it is turned off");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("stays hidden when the selected plugin is active for Python", async () => {
     selectedPythonPlugin = "setta-python-lsp";
     pluginStatusById = {
@@ -184,6 +223,7 @@ describe("LanguageServerStatusBanner", () => {
         ],
       }),
     };
+    statusEntries = Object.values(pluginStatusById);
 
     const { host, root } = await renderBanner();
 
@@ -218,6 +258,7 @@ describe("LanguageServerStatusBanner", () => {
         ],
       }),
     };
+    statusEntries = Object.values(pluginStatusById);
 
     const { host, root } = await renderBanner();
 
@@ -283,6 +324,7 @@ describe("LanguageServerStatusBanner", () => {
         ],
       }),
     };
+    statusEntries = Object.values(pluginStatusById);
 
     const { host, root } = await renderBanner();
 
@@ -317,6 +359,7 @@ describe("LanguageServerStatusBanner", () => {
         ],
       }),
     };
+    statusEntries = Object.values(pluginStatusById);
 
     const { host, root } = await renderBanner();
 
@@ -326,6 +369,40 @@ describe("LanguageServerStatusBanner", () => {
           '[data-testid="python-language-server-status-banner"]',
         )?.textContent,
       ).toContain("does not provide Python");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("warns when the selected plugin is invalid instead of calling it non-Python", async () => {
+    selectedPythonPlugin = "setta-basedpyright";
+    pluginStatusById = {
+      "setta-basedpyright": buildPluginStatusEntry({
+        pluginId: "setta-basedpyright",
+        state: PluginRuntimeStateEnum.invalid,
+        registeredLanguageServers: [],
+        errors: [
+          {
+            code: "backend_runtime_invalid",
+            message: "probe failed",
+          },
+        ],
+      }),
+    };
+    statusEntries = Object.values(pluginStatusById);
+
+    const { host, root } = await renderBanner();
+
+    try {
+      const bannerText =
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent ?? "";
+      expect(bannerText).toContain("is unavailable");
+      expect(bannerText).not.toContain("does not provide Python");
     } finally {
       await act(async () => {
         root.unmount();

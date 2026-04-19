@@ -16,6 +16,7 @@ export function LanguageServerStatusBanner() {
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const serverMode = usePluginRuntimeStore((state) => state.serverMode);
   const runtimeStatus = usePluginRuntimeStore((state) => state.status);
+  const statusEntries = usePluginRuntimeStore((state) => state.statusEntries);
   const selectedPythonPlugin = useSettings(
     (state) => state.languageServer.selectedByLanguage.python,
   );
@@ -27,6 +28,7 @@ export function LanguageServerStatusBanner() {
   const bannerMessage = buildPythonLanguageServerBanner(
     selectedPythonPlugin,
     runtimeStatus,
+    statusEntries,
     selectedPluginStatus,
   );
 
@@ -57,13 +59,20 @@ export function LanguageServerStatusBanner() {
 function buildPythonLanguageServerBanner(
   selectedPythonPlugin: string | null | undefined,
   runtimeStatus: "idle" | "loading" | "loaded" | "error",
+  statusEntries: PluginStatusEntry[],
   selectedPluginStatus: PluginStatusEntry | null,
 ): string | null {
-  if (selectedPythonPlugin === undefined) {
-    return "Python language server is not selected. Choose a plugin in workspace settings, then restart after it is available.";
-  }
-  if (selectedPythonPlugin === null) {
-    return "Python language server is turned off for this workspace. Select a plugin in workspace settings if you want completions and signature help.";
+  const appliedPythonEntry =
+    runtimeStatus === "loaded"
+      ? findAppliedLanguageServerEntry(statusEntries, "python")
+      : null;
+  const unselectedBanner = buildUnselectedPythonLanguageServerBanner(
+    selectedPythonPlugin,
+    appliedPythonEntry,
+  );
+
+  if (unselectedBanner != null) {
+    return unselectedBanner;
   }
   if (runtimeStatus !== "loaded") {
     return null;
@@ -71,16 +80,34 @@ function buildPythonLanguageServerBanner(
   if (selectedPluginStatus == null) {
     return `Selected Python language server plugin "${selectedPythonPlugin}" is not installed or active. Install or enable it, then restart the language server.`;
   }
-  if (!entryProvidesLanguage(selectedPluginStatus, "python")) {
-    return `Selected Python language server plugin "${selectedPythonPlugin}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`;
-  }
   if (!entryHasActiveRuntime(selectedPluginStatus)) {
     return `Selected Python language server plugin "${selectedPythonPlugin}" is unavailable. Enable or reinstall it, then restart the language server.`;
+  }
+  if (!entryProvidesLanguage(selectedPluginStatus, "python")) {
+    return `Selected Python language server plugin "${selectedPythonPlugin}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`;
   }
   if (entryHasAppliedLanguageServer(selectedPluginStatus, "python")) {
     return null;
   }
   return `Selected Python language server plugin "${selectedPythonPlugin}" is available, but restart is still required before it is applied.`;
+}
+
+function buildUnselectedPythonLanguageServerBanner(
+  selectedPythonPlugin: string | null | undefined,
+  appliedPythonEntry: PluginStatusEntry | null,
+): string | null {
+  if (selectedPythonPlugin !== undefined && selectedPythonPlugin !== null) {
+    return null;
+  }
+  if (appliedPythonEntry != null) {
+    const pendingPrefix = `Python language server is still applied by "${appliedPythonEntry.pluginId}". Restart is still required before `;
+    return selectedPythonPlugin === undefined
+      ? `${pendingPrefix}the current workspace setting takes effect.`
+      : `${pendingPrefix}it is turned off.`;
+  }
+  return selectedPythonPlugin === undefined
+    ? "Python language server is not selected. Choose a plugin in workspace settings, then restart after it is available."
+    : "Python language server is turned off for this workspace. Select a plugin in workspace settings if you want completions and signature help.";
 }
 
 function entryHasActiveRuntime(entry: PluginStatusEntry): boolean {
@@ -105,6 +132,18 @@ function entryHasAppliedLanguageServer(
   return appliedLanguages.some(
     (appliedLanguage) => appliedLanguage.toLowerCase() === language,
   );
+}
+
+function findAppliedLanguageServerEntry(
+  entries: PluginStatusEntry[],
+  language: string,
+): PluginStatusEntry | null {
+  for (const entry of entries) {
+    if (entryHasAppliedLanguageServer(entry, language)) {
+      return entry;
+    }
+  }
+  return null;
 }
 
 function openPluginsTab(): void {

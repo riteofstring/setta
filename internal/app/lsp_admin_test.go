@@ -28,7 +28,9 @@ func (s *stubProjectLSPAdmin) TypeCheckProject(_ context.Context, _ projectstate
 
 type stubRuntimeLSPRefresher struct {
 	refreshCalls int
+	commitCalls  int
 	refreshErr   error
+	commitErr    error
 	hasSpecs     bool
 }
 
@@ -39,6 +41,11 @@ func (s *stubRuntimeLSPRefresher) RefreshLanguageServers(_ context.Context) erro
 
 func (s *stubRuntimeLSPRefresher) HasConfiguredLanguageServers() bool {
 	return s.hasSpecs
+}
+
+func (s *stubRuntimeLSPRefresher) CommitAppliedLanguageServerPlugins(_ context.Context) error {
+	s.commitCalls++
+	return s.commitErr
 }
 
 func TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync(t *testing.T) {
@@ -57,6 +64,9 @@ func TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync(t *testing.T) {
 	if projectAdmin.restartCalls != 1 {
 		t.Fatalf("expected one project restart, got %d", projectAdmin.restartCalls)
 	}
+	if runtime.commitCalls != 1 {
+		t.Fatalf("expected one runtime commit, got %d", runtime.commitCalls)
+	}
 }
 
 func TestWorkspaceLSPAdminRestartReturnsUnconfiguredWhenNoSpecsRemain(t *testing.T) {
@@ -72,5 +82,8 @@ func TestWorkspaceLSPAdminRestartReturnsUnconfiguredWhenNoSpecsRemain(t *testing
 	}
 	if projectAdmin.restartCalls != 1 {
 		t.Fatalf("expected restart to reconcile project state before returning unconfigured, got %d calls", projectAdmin.restartCalls)
+	}
+	if runtime.commitCalls != 0 {
+		t.Fatalf("expected no runtime commit when no specs remain, got %d", runtime.commitCalls)
 	}
 }

@@ -14,10 +14,10 @@
 - Still unverified: No manual workspace startup observed the version-bumped bootstrap filling a previously missed linked-plugin selection; recovery remains automated-only.
 
 ### Probe-Time Language-Server Command Validation
-- Invariant: Path-like plugin language-server commands must be rejected during probe normalization unless the resolved target exists and is executable, so invalid explicit command overrides never become active selected specs.
-- Last finding commit: 07e88451b3817b24d5eec88da876f57611a61d18
-- Proof tests: `internal/plugins.TestNormalizeBackendLanguageServerRegistrationRejectsMissingPathLikeCommands`; `internal/plugins.TestFirstPartyBasedpyrightLanguageServerContract`; `tests/test_setta_basedpyright_plugin_backend.py::test_basedpyright_plugin_backend_probe_rejects_missing_path_override`
-- Still unverified: No manual editor restart or session exercised an invalid absolute-path override outside automated probe and contract coverage.
+- Invariant: Probe normalization must fail closed unless a plugin-backed language-server command is actually launchable: path-like overrides must resolve to executable targets, and first-party default-interpreter fallbacks must prove required modules are importable before a registration is advertised.
+- Last finding commit: 3d0634c6496f4b240e4cac2c1c96a51d162e4172
+- Proof tests: `internal/plugins.TestNormalizeBackendLanguageServerRegistrationRejectsMissingPathLikeCommands`; `internal/plugins.TestFirstPartyBasedpyrightLanguageServerContract`; `internal/plugins.TestServiceRuntimeMarksFirstPartyBasedpyrightInvalidWhenDefaultInterpreterLacksBasedpyright`; `tests/test_setta_basedpyright_plugin_backend.py::test_basedpyright_plugin_backend_probe_rejects_missing_path_override`; `tests/test_setta_basedpyright_plugin_backend.py::test_basedpyright_plugin_backend_probe_rejects_default_interpreter_without_basedpyright`; `internal/app.TestAppRestartLanguageServerReturnsUnconfiguredWhenDefaultInterpreterLacksBasedpyright`
+- Still unverified: No manual editor restart or packaged install exercised a broken default interpreter outside automated probe, runtime, and app coverage.
 
 ### Plugin-Owned Python LSP Settings And Runtime Paths
 - Invariant: Python LSP remains plugin-owned and explicitly selected; effective basedpyright settings must come from plugin schema defaults plus plugin runtime config, include `settaFilesRoot` in `basedpyright.analysis.extraPaths`, refresh the live applied spec/session when the selected plugin config changes, and keep schema-less selected plugin specs on an explicit empty settings object instead of reopening global settings fallback.
@@ -44,10 +44,10 @@
 - Still unverified: No manual editor restart or config-change session verified unchanged-document diagnostic refresh outside automated app/LSP coverage.
 
 ### Applied LSP Lifecycle Status
-- Invariant: Selected-plugin discovery and applied router state must stay distinct; app-owned applied-language status must not leak into raw CLI/service status, and header UX must resolve the primary selected plugin entry instead of shadowed duplicates.
-- Last finding commit: ef58bfc493a93065976b75a694adeb70a3b083de
-- Proof tests: `internal/app.TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus`; `internal/app.TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection`; `internal/settacmd.TestRunPluginsListJSONIncludesStatusPayload`; `frontend/src/components/AppHeader/LanguageServerStatusBanner.test.tsx` (`uses the primary plugin status entry from the runtime store`)
-- Still unverified: No Playwright or browser automation covers duplicate-shadowed plugin status paths; this iteration's CDP run was limited to header behavior because some pane-level fetches failed in the reset session.
+- Invariant: Selected-plugin discovery, persisted pending-restart markers, and applied router state must converge after restart without leaking app-owned applied-language status into raw CLI/service status; header UX must preserve the intentional missing vs `null` vs plugin-ID selection states while deriving pending and invalid messaging from runtime-applied languages and the primary selected-plugin status entry.
+- Last finding commit: 3d0634c6496f4b240e4cac2c1c96a51d162e4172
+- Proof tests: `internal/app.TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus`; `internal/app.TestWorkspaceLSPAdminRestartRefreshesRuntimeBeforeSync`; `internal/app.TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection`; `internal/app.TestAppRestartLanguageServerClearsPendingStateForSelectedLanguageServerOnlyPlugin`; `internal/plugins.TestServiceCommitAppliedLanguageServerPluginsClearsPendingStateForLanguageServerOnlyPlugin`; `internal/plugins.TestServiceCommitAppliedLanguageServerPluginsPreservesPendingStateForMixedBackendPlugin`; `internal/settacmd.TestRunPluginsListJSONIncludesStatusPayload`; `frontend/src/components/AppHeader/LanguageServerStatusBanner.test.tsx` (`uses the primary plugin status entry from the runtime store`; `warns when Python remains applied after the selection is cleared`; `warns when the selected plugin is invalid instead of calling it non-Python`); `frontend/tests/e2e/header/language-server-status-banner.spec.ts` (`python language-server banner warns when Python is still applied after selection is cleared`)
+- Still unverified: No automated browser flow covers the invalid-selected-plugin branch end-to-end, and no manual editor session exercised the full install-select-restart cycle beyond header-focused CDP verification.
 
 ## 2026-04-18 20:10:39 PDT
 Fixes applied:
@@ -165,3 +165,28 @@ Verification run:
 Residual risks / verification gaps:
 - No manual packaged-plugin install or plugin-config editing flow exercised broken schema refs or referenced defaults outside automated Go coverage.
 - No manual editor session exercised a schema-less selected plugin through completion/diagnostic flows; the empty-settings fallback fix is unit-tested only.
+
+## 2026-04-19 00:54:52 PDT
+Fixes applied:
+- Cleared persisted pending-restart markers for language-server-only plugins after successful LSP restart so runtime status, applied languages, and restart-required reporting converge again.
+- Made the header banner use runtime-applied language-server state for explicit-off and missing-selection messaging, and prefer invalid/unavailable selected-plugin status over a misleading "does not provide Python" banner.
+- Made the first-party basedpyright probe fail closed when the default interpreter cannot import `basedpyright.langserver`, so broken default interpreters produce invalid runtime status and `language_server_not_configured` on restart instead of late launch failure.
+
+Tests added or upgraded:
+- Added Go coverage for clearing pending restart state on language-server-only plugins while preserving mixed-backend pending state, plus app coverage for restart-state convergence and unconfigured restart behavior under a broken default interpreter.
+- Added pytest coverage for rejecting the default interpreter when `basedpyright` is missing.
+- Added frontend banner unit coverage for "still applied after selection cleared" and invalid selected-plugin messaging, plus Playwright coverage for the cleared-selection/applied-state banner transition.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestServiceCommitAppliedLanguageServerPlugins|TestServiceRuntimeMarksFirstPartyBasedpyrightInvalidWhenDefaultInterpreterLacksBasedpyright' -v`
+- `./scripts/go.sh test ./internal/app -run 'TestWorkspaceLSPAdminRestart|TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection|TestAppRestartLanguageServer(ClearsPendingStateForSelectedLanguageServerOnlyPlugin|ReturnsUnconfiguredWhenDefaultInterpreterLacksBasedpyright)' -v`
+- `source activate.sh && pytest tests/test_setta_basedpyright_plugin_backend.py -k 'default_interpreter or missing_path_override or honors_explicit_command_override or defaults_to_running_interpreter'`
+- `pnpm -C frontend exec vitest run src/components/AppHeader/LanguageServerStatusBanner.test.tsx`
+- `./scripts/run-playwright-e2e.sh tests/e2e/header/language-server-status-banner.spec.ts`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- Browser verification: `./aireset.sh` + CDP on `/home`; verified the live banner for "Python still applied after selection cleared" and for an invalid selected plugin showing unavailable messaging, then stopped the session. Playwright covered the cleared-selection/applied-state path end-to-end.
+
+Residual risks / verification gaps:
+- No automated browser run covers the invalid-selected-plugin banner branch end-to-end; that branch was verified by unit coverage and CDP only.
+- No manual editor session exercised completions or diagnostics through the full install-select-restart flow; runtime convergence remains covered by targeted Go tests rather than a live editor workflow.

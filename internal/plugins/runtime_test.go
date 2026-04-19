@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/config"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
@@ -1174,6 +1175,38 @@ func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *te
 	}
 	if len(statusEntry.RegisteredLanguageServers) != 1 || statusEntry.RegisteredLanguageServers[0].Language != "python" {
 		t.Fatalf("expected one python language server registration, got %#v", statusEntry.RegisteredLanguageServers)
+	}
+}
+
+func TestServiceRuntimeMarksFirstPartyBasedpyrightInvalidWhenDefaultInterpreterLacksBasedpyright(t *testing.T) {
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 {
+		t.Fatalf("expected invalid basedpyright plugin to stay out of the runtime list, got %#v", runtimeResponse.List.Plugins)
+	}
+
+	statusEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-basedpyright", PluginRuntimeStateInvalid)
+	if len(statusEntry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected invalid basedpyright plugin to expose no language server registrations, got %#v", statusEntry.RegisteredLanguageServers)
+	}
+	if len(statusEntry.Errors) != 1 {
+		t.Fatalf("expected one backend probe error, got %#v", statusEntry.Errors)
+	}
+	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
+		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
 	}
 }
 

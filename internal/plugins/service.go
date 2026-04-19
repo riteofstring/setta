@@ -198,6 +198,49 @@ func (s *Service) CommitBackendRuntimeRefresh() (DiscoverySnapshot, error) {
 	return s.rescanLocked()
 }
 
+func (s *Service) CommitAppliedLanguageServerPlugins(pluginIDs []string) error {
+	if s == nil {
+		return ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return err
+	}
+	if len(state.PendingRestartBackendPluginIDs) == 0 {
+		return nil
+	}
+
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return err
+	}
+	removablePendingIDs := pendingRestartLanguageServerOnlyPluginIDs(snapshot.Plugins, pluginIDs)
+	if len(removablePendingIDs) == 0 {
+		return nil
+	}
+
+	nextPendingIDs := make([]string, 0, len(state.PendingRestartBackendPluginIDs))
+	for _, pluginID := range state.PendingRestartBackendPluginIDs {
+		if _, ok := removablePendingIDs[pluginID]; ok {
+			continue
+		}
+		nextPendingIDs = append(nextPendingIDs, pluginID)
+	}
+
+	state.PendingRestartBackendPluginIDs = nextPendingIDs
+	if err := s.store.SavePluginsState(state); err != nil {
+		return err
+	}
+	for pluginID := range removablePendingIDs {
+		delete(s.pendingRestartRemovedPlugin, pluginID)
+	}
+	return nil
+}
+
 func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResponse, error) {
 	if s == nil {
 		return PluginEnableDisableResponse{}, ErrWorkspaceRootRequired
@@ -1211,6 +1254,59 @@ func (s *Service) discardPendingRestartBackendIDLocked(pluginID string) error {
 
 func pluginConfigKey(pluginID string, scope PluginScope) string {
 	return fmt.Sprintf("%s:%s", scope, pluginID)
+}
+
+func pendingRestartLanguageServerOnlyPluginIDs(entries []DiscoveredPlugin, pluginIDs []string) map[string]struct{} {
+	if len(entries) == 0 || len(pluginIDs) == 0 {
+		return nil
+	}
+
+	selected := map[string]struct{}{}
+	for _, pluginID := range pluginIDs {
+		trimmed := strings.TrimSpace(pluginID)
+		if trimmed == "" {
+			continue
+		}
+		selected[trimmed] = struct{}{}
+	}
+	if len(selected) == 0 {
+		return nil
+	}
+
+	removable := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.State != PluginRuntimeStatePendingRestart {
+			continue
+		}
+		if _, ok := selected[entry.PluginID]; !ok {
+			continue
+		}
+		if !entryHasLanguageServerOnlyBackendRuntime(entry) {
+			continue
+		}
+		removable[entry.PluginID] = struct{}{}
+	}
+	if len(removable) == 0 {
+		return nil
+	}
+	return removable
+}
+
+func entryHasLanguageServerOnlyBackendRuntime(entry DiscoveredPlugin) bool {
+	if !entry.HasBackend() {
+		return false
+	}
+
+	hasLanguageServer := false
+	for _, capability := range entry.EffectiveCapabilities {
+		switch capability {
+		case "registerLanguageServer":
+			hasLanguageServer = true
+		case "registerCodegenTarget", "registerListenerEndpoint", "registerMcpTools", "registerRouter", "registerStaticDir":
+			return false
+		}
+	}
+	return hasLanguageServer
 }
 
 func removeString(values []string, target string) []string {

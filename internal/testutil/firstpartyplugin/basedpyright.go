@@ -49,6 +49,21 @@ func BasedpyrightLangserverCommand(t testing.TB) string {
 	return basedpyrightRuntime.command
 }
 
+func EmptyPython(t testing.TB) string {
+	t.Helper()
+
+	bootstrapPython, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
+	if err != nil {
+		t.Fatalf("resolve bootstrap python interpreter: %v", err)
+	}
+
+	venvRoot := filepath.Join(t.TempDir(), "empty-python-env")
+	if err := runCommand(bootstrapPython, "-m", "venv", venvRoot); err != nil {
+		t.Fatalf("create empty python env: %v", err)
+	}
+	return pythonBinaryForVenv(venvRoot)
+}
+
 func ensureBasedpyrightRuntime() {
 	basedpyrightRuntime.once.Do(func() {
 		basedpyrightRuntime.python, basedpyrightRuntime.command, basedpyrightRuntime.err = prepareBasedpyrightRuntime()
@@ -75,12 +90,8 @@ func prepareBasedpyrightRuntime() (string, string, error) {
 		return "", "", fmt.Errorf("create basedpyright test env: %w", err)
 	}
 
-	pythonPath := filepath.Join(venvRoot, "bin", "python")
-	commandPath := filepath.Join(venvRoot, "bin", "basedpyright-langserver")
-	if runtime.GOOS == "windows" {
-		pythonPath = filepath.Join(venvRoot, "Scripts", "python.exe")
-		commandPath = filepath.Join(venvRoot, "Scripts", "basedpyright-langserver.exe")
-	}
+	pythonPath := pythonBinaryForVenv(venvRoot)
+	commandPath := basedpyrightCommandForVenv(venvRoot)
 
 	if err := runCommand(pythonPath, "-m", "pip", "install", "--disable-pip-version-check", dependency); err != nil {
 		return "", "", fmt.Errorf("install %s into basedpyright test env: %w", dependency, err)
@@ -119,6 +130,20 @@ func repoRoot() string {
 		panic("resolve first-party plugin test helper path")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+}
+
+func pythonBinaryForVenv(venvRoot string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(venvRoot, "Scripts", "python.exe")
+	}
+	return filepath.Join(venvRoot, "bin", "python")
+}
+
+func basedpyrightCommandForVenv(venvRoot string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(venvRoot, "Scripts", "basedpyright-langserver.exe")
+	}
+	return filepath.Join(venvRoot, "bin", "basedpyright-langserver")
 }
 
 func runCommand(command string, args ...string) error {

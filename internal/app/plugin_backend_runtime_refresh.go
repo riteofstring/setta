@@ -453,6 +453,21 @@ func (r *pluginBackendRuntimeRefresher) HasConfiguredLanguageServers() bool {
 	return len(r.lspSpecs) != 0
 }
 
+func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ context.Context) error {
+	if r == nil || r.service == nil {
+		return nil
+	}
+
+	r.mu.Lock()
+	pluginIDs := appliedLanguageServerPluginIDs(r.lspSpecs)
+	r.mu.Unlock()
+	if len(pluginIDs) == 0 {
+		return nil
+	}
+
+	return r.service.CommitAppliedLanguageServerPlugins(pluginIDs)
+}
+
 func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status *plugins.PluginStatusResponse) {
 	if r == nil || status == nil || len(status.Plugins) == 0 {
 		return
@@ -679,6 +694,20 @@ func appliedLanguageServerLanguagesByPlugin(specs []lsp.LanguageServerSpec) map[
 		slices.Sort(byPlugin[pluginID])
 	}
 	return byPlugin
+}
+
+func appliedLanguageServerPluginIDs(specs []lsp.LanguageServerSpec) []string {
+	byPlugin := appliedLanguageServerLanguagesByPlugin(specs)
+	if len(byPlugin) == 0 {
+		return nil
+	}
+
+	pluginIDs := make([]string, 0, len(byPlugin))
+	for pluginID := range byPlugin {
+		pluginIDs = append(pluginIDs, pluginID)
+	}
+	slices.Sort(pluginIDs)
+	return pluginIDs
 }
 
 func clonePluginLanguageServerSettings(settings map[string]any) map[string]any {

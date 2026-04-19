@@ -60,8 +60,24 @@ def test_basedpyright_plugin_backend_probe_honors_explicit_command_override(
     ]
 
 
-def test_basedpyright_plugin_backend_probe_defaults_to_running_interpreter() -> None:
-    payload = _run_probe({})
+def test_basedpyright_plugin_backend_probe_defaults_to_running_interpreter(
+    tmp_path: Path,
+) -> None:
+    package_root = tmp_path / "pythonpath"
+    langserver_dir = package_root / "basedpyright"
+    langserver_dir.mkdir(parents=True)
+    (langserver_dir / "__init__.py").write_text("", encoding="utf-8")
+    (langserver_dir / "langserver.py").write_text(
+        "def main():\n    return None\n",
+        encoding="utf-8",
+    )
+
+    existing_pythonpath = os.environ.get("PYTHONPATH", "").strip()
+    pythonpath = str(package_root)
+    if existing_pythonpath:
+        pythonpath = os.pathsep.join([pythonpath, existing_pythonpath])
+
+    payload = _run_probe({"PYTHONPATH": pythonpath})
 
     language_servers = payload["languageServers"]
     assert len(language_servers) == 1
@@ -73,6 +89,34 @@ def test_basedpyright_plugin_backend_probe_defaults_to_running_interpreter() -> 
         "--stdio",
     ]
     assert server["settingsKey"] == "basedpyright"
+
+
+def test_basedpyright_plugin_backend_probe_rejects_default_interpreter_without_basedpyright(
+    tmp_path: Path,
+) -> None:
+    venv_root = tmp_path / "clean-venv"
+    subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    venv_python = (
+        venv_root / "Scripts" / "python.exe"
+        if sys.platform.startswith("win")
+        else venv_root / "bin" / "python"
+    )
+
+    result = subprocess.run(
+        [str(venv_python), str(_backend_script()), "--setta-plugin-backend-probe"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=os.environ.copy(),
+    )
+
+    assert result.returncode != 0
+    assert "cannot import basedpyright.langserver" in result.stderr
 
 
 def test_basedpyright_plugin_backend_probe_rejects_missing_path_override(

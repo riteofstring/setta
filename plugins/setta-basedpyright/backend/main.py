@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import importlib
 import json
 import os
 import shlex
@@ -40,7 +41,17 @@ def resolve_language_server_command() -> tuple[str, list[str]]:
         if raw_args:
             args = shlex.split(raw_args)
         return resolve_command(explicit_command), args
+    ensure_default_interpreter_supports_basedpyright()
     return sys.executable, ["-c", BASEDPYRIGHT_ENTRYPOINT, "--stdio"]
+
+
+def ensure_default_interpreter_supports_basedpyright() -> None:
+    try:
+        importlib.import_module("basedpyright.langserver")
+    except Exception as exc:
+        fail(
+            f"default interpreter {sys.executable!r} cannot import basedpyright.langserver: {exc}"
+        )
 
 
 def main() -> None:
