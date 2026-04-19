@@ -19,7 +19,7 @@ const (
 
 	redactedSourcePathPrefix         = "[redacted]"
 	redactedCanonicalSourceKeyPrefix = "redacted:"
-	appSubsystemPluginID             = "setta-json-render-app-gen"
+	AppSubsystemPluginID             = "setta-json-render-app-gen"
 )
 
 type AssetURLBuilder func(pluginID string, relativePath string, sourceDigestSHA256 *string) string
@@ -151,7 +151,7 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 
 func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppSubsystemCapabilities {
 	capabilities := PluginAppSubsystemCapabilities{
-		PluginID: appSubsystemPluginID,
+		PluginID: AppSubsystemPluginID,
 	}
 	for _, entry := range entries {
 		if !isRuntimeAppSubsystemEntry(entry) {
@@ -167,10 +167,16 @@ func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppS
 }
 
 func isRuntimeAppSubsystemEntry(entry DiscoveredPlugin) bool {
-	if entry.PluginID != appSubsystemPluginID {
+	if entry.PluginID != AppSubsystemPluginID {
 		return false
 	}
 	return entry.State == PluginRuntimeStateActive || entry.State == PluginRuntimeStatePendingRestart
+}
+
+func AppSubsystemCapabilitiesFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginAppSubsystemCapabilities {
+	return buildRuntimeAppSubsystemCapabilities(snapshot.Plugins)
 }
 
 func runtimeAppSubsystemFeatureManifest(
