@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "setta-json-render-app-gen"
 version = "0.1.0"
-description = "First-party app subsystem plugin metadata package for Setta"
+description = "First-party app subsystem plugin package for Setta"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -14,3 +14,5 @@ py-modules = []
 
 [tool.setuptools.data-files]
 "setta-json-render-app-gen" = ["setta.plugin.json", "README.md"]
+"setta-json-render-app-gen/runtime_backend" = ["runtime_backend/main.py"]
+"setta-json-render-app-gen/frontend/dist" = ["frontend/dist/index.css", "frontend/dist/index.js"]
