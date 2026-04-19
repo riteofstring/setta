@@ -1874,12 +1874,6 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 			Deployment: deps.deploymentRuntime,
 		}
 	}
-	if deps.modePolicy.IsApp() {
-		apiDeps.AppDeployment = httpapi.DeploymentRouteDependencies{
-			ModePolicy: deps.modePolicy,
-			Deployment: deps.deploymentRuntime,
-		}
-	}
 	apiDeps.LauncherHome = httpapi.LauncherHomeRouteDependencies{
 		ModePolicy:       deps.modePolicy,
 		Auth:             deps.authService,
@@ -2074,6 +2068,10 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 				Capabilities:              deps.appSubsystemCapabilities,
 				API:                       apiDeps,
 				AppDeploymentIDEPublisher: deps.appPublisher,
+				AppDeployment: httpapi.DeploymentRouteDependencies{
+					ModePolicy: deps.modePolicy,
+					Deployment: deps.deploymentRuntime,
+				},
 			},
 		),
 	)
