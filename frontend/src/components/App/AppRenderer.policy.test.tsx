@@ -19,8 +19,8 @@ import {
   AppActionContext,
   AppConfigScopeContext,
   AppRuntimeContext,
-} from "./appContext";
-import { appRegistry } from "./appRegistry";
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
+import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
