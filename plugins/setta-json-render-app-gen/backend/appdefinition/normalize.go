@@ -16,7 +16,7 @@ var errAppRoutePathRequired = errors.New("app route path is required")
 func DecodeStoredAppDefinition(
 	raw projectstate.RawJSON,
 ) (*projectstate.AppDefinition, error) {
-	normalizedRaw, err := projectstate.NormalizeOpaqueAppDefinitionPayload(raw)
+	normalizedRaw, err := normalizeStoredAppDefinitionRawJSON(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -182,4 +182,17 @@ func cloneAppDefinitionRawJSON(raw projectstate.RawJSON) projectstate.RawJSON {
 	cloned := make(projectstate.RawJSON, len(raw))
 	copy(cloned, raw)
 	return cloned
+}
+
+func normalizeStoredAppDefinitionRawJSON(
+	raw projectstate.RawJSON,
+) (projectstate.RawJSON, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+	if !json.Valid(trimmed) {
+		return nil, fmt.Errorf("%w: appDefinition", projectstate.ErrFrontendPayloadInvalid)
+	}
+	return cloneAppDefinitionRawJSON(trimmed), nil
 }
