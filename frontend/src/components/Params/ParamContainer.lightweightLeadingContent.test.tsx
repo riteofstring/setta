@@ -33,6 +33,7 @@ vi.mock("forks/xyflow/core/container/sectionShellCanvasOwnership", () => ({
   isCanvasOwnedSectionLightweightParamLabel: (candidateSectionId: string) =>
     mocks.lightweightParamLabelSectionIds.has(candidateSectionId),
   isCanvasOwnedSectionLightweightNestedChildren: () => false,
+  isCanvasOwnedSectionLightweightNestedRowBody: () => false,
   isCanvasOwnedSectionNestedGuide: () => false,
   isCanvasOwnedSectionLightweightResizeHandle: () => false,
 }));

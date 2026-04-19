@@ -5,7 +5,7 @@ import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graph
 import {
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
-  isCanvasOwnedSectionLightweightNestedChildren,
+  isCanvasOwnedSectionLightweightNestedRowBody,
   isCanvasOwnedSectionNestedGuide,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
@@ -683,7 +683,10 @@ function _ParamContainer({
     isCanvasOwnedSectionLightweightParamLabel(sectionId);
   const lightweightNestedChildren =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionLightweightNestedChildren(sectionId);
+    isCanvasOwnedSectionLightweightNestedRowBody({
+      paramInfoId,
+      sectionId,
+    });
   const lightweightResizeHandle =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionLightweightResizeHandle(sectionId);

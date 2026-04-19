@@ -155,6 +155,70 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 075
+
+- Item: Flatten the shared shell `Size` row-body wrappers on the callable, dict, and GlobalVariables canaries.
+- Status: `done`
+- Details:
+  - Chose the exact remaining repeated row-body primitive from the latest rerank instead of widening the whole shell sections or reopening the closed `sectionSizingPolicy` lane.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` to expose an explicit param-specific lightweight nested row-body helper for only:
+    - `settings-codeobj__callableSectionDefault__callableSectionDefault__size`
+    - `settings-codeobj__dictSectionDefault__dictSectionDefault__size`
+    - `settings-codeobj__globalVariablesSectionDefault__globalVariablesSectionDefault__size`
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so only those three `Size` parent rows use the lightweight nested-children/body path on the canvas-shell-underlay runtime; the broader shell canaries stay on the existing section-wide boundary.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-shell-size-row-body.spec.ts`
+  - Live canary result on the worktree runtime:
+    - canonical target section: `settings-section__callableSectionDefault`
+    - sibling proof sections: `settings-section__dictSectionDefault`, `settings-section__globalVariablesSectionDefault`
+    - canonical editor handoff row: `settings-codeobj__callableSectionDefault__callableSectionDefault__size__height`
+    - the callable, dict, and GlobalVariables `Size` parent rows now report `data-canvas-owned-lightweight-row-body="true"`, `data-canvas-owned-nested-guide-lightweight="true"`, computed `display: contents`, and zero retained nested `div.section-args-nested.section-key-value` wrappers
+    - each `Height` / `Width` child row in those sections now also reports `data-canvas-owned-lightweight-row-body="true"` with computed `display: contents`
+    - the canonical callable `Height` row still focused inline on first interaction
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 3`
+    - `totalRemainingVisibleElementCount: 9`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the old shared shell wrapper kinds dropped out entirely:
+      - `div.section-args-nested.section-key-value` (`3 -> 0`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3 -> 0` for the shell size family)
+    - the remaining row-body surface is now concentrated entirely in `settings-section__nestedParamCodeObjDefault`
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5583`
+    - `inputCount: 2`
+    - `buttonCount: 40`
+    - `raf.meanMs: 70.11`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10834`
+  - Interpretation:
+    - this closes the shared callable/dict/GlobalVariables shell `Size` wrapper lane as product code
+    - the repeated row-body primitive is now gone from the whole-scene rerank; the remaining row-body debt is a smaller `nestedParamCodeObjDefault` lane rather than a repeated family
+    - the next default frontier should pivot to `settings-section__nestedParamCodeObjDefault` or the next earlier visual-gate blocker, not reopen the closed shell wrapper family
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx tests/e2e/settings/settings-all-settings-shell-size-row-body.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-010/worktree-ai.log -- tests/e2e/settings/settings-all-settings-shell-size-row-body.spec.ts tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.2m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded cleanly with `All Settings` active
+  - selector counts on the live page were:
+    - `.react-flow__section-shell-backdrop`: `1`
+    - `.react-flow__section-shell-backdrop canvas`: `1`
+    - `canvas`: `1`
+  - no visible crash/error overlay was present
+  - `settings-section__callableSectionDefault`, `settings-section__dictSectionDefault`, and `settings-section__globalVariablesSectionDefault` looked intact after the row-body flattening
+  - no obvious blank or detached artifact was visible around the `Size` / `Height` / `Width` rows
+- Next action:
+  - keep the shell `Size` wrapper lane closed and choose the next product slice from the remaining `settings-section__nestedParamCodeObjDefault` row-body/value seam unless a clearer earlier visual-gate blocker appears first
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 074
 
 - Item: Flatten the remaining lightweight nested-group row-body wrappers on the shared nested-children lane.

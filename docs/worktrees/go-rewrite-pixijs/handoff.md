@@ -9,6 +9,84 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shell `Size` row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-shell-size-row-body-flattening-rerun.md`.
+  - canonical target section: `settings-section__callableSectionDefault`
+  - sibling proof sections:
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+  - canonical editor handoff row: `settings-codeobj__callableSectionDefault__callableSectionDefault__size__height`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes an explicit param-specific lightweight nested row-body helper for only the callable/dict/GlobalVariables `__size` parent rows
+    - `frontend/src/components/Params/ParamContainer.tsx` now resolves the lightweight nested/body path from that helper, so the broader shell canaries stay on the existing section-wide boundary while those three `Size` rows alone use the lightweight nested-children/body lane
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-shell-size-row-body.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the callable, dict, and GlobalVariables `Size` parent rows now report:
+      - `data-canvas-owned-lightweight-row-body="true"`
+      - `data-canvas-owned-nested-guide-lightweight="true"`
+      - computed `display: contents`
+      - zero retained nested `div.section-args-nested.section-key-value` wrappers
+    - each `Height` and `Width` child row in those sections now reports:
+      - `data-canvas-owned-lightweight-row-body="true"`
+      - computed `display: contents`
+    - the canonical callable `Height` row still focused inline on the first interaction
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 3`
+    - `totalRemainingVisibleElementCount: 9`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the remaining row-body surface is now concentrated entirely in:
+      - `settings-section__nestedParamCodeObjDefault`
+    - strongest common remaining kinds are now:
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+      - `div.section-value.peer/textinput` (`1`)
+      - `div.cm-line` (`1`)
+      - `span.section-value.peer/textinput` (`1`)
+      - `div.section-value` (`1`)
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 6 -> 3`
+    - `totalRemainingVisibleElementCount: 18 -> 9`
+    - `totalRemainingVisibleChromeElementCount: 9 -> 0`
+    - the old shared shell wrapper kinds dropped out entirely:
+      - `div.section-args-nested.section-key-value` (`3 -> 0`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3 -> 0` for the shell size family)
+    - `settings-section__callableSectionDefault.remainingRowCount: 1 -> 0`
+    - `settings-section__dictSectionDefault.remainingRowCount: 1 -> 0`
+    - `settings-section__globalVariablesSectionDefault.remainingRowCount: 1 -> 0`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5583`
+    - `inputCount: 2`
+    - `buttonCount: 40`
+    - `raf.meanMs: 70.11`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10834`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5653 -> 5583`
+    - `inputCount: 4 -> 2`
+    - `buttonCount: 52 -> 40`
+    - `raf.meanMs: 70.95 -> 70.11`
+    - `raf.p95Ms: 116.7 -> 116.7`
+    - `longTasks.totalMs: 10979 -> 10834`
+  - interpretation:
+    - this closes the shared callable/dict/GlobalVariables shell `Size` wrapper lane as product code rather than reopening those canaries broadly
+    - the repeated row-body primitive is now gone from the whole-scene rerank; the remaining row-body debt is concentrated in the smaller `nestedParamCodeObjDefault` lane
+    - the next default frontier should pivot to `settings-section__nestedParamCodeObjDefault` or the next earlier visual-gate blocker, not reopen the closed shell wrapper family
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly through a fresh bootstrap URL with `All Settings` active
+    - selector counts on the live page were:
+      - `.react-flow__section-shell-backdrop`: `1`
+      - `.react-flow__section-shell-backdrop canvas`: `1`
+      - `canvas`: `1`
+    - no visible crash/error overlay was present
+    - `settings-section__callableSectionDefault`, `settings-section__dictSectionDefault`, and `settings-section__globalVariablesSectionDefault` looked intact after the row-body flattening
+    - no obvious blank or detached artifact was visible around the `Size` / `Height` / `Width` rows
 - The lightweight nested group row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-group-row-body-flattening-rerun.md`.
   - canonical target section: `settings-section__sectionSizingPolicy`
   - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`

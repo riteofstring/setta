@@ -6,6 +6,7 @@ import {
   BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CALLABLE_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionParamFilterIcon,
@@ -13,12 +14,14 @@ import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  DICT_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  GLOBAL_VARIABLES_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -39,6 +42,7 @@ import {
   isCanvasOwnedSectionLightweightParamFilter,
   isCanvasOwnedSectionLightweightSwitchValueShell,
   isCanvasOwnedSectionLightweightSwitchTrack,
+  isCanvasOwnedSectionLightweightNestedRowBody,
   isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
@@ -1055,6 +1059,41 @@ describe("sectionShellCanvasOwnership", () => {
         GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
     ).toBe(false);
+  });
+
+  it("targets only the shell size wrapper rows for lightweight nested row bodies", () => {
+    expect(
+      isCanvasOwnedSectionLightweightNestedRowBody({
+        paramInfoId: CALLABLE_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedRowBody({
+        paramInfoId: DICT_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
+        sectionId: DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedRowBody({
+        paramInfoId:
+          GLOBAL_VARIABLES_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
+        sectionId: GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedRowBody({
+        paramInfoId:
+          "settings-codeobj__callableSectionDefault__callableSectionDefault__styleColor",
+        sectionId: CANVAS_OWNED_SECTION_SHELL_ID,
+      }),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightNestedRowBody({
+        paramInfoId: "settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType",
+        sectionId: SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
   });
 
   it("uses the default callable shell colors when no style color is set", () => {

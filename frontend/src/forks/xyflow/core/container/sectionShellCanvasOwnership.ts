@@ -97,6 +97,12 @@ export const BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID =
   BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
 export const BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID =
   BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+export const CALLABLE_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID =
+  "settings-codeobj__callableSectionDefault__callableSectionDefault__size";
+export const DICT_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID =
+  "settings-codeobj__dictSectionDefault__dictSectionDefault__size";
+export const GLOBAL_VARIABLES_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID =
+  "settings-codeobj__globalVariablesSectionDefault__globalVariablesSectionDefault__size";
 const SETTINGS_SECTION_ID_PREFIX = "settings-section__";
 export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   CANVAS_OWNED_SECTION_SHELL_ID,
@@ -144,6 +150,21 @@ const SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET =
   new Set<string>(SHARED_SIZE_STYLE_TAG_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS);
 const SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID_SET =
   new Set<string>(SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS);
+const CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_IDS_BY_SECTION_ID =
+  new Map<string, string>([
+    [
+      CANVAS_OWNED_SECTION_SHELL_ID,
+      CALLABLE_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
+    ],
+    [
+      DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      DICT_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
+    ],
+    [
+      GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      GLOBAL_VARIABLES_CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_ID,
+    ],
+  ]);
 export type SectionShellCanvasChrome = {
   callableToolbarDivider: string;
   callableToolbarFill: string;
@@ -298,6 +319,21 @@ export function isCanvasOwnedSectionLightweightNestedChildren(
   return (
     isCanvasOwnedSectionRestingTextSection(sectionId) &&
     !isCanvasOwnedSectionShell(sectionId)
+  );
+}
+
+export function isCanvasOwnedSectionLightweightNestedRowBody({
+  paramInfoId,
+  sectionId,
+}: {
+  paramInfoId: string;
+  sectionId: string;
+}) {
+  return (
+    isCanvasOwnedSectionLightweightNestedChildren(sectionId) ||
+    CANVAS_OWNED_LIGHTWEIGHT_SIZE_WRAPPER_PARAM_INFO_IDS_BY_SECTION_ID.get(
+      sectionId,
+    ) === paramInfoId
   );
 }
 

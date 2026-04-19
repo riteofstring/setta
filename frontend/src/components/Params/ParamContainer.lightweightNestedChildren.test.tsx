@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
     | "canvas-shell-underlay"
     | "legacy-dom",
   lightweightNestedChildrenSectionId: null as string | null,
+  lightweightNestedRowBodyKey: null as string | null,
 }));
 
 vi.mock("components/Utils/FloatingBox", () => ({
@@ -37,10 +38,21 @@ vi.mock("forks/xyflow/core/container/sectionShellCanvasOwnership", () => ({
   isCanvasOwnedSectionLightweightNestedChildren: (
     candidateSectionId: string,
   ) => candidateSectionId === mocks.lightweightNestedChildrenSectionId,
+  isCanvasOwnedSectionLightweightNestedRowBody: ({
+    paramInfoId,
+    sectionId,
+  }: {
+    paramInfoId: string;
+    sectionId: string;
+  }) =>
+    sectionId === mocks.lightweightNestedChildrenSectionId ||
+    `${sectionId}::${paramInfoId}` === mocks.lightweightNestedRowBodyKey,
   isCanvasOwnedSectionLightweightParamLabel: () => false,
   isCanvasOwnedSectionLightweightResizeHandle: () => false,
   isCanvasOwnedSectionNestedGuide: (candidateSectionId: string) =>
-    candidateSectionId === mocks.lightweightNestedChildrenSectionId,
+    candidateSectionId === mocks.lightweightNestedChildrenSectionId ||
+    mocks.lightweightNestedRowBodyKey?.startsWith(`${candidateSectionId}::`) ===
+      true,
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
@@ -223,6 +235,40 @@ describe("ParamContainer lightweight nested children", () => {
 
     expect(markup).toContain('data-canvas-owned-lightweight-row-body="true"');
     expect(markup).toContain("section-lg-value");
+    expect(markup).toContain("contents");
+    expect(markup).toContain('data-testid="nested-child-row-1"');
+    expect(markup).toContain('data-testid="nested-child-row-2"');
+  });
+
+  it("flattens the shell size wrapper row body without widening the whole shell section", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.lightweightNestedChildrenSectionId = null;
+    mocks.lightweightNestedRowBodyKey =
+      "settings-section__callableSectionDefault::param-current";
+
+    const markup = renderToStaticMarkup(
+      <ParamContainer
+        sectionId="settings-section__callableSectionDefault"
+        paramInfoId="param-current"
+        requiredParamIdsToPaths={{}}
+        onResizeStart={() => undefined}
+        listKey="unpinned"
+        isKwarg={false}
+        isNestedParam={false}
+        hasSectionStyleTheme={false}
+        paramChildren={["param-child-1", "param-child-2"]}
+        border=""
+        bg=""
+        flattenLightweightNestedGroupRow={true}
+      >
+        <span data-testid="param-label">Param</span>
+      </ParamContainer>,
+    );
+
+    expect(markup).toContain('data-canvas-owned-lightweight-row-body="true"');
+    expect(markup).toContain(
+      'data-canvas-owned-nested-guide-lightweight="true"',
+    );
     expect(markup).toContain("contents");
     expect(markup).toContain('data-testid="nested-child-row-1"');
     expect(markup).toContain('data-testid="nested-child-row-2"');
