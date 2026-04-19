@@ -26,6 +26,7 @@ import {
   toGraphSpaceLength,
 } from "./sectionShellBackdropMeasurementMath";
 import {
+  BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -61,7 +62,10 @@ import {
   TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionMotionHiddenBody,
+  isCanvasOwnedSectionNestedGuide,
+  isCanvasOwnedSectionParamFilterIcon,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -166,10 +170,39 @@ type CanvasOwnedSectionBackdropMeasurements = {
   underlineBoxes: Array<CanvasOwnedUnderlineBox>;
 };
 
+type CanvasOwnedSectionBackdropMeasurementPlan = {
+  includesCallableDetailBands: boolean;
+  measuresFilterIconBoxes: boolean;
+  measuresNestedGuideBoxes: boolean;
+  measuresRestingDropdownBoxes: boolean;
+  measuresRestingTextLines: boolean;
+  measuresSwitchBoxes: boolean;
+  measuresUnderlineBoxes: boolean;
+};
+
 function normalizeStoredHeight(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(value, 0)
     : 0;
+}
+
+export function resolveCanvasOwnedSectionBackdropMeasurementPlan(
+  sectionId: string,
+): CanvasOwnedSectionBackdropMeasurementPlan {
+  return {
+    includesCallableDetailBands: sectionId === CANVAS_OWNED_SECTION_SHELL_ID,
+    measuresFilterIconBoxes: isCanvasOwnedSectionParamFilterIcon(sectionId),
+    measuresNestedGuideBoxes: isCanvasOwnedSectionNestedGuide(sectionId),
+    measuresRestingDropdownBoxes:
+      sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
+      sectionId === GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
+      sectionId === BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID ||
+      sectionId === STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+    measuresRestingTextLines: isCanvasOwnedSectionRestingTextSection(sectionId),
+    measuresSwitchBoxes: true,
+    measuresUnderlineBoxes:
+      isCanvasOwnedSectionLightweightTextUnderline(sectionId),
+  };
 }
 
 function areSwitchTrackBoxesEqual(
@@ -1579,6 +1612,8 @@ function useCanvasOwnedSectionBackdropMeasurements({
   sectionId: string;
   viewportScale: number;
 }): CanvasOwnedSectionBackdropMeasurements {
+  const measurementPlan =
+    resolveCanvasOwnedSectionBackdropMeasurementPlan(sectionId);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
@@ -1591,11 +1626,22 @@ function useCanvasOwnedSectionBackdropMeasurements({
     kwargsControlsHeight,
     pinnedParamsHeight,
     searchHeight,
-  } = useTemporaryMiscState(
-    (state) => ({
-      headerHeight: normalizeStoredHeight(
-        state[getSectionHeaderHeightKey(sectionId)],
-      ),
+  } = useTemporaryMiscState((state) => {
+    const headerHeight = normalizeStoredHeight(
+      state[getSectionHeaderHeightKey(sectionId)],
+    );
+
+    if (!measurementPlan.includesCallableDetailBands) {
+      return {
+        headerHeight,
+        kwargsControlsHeight: 0,
+        pinnedParamsHeight: 0,
+        searchHeight: 0,
+      };
+    }
+
+    return {
+      headerHeight,
       kwargsControlsHeight: normalizeStoredHeight(
         state[getKwargsControlsHeightKey(sectionId)],
       ),
@@ -1605,52 +1651,51 @@ function useCanvasOwnedSectionBackdropMeasurements({
       searchHeight: normalizeStoredHeight(
         state[getSectionSearchHeightKey(sectionId)],
       ),
-    }),
-    shallow,
-  );
+    };
+  }, shallow);
   const stableViewportScale = normalizeViewportScale(viewportScale);
   const layoutRefreshKey = `${nodeWidth ?? 0}:${nodeHeight ?? 0}:${headerHeight}:${kwargsControlsHeight}:${pinnedParamsHeight}:${searchHeight}:${stableViewportScale}`;
   const switchTrackBoxes = useCanvasOwnedSwitchTrackBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresSwitchBoxes,
   );
   const switchThumbBoxes = useCanvasOwnedSwitchThumbBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresSwitchBoxes,
   );
   const underlineBoxes = useCanvasOwnedUnderlineBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresUnderlineBoxes,
   );
   const restingDropdownBoxes = useCanvasOwnedRestingDropdownBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresRestingDropdownBoxes,
   );
   const filterIconBoxes = useCanvasOwnedFilterIconBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresFilterIconBoxes,
   );
   const nestedGuideBoxes = useCanvasOwnedNestedGuideBoxes(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresNestedGuideBoxes,
   );
   const restingTextLines = useCanvasOwnedRestingTextLines(
     sectionId,
     layoutRefreshKey,
     stableViewportScale,
-    viewportInteractionActive,
+    viewportInteractionActive || !measurementPlan.measuresRestingTextLines,
   );
 
   return useMemo(

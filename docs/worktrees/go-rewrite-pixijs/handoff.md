@@ -15,6 +15,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - runs `016`, `017`, and `021` advanced Phase 2 retained-canvas shell ownership while keeping first-click editor handoff intact
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
   - run `025` replaced the default d3 wheel-zoom dispatch with a direct constrained transform fast path while keeping the checked wheel-motion and visual canaries intact
+  - run `026` cut retained-canvas measurement fanout by gating callable-only temporary height keys and section detail observers behind a per-section measurement plan instead of wiring every measurement family into every canvas-owned section
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
   - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
@@ -27,6 +28,49 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
 
 ## Current status
+
+- The retained-canvas backdrop measurement-plan gating slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-measurement-plan-gating-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now resolves a per-section backdrop measurement plan before wiring retained-canvas detail observers
+    - callable-only temporary height keys (`searchHeight`, `kwargsControlsHeight`, `pinnedParamsHeight`) now stay subscribed only on `settings-section__callableSectionDefault` instead of fanning out across every other canvas-owned section
+    - the same file now gates filter-icon, resting-dropdown, nested-guide, and underline measurement hooks by section capability so sections that can never render those detail families stop creating unused `MutationObserver` / `ResizeObserver` pairs for them
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now locks the callable, dict, browser, GUI, prompt, and `sectionSizingPolicy` measurement-plan routing
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 42.99`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1099.9`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5803`
+    - `longTasks.maxMs: 3443`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded whole-scene reducer on the per-section retained-canvas measurement lane instead of another shell-only ownership hop or wheel micro-pass
+    - the dense canary stayed in the current best `~43ms` band while lowering long-task total to `5803ms`, so keep the gating as safe shared fanout cleanup rather than treating it as a new motion breakthrough
+    - close this measurement-plan gating sub-lane here; the next default pass should move to the next trace-backed shared reducer or a broader graph-surface ownership step instead of reopening the same backdrop observers by inertia
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-026/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.0m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized to `/settings` with `All Settings` active and `fit view` applied
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on the graph surface
+    - no obvious blank graph or detached shell/body artifact was visible
 
 - The direct wheel-zoom transform fast-path slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-direct-wheel-zoom-transform-fast-path-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

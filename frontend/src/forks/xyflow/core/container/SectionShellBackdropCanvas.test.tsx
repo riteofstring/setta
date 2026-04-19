@@ -7,12 +7,21 @@ import { useLocalStorage, useNodeInternals } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SectionShellBackdropCanvas, {
+  resolveCanvasOwnedSectionBackdropMeasurementPlan,
   useBackdropMeasurementViewportScale,
 } from "./SectionShellBackdropCanvas";
 import {
   buildSectionShellBackdropScene,
   expandSectionShellBackdropBounds,
 } from "./sectionShellBackdrop";
+import {
+  BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CANVAS_OWNED_SECTION_SHELL_ID,
+  DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+} from "./sectionShellCanvasOwnership";
 import { useReactFlow } from "../store";
 
 type MockCanvasContext = CanvasRenderingContext2D & {
@@ -114,6 +123,75 @@ describe("buildSectionShellBackdropScene", () => {
       y: 20,
     });
     expect(scene.frames.map((frame) => frame.id)).toEqual(["back", "front"]);
+  });
+});
+
+describe("resolveCanvasOwnedSectionBackdropMeasurementPlan", () => {
+  it("limits callable-only detail bands to the callable shell lane", () => {
+    expect(
+      resolveCanvasOwnedSectionBackdropMeasurementPlan(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toMatchObject({
+      includesCallableDetailBands: true,
+      measuresNestedGuideBoxes: true,
+      measuresUnderlineBoxes: false,
+    });
+
+    expect(
+      resolveCanvasOwnedSectionBackdropMeasurementPlan(
+        PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toMatchObject({
+      includesCallableDetailBands: false,
+      measuresNestedGuideBoxes: true,
+      measuresUnderlineBoxes: true,
+    });
+  });
+
+  it("enables only the section detail families that the retained canvas can render", () => {
+    expect(
+      resolveCanvasOwnedSectionBackdropMeasurementPlan(
+        DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toMatchObject({
+      measuresFilterIconBoxes: true,
+      measuresNestedGuideBoxes: true,
+      measuresRestingDropdownBoxes: false,
+      measuresUnderlineBoxes: false,
+    });
+
+    expect(
+      resolveCanvasOwnedSectionBackdropMeasurementPlan(
+        BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toMatchObject({
+      measuresFilterIconBoxes: false,
+      measuresNestedGuideBoxes: true,
+      measuresRestingDropdownBoxes: false,
+      measuresUnderlineBoxes: true,
+    });
+
+    expect(
+      resolveCanvasOwnedSectionBackdropMeasurementPlan(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toMatchObject({
+      measuresFilterIconBoxes: false,
+      measuresNestedGuideBoxes: false,
+      measuresRestingDropdownBoxes: true,
+      measuresUnderlineBoxes: true,
+    });
+
+    expect(
+      resolveCanvasOwnedSectionBackdropMeasurementPlan(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toMatchObject({
+      measuresNestedGuideBoxes: true,
+      measuresRestingDropdownBoxes: true,
+      measuresUnderlineBoxes: true,
+    });
   });
 });
 
