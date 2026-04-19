@@ -70,7 +70,7 @@ func TestBuildMCPToolRegistrationsKeepsFrozenToolSet(t *testing.T) {
 
 	registrations := BuildMCPToolRegistrations(
 		stubAppDefinitionRuntime{},
-		appspec.ForPlugin(ProviderPluginID).DefaultPath(),
+		appspec.MustForPlugin(ProviderPluginID).DefaultPath(),
 	)
 	names := make([]string, 0, len(registrations))
 	for _, registration := range registrations {
@@ -106,7 +106,7 @@ func TestBuildMCPToolRegistrationsWithoutServiceLeavesOnlyCatalogTools(t *testin
 
 	registrations := BuildMCPToolRegistrations(
 		nil,
-		appspec.ForPlugin(ProviderPluginID).DefaultPath(),
+		appspec.MustForPlugin(ProviderPluginID).DefaultPath(),
 	)
 	if len(registrations) != 2 {
 		t.Fatalf("expected only catalog tools without runtime service, got %#v", registrations)
@@ -138,7 +138,7 @@ func TestBuildMCPToolRegistrationsWorkThroughServerContributions(t *testing.T) {
 		SkipDefaultAppSubsystemTools: true,
 		ContributedToolRegistrations: BuildMCPToolRegistrations(
 			appDefinitionServiceForTest(runtime),
-			appspec.ForPlugin(ProviderPluginID).DefaultPath(),
+			appspec.MustForPlugin(ProviderPluginID).DefaultPath(),
 		),
 	})
 	if err != nil {
@@ -183,10 +183,10 @@ func TestBuildMCPToolRegistrationsWorkThroughServerContributions(t *testing.T) {
 
 	payload := mustStructuredMap(t, getResult.StructuredContent)
 	appDefinition := mustStructuredMap(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
 	}
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}

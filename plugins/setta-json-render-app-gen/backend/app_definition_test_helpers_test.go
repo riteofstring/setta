@@ -59,12 +59,12 @@ func storedDocumentAppDefinition(
 ) *appdefinitionpkg.AppDefinition {
 	t.Helper()
 
-	return mustDecodeStoredAppDefinition(t, appdefinitionpkg.StoredDocumentAppDefinitionRaw(document))
+	return mustDecodeStoredAppDefinition(t, appdefinitionpkg.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(document))
 }
 
 func withStoredDocumentAppDefinition(
 	document projectstate.Document,
 	raw projectstate.RawJSON,
 ) projectstate.Document {
-	return appdefinitionpkg.WithStoredDocumentAppDefinition(document, raw)
+	return appdefinitionpkg.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(document, raw)
 }

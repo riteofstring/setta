@@ -902,7 +902,12 @@ func discoverFrontendValueExportEntries() ([]frontendValueExportEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	return discoverFrontendValueExportEntriesFromPackages(packages)
+}
 
+func discoverFrontendValueExportEntriesFromPackages(
+	packages []string,
+) ([]frontendValueExportEntry, error) {
 	entriesByName := map[string]frontendValueExportEntry{}
 	for _, pkgPath := range packages {
 		functions, err := gotypediscovery.DiscoverPackageZeroArgFunctionsWithPrefix(
@@ -913,9 +918,9 @@ func discoverFrontendValueExportEntries() ([]frontendValueExportEntry, error) {
 			return nil, fmt.Errorf("discover frontend value exports in %s: %w", pkgPath, err)
 		}
 		for _, function := range functions {
-			name := strings.TrimPrefix(function.Name, "FrontendValue")
-			if strings.TrimSpace(name) == "" {
-				return nil, fmt.Errorf("%s.%s has an empty export name", pkgPath, function.Name)
+			name, err := frontendValueExportName(pkgPath, function.Name)
+			if err != nil {
+				return nil, err
 			}
 			entry := frontendValueExportEntry{
 				Name:                name,
@@ -946,6 +951,34 @@ func discoverFrontendValueExportEntries() ([]frontendValueExportEntry, error) {
 		return entries[i].Name < entries[j].Name
 	})
 	return entries, nil
+}
+
+func frontendValueExportName(pkgPath string, functionName string) (string, error) {
+	name := strings.TrimPrefix(functionName, "FrontendValue")
+	if strings.TrimSpace(name) == "" {
+		return "", fmt.Errorf("%s.%s has an empty export name", pkgPath, functionName)
+	}
+	pluginID, ok := pluginIDFromPackagePath(pkgPath)
+	if !ok {
+		return name, nil
+	}
+	return pluginID + "/" + name, nil
+}
+
+func pluginIDFromPackagePath(pkgPath string) (string, bool) {
+	trimmed := strings.TrimSpace(pkgPath)
+	if !strings.HasPrefix(trimmed, "setta/plugins/") {
+		return "", false
+	}
+	segments := strings.Split(trimmed, "/")
+	if len(segments) < 3 {
+		return "", false
+	}
+	pluginID := strings.TrimSpace(segments[2])
+	if pluginID == "" {
+		return "", false
+	}
+	return pluginID, true
 }
 
 func renderFrontendValueExportRegistry(entries []frontendValueExportEntry) string {

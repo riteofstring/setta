@@ -45,17 +45,25 @@ func NewAppPublishService(
 	if err != nil {
 		return nil, err
 	}
+	appSpecStore, err := appspec.ForPlugin(pluginID)
+	if err != nil {
+		return nil, err
+	}
+	storage, err := appdefinition.StorageForPlugin(pluginID)
+	if err != nil {
+		return nil, err
+	}
 	return &appPublisher{
 		share: sharePublisher,
 		contentService: appDeploymentContentService{
 			appDefinitionService: service,
-			appSpecStore:         appspec.ForPlugin(pluginID),
+			appSpecStore:         appSpecStore,
 		},
 		pluginID:         strings.TrimSpace(pluginID),
 		pluginSourcePath: strings.TrimSpace(options.PluginSourcePath),
 		enabledPluginIDs: append([]string(nil), options.EnabledPluginIDs...),
 		pluginConfigByID: options.PluginConfigByID,
-		storage:          appdefinition.StorageForPlugin(pluginID),
+		storage:          storage,
 	}, nil
 }
 

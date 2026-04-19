@@ -109,7 +109,7 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDeploymentIDERoutes(t 
 func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	t.Parallel()
 
-	appSpecPath := appspec.DefaultPath()
+	appSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 	appSpecPayload := map[string]any{
 		"root": map[string]any{
 			"key":  "root",
@@ -120,7 +120,7 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
+	if err := appspec.MustForPlugin("setta-json-render-app-gen").Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
 		t.Fatalf("write app spec: %v", err)
 	}
 
@@ -200,7 +200,7 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, storedDefinition.AppSpecPath)
 	}
 
-	publishedSpec, err := appspec.Read(payload.DeploymentRoot, appSpecPath)
+	publishedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(payload.DeploymentRoot, appSpecPath)
 	if err != nil {
 		t.Fatalf("read published app spec: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 ) {
 	t.Parallel()
 
-	appSpecPath := appspec.DefaultPath()
+	appSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 	appSpecPayload := map[string]any{
 		"root": map[string]any{
 			"key":  "root",
@@ -334,7 +334,7 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
+	if err := appspec.MustForPlugin("setta-json-render-app-gen").Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
 		t.Fatalf("write app spec: %v", err)
 	}
 	absoluteAppSpecPath := filepath.Join(fixture.SettaFilesRoot, filepath.FromSlash(appSpecPath))
@@ -399,7 +399,7 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 func TestRegisterAppDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *testing.T) {
 	t.Parallel()
 
-	appSpecPath := appspec.DefaultPath()
+	appSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 	appSpecPayload := map[string]any{
 		"root": map[string]any{
 			"key":  "root",
@@ -410,7 +410,7 @@ func TestRegisterAppDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *tes
 	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
-	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
+	if err := appspec.MustForPlugin("setta-json-render-app-gen").Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
 		t.Fatalf("write app spec: %v", err)
 	}
 
@@ -557,7 +557,7 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 
 	t.Run("app spec not found", func(t *testing.T) {
 		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
-			AppSpecPath: appspec.DefaultPath(),
+			AppSpecPath: appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 		}))
 		handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
 
@@ -577,11 +577,11 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 
 	t.Run("invalid app spec", func(t *testing.T) {
 		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
-			AppSpecPath: appspec.DefaultPath(),
+			AppSpecPath: appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 		}))
 		handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
 
-		appSpecPath, err := appspec.ResolvePath(fixture.SettaFilesRoot, appspec.DefaultPath())
+		appSpecPath, err := appspec.MustForPlugin("setta-json-render-app-gen").ResolvePath(fixture.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 		if err != nil {
 			t.Fatalf("resolve app spec path: %v", err)
 		}
@@ -611,9 +611,9 @@ func TestRegisterAppDeploymentIDERoutesRejectInvalidAppPublishPolicy(t *testing.
 	t.Parallel()
 
 	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
-		AppSpecPath: appspec.DefaultPath(),
+		AppSpecPath: appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 	}))
-	if err := appspec.Write(fixture.SettaFilesRoot, appspec.DefaultPath(), map[string]any{
+	if err := appspec.MustForPlugin("setta-json-render-app-gen").Write(fixture.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), map[string]any{
 		"root": map[string]any{
 			"key":  "root",
 			"type": "Stack",

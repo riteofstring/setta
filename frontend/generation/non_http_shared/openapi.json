@@ -609,11 +609,14 @@
           "label": {
             "type": "string"
           },
+          "requiresImageAttachment": {
+            "type": "boolean"
+          },
           "value": {
             "type": "string"
           }
         },
-        "required": ["value", "label"],
+        "required": ["value", "label", "requiresImageAttachment"],
         "title": "AppSubsystemCustomSlashCommandModeOptionValue",
         "type": "object"
       },

@@ -86,6 +86,7 @@ export const appSubsystemFrontendRegistration = {
   resetAppSessionState,
   processAppProjectStateUpdateFromBackend,
   resetProjectState: () => {
+    clearAllAppSpecPatchPreviewStreams();
     useAppConfigs.getState().reset?.();
     useAppPreview.getState().reset?.();
   },

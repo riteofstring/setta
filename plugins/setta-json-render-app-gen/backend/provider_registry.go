@@ -84,5 +84,5 @@ func (backendProvider) DeploymentTypeRegistration() deployments.TypeRegistration
 }
 
 func (p backendProvider) defaultAppSpecPath() string {
-	return appspec.ForPlugin(p.pluginID).DefaultPath()
+	return appspec.MustForPlugin(p.pluginID).DefaultPath()
 }

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/pythonenv"
 )
 
 // GitHub candidate resolution should clone a local bare repo, strip VCS metadata, and return a validated plugin root.
@@ -533,7 +535,18 @@ func buildLocalBuiltPyPIWheelFromRoot(t *testing.T, artifactDir string, sourceRo
 	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
 		t.Fatalf("mkdir artifact dir: %v", err)
 	}
-	buildPython := mustNewPythonRuntime(t).InterpreterPath()
+	buildRuntime, err := pythonenv.NewRuntime(pythonenv.RuntimeOptions{
+		LookupEnv: func(key string) (string, bool) {
+			if key == pythonenv.InterpreterEnv {
+				return "", false
+			}
+			return os.LookupEnv(key)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new wheel-build python runtime: %v", err)
+	}
+	buildPython := buildRuntime.InterpreterPath()
 	runTestCommand(t, sourceRoot, buildPython, "-m", "build", "--wheel", "--outdir", artifactDir)
 
 	wheels, err := filepath.Glob(filepath.Join(artifactDir, "*.whl"))

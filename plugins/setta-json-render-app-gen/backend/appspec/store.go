@@ -3,6 +3,7 @@ package appspec
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -13,18 +14,27 @@ import (
 )
 
 const defaultFileMode = 0o644
-const defaultProviderPluginID = "setta-json-render-app-gen"
+
+var ErrPluginIDRequired = errors.New("app spec store plugin id is required")
 
 type Store struct {
 	pluginID string
 }
 
-func ForPlugin(pluginID string) Store {
+func ForPlugin(pluginID string) (Store, error) {
 	trimmedPluginID := strings.TrimSpace(pluginID)
 	if trimmedPluginID == "" {
-		trimmedPluginID = defaultProviderPluginID
+		return Store{}, ErrPluginIDRequired
 	}
-	return Store{pluginID: trimmedPluginID}
+	return Store{pluginID: trimmedPluginID}, nil
+}
+
+func MustForPlugin(pluginID string) Store {
+	store, err := ForPlugin(pluginID)
+	if err != nil {
+		panic(err)
+	}
+	return store
 }
 
 func (s Store) RootPath() string {
@@ -121,34 +131,6 @@ func (s Store) Write(root string, appSpecPath string, appSpec any) error {
 		return fmt.Errorf("write app spec: %w", err)
 	}
 	return nil
-}
-
-func RootPath() string {
-	return ForPlugin("").RootPath()
-}
-
-func JoinPath(name string) string {
-	return ForPlugin("").JoinPath(name)
-}
-
-func DefaultPath() string {
-	return ForPlugin("").DefaultPath()
-}
-
-func ResolvePath(root string, appSpecPath string) (string, error) {
-	return ForPlugin("").ResolvePath(root, appSpecPath)
-}
-
-func NormalizePath(root string, appSpecPath string) (string, error) {
-	return ForPlugin("").NormalizePath(root, appSpecPath)
-}
-
-func Read(root string, appSpecPath string) (any, error) {
-	return ForPlugin("").Read(root, appSpecPath)
-}
-
-func Write(root string, appSpecPath string, appSpec any) error {
-	return ForPlugin("").Write(root, appSpecPath, appSpec)
 }
 
 func isEmptyJSONValue(value any) bool {
