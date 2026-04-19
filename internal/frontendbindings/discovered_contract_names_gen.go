@@ -31,6 +31,7 @@ import (
 	uisettings "setta/internal/uisettings"
 	wsapi "setta/internal/wsapi"
 	backend "setta/plugins/setta-json-render-app-gen/backend"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	appspec "setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -55,14 +56,9 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(realtime.AllProjectMetadataContent{}):                                "AllProjectMetadataContent",
 	reflect.TypeOf(realtime.AllProjectMetadataMessage{}):                                "AllProjectMetadataMessage",
 	reflect.TypeOf(deployments.Allocation{}):                                            "Allocation",
-	reflect.TypeOf(projectstate.AppDefinition{}):                                        "AppDefinition",
-	reflect.TypeOf(projectstate.AppDefinitionCapabilities{}):                            "AppDefinitionCapabilities",
-	reflect.TypeOf(projectstate.AppDefinitionMutationResult{}):                          "AppDefinitionMutationResult",
-	reflect.TypeOf(projectstate.AppDefinitionReadResult{}):                              "AppDefinitionReadResult",
-	reflect.TypeOf(projectstate.AppDefinitionValidationIssue{}):                         "AppDefinitionValidationIssue",
-	reflect.TypeOf(projectstate.AppDefinitionValidationResult{}):                        "AppDefinitionValidationResult",
+	reflect.TypeOf(appdefinition.AppDefinition{}):                                       "AppDefinition",
 	reflect.TypeOf(agentruns.AppGenerationMode("")):                                     "AppGenerationMode",
-	reflect.TypeOf(projectstate.AppRoute{}):                                             "AppRoute",
+	reflect.TypeOf(appdefinition.AppRoute{}):                                            "AppRoute",
 	reflect.TypeOf(backend.AppSubsystemChatSlashCommandValue{}):                         "AppSubsystemChatSlashCommandValue",
 	reflect.TypeOf(backend.AppSubsystemChatUIConfigValue{}):                             "AppSubsystemChatUIConfigValue",
 	reflect.TypeOf(backend.AppSubsystemCustomSlashCommandModeOptionValue{}):             "AppSubsystemCustomSlashCommandModeOptionValue",
@@ -104,6 +100,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectview.ButtonParamUIConfigValue{}):                              "ButtonParamUIConfigValue",
 	reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}):                          "CallableSectionImpl",
 	reflect.TypeOf(artifacts.CanvasPoint{}):                                             "CanvasPoint",
+	reflect.TypeOf(appdefinition.Capabilities{}):                                        "Capabilities",
 	reflect.TypeOf(projectstate.ChangeParamImplUIConfigValue{}):                         "ChangeParamImplUIConfigValue",
 	reflect.TypeOf(artifacts.ChartDataArtifact{}):                                       "ChartDataArtifact",
 	reflect.TypeOf(artifacts.ChartDataValue(nil)):                                       "ChartDataValue",
@@ -348,6 +345,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.MoveParamGroupsInput{}):                                 "MoveParamGroupsInput",
 	reflect.TypeOf(projectstate.MoveParamsInput{}):                                      "MoveParamsInput",
 	reflect.TypeOf(projectstate.MoveSectionsInput{}):                                    "MoveSectionsInput",
+	reflect.TypeOf(appdefinition.MutationResult{}):                                      "MutationResult",
 	reflect.TypeOf(projectstate.FrontendNameValidationContract{}):                       "NameValidationContract",
 	reflect.TypeOf(projectstate.NameValidationErrors{}):                                 "NameValidationErrors",
 	reflect.TypeOf(realtime.NameValidationErrorsMessage{}):                              "NameValidationErrorsMessage",
@@ -452,6 +450,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.PythonSectionCodegenMode("")):                           "PythonSectionCodegenMode",
 	reflect.TypeOf(projectstate.PythonSectionRepresentationMode("")):                    "PythonSectionRepresentationMode",
 	reflect.TypeOf(artifacts.RawArtifact{}):                                             "RawArtifact",
+	reflect.TypeOf(appdefinition.ReadResult{}):                                          "ReadResult",
 	reflect.TypeOf(wsapi.RealtimeDependencyEventContent{}):                              "RealtimeDependencyEventContent",
 	reflect.TypeOf(wsapi.RealtimeDependencyEventMessage{}):                              "RealtimeDependencyEventMessage",
 	reflect.TypeOf(wsapi.RealtimeDependencyEventPayload{}):                              "RealtimeDependencyEventPayload",
@@ -650,6 +649,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(artifacts.UpdateRequest{}):                                           "UpdateRequest",
 	reflect.TypeOf(artifacts.UploadScope("")):                                           "UploadScope",
 	reflect.TypeOf(scriptablechat.UserChatMessage{}):                                    "UserChatMessage",
+	reflect.TypeOf(appdefinition.ValidationIssue{}):                                     "ValidationIssue",
+	reflect.TypeOf(appdefinition.ValidationResult{}):                                    "ValidationResult",
 	reflect.TypeOf(projectview.Variant{}):                                               "Variant",
 	reflect.TypeOf(projectstate.ViewMode{}):                                             "ViewMode",
 	reflect.TypeOf(projectstate.Viewport{}):                                             "Viewport",

@@ -666,132 +666,6 @@
       "title": "AppDefinition",
       "additionalProperties": false
     },
-    "AppDefinitionCapabilities": {
-      "type": "object",
-      "properties": {
-        "catalogId": {
-          "type": "string"
-        },
-        "catalogVersion": {
-          "type": "string"
-        },
-        "appSpecVersion": {
-          "type": "string"
-        },
-        "themeSchemaVersion": {
-          "type": "string"
-        },
-        "features": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "boolean"
-          }
-        }
-      },
-      "title": "AppDefinitionCapabilities",
-      "required": [
-        "catalogId",
-        "catalogVersion",
-        "appSpecVersion",
-        "themeSchemaVersion",
-        "features"
-      ],
-      "additionalProperties": false
-    },
-    "AppDefinitionMutationResult": {
-      "type": "object",
-      "properties": {
-        "appSpec": true,
-        "appDefinition": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AppDefinition"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "title": "AppDefinitionMutationResult",
-      "required": [
-        "appSpec"
-      ],
-      "additionalProperties": false
-    },
-    "AppDefinitionReadResult": {
-      "type": "object",
-      "properties": {
-        "appSpec": true,
-        "appDefinition": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AppDefinition"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "title": "AppDefinitionReadResult",
-      "required": [
-        "appSpec"
-      ],
-      "additionalProperties": false
-    },
-    "AppDefinitionValidationIssue": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "type": "string"
-        },
-        "elementKey": {
-          "type": "string"
-        },
-        "elementType": {
-          "type": "string"
-        }
-      },
-      "title": "AppDefinitionValidationIssue",
-      "required": [
-        "message"
-      ],
-      "additionalProperties": false
-    },
-    "AppDefinitionValidationResult": {
-      "type": "object",
-      "properties": {
-        "errors": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/AppDefinitionValidationIssue"
-          }
-        },
-        "warnings": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/AppDefinitionValidationIssue"
-          }
-        },
-        "capabilities": {
-          "$ref": "#/$defs/AppDefinitionCapabilities"
-        }
-      },
-      "title": "AppDefinitionValidationResult",
-      "required": [
-        "errors",
-        "warnings",
-        "capabilities"
-      ],
-      "additionalProperties": false
-    },
     "AppGenerationMode": {
       "type": "string",
       "title": "AppGenerationMode",
@@ -2424,6 +2298,38 @@
       "title": "CanvasPoint",
       "minItems": 2,
       "maxItems": 2
+    },
+    "Capabilities": {
+      "type": "object",
+      "properties": {
+        "catalogId": {
+          "type": "string"
+        },
+        "catalogVersion": {
+          "type": "string"
+        },
+        "appSpecVersion": {
+          "type": "string"
+        },
+        "themeSchemaVersion": {
+          "type": "string"
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      },
+      "title": "Capabilities",
+      "required": [
+        "catalogId",
+        "catalogVersion",
+        "appSpecVersion",
+        "themeSchemaVersion",
+        "features"
+      ],
+      "additionalProperties": false
     },
     "ChangeParamImplUIConfigValue": {
       "type": "object",
@@ -10027,6 +9933,27 @@
       ],
       "additionalProperties": false
     },
+    "MutationResult": {
+      "type": "object",
+      "properties": {
+        "appSpec": true,
+        "appDefinition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "MutationResult",
+      "required": [
+        "appSpec"
+      ],
+      "additionalProperties": false
+    },
     "NameValidationContract": {
       "type": "object",
       "properties": {
@@ -13461,6 +13388,27 @@
           }
         }
       ]
+    },
+    "ReadResult": {
+      "type": "object",
+      "properties": {
+        "appSpec": true,
+        "appDefinition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "ReadResult",
+      "required": [
+        "appSpec"
+      ],
+      "additionalProperties": false
     },
     "RealtimeDependencyEventContent": {
       "type": "object",
@@ -20857,6 +20805,58 @@
         "createdAt",
         "content",
         "attachments"
+      ],
+      "additionalProperties": false
+    },
+    "ValidationIssue": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "elementKey": {
+          "type": "string"
+        },
+        "elementType": {
+          "type": "string"
+        }
+      },
+      "title": "ValidationIssue",
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "ValidationResult": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          }
+        },
+        "warnings": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          }
+        },
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        }
+      },
+      "title": "ValidationResult",
+      "required": [
+        "errors",
+        "warnings",
+        "capabilities"
       ],
       "additionalProperties": false
     },
