@@ -1,5 +1,4 @@
 import {
-  createAppSubsystemFrontendHost,
   type AppSubsystemAppDeploymentModalRegistration,
   type AppSubsystemAppModeRouteRegistration,
   type AppSubsystemCustomSlashCommandModeOption,
@@ -19,17 +18,11 @@ export {
   createAppSubsystemFrontendHost,
   isAppSubsystemFrontendRegistration,
 } from "@setta/app-subsystem-frontend-sdk";
-export type {
-  AppSubsystemFrontendHost,
-  AppSubsystemRenderer,
-} from "@setta/app-subsystem-frontend-sdk";
+export type { AppSubsystemRenderer } from "@setta/app-subsystem-frontend-sdk";
 
 type AppSubsystemCapabilities = NonNullable<
   PluginRuntimeResponse["featureCapabilities"]
 >["appSubsystem"];
-
-export const DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST =
-  createAppSubsystemFrontendHost();
 
 export type AppSubsystemFrontendRegistrationsByPluginId = Record<
   string,

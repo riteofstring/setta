@@ -1,8 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  createAppSubsystemFrontendHost,
-  useAppSubsystemAppDeploymentModal,
-} from "plugins/appSubsystem";
+import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystem";
+import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import { AppSubsystemRendererHost } from "plugins/appSubsystemRendererHost";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
@@ -82,7 +80,7 @@ function ModalContent({ open }: { open: boolean }) {
   const modalInfo = useModal((x) => x.modalInfo);
   const appDeploymentModal = useAppSubsystemAppDeploymentModal();
   const appSubsystemHost = useMemo(
-    () => createAppSubsystemFrontendHost({ closeModal }),
+    () => createRuntimeAppSubsystemFrontendHost({ closeModal }),
     [],
   );
 
