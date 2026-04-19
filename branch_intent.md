@@ -1,6 +1,6 @@
 # Branch Intent Summary
 
-Compared against `go-rewrite` from merge base `876e9e1719332b8641a073c579f145a9d28fff70`, using:
+Compared against `go-rewrite`, using:
 `git diff --name-status go-rewrite...HEAD`
 and
 `git diff $(git merge-base go-rewrite HEAD)..HEAD`
