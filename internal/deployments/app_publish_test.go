@@ -305,10 +305,10 @@ func openTestAppPublisher(
 		t.Fatalf("new deployment catalog: %v", err)
 	}
 	publisher, err := NewAppPublisher(AppPublisherOptions{
-		Catalog:              catalog,
-		SettaFilesRoot:       settaFilesRoot,
-		WorkspaceRoot:        workspaceRoot,
-		AppDefinitionService: testAppDefinitionService{runtime: runtime},
+		Catalog:        catalog,
+		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
+		ContentService: testAppPublishContentService{runtime: runtime},
 		Now: func() time.Time {
 			return publishedAt
 		},
@@ -319,29 +319,61 @@ func openTestAppPublisher(
 	return publisher
 }
 
-type testAppDefinitionService struct {
+type testAppPublishContentService struct {
 	runtime *projectstate.Runtime
 }
 
-func (s testAppDefinitionService) GetAppDefinition(_ context.Context) (projectstate.AppDefinitionReadResult, error) {
-	return projectstate.AppDefinitionReadResult{}, errors.New("not implemented")
+func (s testAppPublishContentService) PreparePublishedAppDefinition(
+	ctx context.Context,
+	projectRoot string,
+	appDefinition *projectstate.AppDefinition,
+) (*projectstate.AppDefinition, any, string, error) {
+	if appDefinition == nil {
+		return nil, nil, "", ErrAppPublishAppDefinitionMissing
+	}
+
+	current := appDefinition.Clone()
+	if strings.TrimSpace(current.AppSpecPath) == "" {
+		return nil, nil, "", ErrAppPublishAppSpecPathRequired
+	}
+
+	targetAppSpecPath, err := appspec.NormalizePath(projectRoot, current.AppSpecPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("%w: %v", ErrAppPublishAppSpecInvalid, err)
+	}
+	appSpec, err := appspec.Read(projectRoot, current.AppSpecPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("%w: %v", ErrAppPublishAppSpecInvalid, err)
+	}
+	if appSpec == nil {
+		return nil, nil, "", ErrAppPublishAppSpecNotFound
+	}
+
+	validationResult, err := s.validateAppDefinition(ctx, appSpec)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if len(validationResult.Errors) != 0 {
+		return nil, nil, "", &AppPublishValidationError{
+			Issues: append([]projectstate.AppDefinitionValidationIssue(nil), validationResult.Errors...),
+		}
+	}
+
+	current.AppSpecPath = targetAppSpecPath
+	return &current, appSpec, targetAppSpecPath, nil
 }
 
-func (s testAppDefinitionService) GetEffectiveAppDefinition(_ context.Context) (projectstate.AppDefinition, error) {
-	return projectstate.AppDefinition{}, errors.New("not implemented")
+func (testAppPublishContentService) WritePublishedAppSpec(
+	deploymentRoot string,
+	targetAppSpecPath string,
+	appSpec any,
+) error {
+	return appspec.Write(deploymentRoot, targetAppSpecPath, appSpec)
 }
 
-func (s testAppDefinitionService) GetEffectiveAppSpecPath(_ context.Context) (string, error) {
-	return "", errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) GetEffectiveAppThemeMode(_ context.Context) (string, error) {
-	return "", errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) ValidateAppDefinition(
+func (s testAppPublishContentService) validateAppDefinition(
 	_ context.Context,
-	input projectstate.ValidateAppDefinitionInput,
+	appSpec any,
 ) (projectstate.AppDefinitionValidationResult, error) {
 	current := projectstate.AppDefinition{}
 	if s.runtime != nil && s.runtime.Snapshot().Document.AppDefinition != nil {
@@ -358,7 +390,7 @@ func (s testAppDefinitionService) ValidateAppDefinition(
 	if err != nil {
 		return projectstate.AppDefinitionValidationResult{}, err
 	}
-	validationErrors, warnings := appspec.ValidateDefinitionPayload(input.AppSpec, definition)
+	validationErrors, warnings := appspec.ValidateDefinitionPayload(appSpec, definition)
 	if validationErrors == nil {
 		validationErrors = []appspec.AppValidationIssue{}
 	}
@@ -370,34 +402,6 @@ func (s testAppDefinitionService) ValidateAppDefinition(
 		Warnings:     testProjectStateValidationIssues(warnings),
 		Capabilities: testProjectStateValidationCapabilities(appspec.BuildCapabilities(definition)),
 	}, nil
-}
-
-func (s testAppDefinitionService) SetAppDefinition(_ context.Context, _ projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) StreamAppDefinition(_ context.Context, _ projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) UpdateAppDefinition(_ context.Context, _ any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionCatalogID(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionSpecVersion(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionSpecPath(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
-}
-
-func (s testAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
 }
 
 func testProjectStateValidationIssues(
