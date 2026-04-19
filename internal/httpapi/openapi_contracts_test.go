@@ -10,13 +10,13 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/chatattachments"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/runs"
 	"setta/internal/terminals"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func discardLogger() *slog.Logger {
@@ -812,11 +812,11 @@ func TestSettaOpenAPISchemaNameUsesPluginOwnedAppschemaPrefixes(t *testing.T) {
 		},
 		{
 			typ:  reflect.TypeOf(appspec.AppCapabilities{}),
-			want: "PluginsSettaJsonRenderAppGenBackendAppspecAppCapabilities",
+			want: "AppsubsystemAppspecAppCapabilities",
 		},
 		{
 			typ:  reflect.TypeOf(appspec.AppValidationIssue{}),
-			want: "PluginsSettaJsonRenderAppGenBackendAppspecAppValidationIssue",
+			want: "AppsubsystemAppspecAppValidationIssue",
 		},
 	}
 

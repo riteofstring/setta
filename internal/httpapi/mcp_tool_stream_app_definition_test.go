@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {

@@ -3,9 +3,9 @@ package appuisettings
 import (
 	"context"
 	"fmt"
+	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func BuildEntries(service appdefinition.Runtime, pluginID string) ([]uisettings.RuntimeEntry, error) {

@@ -4,6 +4,7 @@ package sharedtypes
 
 import (
 	"reflect"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	artifacts "setta/internal/artifacts"
 	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
@@ -13,7 +14,6 @@ import (
 	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
 	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func discoveredAdditionalTypes() []reflect.Type {

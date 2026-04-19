@@ -7,6 +7,7 @@ import (
 	agenticsummarycache "setta/internal/agenticsummarycache"
 	agentprofiles "setta/internal/agentprofiles"
 	agentruns "setta/internal/agentruns"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	artifacts "setta/internal/artifacts"
 	detachedruns "setta/internal/detachedruns"
 	externalagentconfigs "setta/internal/externalagentconfigs"
@@ -22,7 +23,6 @@ import (
 	settingsstate "setta/internal/settingsstate"
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 	wsapi "setta/internal/wsapi"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func DiscoveredConvertibleTypes() []reflect.Type {

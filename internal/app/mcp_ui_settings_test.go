@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
@@ -20,7 +21,6 @@ import (
 	"setta/internal/realtime"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/wsapi"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {

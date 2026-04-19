@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func (s *AppDefinitionService) projectRoot() (string, error) {

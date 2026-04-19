@@ -12,11 +12,11 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
