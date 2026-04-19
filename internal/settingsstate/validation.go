@@ -48,61 +48,13 @@ func validateLiveSettingsContract(document Document, requireAllFields bool) erro
 			continue
 		}
 		if branch == "languageServer" {
-			if err := validateLanguageServerSettingsBranch(currentValue, requireAllFields); err != nil {
-				return err
+			if _, ok := asObject(currentValue); !ok {
+				return newValidationError("settings.languageServer: Input should be an object")
 			}
 			continue
 		}
 		if err := validateValueAgainstDefault(currentValue, defaultValue, "settings."+branch, requireAllFields); err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-func validateLanguageServerSettingsBranch(current any, requireAllFields bool) error {
-	currentObject, ok := asObject(current)
-	if !ok {
-		return newValidationError("settings.languageServer: Input should be an object")
-	}
-	if err := rejectUnexpectedObjectKeys(currentObject, map[string]any{
-		"selectedByLanguage": map[string]any{},
-	}, "settings.languageServer"); err != nil {
-		return err
-	}
-
-	selectedByLanguageValue, ok := currentObject["selectedByLanguage"]
-	if !ok {
-		if requireAllFields {
-			return newValidationError("settings.languageServer.selectedByLanguage: Field required")
-		}
-		return nil
-	}
-	return validateLanguageServerSelectedByLanguage(selectedByLanguageValue)
-}
-
-func validateLanguageServerSelectedByLanguage(current any) error {
-	currentObject, ok := asObject(current)
-	if !ok {
-		return newValidationError("settings.languageServer.selectedByLanguage: Input should be an object")
-	}
-	for rawLanguage, value := range currentObject {
-		language := normalizeLanguageServerSelectionLanguage(rawLanguage)
-		if language == "" || language != rawLanguage {
-			return newValidationError(
-				"settings.languageServer.selectedByLanguage.%s: Language keys must be trimmed lowercase strings",
-				rawLanguage,
-			)
-		}
-		if value == nil {
-			continue
-		}
-		pluginID, ok := value.(string)
-		if !ok || strings.TrimSpace(pluginID) == "" {
-			return newValidationError(
-				"settings.languageServer.selectedByLanguage.%s: Input should be null or a valid string",
-				rawLanguage,
-			)
 		}
 	}
 	return nil
