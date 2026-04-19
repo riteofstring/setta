@@ -8,25 +8,68 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `031`: `replan_and_continue`.
+- Decision for the 2026-04-20 checkpoint after run `033`: `row_body_lane_closed_replan_required`.
 - Recent progress is real:
   - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
   - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior
   - run `031` refreshed the canonical dense hotspot on the current post-run-030 runtime: Playwright stayed in the same `~43ms` band (`documentNodeCount 5493`, `buttonCount 46`, `raf.meanMs 43.14`, `longTasks.totalMs 6678`), while a fresh DevTools trace saved to `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json` no longer reproduced the older `EventDispatch` / `v8.callFunction` / GC spike and only surfaced short `RunTask` activity
+  - run `033` refreshed the stale row-body/article-chrome frontier on the live run-033 runtime: the rerank recorded `totalRemainingRowCount 0`, `totalRemainingVisibleElementCount 0`, and `commonRemainingKinds []` while the paired dense probe stayed in the same `~43ms` band (`documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 42.99`, `longTasks.totalMs 6094`)
 - Diminishing returns are now visible:
   - runs `023`, `025`, `026`, `027`, `028`, and `029` all landed safe reducer work yet settled back into the same dense `~43ms` / `~5.8-6.0s` band, so the default micro-reducer lane is closed
   - run `031` closes `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport / guessed trace pass
-  - another single-section shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
+  - run `033` closes the queued row-body/article-chrome survivor lane as stale on the current runtime, so another shell/body cleanup pass from the April 19 ranking would also be churn
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
-  - run `032` closed the browser/code/prompt lightweight nested-children cluster on the canonical browser lane, so the next default pass must target the next shared row-body/article-chrome survivor instead of reopening that just-landed family
-  - aim that slice at the repeated survivors named by `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`: `div.section-center...`, `div.group/resize`, top-level wrapper `div`, and remaining `p.section-key` labels
-  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, or another isolated shell-id promotion
-  - only take a longer trace if that shared ownership slice is blocked and the trace is needed to scope the product change; otherwise keep the trace lane closed
-  - if no bounded shared primitive is credible after one attempt, stop for a real replan instead of letting the loop continue by inertia
+  - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
+  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, or another isolated shell-id promotion
+  - the next real step now needs a broader renderer-side structural decision or a newly scoped hotspot/research pass, so stop for a real replan instead of letting the loop continue by inertia
 
 ## Current status
+
+- The post-run-032 row-body frontier refresh slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-032-row-body-frontier-refresh-report.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - implementation shape:
+    - no product code changed in this iteration; this slice refreshed the queued row-body/article-chrome frontier on the live run-033 runtime so the next frontier would not be chosen from stale April 19 evidence
+    - fresh row-body and dense evidence now lives in `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-032-row-body-frontier-refresh-report.md`
+  - focused Playwright rerun on the current runtime recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 0`
+    - `totalRemainingVisibleElementCount: 0`
+    - `totalRemainingVisibleChromeElementCount: 0`
+    - `totalRemainingVisibleLabelElementCount: 0`
+    - `totalRemainingVisibleValueElementCount: 0`
+    - `commonRemainingKinds: []`
+  - paired dense rerun on the same runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 42.99`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 49.9`
+    - `raf.maxMs: 1083.2`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6094`
+    - `longTasks.maxMs: 3743`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - the queued shared row-body/article-chrome lane is already closed on the live canary, so another automated shell/body cleanup pass would be stale churn
+    - dense `All Settings` still sits in the same `~43ms` / `~6.1s` band, so the next frontier must come from a broader renderer-side structural decision or newly scoped hotspot work
+    - per the checkpoint rule, stop here for a real replan instead of continuing automatically on the stale row-body lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-033/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (57.1s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent
+    - `All Settings` was active and `settings-section__browserSectionDefault` was present in the page state
+    - the single mounted graph canvas sampled as fully transparent/blank, so this iteration did not visually confirm a rendered retained graph on the headless canary
+    - no obvious detached shell/body artifact showed up during the same check
+    - notable noise: the minimized chat window remained docked at the bottom and DevTools emitted heavy live-region/status chatter
 
 - The browser shell lightweight nested-children cluster slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-browser-shell-lightweight-nested-children-cluster-rerun.md`.
   - canonical target section for this slice: `settings-section__browserSectionDefault`

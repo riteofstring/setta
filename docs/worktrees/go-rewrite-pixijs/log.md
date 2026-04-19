@@ -5662,3 +5662,21 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL, normalizing to `/settings`, applying `fit view`, and minimizing the extra chat chrome to a docked tab; `browserSectionDefault` plus the prompt/code shell siblings were visible with one retained graph canvas mounted and no obvious blank shell, detached shell/body, or broken nested-row artifact.
 - Next frontier: close the browser/code/prompt nested-children lane here and move to the next shared row-body/article-chrome survivor on the canonical browser lane instead of reopening another nested-children allowlist or the closed selector-cache / hotspot micro-lanes.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 033
+
+- Refreshed the queued row-body/article-chrome frontier on the live run-033 runtime instead of guessing another product slice from the stale April 19 ranking report.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-032-row-body-frontier-refresh-report.md` with the current evidence: `totalRemainingRowCount 0`, `totalRemainingVisibleElementCount 0`, `commonRemainingKinds []`, plus a paired dense rerun at `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 42.99`, and `longTasks.totalMs 6094`.
+- The fresh rerank showed the row-body/article-chrome lane is already closed on the live canary, including the canonical `settings-section__browserSectionDefault` lane (`rowCount 15`, `remainingRowCount 0`) and the highest-row-count sections such as `sectionSizingPolicy` (`rowCount 211`, `remainingRowCount 0`) and `shortcuts` (`rowCount 62`, `remainingRowCount 0`).
+- That means the current handoff's queued “next shared row-body/article-chrome survivor” pass is stale; another automated shell/body cleanup slice from that lane would be churn instead of progress.
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-033/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.1s)`
+- CDP visual check:
+  - done in a fresh headless DevTools sub-agent
+  - `All Settings` was active and `settings-section__browserSectionDefault` was present in the page state
+  - the single mounted graph canvas sampled as fully transparent/blank, so the retained graph could not be visually confirmed on the headless canary
+  - no obvious detached shell/body artifact showed up during the same check
+  - notable noise: the minimized chat window remained docked at the bottom and DevTools emitted heavy live-region/status chatter
+- Next frontier: stop for a real replan to choose the next broader renderer-side structural or hotspot-investigation slice; do not keep iterating automatically on the stale row-body/article-chrome lane.
+LOOP_TERMINAL_MARKER: replan_required
