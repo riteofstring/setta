@@ -3654,7 +3654,7 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
@@ -3725,7 +3725,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
@@ -4000,7 +4000,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -4089,7 +4089,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -9789,7 +9789,7 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
@@ -9941,7 +9941,7 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",

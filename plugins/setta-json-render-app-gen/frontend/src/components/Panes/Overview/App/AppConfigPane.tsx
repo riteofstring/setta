@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { type AppDefinition } from "utils/generatedTypes";
+import { type AppDefinition } from "../../../appSubsystemContracts";
 import {
   parseDraftAppAssets,
   parseDraftAppSpec,

@@ -1,6 +1,6 @@
 import type { Spec } from "@json-render/core";
 
-import type { AppDefinition } from "utils/generatedTypes";
+import type { AppDefinition } from "./appSubsystemContracts";
 
 import { useAppDefinition } from "./appSubsystemDefinitionState";
 import {

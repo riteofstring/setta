@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"setta/internal/mcpx"
-	"setta/internal/projectstate"
 	"setta/internal/tools"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func appDefinitionToolRegistrationsForTest(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) []mcpx.ToolRegistration {
 	registrations := []mcpx.ToolRegistration{
 		{
@@ -175,7 +175,7 @@ func appDefinitionToolRegistrationsForTest(
 						"Structural app-definition invocation context is unavailable.",
 						func() (any, error) {
 							_, result, err := service.StreamAppDefinition(ctx, input)
-							if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+							if errors.Is(err, appdefinition.ErrAppSpecPatchInvalid) {
 								return nil, mcpx.NewToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
 							}
 							return result, err
@@ -227,7 +227,7 @@ type appDefinitionMutationFieldsForTest struct {
 	appSpec        map[string]any
 	appSpecVersion *string
 	catalogID      *string
-	routes         *[]projectstate.AppRoute
+	routes         *[]appdefinition.AppRoute
 	dataBindings   *map[string]any
 	actions        *map[string]any
 	theme          *map[string]any
@@ -236,12 +236,12 @@ type appDefinitionMutationFieldsForTest struct {
 
 func readValidateAppDefinitionArgsForTest(
 	arguments map[string]any,
-) (string, projectstate.ValidateAppDefinitionInput, error) {
+) (string, appdefinition.ValidateInput, error) {
 	projectConfigID, fields, err := readAppDefinitionMutationFieldsForTest(arguments)
 	if err != nil {
-		return "", projectstate.ValidateAppDefinitionInput{}, err
+		return "", appdefinition.ValidateInput{}, err
 	}
-	return projectConfigID, projectstate.ValidateAppDefinitionInput{
+	return projectConfigID, appdefinition.ValidateInput{
 		AppSpec:        fields.appSpec,
 		AppSpecVersion: fields.appSpecVersion,
 		CatalogID:      fields.catalogID,
@@ -255,16 +255,16 @@ func readValidateAppDefinitionArgsForTest(
 
 func readSetAppDefinitionArgsForTest(
 	arguments map[string]any,
-) (string, projectstate.SetAppDefinitionInput, error) {
+) (string, appdefinition.SetInput, error) {
 	projectConfigID, fields, err := readAppDefinitionMutationFieldsForTest(arguments)
 	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
+		return "", appdefinition.SetInput{}, err
 	}
 	appSpecPath, err := readOptionalNullableStringPointerArgumentForTest(arguments, "appSpecPath")
 	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
+		return "", appdefinition.SetInput{}, err
 	}
-	return projectConfigID, projectstate.SetAppDefinitionInput{
+	return projectConfigID, appdefinition.SetInput{
 		AppSpec:        fields.appSpec,
 		AppSpecPath:    appSpecPath,
 		AppSpecVersion: fields.appSpecVersion,
@@ -279,27 +279,27 @@ func readSetAppDefinitionArgsForTest(
 
 func readStreamAppDefinitionArgsForTest(
 	arguments map[string]any,
-) (string, projectstate.StreamAppDefinitionInput, error) {
+) (string, appdefinition.StreamInput, error) {
 	projectConfigID, err := readRequiredStringArgumentForTest(arguments, "projectConfigId")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
 	patches, err := readRequiredRawStringArgumentForTest(arguments, "patches")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
 	if strings.TrimSpace(patches) == "" {
-		return "", projectstate.StreamAppDefinitionInput{}, mcpx.NewToolError("invalid_arguments", "patches must be non-empty.")
+		return "", appdefinition.StreamInput{}, mcpx.NewToolError("invalid_arguments", "patches must be non-empty.")
 	}
 	appSpecPath, err := readOptionalNullableStringPointerArgumentForTest(arguments, "appSpecPath")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
 	baseAppSpec, err := readOptionalObjectPointerArgumentForTest(arguments, "baseAppSpec")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
-	return projectConfigID, projectstate.StreamAppDefinitionInput{
+	return projectConfigID, appdefinition.StreamInput{
 		Patches:     patches,
 		AppSpecPath: appSpecPath,
 		BaseAppSpec: baseAppSpec,
@@ -443,7 +443,7 @@ func readOptionalArrayPointerArgumentForTest(arguments map[string]any, key strin
 	return &copied, nil
 }
 
-func readOptionalAppRoutesArgumentForTest(arguments map[string]any, key string) (*[]projectstate.AppRoute, error) {
+func readOptionalAppRoutesArgumentForTest(arguments map[string]any, key string) (*[]appdefinition.AppRoute, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
 		return nil, nil
@@ -456,7 +456,7 @@ func readOptionalAppRoutesArgumentForTest(arguments map[string]any, key string) 
 	if err != nil {
 		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
-	var routes []projectstate.AppRoute
+	var routes []appdefinition.AppRoute
 	if err := json.Unmarshal(encoded, &routes); err != nil {
 		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
