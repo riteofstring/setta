@@ -1702,6 +1702,19 @@ wait_for_frontend_url_serving() {
   done
 }
 
+wait_for_reference_runtime_ready() {
+  local target_root="$1"
+  local log_path="$2"
+  local timeout_seconds="$3"
+
+  if repo_uses_setta_adapter; then
+    wait_for_dev_stack_ready "reference/oracle" "${target_root}" "${log_path}" "${timeout_seconds}"
+    return $?
+  fi
+
+  wait_for_frontend_url_serving "reference/oracle" "${log_path}" "${timeout_seconds}"
+}
+
 refresh_main_runtime_values() {
   local runtime_dir="${1:-${output_dir}}"
   local lifecycle_mode="${2:-${main_effective_lifecycle:-${main_lifecycle:-}}}"
@@ -1759,11 +1772,12 @@ bootstrap_main_reference() {
   local attempted_lifecycle="${lifecycle_mode}"
   local attempted_reset_retry="0"
   local main_lifecycle_exit_code="0"
+  local reference_runtime_exit_code="0"
   local main_log_label=""
   local main_log_path=""
 
   while true; do
-    echo "[${iteration_label}] Bootstrapping main (${attempted_lifecycle})"
+    echo "[${iteration_label}] Bootstrapping reference/oracle (${attempted_lifecycle})"
     set +e
     run_lifecycle_mode "main" "${target_root}" "${attempted_lifecycle}" "${run_dir}" "${resolved_terminal_mode}" "0"
     main_lifecycle_exit_code="$?"
@@ -1775,8 +1789,12 @@ bootstrap_main_reference() {
     if [[ "${main_lifecycle_exit_code}" -eq 0 ]] \
       && main_log_label="$(lifecycle_log_label "${attempted_lifecycle}")"; then
       main_log_path="${run_dir}/main-${main_log_label}.log"
-      if ! wait_for_frontend_url_serving "main" "${main_log_path}" "${frontend_health_timeout}"; then
-        main_lifecycle_exit_code="1"
+      set +e
+      wait_for_reference_runtime_ready "${target_root}" "${main_log_path}" "${frontend_health_timeout}"
+      reference_runtime_exit_code="$?"
+      set -e
+      if [[ "${reference_runtime_exit_code}" -ne 0 ]]; then
+        main_lifecycle_exit_code="${reference_runtime_exit_code}"
       fi
     fi
 
@@ -1785,7 +1803,7 @@ bootstrap_main_reference() {
     fi
 
     if [[ "${attempted_reset_retry}" == "0" ]] && [[ "${attempted_lifecycle}" =~ ^(ai|restart-ai)$ ]]; then
-      echo "[${iteration_label}] Main bootstrap via ${attempted_lifecycle} did not yield a healthy frontend; retrying once with restart-aireset." >&2
+      echo "[${iteration_label}] Reference/oracle bootstrap via ${attempted_lifecycle} did not yield a healthy runtime; retrying once with restart-aireset." >&2
       attempted_lifecycle="restart-aireset"
       attempted_reset_retry="1"
       continue
@@ -2041,15 +2059,15 @@ EOF
 
   if [[ -n "${main_worktree_root:-}" ]]; then
     cat >> "${destination}" <<EOF
-- current main reference worktree: ${main_worktree_root}
+- current reference/oracle worktree: ${main_worktree_root}
 EOF
     if [[ "${has_runtime_context}" == "1" ]]; then
       cat >> "${destination}" <<EOF
-- current main reference frontend url: ${main_frontend_url:-unknown}
-- current main reference backend url: ${main_backend_url:-unknown}
-- current main reference bootstrap url: ${main_bootstrap_url:-unknown}
-- current main reference debug port: ${main_debug_port:-unknown}
-- current main reference runtime log: ${main_runtime_log_path:-unknown}
+- current reference/oracle frontend url: ${main_frontend_url:-unknown}
+- current reference/oracle backend url: ${main_backend_url:-unknown}
+- current reference/oracle bootstrap url: ${main_bootstrap_url:-unknown}
+- current reference/oracle debug port: ${main_debug_port:-unknown}
+- current reference/oracle runtime log: ${main_runtime_log_path:-unknown}
 EOF
     fi
   fi
@@ -2082,7 +2100,7 @@ EOF
     if [[ -n "${main_worktree_root:-}" ]] \
       && ([[ -n "${main_runtime_info_command}" ]] || [[ -n "${main_connect_info_command}" ]]); then
       cat >> "${destination}" <<EOF
-- if you need to refresh the current main reference runtime values before a side-by-side check:
+- if you need to refresh the current reference/oracle runtime values before a side-by-side check:
 EOF
       if [[ -n "${main_runtime_info_command}" ]]; then
         cat >> "${destination}" <<EOF
@@ -3259,14 +3277,14 @@ else
   echo "Fast mode: ${effective_codex_fast_mode}"
 fi
 echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
-echo "Main lifecycle: ${main_lifecycle:-none} (reference only)"
+echo "Reference/oracle lifecycle: ${main_lifecycle:-none}"
 echo "Browser automation mode: ${ralph_browser_mode}"
 echo "Terminal mode: ${resolved_terminal_mode}"
 
 if [[ -n "${main_worktree_root}" ]]; then
-  echo "Main worktree root: ${main_worktree_root}"
+  echo "Reference/oracle worktree root: ${main_worktree_root}"
   if [[ "$(cd "${workdir}" && pwd -P)" == "$(cd "${main_worktree_root}" && pwd -P)" ]]; then
-    echo "Refusing to run Ralph in the main worktree. Main must remain pristine and untouched." >&2
+    echo "Refusing to run Ralph in the reference/oracle worktree. That checkout must remain pristine and untouched." >&2
     exit 1
   fi
 fi

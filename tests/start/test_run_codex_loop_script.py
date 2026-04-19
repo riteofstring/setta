@@ -1257,7 +1257,7 @@ EOF
     )
 
     assert result.returncode == 0, result.stderr
-    assert "[bootstrap] main: frontend serving at http://127.0.0.1:" in result.stdout
+    assert "[bootstrap] reference/oracle: frontend serving at http://127.0.0.1:" in result.stdout
     main_log = (output_dir / "run-001" / "main-ai.log").read_text(encoding="utf-8")
     assert "pnpm: command not found" not in main_log
     status_text = (output_dir / "run-001" / "status.txt").read_text(
@@ -1265,6 +1265,234 @@ EOF
     )
     assert "status=success" in status_text
     assert "loop_status=TASK_DONE" in status_text
+
+
+def test_run_codex_loop_retries_main_with_aireset_when_frontend_serves_without_backend(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    main_worktree = tmp_path / "main-worktree"
+    output_dir = tmp_path / "output"
+    prompt_file = tmp_path / "prompt.md"
+    config_file = tmp_path / "RALPH.md"
+    plan_file = tmp_path / "plan.md"
+    handoff_file = tmp_path / "handoff.md"
+    history_file = tmp_path / "history.md"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "reference-bootstrap-calls.txt"
+    unhealthy_frontend_port = _free_tcp_port()
+    healthy_frontend_port = _free_tcp_port()
+    healthy_backend_port = _free_tcp_port()
+    backend_server = tmp_path / "setta_backend.py"
+
+    workdir.mkdir()
+    main_worktree.mkdir()
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    prompt_file.write_text("test prompt\n", encoding="utf-8")
+    plan_file.write_text("plan\n", encoding="utf-8")
+    handoff_file.write_text("handoff\n", encoding="utf-8")
+    history_file.write_text("history\n", encoding="utf-8")
+    config_file.write_text(
+        f"""---
+plan_path: {plan_file}
+handoff_path: {handoff_file}
+history_path: {history_file}
+prompt_file: {prompt_file}
+workdir: {workdir}
+main_worktree_root: {main_worktree}
+main_lifecycle: ai
+terminal_mode: background
+repo_adapter: setta
+---
+test loop config
+""",
+        encoding="utf-8",
+    )
+    backend_server.write_text(
+        """from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        if self.path == "/":
+            self.send_response(404)
+            self.end_headers()
+            return
+        if self.path.startswith("/__setta__/bootstrap"):
+            body = b"bootstrap ok"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, format: str, *args: object) -> None:
+        return
+
+
+HTTPServer(("127.0.0.1", int(__import__("sys").argv[1])), Handler).serve_forever()
+""",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        main_worktree / "ai.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+CALLS_FILE="{calls_file}"
+
+printf 'ai\\n' >> "${{CALLS_FILE}}"
+printf '%s\\n' "$$" > "${{ROOT_DIR}}/.fake-dev.pid"
+python3 -m http.server {unhealthy_frontend_port} --bind 127.0.0.1 >/dev/null 2>&1 &
+frontend_pid="$!"
+
+cleanup() {{
+  kill "${{frontend_pid}}" 2>/dev/null || true
+  wait "${{frontend_pid}}" 2>/dev/null || true
+  rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+}}
+trap cleanup EXIT INT TERM
+
+echo "[0]   VITE v6.4.2  ready in 10 ms"
+echo "[0]   ➜  Local:   http://127.0.0.1:{unhealthy_frontend_port}/"
+
+while true; do
+  sleep 1
+done
+""",
+    )
+    _write_executable(
+        main_worktree / "aireset.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+CALLS_FILE="{calls_file}"
+
+printf 'aireset\\n' >> "${{CALLS_FILE}}"
+printf '%s\\n' "$$" > "${{ROOT_DIR}}/.fake-dev.pid"
+python3 -m http.server {healthy_frontend_port} --bind 127.0.0.1 >/dev/null 2>&1 &
+frontend_pid="$!"
+python3 "{backend_server}" {healthy_backend_port} >/dev/null 2>&1 &
+backend_pid="$!"
+
+cleanup() {{
+  kill "${{frontend_pid}}" "${{backend_pid}}" 2>/dev/null || true
+  wait "${{frontend_pid}}" "${{backend_pid}}" 2>/dev/null || true
+  rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+}}
+trap cleanup EXIT INT TERM
+
+echo "[0]   VITE v6.4.2  ready in 10 ms"
+echo "[0]   ➜  Local:   http://127.0.0.1:{healthy_frontend_port}/"
+echo "[1] Setta running (session test123)"
+echo "[1] Bind: 127.0.0.1:{healthy_backend_port} (remote only)"
+
+while true; do
+  sleep 1
+done
+""",
+    )
+    _write_executable(
+        main_worktree / "kill.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="{main_worktree}"
+
+if [[ -f "${{ROOT_DIR}}/.fake-dev.pid" ]]; then
+  kill "$(cat "${{ROOT_DIR}}/.fake-dev.pid")" 2>/dev/null || true
+fi
+rm -f "${{ROOT_DIR}}/.fake-dev.pid"
+""",
+    )
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--output-last-message" ]]; then
+    response_file="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+
+printf 'updated handoff\\n' > "{handoff_file}"
+cat >> "{history_file}" <<'EOF'
+LOOP_STATUS: TASK_DONE
+LOOP_SUMMARY: success
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: task_done
+EOF
+
+if [[ -n "${{response_file}}" ]]; then
+  cat > "${{response_file}}" <<'EOF'
+LOOP_STATUS: TASK_DONE
+LOOP_SUMMARY: success
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: task_done
+EOF
+fi
+cat <<'EOF'
+LOOP_STATUS: TASK_DONE
+LOOP_SUMMARY: success
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: task_done
+EOF
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+    env["RALPH_MAIN_FRONTEND_HEALTH_TIMEOUT_SECONDS"] = "3"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--config-file",
+            str(config_file),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--stop-on-error",
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (
+        "Reference/oracle bootstrap via ai did not yield a healthy runtime;"
+        in result.stderr
+    )
+    assert "[bootstrap] reference/oracle: dev stack ready" in result.stdout
+    status_text = (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8",
+    )
+    assert "status=success" in status_text
+    assert "loop_status=TASK_DONE" in status_text
+    assert calls_file.read_text(encoding="utf-8").splitlines() == ["ai", "aireset"]
 
 
 def test_run_codex_loop_retries_after_main_runtime_exits_mid_iteration(

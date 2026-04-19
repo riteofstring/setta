@@ -50,8 +50,8 @@ Reference worktree note:
 - Default entrypoint: `./ralph.sh`
 - Yolo mode defaults on for this worktree config.
 - Ralph should kill and retry any Codex iteration that shows no transcript activity for 30 minutes.
-- Never run the Ralph loop in the `main` worktree. `main` must remain pristine and untouched.
-- `main` may run a read-only reference app session for visual comparison, but Ralph must never edit code there.
+- Never run the Ralph loop in the read-only reference/oracle worktree at `/home/ubuntu/dev/setta`. That checkout must remain pristine and untouched.
+- The reference/oracle checkout may run a read-only app session for visual comparison, but Ralph must never edit code there.
 - `origin/go-rewrite` is the product-architecture source of truth for this restart.
 - Do not revert broad `go-rewrite` refactors or transplant older branch structure wholesale; port proven ideas, instrumentation, and narrow code slices only.
 - If the worktree bootstrap fails on a frontend compile blocker, fix it with the smallest `go-rewrite`-native source change that restores the build.
@@ -59,8 +59,8 @@ Reference worktree note:
 - If the smallest robust compile-blocker fix appears to require a broad architectural rollback, stop and surface that as a blocker/replan instead of silently undoing the refactor.
 - Because supply-chain attacks are a real risk, do not install, add, upgrade, or fetch new dependencies without explicit user permission. This includes package-manager commands and repo scripts that install dependencies.
 - Do not auto-upgrade dependencies or relax version pins without explicit user permission. Keep dependency declarations and lockfiles pinned; do not switch to broad ranges such as `^`, `~`, `>=`, or `latest`, and do not run upgrade-oriented package-manager commands unless the user approves that exact change.
-- `main` is the visual oracle for this rewrite. Final acceptance on the primary macOS `100%` zoom canary states is still `1:1` appearance versus `main`, but iteration sequencing should follow the staged visual gates below instead of treating final pixel parity as the first blocker on every pass.
-- Do not treat obvious visual artifacts as acceptable canary debt. First-zoom text width jumps, temporary too-wide text before a later redraw, blurry or blocky text during zoom, raster snap-after-zoom behavior, or visible layout/chrome drift versus `main` are release-blocking failures for the renderer path being tested.
+- The read-only reference/oracle checkout is the visual oracle for this rewrite. Final acceptance on the primary macOS `100%` zoom canary states is still `1:1` appearance versus that checkout, but iteration sequencing should follow the staged visual gates below instead of treating final pixel parity as the first blocker on every pass.
+- Do not treat obvious visual artifacts as acceptable canary debt. First-zoom text width jumps, temporary too-wide text before a later redraw, blurry or blocky text during zoom, raster snap-after-zoom behavior, or visible layout/chrome drift versus the reference/oracle checkout are release-blocking failures for the renderer path being tested.
 - Perf progress does not count as success if the checked canary still exhibits those visible artifacts. Keep the visual blocker explicit in the handoff/history instead of presenting the renderer path as acceptable.
 - If the current settings canary is blank, detached during movement, non-interactive, blur/pixelation makes it hard to use, or it is obviously slower than the DOM version, treat that as a Gate 0 failure and block all looks-parity work until it is fixed.
 

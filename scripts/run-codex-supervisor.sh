@@ -537,8 +537,8 @@ Files to inspect first:
 - ${latest_run_path}/last-message.txt
 - ${latest_run_path}/worktree-ai.log
 - ${latest_run_path}/worktree-aireset.log
-- ${latest_run_path}/main-ai.log
-- ${latest_run_path}/main-aireset.log
+- ${latest_run_path}/main-ai.log (reference/oracle runtime log)
+- ${latest_run_path}/main-aireset.log (reference/oracle reset log)
 
 Task:
 1. Diagnose the blocker that kept Ralph from making forward progress.
@@ -546,7 +546,7 @@ Task:
 3. Run the narrowest verification that proves the repair.
 4. Do not start another Ralph loop yourself.
 
-If the issue is corrupted local runtime state, it is acceptable to reset only the current worktree runtime state. Do not touch the main worktree.
+If the issue is corrupted local runtime state, it is acceptable to reset only the current worktree runtime state. Do not touch the reference/oracle worktree.
 
 End your final response with exactly these fields:
 REPAIR_STATUS: fixed|blocked|no_change

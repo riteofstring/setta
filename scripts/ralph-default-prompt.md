@@ -22,7 +22,7 @@ Execution rules:
 - Prefer the narrowest relevant tests and verification for the work you changed.
 - In this worktree, `main` below means the read-only reference checkout at `/home/ubuntu/dev/setta`, currently on branch `go-rewrite`.
 - That checkout is the temporary pristine oracle until `go-rewrite` merges back into real `main`.
-- For parity or visual checks that are not explicitly about workspace chrome, minimize or close non-target panes first and close docked/floating/maximized chat surfaces on both the worktree and the read-only `main` reference before comparing them.
+- For parity or visual checks that are not explicitly about workspace chrome, minimize or close non-target panes first and close docked/floating/maximized chat surfaces on both the worktree and the read-only reference/oracle checkout before comparing them.
 - Keep panes or chat chrome open only when the current slice is specifically verifying those surfaces or genuinely requires them for the target interaction.
 - If you intentionally verify with extra pane or chat chrome visible, say why in the handoff/history so later iterations do not treat uncontrolled workspace state as renderer drift.
 - Treat persisted session ordering, overview ordering, page scroll, worktree-label chrome, and other non-target workspace chrome as oracle noise unless the current slice is explicitly about those surfaces.
@@ -54,7 +54,7 @@ Execution rules:
 - If the worktree side fails preflight, classify the result as `worktree_unhealthy` and recover or narrow the setup before making renderer claims.
 - If the read-only `main` side fails preflight, classify the result as `reference_unhealthy` and refresh/restart the reference runtime before making renderer claims.
 - For UI work, do not claim visual verification without the required CDP check.
-- Treat `main` as the visual oracle for the renderer. Final acceptance for the macOS `100%` zoom canary states is `1:1` appearance versus `main`, but iteration sequencing should follow the staged visual gates instead of treating final pixel parity as the first blocker on every pass.
+- Treat the read-only reference/oracle checkout as the visual oracle for the renderer. Final acceptance for the macOS `100%` zoom canary states is `1:1` appearance versus that checkout, but iteration sequencing should follow the staged visual gates instead of treating final pixel parity as the first blocker on every pass.
 - Use this staged gate ladder when deciding what to do next:
   - Gate 0: normal-zoom body visible, attached during pan/zoom/move, interaction/editing handoff works, and not obviously slower than DOM
   - Gate 1: no gross visual drift, no wrong surface/state, no obvious zoom artifacts, interactions correct
@@ -65,11 +65,11 @@ Execution rules:
 - Treat a blank card, detached body during movement, non-interactive section, severe blur/pixelation, or obviously worse-than-DOM performance as a Gate 0 failure.
 - While Gate 0 is still failing, default the proving scenario to one normal-zoom section on `All Settings`, not a far-zoomed tiny-card surface.
 - If Gate 1 or Gate 2 is still clearly failing, do not spend the iteration on microscopic pixel matching for Gate 3.
-- Visual artifacts are hard blockers, not acceptable canary debt. First-zoom text width changes, temporary too-wide text before a later redraw, blurry or blocky text during ordinary zooming, visible raster snap-after-zoom behavior, and obvious spacing/chrome drift versus `main` must be treated as failures.
+- Visual artifacts are hard blockers, not acceptable canary debt. First-zoom text width changes, temporary too-wide text before a later redraw, blurry or blocky text during ordinary zooming, visible raster snap-after-zoom behavior, and obvious spacing/chrome drift versus the reference/oracle checkout must be treated as failures.
 - Do not count a perf probe or perf-oriented subtask as success if it leaves those visible artifacts unresolved on the checked canary path. Log the perf finding if useful, but keep the visual blocker explicit and do not present the path as visually acceptable.
-- Never work in the `main` worktree or on the `main` branch. `main` is a pristine reference only.
-- A read-only reference app session may be running from `main` for visual comparison. You may inspect it, but never edit files, commit, or run implementation work there.
-- Make changes only in the current non-main worktree.
+- Never work in the reference/oracle worktree or on the real `main` branch. The reference/oracle checkout is pristine reference state only.
+- A read-only reference app session may be running from the reference/oracle checkout for visual comparison. You may inspect it, but never edit files, commit, or run implementation work there.
+- Make changes only in the current non-reference worktree.
 - If the current iteration is otherwise on track and the only blocker is local lifecycle availability (for example CDP/debug Chrome, bootstrap session, or the worktree app session died), attempt one bounded self-recovery before returning `BLOCKED`.
 - Prefer restarting the current worktree with the browser env prefix shown in the loop context and `./aireset.sh`; if that fails, retry once with the same prefix and `./ai.sh`.
 - After any restart, refresh runtime values with `./scripts/dev-runtime-info.sh --workspace . --runtime-log <current lifecycle log>`; if that helper fails, fall back to `setta status --connect-info --latest --json --workspace .` plus `./scripts/cdp-port.sh --workspace . --json`. Retry the blocked verification using the refreshed values instead of stale ports or URLs.
