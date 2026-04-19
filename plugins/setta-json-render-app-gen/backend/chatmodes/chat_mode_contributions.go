@@ -20,13 +20,15 @@ func BuildChatModeContributions() []chatmodes.AppGenerationModeContribution {
 			},
 		},
 		{
-			Mode: string(agentruns.AppGenerationModeJSONRenderWithImage),
+			Mode:                 string(agentruns.AppGenerationModeJSONRenderWithImage),
+			AllowsReferenceImage: true,
 			PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
 				return buildAppGenerationModePrompt(
 					string(agentruns.AppGenerationModeJSONRenderWithImage),
 					options,
 				)
 			},
+			ValidateCurrentTurn: validateJSONRenderWithImageTurn,
 		},
 		{
 			Mode: string(agentruns.AppGenerationModePromptBuilder),
@@ -159,4 +161,64 @@ func derefOptionalString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func validateJSONRenderWithImageTurn(
+	options chatmodes.AppGenerationTurnValidationOptions,
+) error {
+	if messageHasImageAttachment(options.Message) {
+		return nil
+	}
+	if hasRetainedImageAttachmentFromImageModeThread(
+		options.PriorMessages,
+		options.AppGenerationByMessageID,
+	) {
+		return nil
+	}
+	return chatmodes.ErrAppGenerationImageAttachmentRequired
+}
+
+func hasRetainedImageAttachmentFromImageModeThread(
+	messages []map[string]any,
+	appGenerationByMessageID map[string]string,
+) bool {
+	for _, message := range messages {
+		role, _ := message["role"].(string)
+		if strings.TrimSpace(role) != "user" {
+			continue
+		}
+		messageID, _ := message["id"].(string)
+		if strings.TrimSpace(appGenerationByMessageID[messageID]) != string(agentruns.AppGenerationModeJSONRenderWithImage) {
+			continue
+		}
+		if messageHasImageAttachment(message) {
+			return true
+		}
+	}
+	return false
+}
+
+func messageHasImageAttachment(message map[string]any) bool {
+	rawAttachments, ok := message["attachments"]
+	if !ok {
+		return false
+	}
+	attachments, ok := rawAttachments.([]any)
+	if !ok {
+		return false
+	}
+	for _, rawAttachment := range attachments {
+		attachment, ok := rawAttachment.(map[string]any)
+		if !ok {
+			continue
+		}
+		mimeType, ok := attachment["mimeType"].(string)
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "image/") {
+			return true
+		}
+	}
+	return false
 }

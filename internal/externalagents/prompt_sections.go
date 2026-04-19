@@ -36,6 +36,16 @@ func normalizeAppGenerationModeWithResolver(
 	return normalized, nil
 }
 
+func appGenerationModeAllowsReferenceImage(
+	resolver chatmodes.AppGenerationModeResolver,
+	mode *string,
+) bool {
+	if resolver == nil {
+		return false
+	}
+	return resolver.AllowsReferenceImage(mode)
+}
+
 func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
 	normalizedURL := strings.TrimSpace(derefOptionalString(referenceImageURL))
 	normalizedNotes := strings.TrimSpace(derefOptionalString(referenceImageNotes))
