@@ -6,7 +6,7 @@ import {
   resolveActionType,
   resolveImageOutputBinding,
   resolveParamBinding,
-} from "./appBindings";
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appBindings";
 
 describe("AppRenderer data bindings", () => {
   it("uses data bindings to fill param ids", () => {

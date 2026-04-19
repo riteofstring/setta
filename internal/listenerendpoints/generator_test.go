@@ -16,6 +16,7 @@ func TestBuildPythonClientRendersGoOwnedPayloadContracts(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
+		"from pydantic import TypeAdapter",
 		"from setta.types.generated.go_shared_types import BaseChatMessageUnion",
 		"from setta.types.generated.go_shared_types import Chat",
 		"from setta.types.generated.go_shared_types import ChatSectionState",
@@ -25,7 +26,8 @@ func TestBuildPythonClientRendersGoOwnedPayloadContracts(t *testing.T) {
 		"engineConfigId: NotRequired[ID | None]",
 		"firstMessage: BaseChatMessageUnion",
 		`ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE = "route_set_chat_section_state"`,
-		"return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE, payload)",
+		"return TypeAdapter(Chat).validate_python(await self._caller(ROUTER_ENDPOINT_CREATE_CHAT, payload))",
+		"return TypeAdapter(type(None)).validate_python(await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE, payload))",
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)

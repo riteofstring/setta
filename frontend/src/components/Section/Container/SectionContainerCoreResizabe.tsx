@@ -1,9 +1,6 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionMotionHiddenBody } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
@@ -15,7 +12,6 @@ import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
-import { useActiveSectionUI } from "state/activeSectionUI";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
@@ -90,184 +86,6 @@ type AreaSwitchProps = {
 type SectionChromeMode = "header" | "meta-control" | "text-block-meta";
 
 type SectionAreaRenderer = (props: AreaSwitchProps) => React.ReactNode;
-
-function resolveMotionHiddenCanvasState({
-  graphSurfaceImplementation,
-  isSectionUIActive,
-  sectionId,
-  viewportInteractionActive,
-}: {
-  graphSurfaceImplementation: "legacy-dom" | "canvas-shell-underlay";
-  isSectionUIActive: boolean;
-  sectionId: string;
-  viewportInteractionActive: boolean;
-}) {
-  const motionHiddenRoot =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionMotionHiddenBody(sectionId);
-  const motionHidden =
-    motionHiddenRoot && viewportInteractionActive && !isSectionUIActive;
-  return {
-    motionHidden,
-    motionHiddenRoot,
-  };
-}
-
-function setBooleanDataAttribute(
-  node: Element | null,
-  name: string,
-  enabled: boolean,
-) {
-  if (!node) {
-    return;
-  }
-  if (enabled) {
-    node.setAttribute(name, "true");
-    return;
-  }
-  node.removeAttribute(name);
-}
-
-function applyMotionHiddenCanvasDomState({
-  motionHidden,
-  motionHiddenRoot,
-  sectionId,
-}: {
-  motionHidden: boolean;
-  motionHiddenRoot: boolean;
-  sectionId: string;
-}) {
-  if (typeof document === "undefined") {
-    return;
-  }
-  const sectionRoot = document.getElementById(`${sectionId}-CustomResizable`);
-  if (!(sectionRoot instanceof HTMLElement)) {
-    return;
-  }
-
-  setBooleanDataAttribute(
-    sectionRoot,
-    "data-canvas-owned-motion-shell-hidden",
-    motionHiddenRoot && motionHidden,
-  );
-  setBooleanDataAttribute(
-    sectionRoot,
-    "data-canvas-owned-motion-resize-handles-hidden",
-    motionHiddenRoot && motionHidden,
-  );
-
-  sectionRoot
-    .querySelectorAll('[data-canvas-owned-motion-body-root="true"]')
-    .forEach((node) => {
-      setBooleanDataAttribute(
-        node,
-        "data-canvas-owned-motion-body-hidden",
-        motionHidden,
-      );
-    });
-
-  sectionRoot
-    .querySelectorAll('[data-canvas-owned-motion-header-controls-root="true"]')
-    .forEach((node) => {
-      setBooleanDataAttribute(
-        node,
-        "data-canvas-owned-motion-header-controls-hidden",
-        motionHidden,
-      );
-    });
-
-  sectionRoot
-    .querySelectorAll('[data-canvas-owned-lightweight-menu-trigger="true"]')
-    .forEach((node) => {
-      setBooleanDataAttribute(
-        node,
-        "data-canvas-owned-motion-menu-trigger-hidden",
-        motionHidden,
-      );
-    });
-
-  sectionRoot
-    .querySelectorAll(
-      '.section-resize-handle,[data-setta-motion-hidden-resize-handle="true"]',
-    )
-    .forEach((node) => {
-      if (!(node instanceof HTMLElement)) {
-        return;
-      }
-      if (motionHidden) {
-        if (node.classList.contains("section-resize-handle")) {
-          node.classList.remove("section-resize-handle");
-          node.setAttribute("data-setta-motion-hidden-resize-handle", "true");
-        }
-        return;
-      }
-      if (node.getAttribute("data-setta-motion-hidden-resize-handle") !== "true") {
-        return;
-      }
-      node.classList.add("section-resize-handle");
-      node.removeAttribute("data-setta-motion-hidden-resize-handle");
-  });
-}
-
-function getIsSectionUIActiveFromState(sectionId: string) {
-  return useActiveSectionUI.getState().activeIds.includes(sectionId);
-}
-
-function useSyncMotionHiddenCanvasDomState({
-  motionHiddenRoot,
-  sectionId,
-}: {
-  motionHiddenRoot: boolean;
-  sectionId: string;
-}) {
-  React.useLayoutEffect(() => {
-    const applyMotionState = () => {
-      applyMotionHiddenCanvasDomState({
-        sectionId,
-        motionHiddenRoot,
-        motionHidden:
-          motionHiddenRoot &&
-          useReactFlow.getState().viewportInteractionActive &&
-          !getIsSectionUIActiveFromState(sectionId),
-      });
-    };
-
-    applyMotionState();
-
-    if (!motionHiddenRoot) {
-      return;
-    }
-
-    const unsubscribeViewportInteractionActive = useReactFlow.subscribe(
-      (state) => state.viewportInteractionActive,
-      (nextViewportInteractionActive, previousViewportInteractionActive) => {
-        if (nextViewportInteractionActive === previousViewportInteractionActive) {
-          return;
-        }
-        applyMotionState();
-      },
-    );
-    const unsubscribeSectionUIActive = useActiveSectionUI.subscribe(
-      (state) => state.activeIds.includes(sectionId),
-      (nextIsSectionUIActive, previousIsSectionUIActive) => {
-        if (nextIsSectionUIActive === previousIsSectionUIActive) {
-          return;
-        }
-        applyMotionState();
-      },
-    );
-
-    return () => {
-      unsubscribeViewportInteractionActive();
-      unsubscribeSectionUIActive();
-      applyMotionHiddenCanvasDomState({
-        sectionId,
-        motionHiddenRoot,
-        motionHidden: false,
-      });
-    };
-  }, [motionHiddenRoot, sectionId]);
-}
 
 function getSectionContainerResizableSnapshot(
   state: ZustandProjectState,
@@ -344,7 +162,6 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme,
   chromeMode,
   hideHeader,
-  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -354,7 +171,6 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme: boolean;
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
-  motionHiddenInteractionActive: boolean;
 }) {
   if (chromeMode === "meta-control" && !isUserView) {
     return (
@@ -390,7 +206,6 @@ function SectionPrimaryChrome({
       isUserView={isUserView}
       isRoot={isRoot}
       hasSectionStyleTheme={hasSectionStyleTheme}
-      motionHiddenInteractionActive={motionHiddenInteractionActive}
       extraControls={
         <SectionHeaderExtraControls
           sectionId={sectionId}
@@ -422,7 +237,6 @@ function SectionContainerChrome({
   chromeMode,
   hideHeader,
   positionAndSizeLocked,
-  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -433,7 +247,6 @@ function SectionContainerChrome({
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
   positionAndSizeLocked: boolean;
-  motionHiddenInteractionActive: boolean;
 }) {
   const showMetaControlDragHandle = shouldShowMetaControlDragHandle(
     chromeMode,
@@ -457,67 +270,11 @@ function SectionContainerChrome({
         hasSectionStyleTheme={hasSectionStyleTheme}
         chromeMode={chromeMode}
         hideHeader={hideHeader}
-        motionHiddenInteractionActive={motionHiddenInteractionActive}
       />
       {isRoot ? <Incrementer sectionId={sectionId} isRoot={isRoot} /> : null}
     </>
   );
 }
-
-const MemoizedSectionContainerChrome = React.memo(SectionContainerChrome);
-
-type SectionContainerResizableSurfaceProps = {
-  sectionId: string;
-  bgColor: string;
-  isYouTube: boolean;
-  useMetaControlStyle: boolean;
-  positionAndSizeLocked: boolean;
-  hasSectionStyleTheme: boolean;
-  hasEmbeddedTerminal: boolean;
-  metaControlFrameClassName?: string;
-  metaControlLayoutClassName?: string;
-  motionHidden: boolean;
-  motionHiddenRoot: boolean;
-  children: React.ReactNode;
-};
-
-function SectionContainerResizableSurface({
-  sectionId,
-  bgColor,
-  isYouTube,
-  useMetaControlStyle,
-  positionAndSizeLocked,
-  hasSectionStyleTheme,
-  hasEmbeddedTerminal,
-  metaControlFrameClassName,
-  metaControlLayoutClassName,
-  motionHidden,
-  motionHiddenRoot,
-  children,
-}: SectionContainerResizableSurfaceProps) {
-  return (
-    <CustomResizable
-      sectionId={sectionId}
-      as="section"
-      bgColor={bgColor}
-      isYouTube={isYouTube}
-      isMetaControl={useMetaControlStyle}
-      positionAndSizeLocked={positionAndSizeLocked}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      frameClassName={metaControlFrameClassName}
-      layoutClassName={metaControlLayoutClassName}
-      motionCanvasOwnedShell={motionHidden}
-      motionCanvasOwnedShellRoot={motionHiddenRoot}
-    >
-      {children}
-    </CustomResizable>
-  );
-}
-
-const MemoizedSectionContainerResizableSurface = React.memo(
-  SectionContainerResizableSurface,
-);
 
 const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
@@ -642,78 +399,39 @@ function _SectionContainerCoreResizable({
     : undefined;
   const metaControlLayoutClassName =
     chromeMode === "meta-control" ? "grid-cols-1 grid-rows-1" : undefined;
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const isSectionUIActive = getIsSectionUIActiveFromState(sectionId);
-  const { motionHidden, motionHiddenRoot } = resolveMotionHiddenCanvasState({
-    graphSurfaceImplementation,
-    isSectionUIActive,
-    sectionId,
-    viewportInteractionActive: useReactFlow.getState().viewportInteractionActive,
-  });
-  useSyncMotionHiddenCanvasDomState({
-    sectionId,
-    motionHiddenRoot,
-  });
-
-  const resizableChildren = React.useMemo(
-    () => (
-      <>
-        <MemoizedSectionContainerChrome
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          isRoot={isRoot}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          chromeMode={chromeMode}
-          hideHeader={hideHeader}
-          positionAndSizeLocked={positionAndSizeLocked}
-          motionHiddenInteractionActive={motionHidden}
-        />
-        <MemoizedCanvasSectionBody
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={bgColor}
-          isMinimized={isMinimized}
-          isUserView={isUserView}
-          motionHiddenBody={motionHidden}
-          motionHiddenBodyRoot={motionHiddenRoot}
-        />
-      </>
-    ),
-    [
-      bgColor,
-      chromeMode,
-      hasSectionStyleTheme,
-      hideHeader,
-      isInOtherProjectConfigs,
-      isMinimized,
-      isRoot,
-      isUserView,
-      motionHidden,
-      motionHiddenRoot,
-      positionAndSizeLocked,
-      sectionId,
-      sectionTypeName,
-    ],
-  );
 
   return (
-    <MemoizedSectionContainerResizableSurface
+    <CustomResizable
       sectionId={sectionId}
+      as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
-      useMetaControlStyle={useMetaControlStyle}
+      isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
-      hasEmbeddedTerminal={hasEmbeddedTerminal}
-      metaControlFrameClassName={metaControlFrameClassName}
-      metaControlLayoutClassName={metaControlLayoutClassName}
-      motionHidden={motionHidden}
-      motionHiddenRoot={motionHiddenRoot}
+      allowPointerEventsDuringDnd={hasEmbeddedTerminal}
+      frameClassName={metaControlFrameClassName}
+      layoutClassName={metaControlLayoutClassName}
     >
-      {resizableChildren}
-    </MemoizedSectionContainerResizableSurface>
+      <SectionContainerChrome
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isUserView={isUserView}
+        isRoot={isRoot}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        chromeMode={chromeMode}
+        hideHeader={hideHeader}
+        positionAndSizeLocked={positionAndSizeLocked}
+      />
+      <CanvasSectionBody
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
+    </CustomResizable>
   );
 }
 
@@ -758,16 +476,12 @@ function CanvasSectionBody({
   bgColor,
   isMinimized,
   isUserView,
-  motionHiddenBody,
-  motionHiddenBodyRoot,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
-  motionHiddenBody: boolean;
-  motionHiddenBodyRoot: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -795,26 +509,15 @@ function CanvasSectionBody({
   }
 
   return (
-    <div
-      data-canvas-owned-motion-body-hidden={
-        motionHiddenBody ? "true" : undefined
-      }
-      data-canvas-owned-motion-body-root={
-        motionHiddenBodyRoot ? "true" : undefined
-      }
-    >
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
-    </div>
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
   );
 }
-
-const MemoizedCanvasSectionBody = React.memo(CanvasSectionBody);
 
 function ChatSectionArea({
   sectionId,
