@@ -56,7 +56,6 @@ import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
   DateParamCodeObjImpl,
   ImageArtifact,
-  ObjectValues,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -2048,13 +2047,13 @@ function resolveTextOutputData(
 }
 
 function TextOutputContent(props: {
-  format: ObjectValues<typeof TextBlockFormatEnum>;
+  format: TextBlockFormatValue;
   label: string | null;
   masterFontSizePx: number;
   text: string;
 }) {
   const typography = buildTextBlockTypographyScale(props.masterFontSizePx);
-  const markdownTypographyStyle = {
+  const markdownTypographyStyle: React.CSSProperties = {
     "--setta-textblock-body-size": `${typography.bodyPx}px`,
     "--setta-textblock-code-size": `${typography.codePx}px`,
     "--setta-textblock-h1-size": `${typography.h1Px}px`,
@@ -2063,7 +2062,7 @@ function TextOutputContent(props: {
     "--setta-textblock-h4-size": `${typography.h4Px}px`,
     "--setta-textblock-h5-size": `${typography.h5Px}px`,
     "--setta-textblock-h6-size": `${typography.h6Px}px`,
-  } as React.CSSProperties;
+  };
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
       {props.label && (
@@ -2072,16 +2071,15 @@ function TextOutputContent(props: {
         </div>
       )}
       {props.format === TextBlockFormatEnum.Markdown ? (
-        <div style={markdownTypographyStyle}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            className="prose max-w-none text-[color:var(--app-text)] dark:prose-invert prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] prose-p:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-pre:text-[length:var(--setta-textblock-code-size)] prose-li:text-[length:var(--setta-textblock-body-size)]"
-            components={{ code: CodeBlock }}
-          >
-            {props.text}
-          </ReactMarkdown>
-        </div>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          className="prose max-w-none text-[color:var(--app-text)] dark:prose-invert prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] prose-p:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-pre:text-[length:var(--setta-textblock-code-size)] prose-li:text-[length:var(--setta-textblock-body-size)]"
+          style={markdownTypographyStyle}
+          components={{ code: CodeBlock }}
+        >
+          {props.text}
+        </ReactMarkdown>
       ) : (
         <pre
           className="whitespace-pre-wrap text-[color:var(--app-text)]"

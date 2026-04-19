@@ -56,9 +56,6 @@ func TestRunPluginsListJSONIncludesStatusPayload(t *testing.T) {
 	if got := entry["sourceScopeLabel"]; got != "workspace" {
 		t.Fatalf("unexpected source scope label %#v", got)
 	}
-	if _, ok := entry["appliedLanguageServerLanguages"]; ok {
-		t.Fatalf("expected raw plugins list status to omit applied language-server languages, got %#v", entry["appliedLanguageServerLanguages"])
-	}
 }
 
 // Plugins list text should keep the explicit empty-state message when no plugins are discovered.

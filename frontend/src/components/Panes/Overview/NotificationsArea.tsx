@@ -22,20 +22,18 @@ import {
   useProjectState,
 } from "state/definitions";
 import {
-  coerceAppNotifications,
-  type AppNotification,
-} from "state/types/notifications";
-import {
-  OverviewNotificationsPaneTabEnum,
   type OverviewNotificationsPaneTab,
+  OverviewNotificationsPaneTabEnum,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
+  Notification,
+  NotificationList,
+  NotificationType,
   NotificationTypeEnum,
-  type NotificationType,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-
+type NotificationsRouteResponse = ResponseDataAndStatus<NotificationList>;
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
   const notifications = useNotifications(
@@ -62,19 +60,19 @@ export function NotificationsArea() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await callOpenAPI(
+        const response = (await callOpenAPI(
           getNotifications({
             body: {
               projectConfigId,
             },
-          }),
-        );
+          } as Parameters<typeof getNotifications>[0]),
+        )) as NotificationsRouteResponse;
         if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({
             notifications: [
               ...state.notifications.filter((n) => n.temporary),
-              ...coerceAppNotifications(response.data ?? []),
+              ...(response.data ?? []),
             ],
           }));
         }
@@ -153,7 +151,7 @@ export function NotificationsArea() {
 function NotificationsList({
   notifications,
 }: {
-  notifications: Array<AppNotification>;
+  notifications: Array<Notification>;
 }) {
   return (
     <div
@@ -173,7 +171,7 @@ function NotificationsList({
     </div>
   );
 }
-function NotificationItem({ notification }: { notification: AppNotification }) {
+function NotificationItem({ notification }: { notification: Notification }) {
   const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
@@ -202,7 +200,7 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
           body: {
             notificationId: id,
           },
-        }),
+        } as Parameters<typeof deleteNotification>[0]),
       );
     }
   };

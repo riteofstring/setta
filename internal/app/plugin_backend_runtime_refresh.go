@@ -2,32 +2,24 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"reflect"
-	"slices"
 	"strings"
 	"sync"
 
 	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
-	"setta/internal/settingsstate"
 )
 
 type pluginBackendRuntimeRefresher struct {
-	service      *plugins.Service
-	logger       *slog.Logger
-	runtimeRoot  string
-	mcpServer    *mcpx.Server
-	settings     *settingsstate.Runtime
-	runtime      *pluginBackendMCPRuntime
-	lspRouter    *lsp.Router
-	lspSpecs     []lsp.LanguageServerSpec
-	projectState *projectstate.Runtime
-	projectSync  *lsp.ProjectSynchronizer
+	service     *plugins.Service
+	logger      *slog.Logger
+	runtimeRoot string
+	mcpServer   *mcpx.Server
+	runtime     *pluginBackendMCPRuntime
+	lspRouter   *lsp.Router
+	lspSpecs    []lsp.LanguageServerSpec
 
 	mu sync.Mutex
 }
@@ -53,12 +45,7 @@ func newPluginMutationRuntimeService(base *plugins.Service, refresher *pluginBac
 }
 
 func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	response, err := s.base.Runtime(options)
-	if err != nil || s.refresher == nil {
-		return response, err
-	}
-	s.refresher.applyAppliedLanguageServerStatus(&response.Status)
-	return response, nil
+	return s.base.Runtime(options)
 }
 
 func (s *pluginMutationRuntimeService) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
@@ -202,14 +189,7 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 }
 
 func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
-	result, err := s.base.WriteConfig(ctx, options)
-	if err != nil || s.refresher == nil {
-		return result, err
-	}
-	if err := s.refresher.RefreshLanguageServers(ctx); err != nil {
-		return result, err
-	}
-	return result, nil
+	return s.base.WriteConfig(ctx, options)
 }
 
 func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
@@ -258,7 +238,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
+	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(snapshot)
 	if err != nil {
 		return err
 	}
@@ -300,49 +280,7 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 	if err := r.applyRefreshTransitionLocked(ctx, transition); err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
-	if err := r.reconcileProjectDocumentLocked(ctx, transition.previousLSPSpecs, transition.nextLSPSpecs); err != nil {
-		r.rollbackRefreshTransitionLocked(transition)
-		return plugins.DiscoverySnapshot{}, err
-	}
 	return r.commitRefreshTransitionLocked(transition)
-}
-
-func (r *pluginBackendRuntimeRefresher) RefreshLanguageServers(ctx context.Context) error {
-	if r == nil || r.service == nil {
-		return nil
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	snapshot, err := r.service.Rescan()
-	if err != nil {
-		return err
-	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
-	if err != nil {
-		return err
-	}
-	previousLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
-	if err := r.replaceLSPSpecsLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
-		return err
-	}
-	if err := r.reconcileProjectDocumentLocked(ctx, previousLSPSpecs, nextLSPSpecs); err != nil {
-		r.logPluginBackendRuntimeError(
-			"rollback plugin backend language servers after config refresh failure",
-			r.replaceLSPSpecsLocked(context.Background(), nextLSPSpecs, previousLSPSpecs),
-		)
-		r.logPluginBackendRuntimeError(
-			"rollback plugin backend project reconciliation after config refresh failure",
-			r.reconcileProjectDocumentLocked(context.Background(), nextLSPSpecs, previousLSPSpecs),
-		)
-		return err
-	}
-	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
-	return nil
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx context.Context) (*pluginBackendRefreshTransition, error) {
@@ -355,7 +293,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 	if err != nil {
 		return nil, err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(previewSnapshot)
+	nextLSPSpecs, err := plugins.LanguageServerSpecsFromSnapshot(previewSnapshot)
 	if err != nil {
 		closePluginBackendRuntime(nextRuntime)
 		return nil, err
@@ -416,10 +354,6 @@ func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	)
 	r.runtime = transition.previousRuntime
 	r.lspSpecs = transition.previousLSPSpecs
-	r.logPluginBackendRuntimeError(
-		"rollback plugin backend project reconciliation failed",
-		r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
-	)
 	closePluginBackendRuntime(transition.nextRuntime)
 }
 
@@ -440,61 +374,6 @@ func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
 	runtime := r.runtime
 	r.runtime = nil
 	return runtime.Close(ctx)
-}
-
-func (r *pluginBackendRuntimeRefresher) HasConfiguredLanguageServers() bool {
-	if r == nil {
-		return false
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return len(r.lspSpecs) != 0
-}
-
-func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status *plugins.PluginStatusResponse) {
-	if r == nil || status == nil || len(status.Plugins) == 0 {
-		return
-	}
-
-	r.mu.Lock()
-	appliedByPlugin := appliedLanguageServerLanguagesByPlugin(r.lspSpecs)
-	r.mu.Unlock()
-	if len(appliedByPlugin) == 0 {
-		return
-	}
-
-	for index := range status.Plugins {
-		entry := &status.Plugins[index]
-		languages, ok := appliedByPlugin[entry.PluginID]
-		if !ok {
-			continue
-		}
-		if entry.State != plugins.PluginRuntimeStateActive && entry.State != plugins.PluginRuntimeStatePendingRestart {
-			continue
-		}
-		entry.AppliedLanguageServerLanguages = append([]string(nil), languages...)
-		delete(appliedByPlugin, entry.PluginID)
-		if len(appliedByPlugin) == 0 {
-			return
-		}
-	}
-}
-
-func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plugins.DiscoverySnapshot) ([]lsp.LanguageServerSpec, error) {
-	selections, err := r.selectedLanguageServerPlugins()
-	if err != nil {
-		return nil, err
-	}
-	return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
-}
-
-func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[string]*string, error) {
-	if r == nil || r.settings == nil {
-		return map[string]*string{}, nil
-	}
-	return settingsstate.LanguageServerSelectedByLanguage(r.settings.Snapshot().Document)
 }
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
@@ -553,21 +432,6 @@ func (r *pluginBackendRuntimeRefresher) logPluginBackendRuntimeError(message str
 	r.logger.Error(message, "error", err)
 }
 
-func (r *pluginBackendRuntimeRefresher) reconcileProjectDocumentLocked(
-	ctx context.Context,
-	previous []lsp.LanguageServerSpec,
-	next []lsp.LanguageServerSpec,
-) error {
-	if r == nil || r.projectState == nil || r.projectSync == nil {
-		return nil
-	}
-	if languageServerSpecSlicesEqual(previous, next) {
-		return nil
-	}
-	snapshot := r.projectState.Snapshot()
-	return r.projectSync.Restart(ctx, snapshot.Document)
-}
-
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {
 	for _, entry := range entries {
 		if entry.PluginID == pluginID && entry.Scope == scope {
@@ -601,97 +465,12 @@ func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServ
 	cloned := make([]lsp.LanguageServerSpec, 0, len(specs))
 	for _, spec := range specs {
 		cloned = append(cloned, lsp.LanguageServerSpec{
-			PluginID:    spec.PluginID,
 			Name:        spec.Name,
 			LanguageID:  spec.LanguageID,
 			Command:     spec.Command,
 			Args:        append([]string(nil), spec.Args...),
-			Settings:    clonePluginLanguageServerSettings(spec.Settings),
 			SettingsKey: cloneOptionalString(spec.SettingsKey),
 		})
-	}
-	return cloned
-}
-
-func languageServerSpecSlicesEqual(left []lsp.LanguageServerSpec, right []lsp.LanguageServerSpec) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if !lspLanguageServerSpecsEqual(left[index], right[index]) {
-			return false
-		}
-	}
-	return true
-}
-
-func lspLanguageServerSpecsEqual(left lsp.LanguageServerSpec, right lsp.LanguageServerSpec) bool {
-	if left.PluginID != right.PluginID ||
-		left.Name != right.Name ||
-		left.LanguageID != right.LanguageID ||
-		left.Command != right.Command {
-		return false
-	}
-	if !slices.Equal(left.Args, right.Args) {
-		return false
-	}
-	if !languageServerSettingsEqual(left.Settings, right.Settings) {
-		return false
-	}
-	return optionalStringPointersEqual(left.SettingsKey, right.SettingsKey)
-}
-
-func languageServerSettingsEqual(left map[string]any, right map[string]any) bool {
-	return reflect.DeepEqual(
-		clonePluginLanguageServerSettings(left),
-		clonePluginLanguageServerSettings(right),
-	)
-}
-
-func optionalStringPointersEqual(left *string, right *string) bool {
-	switch {
-	case left == nil && right == nil:
-		return true
-	case left == nil || right == nil:
-		return false
-	default:
-		return *left == *right
-	}
-}
-
-func appliedLanguageServerLanguagesByPlugin(specs []lsp.LanguageServerSpec) map[string][]string {
-	if len(specs) == 0 {
-		return nil
-	}
-	byPlugin := map[string][]string{}
-	for _, spec := range specs {
-		pluginID := strings.TrimSpace(spec.PluginID)
-		languageID := strings.ToLower(strings.TrimSpace(spec.LanguageID))
-		if pluginID == "" || languageID == "" {
-			continue
-		}
-		if slices.Contains(byPlugin[pluginID], languageID) {
-			continue
-		}
-		byPlugin[pluginID] = append(byPlugin[pluginID], languageID)
-	}
-	for pluginID := range byPlugin {
-		slices.Sort(byPlugin[pluginID])
-	}
-	return byPlugin
-}
-
-func clonePluginLanguageServerSettings(settings map[string]any) map[string]any {
-	if len(settings) == 0 {
-		return nil
-	}
-	payload, err := json.Marshal(settings)
-	if err != nil {
-		return nil
-	}
-	var cloned map[string]any
-	if err := json.Unmarshal(payload, &cloned); err != nil {
-		return nil
 	}
 	return cloned
 }
