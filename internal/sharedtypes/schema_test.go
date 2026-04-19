@@ -15,6 +15,7 @@ import (
 	"setta/internal/stringenumvalues"
 	"setta/internal/tools"
 	"setta/internal/wsapi"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func TestBuildSchemaDocumentIncludesAuthoritativeEnumValues(t *testing.T) {
@@ -649,6 +650,58 @@ func TestBuildSchemaDocumentMarksAppDefinitionActionsAsObjectMap(t *testing.T) {
 	if got := actionsSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
 		t.Fatalf("AppDefinition.actions additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
 	}
+}
+
+func TestDiscoveredTypesPreferPluginOwnedAppDefinitionContracts(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		contractName string
+		want         reflect.Type
+	}{
+		{
+			contractName: "AppDefinition",
+			want:         reflect.TypeOf(appdefinition.AppDefinition{}),
+		},
+		{
+			contractName: "AppRoute",
+			want:         reflect.TypeOf(appdefinition.AppRoute{}),
+		},
+	}
+
+	discovered := DiscoveredTypes()
+	for _, tc := range testCases {
+		got, ok := TypeByContractName(tc.contractName)
+		if !ok {
+			t.Fatalf("expected discovered type for %q", tc.contractName)
+		}
+		if got != tc.want {
+			t.Fatalf("%s owner = %v, want %v", tc.contractName, got, tc.want)
+		}
+	}
+
+	for _, blocked := range []reflect.Type{
+		reflect.TypeOf(projectstate.AppRoute{}),
+		reflect.TypeOf(projectstate.AppDefinition{}),
+		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionValidationIssue{}),
+		reflect.TypeOf(projectstate.AppDefinitionCapabilities{}),
+		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
+	} {
+		if sharedTypesContain(discovered, blocked) {
+			t.Fatalf("unexpected host-owned app contract discovered: %v", blocked)
+		}
+	}
+}
+
+func sharedTypesContain(types []reflect.Type, target reflect.Type) bool {
+	for _, candidate := range types {
+		if candidate == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildSchemaDocumentMarksSectionSharedModifierAsObjectMap(t *testing.T) {

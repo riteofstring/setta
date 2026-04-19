@@ -22,6 +22,7 @@ import (
 	settingsstate "setta/internal/settingsstate"
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 	wsapi "setta/internal/wsapi"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func DiscoveredConvertibleTypes() []reflect.Type {
@@ -123,11 +124,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(llmconfig.ManagedAPIKeysWriteStatus("")),
 		reflect.TypeOf(llmconfig.ManagedAPIKeysSnapshot{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationIssue{}),
-		reflect.TypeOf(projectstate.AppDefinitionCapabilities{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
 		reflect.TypeOf(projectstate.BrowserAreaViewMode("")),
 		reflect.TypeOf(projectstate.BrowserSearchScope("")),
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
@@ -252,8 +248,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.CodeObject{}),
 		reflect.TypeOf(projectstate.CodeObjectVariant{}),
 		reflect.TypeOf(projectstate.CodeObjectImpl{}),
-		reflect.TypeOf(projectstate.AppRoute{}),
-		reflect.TypeOf(projectstate.AppDefinition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticPosition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticRange{}),
 		reflect.TypeOf(projectstate.LSPDiagnostic{}),
@@ -570,5 +564,12 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(transcriptionprofiles.Profile{}),
 		reflect.TypeOf(lspcompletion.CodeMirrorCompletion{}),
 		reflect.TypeOf(projectshell.AllProjectMetadata{}),
+		reflect.TypeOf(appdefinition.AppRoute{}),
+		reflect.TypeOf(appdefinition.AppDefinition{}),
+		reflect.TypeOf(appdefinition.ReadResult{}),
+		reflect.TypeOf(appdefinition.ValidationIssue{}),
+		reflect.TypeOf(appdefinition.Capabilities{}),
+		reflect.TypeOf(appdefinition.ValidationResult{}),
+		reflect.TypeOf(appdefinition.MutationResult{}),
 	}
 }

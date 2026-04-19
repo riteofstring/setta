@@ -122,12 +122,14 @@ type CodeObjectImpl struct {
 	Payload RawJSON `json:"payload,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type AppRoute struct {
 	Path    string `json:"path"`
 	Name    string `json:"name,omitempty"`
 	RootKey string `json:"rootKey,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type AppDefinition struct {
 	AppSpecVersion string     `json:"appSpecVersion,omitempty"`
 	CatalogID      string     `json:"catalogId,omitempty"`
