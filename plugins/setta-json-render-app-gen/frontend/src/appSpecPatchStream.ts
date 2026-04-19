@@ -1,6 +1,6 @@
 import type { Spec } from "@json-render/core";
 
-import { AppSpecPatchPolicyConfig } from "utils/generatedTypes";
+import { AppSpecPatchPolicyConfig } from "./appSubsystemContracts";
 
 type AppSpecPatchOp = {
   op: "set" | "add" | "replace" | "remove";

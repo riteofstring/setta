@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useAllProjectMetadata, useShareSession } from "state/definitions";
-import type { AppRoute } from "utils/generatedTypes";
+import type { AppRoute } from "../../../appSubsystemContracts";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
 import { AppAssets } from "./AppAssets";
 

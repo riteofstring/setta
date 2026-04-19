@@ -198,7 +198,7 @@ func TestAppDefinitionServiceCompareAndSetThemeModePreservesThemePayload(t *test
 		"className": "app-shell",
 		"mode":      "light",
 	}
-	setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, runtime, appdefinition.SetInput{
 		AppSpec: appSpec,
 		Theme:   &theme,
 	})

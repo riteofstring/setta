@@ -12,7 +12,7 @@ import (
 )
 
 type appDeploymentContentService struct {
-	appDefinitionService projectstate.AppDefinitionRuntime
+	appDefinitionService appdefinition.Runtime
 }
 
 func LoadPublishedAppSpecFromRuntime(
@@ -79,16 +79,14 @@ func (s appDeploymentContentService) PreparePublishedAppDefinition(
 		return nil, nil, "", deployments.ErrAppPublishAppSpecNotFound
 	}
 
-	validationResult, err := s.appDefinitionService.ValidateAppDefinition(ctx, projectstate.ValidateAppDefinitionInput{
+	validationResult, err := s.appDefinitionService.ValidateAppDefinition(ctx, appdefinition.ValidateInput{
 		AppSpec: appSpec,
 	})
 	if err != nil {
 		return nil, nil, "", err
 	}
-	if len(validationResult.Errors) != 0 {
-		return nil, nil, "", &deployments.AppPublishValidationError{
-			Issues: append([]projectstate.AppDefinitionValidationIssue(nil), validationResult.Errors...),
-		}
+	if validationErr := appPublishValidationError(validationResult.Errors); validationErr != nil {
+		return nil, nil, "", validationErr
 	}
 
 	current.AppSpecPath = targetAppSpecPath
@@ -97,6 +95,25 @@ func (s appDeploymentContentService) PreparePublishedAppDefinition(
 		return nil, nil, "", err
 	}
 	return encodedDefinition, appSpec, targetAppSpecPath, nil
+}
+
+func appPublishValidationError(
+	errors []appdefinition.ValidationIssue,
+) error {
+	if len(errors) == 0 {
+		return nil
+	}
+	issues := make([]deployments.ValidationIssue, 0, len(errors))
+	for _, issue := range errors {
+		issues = append(issues, deployments.ValidationIssue{
+			Message:     issue.Message,
+			ElementKey:  issue.ElementKey,
+			ElementType: issue.ElementType,
+		})
+	}
+	return &deployments.AppPublishValidationError{
+		Issues: issues,
+	}
 }
 
 func (appDeploymentContentService) WritePublishedAppSpec(

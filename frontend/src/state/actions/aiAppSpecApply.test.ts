@@ -1,22 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("utils/generatedTypes", async () => {
-  const actual = await vi.importActual<typeof import("utils/generatedTypes")>(
-    "utils/generatedTypes",
-  );
-  return {
-    ...actual,
-    AppSpecPatchPolicyConfig: actual.AppSpecPatchPolicyConfig ?? {
-      allowedOps: ["set", "add", "replace", "remove"],
-      valueOptionalOps: ["remove"],
-      commentPrefix: "//",
-      rootPath: "/root",
-      elementsPathPrefix: "/elements/",
-      rootResetValue: "",
-    },
-  };
-});
-
 import { receiveLLMResponseChunk } from "./ai";
 
 import { useProjectState } from "state/definitions";

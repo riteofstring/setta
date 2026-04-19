@@ -3959,7 +3959,7 @@ func TestServerGetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
@@ -4163,7 +4163,7 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -4239,7 +4239,7 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document = appdefinition.WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, projectstate.AppDefinition{
+		document = appdefinition.WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, appdefinition.AppDefinition{
 			AppSpecPath:    appspec.DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,

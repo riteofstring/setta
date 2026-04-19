@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"setta/internal/mcpx"
-	"setta/internal/projectstate"
 	"setta/internal/tools"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -25,7 +25,7 @@ type appDefinitionMutationFields struct {
 	appSpec        map[string]any
 	appSpecVersion *string
 	catalogID      *string
-	routes         *[]projectstate.AppRoute
+	routes         *[]appdefinition.AppRoute
 	dataBindings   *map[string]any
 	actions        *map[string]any
 	theme          *map[string]any
@@ -33,7 +33,7 @@ type appDefinitionMutationFields struct {
 }
 
 func BuildMCPToolRegistrations(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) []mcpx.ToolRegistration {
 	registrations := buildAppCatalogToolRegistrations()
 	registrations = append(registrations, buildAppDefinitionToolRegistrations(service)...)
@@ -101,7 +101,7 @@ func buildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
 }
 
 func buildAppDefinitionToolRegistrations(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) []mcpx.ToolRegistration {
 	if service == nil {
 		return nil
@@ -406,7 +406,7 @@ func newListAppComponentsHandler() tools.Handler {
 }
 
 func newGetAppDefinitionHandler(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -428,7 +428,7 @@ func newGetAppDefinitionHandler(
 }
 
 func newValidateAppDefinitionHandler(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
@@ -450,7 +450,7 @@ func newValidateAppDefinitionHandler(
 }
 
 func newSetAppDefinitionHandler(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
@@ -473,7 +473,7 @@ func newSetAppDefinitionHandler(
 }
 
 func newStreamAppDefinitionHandler(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
@@ -489,7 +489,7 @@ func newStreamAppDefinitionHandler(
 			"Structural app-definition invocation context is unavailable.",
 			func() (any, error) {
 				_, result, err := service.StreamAppDefinition(ctx, input)
-				if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+				if errors.Is(err, appdefinition.ErrAppSpecPatchInvalid) {
 					return nil, mcpx.NewToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
 				}
 				return result, err
@@ -499,7 +499,7 @@ func newStreamAppDefinitionHandler(
 }
 
 func newUpdateAppDefinitionHandler(
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -527,12 +527,12 @@ func newUpdateAppDefinitionHandler(
 
 func readValidateAppDefinitionArgs(
 	arguments map[string]any,
-) (string, projectstate.ValidateAppDefinitionInput, error) {
+) (string, appdefinition.ValidateInput, error) {
 	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
 	if err != nil {
-		return "", projectstate.ValidateAppDefinitionInput{}, err
+		return "", appdefinition.ValidateInput{}, err
 	}
-	return projectConfigID, projectstate.ValidateAppDefinitionInput{
+	return projectConfigID, appdefinition.ValidateInput{
 		AppSpec:        fields.appSpec,
 		AppSpecVersion: fields.appSpecVersion,
 		CatalogID:      fields.catalogID,
@@ -546,16 +546,16 @@ func readValidateAppDefinitionArgs(
 
 func readSetAppDefinitionArgs(
 	arguments map[string]any,
-) (string, projectstate.SetAppDefinitionInput, error) {
+) (string, appdefinition.SetInput, error) {
 	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
 	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
+		return "", appdefinition.SetInput{}, err
 	}
 	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
 	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
+		return "", appdefinition.SetInput{}, err
 	}
-	return projectConfigID, projectstate.SetAppDefinitionInput{
+	return projectConfigID, appdefinition.SetInput{
 		AppSpec:        fields.appSpec,
 		AppSpecPath:    appSpecPath,
 		AppSpecVersion: fields.appSpecVersion,
@@ -570,27 +570,27 @@ func readSetAppDefinitionArgs(
 
 func readStreamAppDefinitionArgs(
 	arguments map[string]any,
-) (string, projectstate.StreamAppDefinitionInput, error) {
+) (string, appdefinition.StreamInput, error) {
 	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
 	patches, err := readRequiredRawStringArgument(arguments, "patches")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
 	if strings.TrimSpace(patches) == "" {
-		return "", projectstate.StreamAppDefinitionInput{}, mcpx.NewToolError("invalid_arguments", "patches must be non-empty.")
+		return "", appdefinition.StreamInput{}, mcpx.NewToolError("invalid_arguments", "patches must be non-empty.")
 	}
 	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
 	baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
 	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
+		return "", appdefinition.StreamInput{}, err
 	}
-	return projectConfigID, projectstate.StreamAppDefinitionInput{
+	return projectConfigID, appdefinition.StreamInput{
 		Patches:     patches,
 		AppSpecPath: appSpecPath,
 		BaseAppSpec: baseAppSpec,
@@ -734,7 +734,7 @@ func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]
 	return &copied, nil
 }
 
-func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]projectstate.AppRoute, error) {
+func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]appdefinition.AppRoute, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
 		return nil, nil
@@ -747,7 +747,7 @@ func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]pro
 	if err != nil {
 		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
-	var routes []projectstate.AppRoute
+	var routes []appdefinition.AppRoute
 	if err := json.Unmarshal(encoded, &routes); err != nil {
 		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}

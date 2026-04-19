@@ -136,7 +136,7 @@ func getAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			writeAppDefinitionRouteError(w, r, err)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, appdefinition.FromProjectStateReadResult(result))
+		httpapi.WriteJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -162,11 +162,11 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 
 		result, err := deps.Service.ValidateAppDefinition(
 			httpapi.ProjectMutationContext(r.Context(), payload.FrontendOpID),
-			projectstate.ValidateAppDefinitionInput{
+			appdefinition.ValidateInput{
 				AppSpec:        payload.AppSpec,
 				AppSpecVersion: payload.AppSpecVersion,
 				CatalogID:      payload.CatalogID,
-				Routes:         appdefinition.RoutesPointerToProjectState(payload.Routes),
+				Routes:         payload.Routes,
 				DataBindings:   payload.DataBindings,
 				Actions:        payload.Actions,
 				Theme:          payload.Theme,
@@ -177,7 +177,7 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 			writeAppDefinitionRouteError(w, r, err)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, appdefinition.FromProjectStateValidationResult(result))
+		httpapi.WriteJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -203,12 +203,12 @@ func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 
 		_, result, err := deps.Service.SetAppDefinition(
 			httpapi.ProjectMutationContext(r.Context(), payload.FrontendOpID),
-			projectstate.SetAppDefinitionInput{
+			appdefinition.SetInput{
 				AppSpec:        payload.AppSpec,
 				AppSpecPath:    payload.AppSpecPath,
 				AppSpecVersion: payload.AppSpecVersion,
 				CatalogID:      payload.CatalogID,
-				Routes:         appdefinition.RoutesPointerToProjectState(payload.Routes),
+				Routes:         payload.Routes,
 				DataBindings:   payload.DataBindings,
 				Actions:        payload.Actions,
 				Theme:          payload.Theme,
@@ -219,7 +219,7 @@ func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			writeAppDefinitionRouteError(w, r, err)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, appdefinition.FromProjectStateMutationResult(result))
+		httpapi.WriteJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -233,10 +233,10 @@ func appDefinitionModeDetail(policy modes.Policy) (string, bool) {
 func writeAppDefinitionRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectstate.ErrRuntimeClosed),
-		errors.Is(err, projectstate.ErrAppSpecStoreUnsupported):
+		errors.Is(err, projectstate.ErrPersistedStoreUnsupported):
 		httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-	case errors.Is(err, projectstate.ErrAppSpecPathUnconfigured),
-		errors.Is(err, projectstate.ErrAppSpecNotFound):
+	case errors.Is(err, appdefinition.ErrAppSpecPathUnconfigured),
+		errors.Is(err, appdefinition.ErrAppSpecNotFound):
 		httpapi.WriteDetail(w, http.StatusNotFound, err.Error())
 	default:
 		httpapi.WriteDetail(w, http.StatusUnprocessableEntity, err.Error())

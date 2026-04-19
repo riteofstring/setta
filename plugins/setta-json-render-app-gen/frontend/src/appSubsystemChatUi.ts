@@ -3,7 +3,7 @@ import {
   AppGenerationModeEnum,
   AppSubsystemChatUIConfig,
   type AppGenerationMode,
-} from "utils/generatedTypes";
+} from "./appSubsystemContracts";
 
 const APP_SUBSYSTEM_APP_GENERATION_MODE_SET = new Set<AppGenerationMode>(
   Object.values(AppGenerationModeEnum),

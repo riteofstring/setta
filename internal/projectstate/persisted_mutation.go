@@ -20,7 +20,7 @@ func (r *Runtime) ProjectRoot() (string, error) {
 		return "", ErrRuntimeClosed
 	}
 	if r.store == nil {
-		return "", ErrAppSpecStoreUnsupported
+		return "", ErrPersistedStoreUnsupported
 	}
 	return filepath.Dir(r.store.Path()), nil
 }
