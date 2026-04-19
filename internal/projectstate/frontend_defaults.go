@@ -245,17 +245,9 @@ var frontendSectionImplDefaultBuilders = map[string]frontendSectionImplDefaultBu
 		FrontendSectionTypeGroup,
 		createdGroupSectionDefaults,
 	),
-	"IFrame": frontendSectionImplDefaultBuilderFor[FrontendIFrameSectionImpl](
-		FrontendSectionTypeIFrame,
-		createdIFrameSectionDefaults,
-	),
 	"ListRoot": frontendSectionImplDefaultBuilderFor[FrontendListRootSectionImpl](
 		FrontendSectionTypeListRoot,
 		createdListRootSectionDefaults,
-	),
-	"MetaControl": frontendSectionImplDefaultBuilderFor[FrontendMetaControlSectionImpl](
-		FrontendSectionTypeMetaControl,
-		func() map[string]any { return createdMetaControlSectionDefaults("", "") },
 	),
 	"Prompt": frontendSectionImplDefaultBuilderFor[FrontendPromptSectionImpl](
 		FrontendSectionTypePrompt,
