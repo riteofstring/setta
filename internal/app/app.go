@@ -361,7 +361,7 @@ func initializeProjectServices(
 
 func initializeDeploymentProjectServices(cfg config.Config) (projectServices, error) {
 	services := projectServices{}
-	typeRegistry, err := NewDeploymentTypeRegistry()
+	typeRegistry, err := NewDeploymentTypeRegistry(cfg)
 	if err != nil {
 		return projectServices{}, err
 	}
