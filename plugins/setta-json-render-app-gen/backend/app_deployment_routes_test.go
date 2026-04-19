@@ -22,7 +22,6 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
 	"setta/plugins/setta-json-render-app-gen/backend/appdeploymenthttp"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppDeploymentRoutePublicNamesRemainFrozen(t *testing.T) {
@@ -557,7 +556,6 @@ func openPluginAppDeploymentRuntimeWithOptions(t *testing.T, opts pluginAppDeplo
 	if err != nil {
 		t.Fatalf("open app deployment runtime: %v", err)
 	}
-	deploymentRuntime.SetAppDeploymentRuntimeContent(pluginAppDeploymentRuntimeContent{})
 	t.Cleanup(func() {
 		if err := deploymentRuntime.Close(); err != nil {
 			t.Fatalf("close app deployment runtime: %v", err)
@@ -608,18 +606,6 @@ func writePluginAppDeploymentFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write deployment file: %v", err)
 	}
-}
-
-type pluginAppDeploymentRuntimeContent struct{}
-
-func (pluginAppDeploymentRuntimeContent) LoadPublishedAppSpec(
-	deploymentRoot string,
-	appDefinition *projectstate.AppDefinition,
-) (any, error) {
-	if appDefinition == nil {
-		return nil, nil
-	}
-	return appspec.Read(deploymentRoot, appDefinition.AppSpecPath)
 }
 
 func waitForPluginAppDeploymentListenerHandleCount(t *testing.T, runtime *deployments.Runtime, expected int) {

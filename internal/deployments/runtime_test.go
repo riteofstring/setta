@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestLoadPolicyAppliesDefaultsAndRejectsNever(t *testing.T) {
@@ -729,114 +728,6 @@ func TestRuntimeRejectsUnknownOrConflictingSessions(t *testing.T) {
 	}
 }
 
-func TestRuntimeLoadAppSpecReadsDeploymentRelativePath(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
-	writeDeploymentFixture(t, root, projectstate.Document{
-		SchemaVersion: projectstate.CurrentSchemaVersion,
-		AppDefinition: &projectstate.AppDefinition{
-			AppSpecPath: "app_specs/spec.json",
-		},
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-			},
-		},
-		DefaultProjectID: "project-alpha",
-	}, map[string]any{
-		"version":                1,
-		"deploymentName":         "demo-app",
-		"deploymentType":         "app",
-		"defaultProjectConfigId": "project-alpha",
-		"deploymentVersion":      "v1",
-	}, map[string]any{
-		"allowRun": true,
-	})
-	writeDeploymentJSON(t, filepath.Join(root, "app_specs", "spec.json"), map[string]any{
-		"pages": []any{
-			map[string]any{"path": "/"},
-		},
-	})
-
-	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
-		DeploymentRoot: root,
-		RuntimeRoot:    runtimeRoot,
-	})
-	if err != nil {
-		t.Fatalf("open deployment runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := deploymentRuntime.Close(); err != nil {
-			t.Fatalf("close deployment runtime: %v", err)
-		}
-	})
-	deploymentRuntime.SetAppDeploymentRuntimeContent(testRuntimeAppContent{})
-
-	appDefinition := deploymentRuntime.Base().Snapshot().Document.AppDefinition
-	appSpec, err := deploymentRuntime.LoadAppSpec(appDefinition)
-	if err != nil {
-		t.Fatalf("load app spec: %v", err)
-	}
-
-	specObject, ok := appSpec.(map[string]any)
-	if !ok {
-		t.Fatalf("expected app spec object, got %#v", appSpec)
-	}
-	pages, ok := specObject["pages"].([]any)
-	if !ok || len(pages) != 1 {
-		t.Fatalf("expected app spec pages, got %#v", appSpec)
-	}
-}
-
-func TestRuntimeLoadAppSpecFailsClosedWithoutRuntimeContentService(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
-	writeDeploymentFixture(t, root, projectstate.Document{
-		SchemaVersion: projectstate.CurrentSchemaVersion,
-		AppDefinition: &projectstate.AppDefinition{
-			AppSpecPath: "app_specs/spec.json",
-		},
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-			},
-		},
-		DefaultProjectID: "project-alpha",
-	}, map[string]any{
-		"version":                1,
-		"deploymentName":         "demo-app",
-		"deploymentType":         "app",
-		"defaultProjectConfigId": "project-alpha",
-		"deploymentVersion":      "v1",
-	}, map[string]any{
-		"allowRun": true,
-	})
-
-	deploymentRuntime, err := Open(context.Background(), RuntimeOptions{
-		DeploymentRoot: root,
-		RuntimeRoot:    runtimeRoot,
-	})
-	if err != nil {
-		t.Fatalf("open deployment runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := deploymentRuntime.Close(); err != nil {
-			t.Fatalf("close deployment runtime: %v", err)
-		}
-	})
-
-	_, err = deploymentRuntime.LoadAppSpec(deploymentRuntime.Base().Snapshot().Document.AppDefinition)
-	if !errors.Is(err, ErrAppDeploymentRuntimeContentRequired) {
-		t.Fatalf("expected missing runtime content error, got %v", err)
-	}
-}
-
 func TestOpenFailsClosedWhenEnabledDeploymentListenerEntrypointMissing(t *testing.T) {
 	t.Parallel()
 
@@ -1187,16 +1078,4 @@ func singleProjectDocument(projectID string, name string) projectstate.Document 
 			},
 		},
 	}
-}
-
-type testRuntimeAppContent struct{}
-
-func (testRuntimeAppContent) LoadPublishedAppSpec(
-	deploymentRoot string,
-	appDefinition *projectstate.AppDefinition,
-) (any, error) {
-	if appDefinition == nil {
-		return nil, nil
-	}
-	return appspec.Read(deploymentRoot, appDefinition.AppSpecPath)
 }

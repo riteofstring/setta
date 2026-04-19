@@ -107,7 +107,7 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		appSpec, err := runtime.LoadAppSpec(snapshot.Document.AppDefinition)
+		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, snapshot.Document.AppDefinition)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -156,7 +156,7 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		appSpec, err := runtime.LoadAppSpec(snapshot.Document.AppDefinition)
+		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, snapshot.Document.AppDefinition)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
