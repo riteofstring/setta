@@ -925,6 +925,21 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
+        BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
         LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
@@ -1089,7 +1104,7 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionLightweightNestedChildren(
         CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
@@ -1104,12 +1119,12 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionLightweightNestedChildren(
         BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,

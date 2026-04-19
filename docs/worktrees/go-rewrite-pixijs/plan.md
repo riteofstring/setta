@@ -256,26 +256,28 @@ Use this order unless a fresh measurement disproves it:
 
 ## Current sequencing checkpoint
 
-As of the 2026-04-20 progress review after run `021`:
+As of the 2026-04-20 progress review after run `032`:
 
-- The recent stretch is still worthwhile overall. The best whole-scene checkpoint in this run window is now `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md`, which kept the dense scene shape flat at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, and `buttonCount 47` while reaching `raf.meanMs 42.58`, `raf.p95Ms 50`, and `longTasks.totalMs 5844`.
-- The stretch also produced real architecture progress on Phase 2: `browserSectionDefault`, `promptSectionDefault`, and the code-like button/code cluster now sit behind retained-canvas shell ownership while keeping first-click live-editor handoff intact. Treat those slices as product-ownership progress, not as new whole-scene perf checkpoints.
-- The mounted-hidden motion-body experiment was a useful falsification, not a keeper. It regressed dense motion badly (`raf.meanMs 60.78`, `raf.p95Ms 99.9`) and is explicitly closed unless a later slice can also freeze the hidden subtree's live updates.
-- Diminishing returns are now visible on the current trajectory. The `ZoomPane` wheel metadata cache and RAF coalescing passes stayed flat, and another isolated section-shell sibling promotion would also be churn unless it widens renderer ownership at a family or shared-primitive boundary.
-- The branch is still not done. Dense `settings` -> `All Settings` motion remains above the real `33.3ms` target and still carries material long-task debt even after the earlier viewport-interaction win.
+- The recent stretch is still worthwhile, but only with a sharper frontier. The current whole-scene band is still roughly `documentNodeCount 5493-5498`, `inputCount 3`, `textareaCount 1`, `buttonCount 46-47`, `raf.meanMs ~43`, and `longTasks.totalMs ~5.7-6.7s`, so the branch is materially better than the older triple-digit frame-time state but still above the real `33.3ms` target with significant long-task debt.
+- The stretch produced real Phase 2 product progress: run `022` hardened first-click CodeMirror activation on the retained-text/canvas-shell path, and runs `024` plus `030` widened retained-canvas shell ownership to real dense families while keeping first-click dropdown/editor handoff intact. Treat those as architecture progress, not as new whole-scene perf checkpoints.
+- Run `032` landed a real shared row-body ownership step on the canonical `settings-section__browserSectionDefault` lane: the shell-owned browser/code/prompt family now keeps lightweight nested children on the canvas-owned path, the stale live-browser proof lane was retargeted to that family with `buttonParamCodeObjDefault` as the remaining negative control, and the concrete browser/code legacy nested wrapper gap is now closed on the current runtime.
+- The micro-reducer lane is now exhausted as a default strategy. Runs `023`, `025`, `026`, `027`, `028`, and `029` each removed real JS/selector fanout but all settled back into the same dense band, so further viewport/`ZoomPane`/selector-cache passes are churn unless a fresh product slice directly depends on one.
+- Run `031` changed the planning evidence materially: the refreshed post-run-030 trace did not reproduce the older `EventDispatch` / `v8.callFunction` / GC hotspot and only showed short `RunTask` activity, so the stale hotspot report is now closed as the default reason to spend another iteration on guessed trace-chasing.
+- The strongest durable product evidence is still `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`: the moving surface still carried `2934` visible row-body descendants even after visible value roots were almost gone, with the dominant survivors being repeated row chrome, resize scaffolding, wrapper `div`s, and `p.section-key` labels rather than leftover value widgets.
 
 Required order from here:
 
 1. Start each default pass from the chat-normalized dense `settings` -> `All Settings` probe on the named `settings-section__browserSectionDefault` lane, not from a previously closed section-local cleanup lane.
-2. Compare new work against `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current whole-scene checkpoint. Treat the later shell-ownership and `ZoomPane` reports as stability or architecture evidence, not as the new default target.
-3. The next default pass must choose exactly one of these two frontier classes:
-   - one trace-backed whole-scene reducer that can plausibly cut renderer-main `EventDispatch`, `v8.callFunction`, or GC work across the dense scene
-   - one stronger Pixi-owned graph-surface step that changes ownership at a whole dense-family or shared-primitive boundary rather than adding another single section-shell id
-4. Good JS-side candidates are shared transform subscribers, scene invalidation paths, per-frame measurement hooks, or other cross-section dispatch/GC sources that the hotspot trace can tie back to the dense scene. Good graph-surface candidates are family-level shell or row-chrome ownership moves, or another slice that materially reduces visible inactive DOM without opening a new editor seam.
-5. Closed default lanes stay closed unless a fresh trace or visible defect explicitly reopens them: viewport-persistence send/mirror follow-ups, mounted-hidden-body variants, top-level resize-handle polish, spreadsheet-only freezes, standalone `ZoomPane` event-pacing micro-passes, and more one-off shell-sibling promotions.
-6. If the next proposed slice cannot explain either a likely whole-scene metric move or a broader ownership payoff, stop and replan instead of letting the loop continue by inertia.
+2. Keep using `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint. Treat later shell-ownership reports as ownership evidence and treat `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-030-hotspot-refresh-report.md` as the closure of the stale hotspot lane, not as permission for another generic trace pass.
+3. Run `032` closes the browser/code/prompt lightweight nested-children cluster as one real shared graph-surface ownership step. The next default pass must target the next shared row-body/article-chrome survivor on already shell-owned dense families. Default target shape:
+   - canonical lane: `settings-section__browserSectionDefault`
+   - first sibling proofs: existing shell-owned siblings such as the remaining code-like/button shell lane or the GUI/backend shell family
+   - ownership goal: reduce repeated `div.section-center...`, `div.group/resize`, top-level wrapper `div`, and remaining `p.section-key` descendants instead of reopening the just-closed lightweight nested-children cluster or adding another isolated shell id
+4. Do not spend the next default pass on another selector cache, viewport-persistence follow-up, `ZoomPane` wheel/event micro-pass, standalone hotspot refresh, another nested-children allowlist widening for the same browser/code/prompt family, or single-section shell-sibling promotion. Those lanes are closed by current evidence unless a visible regression or a concrete product slice explicitly reopens one.
+5. A longer trace is now a fallback only. Take one only when a specific shared row-body/article-chrome slice is blocked and the trace is required to scope that product change; do not reopen trace-driven reducer hunting by default.
+6. If the next candidate cannot name a bounded shared ownership primitive with plausible whole-scene descendant reduction on the already shell-owned families, stop and replan instead of letting the loop continue by inertia.
 
-Do not let Ralph treat the current `~43ms` / `~5.8-6.1s` band as success just because it is better than the earlier triple-digit frame times.
+Do not let Ralph treat the current `~43ms` / `~5.7-6.7s` band as success just because it is better than the earlier triple-digit frame times.
 
 ## Testing discipline
 

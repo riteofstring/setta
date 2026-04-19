@@ -5635,3 +5635,30 @@ LOOP_TERMINAL_MARKER: none
     - `browserSectionDefault` remained visible with one retained graph canvas mounted and no obvious blank or detached shell/body artifact
 - Next frontier: prefer a stronger shared graph-surface ownership step on the canonical `settings-section__browserSectionDefault` lane, or retake a longer trace only when that trace is directly needed to scope one concrete product lane; do not reopen the stale selector-cache / viewport micro-lane by inertia.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 progress review after run 031
+
+- Decision: `replan_and_continue`.
+- Real progress is still present in this run window:
+  - run `022` fixed a real product seam by hardening first-click CodeMirror activation on the retained-text/canvas-shell path
+  - runs `024` and `030` widened retained-canvas shell ownership to more real dense families without reopening the second-click editor problem
+  - run `031` usefully falsified the old hotspot theory by showing the stale `EventDispatch` / `v8.callFunction` / GC trace is no longer the right default guide
+- The diminishing-return signal is also real:
+  - runs `023`, `025`, `026`, `027`, `028`, and `029` all removed real fanout but left the dense canary in the same `~43ms` / `~5.7-6.7s` band
+  - another selector cache, viewport micro-pass, `ZoomPane` tweak, or isolated shell-id promotion is now churn by default
+- Required next frontier:
+  - keep the canonical lane on `settings-section__browserSectionDefault`
+  - require the next automated pass to land one shared row-body/article-chrome ownership primitive on already shell-owned dense families, aimed at the repeated survivors named in `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`
+  - only reopen tracing if that concrete product slice is blocked and the trace is required to scope it
+  - if no bounded shared primitive is credible after one attempt, stop for a human replan instead of continuing automatically
+
+## 2026-04-20 run 032
+
+- Landed the browser/code/prompt shell lightweight nested-children cluster on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now keeps lightweight nested children on the shell-owned `browserSectionDefault`, `codeSectionDefault`, and `promptSectionDefault` family instead of limiting that allowlist to `sectionSizingPolicy` and GUI/backend.
+- `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves the widened browser/code/prompt family while `buttonParamCodeObjDefault` remains outside that lightweight nested-child boundary, and the focused browser-family Playwright lane was retargeted to use `buttonParamCodeObjDefault` as the negative control.
+- Focused browser-family verification on the run-032 runtime recorded `browserSectionDefault` `rowCount 15` / `legacyNestedWrapperCount 0` / `lightweightGuideRootCount 1`, `promptSectionDefault` `rowCount 15` / `legacyNestedWrapperCount 0` / `lightweightGuideRootCount 2`, `codeSectionDefault` `rowCount 16` / `legacyNestedWrapperCount 0` / `lightweightGuideRootCount 2`, and negative control `buttonParamCodeObjDefault` `rowCount 10` / `lightweightGuideRootCount 0`.
+- Dense verification: eslint passed; `vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx` passed with `33` tests; Playwright `settings-all-settings-lightweight-nested-children-generalization.spec.ts` plus `settings-all-settings-motion-aware-dense.spec.ts` passed on the run-032 runtime with dense metrics `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 43.42`, `raf.p95Ms 50`, and `longTasks.totalMs 5916`.
+- CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL, normalizing to `/settings`, applying `fit view`, and minimizing the extra chat chrome to a docked tab; `browserSectionDefault` plus the prompt/code shell siblings were visible with one retained graph canvas mounted and no obvious blank shell, detached shell/body, or broken nested-row artifact.
+- Next frontier: close the browser/code/prompt nested-children lane here and move to the next shared row-body/article-chrome survivor on the canonical browser lane instead of reopening another nested-children allowlist or the closed selector-cache / hotspot micro-lanes.
+LOOP_TERMINAL_MARKER: none

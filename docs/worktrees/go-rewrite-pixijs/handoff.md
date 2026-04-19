@@ -8,37 +8,77 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `021`: `replan_and_continue`.
+- Decision for the 2026-04-20 checkpoint after run `031`: `replan_and_continue`.
 - Recent progress is real:
-  - run `014` is the current best whole-scene dense checkpoint at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 42.58`, `raf.p95Ms 50`, `longTasks.totalMs 5844`
-  - run `015` usefully falsified and closed the mounted-hidden motion-body idea after a clear dense-motion regression
-  - runs `016`, `017`, and `021` advanced Phase 2 retained-canvas shell ownership while keeping first-click editor handoff intact
+  - run `022` hardened CodeMirror editor bootstrap so the retained-text/canvas-shell path no longer depends on `posAtCoords(...)` finding a text anchor before first-click activation can complete
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
-  - run `025` replaced the default d3 wheel-zoom dispatch with a direct constrained transform fast path while keeping the checked wheel-motion and visual canaries intact
-  - run `026` cut retained-canvas measurement fanout by gating callable-only temporary height keys and section detail observers behind a per-section measurement plan instead of wiring every measurement family into every canvas-owned section
-  - run `027` removed one trace-backed param-tree / lodash fanout by memoizing the `ParamDndList` duplicate-index selector per section while keeping the dense canary in the same `~42-43ms` band
-  - run `028` removed another shared `GroupContainer` selector / label rebuild path by memoizing pinned, unpinned, and edge-strip derived state per section while the dense canary stayed in the same `~43ms` / `~5.8-5.9s` band after one bounded rerun
-  - run `029` removed another shared param-row project-state rebuild path by memoizing `ParamSwitch` row state per section/param while the dense canary stayed in the same `~42-43ms` / `~5.8s` band
-  - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior, and the dense canary stayed in the same `~43ms` / `~5.7s` band
+  - run `030` widened full shell ownership to the shared GUI/backend settings family while preserving lightweight nested children plus first-click dropdown and switch behavior
   - run `031` refreshed the canonical dense hotspot on the current post-run-030 runtime: Playwright stayed in the same `~43ms` band (`documentNodeCount 5493`, `buttonCount 46`, `raf.meanMs 43.14`, `longTasks.totalMs 6678`), while a fresh DevTools trace saved to `perf/artifacts/frontend/settings-all-settings/post-run-030-hotspot-refresh-trace-2026-04-20.json` no longer reproduced the older `EventDispatch` / `v8.callFunction` / GC spike and only surfaced short `RunTask` activity
 - Diminishing returns are now visible:
-  - runs `019` and `020` were flat `ZoomPane` micro-passes
-  - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
-  - run `027` also stayed in the same dense band, so close the duplicate-index selector micro-lane here instead of spending another pass on narrow selector-cache follow-ups
-  - run `028` stayed in the same dense band too, so close the `GroupContainer` selector micro-lane here instead of iterating on another similar cache-only follow-up
-  - run `029` stayed in the same dense band too, so close the `ParamSwitch` selector micro-lane here instead of chaining another row-selector follow-up by inertia
-  - run `030` stayed in the same dense band too, so close the GUI/backend shell-ownership cluster here instead of reopening that family with state-machine-gate or other dropdown-sibling shell follow-ups by inertia
-  - run `031` closes the old `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport micro-pass, because the refreshed trace on the current runtime no longer reproduces that hotspot
-  - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
+  - runs `023`, `025`, `026`, `027`, `028`, and `029` all landed safe reducer work yet settled back into the same dense `~43ms` / `~5.8-6.0s` band, so the default micro-reducer lane is closed
+  - run `031` closes `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport / guessed trace pass
+  - another single-section shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
-  - choose exactly one bounded frontier for the next default pass:
-    - a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
-    - or, only if a concrete product lane truly needs it, one longer or differently driven trace that can reproduce the current long-task debt on the post-run-030 surface instead of reusing the stale pre-cache hotspot
-  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, `GroupContainer` selector-cache follow-ups, `ParamSwitch` selector follow-ups, or another guessed selector-cache micro-pass justified only by the stale older hotspot report
-  - do not spend the next default pass on GUI/backend dropdown-family follow-ups or a state-machine-gate shell promotion unless a fresh trace or visual blocker makes that family the concrete frontier again
+  - run `032` closed the browser/code/prompt lightweight nested-children cluster on the canonical browser lane, so the next default pass must target the next shared row-body/article-chrome survivor instead of reopening that just-landed family
+  - aim that slice at the repeated survivors named by `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`: `div.section-center...`, `div.group/resize`, top-level wrapper `div`, and remaining `p.section-key` labels
+  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, or another isolated shell-id promotion
+  - only take a longer trace if that shared ownership slice is blocked and the trace is needed to scope the product change; otherwise keep the trace lane closed
+  - if no bounded shared primitive is credible after one attempt, stop for a real replan instead of letting the loop continue by inertia
 
 ## Current status
+
+- The browser shell lightweight nested-children cluster slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-browser-shell-lightweight-nested-children-cluster-rerun.md`.
+  - canonical target section for this slice: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__codeSectionDefault`
+  - negative control:
+    - `settings-section__buttonParamCodeObjDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now keeps lightweight nested children on the shell-owned browser/code/prompt family instead of limiting that allowlist to `sectionSizingPolicy` and GUI/backend
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves the widened browser/code/prompt family while `buttonParamCodeObjDefault` remains outside that lightweight nested-child boundary
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts` now uses `browserSectionDefault` as the canonical live proof lane with shell-owned prompt/code siblings and `buttonParamCodeObjDefault` as the remaining negative control
+  - focused Playwright rerun on the current runtime recorded:
+    - `browserSectionDefault`: `rowCount 15`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 1`
+    - `promptSectionDefault`: `rowCount 15`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `codeSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - negative control `buttonParamCodeObjDefault`: `rowCount 10`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 0`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.42`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1183.2`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5916`
+    - `longTasks.maxMs: 3481`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this closes the concrete browser/code legacy nested-wrapper gap on the current runtime and is a real shared row-body ownership step on the canonical browser lane
+    - the dense canary stayed in the current `~43ms` / `~5.9s` band, so keep this slice as architecture progress rather than treating it as a new whole-scene perf breakthrough
+    - close this browser/code/prompt nested-children lane here instead of reopening the same allowlist family next pass
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+      - result: `2 passed`, `33` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-032/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (21.9s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-032/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (34.3s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized to `/settings` with `All Settings` active and `fit view`
+    - `browserSectionDefault` plus the prompt/code shell siblings were visible on the graph surface with one retained graph canvas mounted
+    - no obvious blank shell, detached shell/body, or broken nested-row artifact was visible
+    - extra chat chrome was minimized to a docked tab during the check
 
 - The post-run-030 hotspot refresh slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-post-run-030-hotspot-refresh-report.md`.
   - canonical target section: `settings-section__browserSectionDefault`

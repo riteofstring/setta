@@ -4,10 +4,11 @@ import { ensureAppReady } from "../helpers";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
-const TARGET_SECTION_ID = "settings-section__codeSectionDefault";
-const SIBLING_SECTION_ID = "settings-section__stateMachineGateSectionDefault";
-const BROWSER_SECTION_ID = "settings-section__browserSectionDefault";
-const NEGATIVE_CONTROL_SECTION_ID = "settings-section__callableSectionDefault";
+const TARGET_SECTION_ID = "settings-section__browserSectionDefault";
+const SIBLING_SECTION_ID = "settings-section__promptSectionDefault";
+const TERTIARY_SECTION_ID = "settings-section__codeSectionDefault";
+const NEGATIVE_CONTROL_SECTION_ID =
+  "settings-section__buttonParamCodeObjDefault";
 
 type SectionNestedGuideSummary = {
   legacyNestedWrapperCount: number;
@@ -17,14 +18,14 @@ type SectionNestedGuideSummary = {
 };
 
 type LightweightNestedChildrenSummary = {
-  browser: SectionNestedGuideSummary;
-  callable: SectionNestedGuideSummary;
+  negativeControl: SectionNestedGuideSummary;
   sectionsWithLightweightGuides: string[];
   sibling: SectionNestedGuideSummary;
   target: SectionNestedGuideSummary;
+  tertiary: SectionNestedGuideSummary;
 };
 
-test("canvas shell path generalizes lightweight nested children across shared resting-text sections without widening the shell canary", async ({
+test("canvas shell path generalizes lightweight nested children across the browser shell family without widening the remaining shell canaries", async ({
   page,
 }, testInfo) => {
   await ensureAppReady(page);
@@ -50,7 +51,7 @@ test("canvas shell path generalizes lightweight nested children across shared re
     [
       TARGET_SECTION_ID,
       SIBLING_SECTION_ID,
-      BROWSER_SECTION_ID,
+      TERTIARY_SECTION_ID,
       NEGATIVE_CONTROL_SECTION_ID,
     ],
     { timeout: 15000 },
@@ -58,10 +59,10 @@ test("canvas shell path generalizes lightweight nested children across shared re
 
   const summary = await page.evaluate(
     ({
-      browserSectionId,
       negativeControlSectionId,
       siblingSectionId,
       targetSectionId,
+      tertiarySectionId,
     }): LightweightNestedChildrenSummary => {
       function summarizeSection(sectionId: string): SectionNestedGuideSummary {
         const section = document.querySelector<HTMLElement>(
@@ -90,8 +91,7 @@ test("canvas shell path generalizes lightweight nested children across shared re
       );
 
       return {
-        browser: summarizeSection(browserSectionId),
-        callable: summarizeSection(negativeControlSectionId),
+        negativeControl: summarizeSection(negativeControlSectionId),
         sectionsWithLightweightGuides: settingsSections
           .filter(
             (section) =>
@@ -104,13 +104,14 @@ test("canvas shell path generalizes lightweight nested children across shared re
           .sort(),
         sibling: summarizeSection(siblingSectionId),
         target: summarizeSection(targetSectionId),
+        tertiary: summarizeSection(tertiarySectionId),
       };
     },
     {
-      browserSectionId: BROWSER_SECTION_ID,
       negativeControlSectionId: NEGATIVE_CONTROL_SECTION_ID,
       siblingSectionId: SIBLING_SECTION_ID,
       targetSectionId: TARGET_SECTION_ID,
+      tertiarySectionId: TERTIARY_SECTION_ID,
     },
   );
 
@@ -130,17 +131,16 @@ test("canvas shell path generalizes lightweight nested children across shared re
   expect(summary.sibling.legacyNestedWrapperCount).toBe(0);
   expect(summary.sibling.lightweightGuideRootCount).toBeGreaterThan(0);
 
-  expect(summary.browser.rowCount).toBeGreaterThan(5);
-  expect(summary.browser.legacyNestedWrapperCount).toBe(0);
-  expect(summary.browser.lightweightGuideRootCount).toBeGreaterThan(0);
+  expect(summary.tertiary.rowCount).toBeGreaterThan(5);
+  expect(summary.tertiary.legacyNestedWrapperCount).toBe(0);
+  expect(summary.tertiary.lightweightGuideRootCount).toBeGreaterThan(0);
 
-  expect(summary.callable.rowCount).toBeGreaterThan(5);
-  expect(summary.callable.lightweightGuideRootCount).toBe(0);
-  expect(summary.callable.legacyNestedWrapperCount).toBeGreaterThan(0);
+  expect(summary.negativeControl.rowCount).toBeGreaterThan(5);
+  expect(summary.negativeControl.lightweightGuideRootCount).toBe(0);
 
   expect(summary.sectionsWithLightweightGuides).toContain(TARGET_SECTION_ID);
   expect(summary.sectionsWithLightweightGuides).toContain(SIBLING_SECTION_ID);
-  expect(summary.sectionsWithLightweightGuides).toContain(BROWSER_SECTION_ID);
+  expect(summary.sectionsWithLightweightGuides).toContain(TERTIARY_SECTION_ID);
   expect(summary.sectionsWithLightweightGuides).not.toContain(
     NEGATIVE_CONTROL_SECTION_ID,
   );
