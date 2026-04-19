@@ -66,7 +66,7 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable, dict, global variables, browser, code-like, gui/backend, prompt, and section sizing policy shell canaries", () => {
+  it("targets the callable, dict, global variables, browser, code-like, gui/backend, prompt, section sizing policy, and simple settings shell canaries", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
@@ -96,6 +96,22 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(BACKEND_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(
+        SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(
+        STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell("settings-section__textBlockSectionDefault"),

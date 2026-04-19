@@ -6094,3 +6094,50 @@ LOOP_TERMINAL_MARKER: replan_required
     - final post-trace DOM check did not keep `browserSectionDefault`, so treat the trace as whole-scene attribution evidence rather than named-section proof
 - Next frontier: stay on the canonical browser lane and land one broader Pixi-owned graph-surface ownership slice that moves shared row/article/resize chrome off the moving DOM surface.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 050
+
+- Landed one broader Pixi-owned graph-surface ownership step on the current `go-rewrite` canary instead of reopening the spent `SectionContainerCoreResizable` micro-lane.
+- `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now promotes the simple settings cluster from resting-text-only ownership to full shell ownership on the retained `canvas-shell-underlay` path:
+  - `settings-section__shortcuts`
+  - `settings-section__spreadsheetSectionDefault`
+  - `settings-section__taskBoardSectionDefault`
+  - `settings-section__stateMachineStartSectionDefault`
+- Tightened the focused ownership proofs:
+  - `frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts` now proves `shortcuts` exposes outer and inner `data-canvas-owned-shell="true"` boundaries with transparent shell styling and still hands `advancedSearchShortcut` to an inline CodeMirror editor on first click
+  - `frontend/tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts` now proves the same shell boundary on `spreadsheetSectionDefault`, `taskBoardSectionDefault`, and `stateMachineStartSectionDefault` while keeping their retained-text / underline / live-input counts stable
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves the simple settings cluster belongs to the shell-owned set
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-simple-settings-shell-ownership-cluster-rerun.md` as the new durable checkpoint for this cluster move.
+- Fresh dense rerun on the current `3068/8068` runtime recorded:
+  - `projectChatChromeCount: 0`
+  - `documentNodeCount: 5497`
+  - `inputCount: 3`
+  - `textareaCount: 1`
+  - `buttonCount: 47`
+  - `canvasCount: 1`
+  - `raf.meanMs: 44.4`
+  - `raf.p95Ms: 83.3`
+  - `longTasks.totalMs: 3257`
+  - `motionHiddenSubtreeChurn.subtreeRemovedElementCount: 0`
+- Focused trio probe attached the post-change inventories:
+  - `spreadsheetSectionDefault`: `uniqueParamInputCount 7`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+  - `taskBoardSectionDefault`: `uniqueParamInputCount 7`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+  - `stateMachineStartSectionDefault`: `uniqueParamInputCount 7`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+- Interpretation:
+  - this closes the simple settings shell family itself as a bounded ownership move
+  - the next pass must not spend time on more `shortcuts` / `spreadsheetSectionDefault` / `taskBoardSectionDefault` / `stateMachineStartSectionDefault` shell follow-ups or another proof-only rerun of the same first-click handoff
+  - the next frontier remains one stronger shared scene-authority / graph-surface ownership primitive, or the next credible non-shell-owned dense family if no broader shared move is ready
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - result: `1 passed (27 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.2m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - `All Settings` was active, one retained canvas was mounted, and `shortcuts`, `spreadsheetSectionDefault`, `taskBoardSectionDefault`, and `stateMachineStartSectionDefault` were all present and visible
+    - no obvious blank or detached shell/body regression was observed
+    - extra workspace/chat chrome remained visible during the headless check
+- Next frontier: stay on the canonical `settings-section__browserSectionDefault` lane and choose either one stronger shared scene-authority / graph-surface ownership primitive beyond this simple settings shell cluster, or the next credible non-shell-owned dense family with `chatSectionDefault` as the fallback if no broader shared family is ready.
+LOOP_TERMINAL_MARKER: none

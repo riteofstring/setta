@@ -89,6 +89,7 @@ test("canvas shell path owns the untouched settings resting-text trio", async ({
         const section = document.querySelector<HTMLElement>(
           `section[data-section-id="${sectionId}"]`,
         );
+        const shell = document.getElementById(`${sectionId}-CustomResizable`);
         const input = document.getElementById(inputId);
         const canvas = document.querySelector<HTMLCanvasElement>(
           ".react-flow__section-shell-backdrop canvas",
@@ -98,6 +99,9 @@ test("canvas shell path owns the untouched settings resting-text trio", async ({
 
         if (!(section instanceof HTMLElement)) {
           throw new Error(`Missing section ${sectionId}`);
+        }
+        if (!(shell instanceof HTMLElement)) {
+          throw new Error(`Missing shell ${sectionId}`);
         }
         if (!(input instanceof HTMLElement)) {
           throw new Error(`Missing input ${inputId}`);
@@ -117,6 +121,8 @@ test("canvas shell path owns the untouched settings resting-text trio", async ({
           throw new Error("Missing retained shell canvas context");
         }
 
+        const sectionStyle = window.getComputedStyle(section);
+        const shellStyle = window.getComputedStyle(shell);
         const inputStyle = window.getComputedStyle(input);
         const nodeTransform = window.getComputedStyle(node).transform;
         const viewportTransform = window.getComputedStyle(viewport).transform;
@@ -243,6 +249,7 @@ test("canvas shell path owns the untouched settings resting-text trio", async ({
           canvasOwnedRestingTextCount: section.querySelectorAll(
             '[data-canvas-owned-resting-text="true"]',
           ).length,
+          dataCanvasOwnedShell: section.dataset.canvasOwnedShell ?? null,
           inputDistinctPixelCount: countPixelsDifferentFromReferenceInCanvasRect(
             (nodeX - canvasLeft + inputOffsetX) * canvasScaleX,
             (nodeY - canvasTop + inputOffsetY) * canvasScaleY,
@@ -259,6 +266,9 @@ test("canvas shell path owns the untouched settings resting-text trio", async ({
           ).length,
           liveInputCount: section.querySelectorAll("input, textarea, .cm-editor")
             .length,
+          resizableCanvasOwnedShell: shell.dataset.canvasOwnedShell ?? null,
+          sectionBackgroundColor: sectionStyle.backgroundColor,
+          shellBackgroundColor: shellStyle.backgroundColor,
           underlineCount: section.querySelectorAll(
             '[data-canvas-owned-underline="true"]',
           ).length,
@@ -277,12 +287,16 @@ test("canvas shell path owns the untouched settings resting-text trio", async ({
     expect(restingTextState.lightweightRestingTextCount).toBe(
       target.expectedLightweightRestingTextCount,
     );
+    expect(restingTextState.dataCanvasOwnedShell).toBe("true");
     expect(restingTextState.underlineCount).toBe(target.expectedUnderlineCount);
     expect(restingTextState.liveInputCount).toBe(0);
     expect(restingTextState.inputOpacity).toBe("0");
     expect(restingTextState.lightweightOwnershipFlag).toBe("true");
     expect(restingTextState.inputHighlightSpanCount).toBe(0);
     expect(restingTextState.inputDistinctPixelCount).toBeGreaterThan(0);
+    expect(restingTextState.resizableCanvasOwnedShell).toBe("true");
+    expect(restingTextState.sectionBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(restingTextState.shellBackgroundColor).toBe("rgba(0, 0, 0, 0)");
 
     inventories.push({
       ...restingTextState,
