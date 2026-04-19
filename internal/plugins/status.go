@@ -333,12 +333,13 @@ func cloneRegisteredLanguageServersOrEmpty(values []PluginRegisteredLanguageServ
 	cloned := make([]PluginRegisteredLanguageServer, 0, len(values))
 	for _, value := range values {
 		cloned = append(cloned, PluginRegisteredLanguageServer{
-			PluginID:    value.PluginID,
-			Name:        value.Name,
-			Language:    value.Language,
-			Command:     value.Command,
-			Args:        append([]string{}, value.Args...),
-			SettingsKey: cloneOptionalString(value.SettingsKey),
+			PluginID:              value.PluginID,
+			Name:                  value.Name,
+			Language:              value.Language,
+			Command:               value.Command,
+			Args:                  append([]string{}, value.Args...),
+			SettingsKey:           cloneOptionalString(value.SettingsKey),
+			RuntimeSearchPathsKey: cloneOptionalString(value.RuntimeSearchPathsKey),
 		})
 	}
 	return cloned
