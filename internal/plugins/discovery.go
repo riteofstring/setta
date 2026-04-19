@@ -150,62 +150,25 @@ func (s *DiscoveryService) resolveDiscoveredGroup(
 	globalState PluginsGlobalStateFile,
 ) ([]DiscoveredPlugin, error) {
 	slices.SortFunc(group, compareDiscoveredPlugins)
-	if len(group) == 0 {
-		return group, nil
-	}
-
-	primaryIndex := -1
-	for index, entry := range group {
-		resolved, err := s.resolveUnshadowedDiscoveredEntry(entry, pluginsState, globalState)
-		if err != nil {
-			return nil, err
-		}
-		group[index] = resolved
-		if discoveredPluginIsUsablePrimary(resolved) {
-			primaryIndex = index
-			break
-		}
-	}
-
-	if primaryIndex < 0 {
-		primaryIndex = 0
-	}
-	markShadowedDiscoveredPlugins(group, group[primaryIndex].SourcePath, primaryIndex+1)
-	slices.SortFunc(group, compareResolvedDiscoveredPlugins)
-	return group, nil
-}
-
-func (s *DiscoveryService) resolveUnshadowedDiscoveredEntry(
-	entry DiscoveredPlugin,
-	pluginsState PluginsStateFile,
-	globalState PluginsGlobalStateFile,
-) (DiscoveredPlugin, error) {
-	resolvePrimaryPluginState(&entry, pluginsState, globalState, s.serverMode)
-	if err := s.populateBackendRegistrations(&entry); err != nil {
-		entry.Errors = append(entry.Errors, PluginErrorInfo{
+	primary := &group[0]
+	markShadowedDiscoveredPlugins(group, primary.SourcePath)
+	resolvePrimaryPluginState(primary, pluginsState, globalState, s.serverMode)
+	if err := s.populateBackendRegistrations(primary); err != nil {
+		primary.Errors = append(primary.Errors, PluginErrorInfo{
 			Code:    string(ServiceErrorCodeBackendRuntimeInvalid),
 			Message: err.Error(),
 		})
-		entry.State = PluginRuntimeStateInvalid
-		entry.RestartRequired = false
+		primary.State = PluginRuntimeStateInvalid
+		primary.RestartRequired = false
 	}
-	return entry, nil
+	return group, nil
 }
 
-func markShadowedDiscoveredPlugins(group []DiscoveredPlugin, primarySourcePath string, startIndex int) {
-	for index := startIndex; index < len(group); index++ {
+func markShadowedDiscoveredPlugins(group []DiscoveredPlugin, primarySourcePath string) {
+	for index := 1; index < len(group); index++ {
 		group[index].State = PluginRuntimeStateShadowed
 		group[index].ShadowedBySourcePath = primarySourcePath
 		group[index].RestartRequired = false
-	}
-}
-
-func discoveredPluginIsUsablePrimary(entry DiscoveredPlugin) bool {
-	switch entry.State {
-	case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart:
-		return true
-	default:
-		return false
 	}
 }
 
@@ -359,31 +322,6 @@ func compareDiscoveredPlugins(left DiscoveredPlugin, right DiscoveredPlugin) int
 	return 0
 }
 
-func compareResolvedDiscoveredPlugins(left DiscoveredPlugin, right DiscoveredPlugin) int {
-	if left.PluginID < right.PluginID {
-		return -1
-	}
-	if left.PluginID > right.PluginID {
-		return 1
-	}
-	leftRank := discoveredPluginPrimarySelectionRank(left)
-	rightRank := discoveredPluginPrimarySelectionRank(right)
-	if leftRank != rightRank {
-		return leftRank - rightRank
-	}
-	return compareDiscoveredPlugins(left, right)
-}
-
-func discoveredPluginPrimarySelectionRank(entry DiscoveredPlugin) int {
-	if entry.ShadowedBySourcePath != "" {
-		return 2
-	}
-	if !discoveredPluginIsUsablePrimary(entry) {
-		return 1
-	}
-	return 0
-}
-
 func compareScopeOrder(left PluginScope, right PluginScope) int {
 	return scopeOrder(left) - scopeOrder(right)
 }
@@ -436,14 +374,6 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 	if err := validatePersistedPluginConfigRoot(entry, pluginsState); err != nil {
 		entry.Errors = append(entry.Errors, PluginErrorInfo{
 			Code:    string(ServiceErrorCodeConfigInvalid),
-			Message: err.Error(),
-		})
-		entry.State = PluginRuntimeStateInvalid
-		return
-	}
-	if err := validateDiscoveredPluginConfigSchema(*entry); err != nil {
-		entry.Errors = append(entry.Errors, PluginErrorInfo{
-			Code:    string(ServiceErrorCodeConfigSchemaInvalid),
 			Message: err.Error(),
 		})
 		entry.State = PluginRuntimeStateInvalid

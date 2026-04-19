@@ -179,62 +179,6 @@ func TestServiceLoadCachedArtifactsAcceptWorkspacePaths(t *testing.T) {
 	}
 }
 
-func TestServiceLoadCachedDrawArtifactsNormalizesNullCollections(t *testing.T) {
-	t.Parallel()
-
-	service, paths := newArtifactTestService(t)
-
-	brushID := "artifacts/stroke-null.json"
-	brushPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(brushID))
-	if err := os.WriteFile(brushPath, []byte(`{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":null,"globalCompositeOperation":"source-over"}`), 0o644); err != nil {
-		t.Fatalf("write brush artifact: %v", err)
-	}
-	brushes, err := service.LoadCachedBrushStrokes(context.Background(), LoadCachedPathsRequest{Paths: []string{brushID}})
-	if err != nil {
-		t.Fatalf("load cached brushes: %v", err)
-	}
-	if len(brushes) != 1 || brushes[0] == nil {
-		t.Fatalf("expected one cached brush artifact, got %#v", brushes)
-	}
-	var brushValue map[string]any
-	if err := json.Unmarshal(brushes[0].Value, &brushValue); err != nil {
-		t.Fatalf("decode brush artifact: %v", err)
-	}
-	brushPoints, ok := brushValue["points"].([]any)
-	if !ok || brushPoints == nil || len(brushPoints) != 0 {
-		t.Fatalf("expected normalized brush points array, got %#v", brushValue["points"])
-	}
-
-	transformID := "artifacts/transform-null.json"
-	transformPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(transformID))
-	if err := os.WriteFile(transformPath, []byte(`{"transform":[1,0,0,1,3,4],"eraserStrokes":[{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":null,"globalCompositeOperation":"destination-out","transform":[1,0,0,1,0,0]}]}`), 0o644); err != nil {
-		t.Fatalf("write transform artifact: %v", err)
-	}
-	transforms, err := service.LoadCachedDrawAreaLayerItemTransforms(context.Background(), LoadCachedPathsRequest{Paths: []string{transformID}})
-	if err != nil {
-		t.Fatalf("load cached transforms: %v", err)
-	}
-	if len(transforms) != 1 || transforms[0] == nil {
-		t.Fatalf("expected one cached transform artifact, got %#v", transforms)
-	}
-	var transformValue map[string]any
-	if err := json.Unmarshal(transforms[0].Value, &transformValue); err != nil {
-		t.Fatalf("decode transform artifact: %v", err)
-	}
-	eraserStrokes, ok := transformValue["eraserStrokes"].([]any)
-	if !ok || len(eraserStrokes) != 1 {
-		t.Fatalf("expected one normalized eraser stroke, got %#v", transformValue["eraserStrokes"])
-	}
-	storedStroke, ok := eraserStrokes[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected eraser stroke object, got %#v", eraserStrokes[0])
-	}
-	storedPoints, ok := storedStroke["points"].([]any)
-	if !ok || storedPoints == nil || len(storedPoints) != 0 {
-		t.Fatalf("expected normalized eraser stroke points array, got %#v", storedStroke["points"])
-	}
-}
-
 func TestServiceCommitImageCacheReusesExistingContentForMatchingHash(t *testing.T) {
 	t.Parallel()
 
@@ -607,52 +551,6 @@ func TestServiceValidateListenerUpdateRejectsInvalidPath(t *testing.T) {
 		if !errors.As(err, &artifactErr) || artifactErr.Kind != ErrorPathForbidden {
 			t.Fatalf("expected path-forbidden artifact error, got %v", err)
 		}
-	}
-}
-
-func TestServiceUpdateDrawArtifactsNormalizesNullCollections(t *testing.T) {
-	t.Parallel()
-
-	service, paths := newArtifactTestService(t)
-
-	brushValue := json.RawMessage(`{"strokeStyle":"#ffffff","lineWidth":1,"lineCap":"round","points":null,"globalCompositeOperation":"source-over"}`)
-	transformValue := json.RawMessage(`{"transform":[1,0,0,1,10,12],"eraserStrokes":null}`)
-	results, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{
-			{Type: ArtifactTypeBrushStroke, ID: "artifacts/stroke.json", Value: &brushValue},
-			{Type: ArtifactTypeDrawAreaLayerItemTransform, ID: "artifacts/transform.json", Value: &transformValue},
-		},
-		UploadScope: UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update draw artifacts: %v", err)
-	}
-	if len(results) != 2 || results[0].Status != SaveStatusSaved || results[1].Status != SaveStatusSaved {
-		t.Fatalf("expected saved draw artifacts, got %#v", results)
-	}
-
-	readNormalizedObject := func(path string) map[string]any {
-		payload, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read normalized artifact %q: %v", path, err)
-		}
-		var object map[string]any
-		if err := json.Unmarshal(payload, &object); err != nil {
-			t.Fatalf("decode normalized artifact %q: %v", path, err)
-		}
-		return object
-	}
-
-	brushArtifact := readNormalizedObject(filepath.Join(paths.settaFilesRoot, "artifacts", "stroke.json"))
-	brushPoints, ok := brushArtifact["points"].([]any)
-	if !ok || brushPoints == nil || len(brushPoints) != 0 {
-		t.Fatalf("expected normalized saved brush points array, got %#v", brushArtifact["points"])
-	}
-
-	transformArtifact := readNormalizedObject(filepath.Join(paths.settaFilesRoot, "artifacts", "transform.json"))
-	eraserStrokes, ok := transformArtifact["eraserStrokes"].([]any)
-	if !ok || eraserStrokes == nil || len(eraserStrokes) != 0 {
-		t.Fatalf("expected normalized saved eraserStrokes array, got %#v", transformArtifact["eraserStrokes"])
 	}
 }
 

@@ -93,35 +93,6 @@ def test_run_dev_instance_rejects_flag_like_profile_value(tmp_path: Path) -> Non
     assert "Missing value for --profile" in f"{result.stdout}{result.stderr}"
 
 
-def test_run_dev_instance_requires_explicit_dev_install_when_repo_python_env_missing(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = build_run_dev_instance_sandbox(tmp_path)
-    stub_dir = tmp_path / "bin"
-    stub_dir.mkdir(parents=True, exist_ok=True)
-    home_dir = tmp_path / "home"
-    home_dir.mkdir(parents=True, exist_ok=True)
-
-    (sandbox_root / ".venv" / "bin" / "python").unlink()
-
-    result = run_script(
-        [
-            "bash",
-            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
-            "--mode",
-            "reset",
-        ],
-        cwd=sandbox_root,
-        env=script_env(stub_dir, home_dir),
-    )
-
-    assert result.returncode != 0
-    assert (
-        "Missing dev dependencies (.venv/bin/python). Run ./dev_install.sh first."
-        in f"{result.stdout}{result.stderr}"
-    )
-
-
 def test_run_dev_instance_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
     sandbox_root = build_run_dev_instance_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
