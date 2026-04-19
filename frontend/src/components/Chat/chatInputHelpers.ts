@@ -1,4 +1,4 @@
-import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystemRuntime";
+import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystem";
 import type { CSSProperties } from "react";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";

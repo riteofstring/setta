@@ -1,4 +1,4 @@
-import { runAppSubsystemProjectResetHooks } from "plugins/appSubsystemRuntime";
+import { runAppSubsystemProjectResetHooks } from "plugins/appSubsystem";
 import { resetAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import { type StateCreator, type StoreApi } from "zustand";

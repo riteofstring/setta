@@ -1,5 +1,6 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
+  type AppSubsystemFrontendRegistrationsByPluginId,
   appSubsystemModeRequiresImageAttachment,
   applyAppDefinitionStructuredContentToStore,
   getAppSubsystemFrontendRuntimeState,
@@ -12,7 +13,7 @@ import {
   useAppSubsystemFrontendStore,
   useAppSubsystemOverviewTab,
   useAppSubsystemSlashCommands,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -69,14 +70,6 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   },
 };
 
-vi.mock(
-  "../../../plugins/setta-json-render-app-gen/frontend/src/index",
-  () => ({
-    default: MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
-    appSubsystemFrontendRegistration: MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
-  }),
-);
-
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",
   pluginEnabled: true,
@@ -85,6 +78,20 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appGenerationChatModes: true,
   appDeploymentRuntime: true,
 } as const;
+const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
+  {
+    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+      ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+    },
+  };
+
+async function syncEnabledAppSubsystem(): Promise<void> {
+  await syncAppSubsystemFrontendRegistration(
+    ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
+  );
+}
 
 function AppSubsystemOverviewProbe() {
   const overviewTab = useAppSubsystemOverviewTab();
@@ -112,7 +119,7 @@ function AppSubsystemCustomSlashModeProbe() {
   );
 }
 
-describe("appSubsystemRuntime", () => {
+describe("appSubsystem", () => {
   beforeEach(() => {
     resetProjectStateMock.mockReset();
     applyStructuredContentMock.mockReset();
@@ -131,12 +138,10 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("treats missing capabilities as unavailable and does not keep stale registrations", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     expect(getAppSubsystemFrontendRuntimeState().status).toBe("loaded");
 
-    await syncAppSubsystemFrontendRegistration(null);
+    await syncAppSubsystemFrontendRegistration(null, {});
 
     expect(getAppSubsystemFrontendRuntimeState()).toMatchObject({
       capabilities: null,
@@ -146,9 +151,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("loads the lazy app subsystem frontend registration when frontend surfaces are enabled", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(getAppSubsystemFrontendRuntimeState()).toMatchObject({
@@ -160,9 +163,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("routes project reset hooks through the loaded registration", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     runAppSubsystemProjectResetHooks();
@@ -178,9 +179,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("exposes the loaded authoring registration through hooks", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(renderToStaticMarkup(<AppSubsystemOverviewProbe />)).toContain(
@@ -189,9 +188,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("exposes app slash commands through capability-gated hooks", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
@@ -200,9 +197,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("exposes the app deployment modal through capability-gated hooks", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(
@@ -211,7 +206,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("hides app slash commands when the subsystem is unavailable", async () => {
-    await syncAppSubsystemFrontendRegistration(null);
+    await syncAppSubsystemFrontendRegistration(null, {});
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(
@@ -224,9 +219,7 @@ describe("appSubsystemRuntime", () => {
       appSubsystemModeRequiresImageAttachment("json_render_with_image"),
     ).toBe(false);
 
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
 
     expect(
       appSubsystemModeRequiresImageAttachment("json_render_with_image"),
@@ -235,7 +228,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("falls back to plain-chat-only custom slash modes when the subsystem is unavailable", async () => {
-    await syncAppSubsystemFrontendRegistration(null);
+    await syncAppSubsystemFrontendRegistration(null, {});
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(
@@ -244,9 +237,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("exposes plugin-owned custom slash modes through capability-gated hooks", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(
@@ -255,9 +246,7 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("routes structured app-definition updates through the runtime adapter", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     const applied = applyAppDefinitionStructuredContentToStore({
       appDefinition: { id: "app-1" },
       appSpec: { title: "Runtime adapter" },
@@ -271,14 +260,27 @@ describe("appSubsystemRuntime", () => {
   });
 
   it("updates preview-enabled runtime state from the loaded registration subscription", async () => {
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    );
+    await syncEnabledAppSubsystem();
     expect(getAppSubsystemFrontendRuntimeState().previewEnabled).toBe(false);
 
     mockPreviewEnabled = true;
     previewEnabledListener?.(true);
 
     expect(getAppSubsystemFrontendRuntimeState().previewEnabled).toBe(true);
+  });
+
+  it("fails loudly when the active provider does not register frontend surfaces", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      {},
+    );
+
+    expect(getAppSubsystemFrontendRuntimeState()).toMatchObject({
+      capabilities: ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      status: "error",
+      statusMessage:
+        "App subsystem provider setta-json-render-app-gen did not register frontend surfaces through the plugin host.",
+      registration: null,
+    });
   });
 });

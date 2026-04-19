@@ -15,7 +15,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 import {
   resetAppSubsystemFrontendRuntimeState,
   syncAppSubsystemFrontendRegistration,
-} from "./appSubsystemRuntime";
+} from "./appSubsystem";
 import { type PluginPaneIconName } from "./paneIcons";
 import type {
   PluginFrontendError,
@@ -90,6 +90,7 @@ type PluginRuntimeStore = {
     LanguageServerSelectionStatus
   >;
   languageServerSelections: LanguageServerSelectionStatus[];
+  appSubsystemRegistrationsByPluginId: PluginRegistryAccumulator["appSubsystemRegistrationsByPluginId"];
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
   sortedSectionKinds: RegisteredPluginSectionKind[];
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
@@ -114,6 +115,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusEntries: [],
   languageServerSelectionsByLanguage: {},
   languageServerSelections: [],
+  appSubsystemRegistrationsByPluginId: {},
   sectionKindsByKey: {},
   sortedSectionKinds: [],
   panesByPluginId: {},
@@ -292,6 +294,7 @@ async function applyPluginRuntimeResponse(
       previousState.languageServerSelectionsByLanguage,
     );
   const registryAccumulator: PluginRegistryAccumulator = {
+    appSubsystemRegistrationsByPluginId: {},
     sectionKinds: {},
     panes: {},
     commands: {},
@@ -366,6 +369,12 @@ async function applyPluginRuntimeResponse(
     pluginListById,
     registryAccumulator,
   });
+  const appSubsystemRegistrationsByPluginId = hasSameRecordValueReferences(
+    registryAccumulator.appSubsystemRegistrationsByPluginId,
+    previousState.appSubsystemRegistrationsByPluginId,
+  )
+    ? previousState.appSubsystemRegistrationsByPluginId
+    : registryAccumulator.appSubsystemRegistrationsByPluginId;
 
   usePluginRuntimeStore.setState((state) => ({
     ...state,
@@ -382,6 +391,7 @@ async function applyPluginRuntimeResponse(
     statusEntries,
     languageServerSelectionsByLanguage,
     languageServerSelections,
+    appSubsystemRegistrationsByPluginId,
     sectionKindsByKey: registryAccumulator.sectionKinds,
     sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
@@ -395,6 +405,7 @@ async function applyPluginRuntimeResponse(
 
   await syncAppSubsystemFrontendRegistration(
     runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+    appSubsystemRegistrationsByPluginId,
   );
 }
 
@@ -430,6 +441,7 @@ function buildClearedRuntimeState(
     statusEntries: [],
     languageServerSelectionsByLanguage: {},
     languageServerSelections: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -495,6 +507,11 @@ function mergeRegistryDelta(
   target: PluginRegistryAccumulator,
   delta: PluginRegistryAccumulator,
 ): void {
+  for (const [pluginId, registration] of Object.entries(
+    delta.appSubsystemRegistrationsByPluginId,
+  )) {
+    target.appSubsystemRegistrationsByPluginId[pluginId] = registration;
+  }
   for (const [key, value] of Object.entries(delta.sectionKinds)) {
     target.sectionKinds[key] = value;
   }
@@ -523,6 +540,12 @@ function mergePluginRegistryFromState(
   sectionKindKeysByPluginId: Record<string, string[]>,
   target: PluginRegistryAccumulator,
 ): void {
+  const appSubsystemRegistration =
+    state.appSubsystemRegistrationsByPluginId[pluginId];
+  if (appSubsystemRegistration) {
+    target.appSubsystemRegistrationsByPluginId[pluginId] =
+      appSubsystemRegistration;
+  }
   const sectionKindKeys = sectionKindKeysByPluginId[pluginId] ?? [];
   for (const sectionKindKey of sectionKindKeys) {
     const sectionKind = state.sectionKindsByKey[sectionKindKey];

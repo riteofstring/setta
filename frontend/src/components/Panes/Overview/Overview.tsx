@@ -4,7 +4,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useAppSubsystemOverviewTab } from "plugins/appSubsystemRuntime";
+import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
 import {
   usePluginPaneTabs,
   type PluginPaneIconName,

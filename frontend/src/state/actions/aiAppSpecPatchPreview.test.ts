@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  type AppSubsystemFrontendRegistrationsByPluginId,
   resetAppSubsystemFrontendRuntimeState,
   syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -11,7 +12,10 @@ import {
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
-import { clearAllAppSpecPatchPreviewStreams } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
+import {
+  applyAppSpecPatchPreviewDeltaToStore as applyAppSpecPatchPreviewDeltaToProviderStore,
+  clearAllAppSpecPatchPreviewStreams,
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
 import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
@@ -23,12 +27,50 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appGenerationChatModes: true,
   appDeploymentRuntime: true,
 } as const;
+const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
+  {
+    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+      overviewTab: {
+        component: () => null,
+        titleQuickInfo: "Authoring quick info",
+        moreMenuQuickInfo: "More menu quick info",
+        moreMenuLabel: "JSON Render",
+      },
+      previewSurface: {
+        component: () => null,
+      },
+      appModeRoute: {
+        component: () => null,
+      },
+      appDeploymentModal: {
+        component: () => null,
+      },
+      slashCommands: [
+        {
+          command: "/app-json",
+          action: "app_json_render",
+          summary: "Generate an app spec.",
+          promptTemplate: "Generate an app spec.",
+          appGenerationMode: "json_render",
+        },
+      ],
+      customSlashCommandModes: {
+        options: [{ id: "plain_chat", name: "Plain chat" }],
+        defaultMode: "plain_chat",
+      },
+      applyAppSpecPatchPreviewDeltaToStore:
+        applyAppSpecPatchPreviewDeltaToProviderStore,
+      clearAllAppSpecPatchPreviewStreams,
+    },
+  };
 
 describe("ai app spec patch preview streaming", () => {
   beforeEach(async () => {
     resetProjectStores();
     await syncAppSubsystemFrontendRegistration(
       ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
     );
     clearAllAppSpecPatchPreviewStreams();
     useProjectState.setState((state) => {

@@ -31,10 +31,10 @@ vi.mock("components/Chat/ChatMessages", () => ({
   },
 }));
 
-vi.mock("plugins/appSubsystemRuntime", async () => {
-  const actual = await vi.importActual<
-    typeof import("plugins/appSubsystemRuntime")
-  >("plugins/appSubsystemRuntime");
+vi.mock("plugins/appSubsystem", async () => {
+  const actual = await vi.importActual<typeof import("plugins/appSubsystem")>(
+    "plugins/appSubsystem",
+  );
   return {
     ...actual,
     useAppSubsystemSlashCommands: () => mockUseAppSubsystemSlashCommands(),
