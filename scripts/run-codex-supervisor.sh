@@ -40,8 +40,9 @@ Supervisor options:
                                failure keys from run status files. Default: 2
   --repair-command CMD         Deterministic repair hook run after stopping the
                                loop and before any repair Codex escalation.
-                               Default: ./aireset.sh for non-main worktrees
-                               when present; disabled otherwise.
+                               Default: bounded runtime cleanup/reset for
+                               non-main worktrees when available; disabled
+                               otherwise.
   --repair-model NAME          Optional model override for repair Codex runs.
   --yolo                       Run repair Codex with bypass approvals/sandbox.
   --no-codex-repair            Disable one-shot repair Codex escalation.
@@ -146,6 +147,46 @@ resolve_ralph_runtime_state_dir() {
 
   mkdir -p "${ROOT_DIR}/.ralph-runtime"
   printf '%s\n' "${ROOT_DIR}/.ralph-runtime"
+}
+
+default_repair_command_for_workdir() {
+  local candidate_workdir="$1"
+  local workdir_real=""
+  local main_real=""
+  local has_kill="0"
+  local has_reset="0"
+
+  [[ -d "${candidate_workdir}" ]] || return 1
+
+  workdir_real="$(cd "${candidate_workdir}" && pwd -P)"
+  if [[ -n "${main_worktree_root:-}" ]]; then
+    main_real="$(cd "${main_worktree_root}" && pwd -P 2>/dev/null || printf '%s' "${main_worktree_root}")"
+  fi
+  if [[ -n "${main_real}" ]] && [[ "${workdir_real}" == "${main_real}" ]]; then
+    return 1
+  fi
+
+  if [[ -x "${candidate_workdir}/kill.sh" ]]; then
+    has_kill="1"
+  fi
+  if [[ -x "${candidate_workdir}/scripts/reset-setta-state.sh" ]]; then
+    has_reset="1"
+  fi
+
+  if [[ "${has_kill}" == "1" ]] && [[ "${has_reset}" == "1" ]]; then
+    printf '%s\n' "./kill.sh && ./scripts/reset-setta-state.sh --workspace ."
+    return 0
+  fi
+  if [[ "${has_reset}" == "1" ]]; then
+    printf '%s\n' "./scripts/reset-setta-state.sh --workspace ."
+    return 0
+  fi
+  if [[ "${has_kill}" == "1" ]]; then
+    printf '%s\n' "./kill.sh"
+    return 0
+  fi
+
+  return 1
 }
 
 should_auto_detach_supervisor() {
@@ -992,14 +1033,9 @@ else
   main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
 fi
 if [[ -z "${repair_command}" ]] && [[ -x "${workdir}/aireset.sh" ]]; then
-  workdir_real="$(cd "${workdir}" && pwd -P)"
-  main_real=""
-  if [[ -n "${main_worktree_root}" ]]; then
-    main_real="$(cd "${main_worktree_root}" && pwd -P 2>/dev/null || printf '%s' "${main_worktree_root}")"
-  fi
-  if [[ -z "${main_real}" ]] || [[ "${workdir_real}" != "${main_real}" ]]; then
-    repair_command="./aireset.sh"
-  fi
+  repair_command="$(default_repair_command_for_workdir "${workdir}" || true)"
+elif [[ -z "${repair_command}" ]]; then
+  repair_command="$(default_repair_command_for_workdir "${workdir}" || true)"
 fi
 
 if [[ "${codex_repair_enabled}" == "1" ]] && ! setta_ensure_codex_cli "${ROOT_DIR}"; then

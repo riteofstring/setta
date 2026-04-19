@@ -247,3 +247,136 @@ exit 2
     )
     assert "status=completed" in status_text
     assert "note=stop_requested_after_success" in status_text
+
+
+def test_run_codex_supervisor_uses_bounded_default_repair_command(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "workdir"
+    output_dir = tmp_path / "output"
+    runtime_state_dir = tmp_path / "runtime-state"
+    config_file = tmp_path / "RALPH.md"
+    loop_script = tmp_path / "mock-loop.sh"
+    repair_calls = tmp_path / "repair-calls.txt"
+    loop_calls = tmp_path / "loop-calls.txt"
+
+    workdir.mkdir()
+    (workdir / "scripts").mkdir()
+    output_dir.mkdir()
+    runtime_state_dir.mkdir()
+    config_file.write_text(
+        f"""---
+workdir: {workdir}
+---
+test supervisor config
+""",
+        encoding="utf-8",
+    )
+    _write_executable(
+        workdir / "kill.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'kill\\n' >> "{repair_calls}"
+""",
+    )
+    _write_executable(
+        workdir / "scripts" / "reset-setta-state.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'reset %s\\n' "$*" >> "{repair_calls}"
+""",
+    )
+    _write_executable(
+        workdir / "aireset.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'aireset\\n' >> "{repair_calls}"
+exit 99
+""",
+    )
+    _write_executable(
+        loop_script,
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+output_dir=""
+stop_file=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-dir)
+      output_dir="$2"
+      shift 2
+      ;;
+    --stop-after-iteration-file)
+      stop_file="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+count="0"
+if [[ -f "{loop_calls}" ]]; then
+  count="$(cat "{loop_calls}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "{loop_calls}"
+
+if [[ "${{count}}" == "1" ]]; then
+  exit 1
+fi
+
+mkdir -p "${{output_dir}}/run-001"
+cat > "${{output_dir}}/run-001/status.txt" <<'EOF'
+status=success
+mode=start
+loop_status=SUBTASK_DONE
+loop_summary=recovered
+EOF
+touch "${{stop_file}}"
+exit 2
+""",
+    )
+
+    env = os.environ.copy()
+    env["RALPH_RUNTIME_STATE_DIR"] = str(runtime_state_dir)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(repo_root() / "scripts" / "run-codex-supervisor.sh"),
+            "--config-file",
+            str(config_file),
+            "--workdir",
+            str(workdir),
+            "--output-dir",
+            str(output_dir),
+            "--loop-script",
+            str(loop_script),
+            "--poll-seconds",
+            "1",
+            "--stale-seconds",
+            "60",
+            "--no-codex-repair",
+        ],
+        cwd=repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert loop_calls.read_text(encoding="utf-8").strip() == "2"
+    assert repair_calls.read_text(encoding="utf-8").splitlines() == [
+        "kill",
+        "reset --workspace .",
+    ]
+    status_text = (output_dir / "supervisor" / "status.txt").read_text(
+        encoding="utf-8",
+    )
+    assert "status=completed" in status_text
+    assert "note=stop_requested_after_success" in status_text
