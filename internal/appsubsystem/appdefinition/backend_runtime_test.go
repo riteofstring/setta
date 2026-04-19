@@ -81,6 +81,156 @@ func TestBackendRuntimeSetAppDefinitionSyncsPersistedState(t *testing.T) {
 	}
 }
 
+func TestBackendRuntimeSetAppDefinitionPreservesNewerLiveProjectState(t *testing.T) {
+	store, runtime := openPersistedBackendRuntimeTestProject(t)
+	pluginID := "setta-json-render-app-gen"
+	storage := MustStorageForPlugin(pluginID)
+	expectedDefinition := AppDefinition{
+		AppSpecVersion: "v2",
+		CatalogID:      "catalog-next",
+		AppSpecPath:    "frontend/custom.json",
+	}
+
+	if _, err := runtime.MutateWithContext(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		next := document.Clone()
+		next.Projects["project-alpha"] = backendRuntimeTestProject("In Memory Project")
+		return next, nil
+	}); err != nil {
+		t.Fatalf("mutate live project state: %v", err)
+	}
+
+	service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
+		invoke: func(
+			ctx context.Context,
+			request plugins.BackendListenerEndpointRequest,
+		) (any, bool, error) {
+			if request.EndpointName != backendruntime.ListenerEndpointSetAppDefinition {
+				t.Fatalf("unexpected endpoint %q", request.EndpointName)
+			}
+
+			document, err := store.Load(context.Background())
+			if err != nil {
+				t.Fatalf("load persisted document: %v", err)
+			}
+			document = storage.WithStoredDocumentAppDefinition(
+				document,
+				mustMarshalBackendRuntimeTestDefinition(t, expectedDefinition),
+			)
+			if err := store.Save(context.Background(), document); err != nil {
+				t.Fatalf("save persisted document: %v", err)
+			}
+
+			return MutationResult{
+				AppDefinition: &expectedDefinition,
+			}, true, nil
+		},
+	})
+
+	snapshot, _, err := service.SetAppDefinition(context.Background(), SetInput{})
+	if err != nil {
+		t.Fatalf("set app definition: %v", err)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if project.Name != "In Memory Project" {
+		t.Fatalf("expected in-memory project name to be preserved, got %#v", project.Name)
+	}
+
+	persisted, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load merged persisted document: %v", err)
+	}
+	if persisted.Projects["project-alpha"].Name != "In Memory Project" {
+		t.Fatalf("expected merged persisted project name, got %#v", persisted.Projects["project-alpha"].Name)
+	}
+	if got := mustDecodeBackendRuntimeTestDefinition(t, storage.StoredDocumentAppDefinitionRaw(persisted)); got.CatalogID != expectedDefinition.CatalogID {
+		t.Fatalf("expected merged persisted app definition %#v, got %#v", expectedDefinition, got)
+	}
+}
+
+func TestBackendRuntimeSetAppDefinitionRebasesBlockedDeferredPersist(t *testing.T) {
+	blockedSaveStarted := make(chan struct{}, 1)
+	releaseBlockedSave := make(chan struct{})
+	store, runtime := openPersistedBackendRuntimeTestProjectWithOptions(t, projectstate.RuntimeOptions{
+		BeforeSave: func(_ context.Context, snapshot projectstate.Snapshot) error {
+			if snapshot.Revision != 2 {
+				return nil
+			}
+			select {
+			case blockedSaveStarted <- struct{}{}:
+			default:
+			}
+			<-releaseBlockedSave
+			return nil
+		},
+	})
+	pluginID := "setta-json-render-app-gen"
+	storage := MustStorageForPlugin(pluginID)
+	expectedDefinition := AppDefinition{
+		AppSpecVersion: "v2",
+		CatalogID:      "catalog-next",
+		AppSpecPath:    "frontend/custom.json",
+	}
+
+	if _, err := runtime.MutateAndPersistLater(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		next := document.Clone()
+		next.Projects["project-alpha"] = backendRuntimeTestProject("Deferred Project")
+		return next, nil
+	}); err != nil {
+		t.Fatalf("queue deferred persist: %v", err)
+	}
+	<-blockedSaveStarted
+
+	service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
+		invoke: func(
+			ctx context.Context,
+			request plugins.BackendListenerEndpointRequest,
+		) (any, bool, error) {
+			if request.EndpointName != backendruntime.ListenerEndpointSetAppDefinition {
+				t.Fatalf("unexpected endpoint %q", request.EndpointName)
+			}
+
+			document, err := store.Load(context.Background())
+			if err != nil {
+				t.Fatalf("load persisted document: %v", err)
+			}
+			document = storage.WithStoredDocumentAppDefinition(
+				document,
+				mustMarshalBackendRuntimeTestDefinition(t, expectedDefinition),
+			)
+			if err := store.Save(context.Background(), document); err != nil {
+				t.Fatalf("save persisted document: %v", err)
+			}
+
+			return MutationResult{
+				AppDefinition: &expectedDefinition,
+			}, true, nil
+		},
+	})
+
+	resultCh := make(chan error, 1)
+	go func() {
+		_, _, err := service.SetAppDefinition(context.Background(), SetInput{})
+		resultCh <- err
+	}()
+
+	releaseBlockedSave <- struct{}{}
+	if err := <-resultCh; err != nil {
+		t.Fatalf("set app definition with blocked deferred persist: %v", err)
+	}
+
+	persisted, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document after merge: %v", err)
+	}
+	if got := mustDecodeBackendRuntimeTestDefinition(t, storage.StoredDocumentAppDefinitionRaw(persisted)); got.CatalogID != expectedDefinition.CatalogID {
+		t.Fatalf("expected merged app definition %#v, got %#v", expectedDefinition, got)
+	}
+	if persisted.Projects["project-alpha"].Name != "Deferred Project" {
+		t.Fatalf("expected deferred project state to remain merged, got %#v", persisted.Projects["project-alpha"].Name)
+	}
+}
+
 func TestBackendRuntimeMapsExpectedOldValueMismatch(t *testing.T) {
 	t.Helper()
 
@@ -140,6 +290,15 @@ func (s backendRuntimeInvokerStub) InvokeRegisteredListenerEndpoint(
 func openPersistedBackendRuntimeTestProject(t *testing.T) (*projectstate.Store, *projectstate.Runtime) {
 	t.Helper()
 
+	return openPersistedBackendRuntimeTestProjectWithOptions(t, projectstate.RuntimeOptions{})
+}
+
+func openPersistedBackendRuntimeTestProjectWithOptions(
+	t *testing.T,
+	options projectstate.RuntimeOptions,
+) (*projectstate.Store, *projectstate.Runtime) {
+	t.Helper()
+
 	store, err := projectstate.NewStore(
 		filepath.Join(t.TempDir(), projectstate.MainFileName),
 		projectstate.StoreOptions{},
@@ -153,7 +312,7 @@ func openPersistedBackendRuntimeTestProject(t *testing.T) (*projectstate.Store, 
 	runtime, err := projectstate.OpenRuntimeWithOptions(
 		context.Background(),
 		store,
-		projectstate.RuntimeOptions{},
+		options,
 	)
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)
@@ -164,6 +323,15 @@ func openPersistedBackendRuntimeTestProject(t *testing.T) (*projectstate.Store, 
 		}
 	})
 	return store, runtime
+}
+
+func backendRuntimeTestProject(name string) projectstate.Project {
+	windowing := projectstate.DefaultProjectChatWindowingState()
+	return projectstate.Project{
+		ID:                   "project-alpha",
+		Name:                 name,
+		ProjectChatWindowing: &windowing,
+	}
 }
 
 func mustMarshalBackendRuntimeTestDefinition(t *testing.T, definition AppDefinition) projectstate.RawJSON {

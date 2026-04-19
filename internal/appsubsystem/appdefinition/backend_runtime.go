@@ -73,7 +73,7 @@ func (r *BackendRuntime) SetAppDefinition(
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
-	snapshot, err := r.syncPersistedState(ctx)
+	snapshot, err := r.syncPersistedState(ctx, result.AppDefinition)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
@@ -88,7 +88,7 @@ func (r *BackendRuntime) StreamAppDefinition(
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
-	snapshot, err := r.syncPersistedState(ctx)
+	snapshot, err := r.syncPersistedState(ctx, result.AppDefinition)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
@@ -108,7 +108,7 @@ func (r *BackendRuntime) UpdateAppDefinition(
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
-	snapshot, err := r.syncPersistedState(ctx)
+	snapshot, err := r.syncPersistedState(ctx, result.AppDefinition)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
@@ -193,7 +193,7 @@ func invokeCompareAndSetString(
 	if result.OldValue == result.NewValue {
 		return r.projectRuntime.Snapshot(), result, nil
 	}
-	snapshot, err := r.syncPersistedState(ctx)
+	snapshot, err := r.syncPersistedState(ctx, nil)
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
@@ -308,15 +308,27 @@ func mapBackendRuntimeError(err error) error {
 
 func (r *BackendRuntime) syncPersistedState(
 	ctx context.Context,
+	definition *AppDefinition,
 ) (projectstate.Snapshot, error) {
 	if r == nil || r.projectRuntime == nil {
 		return projectstate.Snapshot{}, projectstate.ErrRuntimeClosed
 	}
-	loaded, err := r.projectRuntime.LoadPersistedDocument(ctx)
+	if definition == nil {
+		readResult, err := r.GetAppDefinition(ctx)
+		if err != nil {
+			return projectstate.Snapshot{}, err
+		}
+		definition = readResult.AppDefinition
+	}
+
+	storage := MustStorageForPlugin(r.pluginID)
+	encodedDefinition, err := EncodeStoredAppDefinition(definition)
 	if err != nil {
 		return projectstate.Snapshot{}, err
 	}
-	return r.projectRuntime.MutateWithContext(ctx, func(projectstate.Document) (projectstate.Document, error) {
-		return loaded, nil
+	return r.projectRuntime.MutateAndSave(ctx, func(
+		document projectstate.Document,
+	) (projectstate.Document, error) {
+		return storage.WithStoredDocumentAppDefinition(document, encodedDefinition), nil
 	})
 }
