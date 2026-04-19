@@ -15,10 +15,16 @@ import (
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
-func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRouteDependencies) error {
+type AppDefinitionRouteDependencies struct {
+	ModePolicy   modes.Policy
+	ProjectState *projectstate.Runtime
+}
+
+func RegisterAppDefinitionRoutes(router chi.Router, deps AppDefinitionRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
+	service := NewAppDefinitionService(deps.ProjectState)
 
 	httpapi.RegisterOpenAPIGet[appdefinitionhttp.AppCatalogResponse](
 		router,
@@ -32,7 +38,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		router,
 		"getAppDefinition",
 		httpapi.RouteGetAppDefinition,
-		getAppDefinitionHandler(deps),
+		getAppDefinitionHandler(deps.ModePolicy, service),
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Load the current app definition and resolved app spec."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
@@ -41,7 +47,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		router,
 		"validateAppDefinition",
 		httpapi.RouteValidateAppDefinition,
-		validateAppDefinitionHandler(deps),
+		validateAppDefinitionHandler(deps.ModePolicy, service),
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Validate an app definition payload against the current catalog."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
@@ -50,7 +56,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		router,
 		"setAppDefinition",
 		httpapi.RouteSetAppDefinition,
-		setAppDefinitionHandler(deps),
+		setAppDefinitionHandler(deps.ModePolicy, service),
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Persist a standalone app definition."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
@@ -113,13 +119,16 @@ func buildAppCatalogResponse(catalog appspec.Catalog) appdefinitionhttp.AppCatal
 	}
 }
 
-func getAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.HandlerFunc {
+func getAppDefinitionHandler(
+	modePolicy modes.Policy,
+	service appdefinition.Runtime,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if detail, blocked := appDefinitionModeDetail(deps.ModePolicy); blocked {
+		if detail, blocked := appDefinitionModeDetail(modePolicy); blocked {
 			httpapi.WriteDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.Service == nil {
+		if service == nil {
 			httpapi.WriteDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
@@ -129,7 +138,7 @@ func getAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			return
 		}
 
-		result, err := deps.Service.GetAppDefinition(
+		result, err := service.GetAppDefinition(
 			httpapi.ProjectMutationContext(r.Context(), payload.FrontendOpID),
 		)
 		if err != nil {
@@ -140,13 +149,16 @@ func getAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 	}
 }
 
-func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.HandlerFunc {
+func validateAppDefinitionHandler(
+	modePolicy modes.Policy,
+	service appdefinition.Runtime,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if detail, blocked := appDefinitionModeDetail(deps.ModePolicy); blocked {
+		if detail, blocked := appDefinitionModeDetail(modePolicy); blocked {
 			httpapi.WriteDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.Service == nil {
+		if service == nil {
 			httpapi.WriteDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
@@ -160,7 +172,7 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 			return
 		}
 
-		result, err := deps.Service.ValidateAppDefinition(
+		result, err := service.ValidateAppDefinition(
 			httpapi.ProjectMutationContext(r.Context(), payload.FrontendOpID),
 			appdefinition.ValidateInput{
 				AppSpec:        payload.AppSpec,
@@ -181,13 +193,16 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 	}
 }
 
-func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.HandlerFunc {
+func setAppDefinitionHandler(
+	modePolicy modes.Policy,
+	service appdefinition.Runtime,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if detail, blocked := appDefinitionModeDetail(deps.ModePolicy); blocked {
+		if detail, blocked := appDefinitionModeDetail(modePolicy); blocked {
 			httpapi.WriteDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.Service == nil {
+		if service == nil {
 			httpapi.WriteDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
@@ -201,7 +216,7 @@ func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			return
 		}
 
-		_, result, err := deps.Service.SetAppDefinition(
+		_, result, err := service.SetAppDefinition(
 			httpapi.ProjectMutationContext(r.Context(), payload.FrontendOpID),
 			appdefinition.SetInput{
 				AppSpec:        payload.AppSpec,
