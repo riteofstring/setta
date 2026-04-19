@@ -335,6 +335,138 @@
         ],
         "type": "object"
       },
+      "AppsubsystemAppdefinitionAppDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {},
+          "appSpecPath": {
+            "type": "string"
+          },
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {},
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {},
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppRoute"
+            },
+            "type": ["array", "null"]
+          },
+          "theme": {}
+        },
+        "type": "object"
+      },
+      "AppsubsystemAppdefinitionAppRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "rootKey": {
+            "type": "string"
+          }
+        },
+        "required": ["path"],
+        "type": "object"
+      },
+      "AppsubsystemAppdefinitionCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "themeSchemaVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogId",
+          "catalogVersion",
+          "appSpecVersion",
+          "themeSchemaVersion",
+          "features"
+        ],
+        "type": "object"
+      },
+      "AppsubsystemAppdefinitionMutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppDefinition"
+          },
+          "appSpec": {}
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "AppsubsystemAppdefinitionReadResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppDefinition"
+          },
+          "appSpec": {}
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "AppsubsystemAppdefinitionValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "elementKey": {
+            "type": "string"
+          },
+          "elementType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "type": "object"
+      },
+      "AppsubsystemAppdefinitionValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/AppsubsystemAppdefinitionCapabilities"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionValidationIssue"
+            },
+            "type": ["array", "null"]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionValidationIssue"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["errors", "warnings", "capabilities"],
+        "type": "object"
+      },
       "ArtifactsArtifactSaveResult": {
         "additionalProperties": false,
         "properties": {
@@ -8575,138 +8707,6 @@
         ],
         "type": "object"
       },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {},
-          "appSpecPath": {
-            "type": "string"
-          },
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "assets": {},
-          "catalogId": {
-            "type": "string"
-          },
-          "dataBindings": {},
-          "routes": {
-            "items": {
-              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute"
-            },
-            "type": ["array", "null"]
-          },
-          "theme": {}
-        },
-        "type": "object"
-      },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "rootKey": {
-            "type": "string"
-          }
-        },
-        "required": ["path"],
-        "type": "object"
-      },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "catalogVersion": {
-            "type": "string"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object"
-          },
-          "themeSchemaVersion": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "catalogId",
-          "catalogVersion",
-          "appSpecVersion",
-          "themeSchemaVersion",
-          "features"
-        ],
-        "type": "object"
-      },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition"
-          },
-          "appSpec": {}
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition"
-          },
-          "appSpec": {}
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue": {
-        "additionalProperties": false,
-        "properties": {
-          "elementKey": {
-            "type": "string"
-          },
-          "elementType": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": ["message"],
-        "type": "object"
-      },
-      "PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "capabilities": {
-            "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionCapabilities"
-          },
-          "errors": {
-            "items": {
-              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue"
-            },
-            "type": ["array", "null"]
-          },
-          "warnings": {
-            "items": {
-              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["errors", "warnings", "capabilities"],
-        "type": "object"
-      },
       "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse": {
         "additionalProperties": false,
         "properties": {
@@ -8829,7 +8829,7 @@
           },
           "routes": {
             "items": {
-              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute"
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppRoute"
             },
             "type": "array"
           },
@@ -8868,7 +8868,7 @@
           },
           "routes": {
             "items": {
-              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute"
+              "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppRoute"
             },
             "type": "array"
           },
@@ -8927,7 +8927,7 @@
         "additionalProperties": false,
         "properties": {
           "appDefinition": {
-            "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition"
+            "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppDefinition"
           },
           "appPolicy": {
             "$ref": "#/components/schemas/DeploymentsPolicy"
@@ -15089,7 +15089,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult"
+                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionReadResult"
                 }
               }
             },
@@ -18939,7 +18939,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult"
+                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionMutationResult"
                 }
               }
             },
@@ -23853,7 +23853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult"
+                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionValidationResult"
                 }
               }
             },

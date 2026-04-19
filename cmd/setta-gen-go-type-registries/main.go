@@ -202,6 +202,7 @@ func buildFrontendConvertibleSources(
 		frontendConvertibleRegistrySource("setta/internal/transcriptionprofiles"),
 		frontendConvertibleRegistrySource("setta/internal/lspcompletion"),
 		frontendConvertibleRegistrySource("setta/internal/projectshell"),
+		frontendConvertibleRegistrySource("setta/internal/appsubsystem/appdefinition"),
 	}
 	for _, pkgPath := range pluginAppDefinitionPackages {
 		sources = append(sources, frontendConvertibleRegistrySource(pkgPath))
@@ -247,6 +248,10 @@ func buildAdditionalTypeSources(
 		},
 		{
 			PkgPath:                  "setta/internal/pythonsdkcontracts",
+			RequireJSONTaggedStructs: true,
+		},
+		{
+			PkgPath:                  "setta/internal/appsubsystem/appdefinition",
 			RequireJSONTaggedStructs: true,
 		},
 	}

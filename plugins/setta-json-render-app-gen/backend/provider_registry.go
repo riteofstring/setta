@@ -2,15 +2,15 @@ package settajsonrenderappgenbackend
 
 import (
 	"setta/internal/appsubsystem"
+	"setta/internal/appsubsystem/appspec"
+	settajsonrenderappgenbackendchatmodes "setta/internal/appsubsystem/chatmodes"
 	"setta/internal/chatmodes"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 	settajsonrenderappgenbackendappuisettings "setta/plugins/setta-json-render-app-gen/backend/appuisettings"
-	settajsonrenderappgenbackendchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 const ProviderPluginID = "setta-json-render-app-gen"

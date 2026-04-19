@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func setTestAppDefinition(

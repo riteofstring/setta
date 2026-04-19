@@ -1,4 +1,4 @@
-package settajsonrenderappgenbackendchatmodes
+package appsubsystemchatmodes
 
 import (
 	"fmt"

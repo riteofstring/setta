@@ -1,12 +1,10 @@
 import sidecar from "../../../../frontend/generation/non_http_shared/sidecar.json";
-import type { PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition as GeneratedAppDefinition } from "@setta/app-subsystem-frontend-sdk";
+import type { AppsubsystemAppdefinitionAppDefinition as GeneratedAppDefinition } from "@setta/app-subsystem-frontend-sdk";
 
 type SidecarExportedValueEntry = {
   name: string;
   value: unknown;
 };
-
-const APP_SUBSYSTEM_EXPORT_NAMESPACE = "setta-json-render-app-gen";
 
 type SidecarEnumEntry = {
   kind: string;
@@ -63,7 +61,7 @@ export function createAppDefinition(
 }
 
 // Read app-only generated values from the authoritative shared sidecar here so
-// generic host helpers do not need to re-export plugin-specific contracts.
+// generic host helpers do not need to re-export app-subsystem contracts.
 export const AppSpecPatchPolicyConfig = readGeneratedExportedValue<{
   allowedOps: string[];
   commentPrefix: string;
@@ -71,7 +69,7 @@ export const AppSpecPatchPolicyConfig = readGeneratedExportedValue<{
   rootPath: string;
   rootResetValue: string;
   valueOptionalOps: string[];
-}>(`${APP_SUBSYSTEM_EXPORT_NAMESPACE}/AppSpecPatchPolicyConfig`);
+}>("AppSpecPatchPolicyConfig");
 
 export const AppSubsystemChatUIConfig = readGeneratedExportedValue<{
   customSlashCommandModeOptions: Array<{
@@ -87,4 +85,4 @@ export const AppSubsystemChatUIConfig = readGeneratedExportedValue<{
     promptTemplate: string;
     summary: string;
   }>;
-}>(`${APP_SUBSYSTEM_EXPORT_NAMESPACE}/AppSubsystemChatUIConfig`);
+}>("AppSubsystemChatUIConfig");

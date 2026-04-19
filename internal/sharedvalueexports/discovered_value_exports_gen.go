@@ -4,17 +4,31 @@ package sharedvalueexports
 
 import (
 	"reflect"
+	frontendvalues "setta/internal/appsubsystem/frontendvalues"
 	deployments "setta/internal/deployments"
 	externalagentconfigs "setta/internal/externalagentconfigs"
 	httpapi "setta/internal/httpapi"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	uisettings "setta/internal/uisettings"
-	backend "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 func DiscoveredValueExports() []ValueExport {
 	return []ValueExport{
+		{
+			Name: "AppSpecPatchPolicyConfig",
+			Type: reflect.TypeOf(frontendvalues.FrontendValueAppSpecPatchPolicyConfig()),
+			Value: func() any {
+				return frontendvalues.FrontendValueAppSpecPatchPolicyConfig()
+			},
+		},
+		{
+			Name: "AppSubsystemChatUIConfig",
+			Type: reflect.TypeOf(frontendvalues.FrontendValueAppSubsystemChatUIConfig()),
+			Value: func() any {
+				return frontendvalues.FrontendValueAppSubsystemChatUIConfig()
+			},
+		},
 		{
 			Name: "BootstrapProtocol",
 			Type: reflect.TypeOf(httpapi.FrontendValueBootstrapProtocol()),
@@ -202,20 +216,6 @@ func DiscoveredValueExports() []ValueExport {
 			Type: reflect.TypeOf(uisettings.FrontendValueUIEditorTabUIConfig()),
 			Value: func() any {
 				return uisettings.FrontendValueUIEditorTabUIConfig()
-			},
-		},
-		{
-			Name: "setta-json-render-app-gen/AppSpecPatchPolicyConfig",
-			Type: reflect.TypeOf(backend.FrontendValueAppSpecPatchPolicyConfig()),
-			Value: func() any {
-				return backend.FrontendValueAppSpecPatchPolicyConfig()
-			},
-		},
-		{
-			Name: "setta-json-render-app-gen/AppSubsystemChatUIConfig",
-			Type: reflect.TypeOf(backend.FrontendValueAppSubsystemChatUIConfig()),
-			Value: func() any {
-				return backend.FrontendValueAppSubsystemChatUIConfig()
 			},
 		},
 	}

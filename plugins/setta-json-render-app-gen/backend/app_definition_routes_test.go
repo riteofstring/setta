@@ -16,14 +16,14 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem"
+	"setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type routeValidationErrorResponse struct {
@@ -594,8 +594,8 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	if got := getAppDefinition.Extensions["x-setta-mode-requirement"]; got != "not-deployment" {
 		t.Fatalf("get app definition mode requirement = %#v, want %q", got, "not-deployment")
 	}
-	if got := getAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult" {
-		t.Fatalf("get app definition response schema ref = %q, want %q", got, "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult")
+	if got := getAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/AppsubsystemAppdefinitionReadResult" {
+		t.Fatalf("get app definition response schema ref = %q, want %q", got, "#/components/schemas/AppsubsystemAppdefinitionReadResult")
 	}
 
 	setAppDefinition := document.Paths[httpapi.RouteSetAppDefinition].Post
@@ -605,8 +605,8 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	if setAppDefinition.OperationID != "setAppDefinition" {
 		t.Fatalf("set app definition operation id = %q, want %q", setAppDefinition.OperationID, "setAppDefinition")
 	}
-	if got := setAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult" {
-		t.Fatalf("set app definition response schema ref = %q, want %q", got, "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult")
+	if got := setAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/AppsubsystemAppdefinitionMutationResult" {
+		t.Fatalf("set app definition response schema ref = %q, want %q", got, "#/components/schemas/AppsubsystemAppdefinitionMutationResult")
 	}
 
 	validateAppDefinition := document.Paths[httpapi.RouteValidateAppDefinition].Post
@@ -616,10 +616,10 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesPluginAppDefinitionRoutes(t *te
 	if validateAppDefinition.OperationID != "validateAppDefinition" {
 		t.Fatalf("validate app definition operation id = %q, want %q", validateAppDefinition.OperationID, "validateAppDefinition")
 	}
-	if got := validateAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult" {
-		t.Fatalf("validate app definition response schema ref = %q, want %q", got, "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult")
+	if got := validateAppDefinition.Responses["200"].Content["application/json"].Schema.Ref; got != "#/components/schemas/AppsubsystemAppdefinitionValidationResult" {
+		t.Fatalf("validate app definition response schema ref = %q, want %q", got, "#/components/schemas/AppsubsystemAppdefinitionValidationResult")
 	}
-	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition"); schema == nil {
+	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/AppsubsystemAppdefinitionAppDefinition"); schema == nil {
 		t.Fatal("expected plugin-owned app definition schema in HTTP OpenAPI document")
 	}
 	if schema := document.Components.Schemas.SchemaFromRef("#/components/schemas/ProjectstateAppDefinition"); schema != nil {
