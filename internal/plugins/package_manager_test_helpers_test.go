@@ -77,6 +77,50 @@ func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string,
 	return pluginRoot
 }
 
+func installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t *testing.T, sitePackages string) string {
+	t.Helper()
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	pluginRoot := filepath.Join(sitePackages, "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
+	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
+		t.Fatalf("remove copied plugin build dir: %v", err)
+	}
+
+	distInfoRoot := filepath.Join(sitePackages, "setta_basedpyright-0.1.0.dist-info")
+	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: setta-basedpyright",
+		"Version: 0.1.0",
+		"Summary: Setta basedpyright defaults profile plugin",
+		"",
+	}, "\n"))
+
+	recordLines := make([]string, 0)
+	for _, root := range []string{pluginRoot, distInfoRoot} {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if info.IsDir() || filepath.Base(path) == "RECORD" {
+				return nil
+			}
+			relativePath, err := filepath.Rel(sitePackages, path)
+			if err != nil {
+				return err
+			}
+			recordLines = append(recordLines, filepath.ToSlash(relativePath)+",,")
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk package-manager plugin fixture: %v", err)
+		}
+	}
+	recordLines = append(recordLines, filepath.ToSlash(filepath.Join("setta_basedpyright-0.1.0.dist-info", "RECORD"))+",,")
+	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
+	return pluginRoot
+}
+
 func packageManagerFixturePluginRootName(t *testing.T, sourceRoot string) string {
 	t.Helper()
 

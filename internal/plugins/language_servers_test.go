@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestServiceLanguageServerSpecsRequiresExplicitSelection(t *testing.T) {
@@ -192,7 +193,7 @@ func TestServiceLanguageServerSpecsExcludesPendingRestartMixedBackendPlugin(t *t
 }
 
 func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *testing.T) {
-	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
 
 	roots := newFilesystemResolverTestRoots(t)
@@ -213,9 +214,7 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	}
 
 	spec := specs[0]
-	if spec.Command != pythonPath {
-		t.Fatalf("expected plugin to resolve current interpreter %q, got %q", pythonPath, spec.Command)
-	}
+	assertEquivalentLanguageServerCommandPath(t, spec.Command, pythonPath)
 	expectedArgs := []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"}
 	if len(spec.Args) != len(expectedArgs) {
 		t.Fatalf("expected basedpyright args %#v, got %#v", expectedArgs, spec.Args)
@@ -258,8 +257,42 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	}
 }
 
+func TestServiceLanguageServerSpecsFallsBackToUsableLowerPrecedenceBasedpyrightDuplicate(t *testing.T) {
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "content", "config", "schema.json"), []byte("{bad-json"), 0o644); err != nil {
+		t.Fatalf("write invalid workspace schema: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-basedpyright"),
+	})
+	if err != nil {
+		t.Fatalf("load basedpyright specs with invalid workspace duplicate: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one basedpyright spec from the usable duplicate, got %#v", specs)
+	}
+	if specs[0].PluginID != "setta-basedpyright" || specs[0].LanguageID != "python" {
+		t.Fatalf("unexpected basedpyright spec %#v", specs[0])
+	}
+	assertEquivalentLanguageServerCommandPath(t, specs[0].Command, pythonPath)
+	if _, ok := specs[0].Settings["basedpyright"].(map[string]any); !ok {
+		t.Fatalf("expected plugin-owned basedpyright settings root, got %#v", specs[0].Settings)
+	}
+}
+
 func TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSettaFilesRoot(t *testing.T) {
-	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
 
 	roots := newFilesystemResolverTestRoots(t)
@@ -464,7 +497,7 @@ func TestServiceLanguageServerSpecsScopesSettingsToSettingsKey(t *testing.T) {
 }
 
 func TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema(t *testing.T) {
-	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
 
 	roots := newFilesystemResolverTestRoots(t)
@@ -494,6 +527,22 @@ func TestServiceLanguageServerSpecsRejectsInvalidPluginConfigSchema(t *testing.T
 	}
 	if len(specs) != 0 {
 		t.Fatalf("expected invalid schema plugin to contribute no specs, got %#v", specs)
+	}
+}
+
+func assertEquivalentLanguageServerCommandPath(t *testing.T, actual string, expected string) {
+	t.Helper()
+
+	resolvedActual, err := filepath.EvalSymlinks(actual)
+	if err == nil {
+		actual = resolvedActual
+	}
+	resolvedExpected, err := filepath.EvalSymlinks(expected)
+	if err == nil {
+		expected = resolvedExpected
+	}
+	if actual != expected {
+		t.Fatalf("expected plugin to resolve current interpreter %q, got %q", expected, actual)
 	}
 }
 

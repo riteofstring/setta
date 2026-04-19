@@ -84,10 +84,9 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsAvailableLinkedPlugin(t 
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
 	pluginService := newDefaultsProfilePluginService(t, nil)
 
-	repoRoot := appTestRepoRoot(t)
 	workspaceScope := plugins.PluginScopeWorkspace
 	linkResult, err := pluginService.Link(plugins.LinkOptions{
-		LocalPluginRoot: filepath.Join(repoRoot, "plugins", "setta-basedpyright"),
+		LocalPluginRoot: copyDefaultsProfileLinkedPlugin(t),
 		Scope:           &workspaceScope,
 		Enable:          true,
 	})
@@ -111,6 +110,46 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsAvailableLinkedPlugin(t 
 	}
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected linked plugin python defaults selection, got ok=%v selection=%#v", ok, selection)
+	}
+}
+
+func TestBootstrapWorkspaceDefaultsInstallProfileSelectsUsableLowerPrecedenceDuplicateWhenWorkspaceCopyIsInvalid(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	pluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
+
+	workspaceScope := plugins.PluginScopeWorkspace
+	linkResult, err := pluginService.Link(plugins.LinkOptions{
+		LocalPluginRoot: copyDefaultsProfileLinkedPlugin(t),
+		Scope:           &workspaceScope,
+		Enable:          true,
+	})
+	if err != nil {
+		t.Fatalf("link workspace defaults profile plugin: %v", err)
+	}
+	if !linkResult.RestartRequired {
+		t.Fatalf("expected linked defaults profile plugin to require refresh, got %#v", linkResult)
+	}
+	if err := os.WriteFile(filepath.Join(linkResult.SourcePath, "content", "config", "schema.json"), []byte("{bad-json"), 0o644); err != nil {
+		t.Fatalf("write invalid copied workspace schema: %v", err)
+	}
+	if _, err := pluginService.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit linked defaults profile plugin refresh after invalidating workspace copy: %v", err)
+	}
+
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected python defaults selection from usable lower-precedence duplicate, got ok=%v selection=%#v", ok, selection)
 	}
 }
 
@@ -231,6 +270,15 @@ func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugin
 		t.Fatalf("new plugin service: %v", err)
 	}
 	return service
+}
+
+func copyDefaultsProfileLinkedPlugin(t *testing.T) string {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	localPluginRoot := filepath.Join(t.TempDir(), "setta-basedpyright")
+	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), localPluginRoot)
+	return localPluginRoot
 }
 
 func installDefaultsProfilePackageManagerPlugin(t *testing.T, sitePackages string) {

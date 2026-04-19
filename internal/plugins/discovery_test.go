@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 // Rescan should preserve the documented workspace > setta_files > global precedence and keep shadowed entries visible.
@@ -405,6 +406,64 @@ func TestDiscoveryServiceRescanKeepsDistinctPackageManagerRootsPerDistribution(t
 	}
 	if contentEntry.SourcePath != resolvedContentRoot {
 		t.Fatalf("expected content package-manager root %q, got %q", resolvedContentRoot, contentEntry.SourcePath)
+	}
+}
+
+func TestDiscoveryServiceRescanPrefersUsableLowerPrecedenceBasedpyrightWhenWorkspaceCopyIsInvalid(t *testing.T) {
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "content", "config", "schema.json"), []byte("{bad-json"), 0o644); err != nil {
+		t.Fatalf("write invalid workspace schema: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	packageManagerRoot := installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	service := mustNewDiscoveryServiceWithPackageManager(t, roots, config.ModeIDE, []string{sitePackages})
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins with invalid workspace duplicate: %v", err)
+	}
+
+	if snapshot.InstalledPlugins != 2 {
+		t.Fatalf("expected both visible installed duplicates, got %d", snapshot.InstalledPlugins)
+	}
+	if snapshot.ActivePlugins != 1 {
+		t.Fatalf("expected one active duplicate, got %d", snapshot.ActivePlugins)
+	}
+
+	invalidEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-basedpyright", PluginScopeWorkspace)
+	if invalidEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid workspace duplicate, got %#v", invalidEntry)
+	}
+	if invalidEntry.ShadowedBySourcePath != "" {
+		t.Fatalf("expected invalid workspace duplicate to stay visible, got %#v", invalidEntry.ShadowedBySourcePath)
+	}
+	if len(invalidEntry.Errors) != 1 || invalidEntry.Errors[0].Code != string(ServiceErrorCodeConfigSchemaInvalid) {
+		t.Fatalf("expected config schema error on invalid workspace duplicate, got %#v", invalidEntry.Errors)
+	}
+
+	activeEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-basedpyright", PluginScopeSettaFiles)
+	if activeEntry.SourceManager != PluginSourceManagerPackageManager || activeEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active package-manager duplicate, got %#v", activeEntry)
+	}
+	if activeEntry.ShadowedBySourcePath != "" {
+		t.Fatalf("expected active package-manager duplicate to stay unshadowed, got %#v", activeEntry.ShadowedBySourcePath)
+	}
+	resolvedPackageManagerRoot, err := filepath.EvalSymlinks(packageManagerRoot)
+	if err != nil {
+		t.Fatalf("resolve package-manager root symlinks: %v", err)
+	}
+	if activeEntry.SourcePath != resolvedPackageManagerRoot {
+		t.Fatalf("expected package-manager root %q, got %q", resolvedPackageManagerRoot, activeEntry.SourcePath)
+	}
+	if len(activeEntry.RegisteredLanguageServers) != 1 || activeEntry.RegisteredLanguageServers[0].Language != "python" {
+		t.Fatalf("expected active package-manager duplicate to keep its python registration, got %#v", activeEntry.RegisteredLanguageServers)
 	}
 }
 

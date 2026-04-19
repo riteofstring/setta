@@ -386,8 +386,8 @@ func (s *Service) buildEnableDisableResponseLocked(pluginID string, restartRequi
 	if err != nil {
 		return PluginEnableDisableResponse{}, err
 	}
-	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if latestEntry.PluginID == "" {
+	latestEntry, ok := PrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if !ok {
 		return PluginEnableDisableResponse{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return PluginEnableDisableResponse{
@@ -998,8 +998,8 @@ func (s *Service) resolveHighestPrecedenceEntryLocked(pluginID string) (Discover
 	if err != nil {
 		return DiscoveredPlugin{}, err
 	}
-	entry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if entry.PluginID == "" {
+	entry, ok := PrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if !ok {
 		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return entry, nil
@@ -1026,13 +1026,43 @@ func findDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string, scope Plu
 	return DiscoveredPlugin{}
 }
 
-func findHighestPrecedenceDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) DiscoveredPlugin {
+// PrimaryDiscoveredPlugin returns the primary visible entry for a plugin ID,
+// preferring usable unshadowed entries over invalid or shadowed duplicates.
+func PrimaryDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) (DiscoveredPlugin, bool) {
+	best := DiscoveredPlugin{}
+	found := false
 	for _, entry := range entries {
-		if entry.PluginID == pluginID {
-			return entry
+		if entry.PluginID != pluginID {
+			continue
+		}
+		if !found || discoveredPluginIsPreferredPrimary(best, entry) {
+			best = entry
+			found = true
 		}
 	}
-	return DiscoveredPlugin{}
+	if !found {
+		return DiscoveredPlugin{}, false
+	}
+	return best, true
+}
+
+func discoveredPluginIsPreferredPrimary(current DiscoveredPlugin, candidate DiscoveredPlugin) bool {
+	currentRank := discoveredPluginPrimarySelectionRank(current)
+	candidateRank := discoveredPluginPrimarySelectionRank(candidate)
+	if candidateRank != currentRank {
+		return candidateRank < currentRank
+	}
+	return compareDiscoveredPlugins(candidate, current) < 0
+}
+
+func discoveredPluginPrimarySelectionRank(entry DiscoveredPlugin) int {
+	if entry.ShadowedBySourcePath != "" {
+		return 2
+	}
+	if entry.State == PluginRuntimeStateInvalid {
+		return 1
+	}
+	return 0
 }
 
 func resolveEnablementBeforeMutation(entry DiscoveredPlugin, state PluginsStateFile, globalState PluginsGlobalStateFile) bool {

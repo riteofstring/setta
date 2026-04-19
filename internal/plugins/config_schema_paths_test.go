@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestPluginConfigSchemaPathFromFileURIForOS(t *testing.T) {
@@ -61,7 +62,7 @@ func TestServiceLanguageServerSpecsKeepsFirstPartyBasedpyrightActiveOnWindowsSch
 		t.Skip("windows-only schema path regression")
 	}
 
-	pythonPath, _ := preparePluginLanguageServerFixture(t)
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
 
 	roots := newFilesystemResolverTestRoots(t)

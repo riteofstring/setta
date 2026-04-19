@@ -1192,6 +1192,33 @@ describe("plugin runtime helpers", () => {
       "/tmp/primary",
     );
   });
+  it("prefers active non-shadowed status entries over invalid duplicates", async () => {
+    const plugin = buildPluginListEntry({});
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: "acme.plugin",
+            state: PluginRuntimeStateEnum.invalid,
+            sourcePath: "/tmp/workspace-invalid",
+            shadowedBySourcePath: null,
+          }),
+          buildPluginStatusEntry({
+            pluginId: "acme.plugin",
+            state: PluginRuntimeStateEnum.active,
+            sourcePath: "/tmp/setta-files-active",
+            shadowedBySourcePath: null,
+          }),
+        ]),
+      ),
+    );
+    await refreshPluginRuntime();
+    const state = usePluginRuntimeStore.getState();
+    expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
+      "/tmp/setta-files-active",
+    );
+  });
   it("reuses unchanged plugin frontend registrations across refreshes", async () => {
     const globalScope = globalThis as {
       __settaIncrementalRegisterCalls?: number;

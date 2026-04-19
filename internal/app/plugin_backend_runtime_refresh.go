@@ -180,7 +180,7 @@ func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugi
 	if err != nil {
 		return result, err
 	}
-	if entry, ok := findHighestPrecedencePlugin(snapshot.Plugins, result.PluginID); ok {
+	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
 		result.State = entry.State
 	}
 	result.RestartRequired = false
@@ -196,7 +196,7 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 	if err != nil {
 		return result, err
 	}
-	if entry, ok := findHighestPrecedencePlugin(snapshot.Plugins, result.PluginID); ok {
+	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
 		result.State = entry.State
 	}
 	result.RestartRequired = false
@@ -714,15 +714,6 @@ func (r *pluginBackendRuntimeRefresher) hasAppliedPluginLanguageServers(pluginID
 func findPluginInScope(entries []plugins.DiscoveredPlugin, pluginID string, scope plugins.PluginScope) (plugins.DiscoveredPlugin, bool) {
 	for _, entry := range entries {
 		if entry.PluginID == pluginID && entry.Scope == scope {
-			return entry, true
-		}
-	}
-	return plugins.DiscoveredPlugin{}, false
-}
-
-func findHighestPrecedencePlugin(entries []plugins.DiscoveredPlugin, pluginID string) (plugins.DiscoveredPlugin, bool) {
-	for _, entry := range entries {
-		if entry.PluginID == pluginID {
 			return entry, true
 		}
 	}
