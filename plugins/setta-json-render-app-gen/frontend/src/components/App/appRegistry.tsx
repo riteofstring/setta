@@ -22,8 +22,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
-import { ensureAppProjectConfigLoaded } from "state/actions/app";
+import { useAppConfigs } from "../../appSubsystemProjectState";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -53,6 +52,7 @@ import {
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { ensureAppProjectConfigLoaded } from "../../state/actions/app";
 import type {
   DateParamCodeObjImpl,
   ImageArtifact,
