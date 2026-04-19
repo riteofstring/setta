@@ -69,6 +69,7 @@ function resetPluginRuntimeStateForTests(): void {
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -1164,6 +1165,18 @@ describe("plugin runtime helpers", () => {
             },
           ],
         }),
+        {
+          featureCapabilities: {
+            appSubsystem: {
+              pluginId: "setta-json-render-app-gen",
+              pluginEnabled: true,
+              appAuthoringUi: true,
+              appPreviewUi: true,
+              appGenerationChatModes: false,
+              appDeploymentRuntime: false,
+            },
+          },
+        },
       ),
     );
 
@@ -1178,6 +1191,14 @@ describe("plugin runtime helpers", () => {
     expect(
       state.languageServerSelectionsByLanguage.python?.appliedPluginId,
     ).toBe("setta-basedpyright");
+    expect(state.appSubsystemCapabilities).toEqual({
+      pluginId: "setta-json-render-app-gen",
+      pluginEnabled: true,
+      appAuthoringUi: true,
+      appPreviewUi: true,
+      appGenerationChatModes: false,
+      appDeploymentRuntime: false,
+    });
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {
