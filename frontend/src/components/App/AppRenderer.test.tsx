@@ -217,14 +217,10 @@ describe("AppRenderer", () => {
 
     expect(runSpy).toHaveBeenCalledWith({
       body: {
-        cliId: "",
-        drawSnapshotsBySectionId: {},
-        paramOverrides: { [`${sectionId}:param-1`]: "override" },
         projectConfigId: configId,
-        runSnapshotMode: "ephemeral",
         sectionId,
         sectionVariantOverrides: { [sectionId]: "variant-2" },
-        terminalSectionId: "",
+        paramOverrides: { [`${sectionId}:param-1`]: "override" },
       },
     });
   });

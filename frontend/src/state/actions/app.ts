@@ -188,7 +188,6 @@ function setAppSessionFromResponse(session: AppDeploymentSession) {
     projectMetadata: session.projectMetadata ?? [],
   });
 }
-/** @lintignore Consumed by the app subsystem plugin frontend. */
 export function incrementAppSessionRunCount(): void {
   const shareSession = useShareSession.getState();
   if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
@@ -351,7 +350,6 @@ export async function loadAppDeploymentState({
   }
   return await retryLoadAppDeploymentState(projectConfigId);
 }
-/** @lintignore Consumed by the app subsystem plugin frontend. */
 export async function resetAppDeployment(): Promise<boolean> {
   useProjectLoading.setState({
     projectIsLoading: true,

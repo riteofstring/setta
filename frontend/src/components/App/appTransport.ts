@@ -1,1 +1,1 @@
-export * from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appTransport";
+export { buildBinaryDownloadUrl as buildAppBinaryDownloadUrl } from "utils/backendTransport";

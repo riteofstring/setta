@@ -58,7 +58,7 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-async function mockAppRendererModule() {
+vi.mock("components/App/AppRenderer", async () => {
   const React = await import("react");
   return {
     AppRenderer: (props: Record<string, unknown>) => {
@@ -66,13 +66,7 @@ async function mockAppRendererModule() {
       return React.createElement("div", { "data-testid": "mock-app-renderer" });
     },
   };
-}
-
-vi.mock("components/App/AppRenderer", mockAppRendererModule);
-vi.mock(
-  "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer",
-  mockAppRendererModule,
-);
+});
 
 vi.mock("openapi/http", async () => {
   const actual =

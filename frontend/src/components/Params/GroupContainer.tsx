@@ -1,4 +1,6 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
@@ -6,6 +8,7 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -15,11 +18,14 @@ import {
 } from "state/actions/edges";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
-  getCurrShownParamIds,
-  getParamDisplayNameIfPresent,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
-import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
+import {
+  createEdgeStripStateSelector,
+  createPinnedParamsStateSelector,
+  createUnpinnedParamsStateSelector,
+  type EdgePortView,
+} from "state/actions/params/paramGroupSelectors";
 import {
   useLocalStorage,
   useMisc,
@@ -32,7 +38,6 @@ import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
-import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
   getParamsFixedHeightKey,
@@ -60,32 +65,11 @@ const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
 
-type ProjectStateSnapshot = Parameters<typeof getCurrShownParamIds>[0];
-
 type VerticalSpacingKey =
   | "paddingTop"
   | "paddingBottom"
   | "marginTop"
   | "marginBottom";
-
-type FilteredParamList = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-
-type EdgePortView = {
-  id: string;
-  label: string;
-};
-
-type EdgeStripState = {
-  inputPorts: Array<EdgePortView>;
-  outputPorts: Array<EdgePortView>;
-  shouldRoundBottom: boolean;
-  positionAndSizeLocked: boolean;
-  selectedParams: Array<string>;
-  styleColor: string | null;
-};
 
 type EdgeStripAppearance = {
   handlePreventSectionClassName: string;
@@ -162,20 +146,6 @@ function commitMeasuredFixedHeight({
   setStoredParamAreaHeight(heightKey, nextFixedHeight);
 }
 
-function filterShownParamIds(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-  isPinned: boolean,
-  edgeInputParams: Array<string>,
-): FilteredParamList {
-  const shownParamIds = getCurrShownParamIds(state, sectionId, isPinned, true);
-  return filterEdgeInputs(
-    shownParamIds.requiredParamIdsToPaths,
-    shownParamIds.topLevelParamIds,
-    edgeInputParams,
-  );
-}
-
 function useHasSectionStyleTheme(sectionId: string, styleColor: string | null) {
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
@@ -205,82 +175,6 @@ function getRoundedBottomClassName(
     return "";
   }
   return positionAndSizeLocked ? "rounded-b-sm" : "rounded-b-xl";
-}
-
-function getEdgeInputPortLabel(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-  paramId: string,
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-) {
-  const path = requiredParamIdsToPaths[paramId];
-  const rawLabel = path
-    ? paramNameFromPathArray(state, sectionId, path)
-    : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
-  return rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
-}
-
-function buildEdgeInputPorts(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-  edgeInputParams: Array<string>,
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-): Array<EdgePortView> {
-  return edgeInputParams.map((paramId) => ({
-    id: paramId,
-    label: getEdgeInputPortLabel(
-      state,
-      sectionId,
-      paramId,
-      requiredParamIdsToPaths,
-    ),
-  }));
-}
-
-function buildEdgeOutputPorts(
-  edgeOutputPorts: Array<{ id: string; accessor: string }>,
-): Array<EdgePortView> {
-  return edgeOutputPorts.map((port) => ({
-    id: port.id,
-    label:
-      port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
-  }));
-}
-
-function selectEdgeStripState(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-): EdgeStripState {
-  const impl = getCurrEffectiveSectionImplWithTypeGuard(
-    state,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-  );
-  const pinned = getCurrShownParamIds(state, sectionId, true, true);
-  const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-  const filteredPinned = filterEdgeInputs(
-    pinned.requiredParamIdsToPaths,
-    pinned.topLevelParamIds,
-    impl.edgeInputParams,
-  );
-  const requiredParamIdsToPaths = {
-    ...pinned.requiredParamIdsToPaths,
-    ...unpinned.requiredParamIdsToPaths,
-  };
-  return {
-    inputPorts: buildEdgeInputPorts(
-      state,
-      sectionId,
-      impl.edgeInputParams,
-      requiredParamIdsToPaths,
-    ),
-    outputPorts: buildEdgeOutputPorts(impl.edgeOutputPorts),
-    shouldRoundBottom:
-      filteredPinned.topLevelParamIds.length === 0 && impl.hideUnpinnedParams,
-    positionAndSizeLocked: impl.positionAndSizeLocked,
-    selectedParams: impl.selectedParams ?? [],
-    styleColor: impl.styleColor ?? null,
-  };
 }
 
 function getEdgeStripAppearance({
@@ -487,46 +381,6 @@ function shouldApplyUnpinnedAreaMinHeight({
   positionAndSizeLocked: boolean;
 }) {
   return !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
-}
-
-type UnpinnedParamsState = {
-  hideUnpinnedParams: boolean;
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-  hasPinnedParams: boolean;
-  positionAndSizeLocked: boolean;
-  styleColor: string | null;
-};
-
-function selectUnpinnedParamsState(
-  state: ProjectStateSnapshot,
-  sectionId: string,
-): UnpinnedParamsState {
-  const impl = getCurrEffectiveSectionImplWithTypeGuard(
-    state,
-    sectionId,
-    isBaseSectionWithParamsImpl,
-  );
-  const filteredPinned = filterShownParamIds(
-    state,
-    sectionId,
-    true,
-    impl.edgeInputParams,
-  );
-  const filteredUnpinned = filterShownParamIds(
-    state,
-    sectionId,
-    false,
-    impl.edgeInputParams,
-  );
-  return {
-    hideUnpinnedParams: impl.hideUnpinnedParams,
-    requiredParamIdsToPaths: filteredUnpinned.requiredParamIdsToPaths,
-    topLevelParamIds: filteredUnpinned.topLevelParamIds,
-    hasPinnedParams: filteredPinned.topLevelParamIds.length > 0,
-    positionAndSizeLocked: impl.positionAndSizeLocked,
-    styleColor: impl.styleColor ?? null,
-  };
 }
 
 function _ParamGroupContainer({
@@ -820,6 +674,10 @@ function EdgesStrip({
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const heightKey = getEdgesStripHeightKey(sectionId);
+  const edgeStripStateSelector = useMemo(
+    () => createEdgeStripStateSelector(sectionId),
+    [sectionId],
+  );
   const {
     inputPorts,
     outputPorts,
@@ -827,10 +685,7 @@ function EdgesStrip({
     positionAndSizeLocked,
     selectedParams,
     styleColor,
-  } = useProjectState(
-    (state) => selectEdgeStripState(state, sectionId),
-    _.isEqual,
-  );
+  } = useProjectState(edgeStripStateSelector);
   const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
@@ -987,6 +842,7 @@ type GetPinnedParamsProps = {
 };
 
 type PinnedParamsAreaProps = {
+  canvasOwnedPinnedParams: boolean;
   sectionId: string;
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
@@ -1006,38 +862,42 @@ type GetUnpinnedParamsProps = {
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
 
+function getCanvasOwnedPinnedParamsStyle(
+  canvasOwnedPinnedParams: boolean,
+): React.CSSProperties | undefined {
+  if (!canvasOwnedPinnedParams) {
+    return undefined;
+  }
+
+  return {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    boxShadow: "none",
+  };
+}
+
 function GetPinnedParams({
   sectionId,
   handleColumnResizeStart,
   setMaxNestedDepth,
   sectionTypeName,
 }: GetPinnedParamsProps) {
+  const pinnedParamsStateSelector = useMemo(
+    () => createPinnedParamsStateSelector(sectionId),
+    [sectionId],
+  );
   const {
     requiredParamIdsToPaths,
     topLevelParamIds,
     shouldRoundBottom,
     positionAndSizeLocked,
     styleColor,
-  } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const filteredPinned = filterShownParamIds(
-      x,
-      sectionId,
-      true,
-      impl.edgeInputParams,
-    );
-    return {
-      ...filteredPinned,
-      shouldRoundBottom: !impl.hideUnpinnedParams,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      styleColor: impl.styleColor ?? null,
-    };
-  }, _.isEqual);
+  } = useProjectState(pinnedParamsStateSelector);
   const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedPinnedParams =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionShell(sectionId);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -1061,6 +921,7 @@ function GetPinnedParams({
   return (
     topLevelParamIds.length > 0 && (
       <PinnedParamsArea
+        canvasOwnedPinnedParams={canvasOwnedPinnedParams}
         sectionId={sectionId}
         topLevelParamIds={topLevelParamIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
@@ -1078,6 +939,7 @@ function GetPinnedParams({
 }
 
 function PinnedParamsArea({
+  canvasOwnedPinnedParams,
   sectionId,
   topLevelParamIds,
   requiredParamIdsToPaths,
@@ -1112,7 +974,11 @@ function PinnedParamsArea({
   return (
     <section
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
+      data-canvas-owned-pinned-params={
+        canvasOwnedPinnedParams ? "true" : undefined
+      }
       data-params-fixed="true"
+      style={getCanvasOwnedPinnedParamsStyle(canvasOwnedPinnedParams)}
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
@@ -1153,6 +1019,10 @@ function GetUnpinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
 }: GetUnpinnedParamsProps) {
+  const unpinnedParamsStateSelector = useMemo(
+    () => createUnpinnedParamsStateSelector(sectionId),
+    [sectionId],
+  );
   const {
     hideUnpinnedParams,
     requiredParamIdsToPaths,
@@ -1160,10 +1030,7 @@ function GetUnpinnedParams({
     hasPinnedParams,
     positionAndSizeLocked,
     styleColor,
-  } = useProjectState(
-    (x) => selectUnpinnedParamsState(x, sectionId),
-    _.isEqual,
-  );
+  } = useProjectState(unpinnedParamsStateSelector);
   const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
 
   const { canEditLayout } = useShareCapabilities();
@@ -1235,28 +1102,4 @@ function getLongestListLength(obj: Record<string, Array<string>>) {
     (max, arr) => (arr.length > max ? arr.length : max),
     0,
   );
-}
-
-function filterEdgeInputs(
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-  topLevelParamIds: Array<string>,
-  edgeInputParams: Array<string>,
-) {
-  if (edgeInputParams.length === 0) {
-    return { requiredParamIdsToPaths, topLevelParamIds };
-  }
-  const edgeInputSet = new Set(edgeInputParams);
-  const filteredParamIdsToPaths: Record<string, Array<string>> = {};
-  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
-    if (!edgeInputSet.has(paramId)) {
-      filteredParamIdsToPaths[paramId] = path;
-    }
-  }
-  const filteredTopLevel = topLevelParamIds.filter(
-    (paramId) => !edgeInputSet.has(paramId),
-  );
-  return {
-    requiredParamIdsToPaths: filteredParamIdsToPaths,
-    topLevelParamIds: filteredTopLevel,
-  };
 }

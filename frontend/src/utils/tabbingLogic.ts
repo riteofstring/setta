@@ -1,6 +1,9 @@
 import { useSectionRefs } from "state/definitions";
 
-const pendingSectionSearchFocus = new Set<string>();
+export function focusOnSectionSearch(sectionId: string) {
+  document.getElementById(`${sectionId}-search`).focus({ preventScroll: true });
+}
+
 const pendingSectionTextFocus = new Set<string>();
 const TERMINAL_INPUT_SELECTOR = ".xterm-helper-textarea, .xterm textarea";
 const TERMINAL_INPUT_SELECTORS = [".xterm-helper-textarea", ".xterm textarea"];
@@ -18,16 +21,7 @@ const SECTION_TEXT_INPUT_SELECTORS = [
   `[contenteditable="true"]`,
   ".cm-content",
 ];
-const MAX_SECTION_SEARCH_FOCUS_ATTEMPTS = 60;
 const MAX_SECTION_TEXT_FOCUS_ATTEMPTS = 240;
-
-export function isPendingSectionSearchFocus(sectionId: string) {
-  return pendingSectionSearchFocus.has(sectionId);
-}
-
-export function clearPendingSectionSearchFocus(sectionId: string) {
-  pendingSectionSearchFocus.delete(sectionId);
-}
 
 export function isPendingSectionTextFocus(sectionId: string) {
   return pendingSectionTextFocus.has(sectionId);
@@ -46,38 +40,6 @@ function beginSectionTextFocus(sectionId: string, attempt: number): boolean {
   }
   pendingSectionTextFocus.add(sectionId);
   return true;
-}
-
-function beginSectionSearchFocus(sectionId: string, attempt: number): boolean {
-  if (attempt > 0) {
-    return true;
-  }
-  if (pendingSectionSearchFocus.has(sectionId)) {
-    return false;
-  }
-  pendingSectionSearchFocus.add(sectionId);
-  return true;
-}
-
-function scheduleSectionSearchRetry(sectionId: string, attempt: number) {
-  if (attempt >= MAX_SECTION_SEARCH_FOCUS_ATTEMPTS) {
-    clearPendingSectionSearchFocus(sectionId);
-    return;
-  }
-  requestAnimationFrame(() => focusOnSectionSearch(sectionId, attempt + 1));
-}
-
-export function focusOnSectionSearch(sectionId: string, attempt = 0) {
-  if (!beginSectionSearchFocus(sectionId, attempt)) {
-    return;
-  }
-  const searchInput = document.getElementById(`${sectionId}-search`);
-  if (!(searchInput instanceof HTMLElement)) {
-    scheduleSectionSearchRetry(sectionId, attempt);
-    return;
-  }
-  searchInput.focus({ preventScroll: true });
-  clearPendingSectionSearchFocus(sectionId);
 }
 
 function getSectionFocusRef(sectionId: string): HTMLElement | null {

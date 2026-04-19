@@ -55,11 +55,6 @@ PYTHON_UNUSED_RULES = [
 PYTHON_VULTURE_RE = re.compile(
     r"^(?P<path>.+?):(?P<line>\d+): unused (?P<kind>.+?) '(?P<symbol>.+)' \((?P<confidence>\d+)% confidence\)$"
 )
-GO_REACHABILITY_REPORTS = (
-    ("go-prod.json", "prod", False),
-    ("go-test.json", "test", True),
-    ("go-tooling.json", "tooling", False),
-)
 
 
 def main() -> int:
@@ -174,6 +169,10 @@ def build_go_reports(
 
     warnings: list[str] = list(production_warnings)
     limitations: list[str] = []
+    report_paths: list[dict[str, str]] = []
+    raw_prod_findings: list[dict[str, Any]] = []
+    raw_test_findings: list[dict[str, Any]] = []
+    raw_tooling_findings: list[dict[str, Any]] = []
 
     unknown_prod = sorted(
         pkg for pkg in production_mains_set if pkg not in discovered_mains
@@ -184,27 +183,105 @@ def build_go_reports(
             + ", ".join(unknown_prod)
         )
 
-    findings_by_scope, report_paths = build_go_reachability_reports(
-        output_dir=output_dir,
-        generated_at=generated_at,
-        deadcode_version=deadcode_version,
-        build_matrix=build_matrix,
-        production_mains=sorted(production_mains),
-        tooling_mains=tooling_mains,
+    for report_name, scope, mains, include_tests in (
+        ("go-prod.json", "prod", sorted(production_mains), False),
+        ("go-test.json", "test", sorted(production_mains), True),
+        ("go-tooling.json", "tooling", tooling_mains, False),
+    ):
+        raw_findings: list[dict[str, Any]] = []
+        commands: list[list[str]] = []
+        for build_config in build_matrix:
+            if not mains:
+                continue
+            cmd = [
+                str(ROOT_DIR / "scripts" / "go.sh"),
+                "run",
+                f"golang.org/x/tools/cmd/deadcode@{deadcode_version}",
+                "-json",
+            ]
+            if include_tests:
+                cmd.append("-test")
+            tags = build_config.get("tags", [])
+            if tags:
+                cmd.extend(["-tags", ",".join(tags)])
+            cmd.extend(mains)
+            env = os.environ.copy()
+            env["GOOS"] = build_config["goos"]
+            env["GOARCH"] = build_config["goarch"]
+            completed = run_command(cmd, env=env)
+            commands.append(cmd)
+            packages = json.loads(completed.stdout or "[]")
+            raw_findings.extend(
+                normalize_go_deadcode_findings(
+                    packages=packages,
+                    scope=scope,
+                    build_config=build_config,
+                    generated_globs=generated_globs,
+                )
+            )
+
+        deduped_findings = intersect_go_deadcode_findings(
+            raw_findings, len(build_matrix)
+        )
+        report = {
+            "schema_version": SCHEMA_VERSION,
+            "generated_at": generated_at,
+            "language": "go",
+            "lane": "reachability",
+            "scope": scope,
+            "commands": [command_display(cmd) for cmd in commands],
+            "build_matrix": build_matrix,
+            "roots": mains,
+            "warnings": [],
+            "limitations": [],
+            "findings": deduped_findings,
+        }
+        path = output_dir / report_name
+        write_json(path, report)
+        report_paths.append({"language": "go", "path": relative_path(path)})
+        if scope == "prod":
+            raw_prod_findings = deduped_findings
+        elif scope == "test":
+            raw_test_findings = deduped_findings
+        else:
+            raw_tooling_findings = deduped_findings
+
+    staticcheck_cmd = [
+        str(ROOT_DIR / "scripts" / "go.sh"),
+        "run",
+        f"honnef.co/go/tools/cmd/staticcheck@{staticcheck_version}",
+        "-checks=U1000",
+        "-tests=false",
+        "-f",
+        "json",
+        "-fail=none",
+        "./cmd/...",
+        "./internal/...",
+    ]
+    staticcheck_completed = run_command(staticcheck_cmd)
+    staticcheck_findings = normalize_staticcheck_findings(
+        output=staticcheck_completed.stdout,
         generated_globs=generated_globs,
     )
-    staticcheck_findings, staticcheck_path = write_go_staticcheck_report(
-        output_dir=output_dir,
-        generated_at=generated_at,
-        staticcheck_version=staticcheck_version,
-        generated_globs=generated_globs,
-    )
+    staticcheck_report = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "language": "go",
+        "lane": "lint-unused",
+        "tool": "staticcheck",
+        "commands": [command_display(staticcheck_cmd)],
+        "warnings": [],
+        "limitations": [],
+        "findings": staticcheck_findings,
+    }
+    staticcheck_path = output_dir / "go-u1000.json"
+    write_json(staticcheck_path, staticcheck_report)
     report_paths.append({"language": "go", "path": relative_path(staticcheck_path)})
 
     go_findings = aggregate_go_findings(
-        prod_findings=findings_by_scope["prod"],
-        test_findings=findings_by_scope["test"],
-        tooling_findings=findings_by_scope["tooling"],
+        prod_findings=raw_prod_findings,
+        test_findings=raw_test_findings,
+        tooling_findings=raw_tooling_findings,
         staticcheck_findings=staticcheck_findings,
     )
 
@@ -227,157 +304,6 @@ def build_go_reports(
             "build_matrix": build_matrix,
         },
     }
-
-
-def build_go_reachability_reports(
-    output_dir: Path,
-    generated_at: str,
-    deadcode_version: str,
-    build_matrix: list[dict[str, Any]],
-    production_mains: list[str],
-    tooling_mains: list[str],
-    generated_globs: list[str],
-) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, str]]]:
-    report_paths: list[dict[str, str]] = []
-    findings_by_scope: dict[str, list[dict[str, Any]]] = {
-        "prod": [],
-        "test": [],
-        "tooling": [],
-    }
-    mains_by_scope = {
-        "prod": production_mains,
-        "test": production_mains,
-        "tooling": tooling_mains,
-    }
-
-    for report_name, scope, include_tests in GO_REACHABILITY_REPORTS:
-        mains = mains_by_scope[scope]
-        deduped_findings, commands = collect_go_deadcode_findings(
-            mains=mains,
-            scope=scope,
-            include_tests=include_tests,
-            deadcode_version=deadcode_version,
-            build_matrix=build_matrix,
-            generated_globs=generated_globs,
-        )
-        path = output_dir / report_name
-        write_json(
-            path,
-            {
-                "schema_version": SCHEMA_VERSION,
-                "generated_at": generated_at,
-                "language": "go",
-                "lane": "reachability",
-                "scope": scope,
-                "commands": [command_display(cmd) for cmd in commands],
-                "build_matrix": build_matrix,
-                "roots": mains,
-                "warnings": [],
-                "limitations": [],
-                "findings": deduped_findings,
-            },
-        )
-        report_paths.append({"language": "go", "path": relative_path(path)})
-        findings_by_scope[scope] = deduped_findings
-
-    return findings_by_scope, report_paths
-
-
-def collect_go_deadcode_findings(
-    mains: list[str],
-    scope: str,
-    include_tests: bool,
-    deadcode_version: str,
-    build_matrix: list[dict[str, Any]],
-    generated_globs: list[str],
-) -> tuple[list[dict[str, Any]], list[list[str]]]:
-    if not mains:
-        return [], []
-
-    raw_findings: list[dict[str, Any]] = []
-    commands: list[list[str]] = []
-    for build_config in build_matrix:
-        cmd = build_go_deadcode_command(
-            mains, include_tests, deadcode_version, build_config
-        )
-        env = os.environ.copy()
-        env["GOOS"] = build_config["goos"]
-        env["GOARCH"] = build_config["goarch"]
-        completed = run_command(cmd, env=env)
-        commands.append(cmd)
-        packages = json.loads(completed.stdout or "[]")
-        raw_findings.extend(
-            normalize_go_deadcode_findings(
-                packages=packages,
-                scope=scope,
-                build_config=build_config,
-                generated_globs=generated_globs,
-            )
-        )
-
-    return intersect_go_deadcode_findings(raw_findings, len(build_matrix)), commands
-
-
-def build_go_deadcode_command(
-    mains: list[str],
-    include_tests: bool,
-    deadcode_version: str,
-    build_config: dict[str, Any],
-) -> list[str]:
-    cmd = [
-        str(ROOT_DIR / "scripts" / "go.sh"),
-        "run",
-        f"golang.org/x/tools/cmd/deadcode@{deadcode_version}",
-        "-json",
-    ]
-    if include_tests:
-        cmd.append("-test")
-    tags = build_config.get("tags", [])
-    if tags:
-        cmd.extend(["-tags", ",".join(tags)])
-    cmd.extend(mains)
-    return cmd
-
-
-def write_go_staticcheck_report(
-    output_dir: Path,
-    generated_at: str,
-    staticcheck_version: str,
-    generated_globs: list[str],
-) -> tuple[list[dict[str, Any]], Path]:
-    staticcheck_cmd = [
-        str(ROOT_DIR / "scripts" / "go.sh"),
-        "run",
-        f"honnef.co/go/tools/cmd/staticcheck@{staticcheck_version}",
-        "-checks=U1000",
-        "-tests=false",
-        "-f",
-        "json",
-        "-fail=none",
-        "./cmd/...",
-        "./internal/...",
-    ]
-    staticcheck_completed = run_command(staticcheck_cmd)
-    staticcheck_findings = normalize_staticcheck_findings(
-        output=staticcheck_completed.stdout,
-        generated_globs=generated_globs,
-    )
-    path = output_dir / "go-u1000.json"
-    write_json(
-        path,
-        {
-            "schema_version": SCHEMA_VERSION,
-            "generated_at": generated_at,
-            "language": "go",
-            "lane": "lint-unused",
-            "tool": "staticcheck",
-            "commands": [command_display(staticcheck_cmd)],
-            "warnings": [],
-            "limitations": [],
-            "findings": staticcheck_findings,
-        },
-    )
-    return staticcheck_findings, path
 
 
 def resolve_go_build_matrix(raw_matrix: Any) -> list[dict[str, Any]]:
@@ -1396,36 +1322,32 @@ def resolve_frontend_module_specifier(
 
 
 def resolve_frontend_internal_module_path(base: Path) -> Path | None:
-    for candidate in frontend_internal_module_candidates(base):
-        if is_frontend_internal_code_file(candidate):
-            return candidate
+    candidates: list[Path] = []
+    if base.suffix in FRONTEND_CODE_EXTENSIONS:
+        candidates.append(base)
+        for suffix in FRONTEND_CODE_EXTENSIONS:
+            candidates.append(base.with_suffix(suffix))
+    elif base.suffix:
+        candidates.append(base)
+        for suffix in FRONTEND_CODE_EXTENSIONS:
+            candidates.append(base.with_suffix(suffix))
+    else:
+        candidates.append(base)
+        for suffix in FRONTEND_CODE_EXTENSIONS:
+            candidates.append(base.with_suffix(suffix))
+            candidates.append(base / f"index{suffix}")
+
+    for candidate in candidates:
+        if not candidate.exists() or not candidate.is_file():
+            continue
+        if candidate.suffix not in FRONTEND_CODE_EXTENSIONS:
+            continue
+        try:
+            candidate.relative_to(ROOT_DIR / "frontend")
+        except ValueError:
+            continue
+        return candidate
     return None
-
-
-def frontend_internal_module_candidates(base: Path) -> list[Path]:
-    candidates = [base]
-    if base.suffix:
-        candidates.extend(
-            base.with_suffix(suffix) for suffix in FRONTEND_CODE_EXTENSIONS
-        )
-        return candidates
-
-    for suffix in FRONTEND_CODE_EXTENSIONS:
-        candidates.append(base.with_suffix(suffix))
-        candidates.append(base / f"index{suffix}")
-    return candidates
-
-
-def is_frontend_internal_code_file(candidate: Path) -> bool:
-    if not candidate.exists() or not candidate.is_file():
-        return False
-    if candidate.suffix not in FRONTEND_CODE_EXTENSIONS:
-        return False
-    try:
-        candidate.relative_to(ROOT_DIR / "frontend")
-    except ValueError:
-        return False
-    return True
 
 
 def normalize_frontend_eslint_findings(
