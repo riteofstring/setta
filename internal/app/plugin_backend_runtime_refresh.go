@@ -32,6 +32,7 @@ type pluginBackendRuntimeRefresher struct {
 	projectState                            *projectstate.Runtime
 	projectSync                             *lsp.ProjectSynchronizer
 	appSubsystemCapabilities                *appSubsystemCapabilityState
+	refreshAppHandler                       func() error
 
 	mu sync.Mutex
 }
@@ -78,6 +79,24 @@ func (s *pluginMutationRuntimeService) syncCapabilitiesFromSnapshot(
 		return
 	}
 	s.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+}
+
+func (r *pluginBackendRuntimeRefresher) SetAppHandlerRefresh(
+	refresh func() error,
+) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.refreshAppHandler = refresh
+}
+
+func (r *pluginBackendRuntimeRefresher) refreshAppHandlerLocked() error {
+	if r == nil || r.refreshAppHandler == nil {
+		return nil
+	}
+	return r.refreshAppHandler()
 }
 
 func (s *pluginMutationRuntimeService) rescanRuntimeToolsWithoutRestart(
@@ -510,6 +529,9 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 		return err
 	}
 	r.runtime = nextRuntime
+	if err := r.refreshAppHandlerLocked(); err != nil {
+		return err
+	}
 	closePluginBackendRuntime(previousRuntime)
 	return nil
 }
@@ -656,6 +678,9 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 	}
 	if r.appSubsystemCapabilities != nil {
 		r.appSubsystemCapabilities.SetFromSnapshot(committedSnapshot)
+	}
+	if err := r.refreshAppHandlerLocked(); err != nil {
+		return committedSnapshot, err
 	}
 
 	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)

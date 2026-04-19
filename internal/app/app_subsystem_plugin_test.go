@@ -129,6 +129,100 @@ func TestAppSubsystemPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
 	assertAppSubsystemToolPresence(t, app, true)
 }
 
+func TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := appSubsystemPluginTestAuthCookie(t, app)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusNotFound,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusNotFound,
+	)
+	assertAppSubsystemToolPresence(t, app, false)
+
+	enableRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RoutePluginsEnable,
+		strings.NewReader(`{"pluginId":"setta-json-render-app-gen"}`),
+	)
+	if err != nil {
+		t.Fatalf("new enable request: %v", err)
+	}
+	enableRequest.Header.Set("Content-Type", "application/json")
+	enableRequest.AddCookie(authCookie)
+	enableResponse, err := http.DefaultClient.Do(enableRequest)
+	if err != nil {
+		t.Fatalf("enable plugin: %v", err)
+	}
+	defer enableResponse.Body.Close()
+	if enableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(enableResponse.Body)
+		t.Fatalf("expected enable 200, got %d with body %q", enableResponse.StatusCode, string(body))
+	}
+
+	var enablePayload struct {
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(enableResponse.Body).Decode(&enablePayload); err != nil {
+		t.Fatalf("decode enable payload: %v", err)
+	}
+	if enablePayload.State != string(plugins.PluginRuntimeStateActive) || enablePayload.RestartRequired {
+		t.Fatalf("unexpected enable payload %#v", enablePayload)
+	}
+
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemToolPresence(t, app, true)
+}
+
 func TestAppSubsystemPackageManagerPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
