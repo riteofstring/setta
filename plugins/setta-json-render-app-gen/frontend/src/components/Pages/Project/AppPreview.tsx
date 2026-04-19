@@ -2,12 +2,11 @@ import { AppRenderer } from "../../App/AppRenderer";
 import { loadProjectConfig as loadProjectConfigRequest } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
+import { useAppConfigs, useAppPreview } from "plugins/appSubsystemProjectState";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
-  useAppConfigs,
   useAppDefinition,
-  useAppPreview,
   useProjectState,
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
