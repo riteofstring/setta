@@ -1,11 +1,9 @@
+import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystemRuntime";
 import type { CSSProperties } from "react";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { isImageAttachment } from "utils/attachmentPreview";
-import {
-  AppGenerationModeEnum,
-  ChatFileAttachment,
-} from "utils/generatedTypes";
+import { ChatFileAttachment } from "utils/generatedTypes";
 import {
   type ChatPermissionModeValue,
   type ChatSlashCommandAction,
@@ -28,6 +26,7 @@ export type ChatSlashCommand = {
   rawSuffix?: string;
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
+  requiresImageAttachment?: boolean;
   unavailableFeedback?: string;
 };
 
@@ -94,6 +93,9 @@ type QueuedDraftReplaySnapshot =
       availabilityPolicy: "fixed" | "current_registry";
       command: ChatSlashCommand;
     };
+
+const APP_SUBSYSTEM_PLUGIN_REQUIRED_FEEDBACK =
+  'requires the first-party plugin "setta-json-render-app-gen" to be enabled.';
 
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
@@ -219,6 +221,9 @@ export function resolveCustomPromptSlashCommandSubmission({
 export function buildUnavailableSlashCommandFeedback(
   command: ChatSlashCommand,
 ): string {
+  if (command.appGenerationMode) {
+    return `${command.command} ${APP_SUBSYSTEM_PLUGIN_REQUIRED_FEEDBACK}`;
+  }
   return (
     command.unavailableFeedback ??
     `${command.command} is unavailable in the current context. Use /help.`
@@ -244,9 +249,15 @@ export function resolveSlashCommandSubmitOptions(
 }
 
 function requiresImageAttachmentForAppGenerationMode(
-  appGenerationMode: AppGenerationMode | null | undefined,
+  command: Pick<
+    ChatSlashCommand,
+    "appGenerationMode" | "requiresImageAttachment"
+  >,
 ): boolean {
-  return appGenerationMode === AppGenerationModeEnum.json_render_with_image;
+  if (command.requiresImageAttachment === true) {
+    return true;
+  }
+  return appSubsystemModeRequiresImageAttachment(command.appGenerationMode);
 }
 
 function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {
@@ -264,7 +275,12 @@ export function getSlashCommandImageAttachmentError({
   attachments: ChatFileAttachment[];
   hasRetainedImageAttachmentForImageMode: boolean;
 }): string | null {
-  if (!requiresImageAttachmentForAppGenerationMode(appGenerationMode)) {
+  if (
+    !requiresImageAttachmentForAppGenerationMode({
+      appGenerationMode,
+      requiresImageAttachment: command.requiresImageAttachment,
+    })
+  ) {
     return null;
   }
   if (
@@ -289,6 +305,7 @@ function serializeSlashCommandsForReplaySignature(
   appGenerationMode: AppGenerationMode | null;
   command: string;
   promptTemplate: string | null;
+  requiresImageAttachment: boolean;
   summary: string;
   unavailableFeedback: string | null;
 }> {
@@ -297,6 +314,7 @@ function serializeSlashCommandsForReplaySignature(
     appGenerationMode: command.appGenerationMode ?? null,
     command: command.command,
     promptTemplate: command.promptTemplate ?? null,
+    requiresImageAttachment: command.requiresImageAttachment ?? false,
     summary: command.summary,
     unavailableFeedback: command.unavailableFeedback ?? null,
   }));
@@ -353,9 +371,13 @@ function cloneSlashCommand(command: ChatSlashCommand): ChatSlashCommand {
 }
 
 function shouldUseCurrentRegistryForQueuedSlashCommand(
-  action: ChatSlashCommandAction,
+  command: ChatSlashCommand,
 ): boolean {
-  return action === "custom_prompt" || action === "native_prompt";
+  return (
+    command.appGenerationMode !== undefined ||
+    command.action === "custom_prompt" ||
+    command.action === "native_prompt"
+  );
 }
 
 export function buildQueuedDraftReplaySnapshot({
@@ -378,7 +400,7 @@ export function buildQueuedDraftReplaySnapshot({
   return {
     kind: "slash_command",
     availabilityPolicy: shouldUseCurrentRegistryForQueuedSlashCommand(
-      resolvedRequest.parsed.action,
+      resolvedRequest.parsed,
     )
       ? "current_registry"
       : "fixed",
