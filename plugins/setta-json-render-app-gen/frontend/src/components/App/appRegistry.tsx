@@ -1,7 +1,12 @@
 import type { Action } from "@json-render/core";
 import {
+  type AppSubsystemFrontendHost,
   callOpenAPI,
+  getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrentEffectiveSectionImpl,
+  getCurrentSectionVariantId,
   getPasswordParamValue,
+  getParamDisplayNameIfPresent,
   loadCachedImageArtifacts,
   res200,
   setParamEnteredValue,
@@ -32,22 +37,7 @@ import {
   useAppConfigs,
   type AppConfigState,
 } from "../../appSubsystemProjectState";
-import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
-  getCurrEffectiveSectionImpl,
-  getCurrSectionVariantId,
-  getParamDisplayNameIfPresent,
-} from "state/actions/sectionInfos";
-import {
-  sendRealtimeDependencyEvent,
-  sendRealtimeSectionParamLiteral,
-} from "state/actions/websocketReceive";
-import {
-  useDecodedImages,
-  useImages,
-  useProjectState,
-} from "state/definitions";
+import { useDecodedImages, useImages } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { bumpRemoteRevisions } from "state/utils/revisions";
@@ -149,6 +139,8 @@ const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
 type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
   Array<ImageArtifact>
 >;
+type AppSubsystemNotify = AppSubsystemFrontendHost["notify"];
+
 function resolveConfigId(
   bindingConfigId: string | null,
   runtimeConfigId: string | null,
@@ -519,13 +511,13 @@ function resolveParamBindingState(args: {
   }
   const previewActive =
     configState.previewSectionVariantMap[sectionId] !== undefined;
-  const effectiveSectionImpl = getCurrEffectiveSectionImpl(
+  const effectiveSectionImpl = getCurrentEffectiveSectionImpl(
     configState,
     sectionId,
     previewActive,
   );
   const effectiveCodeObjImpl =
-    getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent(
       configState,
       sectionId,
       paramId,
@@ -1260,14 +1252,19 @@ function AppParamInput({
   sectionImpl,
   canEditParams,
 }: AppParamInputProps) {
+  const frontendHost = useAppSubsystemFrontendHost();
   const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
-  const sectionVariantId = useProjectState((x) =>
-    getCurrSectionVariantId(x, sectionId),
-  );
+  const sectionVariantId = useAppConfigs((state) => {
+    const configState = state.configs[configId];
+    if (!configState) {
+      return null;
+    }
+    return getCurrentSectionVariantId(configState, sectionId);
+  });
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
     undefined,
-    `${sectionVariantId}:${paramInfoId}`,
+    `${sectionVariantId ?? ""}:${paramInfoId}`,
   );
   const [isRevealing, setIsRevealing] = React.useState(false);
   function onChange(
@@ -1276,9 +1273,12 @@ function AppParamInput({
       skipBackendUpdate?: boolean;
     },
   ) {
+    if (!sectionVariantId) {
+      return;
+    }
     const nextValueStr = _.toString(nextValue);
     setPendingValue(nextValueStr);
-    sendRealtimeSectionParamLiteral(
+    frontendHost.emitRealtimeSectionParamLiteral(
       sectionId,
       paramInfoId,
       nextValueStr,
@@ -1294,6 +1294,7 @@ function AppParamInput({
         sectionVariantId,
         paramInfoId,
         nextValueStr,
+        frontendHost.notify,
       );
       return;
     }
@@ -1303,6 +1304,7 @@ function AppParamInput({
       sectionVariantId,
       paramInfoId,
       nextValueStr,
+      frontendHost.notify,
     );
   }
   function onRevealPassword() {
@@ -1358,7 +1360,7 @@ function AppParamInput({
       }),
       type: DependencyValueTypeEnum.Literal,
     };
-    sendRealtimeDependencyEvent(
+    frontendHost.emitRealtimeDependencyEvent(
       {
         dependencyKey,
         payload: metadataPayload,
@@ -1369,7 +1371,7 @@ function AppParamInput({
       if (attachment.kind !== "file") {
         continue;
       }
-      sendRealtimeDependencyEvent(
+      frontendHost.emitRealtimeDependencyEvent(
         {
           dependencyKey,
           payload: {
@@ -1872,13 +1874,32 @@ function AppParamUI(props: AppParamUIProps) {
   }
   return renderer(context);
 }
-const notifyParamUpdateError = _.throttle(
-  (message: string) => {
-    addTemporaryNotification(message);
-  },
-  2500,
-  { trailing: false },
-);
+const throttledParamUpdateErrorByNotify = new WeakMap<
+  AppSubsystemNotify,
+  (message: string) => void
+>();
+
+function notifyParamUpdateError(
+  notify: AppSubsystemNotify,
+  message: string,
+): void {
+  let throttledNotify = throttledParamUpdateErrorByNotify.get(notify);
+  if (!throttledNotify) {
+    throttledNotify = _.throttle(
+      (nextMessage: string) => {
+        notify({
+          message: nextMessage,
+          type: "error",
+        });
+      },
+      2500,
+      { trailing: false },
+    );
+    throttledParamUpdateErrorByNotify.set(notify, throttledNotify);
+  }
+  throttledNotify(message);
+}
+
 const debouncedSetParamEnteredValue = _.debounce(
   (
     configId: string,
@@ -1886,6 +1907,7 @@ const debouncedSetParamEnteredValue = _.debounce(
     sectionVariantId: string,
     paramInfoId: string,
     value: string,
+    notify: AppSubsystemNotify,
   ) => {
     callOpenAPI(
       setParamEnteredValue({
@@ -1902,6 +1924,7 @@ const debouncedSetParamEnteredValue = _.debounce(
         return;
       }
       notifyParamUpdateError(
+        notify,
         response.status === 403
           ? "This parameter cannot be edited in app deployments."
           : "Failed to update parameter.",
@@ -1917,6 +1940,7 @@ const debouncedSetPasswordParamValue = _.debounce(
     sectionVariantId: string,
     paramInfoId: string,
     value: string,
+    notify: AppSubsystemNotify,
   ) => {
     callOpenAPI(
       setParamEnteredValue({
@@ -1933,6 +1957,7 @@ const debouncedSetPasswordParamValue = _.debounce(
         return;
       }
       notifyParamUpdateError(
+        notify,
         response.status === 403
           ? "This parameter cannot be edited in app deployments."
           : "Failed to update parameter.",
