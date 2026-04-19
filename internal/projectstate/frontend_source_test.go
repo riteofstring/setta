@@ -220,6 +220,41 @@ func TestDocumentNormalizedPreservesOpaquePluginDataPayload(t *testing.T) {
 	)
 }
 
+func TestDocumentNormalizedCanonicalizesPluginDataKeys(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	payload := document.PluginData[appSubsystemPluginDataKey]
+	delete(document.PluginData, appSubsystemPluginDataKey)
+	document.PluginData["  "+appSubsystemPluginDataKey+"  "] = payload
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize plugin data key: %v", err)
+	}
+	if len(normalized.PluginData[appSubsystemPluginDataKey]) == 0 {
+		t.Fatalf("expected canonical plugin data entry for %q", appSubsystemPluginDataKey)
+	}
+	if len(normalized.PluginData["  "+appSubsystemPluginDataKey+"  "]) != 0 {
+		t.Fatalf("did not expect whitespace-variant plugin data key, got %#v", normalized.PluginData)
+	}
+}
+
+func TestDocumentNormalizedRejectsPluginDataCanonicalKeyCollisions(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	document.PluginData["  "+appSubsystemPluginDataKey+"  "] = document.PluginData[appSubsystemPluginDataKey]
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected plugin data canonical key collision to fail normalization")
+	}
+	if !strings.Contains(err.Error(), "collides after normalization") {
+		t.Fatalf("expected canonical collision error, got %v", err)
+	}
+}
+
 func TestDocumentNormalizedRejectsNonObjectSectionSharedModifier(t *testing.T) {
 	t.Parallel()
 
