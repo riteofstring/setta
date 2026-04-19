@@ -19,7 +19,6 @@ const (
 
 	redactedSourcePathPrefix         = "[redacted]"
 	redactedCanonicalSourceKeyPrefix = "redacted:"
-	AppSubsystemPluginID             = "setta-json-render-app-gen"
 )
 
 type AssetURLBuilder func(pluginID string, relativePath string, sourceDigestSHA256 *string) string

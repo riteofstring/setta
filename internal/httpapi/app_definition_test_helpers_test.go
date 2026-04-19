@@ -12,8 +12,8 @@ import (
 	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/mcpx"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func setTestAppDefinition(
@@ -150,7 +150,7 @@ func newAppDefinitionToolRouteServer(
 		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
 			appdefinition.NewAppDefinitionService(
 				projectRuntime,
-				plugins.AppSubsystemPluginID,
+				firstpartyplugin.AppSubsystemPluginID,
 			),
 		)
 	}

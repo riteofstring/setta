@@ -17,9 +17,9 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
-	"setta/internal/plugins"
 	"setta/internal/realtime"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
+	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/wsapi"
 )
 
@@ -145,7 +145,7 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *tes
 	installAppRepoPluginAsID(
 		t,
 		cfg,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		appsubsystemprovider.PluginID,
 	)
 	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)

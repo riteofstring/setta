@@ -8,7 +8,7 @@ import (
 	"setta/internal/appsubsystem"
 	"setta/internal/config"
 	"setta/internal/deployments"
-	"setta/internal/plugins"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestNewDeploymentTypeRegistryIncludesPluginAppRegistration(t *testing.T) {
@@ -51,7 +51,7 @@ func TestNewDeploymentTypeRegistryIncludesUnknownProviderAppRegistration(t *test
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		cfg.Paths.DeploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		unknownAppSubsystemPluginID,
 	)
 
@@ -76,7 +76,7 @@ func TestNewDeploymentTypeRegistryRejectsUnregisteredProvider(t *testing.T) {
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		cfg.Paths.DeploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"setta-fixture-unregistered-app-provider",
 	)
 
@@ -97,13 +97,13 @@ func TestNewDeploymentTypeRegistryRejectsConflictingActiveProviders(t *testing.T
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		cfg.Paths.DeploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"acme.app-provider-b",
 	)
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		cfg.Paths.DeploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"acme.app-provider-a",
 	)
 	writeAppJSON(t, filepath.Join(cfg.Paths.DeploymentRoot, "plugins_state.json"), map[string]any{
@@ -129,18 +129,18 @@ func TestNewDeploymentTypeRegistryRejectsMixedRegisteredAndUnregisteredActivePro
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		cfg.Paths.DeploymentRoot,
-		plugins.AppSubsystemPluginID,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 	)
 	enableAppDeploymentRuntimePluginWithID(
 		t,
 		cfg.Paths.DeploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"setta-fixture-unregistered-app-provider",
 	)
 	writeAppJSON(t, filepath.Join(cfg.Paths.DeploymentRoot, "plugins_state.json"), map[string]any{
 		"enabledPluginIds": []string{
-			plugins.AppSubsystemPluginID,
+			firstpartyplugin.AppSubsystemPluginID,
 			"setta-fixture-unregistered-app-provider",
 		},
 	})
