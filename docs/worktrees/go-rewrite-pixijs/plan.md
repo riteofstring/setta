@@ -256,29 +256,26 @@ Use this order unless a fresh measurement disproves it:
 
 ## Current sequencing checkpoint
 
-As of the 2026-04-20 progress review after run `011`:
+As of the 2026-04-20 progress review after run `021`:
 
-- The recent stretch is still worthwhile. The strongest proof is the viewport-persistence interaction-deferral slice, which kept the chat-normalized dense scene shape flat at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, and `buttonCount 47` while moving `raf.meanMs 126.46 -> 43.28`, `raf.p95Ms 116.7 -> 33.4`, and `longTasks.totalMs 17245 -> 6076`.
-- The follow-on spreadsheet `flowZoom` freeze confirmed that the branch can hold that improved range (`raf.meanMs 44.12`, `longTasks.totalMs 6044`) without a visible spreadsheet defect, but it did not create another whole-scene step change. Treat it as a bounded support slice, not as the new default frontier.
-- The later viewport-send deferral cleanup also stayed in that improved band (`raf.meanMs 43.7`, `longTasks.totalMs 6378`) without reopening visual regressions, but it likewise did not materially beat the checkpoint. Treat it as a safe whole-scene cleanup, not as a reason to keep iterating laterally on the same viewport-persistence seam.
-- The motion-shell/header/menu harvest, backend switch-family cleanup, chat-window normalization, and spreadsheet-only freeze lanes are all closed unless a fresh visible defect or trace explicitly reopens them.
-- The older 2026-04-19 row-body / value-shell-only checkpoint is no longer the best description of the active blocker. After the hotspot trace and the viewport-persistence win, the default frontier is broader viewport-interaction renderer-main JS / GC on the retained canvas-shell path.
-- The branch is not done. Even after the large improvement, dense `settings` -> `All Settings` motion still misses the real `33.3ms` bar on mean frame time and still carries non-trivial long-task debt.
+- The recent stretch is still worthwhile overall. The best whole-scene checkpoint in this run window is now `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md`, which kept the dense scene shape flat at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, and `buttonCount 47` while reaching `raf.meanMs 42.58`, `raf.p95Ms 50`, and `longTasks.totalMs 5844`.
+- The stretch also produced real architecture progress on Phase 2: `browserSectionDefault`, `promptSectionDefault`, and the code-like button/code cluster now sit behind retained-canvas shell ownership while keeping first-click live-editor handoff intact. Treat those slices as product-ownership progress, not as new whole-scene perf checkpoints.
+- The mounted-hidden motion-body experiment was a useful falsification, not a keeper. It regressed dense motion badly (`raf.meanMs 60.78`, `raf.p95Ms 99.9`) and is explicitly closed unless a later slice can also freeze the hidden subtree's live updates.
+- Diminishing returns are now visible on the current trajectory. The `ZoomPane` wheel metadata cache and RAF coalescing passes stayed flat, and another isolated section-shell sibling promotion would also be churn unless it widens renderer ownership at a family or shared-primitive boundary.
+- The branch is still not done. Dense `settings` -> `All Settings` motion remains above the real `33.3ms` target and still carries material long-task debt even after the earlier viewport-interaction win.
 
 Required order from here:
 
 1. Start each default pass from the chat-normalized dense `settings` -> `All Settings` probe on the named `settings-section__browserSectionDefault` lane, not from a previously closed section-local cleanup lane.
-2. Compare new work against `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md` as the current whole-scene checkpoint. Treat the spreadsheet and viewport-send follow-up reports only as stability evidence, not as the new default targets.
-3. Pick only one of these two frontier classes by default:
-   - a broader transform/subscription/invalidation reduction with whole-scene reach on the active viewport-interaction JS lane
-   - the next explicit Pixi-owned graph-surface step if no credible bounded JS-side reducer is available
-4. Good candidates are shared transform subscribers, per-frame scene measurement hooks, scene invalidation paths, or other cross-section event-dispatch / GC sources that the trace can tie back to the dense scene. The slice must plausibly move whole-scene metrics before code is written.
-5. Do not spend another default iteration on motion-shell/header/menu survivors, backend-only family cleanup, chat-window normalization, spreadsheet-only freezes, or other section-local rerender suppressions unless a fresh trace shows that exact path is dominant again or the live canary is visibly broken.
-6. Do not spend another default iteration on the same viewport-persistence send/mirror seam unless a fresh trace specifically points back to it. If no stronger JS-side reducer is trace-backed, escalate to the broader graph-surface step instead of continuing laterally.
-7. Keep the current best whole-scene checkpoint explicit when judging progress: `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 43.28`, `raf.p95Ms 33.4`, `longTasks.totalMs 6076`.
-8. If the next proposed slice cannot explain how it should reduce renderer-main `EventDispatch`, `v8.callFunction`, or GC work across the dense scene, stop and replan instead of letting the loop continue by inertia.
+2. Compare new work against `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current whole-scene checkpoint. Treat the later shell-ownership and `ZoomPane` reports as stability or architecture evidence, not as the new default target.
+3. The next default pass must choose exactly one of these two frontier classes:
+   - one trace-backed whole-scene reducer that can plausibly cut renderer-main `EventDispatch`, `v8.callFunction`, or GC work across the dense scene
+   - one stronger Pixi-owned graph-surface step that changes ownership at a whole dense-family or shared-primitive boundary rather than adding another single section-shell id
+4. Good JS-side candidates are shared transform subscribers, scene invalidation paths, per-frame measurement hooks, or other cross-section dispatch/GC sources that the hotspot trace can tie back to the dense scene. Good graph-surface candidates are family-level shell or row-chrome ownership moves, or another slice that materially reduces visible inactive DOM without opening a new editor seam.
+5. Closed default lanes stay closed unless a fresh trace or visible defect explicitly reopens them: viewport-persistence send/mirror follow-ups, mounted-hidden-body variants, top-level resize-handle polish, spreadsheet-only freezes, standalone `ZoomPane` event-pacing micro-passes, and more one-off shell-sibling promotions.
+6. If the next proposed slice cannot explain either a likely whole-scene metric move or a broader ownership payoff, stop and replan instead of letting the loop continue by inertia.
 
-Do not reopen closed section-specific chrome ownership lanes for routine follow-up, and do not let Ralph treat the current triple-digit frame times as success just because the branch is better than baseline.
+Do not let Ralph treat the current `~43ms` / `~5.8-6.1s` band as success just because it is better than the earlier triple-digit frame times.
 
 ## Testing discipline
 

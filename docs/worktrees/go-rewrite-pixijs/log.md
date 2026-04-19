@@ -154,6 +154,45 @@ Record:
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 - progress review after run 021
+
+- Summary:
+  - Decision: `replan_and_continue`
+  - The recent `012` -> `021` stretch still shows real forward progress: run `014` is the current best whole-scene dense checkpoint at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 42.58`, `raf.p95Ms 50`, and `longTasks.totalMs 5844`.
+  - The window also landed real Phase 2 architecture progress by moving `browserSectionDefault`, `promptSectionDefault`, and the code-like button/code cluster onto retained-canvas shell ownership while preserving first-click editor handoff.
+  - The mounted-hidden motion-body experiment was a useful negative result and is explicitly closed after the dense regression (`raf.meanMs 60.78`, `raf.p95Ms 99.9`).
+  - Diminishing returns are now visible on the current path: the recent `ZoomPane` wheel/RAF passes were flat, and another isolated shell-sibling promotion would be churn unless it widens ownership at a family or shared-primitive boundary.
+- Durable plan adjustment:
+  - Treat `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current whole-scene checkpoint to beat.
+  - The next default pass on the canonical `settings-section__browserSectionDefault` lane must be either one trace-backed whole-scene reducer tied to renderer-main `EventDispatch` / `v8.callFunction` / GC work, or one stronger graph-surface ownership step that changes a whole dense family or shared primitive.
+  - Keep these default lanes closed unless a fresh trace or visible defect reopens them: viewport-persistence follow-ups, mounted-hidden-body variants, resize-handle polish, standalone `ZoomPane` event-pacing micro-passes, and more one-off shell-sibling promotions.
+- Next action:
+  - Choose one bounded slice in one of those two frontier classes, and stop for replan if the candidate cannot explain either a likely whole-scene metric move or a broader ownership payoff.
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 - codemirror init null-pos fallback
+
+- Summary:
+  - Hardened `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts` so retained-canvas first-click editor activation no longer depends on `view.posAtCoords(...)` always returning a valid anchor.
+  - Added `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.test.ts` to lock down both the valid-pointer path and the null-position fallback path.
+  - Verified the existing browser shell canary still activates on first click and the dense `All Settings` smoke stayed in the same runtime band at `documentNodeCount 5493`, `inputCount 3`, `textareaCount 1`, `buttonCount 46`, `raf.meanMs 42.71`, `raf.p95Ms 49.9`, and `longTasks.totalMs 6080`.
+- Record:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/CodeMirror/getOnCreateEditor.ts src/components/Utils/CodeMirror/getOnCreateEditor.test.ts tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/CodeMirror/getOnCreateEditor.test.ts`
+    - result: `2 passed`, `29` tests
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-022/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (51.1s)`
+- CDP visual gate:
+  - Two fresh headless DevTools sub-agent passes on `/settings` -> `All Settings` could not produce a trustworthy `browserSectionDefault` graph-surface view after overview selection plus `fit view`.
+  - Both passes showed a mostly blank / off-canvas dark canvas, so treat the visual gate for this slice as deferred rather than as passed product evidence.
+- Notes:
+  - During this iteration, an attempted shared param-codeobj shell-ownership expansion was explicitly reverted after `rotaryParamCodeObjDefault`, `sliderParamCodeObjDefault`, and `textParamCodeObjDefault` still failed first-click editor handoff and emitted `POST /api/setActiveIds -> 404`.
+  - No production diff from that family shell attempt remains in the worktree; keep the lane closed until the active-section / editor-init path is debugged as its own product slice.
+- Next action:
+  - Return to the canonical `settings-section__browserSectionDefault` lane for either one trace-backed whole-scene JS / GC reducer or one broader graph-surface ownership step that is not the reverted shared param-codeobj shell family.
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-20 - code-like shell ownership cluster
 
 - Summary:
@@ -5367,4 +5406,32 @@ LOOP_TERMINAL_MARKER: none
     - visible workspace noise was limited to the persistent worktree label/sidebar and an inactive chat panel
 - Next action:
   - start the broader Pixi-owned graph-surface step on `All Settings` unless a fresh trace identifies another high-confidence viewport-interaction JS hotspot with whole-scene reach
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 - progress review after run 021 (tail ordering)
+
+- Summary:
+  - Decision: `replan_and_continue`
+  - Tail copy of the same checkpoint decision so the active log keeps newest guidance at the end after an earlier out-of-order insertion during doc maintenance.
+  - The recent `012` -> `021` stretch still shows real forward progress: run `014` remains the current best whole-scene dense checkpoint at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 42.58`, `raf.p95Ms 50`, and `longTasks.totalMs 5844`.
+  - The window also landed real Phase 2 architecture progress by moving `browserSectionDefault`, `promptSectionDefault`, and the code-like button/code cluster onto retained-canvas shell ownership while preserving first-click editor handoff.
+  - Diminishing returns are now visible on the current path: the recent `ZoomPane` wheel/RAF passes were flat, and another isolated shell-sibling promotion would be churn unless it widens ownership at a family or shared-primitive boundary.
+- Durable plan adjustment:
+  - Treat `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current whole-scene checkpoint to beat.
+  - The next default pass on the canonical `settings-section__browserSectionDefault` lane must be either one trace-backed whole-scene reducer tied to renderer-main `EventDispatch` / `v8.callFunction` / GC work, or one stronger graph-surface ownership step that changes a whole dense family or shared primitive.
+  - Keep these default lanes closed unless a fresh trace or visible defect reopens them: viewport-persistence follow-ups, mounted-hidden-body variants, resize-handle polish, standalone `ZoomPane` event-pacing micro-passes, and more one-off shell-sibling promotions.
+- Next action:
+  - Choose one bounded slice in one of those two frontier classes, and stop for replan if the candidate cannot explain either a likely whole-scene metric move or a broader ownership payoff.
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 - codemirror init null-pos fallback (tail ordering)
+
+- Summary:
+  - Tail copy of the same outcome so the newest entry stays at the end of the append-only window despite earlier out-of-order doc maintenance.
+  - Hardened `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts` so retained-canvas first-click editor activation no longer depends on `view.posAtCoords(...)` always returning a valid anchor.
+  - Added `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.test.ts` and verified the browser shell canary plus dense smoke on the current runtime (`documentNodeCount 5493`, `inputCount 3`, `textareaCount 1`, `buttonCount 46`, `raf.meanMs 42.71`, `raf.p95Ms 49.9`, `longTasks.totalMs 6080`).
+- CDP visual gate:
+  - two fresh headless DevTools sub-agent passes still produced a mostly blank / off-canvas dark canvas for `browserSectionDefault`, so treat the visual gate for this slice as deferred rather than passed product evidence
+- Next action:
+  - return to the canonical `settings-section__browserSectionDefault` lane for either one trace-backed whole-scene JS / GC reducer or one broader graph-surface ownership step that is not the reverted shared param-codeobj shell family
 LOOP_TERMINAL_MARKER: none

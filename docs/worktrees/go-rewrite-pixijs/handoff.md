@@ -6,7 +6,66 @@ Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
 Related history: `docs/worktrees/go-rewrite-pixijs/log.md`
 Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
+## Progress review checkpoint
+
+- Decision for the 2026-04-20 checkpoint after run `021`: `replan_and_continue`.
+- Recent progress is real:
+  - run `014` is the current best whole-scene dense checkpoint at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 42.58`, `raf.p95Ms 50`, `longTasks.totalMs 5844`
+  - run `015` usefully falsified and closed the mounted-hidden motion-body idea after a clear dense-motion regression
+  - runs `016`, `017`, and `021` advanced Phase 2 retained-canvas shell ownership while keeping first-click editor handoff intact
+- Diminishing returns are now visible:
+  - runs `019` and `020` were flat `ZoomPane` micro-passes
+  - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
+- Default next action from here:
+  - stay on the canonical `settings-section__browserSectionDefault` lane
+  - choose exactly one bounded frontier for the next default pass:
+    - a trace-backed whole-scene reducer tied to the renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`
+    - or a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
+  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary
+
 ## Current status
+
+- The CodeMirror init null-pos fallback slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-codemirror-create-editor-null-pos-fallback-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - attempted but reverted family lane during the same iteration:
+    - `settings-section__rotaryParamCodeObjDefault`
+    - `settings-section__sliderParamCodeObjDefault`
+    - `settings-section__textParamCodeObjDefault`
+  - implementation shape:
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts` now treats unresolved pointer-to-text hits as a fallback case instead of blindly dispatching a selection from a null `posAtCoords(...)` result
+    - the editor still focuses immediately, but it no longer stays stuck at `opacity-0` when the initial click coordinates miss the mounted CodeMirror geometry
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.test.ts` now proves both the valid-pointer selection path and the null-position fallback path
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5493`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 46`
+    - `raf.meanMs: 42.71`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 49.9`
+    - `raf.maxMs: 1149.8`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6080`
+    - `longTasks.maxMs: 3672`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded editor-bootstrap hardening slice on the active retained-canvas lane, not a new dense-scene perf step
+    - the existing browser shell canary still passed and the dense probe stayed in the same improved band, so keep this fallback
+    - an attempted shared param-codeobj shell-ownership expansion was explicitly reverted after first-click editor handoff still failed on `rotaryParamCodeObjDefault`, `sliderParamCodeObjDefault`, and `textParamCodeObjDefault`; do not reopen that family shell lane until the active-section / editor-init path is debugged separately from this fallback
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/CodeMirror/getOnCreateEditor.ts src/components/Utils/CodeMirror/getOnCreateEditor.test.ts tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Utils/CodeMirror/getOnCreateEditor.test.ts`
+      - result: `2 passed`, `29` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-022/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (51.1s)`
+  - CDP visual check is not trustworthy in this iteration:
+    - two fresh headless DevTools sub-agent passes opened fresh bootstrap URLs, normalized to `/settings` -> `All Settings`, clicked `browserSectionDefault`, and applied `fit view`
+    - both passes still produced a mostly blank / off-canvas dark canvas instead of a trustworthy browser-section graph-surface view
+    - treat this slice as `deferred_visual_gate`, not as a visual regression claim against the product code
 
 - The code-like shell-ownership cluster slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-code-like-shell-ownership-cluster-rerun.md`.
   - canonical target section: `settings-section__buttonParamCodeObjDefault`
