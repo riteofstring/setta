@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/appspec"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {

@@ -1,9 +1,9 @@
 package httpapi
 
 import (
-	"setta/internal/appspec"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 const (

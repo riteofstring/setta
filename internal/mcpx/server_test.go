@@ -20,10 +20,10 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
-	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 	"setta/internal/tools"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestReadFileRangeHandlerMirrorsPythonBehavior(t *testing.T) {
