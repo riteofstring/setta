@@ -2,7 +2,7 @@
 
 ## Source Of Truth
 
-- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface rather than a second backend runtime with `backend/setta/api/` kept thin, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
+- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface rather than a second backend runtime with `backend/setta/api/` kept thin, `plugins/` as first-party Setta plugin packages and plugin-owned config/probe surfaces, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
 - Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
 - Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
@@ -24,7 +24,7 @@
 
 ## Workflow & Verification
 
-- Use `dev_install.sh` for the default Go-first setup. Use `dev_install_python.sh` only when you need Python or package tooling.
+- Use `dev_install.sh` for the default local setup, including the repo Python environment and first-party dev plugins.
 - Neither install script should rewrite lockfiles. Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
 - Use `docs/guides/dev-scripts.md` when you need the exact command map for generation, cleanup, or the source-checkout dev loop.
 - Use `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for browser verification workflows when relevant.

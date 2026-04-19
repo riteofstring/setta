@@ -977,6 +977,14 @@ export function createLSPDiagnosticsPayload(
   return options as LSPDiagnosticsPayload;
 }
 
+export type LanguageServerSelectionStatus = gt.LanguageServerSelectionStatus;
+
+export function createLanguageServerSelectionStatus(
+  options: Partial<LanguageServerSelectionStatus> = {},
+): LanguageServerSelectionStatus {
+  return options as LanguageServerSelectionStatus;
+}
+
 export type LineChartSettings = gt.LineChartSettings;
 
 export function createLineChartSettings(
@@ -1280,11 +1288,23 @@ export function createPluginListEntry(
 
 export type PluginListResponse = gt.PluginListResponse;
 
+export function createPluginListResponse(
+  options: Partial<PluginListResponse> = {},
+): PluginListResponse {
+  return options as PluginListResponse;
+}
+
 export type PluginRestartCapability = gt.PluginRestartCapability;
 
 export type PluginRestartResponse = gt.PluginRestartResponse;
 
 export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
+
+export function createPluginRuntimeResponse(
+  options: Partial<PluginRuntimeResponse> = {},
+): PluginRuntimeResponse {
+  return options as PluginRuntimeResponse;
+}
 
 export type PluginStatusEntry = gt.PluginStatusEntry;
 
@@ -1295,6 +1315,12 @@ export function createPluginStatusEntry(
 }
 
 export type PluginStatusResponse = gt.PluginStatusResponse;
+
+export function createPluginStatusResponse(
+  options: Partial<PluginStatusResponse> = {},
+): PluginStatusResponse {
+  return options as PluginStatusResponse;
+}
 
 export type Policy = gt.Policy;
 
@@ -2631,6 +2657,19 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
   };
 }
 
+type SettingsLanguageServer = gt.SettingsLanguageServer;
+
+function createSettingsLanguageServer(
+  options: Partial<SettingsLanguageServer> = {},
+): SettingsLanguageServer {
+  const defaults: SettingsLanguageServer = {
+    selectedByLanguage: {},
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsLanguageServer>(defaults, options),
+  };
+}
+
 type SettingsShortcuts = gt.SettingsShortcuts;
 
 function createSettingsShortcuts(
@@ -2798,16 +2837,7 @@ export function createSettingsState(
       zoomOnScroll: true,
     },
     languageServer: {
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportSelfClsParameterName: "none",
-            reportUnannotatedClassAttribute: "none",
-            reportUnknownMemberType: "none",
-            reportUnknownVariableType: "none",
-          },
-        },
-      },
+      selectedByLanguage: {},
     },
     sectionSizingPolicy: {
       byType: {
@@ -3142,6 +3172,9 @@ export function createSettingsState(
     ),
     sectionSizingPolicy: createSectionSizingPolicy(
       options["sectionSizingPolicy"] ?? defaults["sectionSizingPolicy"],
+    ),
+    languageServer: createSettingsLanguageServer(
+      options["languageServer"] ?? defaults["languageServer"],
     ),
   };
 }
@@ -3979,6 +4012,28 @@ export const HTTPRequestMethodEnum = {
 } as const;
 export type HTTPRequestMethod = gt.HTTPRequestMethod;
 
+export const LanguageServerSelectionSeverityEnum = {
+  default: "default",
+  warning: "warning",
+  success: "success",
+} as const;
+
+export const LanguageServerSelectionStateEnum = {
+  unset: "unset",
+  disabled: "disabled",
+  selected: "selected",
+} as const;
+
+export const LanguageServerSelectionStatusKindEnum = {
+  unselected: "unselected",
+  disabled: "disabled",
+  no_available_providers: "no_available_providers",
+  selected_unavailable: "selected_unavailable",
+  selected_incompatible: "selected_incompatible",
+  pending_restart: "pending_restart",
+  active: "active",
+} as const;
+
 export const ListRootViewModeEnum = {
   default: "default",
   task_list: "task_list",
@@ -4230,6 +4285,7 @@ export const WebsocketMessageTypeEnum = {
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   UpdateSettings: "UpdateSettings",
+  UpdatePluginRuntime: "UpdatePluginRuntime",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   BackendLogEvent: "BackendLogEvent",
 } as const;

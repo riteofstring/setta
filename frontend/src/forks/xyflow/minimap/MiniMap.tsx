@@ -616,8 +616,7 @@ export function MinimapSvg({
     nodeStrokeWidth,
     nodeComponent,
   });
-  const selectionSyncProps =
-    svgRef === undefined ? null : { svgRef };
+  const selectionSyncProps = svgRef === undefined ? null : { svgRef };
 
   return (
     <svg

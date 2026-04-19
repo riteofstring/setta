@@ -6309,6 +6309,94 @@
         "title": "LSPDiagnosticsPayload",
         "type": "object"
       },
+      "LanguageServerProviderOption": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId", "name", "available"],
+        "title": "LanguageServerProviderOption",
+        "type": "object"
+      },
+      "LanguageServerSelectionSeverity": {
+        "enum": ["default", "warning", "success"],
+        "title": "LanguageServerSelectionSeverity",
+        "type": "string"
+      },
+      "LanguageServerSelectionState": {
+        "enum": ["unset", "disabled", "selected"],
+        "title": "LanguageServerSelectionState",
+        "type": "string"
+      },
+      "LanguageServerSelectionStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "appliedPluginId": {
+            "type": ["null", "string"]
+          },
+          "availableProviders": {
+            "items": {
+              "$ref": "#/components/schemas/LanguageServerProviderOption"
+            },
+            "type": ["null", "array"]
+          },
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "selectionState": {
+            "$ref": "#/components/schemas/LanguageServerSelectionState"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/LanguageServerSelectionSeverity"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LanguageServerSelectionStatusKind"
+          }
+        },
+        "required": [
+          "language",
+          "selectionState",
+          "status",
+          "severity",
+          "message",
+          "selectedPluginId",
+          "appliedPluginId",
+          "availableProviders",
+          "restartRequired"
+        ],
+        "title": "LanguageServerSelectionStatus",
+        "type": "object"
+      },
+      "LanguageServerSelectionStatusKind": {
+        "enum": [
+          "unselected",
+          "disabled",
+          "no_available_providers",
+          "selected_unavailable",
+          "selected_incompatible",
+          "pending_restart",
+          "active"
+        ],
+        "title": "LanguageServerSelectionStatusKind",
+        "type": "string"
+      },
       "LauncherManagementTransportRoutes": {
         "additionalProperties": false,
         "properties": {
@@ -9652,6 +9740,20 @@
         "title": "PluginRuntimeState",
         "type": "string"
       },
+      "PluginRuntimeUpdateMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/PluginRuntimeResponse"
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/WebsocketMessageType"
+          }
+        },
+        "required": ["messageType", "content"],
+        "title": "PluginRuntimeUpdateMessage",
+        "type": "object"
+      },
       "PluginScope": {
         "enum": ["workspace", "setta_files", "global"],
         "title": "PluginScope",
@@ -9675,6 +9777,12 @@
       "PluginStatusEntry": {
         "additionalProperties": false,
         "properties": {
+          "appliedLanguageServerLanguages": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
           "blockedCapabilities": {
             "items": {
               "$ref": "#/components/schemas/PluginBlockedCapability"
@@ -9727,6 +9835,12 @@
           "registeredCodegenTargets": {
             "items": {
               "$ref": "#/components/schemas/PluginRegisteredCodegenTarget"
+            },
+            "type": ["null", "array"]
+          },
+          "registeredLanguageServers": {
+            "items": {
+              "$ref": "#/components/schemas/PluginRegisteredLanguageServer"
             },
             "type": ["null", "array"]
           },
@@ -9800,6 +9914,7 @@
           "blockedCapabilities",
           "components",
           "registeredCodegenTargets",
+          "registeredLanguageServers",
           "registeredBackendRoutes",
           "registeredStaticDirs",
           "registeredListenerEndpoints",
@@ -9814,6 +9929,12 @@
       "PluginStatusResponse": {
         "additionalProperties": false,
         "properties": {
+          "languageServerSelections": {
+            "items": {
+              "$ref": "#/components/schemas/LanguageServerSelectionStatus"
+            },
+            "type": ["null", "array"]
+          },
           "plugins": {
             "items": {
               "$ref": "#/components/schemas/PluginStatusEntry"
@@ -9834,7 +9955,8 @@
           "schemaVersion",
           "serverMode",
           "restartCapability",
-          "plugins"
+          "plugins",
+          "languageServerSelections"
         ],
         "title": "PluginStatusResponse",
         "type": "object"
@@ -9937,6 +10059,12 @@
             },
             "type": ["null", "array"]
           },
+          "pendingRestartLanguageServerOnlyPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
           "pluginConfigById": {
             "additionalProperties": true,
             "type": "object"
@@ -9946,6 +10074,7 @@
           "enabledPluginIds",
           "disabledPluginIds",
           "pendingRestartBackendPluginIds",
+          "pendingRestartLanguageServerOnlyPluginIds",
           "pluginConfigById"
         ],
         "title": "PluginsStateFile",
@@ -11544,6 +11673,7 @@
           "/setGenCodeSuffix",
           "/setGroupOverflowMode",
           "/setImageAreaImagePath",
+          "/setLanguageServerSelection",
           "/setListRootViewMode",
           "/setMetaControlShowSectionTitle",
           "/setParamEnteredValue",
@@ -11851,6 +11981,7 @@
           "SET_GEN_CODE_SUFFIX",
           "SET_GROUP_OVERFLOW_MODE",
           "SET_IMAGE_AREA_IMAGE_PATH",
+          "SET_LANGUAGE_SERVER_SELECTION",
           "SET_LIST_ROOT_VIEW_MODE",
           "SET_META_CONTROL_SHOW_SECTION_TITLE",
           "SET_PARAM_ENTERED_VALUE",
@@ -12156,6 +12287,7 @@
           "SET_GEN_CODE_SUFFIX",
           "SET_GROUP_OVERFLOW_MODE",
           "SET_IMAGE_AREA_IMAGE_PATH",
+          "SET_LANGUAGE_SERVER_SELECTION",
           "SET_LIST_ROOT_VIEW_MODE",
           "SET_META_CONTROL_SHOW_SECTION_TITLE",
           "SET_PARAM_ENTERED_VALUE",
@@ -13820,6 +13952,20 @@
         "title": "SettingsGUI",
         "type": "object"
       },
+      "SettingsLanguageServer": {
+        "additionalProperties": false,
+        "properties": {
+          "selectedByLanguage": {
+            "additionalProperties": {
+              "type": ["null", "string"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["selectedByLanguage"],
+        "title": "SettingsLanguageServer",
+        "type": "object"
+      },
       "SettingsManagedBlock": {
         "additionalProperties": false,
         "properties": {
@@ -14121,8 +14267,7 @@
             "$ref": "#/components/schemas/SettingsGUI"
           },
           "languageServer": {
-            "additionalProperties": true,
-            "type": "object"
+            "$ref": "#/components/schemas/SettingsLanguageServer"
           },
           "sectionSizingPolicy": {
             "$ref": "#/components/schemas/SectionSizingPolicy"
@@ -17616,6 +17761,7 @@
           "TranscriptionProfilesUpdated",
           "UpdateFrontendProjectState",
           "UpdateSettings",
+          "UpdatePluginRuntime",
           "ReturnRenameRefactorResults",
           "BackendLogEvent"
         ],

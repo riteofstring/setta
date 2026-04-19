@@ -78,6 +78,18 @@ func TestGoBackedCreateFunctionUsesNestedCreateHelpersForChatWindowing(t *testin
 	}
 }
 
+func TestGoBackedCreateFunctionUsesLanguageServerDefaults(t *testing.T) {
+	t.Parallel()
+
+	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(settingsstate.FrontendSettingsLanguageServer{}))
+	if !strings.Contains(declaration.FunctionBody, "const defaults: SettingsLanguageServer = {") {
+		t.Fatalf("%s should stage Go-owned defaults:\n%s", declaration.Name, declaration.FunctionBody)
+	}
+	if !strings.Contains(declaration.FunctionBody, `"selectedByLanguage": {}`) {
+		t.Fatalf("%s body missing selectedByLanguage default:\n%s", declaration.Name, declaration.FunctionBody)
+	}
+}
+
 func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	t.Parallel()
 
