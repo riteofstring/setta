@@ -1,26 +1,24 @@
 /* @vitest-environment jsdom */
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { checkIfFileExists } from "@setta/app-subsystem-frontend-sdk";
+import {
+  checkIfFileExists,
+  createAppSubsystemFrontendHost,
+  type AppSubsystemProjectContext,
+} from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { createProjectConfig } from "utils/generatedTypes";
 import { createAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
 import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
 
 const openAPI = vi.hoisted(() => ({
   checkIfFileExists: vi.fn(),
   listAppDeployments: vi.fn(),
   publishAppDeployment: vi.fn(),
-}));
-
-vi.mock("state/actions/modal", () => ({
-  closeModal: vi.fn(),
 }));
 
 vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
@@ -51,6 +49,18 @@ const originalLocalStorage = window.localStorage;
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
+const closeModal = vi.fn();
+const notify = vi.fn();
+
+let currentProjectContext: AppSubsystemProjectContext = {
+  defaultProjectConfigId: null,
+  projectMetadata: [],
+  projectConfig: {
+    id: "project-1",
+    name: "Project One",
+    entryCodeBlockId: null,
+  },
+};
 
 function setReactActEnvironment(value: boolean | undefined) {
   const target = globalThis as typeof globalThis & {
@@ -83,14 +93,22 @@ async function renderModal(): Promise<RenderedModal> {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
+  const appSubsystemHost = createAppSubsystemFrontendHost({
+    closeModal,
+    notify,
+    getProjectContext: () => currentProjectContext,
+    subscribeProjectContext: () => () => undefined,
+  });
 
   await act(async () => {
     root.render(
-      <Dialog.Root open>
-        <Dialog.Content>
-          <PublishAppDeploymentModal open />
-        </Dialog.Content>
-      </Dialog.Root>,
+      <AppSubsystemFrontendHostProvider host={appSubsystemHost}>
+        <Dialog.Root open>
+          <Dialog.Content>
+            <PublishAppDeploymentModal open />
+          </Dialog.Content>
+        </Dialog.Root>
+      </AppSubsystemFrontendHostProvider>,
     );
   });
 
@@ -109,18 +127,22 @@ async function flushEffects(): Promise<void> {
 
 describe("PublishAppDeploymentModal", () => {
   beforeEach(() => {
-    resetProjectStores();
     installTestLocalStorage();
     document.body.innerHTML = "";
     openAPI.checkIfFileExists.mockReset();
     openAPI.listAppDeployments.mockReset();
     openAPI.publishAppDeployment.mockReset();
-    useProjectState.setState({
-      projectConfig: createProjectConfig({
+    closeModal.mockReset();
+    notify.mockReset();
+    currentProjectContext = {
+      defaultProjectConfigId: null,
+      projectMetadata: [],
+      projectConfig: {
         id: "project-1",
         name: "Project One",
-      }),
-    });
+        entryCodeBlockId: null,
+      },
+    };
     useAppDefinition.setState({
       appSpec: null,
       appDefinition: createAppDefinition(),
@@ -129,7 +151,6 @@ describe("PublishAppDeploymentModal", () => {
   });
 
   afterEach(() => {
-    resetProjectStores();
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: originalLocalStorage,
@@ -165,6 +186,7 @@ describe("PublishAppDeploymentModal", () => {
     expect(window.localStorage.getItem(listenerEntrypointStorageKey)).toBe(
       "listener/app.py",
     );
+    expect(host.textContent).toContain("Project One");
 
     await act(async () => {
       root.unmount();

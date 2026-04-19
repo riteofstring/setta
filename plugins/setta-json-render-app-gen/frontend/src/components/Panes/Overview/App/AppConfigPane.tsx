@@ -1,7 +1,9 @@
 import {
   buildDefaultAppSpecPath,
   callOpenAPI,
+  getErrorDetail,
   getAppDefinition,
+  res200,
   setAppDefinition,
   validateAppDefinition,
 } from "@setta/app-subsystem-frontend-sdk";
@@ -11,10 +13,11 @@ import {
 } from "components/Panes/Common/PaneAccordion";
 import { useAppPreview } from "../../../../appSubsystemProjectState";
 import { useAppDefinition } from "../../../../appSubsystemDefinitionState";
+import {
+  useAppSubsystemFrontendHost,
+  useAppSubsystemProjectContext,
+} from "../../../../appSubsystemFrontendHostContext";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { addTemporaryNotification } from "state/actions/notifications";
-import { useAllProjectMetadata, useProjectState } from "state/definitions";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { type AppDefinition } from "../../../appSubsystemContracts";
 import { getRegisteredAppSubsystemPluginId } from "../../../appSubsystemPluginHost";
 import {
@@ -704,12 +707,13 @@ function AppConfigAdvancedContent({
 }
 /** @lintignore Consumed by the app subsystem plugin frontend. */
 export function AppConfigPane() {
-  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const frontendHost = useAppSubsystemFrontendHost();
+  const { projectConfig, projectMetadata } = useAppSubsystemProjectContext();
+  const projectConfigId = projectConfig.id;
   const appSubsystemPluginID = getRegisteredAppSubsystemPluginId();
   const appSpec = useAppDefinition((state) => state.appSpec);
   const isPreviewEnabled = useAppPreview((state) => state.isPreviewEnabled);
   const previewConfigId = useAppPreview((state) => state.previewConfigId);
-  const { projectMetadata } = useAllProjectMetadata((state) => state);
   const [draftSpec, setDraftSpec] = useState("");
   const [draftTheme, setDraftTheme] = useState("");
   const [draftAssets, setDraftAssets] = useState("");
@@ -956,7 +960,7 @@ export function AppConfigPane() {
     if (!saved) {
       return;
     }
-    addTemporaryNotification("App spec saved.");
+    frontendHost.notify({ message: "App spec saved." });
   }
   async function handleValidate() {
     setErrorMessage(null);
@@ -998,9 +1002,9 @@ export function AppConfigPane() {
     }
     setValidationResult(response.data);
     if (response.data.errors.length === 0) {
-      addTemporaryNotification(
-        buildValidationSuccessMessage(response.data.warnings.length),
-      );
+      frontendHost.notify({
+        message: buildValidationSuccessMessage(response.data.warnings.length),
+      });
     }
   }
   const handleTogglePreview = useCallback(() => {

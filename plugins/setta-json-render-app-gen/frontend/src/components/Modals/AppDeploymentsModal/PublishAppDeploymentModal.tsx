@@ -1,10 +1,16 @@
 import {
   callOpenAPI,
   checkIfFileExists,
+  createDefaultAppPolicy,
+  type Policy,
   listAppDeployments,
   publishAppDeployment,
+  res200,
+  RunSnapshotModeUIConfig,
+  type ResponseDataAndStatus,
   type HttpapiDeploymentMetadataResponse,
   type HttpapiPublishAppDeploymentRequest,
+  type RunSnapshotMode,
 } from "@setta/app-subsystem-frontend-sdk";
 import * as Dialog from "components/Modals/radixDialog";
 import {
@@ -15,17 +21,11 @@ import {
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { closeModal } from "state/actions/modal";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
-import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
-import { createDefaultAppPolicy } from "utils/deploymentPolicies";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  RunSnapshotModeUIConfig,
-  type Policy,
-  type RunSnapshotMode,
-} from "utils/generatedTypes";
+  useAppSubsystemFrontendHost,
+  useAppSubsystemProjectContext,
+} from "../../../appSubsystemFrontendHostContext";
 import { createRandomName } from "utils/idNameCreation";
 
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
@@ -180,7 +180,8 @@ function storeListenerEntrypoint(value: string): void {
   window.localStorage.setItem(LISTENER_ENTRYPOINT_STORAGE_KEY, value);
 }
 export function PublishAppDeploymentModal({ open }: { open: boolean }) {
-  const projectConfig = useProjectState((x) => x.projectConfig);
+  const frontendHost = useAppSubsystemFrontendHost();
+  const { projectConfig } = useAppSubsystemProjectContext();
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const [policyOverrides, setPolicyOverrides] =
@@ -262,7 +263,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
       resolvedDeploymentName = createDefaultDeploymentName();
       setDeploymentName(resolvedDeploymentName);
     }
-    if (projectConfig.id === NULL_PROJECT_CONFIG_ID) {
+    if (!projectConfig.id) {
       setErrorMessage("Select a project config before publishing.");
       return;
     }
@@ -284,7 +285,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);
-      addTemporaryNotification("App deployment published.");
+      frontendHost.notify({ message: "App deployment published." });
       void loadRecentDeployments();
       return;
     }
@@ -292,13 +293,12 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   }
   function handleCopy(text: string): void {
     void navigator.clipboard.writeText(text);
-    addTemporaryNotification("Copied to clipboard.");
+    frontendHost.notify({ message: "Copied to clipboard." });
   }
   const publishLabel = publishedDeployment
     ? "Publish New Deployment"
     : "Publish Deployment";
-  const publishDisabled =
-    isPublishing || projectConfig.id === NULL_PROJECT_CONFIG_ID;
+  const publishDisabled = isPublishing || !projectConfig.id;
   const runBindingWarning = useMemo(() => {
     return getRunBindingWarning({
       allowRun: policyOverrides.allowRun,
@@ -503,7 +503,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
         <Dialog.Close asChild>
           <button
             className="cursor-pointer rounded-full border border-setta-300 px-4 py-2 text-sm font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={closeModal}
+            onClick={frontendHost.closeModal}
           >
             Close
           </button>
