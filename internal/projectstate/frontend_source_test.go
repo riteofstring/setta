@@ -20,10 +20,10 @@ func TestDocumentNormalizedSupportsFrontendSourceFields(t *testing.T) {
 		t.Fatalf("normalize rich project document: %v", err)
 	}
 
-	if len(normalized.AppDefinition) == 0 {
-		t.Fatal("expected app definition to be preserved")
+	if len(normalized.PluginData[appSubsystemPluginDataKey]) == 0 {
+		t.Fatal("expected plugin app definition payload to be preserved")
 	}
-	normalizedAppDefinition := mustDecodeStoredAppDefinition(t, normalized.AppDefinition)
+	normalizedAppDefinition := mustDecodeStoredAppDefinition(t, normalized.PluginData[appSubsystemPluginDataKey])
 	if len(normalizedAppDefinition.Routes) != 1 {
 		t.Fatalf("expected one app route, got %d", len(normalizedAppDefinition.Routes))
 	}
@@ -85,7 +85,7 @@ func TestDocumentCloneDeepCopiesFrontendSourceFields(t *testing.T) {
 	clonedCodeObj.SharedModifier[1] = 'X'
 	clonedProject.CodeObjs["param-root"] = clonedCodeObj
 	cloned.Projects["project-alpha"] = clonedProject
-	cloned.AppDefinition[1] = 'X'
+	cloned.PluginData[appSubsystemPluginDataKey][1] = 'X'
 
 	originalProject := original.Projects["project-alpha"]
 	if originalProject.ActiveIDs[0] != "section-main" {
@@ -118,10 +118,10 @@ func TestDocumentCloneDeepCopiesFrontendSourceFields(t *testing.T) {
 	if string(originalProject.CodeObjs["param-root"].SharedModifier) != `{"description":"A param"}` {
 		t.Fatalf("expected original code object modifier to stay unchanged, got %s", string(originalProject.CodeObjs["param-root"].SharedModifier))
 	}
-	if len(original.AppDefinition) == 0 {
-		t.Fatal("expected original app definition to exist")
+	if len(original.PluginData[appSubsystemPluginDataKey]) == 0 {
+		t.Fatal("expected original app definition payload to exist")
 	}
-	originalAppDefinition := mustDecodeStoredAppDefinition(t, original.AppDefinition)
+	originalAppDefinition := mustDecodeStoredAppDefinition(t, original.PluginData[appSubsystemPluginDataKey])
 	if string(originalAppDefinition.Theme) != `{"colors":{"bg":"white"}}` {
 		t.Fatalf("expected original app definition theme to stay unchanged, got %s", string(originalAppDefinition.Theme))
 	}
@@ -148,11 +148,11 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 	if loaded.DefaultProjectID != expected.DefaultProjectID {
 		t.Fatalf("expected default project id %q, got %q", expected.DefaultProjectID, loaded.DefaultProjectID)
 	}
-	if len(loaded.AppDefinition) == 0 {
-		t.Fatal("expected app definition to round-trip")
+	if len(loaded.PluginData[appSubsystemPluginDataKey]) == 0 {
+		t.Fatal("expected plugin app definition payload to round-trip")
 	}
-	expectedAppDefinition := mustDecodeStoredAppDefinition(t, expected.AppDefinition)
-	loadedAppDefinition := mustDecodeStoredAppDefinition(t, loaded.AppDefinition)
+	expectedAppDefinition := mustDecodeStoredAppDefinition(t, expected.PluginData[appSubsystemPluginDataKey])
+	loadedAppDefinition := mustDecodeStoredAppDefinition(t, loaded.PluginData[appSubsystemPluginDataKey])
 	assertJSONEqual(t, expectedAppDefinition.Actions, loadedAppDefinition.Actions, "app actions")
 
 	loadedProject := loaded.Projects["project-alpha"]
@@ -196,11 +196,11 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	}
 }
 
-func TestDocumentNormalizedPreservesOpaqueAppDefinitionPayload(t *testing.T) {
+func TestDocumentNormalizedPreservesOpaquePluginDataPayload(t *testing.T) {
 	t.Parallel()
 
 	document := newFrontendSourceTestDocument(t)
-	document.AppDefinition = mustRawJSON(
+	document.PluginData[appSubsystemPluginDataKey] = mustRawJSON(
 		t,
 		`{"appSpecVersion":"v1","catalogId":"setta.app.default","appSpecPath":"plugins/setta-json-render-app-gen/app_specs/app.json","routes":[{"path":"   ","name":"  Home  ","rootKey":" root "}],"dataBindings":["not","an","object"],"actions":["not","an","object"],"theme":{"colors":{"bg":"white"}},"assets":[{"type":"image","path":"hero.png"}]}`,
 	)
@@ -209,10 +209,15 @@ func TestDocumentNormalizedPreservesOpaqueAppDefinitionPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("normalize rich project document with opaque app payload: %v", err)
 	}
-	if len(normalized.AppDefinition) == 0 {
-		t.Fatal("expected app definition to be preserved")
+	if len(normalized.PluginData[appSubsystemPluginDataKey]) == 0 {
+		t.Fatal("expected plugin app definition payload to be preserved")
 	}
-	assertJSONEqual(t, document.AppDefinition, normalized.AppDefinition, "opaque appDefinition payload")
+	assertJSONEqual(
+		t,
+		document.PluginData[appSubsystemPluginDataKey],
+		normalized.PluginData[appSubsystemPluginDataKey],
+		"opaque pluginData payload",
+	)
 }
 
 func TestDocumentNormalizedRejectsNonObjectSectionSharedModifier(t *testing.T) {
@@ -279,18 +284,20 @@ func newFrontendSourceTestDocument(t *testing.T) Document {
 	return Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		AppDefinition: mustMarshalStoredAppDefinition(t, AppDefinition{
-			AppSpecVersion: "v1",
-			CatalogID:      "setta.app.default",
-			AppSpecPath:    "plugins/setta-json-render-app-gen/app_specs/app.json",
-			Routes: []AppRoute{
-				{Path: "/", Name: "Home", RootKey: "root"},
-			},
-			DataBindings: mustRawJSON(t, `{"title":"hello"}`),
-			Actions:      mustRawJSON(t, `{"submit":{"type":"run"}}`),
-			Theme:        mustRawJSON(t, `{"colors":{"bg":"white"}}`),
-			Assets:       mustRawJSON(t, `[{"type":"image","path":"hero.png"}]`),
-		}),
+		PluginData: map[string]RawJSON{
+			appSubsystemPluginDataKey: mustMarshalStoredAppDefinition(t, AppDefinition{
+				AppSpecVersion: "v1",
+				CatalogID:      "setta.app.default",
+				AppSpecPath:    "plugins/setta-json-render-app-gen/app_specs/app.json",
+				Routes: []AppRoute{
+					{Path: "/", Name: "Home", RootKey: "root"},
+				},
+				DataBindings: mustRawJSON(t, `{"title":"hello"}`),
+				Actions:      mustRawJSON(t, `{"submit":{"type":"run"}}`),
+				Theme:        mustRawJSON(t, `{"colors":{"bg":"white"}}`),
+				Assets:       mustRawJSON(t, `[{"type":"image","path":"hero.png"}]`),
+			}),
+		},
 		Projects: map[string]Project{
 			"project-alpha": {
 				ID:                      "project-alpha",

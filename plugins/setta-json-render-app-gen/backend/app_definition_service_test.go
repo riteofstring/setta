@@ -82,8 +82,7 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 		t.Fatalf("write app spec: %v", err)
 	}
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		next := document.Clone()
-		next.AppDefinition = mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+		next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 			AppSpecVersion: " v2 ",
 			CatalogID:      " " + appspec.DefaultCatalogID + " ",
 			AppSpecPath:    " " + customPath + " ",
@@ -94,7 +93,7 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 			Actions:      projectstate.RawJSON(` {"submit":{"type":"run"}} `),
 			Theme:        projectstate.RawJSON(` {"mode":"dark"} `),
 			Assets:       projectstate.RawJSON(` [{"type":"image","path":"hero.png"}] `),
-		})
+		}))
 		return next, nil
 	}); err != nil {
 		t.Fatalf("mutate persisted app definition payload: %v", err)
@@ -134,9 +133,10 @@ func TestAppDefinitionServiceRejectsInvalidPersistedMetadata(t *testing.T) {
 	service := appDefinitionServiceForTest(runtime)
 
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		next := document.Clone()
-		next.AppDefinition = projectstate.RawJSON(`{"appSpecVersion":"v1","catalogId":"setta.app.default","dataBindings":["not","an","object"]}`)
-		return next, nil
+		return withStoredDocumentAppDefinition(
+			document,
+			projectstate.RawJSON(`{"appSpecVersion":"v1","catalogId":"setta.app.default","dataBindings":["not","an","object"]}`),
+		), nil
 	}); err != nil {
 		t.Fatalf("mutate invalid persisted app definition payload: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	if result.AppDefinition.Routes[0].Path != "/" || result.AppDefinition.Routes[0].Name != "Home" || result.AppDefinition.Routes[0].RootKey != "root" {
 		t.Fatalf("expected normalized route metadata, got %#v", result.AppDefinition.Routes[0])
 	}
-	snapshotDefinition := mustDecodeStoredAppDefinition(t, snapshot.Document.AppDefinition)
+	snapshotDefinition := storedDocumentAppDefinition(t, snapshot.Document)
 	if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != customPath {
 		t.Fatalf("expected snapshot app definition with normalized path, got %#v", snapshotDefinition)
 	}
@@ -379,7 +379,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 		if propsObject["direction"] != "column" {
 			t.Fatalf("expected preserved direction column, got %#v", propsObject["direction"])
 		}
-		snapshotDefinition := mustDecodeStoredAppDefinition(t, snapshot.Document.AppDefinition)
+		snapshotDefinition := storedDocumentAppDefinition(t, snapshot.Document)
 		if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != appspec.DefaultPath() {
 			t.Fatalf("expected snapshot app definition with default path, got %#v", snapshotDefinition)
 		}
@@ -445,12 +445,11 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 		_, runtime := openPersistedPluginAppDefinitionRuntime(t)
 		service := appDefinitionServiceForTest(runtime)
 		_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-			next := document.Clone()
-			next.AppDefinition = mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+			next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 				AppSpecPath:    appspec.DefaultPath(),
 				AppSpecVersion: "v1",
 				CatalogID:      appspec.DefaultCatalogID,
-			})
+			}))
 			return next, nil
 		})
 		if err != nil {
@@ -496,7 +495,7 @@ func TestAppDefinitionServiceStreamHandlesBaseSpecAndInvalidPatch(t *testing.T) 
 			t.Fatalf("stream app definition: %v", err)
 		}
 
-		snapshotDefinition := mustDecodeStoredAppDefinition(t, snapshot.Document.AppDefinition)
+		snapshotDefinition := storedDocumentAppDefinition(t, snapshot.Document)
 		if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != appSpecPath {
 			t.Fatalf("expected persisted app definition path %q, got %#v", appSpecPath, snapshotDefinition)
 		}

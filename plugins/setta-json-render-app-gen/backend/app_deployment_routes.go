@@ -108,12 +108,13 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, snapshot.Document.AppDefinition)
+		storedAppDefinition := appdefinition.StoredDocumentAppDefinitionRaw(snapshot.Document)
+		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, storedAppDefinition)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		appDefinitionPayload, err := appdefinition.DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+		appDefinitionPayload, err := appdefinition.DecodeStoredAppDefinition(storedAppDefinition)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -162,12 +163,13 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, snapshot.Document.AppDefinition)
+		storedAppDefinition := appdefinition.StoredDocumentAppDefinitionRaw(snapshot.Document)
+		appSpec, err := LoadPublishedAppSpecFromRuntime(runtime, storedAppDefinition)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		appDefinitionPayload, err := appdefinition.DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+		appDefinitionPayload, err := appdefinition.DecodeStoredAppDefinition(storedAppDefinition)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
