@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
@@ -14,8 +15,9 @@ type AppSubsystemCapabilityProvider interface {
 }
 
 type FrontendRouteRegistrationOptions struct {
-	Capabilities AppSubsystemCapabilityProvider
-	API          httpapi.FrontendAPIRouteDependencies
+	Capabilities              AppSubsystemCapabilityProvider
+	API                       httpapi.FrontendAPIRouteDependencies
+	AppDeploymentIDEPublisher deployments.AppPublishService
 }
 
 func BuildFrontendAPIRouteRegistrations(
@@ -28,7 +30,7 @@ func BuildFrontendAPIRouteRegistrations(
 			appSubsystemProjectRoutesAvailable,
 		),
 		Deployment: wrapFrontendRouteContributions(
-			buildDeploymentFrontendRouteContributions(options.API),
+			buildDeploymentFrontendRouteContributions(options),
 			options.Capabilities,
 			appSubsystemDeploymentRoutesAvailable,
 		),
@@ -61,19 +63,25 @@ func buildProjectFrontendRouteContributions(
 }
 
 func buildDeploymentFrontendRouteContributions(
-	deps httpapi.FrontendAPIRouteDependencies,
+	options FrontendRouteRegistrationOptions,
 ) []httpapi.FrontendAPIRouteContribution {
+	appDeploymentIDE := httpapi.AppDeploymentIDERouteDependencies{
+		ModePolicy:   options.API.ShareDeploymentIDE.ModePolicy,
+		ProjectState: options.API.ShareDeploymentIDE.ProjectState,
+		Catalog:      options.API.ShareDeploymentIDE.Catalog,
+		AppPublisher: options.AppDeploymentIDEPublisher,
+	}
 	return []httpapi.FrontendAPIRouteContribution{
 		{
 			Family: "app deployment",
 			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppDeploymentRoutes(router, deps.AppDeployment)
+				return httpapi.RegisterAppDeploymentRoutes(router, options.API.AppDeployment)
 			},
 		},
 		{
 			Family: "app deployment ide",
 			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppDeploymentIDERoutes(router, deps.DeploymentIDE)
+				return httpapi.RegisterAppDeploymentIDERoutes(router, appDeploymentIDE)
 			},
 		},
 	}

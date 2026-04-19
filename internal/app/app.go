@@ -1721,8 +1721,8 @@ type appHandlerDeps struct {
 	worktreeName             string
 	statusReadyAt            time.Time
 	deploymentCatalog        *deployments.Catalog
-	sharePublisher           *deployments.SharePublisher
-	appPublisher             *deployments.AppPublisher
+	sharePublisher           deployments.SharePublishService
+	appPublisher             deployments.AppPublishService
 	launcherHome             *launcher.HomeService
 	launcherManagement       *launcher.ManagementService
 	launcherOpenWorkspace    *launcher.OpenWorkspaceService
@@ -1862,12 +1862,11 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		Deployment:          deps.deploymentRuntime,
 		ListenerBroadcaster: deps.listenerBroadcaster,
 	}
-	apiDeps.DeploymentIDE = httpapi.DeploymentIDERouteDependencies{
+	apiDeps.ShareDeploymentIDE = httpapi.ShareDeploymentIDERouteDependencies{
 		ModePolicy:     deps.modePolicy,
 		ProjectState:   deps.projectRuntime,
 		Catalog:        deps.deploymentCatalog,
 		SharePublisher: deps.sharePublisher,
-		AppPublisher:   deps.appPublisher,
 	}
 	if deps.modePolicy.IsShare() {
 		apiDeps.ShareDeployment = httpapi.DeploymentRouteDependencies{
@@ -2071,8 +2070,9 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		apiDeps,
 		appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
 			appsubsystemplugin.FrontendRouteRegistrationOptions{
-				Capabilities: deps.appSubsystemCapabilities,
-				API:          apiDeps,
+				Capabilities:              deps.appSubsystemCapabilities,
+				API:                       apiDeps,
+				AppDeploymentIDEPublisher: deps.appPublisher,
 			},
 		),
 	)
@@ -2142,8 +2142,8 @@ type appRuntimeServices struct {
 
 type appPlatformServices struct {
 	deploymentCatalog        *deployments.Catalog
-	sharePublisher           *deployments.SharePublisher
-	appPublisher             *deployments.AppPublisher
+	sharePublisher           deployments.SharePublishService
+	appPublisher             deployments.AppPublishService
 	pluginRuntime            *pluginBackendRuntimeRefresher
 	pluginRouteService       httpapi.PluginRouteService
 	appSubsystemCapabilities *appSubsystemCapabilityState
@@ -2474,7 +2474,7 @@ func initializeAppDeploymentPublishers(
 	if err != nil {
 		return err
 	}
-	services.appPublisher, err = deployments.NewAppPublisher(deployments.AppPublisherOptions{
+	services.appPublisher, err = appsubsystemplugin.NewAppPublishService(deployments.AppPublisherOptions{
 		Catalog:        services.deploymentCatalog,
 		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
