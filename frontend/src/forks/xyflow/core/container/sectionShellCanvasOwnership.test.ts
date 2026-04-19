@@ -62,13 +62,16 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable, dict, and global variables settings canary sections", () => {
+  it("targets the callable, dict, global variables, and browser settings canary sections", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(
@@ -1057,7 +1060,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
   });
 
-  it("targets the shared resting-text settings boundary for lightweight nested children without widening the shell canaries", () => {
+  it("keeps lightweight nested children on the shared resting-text lane without widening the shell-owned browser canary", () => {
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1072,7 +1075,7 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionLightweightNestedChildren(
         BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,

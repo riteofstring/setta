@@ -10,7 +10,7 @@ const TARGET_PARAM_INFO_ID =
 const TARGET_INPUT_ID = `${TARGET_SECTION_ID}-${TARGET_PARAM_INFO_ID}-ParamInput`;
 const TARGET_EDITOR_ID = `CodeMirror-${TARGET_SECTION_ID}-${TARGET_PARAM_INFO_ID}`;
 
-test("canvas shell path owns browser-section resting text", async ({
+test("canvas shell path owns the browser section shell frame and resting text", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -58,6 +58,7 @@ test("canvas shell path owns browser-section resting text", async ({
       const section = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"]`,
       );
+      const shell = document.getElementById(`${sectionId}-CustomResizable`);
       const input = document.getElementById(inputId);
       const canvas = document.querySelector<HTMLCanvasElement>(
         ".react-flow__section-shell-backdrop canvas",
@@ -67,6 +68,9 @@ test("canvas shell path owns browser-section resting text", async ({
 
       if (!(section instanceof HTMLElement)) {
         throw new Error(`Missing section ${sectionId}`);
+      }
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error(`Missing shell ${sectionId}`);
       }
       if (!(input instanceof HTMLElement)) {
         throw new Error(`Missing input ${inputId}`);
@@ -86,6 +90,8 @@ test("canvas shell path owns browser-section resting text", async ({
         throw new Error("Missing retained shell canvas context");
       }
 
+      const sectionStyle = window.getComputedStyle(section);
+      const shellStyle = window.getComputedStyle(shell);
       const inputStyle = window.getComputedStyle(input);
       const nodeTransform = window.getComputedStyle(node).transform;
       const viewportTransform = window.getComputedStyle(viewport).transform;
@@ -193,23 +199,28 @@ test("canvas shell path owns browser-section resting text", async ({
       const inputOffsetY = (inputRect.top - nodeRect.top) / viewportScale;
       const inputWidth = inputRect.width / viewportScale;
       const inputHeight = inputRect.height / viewportScale;
-      const bodySampleX =
-        (nodeX - canvasLeft + 24 / viewportScale) * canvasScaleX;
-      const bodySampleY =
+      const headerSampleX =
+        (nodeX - canvasLeft + Math.max(24 / viewportScale, inputOffsetX * 0.5)) *
+        canvasScaleX;
+      const headerSampleY =
         (nodeY -
           canvasTop +
-          ((sectionHeader?.offsetHeight ?? 0) + 32) / viewportScale) *
+          Math.max(8 / viewportScale, (sectionHeader?.offsetHeight ?? 0) * 0.5)) *
         canvasScaleY;
-      const bodyPixel = sampleCanvasPixel(bodySampleX, bodySampleY);
+      const headerPixel = sampleCanvasPixel(headerSampleX, headerSampleY);
 
       return {
-        bodyPixel,
+        dataCanvasOwnedShell: section.dataset.canvasOwnedShell ?? null,
+        headerPixel,
+        resizableCanvasOwnedShell: shell.dataset.canvasOwnedShell ?? null,
+        shellBackgroundColor: shellStyle.backgroundColor,
+        sectionBackgroundColor: sectionStyle.backgroundColor,
         inputDistinctPixelCount: countPixelsDifferentFromReferenceInCanvasRect(
           (nodeX - canvasLeft + inputOffsetX) * canvasScaleX,
           (nodeY - canvasTop + inputOffsetY) * canvasScaleY,
           inputWidth * canvasScaleX,
           inputHeight * canvasScaleY,
-          bodyPixel,
+          "0,0,0,0",
         ),
         inputHighlightSpanCount: input.querySelectorAll(".cm-line span").length,
         inputOpacity: inputStyle.opacity,
@@ -223,13 +234,53 @@ test("canvas shell path owns browser-section resting text", async ({
     },
   );
 
+  expect(restingTextState.dataCanvasOwnedShell).toBe("true");
   expect(restingTextState.inputOpacity).toBe("0");
   expect(restingTextState.lightweightOwnershipFlag).toBe("true");
   expect(restingTextState.inputHighlightSpanCount).toBe(0);
   expect(restingTextState.inputDistinctPixelCount).toBeGreaterThan(0);
+  expect(restingTextState.resizableCanvasOwnedShell).toBe("true");
+  expect(restingTextState.sectionBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(restingTextState.shellBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(restingTextState.headerPixel).not.toBe("0,0,0,0");
 
-  await page.locator(`#${TARGET_INPUT_ID}`).focus();
-  await expect(page.locator(`#${TARGET_EDITOR_ID}`)).toBeVisible();
+  await page.evaluate(({ targetInputId }) => {
+    const targetInput = document.getElementById(targetInputId);
+    if (!(targetInput instanceof HTMLElement)) {
+      throw new Error(`Missing target input ${targetInputId}`);
+    }
+
+    targetInput.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        button: 0,
+        cancelable: true,
+      }),
+    );
+  }, {
+    targetInputId: TARGET_INPUT_ID,
+  });
+
+  await page.waitForFunction(
+    ({ editorId, sectionId, targetInputId }) => {
+      const editor = document.getElementById(editorId);
+      const section = document.querySelector<HTMLElement>(
+        `section[data-section-id="${sectionId}"]`,
+      );
+      return (
+        editor instanceof HTMLElement &&
+        editor.querySelector(".cm-editor") instanceof HTMLElement &&
+        !(document.getElementById(targetInputId) instanceof HTMLElement) &&
+        section?.querySelectorAll(".cm-editor").length === 1
+      );
+    },
+    {
+      editorId: TARGET_EDITOR_ID,
+      sectionId: TARGET_SECTION_ID,
+      targetInputId: TARGET_INPUT_ID,
+    },
+    { timeout: 15000 },
+  );
 });
 
 async function clickFitViewIfVisible(page: Page): Promise<void> {

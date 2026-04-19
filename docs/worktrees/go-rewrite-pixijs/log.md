@@ -154,6 +154,56 @@ Record:
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
+## 2026-04-20 - browser shell ownership canary
+
+- Summary:
+  - Promoted `settings-section__browserSectionDefault` from resting-text-only to full canvas-owned shell ownership on the retained `canvas-shell-underlay` path.
+  - Kept the browser section on the same retained-text alias so the existing lightweight dummy -> live CodeMirror handoff still activates with one real `mousedown` on the browser canary.
+- Files:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+  - `perf/reports/frontend/2026-04-20_settings-all-settings-browser-shell-ownership-rerun.md`
+- Canonical target section:
+  - `settings-section__browserSectionDefault`
+- Live canary result on the worktree runtime:
+  - browser shell ownership proof:
+    - section root: `data-canvas-owned-shell="true"`
+    - inner resizable shell: `data-canvas-owned-shell="true"`
+    - both shell backgrounds: `rgba(0, 0, 0, 0)`
+    - retained canvas header/title pixel: non-transparent
+    - lightweight resting text dummy: `opacity: 0`, `data-canvas-owned-resting-text-lightweight="true"`, no highlight spans
+    - one synthetic left-button `mousedown` on the dummy input replaced it with one live `.cm-editor`
+  - dense companion rerun:
+    - `documentNodeCount: 5490`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 46`
+    - `raf.meanMs: 43`
+    - `raf.p95Ms: 49.9`
+    - `longTasks.totalMs: 6052`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a real graph-surface ownership step on the canonical dense canary, not another viewport-persistence micro-pass or pure forwarding-layer churn
+  - the dense runtime stayed in the same improved band, so keep treating `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md` as the clean whole-scene checkpoint
+  - close the single-section browser shell canary here; the next default frontier must either widen the same ownership move to another dense-lane sibling with real payoff or go back to a broader trace-backed renderer-main reduction / stronger graph-surface step
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - result: `1 passed (27 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-016/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (50.6s)`
+  - CDP visual check:
+    - first fresh headless DevTools pass failed to center the browser section well enough to make a trustworthy judgment; treated as setup noise only
+    - second fresh headless DevTools pass recentered the browser section and confirmed the shell frame looked present/intact with no obvious blank or detached shell/body artifact
+    - visible workspace noise was limited to the settings list and bottom tab bar around the graph surface
+- Next action:
+  - choose exactly one next real frontier: either widen this shell-ownership move to one more dense-lane sibling with the same retained-canvas contract, or return to a broader trace-backed renderer-main JS / GC reducer / stronger graph-surface step
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-20 084
 
 - Item: Test and close the mounted-hidden motion-body variant on the canonical `browserSectionDefault` dense-motion lane.
