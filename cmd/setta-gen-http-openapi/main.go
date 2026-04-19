@@ -12,8 +12,22 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
+
+type openAPIDocumentAppSubsystemCapabilities struct{}
+
+func (openAPIDocumentAppSubsystemCapabilities) AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities {
+	return plugins.PluginAppSubsystemCapabilities{
+		PluginID:               appsubsystemplugin.ProviderPluginID,
+		PluginEnabled:          true,
+		AppAuthoringUI:         true,
+		AppPreviewUI:           true,
+		AppGenerationChatModes: true,
+		AppDeploymentRuntime:   true,
+	}
+}
 
 func main() {
 	outputPath := flag.String("out", "", "path to the generated OpenAPI JSON output file")
@@ -25,10 +39,12 @@ func main() {
 		os.Exit(2)
 	}
 
+	var registrationErr error
 	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			return appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
+			registrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
 				appsubsystem.FrontendRouteRegistrationOptions{
+					Capabilities:       openAPIDocumentAppSubsystemCapabilities{},
 					ModePolicy:         deps.Project.ModePolicy,
 					ProjectState:       deps.Project.ProjectState,
 					AppGenSkill:        deps.AppGenSkill,
@@ -38,8 +54,13 @@ func main() {
 					},
 				},
 			)
+			registrationErr = err
+			return registrations
 		},
 	)
+	if registrationErr != nil {
+		err = registrationErr
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-http-openapi: %v\n", err)
 		os.Exit(1)
