@@ -5,11 +5,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAppConfigs, useAppPreview } from "plugins/appSubsystemProjectState";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
-  useAppDefinition,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -19,6 +17,11 @@ import {
   createProjectConfig,
   createSingleConfig,
 } from "utils/generatedTypes";
+import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import {
+  useAppConfigs,
+  useAppPreview,
+} from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import { AppPreview } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/Project/AppPreview";
 

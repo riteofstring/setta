@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
-import { buildAppGenerationSlashCommandDefinitions } from "plugins/appSubsystemChatUi";
 import {
   createAgentRun,
   createAllConfigs,
   createEngineConfig,
   createLLMConfig,
 } from "utils/generatedTypes";
+import { buildAppGenerationSlashCommandDefinitions } from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
 import {
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,

@@ -42,40 +42,46 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appDeploymentRuntime: true,
 } as const;
 
-vi.mock("plugins/appSubsystemHostAdapter", () => ({
-  default: {
-    overviewTab: {
-      component: () => null,
-      titleQuickInfo: "Authoring quick info",
-      moreMenuQuickInfo: "More menu quick info",
-      moreMenuLabel: "JSON Render",
-    },
-    previewSurface: {
-      component: () => null,
-    },
-    appModeRoute: {
-      component: () => null,
-    },
-    slashCommands: [
-      {
-        command: "/app-image",
-        action: "app_json_render_with_image",
-        summary: "Generate an app spec using attached image guidance.",
-        promptTemplate: "Generate an app spec using an image.",
-        appGenerationMode: "json_render_with_image",
-        requiresImageAttachment: true,
+vi.mock(
+  "../../../../../../plugins/setta-json-render-app-gen/frontend/src/index",
+  () => ({
+    default: {
+      overviewTab: {
+        component: () => null,
+        titleQuickInfo: "Authoring quick info",
+        moreMenuQuickInfo: "More menu quick info",
+        moreMenuLabel: "JSON Render",
       },
-    ],
-    imageRequiredModes: ["json_render_with_image"],
-    customSlashCommandModes: {
-      options: [
-        { id: "plain_chat", name: "Plain chat" },
-        { id: "json_render_with_image", name: "Image to JSON Render" },
+      previewSurface: {
+        component: () => null,
+      },
+      appModeRoute: {
+        component: () => null,
+      },
+      appDeploymentModal: {
+        component: () => null,
+      },
+      slashCommands: [
+        {
+          command: "/app-image",
+          action: "app_json_render_with_image",
+          summary: "Generate an app spec using attached image guidance.",
+          promptTemplate: "Generate an app spec using an image.",
+          appGenerationMode: "json_render_with_image",
+          requiresImageAttachment: true,
+        },
       ],
-      defaultMode: "plain_chat",
+      imageRequiredModes: ["json_render_with_image"],
+      customSlashCommandModes: {
+        options: [
+          { id: "plain_chat", name: "Plain chat" },
+          { id: "json_render_with_image", name: "Image to JSON Render" },
+        ],
+        defaultMode: "plain_chat",
+      },
     },
-  },
-}));
+  }),
+);
 
 beforeEach(async () => {
   resetAppSubsystemFrontendRuntimeState();

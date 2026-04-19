@@ -17,11 +17,8 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  NULL_PROJECT_CONFIG_ID,
-  useAppDefinition,
-  useProjectState,
-} from "state/definitions";
+import { useAppDefinition } from "../../../appSubsystemDefinitionState";
+import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { createDefaultAppPolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
