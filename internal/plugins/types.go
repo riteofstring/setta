@@ -139,25 +139,38 @@ type PluginContentManifest struct {
 	PromptsDir          string `json:"promptsDir,omitempty"`
 }
 
+type PluginAppSubsystemFeatureManifest struct {
+	AppAuthoringUI         bool `json:"appAuthoringUi"`
+	AppPreviewUI           bool `json:"appPreviewUi"`
+	AppGenerationChatModes bool `json:"appGenerationChatModes"`
+	AppDeploymentRuntime   bool `json:"appDeploymentRuntime"`
+}
+
+type PluginFeatureCapabilitiesManifest struct {
+	AppSubsystem *PluginAppSubsystemFeatureManifest `json:"appSubsystem,omitempty"`
+}
+
 type PluginManifest struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	ID                string                  `json:"id"`
-	Name              string                  `json:"name"`
-	Version           string                  `json:"version"`
-	SettaVersionRange string                  `json:"settaVersionRange"`
-	EnabledByDefault  bool                    `json:"enabledByDefault"`
-	Backend           *PluginBackendManifest  `json:"backend,omitempty"`
-	Frontend          *PluginFrontendManifest `json:"frontend,omitempty"`
-	Content           *PluginContentManifest  `json:"content,omitempty"`
-	ConfigSchemaPath  string                  `json:"configSchemaPath,omitempty"`
-	Capabilities      []string                `json:"capabilities"`
+	SchemaVersion       int                                `json:"schemaVersion"`
+	ID                  string                             `json:"id"`
+	Name                string                             `json:"name"`
+	Version             string                             `json:"version"`
+	SettaVersionRange   string                             `json:"settaVersionRange"`
+	EnabledByDefault    bool                               `json:"enabledByDefault"`
+	Backend             *PluginBackendManifest             `json:"backend,omitempty"`
+	Frontend            *PluginFrontendManifest            `json:"frontend,omitempty"`
+	Content             *PluginContentManifest             `json:"content,omitempty"`
+	ConfigSchemaPath    string                             `json:"configSchemaPath,omitempty"`
+	FeatureCapabilities *PluginFeatureCapabilitiesManifest `json:"featureCapabilities,omitempty"`
+	Capabilities        []string                           `json:"capabilities"`
 }
 
 type PluginsStateFile struct {
-	EnabledPluginIDs               []string       `json:"enabledPluginIds"`
-	DisabledPluginIDs              []string       `json:"disabledPluginIds"`
-	PendingRestartBackendPluginIDs []string       `json:"pendingRestartBackendPluginIds"`
-	PluginConfigByID               map[string]any `json:"pluginConfigById"`
+	EnabledPluginIDs                          []string       `json:"enabledPluginIds"`
+	DisabledPluginIDs                         []string       `json:"disabledPluginIds"`
+	PendingRestartBackendPluginIDs            []string       `json:"pendingRestartBackendPluginIds"`
+	PendingRestartLanguageServerOnlyPluginIDs []string       `json:"pendingRestartLanguageServerOnlyPluginIds"`
+	PluginConfigByID                          map[string]any `json:"pluginConfigById"`
 }
 
 type PluginsGlobalStateFile struct {

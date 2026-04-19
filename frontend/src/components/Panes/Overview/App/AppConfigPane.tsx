@@ -8,12 +8,12 @@ import {
   validateAppDefinition,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { useAppPreview } from "plugins/appSubsystemProjectState";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAllProjectMetadata,
   useAppDefinition,
-  useAppPreview,
   useProjectState,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
@@ -701,6 +701,7 @@ function AppConfigAdvancedContent({
     </div>
   );
 }
+/** @lintignore Consumed by the app subsystem plugin frontend. */
 export function AppConfigPane() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appSpec = useAppDefinition((state) => state.appSpec);

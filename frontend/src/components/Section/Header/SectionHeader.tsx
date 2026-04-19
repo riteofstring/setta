@@ -1,7 +1,5 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionMotionHiddenBody } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import React, { useLayoutEffect, useRef } from "react";
 import { RiFocus2Line } from "react-icons/ri";
@@ -53,7 +51,6 @@ type SectionHeaderProps = {
   extraControls?: React.ReactNode;
   showSectionContainerControls?: boolean;
   trackMeasuredHeight?: boolean;
-  motionHiddenInteractionActive?: boolean;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
@@ -81,8 +78,6 @@ type SectionHeaderLeadingProps = Pick<
   | "sectionTypeName"
   | "hasSectionStyleTheme"
 > & {
-  canvasOwnedHeaderTitle: boolean;
-  motionHiddenInteractionActive: boolean;
   tagColor: string | null;
 };
 
@@ -96,7 +91,6 @@ type SectionHeaderTrailingProps = Pick<
   | "showSectionContainerControls"
   | "extraControls"
 > & {
-  motionHiddenInteractionActive: boolean;
   projectConfigId: string;
 };
 
@@ -126,7 +120,6 @@ function _SectionHeader({
   extraControls = null,
   showSectionContainerControls = true,
   trackMeasuredHeight = true,
-  motionHiddenInteractionActive = false,
   headerProps,
 }: SectionHeaderProps) {
   const headerRef = useRef<HTMLElement | null>(null);
@@ -139,10 +132,6 @@ function _SectionHeader({
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const tagColor = useSectionHeaderTagColor(sectionId);
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const canvasOwnedHeaderTitle =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionMotionHiddenBody(sectionId);
 
   return (
     <SectionHeaderFrame
@@ -155,8 +144,6 @@ function _SectionHeader({
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        canvasOwnedHeaderTitle={canvasOwnedHeaderTitle}
-        motionHiddenInteractionActive={motionHiddenInteractionActive}
         tagColor={tagColor}
       />
       <SectionHeaderTrailing
@@ -168,7 +155,6 @@ function _SectionHeader({
         hasSectionStyleTheme={hasSectionStyleTheme}
         extraControls={extraControls}
         showSectionContainerControls={showSectionContainerControls}
-        motionHiddenInteractionActive={motionHiddenInteractionActive}
       />
     </SectionHeaderFrame>
   );
@@ -229,13 +215,11 @@ function getSectionHeaderStyle({
 }
 
 function SectionHeaderLeading({
-  canvasOwnedHeaderTitle,
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
   tagColor,
-  motionHiddenInteractionActive,
 }: SectionHeaderLeadingProps) {
   return (
     <>
@@ -244,11 +228,9 @@ function SectionHeaderLeading({
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        motionHiddenInteractionActive={motionHiddenInteractionActive}
       />
       <SectionTagColorIndicator tagColor={tagColor} />
       <MaybeCardTitle
-        canvasOwnedRestingText={canvasOwnedHeaderTitle}
         sectionId={sectionId}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
@@ -281,18 +263,9 @@ function SectionHeaderTrailing({
   hasSectionStyleTheme,
   extraControls,
   showSectionContainerControls,
-  motionHiddenInteractionActive,
 }: SectionHeaderTrailingProps) {
-  const motionHiddenHeaderControls = motionHiddenInteractionActive;
-
   return (
-    <div
-      className={`z-10 ml-auto flex items-center ${motionHiddenHeaderControls ? "pointer-events-none invisible" : ""}`}
-      data-canvas-owned-motion-header-controls-hidden={
-        motionHiddenHeaderControls ? "true" : undefined
-      }
-      data-canvas-owned-motion-header-controls-root="true"
-    >
+    <div className="z-10 ml-auto flex items-center">
       <SectionHeaderDiagnostics
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
@@ -882,22 +855,14 @@ function getSeverityMeta(severity: number | null | undefined) {
 }
 
 function MaybeCardTitle({
-  canvasOwnedRestingText = false,
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
-}: {
-  canvasOwnedRestingText?: boolean;
-  sectionId: string;
-  isInOtherProjectConfigs: boolean;
-  sectionTypeName: SectionType;
-  hasSectionStyleTheme: boolean;
 }) {
   const isActiveSection = useIsSectionUIActive(sectionId);
   return sectionTypeName === SectionTypeEnum.TextBlock ? (
     <TextBlockCardTitle
-      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       isActiveSection={isActiveSection}
       isInOtherProjectConfigs={isInOtherProjectConfigs}
@@ -906,7 +871,6 @@ function MaybeCardTitle({
     />
   ) : (
     <SectionTitle
-      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       titleProps={getTitleStyles({
         isActiveSection,
@@ -919,19 +883,11 @@ function MaybeCardTitle({
 }
 
 function TextBlockCardTitle({
-  canvasOwnedRestingText = false,
   sectionId,
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
-}: {
-  canvasOwnedRestingText?: boolean;
-  sectionId: string;
-  isActiveSection: boolean;
-  isInOtherProjectConfigs: boolean;
-  sectionTypeName: SectionType;
-  hasSectionStyleTheme: boolean;
 }) {
   const { headingAsSectionName, format } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -987,7 +943,6 @@ function TextBlockCardTitle({
   return (
     !useHeadingAsSectionName && (
       <SectionTitle
-        canvasOwnedRestingText={canvasOwnedRestingText}
         sectionId={sectionId}
         titleProps={getTitleStyles({
           isActiveSection,

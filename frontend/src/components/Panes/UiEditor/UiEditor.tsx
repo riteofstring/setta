@@ -16,11 +16,11 @@ import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
-  UIEditorTabName,
   UIEditorTabNameEnum,
   UIEditorTabNamePrettified,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
+import { type UIEditorTabName } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
   getOnUIEditorTabClick,
