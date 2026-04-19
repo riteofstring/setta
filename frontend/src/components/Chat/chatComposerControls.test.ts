@@ -1,5 +1,5 @@
+import { buildAppGenerationSlashCommandDefinitions } from "plugins/appSubsystemChatUi";
 import { describe, expect, it, vi } from "vitest";
-import { buildAppGenerationSlashCommandDefinitions } from "./appGenerationSlashCommands";
 import {
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,

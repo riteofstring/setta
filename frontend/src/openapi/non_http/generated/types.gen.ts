@@ -287,6 +287,34 @@ export type AppRoute = {
 };
 
 /**
+ * AppSubsystemChatSlashCommandValue
+ */
+type AppSubsystemChatSlashCommandValue = {
+  action: string;
+  appGenerationMode: string;
+  command: string;
+  promptTemplate: string;
+  summary: string;
+};
+
+/**
+ * AppSubsystemChatUIConfigValue
+ */
+export type AppSubsystemChatUIConfigValue = {
+  customSlashCommandModeOptions: null | Array<AppSubsystemCustomSlashCommandModeOptionValue>;
+  defaultCustomSlashCommandMode: string;
+  slashCommands: null | Array<AppSubsystemChatSlashCommandValue>;
+};
+
+/**
+ * AppSubsystemCustomSlashCommandModeOptionValue
+ */
+type AppSubsystemCustomSlashCommandModeOptionValue = {
+  label: string;
+  value: string;
+};
+
+/**
  * AppendMessagesRequest
  */
 type AppendMessagesRequest = {
@@ -4327,14 +4355,6 @@ type ProjectChatAgenticEdgeContextModeOption = {
 };
 
 /**
- * ProjectChatAppGenerationModeOption
- */
-type ProjectChatAppGenerationModeOption = {
-  label: string;
-  value: string;
-};
-
-/**
  * ProjectChatDictationModeOption
  */
 type ProjectChatDictationModeOption = {
@@ -4355,8 +4375,6 @@ type ProjectChatPermissionModeOption = {
  */
 export type ProjectChatUIConfigValue = {
   agenticEdgeContextModeOptions: null | Array<ProjectChatAgenticEdgeContextModeOption>;
-  customSlashCommandModeOptions: null | Array<ProjectChatAppGenerationModeOption>;
-  defaultCustomSlashCommandMode: string;
   permissionModeOptions: null | Array<ProjectChatPermissionModeOption>;
   projectDictationModeOptions: null | Array<ProjectChatDictationModeOption>;
   sectionChatWindowModeOptions: null | Array<ProjectChatWindowModeOption>;

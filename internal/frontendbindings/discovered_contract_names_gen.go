@@ -30,6 +30,7 @@ import (
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 	uisettings "setta/internal/uisettings"
 	wsapi "setta/internal/wsapi"
+	backend "setta/plugins/setta-json-render-app-gen/backend"
 	appspec "setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -62,6 +63,9 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.AppDefinitionValidationResult{}):                        "AppDefinitionValidationResult",
 	reflect.TypeOf(agentruns.AppGenerationMode("")):                                     "AppGenerationMode",
 	reflect.TypeOf(projectstate.AppRoute{}):                                             "AppRoute",
+	reflect.TypeOf(backend.AppSubsystemChatSlashCommandValue{}):                         "AppSubsystemChatSlashCommandValue",
+	reflect.TypeOf(backend.AppSubsystemChatUIConfigValue{}):                             "AppSubsystemChatUIConfigValue",
+	reflect.TypeOf(backend.AppSubsystemCustomSlashCommandModeOptionValue{}):             "AppSubsystemCustomSlashCommandModeOptionValue",
 	reflect.TypeOf(scriptablechat.AppendMessagesRequest{}):                              "AppendMessagesRequest",
 	reflect.TypeOf(artifacts.ArtifactSaveResult{}):                                      "ArtifactSaveResult",
 	reflect.TypeOf(artifacts.ArtifactType("")):                                          "ArtifactType",
@@ -421,7 +425,6 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.Position{}):                                             "Position",
 	reflect.TypeOf(tools.PreviewKind("")):                                               "PreviewKind",
 	reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}):               "ProjectChatAgenticEdgeContextModeOption",
-	reflect.TypeOf(projectview.ProjectChatAppGenerationModeOption{}):                    "ProjectChatAppGenerationModeOption",
 	reflect.TypeOf(projectview.ProjectChatDictationModeOption{}):                        "ProjectChatDictationModeOption",
 	reflect.TypeOf(projectview.ProjectChatPermissionModeOption{}):                       "ProjectChatPermissionModeOption",
 	reflect.TypeOf(projectview.ProjectChatUIConfigValue{}):                              "ProjectChatUIConfigValue",

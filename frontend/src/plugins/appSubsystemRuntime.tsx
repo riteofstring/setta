@@ -1,4 +1,5 @@
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
+import type appSubsystemFrontendRegistrationExport from "plugins/appSubsystemHostAdapter";
 import { type ComponentType } from "react";
 import { PluginRuntimeResponse } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -22,13 +23,29 @@ type AppSubsystemAppModeRouteRegistration = {
   component: ComponentType;
 };
 
+type AppSubsystemCustomSlashCommandModeOption = {
+  id: string;
+  name: string;
+};
+
+type AppSubsystemCustomSlashCommandModesRegistration = {
+  options: AppSubsystemCustomSlashCommandModeOption[];
+  defaultMode: string;
+};
+
 type AppSubsystemFrontendRegistration = {
   overviewTab?: AppSubsystemOverviewTabRegistration;
   previewSurface?: AppSubsystemPreviewSurfaceRegistration;
   appModeRoute?: AppSubsystemAppModeRouteRegistration;
   slashCommands?: ChatSlashCommandDefinition[];
+  customSlashCommandModes?: AppSubsystemCustomSlashCommandModesRegistration;
   initializeProjectState?: () => void;
   resetProjectState?: () => void;
+};
+
+type AppSubsystemFrontendAdapterModule = {
+  default?: typeof appSubsystemFrontendRegistrationExport;
+  appSubsystemFrontendRegistration?: typeof appSubsystemFrontendRegistrationExport;
 };
 
 type AppSubsystemFrontendStatus =
@@ -54,6 +71,9 @@ const INITIAL_APP_SUBSYSTEM_FRONTEND_STORE: AppSubsystemFrontendStore = {
   registration: null,
 };
 const EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] = [];
+const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE = "plain_chat";
+const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustomSlashCommandModeOption[] =
+  [{ id: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE, name: "Plain chat" }];
 
 let appSubsystemFrontendLoadSequence = 0;
 
@@ -147,6 +167,24 @@ function isSlashCommandRegistration(
   );
 }
 
+function isCustomSlashCommandModeRegistration(
+  value: unknown,
+): value is AppSubsystemCustomSlashCommandModesRegistration {
+  if (!isRecord(value) || typeof value.defaultMode !== "string") {
+    return false;
+  }
+  const options = value.options;
+  if (!Array.isArray(options)) {
+    return false;
+  }
+  return options.every(
+    (entry) =>
+      isRecord(entry) &&
+      typeof entry.id === "string" &&
+      typeof entry.name === "string",
+  );
+}
+
 function hasOptionalRegistration<T>(
   value: Record<string, unknown>,
   key: string,
@@ -192,6 +230,11 @@ function isFrontendRegistration(
       value,
       "slashCommands",
       isSlashCommandRegistration,
+    ) &&
+    hasOptionalRegistration(
+      value,
+      "customSlashCommandModes",
+      isCustomSlashCommandModeRegistration,
     ) &&
     hasOptionalFunction(value, "initializeProjectState") &&
     hasOptionalFunction(value, "resetProjectState")
@@ -283,6 +326,11 @@ function validateFrontendRegistrationCapabilities(
     "App subsystem frontend adapter is missing slash command registrations.",
   );
   requireCapabilityRegistration(
+    capabilities?.appGenerationChatModes,
+    Boolean(registration.customSlashCommandModes),
+    "App subsystem frontend adapter is missing custom slash-command mode registrations.",
+  );
+  requireCapabilityRegistration(
     capabilities?.appDeploymentRuntime,
     Boolean(registration.appModeRoute),
     "App subsystem frontend adapter is missing the app mode route registration.",
@@ -327,10 +375,9 @@ export async function syncAppSubsystemFrontendRegistration(
   });
 
   try {
-    const module = (await import("plugins/appSubsystemHostAdapter")) as {
-      default?: unknown;
-      appSubsystemFrontendRegistration?: unknown;
-    };
+    const module = (await import(
+      "plugins/appSubsystemHostAdapter"
+    )) as AppSubsystemFrontendAdapterModule;
     if (loadSequence !== appSubsystemFrontendLoadSequence) {
       return;
     }
@@ -425,6 +472,36 @@ export function useAppSubsystemSlashCommands(): ChatSlashCommandDefinition[] {
     }
     return (
       state.registration?.slashCommands ?? EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS
+    );
+  });
+}
+
+export function useAppSubsystemCustomSlashCommandModeOptions(): AppSubsystemCustomSlashCommandModeOption[] {
+  return useAppSubsystemFrontendStore((state) => {
+    if (
+      !state.capabilities?.pluginEnabled ||
+      !state.capabilities.appGenerationChatModes
+    ) {
+      return DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS;
+    }
+    return (
+      state.registration?.customSlashCommandModes?.options ??
+      DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS
+    );
+  });
+}
+
+export function useAppSubsystemDefaultCustomSlashCommandMode(): string {
+  return useAppSubsystemFrontendStore((state) => {
+    if (
+      !state.capabilities?.pluginEnabled ||
+      !state.capabilities.appGenerationChatModes
+    ) {
+      return DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE;
+    }
+    return (
+      state.registration?.customSlashCommandModes?.defaultMode ??
+      DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE
     );
   });
 }
