@@ -8,8 +8,10 @@ Use this checklist for every task. Treat CDP visual verification as a hard gate 
 
 ## 2) CDP visual verification (required for visual changes)
 - Use chrome-devtools-mcp (CDP). Do not rely on a regular browser or manual screenshots alone.
-- If CDP access is unavailable, stop and ask the user to enable the extension.
+- If CDP access is unavailable, start it yourself with `./ai.sh`, `./aireset.sh`, or `./scripts/start-browser-mcp.sh --devtools` before declaring it blocked.
 - Verify the specific screen/flow impacted by the change.
+- If you started `./ai.sh` or `./aireset.sh` for temporary verification, stop that session before finishing; `./kill.sh` is the repo-scoped fallback.
+- If you started browser MCP separately with `./scripts/start-browser-mcp.sh --devtools`, stop it with `./scripts/stop-browser-mcp.sh --devtools`.
 
 ## 3) Report verification status in the final response
 - Include one line:

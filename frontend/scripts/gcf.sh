@@ -24,7 +24,7 @@ GOROOT="$("${ROOT_DIR}/scripts/go.sh" env GOROOT)"
 GO_FILES=()
 while IFS= read -r go_file; do
   GO_FILES+=("${ROOT_DIR}/${go_file}")
-done < <(cd "${ROOT_DIR}" && rg --files cmd internal -g '*.go')
+done < <(cd "${ROOT_DIR}" && rg --files cmd internal plugins -g '*.go')
 if (( ${#GO_FILES[@]} > 0 )); then
   progress_log "Formatting ${#GO_FILES[@]} Go files."
   progress_run "Go formatting" "${GOROOT}/bin/gofmt" -w "${GO_FILES[@]}"
