@@ -1,4 +1,6 @@
 import type {
+  BaseDependencyKeyUnion,
+  BaseDependencyValueUnion,
   GetAppDeploymentCurrentSessionResponses,
   GetLatestProjectStateResponse,
   HttpapiServerModeResponse,
@@ -65,10 +67,27 @@ export type AppSubsystemServerModeState = {
 export type AppSubsystemDeploymentSession =
   GetAppDeploymentCurrentSessionResponses[200];
 
+export type AppSubsystemRealtimeDependencyEvent = {
+  dependencyKey: BaseDependencyKeyUnion;
+  payload?: BaseDependencyValueUnion | null;
+  binaryPayload?: ArrayBuffer;
+  timestampMs?: number;
+};
+
 export type AppSubsystemFrontendHost = {
   apiVersion: typeof APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION;
   closeModal: () => void;
   notify: (notification: AppSubsystemNotification) => void;
+  emitRealtimeDependencyEvent: (
+    event: AppSubsystemRealtimeDependencyEvent,
+    projectConfigIdOverride?: string | null,
+  ) => void;
+  emitRealtimeSectionParamLiteral: (
+    sectionId: string,
+    codeObjId: string,
+    payload: string,
+    projectConfigIdOverride?: string | null,
+  ) => void;
   getProjectContext: () => AppSubsystemProjectContext;
   subscribeProjectContext: (
     listener: (context: AppSubsystemProjectContext) => void,
@@ -132,6 +151,8 @@ export function createAppSubsystemFrontendHost(
     apiVersion: APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION,
     closeModal: () => undefined,
     notify: () => undefined,
+    emitRealtimeDependencyEvent: () => undefined,
+    emitRealtimeSectionParamLiteral: () => undefined,
     getProjectContext: () => EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT,
     subscribeProjectContext: () => () => undefined,
     getProjectStateSnapshot: () => EMPTY_APP_SUBSYSTEM_PROJECT_STATE_SNAPSHOT,

@@ -1,5 +1,10 @@
 import {
   createAppSubsystemFrontendHost,
+  createSingleConfig,
+  getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrentEffectiveSectionImpl,
+  getCurrentSectionVariantId,
+  getParamDisplayNameIfPresent,
   isAppSubsystemFrontendRegistration,
   registerAppSubsystemPlugin,
 } from "@setta/app-subsystem-frontend-sdk";
@@ -115,6 +120,21 @@ describe("appSubsystemFrontendSdk", () => {
     ).not.toThrow();
     expect(() => frontendHost.resetProjectRuntimeState()).not.toThrow();
     expect(() => frontendHost.notify({ message: "hello" })).not.toThrow();
+    expect(() =>
+      frontendHost.emitRealtimeDependencyEvent({
+        dependencyKey: {
+          type: "Section",
+          sectionId: "section-1",
+        } as never,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      frontendHost.emitRealtimeSectionParamLiteral(
+        "section-1",
+        "param-1",
+        "value",
+      ),
+    ).not.toThrow();
   });
 
   it("validates the renderer-based app subsystem registration contract", () => {
@@ -157,5 +177,128 @@ describe("appSubsystemFrontendSdk", () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it("exposes plugin-safe project-state helpers through the SDK", () => {
+    const projectState = {
+      ...createSingleConfig({
+        projectConfig: {
+          id: "config-1",
+          sectionVariantMap: {
+            "section-1": "section-variant",
+          },
+          showParamDisplayNames: true,
+        },
+        sections: {
+          "section-1": {
+            id: "section-1",
+            name: "Section Core",
+            displayName: "",
+            defaultVariant: null,
+            sharedModifier: {
+              name: "Shared Section",
+            },
+            unsharedKeys: [],
+            variants: [],
+          },
+        },
+        sectionVariants: {
+          "section-variant": {
+            id: "section-variant",
+            impl: "section-impl",
+            isFrozen: false,
+            modifier: {
+              name: "Published Section",
+            },
+            name: "",
+            nonPresetImpls: [],
+          },
+          "section-preview-variant": {
+            id: "section-preview-variant",
+            impl: "section-impl",
+            isFrozen: false,
+            modifier: {
+              name: "Preview Section",
+            },
+            name: "",
+            nonPresetImpls: [],
+          },
+        },
+        sectionImpls: {
+          "section-impl": {
+            type: "Dict",
+            id: "section-impl",
+            name: "Base Section",
+            codeObjVariantMap: {
+              "param-1": "param-variant",
+            },
+          },
+        },
+        codeObjs: {
+          "param-1": {
+            id: "param-1",
+            name: "Fallback Param Name",
+            displayName: "Display Param Name",
+            defaultVariant: null,
+            sharedModifier: {},
+            unsharedKeys: [],
+            variants: [],
+          },
+        },
+        codeObjVariants: {
+          "param-variant": {
+            id: "param-variant",
+            impl: "param-impl",
+            isFrozen: false,
+            modifier: {
+              value: "effective-value",
+            },
+            name: "",
+            nonPresetImpls: [],
+          },
+        },
+        codeObjImpls: {
+          "param-impl": {
+            type: "TextParam",
+            value: "base-value",
+            coreNameEditable: true,
+          },
+        },
+      }),
+      previewSectionVariantMap: {
+        "section-1": "section-preview-variant",
+      },
+    };
+
+    expect(getCurrentSectionVariantId(projectState, "section-1")).toBe(
+      "section-variant",
+    );
+    expect(getCurrentSectionVariantId(projectState, "section-1", true)).toBe(
+      "section-preview-variant",
+    );
+    expect(
+      getCurrentEffectiveSectionImpl(projectState, "section-1", true),
+    ).toMatchObject({
+      name: "Preview Section",
+    });
+    expect(
+      getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent(
+        projectState,
+        "section-1",
+        "param-1",
+        (
+          value,
+        ): value is {
+          type: "TextParam";
+          value: string;
+        } => value.type === "TextParam",
+      ),
+    ).toMatchObject({
+      type: "TextParam",
+      value: "effective-value",
+    });
+    expect(
+      getParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
+    ).toBe("Fallback Param Name");
   });
 });
