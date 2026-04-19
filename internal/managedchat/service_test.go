@@ -9,8 +9,10 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/chatmodes"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
+	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type stubLiveChatStateProvider struct {
@@ -105,6 +107,19 @@ func (s *stubManagedChatStarter) StartRun(profile agentprofiles.Profile, inputs 
 		profileID = stringPtr(profile.ID)
 	}
 	return agentruns.NewRun(profileID, inputs, time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)), nil
+}
+
+func testAppGenerationModes(t *testing.T) chatmodes.AppGenerationModeResolver {
+	t.Helper()
+
+	resolver, err := chatmodes.NewAppGenerationModeRegistry(chatmodes.AppGenerationModeRegistryOptions{
+		Available:     func() bool { return true },
+		Contributions: appsubsystemchatmodes.BuildChatModeContributions(),
+	})
+	if err != nil {
+		t.Fatalf("new app generation mode resolver: %v", err)
+	}
+	return resolver
 }
 
 // Hydration should prefer the latest persisted run and recover the LLM config
@@ -205,10 +220,10 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 		},
 	)
 	run.Inputs["appGenerationByMessageId"] = map[string]any{
-		"user-plain": agentruns.ChatAppGenerationMessageModePlainChat,
-		"user-app":   agentruns.ChatAppGenerationMessageModeMCPServer,
-		"user-bad":   "invalid_mode",
-		"":           agentruns.ChatAppGenerationMessageModeJSONRender,
+		"user-plain":  agentruns.ChatAppGenerationMessageModePlainChat,
+		"user-app":    agentruns.ChatAppGenerationMessageModeMCPServer,
+		"user-vendor": "vendor_mode",
+		"":            agentruns.ChatAppGenerationMessageModeJSONRender,
 	}
 	saveManagedChatRun(t, fixture.runs, run)
 
@@ -216,14 +231,17 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 	if err != nil {
 		t.Fatalf("get chat: %v", err)
 	}
-	if len(hydrated.AppGenerationByMessageID) != 2 {
-		t.Fatalf("expected two hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
+	if len(hydrated.AppGenerationByMessageID) != 3 {
+		t.Fatalf("expected three hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
 	}
 	if hydrated.AppGenerationByMessageID["user-plain"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain chat provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 	if hydrated.AppGenerationByMessageID["user-app"] != string(agentruns.ChatAppGenerationMessageModeMCPServer) {
 		t.Fatalf("expected app-generation provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-vendor"] != "vendor_mode" {
+		t.Fatalf("expected provider-defined provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 }
 
@@ -370,7 +388,13 @@ func TestBuildAppGenerationModePromptIncludesPromptBuilderPersistenceGuidance(t 
 	t.Parallel()
 
 	mode := stringPtr(string(agentruns.AppGenerationModePromptBuilder))
-	prompt := buildAppGenerationModePrompt(mode, false, nil, nil)
+	prompt := buildAppGenerationModePromptWithResolver(
+		testAppGenerationModes(t),
+		mode,
+		false,
+		nil,
+		nil,
+	)
 	if !strings.Contains(prompt, "## App spec generation mode") {
 		t.Fatalf("expected app generation heading, got %q", prompt)
 	}
@@ -395,7 +419,8 @@ func TestBuildAppGenerationModePromptIncludesReferenceImageGuidance(t *testing.T
 	t.Parallel()
 
 	mode := stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage))
-	prompt := buildAppGenerationModePrompt(
+	prompt := buildAppGenerationModePromptWithResolver(
+		testAppGenerationModes(t),
 		mode,
 		true,
 		stringPtr(" https://example.com/reference.png "),
@@ -465,6 +490,31 @@ func TestServiceGetChatUsesLiveOverlayWhenRunning(t *testing.T) {
 	}
 	if !hydrated.WaitingForResponse {
 		t.Fatal("expected live overlay waiting state")
+	}
+}
+
+func TestServiceStartChatRejectsUnsupportedAppGenerationModeWhenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	fixture.service.appGenerationModes = nil
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-unavailable",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Build an app."},
+			},
+		},
+		EngineConfigID:    "engine-managed",
+		ProjectConfigID:   "project-alpha",
+		AllowUnscoped:     true,
+		PermissionMode:    projectstate.ChatPermissionModeMinimal,
+		SearchEnabled:     false,
+		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRender)),
+	})
+	if !errors.Is(err, ErrAppGenerationModeInvalid) {
+		t.Fatalf("expected unavailable app-generation mode error, got %v", err)
 	}
 }
 
@@ -1139,6 +1189,44 @@ func TestServiceStartChatAllowsImageModeWithCurrentImageAttachment(t *testing.T)
 	}
 }
 
+func TestServiceStartChatPreservesProviderDefinedAppGenerationHistory(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:         userMessage("user-follow-up", "Continue the provider-defined app flow."),
+		EngineConfigID:  "engine-managed",
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-seed": "vendor_mode",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("start managed provider-mode chat: %v", err)
+	}
+	if starter.lastInputs == nil {
+		t.Fatal("expected starter to receive app-generation inputs")
+	}
+	appGenerationByMessageID, ok := starter.lastInputs["appGenerationByMessageId"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected normalized app-generation provenance map, got %#v", starter.lastInputs["appGenerationByMessageId"])
+	}
+	if appGenerationByMessageID["user-seed"] != "vendor_mode" {
+		t.Fatalf("expected retained provider-defined provenance, got %#v", appGenerationByMessageID)
+	}
+	if appGenerationByMessageID["user-follow-up"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
+		t.Fatalf("expected submitted message to default to plain chat, got %#v", appGenerationByMessageID)
+	}
+}
+
 func TestServiceStartChatRejectsImageModeWithoutCurrentOrRetainedImageAttachment(t *testing.T) {
 	t.Parallel()
 
@@ -1383,7 +1471,7 @@ func TestNormalizeStartChatRequestRejectsContinueFromWithBranchEdits(t *testing.
 		BranchParentChatID:  stringPtr("chat-parent"),
 		BranchFromMessageID: stringPtr("msg-1"),
 		PermissionMode:      projectstate.ChatPermissionModeMinimal,
-	})
+	}, testAppGenerationModes(t))
 	if !errors.Is(err, ErrContinueFromChatWithBranchEdits) {
 		t.Fatalf("expected ErrContinueFromChatWithBranchEdits, got %v", err)
 	}
@@ -1607,14 +1695,15 @@ func newManagedChatFixture(t *testing.T, live LiveChatStateProvider, starters ..
 		}
 	}
 	service, err := NewService(ServiceOptions{
-		ProjectState: projectRuntime,
-		Runs:         runs,
-		Engines:      engines,
-		LLM:          llmRuntime,
-		Profiles:     profiles,
-		Starter:      starter,
-		Live:         live,
-		Stopper:      runtime,
+		ProjectState:       projectRuntime,
+		Runs:               runs,
+		Engines:            engines,
+		LLM:                llmRuntime,
+		Profiles:           profiles,
+		Starter:            starter,
+		Live:               live,
+		Stopper:            runtime,
+		AppGenerationModes: testAppGenerationModes(t),
 	})
 	if err != nil {
 		t.Fatalf("new managed chat service: %v", err)

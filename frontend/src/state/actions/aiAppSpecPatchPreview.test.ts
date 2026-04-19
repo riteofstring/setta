@@ -1,26 +1,92 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
-import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
+import {
+  type AppSubsystemFrontendRegistrationsByPluginId,
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "plugins/appSubsystem";
+import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
+import {
+  applyAppSpecPatchPreviewDeltaToStore as applyAppSpecPatchPreviewDeltaToProviderStore,
+  clearAllAppSpecPatchPreviewStreams,
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
+import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
+const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
+  pluginId: "setta-json-render-app-gen",
+  pluginEnabled: true,
+  appAuthoringUi: true,
+  appPreviewUi: true,
+  appGenerationChatModes: true,
+  appDeploymentRuntime: true,
+} as const;
+const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
+const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
+  {
+    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+      overviewTab: {
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
+        titleQuickInfo: "Authoring quick info",
+        moreMenuQuickInfo: "More menu quick info",
+        moreMenuLabel: "JSON Render",
+      },
+      previewSurface: {
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
+      },
+      appModeRoute: {
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
+      },
+      appDeploymentModal: {
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
+      },
+      chat: {
+        slashCommands: [
+          {
+            command: "/app-json",
+            action: "app_json_render",
+            summary: "Generate an app spec.",
+            promptTemplate: "Generate an app spec.",
+            appGenerationMode: "json_render",
+          },
+        ],
+        imageRequiredModes: [],
+        customSlashCommandModes: {
+          options: [{ id: "plain_chat", name: "Plain chat" }],
+          defaultMode: "plain_chat",
+        },
+      },
+      controller: {
+        applyAppSpecPatchPreviewDeltaToStore:
+          applyAppSpecPatchPreviewDeltaToProviderStore,
+        clearAllAppSpecPatchPreviewStreams,
+      },
+    },
+  };
+
 describe("ai app spec patch preview streaming", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetProjectStores();
-    clearAllAppSpecPatchStreams();
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
+    );
+    clearAllAppSpecPatchPreviewStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    clearAllAppSpecPatchStreams();
+    clearAllAppSpecPatchPreviewStreams();
+    resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 

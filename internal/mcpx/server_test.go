@@ -20,10 +20,12 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
-	"setta/internal/appspec"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 	"setta/internal/tools"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestReadFileRangeHandlerMirrorsPythonBehavior(t *testing.T) {
@@ -1411,6 +1413,42 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 
 	if server.sessionAgenticContext("missing-session") != nil {
 		t.Fatal("expected missing session agentic context lookup to return nil")
+	}
+}
+
+func TestServerCanOmitDefaultAppSubsystemTools(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:                t.TempDir(),
+		ProjectState:                 projectRuntime,
+		LSPDiagnostics:               openScopedTestLSPDiagnosticsRegistry(),
+		SkipDefaultAppSubsystemTools: true,
+	})
+	defer clientSession.Close()
+
+	toolsResult, err := clientSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools without default app subsystem tools: %v", err)
+	}
+
+	names := make([]string, 0, len(toolsResult.Tools))
+	for _, tool := range toolsResult.Tools {
+		names = append(names, tool.Name)
+	}
+	for _, name := range []string{
+		"get_app_catalog",
+		"list_app_components",
+		"get_app_definition",
+		"validate_app_definition",
+		"set_app_definition",
+		"stream_app_definition",
+		"update_app_definition",
+	} {
+		if slices.Contains(names, name) {
+			t.Fatalf("expected %s to be absent without app subsystem contributions; tools=%#v", name, names)
+		}
 	}
 }
 
@@ -3922,14 +3960,12 @@ func TestServerGetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
@@ -3963,10 +3999,10 @@ func TestServerGetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	appDefinition := mustStructuredMap(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
 	}
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4083,7 +4119,7 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    "app_specs/custom.json",
+			"appSpecPath":    appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"),
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"routes": []any{
@@ -4101,22 +4137,26 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	appDefinition := mustStructuredMap(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != "app_specs/custom.json" {
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
 		t.Fatalf("expected normalized app spec path, got %#v", appDefinition["appSpecPath"])
 	}
 	if appDefinition["appSpecVersion"] != "v2" {
 		t.Fatalf("expected app spec version v2, got %#v", appDefinition["appSpecVersion"])
 	}
 
-	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
 	}
-	if projectRuntime.Snapshot().Document.AppDefinition == nil || projectRuntime.Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected runtime app definition after mutation, got %#v", projectRuntime.Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(
+		t,
+		appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
+	)
+	if storedAppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
+		t.Fatalf("expected runtime app definition after mutation, got %#v", storedAppDefinition)
 	}
 }
 
@@ -4124,7 +4164,7 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -4136,9 +4176,7 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 			},
 			"elements": map[string]any{},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
@@ -4188,7 +4226,7 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 		t.Fatalf("expected preserved direction column, got %#v", props["direction"])
 	}
 
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4202,11 +4240,11 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.AppDefinition = &projectstate.AppDefinition{
-			AppSpecPath:    appspec.DefaultPath(),
+		document = appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, appdefinition.AppDefinition{
+			AppSpecPath:    appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,
-		}
+		}))
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed missing app definition metadata: %v", err)
@@ -9267,6 +9305,16 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.ProjectState == nil {
 		options.ProjectState = projectRuntime
+	}
+	if !options.SkipDefaultAppSubsystemTools &&
+		projectRuntime != nil &&
+		len(options.ContributedToolRegistrations) == 0 {
+		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(
+				projectRuntime,
+				plugins.AppSubsystemPluginID,
+			),
+		)
 	}
 	if options.LSPDiagnostics == nil {
 		options.LSPDiagnostics = openScopedTestLSPDiagnosticsRegistry()

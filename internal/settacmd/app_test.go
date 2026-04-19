@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"setta/internal/deployments"
+	"setta/internal/plugins"
 )
 
 func TestRunRoutesAppSubcommandAndDelegatesLatestDeployment(t *testing.T) {
@@ -34,6 +35,7 @@ func TestRunRoutesAppSubcommandAndDelegatesLatestDeployment(t *testing.T) {
 		"v3",
 		deployments.TypeApp,
 	)
+	enableSettacmdAppDeploymentRuntimePlugin(t, latestRoot)
 
 	argsCapturePath := filepath.Join(tempDir, "args.txt")
 	serverExecutable := writeArgumentCaptureExecutable(
@@ -205,6 +207,7 @@ func TestRunAppDelegatesResolvedVersionWithExpectedArgs(t *testing.T) {
 		"v2",
 		deployments.TypeApp,
 	)
+	enableSettacmdAppDeploymentRuntimePlugin(t, expectedRoot)
 
 	var capturedExecutable string
 	var capturedArgs []string
@@ -261,6 +264,45 @@ func TestRunAppDelegatesResolvedVersionWithExpectedArgs(t *testing.T) {
 	}
 }
 
+func TestRunAppRequiresEnabledAppSubsystemPlugin(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	workspaceRoot := filepath.Join(tempDir, "workspace")
+	settaFilesRoot := filepath.Join(tempDir, "state", "setta_files")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+	writeShareDeploymentFixture(
+		t,
+		filepath.Join(settaFilesRoot, "deployments", "demo-app", "v2"),
+		"demo-app",
+		"v2",
+		deployments.TypeApp,
+	)
+
+	_, _, err := runAppCommandWithDeps(
+		t,
+		[]string{"--deployment-name", "demo-app", "--version", "v2"},
+		globalFlags{
+			workspaceRoot:  workspaceRoot,
+			settaFilesRoot: settaFilesRoot,
+		},
+		tempDir,
+		startCommandDependencies{},
+	)
+	if err == nil {
+		t.Fatal("expected app command to reject unavailable plugin")
+	}
+	if code := ExitCode(err); code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	expectedErr := "app mode requires a single active app subsystem provider with app deployment runtime support: no app subsystem provider is active"
+	if got := DisplayError(err); got != expectedErr {
+		t.Fatalf("expected exact provider-required error %q, got %q", expectedErr, got)
+	}
+}
+
 func runAppCommandWithDeps(t *testing.T, args []string, global globalFlags, cwd string, deps startCommandDependencies) (string, string, error) {
 	t.Helper()
 
@@ -270,4 +312,26 @@ func runAppCommandWithDeps(t *testing.T, args []string, global globalFlags, cwd 
 		return "", false
 	}, cwd, deps)
 	return stdout.String(), stderr.String(), err
+}
+
+func enableSettacmdAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string) {
+	t.Helper()
+
+	writeJSONFileForSettacmdTest(t, filepath.Join(deploymentRoot, ".setta_plugins", plugins.AppSubsystemPluginID, "setta.plugin.json"), map[string]any{
+		"schemaVersion":     1,
+		"id":                plugins.AppSubsystemPluginID,
+		"name":              "Setta JSON Render App Generation",
+		"version":           "0.1.0",
+		"settaVersionRange": ">=0.0.0",
+		"enabledByDefault":  false,
+		"featureCapabilities": map[string]any{
+			"appSubsystem": map[string]any{
+				"appDeploymentRuntime": true,
+			},
+		},
+		"capabilities": []string{},
+	})
+	writeJSONFileForSettacmdTest(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds": []string{plugins.AppSubsystemPluginID},
+	})
 }
