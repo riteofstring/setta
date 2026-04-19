@@ -1,11 +1,18 @@
+import type {
+  AppSubsystemProjectContext,
+  AppSubsystemRuntimeContext,
+} from "@setta/app-subsystem-frontend-sdk";
 import { AppRenderer } from "../../App/AppRenderer";
 import { resolveAppTheme } from "../../App/appTheme";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { useAllProjectMetadata, useShareSession } from "state/definitions";
 import type { AppRoute } from "../../../appSubsystemContracts";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
+import {
+  useAppSubsystemProjectContext,
+  useAppSubsystemRuntimeContext,
+} from "../../../appSubsystemFrontendHostContext";
 import { AppAssets } from "./AppAssets";
 
 type ResolvedAppTheme = ReturnType<typeof resolveAppTheme>;
@@ -31,7 +38,7 @@ type AppPageViewProps = {
       >["assets"]
     | null;
   appDefinition: ReturnType<typeof useAppDefinition.getState>["appDefinition"];
-  appPolicy: ReturnType<typeof useShareSession.getState>["sharePolicy"];
+  appPolicy: AppSubsystemRuntimeContext["sharePolicy"];
   appSpec: ReturnType<typeof useAppDefinition.getState>["appSpec"];
   appTitle: string;
   contentStyle: CSSProperties;
@@ -123,9 +130,7 @@ function resolveAppPageTitle({
   routes: AppRoute[];
   appDefinition: ReturnType<typeof useAppDefinition.getState>["appDefinition"];
   defaultProjectConfigId: string | null;
-  projectMetadata: ReturnType<
-    typeof useAllProjectMetadata.getState
-  >["projectMetadata"];
+  projectMetadata: AppSubsystemProjectContext["projectMetadata"];
 }) {
   const defaultConfigName = projectMetadata.find(
     (config) => config.id === defaultProjectConfigId,
@@ -172,9 +177,7 @@ function resolveAppPageViewModel({
   appDefinition: ReturnType<typeof useAppDefinition.getState>["appDefinition"];
   appSpec: ReturnType<typeof useAppDefinition.getState>["appSpec"];
   defaultProjectConfigId: string | null;
-  projectMetadata: ReturnType<
-    typeof useAllProjectMetadata.getState
-  >["projectMetadata"];
+  projectMetadata: AppSubsystemProjectContext["projectMetadata"];
 }): AppPageViewModel {
   const activeRoute = resolveActiveRoute(routes, pathname);
   const routeRootKey = activeRoute?.rootKey ?? null;
@@ -322,15 +325,14 @@ export function AppPage() {
   const location = useLocation();
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
-  const appPolicy = useShareSession((x) => x.sharePolicy);
+  const { sharePolicy: appPolicy } = useAppSubsystemRuntimeContext();
   const resolvedTheme = useMemo(
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],
   );
   useResolvedAppThemeDocumentRoot(resolvedTheme);
-  const { defaultProjectConfigId, projectMetadata } = useAllProjectMetadata(
-    (x) => x,
-  );
+  const { defaultProjectConfigId, projectMetadata } =
+    useAppSubsystemProjectContext();
   const routes = appDefinition?.routes ?? [];
   const { appTitle, pageError, routeRootKey } = resolveAppPageViewModel({
     pathname: location.pathname,
