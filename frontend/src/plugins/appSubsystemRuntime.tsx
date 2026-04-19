@@ -245,7 +245,10 @@ function isFrontendRegistration(
   if (!isRecord(value)) {
     return false;
   }
-  for (const [key, validator] of APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS) {
+  for (const [
+    key,
+    validator,
+  ] of APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS) {
     if (!hasOptionalRegistration(value, key, validator)) {
       return false;
     }
