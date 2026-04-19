@@ -1,6 +1,6 @@
 # Go-Rewrite Pixi Canvas-First Handoff
 
-Last updated: 2026-04-19
+Last updated: 2026-04-20
 Worktree: `go-rewrite-pixijs`
 Related plan: `docs/worktrees/go-rewrite-pixijs/plan.md`
 Related history: `docs/worktrees/go-rewrite-pixijs/log.md`
@@ -8,6 +8,60 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The `settings-section__sectionSizingPolicy` motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-sizing-policy-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now widens `isCanvasOwnedSectionMotionHiddenBody(...)` from the shared param-codeobj family to a named `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` boundary that also includes `settings-section__sectionSizingPolicy`
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `settings-section__sectionSizingPolicy` exposed one `data-canvas-owned-motion-body-root="true"` wrapper
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - the section wrapper flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `visibility` switched to `hidden`
+      - the global hidden-body count rose above `0`
+    - after the interaction settled:
+      - the section wrapper returned to visible
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 126.89`
+    - `raf.p95Ms: 150.0`
+    - `longTasks.totalMs: 15394`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 11`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 11`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior motion-aware dense checkpoint:
+    - `motionHiddenBodies.totalMotionBodyRootCount: 10 -> 11`
+    - `motionHiddenBodies.peakHiddenBodyCount: 10 -> 11`
+    - `raf.meanMs: 124.92 -> 126.89`
+    - `raf.p95Ms: 150.1 -> 150.0`
+    - `longTasks.totalMs: 15188 -> 15394`
+  - interpretation:
+    - this is the first motion-body overlay expansion beyond the shared param-codeobj family, and it confirms `sectionSizingPolicy` now participates in the real `viewportInteractionActive` suppression lane
+    - the slice is visually clean and the active-section exemption remains intact, but it did not materially improve dense motion on the same noisy runtime
+    - per the sequencing checkpoint, do not spend the next default pass on another harness-only iteration or another `sectionSizingPolicy`-local cleanup follow-up
+    - the next real frontier must escalate to a broader trustworthy motion-state body/row-chrome reduction on the same lane rather than another single-outlier expansion by inertia
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `3 passed (1.3m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded cleanly with `All Settings` active
+    - exactly one retained graph canvas was mounted
+    - `settings-section__sectionSizingPolicy-CustomResizable` was present and visible after scrolling into view
+    - a simple `zoom in` followed by `fit view` left the graph intact with no obvious blank or detached artifact around `sectionSizingPolicy`
 - The dense `settings` -> `All Settings` motion-aware probe is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-motion-aware-dense-probe.md`.
   - focused probe: `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
   - implementation shape:

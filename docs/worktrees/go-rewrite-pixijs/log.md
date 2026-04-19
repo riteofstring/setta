@@ -155,6 +155,50 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 079
+
+- Item: Extend the motion-hidden-body overlay lane to `settings-section__sectionSizingPolicy`.
+- Status: `done`
+- Details:
+  - Chose a product slice on the active motion lane instead of a third support-only pass after the motion-aware probe and param-codeobj overlay work.
+  - Widened `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` from the shared param-codeobj-only motion-hidden selector to a named `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` boundary that now also includes `settings-section__sectionSizingPolicy`.
+  - Added focused proof in `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts` and updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`.
+  - Focused runtime result on the live worktree surface:
+    - blank pane point: `x=24`, `y=60`
+    - `settings-section__sectionSizingPolicy` exposed one `data-canvas-owned-motion-body-root="true"` wrapper at rest
+    - during one renderer wheel-zoom interaction, that wrapper flipped to `data-canvas-owned-motion-body-hidden="true"` with computed `visibility: hidden`
+    - after the interaction settled, the wrapper returned to visible and the global hidden-body count returned to `0`
+  - Fresh motion-aware dense rerun on the same runtime family:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 126.89`
+    - `raf.p95Ms: 150.0`
+    - `longTasks.totalMs: 15394`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 11`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 11`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Compared against the prior motion-aware dense checkpoint:
+    - `motionHiddenBodies.totalMotionBodyRootCount: 10 -> 11`
+    - `motionHiddenBodies.peakHiddenBodyCount: 10 -> 11`
+    - `raf.meanMs: 124.92 -> 126.89`
+    - `raf.p95Ms: 150.1 -> 150.0`
+    - `longTasks.totalMs: 15188 -> 15394`
+  - Interpretation:
+    - the widened motion-body overlay is definitely live on the real `viewportInteractionActive` path and the existing active-section exemption still behaves correctly
+    - this single-outlier expansion did not materially improve dense motion, so the next pass should escalate to a broader trustworthy motion-state body/row-chrome reduction rather than another `sectionSizingPolicy`-local or harness-only follow-up
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.3m)`
+- CDP visual check: done (`/settings` loaded with `All Settings` active, exactly one retained graph canvas was mounted, `settings-section__sectionSizingPolicy-CustomResizable` was visible after scroll, and a simple zoom in plus fit view showed no obvious blank or detached artifact around the canonical section after motion settled`)
+- Next action:
+  - escalate the current `settings-section__sectionSizingPolicy` motion lane to a broader trustworthy motion-state body/row-chrome reduction instead of another one-off outlier or harness pass
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 077
 
 - Item: Land a motion-time body overlay on the shared param-codeobj canvas-owned settings family.

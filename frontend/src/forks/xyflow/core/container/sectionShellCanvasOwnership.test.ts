@@ -492,13 +492,18 @@ describe("sectionShellCanvasOwnership", () => {
     }
   });
 
-  it("targets the shared param-codeobj cluster for motion-hidden body suppression", () => {
+  it("targets the current motion-hidden body overlay sections", () => {
+    expect(
+      isCanvasOwnedSectionMotionHiddenBody(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
     for (const sectionId of SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS) {
       expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
     }
     expect(
       isCanvasOwnedSectionMotionHiddenBody(
-        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+        BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
       ),
     ).toBe(false);
   });
