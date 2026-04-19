@@ -87,6 +87,14 @@ func DecodeJSONBody[T any](r *http.Request) (T, error) {
 	return decodeJSONBody[T](r)
 }
 
+func DecodeStrictJSONBody[T any](r *http.Request) (T, error) {
+	return decodeStrictJSONBody[T](r)
+}
+
 func ProjectMutationContext(ctx context.Context, frontendOpID *string) context.Context {
 	return projectMutationContext(ctx, frontendOpID)
+}
+
+func OpenAPIDocumentOnlyFromRouter(router chi.Router) bool {
+	return openAPIDocumentOnlyFromRouter(router)
 }
