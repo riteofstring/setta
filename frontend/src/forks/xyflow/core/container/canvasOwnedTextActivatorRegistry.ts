@@ -49,6 +49,11 @@ function syncCanvasOwnedTextActivatorGlobal() {
   );
 }
 
+function getCanvasOwnedTextActivatorSource() {
+  const globalActivators = globalThis.__SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__;
+  return Array.isArray(globalActivators) ? globalActivators : currentActivators;
+}
+
 export function replaceCanvasOwnedTextActivators(
   nextActivators: Array<CanvasOwnedTextActivator>,
 ) {
@@ -66,7 +71,7 @@ export function getCanvasOwnedTextActivatorSnapshot({
 }: {
   sectionId?: string;
 } = {}) {
-  return currentActivators
+  return getCanvasOwnedTextActivatorSource()
     .filter((activator) => sectionId === undefined || activator.sectionId === sectionId)
     .map(copyCanvasOwnedTextActivator);
 }
@@ -80,7 +85,7 @@ export function resolveCanvasOwnedTextActivatorAtGraphPoint({
   x: number;
   y: number;
 }) {
-  for (const activator of currentActivators) {
+  for (const activator of getCanvasOwnedTextActivatorSource()) {
     if (sectionId !== undefined && activator.sectionId !== sectionId) {
       continue;
     }

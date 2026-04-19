@@ -94,4 +94,39 @@ describe("canvasOwnedTextActivatorRegistry", () => {
 
     expect(globalThis.__SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__).toEqual([]);
   });
+
+  it("falls back to the global snapshot when the local module instance is empty", () => {
+    globalThis.__SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__ = [
+      {
+        height: 12,
+        sectionId: "section-a",
+        targetId: "target-a",
+        width: 40,
+        x: 100,
+        y: 200,
+        zIndex: 3,
+      },
+    ];
+
+    expect(getCanvasOwnedTextActivatorSnapshot()).toEqual([
+      {
+        height: 12,
+        sectionId: "section-a",
+        targetId: "target-a",
+        width: 40,
+        x: 100,
+        y: 200,
+        zIndex: 3,
+      },
+    ]);
+    expect(
+      resolveCanvasOwnedTextActivatorAtGraphPoint({
+        x: 110,
+        y: 210,
+      }),
+    ).toMatchObject({
+      sectionId: "section-a",
+      targetId: "target-a",
+    });
+  });
 });

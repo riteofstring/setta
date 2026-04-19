@@ -155,6 +155,34 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 059
+
+- Landed one narrower blocker-resolution slice on the canonical `settings-section__browserSectionDefault` control lane instead of forcing through another unverified pane consumer.
+- Kept source changes:
+  - `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts` now falls back to the published `globalThis.__SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__` snapshot whenever the local module instance is empty, so point-resolution callers can still see the real published activator boxes under the module-instance ambiguity observed on this lane
+  - `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts` now proves that global-fallback snapshot and point-resolution path directly
+  - `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts` now also asserts the published `browser.columnWidth` input-center point still belongs to `.react-flow__pane` before the stable hidden-input activation proof runs
+- One local pane-consumer attempt from this iteration was reverted before finish:
+  - tried a fresh browser-lane consumer pass using raw-graph pane hit testing plus the global-backed registry reads
+  - fresh live `@playwright/test` probes still showed a real pane click at the published `browser.columnWidth` point produced no forwarded target `mousedown`, no focus, and no inline editor mount
+  - reverted that speculative consumer path before finishing the iteration so the kept diff stays limited to the registry-hardening slice above
+- Interpretation:
+  - this closes the remaining module-instance ambiguity on the published activator control lane itself
+  - it does not close visible-click activation yet; the next frontier is now consumer-side attachment and instrumentation on the pane / scene path, with `browser.columnWidth` kept as the on-screen control and `chat.permissionMode` kept as the canonical blocker reproduction target
+  - do not spend the next pass on another publication-only rerun or another blind pane event-ordering tweak without fresh consumer-side visibility
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts`
+    - result: `1 passed (3 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-017/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (23.5s)`
+- CDP visual check:
+  - done on a fresh bootstrap URL from the current `3068/8068` runtime
+  - `/settings` loaded with `All Settings` active, the retained graph canvas was mounted, `settings-section__browserSectionDefault` was visible with `Column Width` present, and the graph surface stayed visibly nonblank
+- Next frontier: keep `settings-section__browserSectionDefault` / `browser.columnWidth` as the on-screen control, keep `settings-section__chatSectionDefault` / `permissionMode` as the blocker reproduction target, and instrument pane / scene consumer attachment itself before reopening another visible-click activator attempt.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 058
 
 - Landed the missing lightweight retained-text activator publication path instead of reopening another pane-level retry.

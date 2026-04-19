@@ -212,6 +212,8 @@ test("canvas shell path owns the browser section shell frame and resting text", 
       const inputOffsetY = (inputRect.top - nodeRect.top) / viewportScale;
       const inputWidth = inputRect.width / viewportScale;
       const inputHeight = inputRect.height / viewportScale;
+      const inputCenterClientX = inputRect.left + inputRect.width * 0.5;
+      const inputCenterClientY = inputRect.top + inputRect.height * 0.5;
       const inputCenterX = nodeX + inputOffsetX + inputWidth * 0.5;
       const inputCenterY = nodeY + inputOffsetY + inputHeight * 0.5;
       const textActivator =
@@ -219,6 +221,10 @@ test("canvas shell path owns the browser section shell frame and resting text", 
           (candidate) =>
             candidate.sectionId === sectionId && candidate.targetId === inputId,
         ) ?? null;
+      const clickTarget = document.elementFromPoint(
+        inputCenterClientX,
+        inputCenterClientY,
+      );
       const headerSampleX =
         (nodeX - canvasLeft + Math.max(24 / viewportScale, inputOffsetX * 0.5)) *
         canvasScaleX;
@@ -246,6 +252,9 @@ test("canvas shell path owns the browser section shell frame and resting text", 
         inputOpacity: inputStyle.opacity,
         lightweightOwnershipFlag:
           input.dataset.canvasOwnedRestingTextLightweight ?? null,
+        paneOwnsInputCenterClick:
+          clickTarget instanceof HTMLElement &&
+          clickTarget.classList.contains("react-flow__pane"),
         textActivator,
         textActivatorContainsInputCenter: Boolean(
           textActivator &&
@@ -275,6 +284,7 @@ test("canvas shell path owns the browser section shell frame and resting text", 
     sectionId: TARGET_SECTION_ID,
     targetId: TARGET_INPUT_ID,
   });
+  expect(restingTextState.paneOwnsInputCenterClick).toBe(true);
   expect(restingTextState.textActivatorContainsInputCenter).toBe(true);
 
   await page.evaluate(({ targetInputId }) => {
