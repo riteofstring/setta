@@ -8,6 +8,48 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The mounted-hidden motion-body experiment is now recorded and explicitly rejected in `perf/reports/frontend/2026-04-20_settings-all-settings-mounted-hidden-motion-body-experiment.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - temporary implementation shape:
+    - temporarily kept `AreaSwitch` mounted under the existing motion-hidden `display: none` wrapper in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - temporarily memoized that area-switch boundary so wrapper motion-state flips would not immediately force a fresh subtree render from that component boundary
+    - reverted the experiment after verification; no product-code diff from this variant remains in the worktree
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 60.78`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 99.9`
+    - `raf.maxMs: 1533.3`
+    - `longTasks.count: 18`
+    - `longTasks.totalMs: 5947`
+    - `longTasks.maxMs: 1018`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused overlay proof on the same runtime recorded:
+    - during one checked zoom interaction, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each still reported `display: none` but retained `childElementCount: 2`
+  - interpretation:
+    - this variant is not a valid next step on the active dense-motion lane
+    - keeping motion-hidden bodies mounted appears to preserve too much live motion-time work inside the hidden subtree, so the branch trades boundary churn for worse continuous interaction cost
+    - keep the current subtree-suspension behavior; do not reopen the mounted-hidden-body idea unless a later slice can also suppress hidden-subtree live updates
+    - the next default frontier should now be the broader Pixi-owned graph-surface step, or another trace-backed whole-scene JS reducer that is not just a different hiding tradeoff on the same motion-body seam
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: `1 passed`, `11` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-015/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.0m)`
+  - CDP visual check is not run:
+    - reason: the experiment was rejected and reverted after the dense motion canary regressed, so it was not a kept UI change
+
 - The viewport-interaction pending-snapshot fast path is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
