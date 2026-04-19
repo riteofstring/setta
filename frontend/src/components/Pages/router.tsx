@@ -12,7 +12,7 @@ import {
   useAppSubsystemAppModeRoute,
   useAppSubsystemFrontendStatus,
   useAppSubsystemFrontendStatusMessage,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import {
   usePluginRuntimeBootstrap,
   usePluginRuntimeStore,

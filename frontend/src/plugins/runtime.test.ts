@@ -1,7 +1,14 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
-import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystemRuntime";
+import {
+  appSubsystemModeRequiresImageAttachment,
+  resetAppSubsystemFrontendRuntimeState,
+  useAppSubsystemAppDeploymentModal,
+  useAppSubsystemFrontendStore,
+  useAppSubsystemOverviewTab,
+  useAppSubsystemSlashCommands,
+} from "plugins/appSubsystem";
 import {
   invokePluginSettingRevealHandler,
   receivePluginRuntimeUpdate,
@@ -79,6 +86,7 @@ function resetPluginRuntimeStateForTests(): void {
     statusEntries: [],
     languageServerSelectionsByLanguage: {},
     languageServerSelections: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -302,6 +310,23 @@ function readPluginRuntimeHookValue<T>(read: () => T): T {
   }
   return captured as T;
 }
+
+function readAppSubsystemHookValue<T>(read: () => T): T {
+  syncStoreInitialState(useAppSubsystemFrontendStore);
+  let captured: T | undefined;
+  let hasCaptured = false;
+  function Capture(): null {
+    captured = read();
+    hasCaptured = true;
+    return null;
+  }
+  renderToString(React.createElement(Capture));
+  if (!hasCaptured) {
+    throw new Error("Expected app subsystem hook to produce a value.");
+  }
+  return captured as T;
+}
+
 function getCapturedPluginHost(): CapturedPluginHost {
   const globalScope = globalThis as {
     __settaCapturedPluginHost?: CapturedPluginHost;
@@ -1217,6 +1242,98 @@ describe("plugin runtime helpers", () => {
         conflictingPluginIds: [],
       },
     });
+  });
+  it("loads app-subsystem frontend surfaces from runtime metadata for unknown provider ids", async () => {
+    const providerPluginId = "acme.third-party-app-provider";
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerAppSubsystem({\n" +
+          "    overviewTab: {\n" +
+          "      component: function OverviewTab() { return null; },\n" +
+          "      titleQuickInfo: 'Acme provider quick info',\n" +
+          "      moreMenuQuickInfo: 'Open Acme app configuration.',\n" +
+          "      moreMenuLabel: 'Acme App'\n" +
+          "    },\n" +
+          "    previewSurface: { component: function PreviewSurface() { return null; } },\n" +
+          "    appModeRoute: { component: function AppModeRoute() { return null; } },\n" +
+          "    appDeploymentModal: { component: function AppDeploymentModal() { return null; } },\n" +
+          "    slashCommands: [{\n" +
+          "      command: '/acme-app',\n" +
+          "      action: 'acme_app',\n" +
+          "      summary: 'Generate an Acme app.',\n" +
+          "      promptTemplate: 'Generate an Acme app.'\n" +
+          "    }],\n" +
+          "    imageRequiredModes: ['image_mode'],\n" +
+          "    customSlashCommandModes: {\n" +
+          "      options: [\n" +
+          "        { id: 'plain_chat', name: 'Plain chat' },\n" +
+          "        { id: 'image_mode', name: 'Image mode' }\n" +
+          "      ],\n" +
+          "      defaultMode: 'plain_chat'\n" +
+          "    },\n" +
+          "    getPreviewEnabled: function() { return true; }\n" +
+          "  });\n" +
+          "}\n",
+      );
+
+    await receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Acme App Provider",
+            frontend: {
+              entrypointUrl: moduleUrl,
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Acme App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: {
+              providerSelection: {
+                status: "active",
+                selectedPluginId: providerPluginId,
+                activePluginIds: [providerPluginId],
+                disabledPluginIds: [],
+                invalidPluginIds: [],
+                conflictingPluginIds: [],
+              },
+              pluginId: providerPluginId,
+              pluginEnabled: true,
+              appAuthoringUi: true,
+              appPreviewUi: true,
+              appGenerationChatModes: true,
+              appDeploymentRuntime: true,
+            },
+          },
+        },
+      ),
+    );
+
+    expect(
+      readAppSubsystemHookValue(() => useAppSubsystemOverviewTab()),
+    ).toMatchObject({
+      moreMenuLabel: "Acme App",
+    });
+    expect(
+      readAppSubsystemHookValue(() => useAppSubsystemSlashCommands()).map(
+        (entry) => entry.command,
+      ),
+    ).toEqual(["/acme-app"]);
+    expect(
+      readAppSubsystemHookValue(() => useAppSubsystemAppDeploymentModal()),
+    ).not.toBeNull();
+    expect(appSubsystemModeRequiresImageAttachment("image_mode")).toBe(true);
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {

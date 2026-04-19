@@ -118,7 +118,7 @@ vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
   },
 }));
 
-vi.mock("plugins/appSubsystemRuntime", () => ({
+vi.mock("plugins/appSubsystem", () => ({
   useAppSubsystemSlashCommands: () => [],
   useAppSubsystemCustomSlashCommandModeOptions: () => [
     { id: "plain_chat", name: "Plain chat" },

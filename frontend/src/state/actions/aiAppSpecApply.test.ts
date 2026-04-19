@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  type AppSubsystemFrontendRegistrationsByPluginId,
   resetAppSubsystemFrontendRuntimeState,
   syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import { receiveLLMResponseChunk } from "./ai";
 
 import { useProjectState } from "state/definitions";
@@ -14,6 +15,7 @@ import {
   createProjectConfig,
 } from "utils/generatedTypes";
 import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { applyAppDefinitionStructuredContentToStore as applyAppDefinitionStructuredContentToProviderStore } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
 import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
@@ -24,6 +26,42 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appGenerationChatModes: true,
   appDeploymentRuntime: true,
 } as const;
+const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
+  {
+    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+      overviewTab: {
+        component: () => null,
+        titleQuickInfo: "Authoring quick info",
+        moreMenuQuickInfo: "More menu quick info",
+        moreMenuLabel: "JSON Render",
+      },
+      previewSurface: {
+        component: () => null,
+      },
+      appModeRoute: {
+        component: () => null,
+      },
+      appDeploymentModal: {
+        component: () => null,
+      },
+      slashCommands: [
+        {
+          command: "/app-json",
+          action: "app_json_render",
+          summary: "Generate an app spec.",
+          promptTemplate: "Generate an app spec.",
+          appGenerationMode: "json_render",
+        },
+      ],
+      customSlashCommandModes: {
+        options: [{ id: "plain_chat", name: "Plain chat" }],
+        defaultMode: "plain_chat",
+      },
+      applyAppDefinitionStructuredContentToStore:
+        applyAppDefinitionStructuredContentToProviderStore,
+    },
+  };
 
 describe("ai app spec tool results", () => {
   beforeEach(async () => {
@@ -31,6 +69,7 @@ describe("ai app spec tool results", () => {
     resetProjectStores();
     await syncAppSubsystemFrontendRegistration(
       ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
     );
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
