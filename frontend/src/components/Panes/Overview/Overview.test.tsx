@@ -86,6 +86,7 @@ function resetPluginRuntimeStateForTests(): void {
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
