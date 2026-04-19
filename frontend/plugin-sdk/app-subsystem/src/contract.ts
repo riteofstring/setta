@@ -1,4 +1,9 @@
-import type { GetLatestProjectStateResponse } from "openapi/http";
+import type {
+  GetLatestProjectStateResponse,
+  Policy,
+  RunSnapshotMode,
+} from "./openapi";
+import { createSettingsState } from "./openapi";
 
 export const APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION = 1;
 
@@ -30,6 +35,15 @@ export type AppSubsystemProjectContext = {
   projectConfig: AppSubsystemProjectConfigSnapshot;
 };
 
+export type AppSubsystemRuntimeContext = {
+  isAppDeploymentMode: boolean;
+  shareSessionId: string | null;
+  sessionRunCount: number;
+  sharePolicy: Policy | null;
+  defaultRunSnapshotMode: RunSnapshotMode;
+  runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
+};
+
 export type AppSubsystemFrontendHost = {
   apiVersion: typeof APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION;
   closeModal: () => void;
@@ -37,6 +51,10 @@ export type AppSubsystemFrontendHost = {
   getProjectContext: () => AppSubsystemProjectContext;
   subscribeProjectContext: (
     listener: (context: AppSubsystemProjectContext) => void,
+  ) => () => void;
+  getRuntimeContext: () => AppSubsystemRuntimeContext;
+  subscribeRuntimeContext: (
+    listener: (context: AppSubsystemRuntimeContext) => void,
   ) => () => void;
 };
 
@@ -50,6 +68,15 @@ const EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT = Object.freeze({
   },
 }) satisfies AppSubsystemProjectContext;
 
+const EMPTY_APP_SUBSYSTEM_RUNTIME_CONTEXT = Object.freeze({
+  isAppDeploymentMode: false,
+  shareSessionId: null,
+  sessionRunCount: 0,
+  sharePolicy: null,
+  defaultRunSnapshotMode: createSettingsState().backend.runSnapshotMode,
+  runSnapshotModeByProjectConfigId: {},
+}) satisfies AppSubsystemRuntimeContext;
+
 export function createAppSubsystemFrontendHost(
   overrides: Partial<AppSubsystemFrontendHost> = {},
 ): AppSubsystemFrontendHost {
@@ -59,6 +86,8 @@ export function createAppSubsystemFrontendHost(
     notify: () => undefined,
     getProjectContext: () => EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT,
     subscribeProjectContext: () => () => undefined,
+    getRuntimeContext: () => EMPTY_APP_SUBSYSTEM_RUNTIME_CONTEXT,
+    subscribeRuntimeContext: () => () => undefined,
     ...overrides,
   };
 }
