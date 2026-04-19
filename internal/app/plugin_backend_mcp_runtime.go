@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/appsubsystem"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/tools"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const pluginBackendBuildRootName = "plugin_backend_builds"
@@ -39,10 +39,10 @@ func clonePluginBackendLaunchEnv(values map[string]string) map[string]string {
 }
 
 type pluginBackendMCPRuntimeOptions struct {
-	Logger               *slog.Logger
-	RuntimeRoot          string
-	Snapshot             plugins.DiscoverySnapshot
-	AppDefinitionService appdefinition.Runtime
+	Logger         *slog.Logger
+	RuntimeRoot    string
+	Snapshot       plugins.DiscoverySnapshot
+	ProjectRuntime *projectstate.Runtime
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
@@ -72,30 +72,40 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 		runtime.registrations = registrations
 		runtime.toolNames = toolNames
 	}
-	runtime.appendAppSubsystemTools(
+	if err := runtime.appendAppSubsystemTools(
 		options.Snapshot,
-		options.AppDefinitionService,
-	)
+		options.ProjectRuntime,
+	); err != nil {
+		return nil, err
+	}
 	return runtime, nil
 }
 
 func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 	snapshot plugins.DiscoverySnapshot,
-	service appdefinition.Runtime,
-) {
-	if r == nil || service == nil {
-		return
+	projectRuntime *projectstate.Runtime,
+) error {
+	if r == nil || projectRuntime == nil {
+		return nil
 	}
 	capabilities := plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
 	if !appSubsystemMCPToolsEnabled(capabilities) {
-		return
+		return nil
 	}
-	registrations := appsubsystemplugin.BuildMCPToolRegistrations(service)
+	registrations, err := appsubsystem.BuildMCPToolRegistrations(
+		capabilities,
+		projectRuntime,
+	)
+	if err != nil {
+		return err
+	}
 	if len(registrations) == 0 {
-		return
+		return nil
 	}
-	r.registrations = append(r.registrations, registrations...)
-	r.toolNames = append(r.toolNames, toolNamesForRegistrations(registrations)...)
+	mcpRegistrations := appSubsystemMCPToolRegistrations(registrations)
+	r.registrations = append(r.registrations, mcpRegistrations...)
+	r.toolNames = append(r.toolNames, toolNamesForRegistrations(mcpRegistrations)...)
+	return nil
 }
 
 func appSubsystemMCPToolsEnabled(
@@ -127,6 +137,23 @@ func toolNamesForRegistrations(
 		names = append(names, name)
 	}
 	return names
+}
+
+func appSubsystemMCPToolRegistrations(
+	registrations []appsubsystem.MCPToolRegistration,
+) []mcpx.ToolRegistration {
+	if len(registrations) == 0 {
+		return nil
+	}
+	converted := make([]mcpx.ToolRegistration, 0, len(registrations))
+	for _, registration := range registrations {
+		converted = append(converted, mcpx.ToolRegistration{
+			Spec:         registration.Spec,
+			InputSchema:  registration.InputSchema,
+			OutputSchema: registration.OutputSchema,
+		})
+	}
+	return converted
 }
 
 func (r *pluginBackendMCPRuntime) buildServerConfigs(
