@@ -977,6 +977,7 @@ Only finish iteration metadata:
 - Remove the top-level `review*.md` files.
 - Make sure any earlier `./aireset.sh` session is stopped.
 - Commit all remaining changes except `review*.md`.
+- Use a commit message that describes the actual changes being committed in this iteration. Do not use a workflow-only message about review/finalization/metadata.
 
 `cumulative_review.md` format:
 - If the file is empty, start with:
@@ -1048,7 +1049,7 @@ Requirements:
 - Preserve the current simplified worktree exactly.
 - Update `cumulative_review.md` only if it still needs the finalize metadata.
 - Remove the top-level `review1.md`, `review2.md`, and `review3.md`.
-- Commit the remaining changes.
+- Commit the remaining changes with a commit message that describes the actual changes being committed, not just the finalize/review-loop step.
 - Return a brief note describing the metadata and commit action you completed.
 EOF
 }
