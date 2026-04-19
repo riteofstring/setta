@@ -1,4 +1,6 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
@@ -987,6 +989,7 @@ type GetPinnedParamsProps = {
 };
 
 type PinnedParamsAreaProps = {
+  canvasOwnedPinnedParams: boolean;
   sectionId: string;
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
@@ -1005,6 +1008,20 @@ type GetUnpinnedParamsProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
+
+function getCanvasOwnedPinnedParamsStyle(
+  canvasOwnedPinnedParams: boolean,
+): React.CSSProperties | undefined {
+  if (!canvasOwnedPinnedParams) {
+    return undefined;
+  }
+
+  return {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    boxShadow: "none",
+  };
+}
 
 function GetPinnedParams({
   sectionId,
@@ -1038,6 +1055,10 @@ function GetPinnedParams({
     };
   }, _.isEqual);
   const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedPinnedParams =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionShell(sectionId);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -1061,6 +1082,7 @@ function GetPinnedParams({
   return (
     topLevelParamIds.length > 0 && (
       <PinnedParamsArea
+        canvasOwnedPinnedParams={canvasOwnedPinnedParams}
         sectionId={sectionId}
         topLevelParamIds={topLevelParamIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
@@ -1078,6 +1100,7 @@ function GetPinnedParams({
 }
 
 function PinnedParamsArea({
+  canvasOwnedPinnedParams,
   sectionId,
   topLevelParamIds,
   requiredParamIdsToPaths,
@@ -1112,7 +1135,11 @@ function PinnedParamsArea({
   return (
     <section
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
+      data-canvas-owned-pinned-params={
+        canvasOwnedPinnedParams ? "true" : undefined
+      }
       data-params-fixed="true"
+      style={getCanvasOwnedPinnedParamsStyle(canvasOwnedPinnedParams)}
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
