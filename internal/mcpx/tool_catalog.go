@@ -47,6 +47,7 @@ func BuildToolPayloads() ([]sdkmcp.Tool, error) {
 		".",
 		registry,
 		projectRuntime,
+		false,
 		nil,
 		nil,
 		catalogCodeUpdateProvider{},
