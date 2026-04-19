@@ -6,9 +6,9 @@ import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMir
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
+import { useAppPreview } from "plugins/appSubsystemProjectState";
 import { useAppSubsystemPreviewSurface } from "plugins/appSubsystemRuntime";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,

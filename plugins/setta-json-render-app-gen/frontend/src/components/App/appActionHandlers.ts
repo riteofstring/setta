@@ -1,5 +1,6 @@
 import { getAttachmentDownloadUrl, runCode } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import {
   ensureAppProjectConfigLoaded,
@@ -7,7 +8,7 @@ import {
   resetAppDeployment,
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAppConfigs, useLocalStorage, useSettings } from "state/definitions";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { resolveRunRequest } from "utils/runCapabilities";
 import type { AppActionDefinitions } from "./appBindings";
