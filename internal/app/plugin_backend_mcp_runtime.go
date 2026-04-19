@@ -110,10 +110,7 @@ func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 func appSubsystemMCPToolsEnabled(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 ) bool {
-	return capabilities.PluginEnabled &&
-		(capabilities.AppAuthoringUI ||
-			capabilities.AppPreviewUI ||
-			capabilities.AppGenerationChatModes)
+	return capabilities.PluginEnabled && capabilities.AppGenerationChatModes
 }
 
 func toolNamesForRegistrations(
