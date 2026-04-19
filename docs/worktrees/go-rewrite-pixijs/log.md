@@ -155,6 +155,17 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 054
+
+- Item: Clarify that the read-only oracle checkout is temporarily `go-rewrite`, not `origin/main`.
+- Status: `done`
+- Details:
+  - Updated `RALPH.md`, `scripts/ralph-default-prompt.md`, and the current worktree docs so the reference checkout at `/home/ubuntu/dev/setta` is explicitly documented as the temporary pristine oracle.
+  - Recorded that this oracle arrangement is temporary and lasts only until `go-rewrite` merges back into real `main`.
+  - This avoids future Ralph iterations treating literal `main` as the only valid oracle checkout while the active side-by-side reference still lives on branch `go-rewrite`.
+- Next action:
+  - Keep the read-only `/home/ubuntu/dev/setta` checkout pristine while it serves as the temporary oracle, then remove the temporary wording once `go-rewrite` merges back into `main`.
+
 ## 2026-04-18 054
 
 - Item: Replace the remaining shared settings native color inputs with lightweight activators on the canvas path.

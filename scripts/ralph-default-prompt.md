@@ -20,6 +20,8 @@ Execution rules:
 - Refresh the handoff and append the history before you finish the iteration.
 - Make a descriptive git commit after each concrete completed subtask.
 - Prefer the narrowest relevant tests and verification for the work you changed.
+- In this worktree, `main` below means the read-only reference checkout at `/home/ubuntu/dev/setta`, currently on branch `go-rewrite`.
+- That checkout is the temporary pristine oracle until `go-rewrite` merges back into real `main`.
 - For parity or visual checks that are not explicitly about workspace chrome, minimize or close non-target panes first and close docked/floating/maximized chat surfaces on both the worktree and the read-only `main` reference before comparing them.
 - Keep panes or chat chrome open only when the current slice is specifically verifying those surfaces or genuinely requires them for the target interaction.
 - If you intentionally verify with extra pane or chat chrome visible, say why in the handoff/history so later iterations do not treat uncontrolled workspace state as renderer drift.

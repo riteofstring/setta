@@ -1139,6 +1139,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 - `origin/go-rewrite` is the product-architecture source of truth for this restart.
 - `/home/ubuntu/dev/setta` is the read-only reference worktree when a side-by-side compare is needed.
+- That `/home/ubuntu/dev/setta` checkout is currently on branch `go-rewrite` and is the temporary pristine oracle until `go-rewrite` merges back into `main`.
 - Prior Pixi/frontend-performance branches are research inputs only.
 - Port ideas, helpers, instrumentation, and narrow code slices from older branches only where they fit the `go-rewrite` structure.
 - Do not undo broad `go-rewrite` refactors just to recreate an older branch shape.

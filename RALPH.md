@@ -30,6 +30,7 @@ This file is the reusable loop entrypoint for this worktree.
 Reference worktree note:
 
 - For this restart, the read-only reference worktree path is `/home/ubuntu/dev/setta`.
+- That checkout is currently on branch `go-rewrite` and serves as the temporary pristine oracle until `go-rewrite` merges back into `main`.
 - Legacy `main` wording in this file refers to that reference-worktree role, not to `origin/main`.
 
 ## Working style

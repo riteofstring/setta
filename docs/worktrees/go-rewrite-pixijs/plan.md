@@ -33,6 +33,7 @@ This plan is satisfied only when:
 Comparison baseline for side-by-side checks in this worktree:
 
 - use `/home/ubuntu/dev/setta` as the read-only reference worktree path when a reference-side compare is needed
+- that checkout is currently on branch `go-rewrite` and is the temporary pristine oracle until `go-rewrite` merges back into `main`
 - do not assume an `origin/main`-based reference worktree for this restart
 
 The existing branch history should be treated as already-paid research:
