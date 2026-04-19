@@ -1,5 +1,7 @@
 import type { Action } from "@json-render/core";
 import {
+  buildTextBlockTypographyScale,
+  CODEMIRROR_TOOLTIP_PARENT_ID,
   type AppSubsystemFrontendHost,
   type BaseChildlessCodeObjImplUnion,
   type BaseSectionImplUnion,
@@ -22,16 +24,21 @@ import {
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
   type LiteralDependencyValue,
+  NO_PAN_CLASS_NAME,
   type ObjectValues,
   res200,
   SectionTypeEnum,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
   setParamEnteredValue,
+  shouldShowPasswordReveal,
   TextBlockFormatEnum,
   TextParamInputUITypeEnum,
   TimeControlModeEnum,
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
   type TimeParamCodeObjImpl,
+  type DropzoneStatelessAttachment,
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
@@ -61,16 +68,7 @@ import {
 } from "../../appSubsystemProjectState";
 import { useDecodedAppImageById } from "../../appSubsystemImageArtifacts";
 import { useLocalPendingValue } from "../../appSubsystemPendingValue";
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  NO_PAN_CLASS_NAME,
-  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { ensureAppProjectConfigLoaded } from "../../state/actions/app";
-import { shouldShowPasswordReveal } from "utils/paramValue";
-import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
   resolveActionBinding,
   resolveActionType,
