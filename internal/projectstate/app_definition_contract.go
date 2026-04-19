@@ -2,9 +2,9 @@ package projectstate
 
 import "context"
 
-// AppDefinitionRuntime is the host-facing seam for the app subsystem's
-// compatibility payload. Core may store the payload, but plugin-owned code is
-// expected to own the semantics behind these operations.
+// AppDefinitionRuntime is the host-facing seam for app-definition operations.
+// Core may store the opaque payload, but plugin-owned code owns the semantics
+// behind these operations.
 type AppDefinitionRuntime interface {
 	GetAppDefinition(ctx context.Context) (AppDefinitionReadResult, error)
 	GetEffectiveAppDefinition(ctx context.Context) (AppDefinition, error)

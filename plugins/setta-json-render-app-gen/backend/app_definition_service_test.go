@@ -64,7 +64,7 @@ func TestAppDefinitionServiceGetEffectiveMetadataDefaults(t *testing.T) {
 	}
 }
 
-func TestAppDefinitionServiceGetAppDefinitionNormalizesLegacyPersistedMetadata(t *testing.T) {
+func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *testing.T) {
 	t.Parallel()
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
@@ -96,12 +96,12 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesLegacyPersistedMetadata(t
 		})
 		return next, nil
 	}); err != nil {
-		t.Fatalf("mutate legacy app definition payload: %v", err)
+		t.Fatalf("mutate persisted app definition payload: %v", err)
 	}
 
 	result, err := service.GetAppDefinition(context.Background())
 	if err != nil {
-		t.Fatalf("get normalized legacy app definition: %v", err)
+		t.Fatalf("get normalized persisted app definition: %v", err)
 	}
 	if result.AppDefinition == nil {
 		t.Fatal("expected app definition metadata")
@@ -126,7 +126,7 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesLegacyPersistedMetadata(t
 	}
 }
 
-func TestAppDefinitionServiceRejectsInvalidLegacyPersistedMetadata(t *testing.T) {
+func TestAppDefinitionServiceRejectsInvalidPersistedMetadata(t *testing.T) {
 	t.Parallel()
 
 	_, runtime := openPersistedPluginAppDefinitionRuntime(t)
@@ -134,19 +134,15 @@ func TestAppDefinitionServiceRejectsInvalidLegacyPersistedMetadata(t *testing.T)
 
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		next := document.Clone()
-		next.AppDefinition = mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
-			AppSpecVersion: "v1",
-			CatalogID:      appspec.DefaultCatalogID,
-			DataBindings:   projectstate.RawJSON(`["not","an","object"]`),
-		})
+		next.AppDefinition = projectstate.RawJSON(`{"appSpecVersion":"v1","catalogId":"setta.app.default","dataBindings":["not","an","object"]}`)
 		return next, nil
 	}); err != nil {
-		t.Fatalf("mutate invalid legacy app definition payload: %v", err)
+		t.Fatalf("mutate invalid persisted app definition payload: %v", err)
 	}
 
 	_, err := service.GetEffectiveAppDefinition(context.Background())
 	if err == nil {
-		t.Fatal("expected invalid legacy app definition payload to fail in plugin service")
+		t.Fatal("expected invalid persisted app definition payload to fail in plugin service")
 	}
 	if !strings.Contains(err.Error(), "appDefinition.dataBindings") {
 		t.Fatalf("expected appDefinition.dataBindings error, got %v", err)
