@@ -7,6 +7,12 @@ Related handoff: `docs/worktrees/go-rewrite-pixi-scene/handoff.md`
 
 This file is append-only.
 
+Log policy:
+
+- Keep this file focused on recent iteration memory for the current worktree.
+- Do not rewrite or compress prior entries in place except for narrow factual corrections.
+- When the active log grows beyond a clean recent window, move older entries into `log-archive-*.md` files and leave this file as the current append-only window.
+
 ## 2026-04-21
 
 - Item: Reset the renderer plan from first principles on a clean branch.

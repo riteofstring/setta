@@ -12,6 +12,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixi-scene/checklist.md
 - Branch name: `go-rewrite-pixi-scene`.
 - The old `go-rewrite-pixijs` branch is research only. Do not continue its hybrid underlay path by inertia.
 - The product direction is now explicit: replace the visible xyflow area with a Pixi-owned scene.
+- The active log for this worktree is intentionally clean and short. Keep `log.md` append-only, keep it focused on recent iteration memory, and rotate older material into `log-archive-*.md` files instead of letting the active log bloat.
 
 ## What changed in the replan
 
@@ -50,6 +51,13 @@ While Gate 0 is red, do not spend time on:
 - chat work
 - support-only micro-optimizations
 - parity polish that does not improve scene viability
+
+## Loop memory rules
+
+- `plan.md` is the durable strategy and acceptance bar.
+- `handoff.md` is the compact current-state summary.
+- `log.md` is append-only recent iteration memory, not a full retrospective dump.
+- When the active log stops being easy to scan, rotate older entries into `log-archive-*.md` and keep the active log current and readable.
 
 ## Closed lanes from the old branch
 

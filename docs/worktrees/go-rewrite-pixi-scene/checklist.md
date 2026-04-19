@@ -7,6 +7,13 @@ This file is not a progress ledger.
 
 Use `docs/worktrees/go-rewrite-pixi-scene/log.md` as the canonical append-only execution history and `docs/worktrees/go-rewrite-pixi-scene/handoff.md` as the current-state summary.
 
+## Tracking model
+
+- `plan.md` holds the durable first-principles strategy.
+- `handoff.md` holds the compact current-state summary and immediate frontier.
+- `log.md` is append-only recent loop memory.
+- Keep the active `log.md` short and clean. Rotate older entries into `log-archive-*.md` files instead of turning the active log into a full branch retrospective.
+
 ## Architectural guardrails
 
 - `origin/go-rewrite` remains the product-architecture source of truth.
