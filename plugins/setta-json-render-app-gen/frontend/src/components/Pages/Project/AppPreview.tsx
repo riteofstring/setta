@@ -5,6 +5,7 @@ import {
 } from "@setta/app-subsystem-frontend-sdk";
 import { useEffect, useMemo } from "react";
 import {
+  type AppProjectStateSnapshot,
   useAppConfigs,
   useAppPreview,
 } from "../../../appSubsystemProjectState";
@@ -18,9 +19,10 @@ import {
   createAppDefinition,
   type AppDefinition,
 } from "../../../appSubsystemContracts";
-import { type SingleConfig } from "utils/generatedTypes";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
-type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
+
+type LoadProjectConfigRouteResponse =
+  ResponseDataAndStatus<AppProjectStateSnapshot>;
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
