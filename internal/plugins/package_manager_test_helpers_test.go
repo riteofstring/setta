@@ -8,7 +8,6 @@ import (
 
 	"setta/internal/config"
 	"setta/internal/pythonenv"
-	"setta/internal/testutil/firstpartyplugin"
 )
 
 func mustNewPythonRuntime(t *testing.T) *pythonenv.Runtime {
@@ -32,9 +31,9 @@ func installPackageManagerFixture(t *testing.T, fixtureName string, packageName 
 func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string, fixtureName string, packageName string, version string, mutate func(string)) string {
 	t.Helper()
 
+	pluginRoot := filepath.Join(sitePackages, strings.ReplaceAll(packageName, "-", "_"))
 	repoRoot := workerRPCTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
-	pluginRoot := filepath.Join(sitePackages, packageManagerFixturePluginRootName(t, sourceRoot))
 	copyBackendCodegenFixtureDir(t, sourceRoot, pluginRoot)
 	if mutate != nil {
 		mutate(pluginRoot)
@@ -76,107 +75,6 @@ func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string,
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
-}
-
-func installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t *testing.T, sitePackages string) string {
-	t.Helper()
-
-	return installFirstPartyPackageManagerPluginInSearchPath(
-		t,
-		sitePackages,
-		"setta-basedpyright",
-		"Setta basedpyright defaults profile plugin",
-	)
-}
-
-func installFirstPartyTyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string) string {
-	t.Helper()
-
-	return installFirstPartyPackageManagerPluginInSearchPath(
-		t,
-		sitePackages,
-		"setta-ty",
-		"Setta ty first-party plugin",
-	)
-}
-
-func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
-	t.Helper()
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, pluginID)
-	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
-	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
-		t.Fatalf("remove copied plugin build dir: %v", err)
-	}
-
-	distInfoName := strings.ReplaceAll(pluginID, "-", "_") + "-0.1.0.dist-info"
-	distInfoRoot := filepath.Join(sitePackages, distInfoName)
-	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
-		"Metadata-Version: 2.1",
-		"Name: " + pluginID,
-		"Version: 0.1.0",
-		"Summary: " + summary,
-		"",
-	}, "\n"))
-
-	recordLines := make([]string, 0)
-	for _, root := range []string{pluginRoot, distInfoRoot} {
-		err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if info.IsDir() || filepath.Base(path) == "RECORD" {
-				return nil
-			}
-			relativePath, err := filepath.Rel(sitePackages, path)
-			if err != nil {
-				return err
-			}
-			recordLines = append(recordLines, filepath.ToSlash(relativePath)+",,")
-			return nil
-		})
-		if err != nil {
-			t.Fatalf("walk package-manager plugin fixture: %v", err)
-		}
-	}
-	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
-	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
-	return pluginRoot
-}
-
-func firstPartyBasedpyrightSitePackages(t *testing.T) string {
-	t.Helper()
-
-	pythonPath := firstpartyplugin.BasedpyrightPython(t)
-	venvRoot := filepath.Dir(filepath.Dir(pythonPath))
-
-	windowsSitePackages := filepath.Join(venvRoot, "Lib", "site-packages")
-	if info, err := os.Stat(windowsSitePackages); err == nil && info.IsDir() {
-		return windowsSitePackages
-	}
-
-	matches, err := filepath.Glob(filepath.Join(venvRoot, "lib", "python*", "site-packages"))
-	if err != nil {
-		t.Fatalf("glob basedpyright site-packages: %v", err)
-	}
-	for _, match := range matches {
-		if info, err := os.Stat(match); err == nil && info.IsDir() {
-			return match
-		}
-	}
-	t.Fatalf("resolve basedpyright site-packages for %s", pythonPath)
-	return ""
-}
-
-func packageManagerFixturePluginRootName(t *testing.T, sourceRoot string) string {
-	t.Helper()
-
-	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
-	if err != nil {
-		t.Fatalf("load package-manager fixture manifest: %v", err)
-	}
-	return manifest.ID
 }
 
 func mustNewDiscoveryServiceWithPackageManager(t *testing.T, roots filesystemResolverTestRoots, mode config.Mode, searchPaths []string) *DiscoveryService {

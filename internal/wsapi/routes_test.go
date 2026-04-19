@@ -1277,7 +1277,7 @@ func TestRegisterRoutesBackendLogsBroadcastOnlyToMatchingSessionFrontend(t *test
 
 	envelope := readUntilMessageType(t, frontendA, string(realtime.WebsocketMessageTypeBackendLogEvent), 2)
 
-	var event backendlogs.BackendLogEvent
+	var event backendlogs.Event
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
 	}

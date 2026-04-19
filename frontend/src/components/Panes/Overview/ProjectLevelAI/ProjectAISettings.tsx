@@ -50,8 +50,6 @@ import {
   MANAGER_LIST_CLASS_NAME,
   SELECT_CLASS_NAME,
   TEXTAREA_CLASS_NAME,
-  normalizeOptionalText,
-  parseListInput,
 } from "./projectAISettingsShared";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 type ProjectAISettingsAccordionItem = {

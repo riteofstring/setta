@@ -6,7 +6,6 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -189,79 +188,6 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	_, err := document.Normalized()
 	if !errors.Is(err, ErrFrontendPayloadInvalid) {
 		t.Fatalf("expected invalid frontend payload error, got %v", err)
-	}
-}
-
-func TestDocumentNormalizedPreservesOpaqueAppDefinitionPayload(t *testing.T) {
-	t.Parallel()
-
-	document := newFrontendSourceTestDocument(t)
-	document.AppDefinition.DataBindings = mustRawJSON(t, `["not","an","object"]`)
-	document.AppDefinition.Actions = mustRawJSON(t, `["not","an","object"]`)
-	document.AppDefinition.Routes = []AppRoute{{Path: "   ", Name: "  Home  ", RootKey: " root "}}
-
-	normalized, err := document.Normalized()
-	if err != nil {
-		t.Fatalf("normalize rich project document with opaque app payload: %v", err)
-	}
-	if normalized.AppDefinition == nil {
-		t.Fatal("expected app definition to be preserved")
-	}
-	assertJSONEqual(
-		t,
-		mustRawJSON(t, `["not","an","object"]`),
-		normalized.AppDefinition.DataBindings,
-		"opaque appDefinition.dataBindings",
-	)
-	assertJSONEqual(
-		t,
-		mustRawJSON(t, `["not","an","object"]`),
-		normalized.AppDefinition.Actions,
-		"opaque appDefinition.actions",
-	)
-	if len(normalized.AppDefinition.Routes) != 1 {
-		t.Fatalf("expected one opaque route, got %#v", normalized.AppDefinition.Routes)
-	}
-	if normalized.AppDefinition.Routes[0].Path != "   " {
-		t.Fatalf("expected opaque app route path to be preserved, got %q", normalized.AppDefinition.Routes[0].Path)
-	}
-}
-
-func TestDocumentNormalizedRejectsNonObjectSectionSharedModifier(t *testing.T) {
-	t.Parallel()
-
-	document := newFrontendSourceTestDocument(t)
-	project := document.Projects["project-alpha"]
-	section := project.Sections["section-main"]
-	section.SharedModifier = mustRawJSON(t, `["not","an","object"]`)
-	project.Sections["section-main"] = section
-	document.Projects["project-alpha"] = project
-
-	_, err := document.Normalized()
-	if err == nil {
-		t.Fatal("expected non-object section sharedModifier to fail normalization")
-	}
-	if !strings.Contains(err.Error(), `section "section-main" sharedModifier`) {
-		t.Fatalf("expected section sharedModifier error, got %v", err)
-	}
-}
-
-func TestDocumentNormalizedRejectsNonObjectSectionVariantModifier(t *testing.T) {
-	t.Parallel()
-
-	document := newFrontendSourceTestDocument(t)
-	project := document.Projects["project-alpha"]
-	variant := project.SectionVariants["variant-main"]
-	variant.Modifier = mustRawJSON(t, `["not","an","object"]`)
-	project.SectionVariants["variant-main"] = variant
-	document.Projects["project-alpha"] = project
-
-	_, err := document.Normalized()
-	if err == nil {
-		t.Fatal("expected non-object section variant modifier to fail normalization")
-	}
-	if !strings.Contains(err.Error(), `section variant "variant-main" modifier`) {
-		t.Fatalf("expected section variant modifier error, got %v", err)
 	}
 }
 

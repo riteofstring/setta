@@ -1,11 +1,7 @@
 /* @vitest-environment jsdom */
 
-import {
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystemRuntime";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   buildProjectChatHydrationCacheKey,
@@ -32,61 +28,6 @@ function createEntry(
     timerId: null,
   };
 }
-
-const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
-  pluginId: "setta-json-render-app-gen",
-  pluginEnabled: true,
-  appAuthoringUi: true,
-  appPreviewUi: true,
-  appGenerationChatModes: true,
-  appDeploymentRuntime: true,
-} as const;
-
-vi.mock("plugins/appSubsystemHostAdapter", () => ({
-  default: {
-    overviewTab: {
-      component: () => null,
-      titleQuickInfo: "Authoring quick info",
-      moreMenuQuickInfo: "More menu quick info",
-      moreMenuLabel: "JSON Render",
-    },
-    previewSurface: {
-      component: () => null,
-    },
-    appModeRoute: {
-      component: () => null,
-    },
-    slashCommands: [
-      {
-        command: "/app-image",
-        action: "app_json_render_with_image",
-        summary: "Generate an app spec using attached image guidance.",
-        promptTemplate: "Generate an app spec using an image.",
-        appGenerationMode: "json_render_with_image",
-        requiresImageAttachment: true,
-      },
-    ],
-    imageRequiredModes: ["json_render_with_image"],
-    customSlashCommandModes: {
-      options: [
-        { id: "plain_chat", name: "Plain chat" },
-        { id: "json_render_with_image", name: "Image to JSON Render" },
-      ],
-      defaultMode: "plain_chat",
-    },
-  },
-}));
-
-beforeEach(async () => {
-  resetAppSubsystemFrontendRuntimeState();
-  await syncAppSubsystemFrontendRegistration(
-    ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-  );
-});
-
-afterEach(() => {
-  resetAppSubsystemFrontendRuntimeState();
-});
 
 describe("ProjectChatCore hydration cache identity", () => {
   it("changes the hydration cache key when only the project config changes", () => {
