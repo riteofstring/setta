@@ -41,7 +41,7 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - `verify_install.sh`: dedicated sdist-completeness smoke (runs the full `./build.sh` path, installs the resulting sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to catch missing packaged-source files or other sdist-only packaging regressions.
   - This is not the normal packaged-user install path.
-- Built install flows use the packaged default dependency boundary, not the repo-local `source` / `dev` extras.
+- Built install flows use the packaged default dependency boundary, not the repo-local `defaults` / `source` / `dev` extras.
 - `install_built_setta.sh`: build + install the latest wheel into an isolated venv (`.venv_for_built_setta` by default).
   - Use this when you want to validate the wheel-based packaged-user install path.
 - `activate_built_setta.sh`: source-only helper to activate the isolated built venv and switch defaults to built runtime paths.

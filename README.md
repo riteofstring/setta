@@ -14,6 +14,8 @@ and a Python package surface for CLI dispatch, source SDKs, and packaging.
   - `backend/setta/api/*` contains the Python SDK
     (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
   - packaged assets, sidecars, and bundled binaries still ship from here
+- `plugins/` contains first-party Setta plugin packages, including
+  package-managed language-server plugins and their manifests/config schemas.
 - `frontend/` contains the Vite/React UI and generated TS bindings.
 - `tests/` contains Python/package pytest coverage; Go tests are
   co-located under `cmd/*` and `internal/*`.
@@ -51,6 +53,11 @@ source activate.sh
 ```
 
 `dev_install.sh` uses frozen installs and should not rewrite lockfiles.
+
+On a fresh workspace, the repo-local defaults install profile bootstraps
+`setta-basedpyright` as the selected Python language server when that
+first-party plugin is available. See
+[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md).
 
 ## Packaging boundary
 
