@@ -516,16 +516,7 @@ func initializeWorkspaceLSPServices(
 	)
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
-		Settings: func() map[string]any {
-			var document map[string]any
-			if services.settingsStateRuntime != nil {
-				cloned := services.settingsStateRuntime.Snapshot().Document.Clone()
-				document = map[string]any(cloned)
-			}
-			return lsp.CurrentProcessPythonSettings(document, []string{cfg.Paths.SettaFilesRoot})
-		},
 	})
 	if err != nil {
 		return err
@@ -630,6 +621,15 @@ func openWorkspaceProjectServices(
 	}
 	services.settingsStateRuntime, err = settingsstate.OpenRuntime(context.Background(), settingsStateStore)
 	if err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	if err := bootstrapWorkspaceDefaultsInstallProfile(
+		context.Background(),
+		cfg.Paths.RuntimeRoot,
+		services.settingsStateRuntime,
+		services.pluginMutationService,
+	); err != nil {
 		_ = closeInitializedProjectServices(*services)
 		return err
 	}
@@ -1738,6 +1738,7 @@ type appHandlerDeps struct {
 	lspDiagnostics           *projectstate.LSPDiagnosticsRegistry
 	lspCompletion            *lspcompletion.Service
 	projectLSPSyncer         *lsp.ProjectSynchronizer
+	pluginRuntime            *pluginBackendRuntimeRefresher
 }
 
 func registerRootRoutes(r chi.Router, deps appHandlerDeps) error {
@@ -1821,6 +1822,7 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ModePolicy:    deps.modePolicy,
 		SettingsState: deps.settingsStateRuntime,
 		WebsocketHub:  deps.websocketHub,
+		PluginRuntime: deps.pluginRouteService,
 	}
 	apiDeps.Listener = httpapi.ListenerRouteDependencies{
 		ModePolicy:          deps.modePolicy,
@@ -2025,13 +2027,19 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		},
 	}
 	apiDeps.LSP = httpapi.LSPRouteDependencies{
-		ModePolicy:   deps.modePolicy,
-		ProjectState: deps.projectRuntime,
-		Diagnostics:  deps.lspDiagnostics,
-		Completions:  deps.lspCompletion,
-		Admin:        deps.projectLSPSyncer,
+		ModePolicy:    deps.modePolicy,
+		ProjectState:  deps.projectRuntime,
+		Diagnostics:   deps.lspDiagnostics,
+		Completions:   deps.lspCompletion,
+		Admin:         newWorkspaceLSPAdmin(deps.projectLSPSyncer, deps.pluginRuntime),
+		WebsocketHub:  deps.websocketHub,
+		PluginRuntime: deps.pluginRouteService,
 	}
-	return httpapi.RegisterFrontendAPIRoutes(r, apiDeps)
+	return httpapi.RegisterFrontendAPIRoutes(
+		r,
+		apiDeps,
+		httpapi.BuildAppSubsystemFrontendAPIRouteRegistrations(apiDeps),
+	)
 }
 
 func newAppHandler(deps appHandlerDeps) (http.Handler, error) {
@@ -2446,10 +2454,13 @@ func configureAppPluginRuntime(
 		return
 	}
 	services.pluginRuntime = &pluginBackendRuntimeRefresher{
-		service:     projectServices.pluginMutationService,
-		logger:      logger,
-		runtimeRoot: cfg.Paths.RuntimeRoot,
-		lspRouter:   projectServices.lspRouter,
+		service:      projectServices.pluginMutationService,
+		logger:       logger,
+		runtimeRoot:  cfg.Paths.RuntimeRoot,
+		settings:     projectServices.settingsStateRuntime,
+		lspRouter:    projectServices.lspRouter,
+		projectState: projectServices.projectRuntime,
+		projectSync:  projectServices.projectLSPSyncer,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {
@@ -2480,10 +2491,14 @@ func initializeAppMCPServer(
 		return nil
 	}
 	mcpServer, err := mcpx.NewServer(mcpx.ServerOptions{
-		Logger:        logger,
-		Registry:      base.mcpToolRegistry,
-		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		ProjectState:  projectServices.projectRuntime,
+		Logger:                       logger,
+		Registry:                     base.mcpToolRegistry,
+		WorkspaceRoot:                cfg.Paths.WorkspaceRoot,
+		ProjectState:                 projectServices.projectRuntime,
+		SkipDefaultAppSubsystemTools: true,
+		ContributedToolRegistrations: mcpx.BuildAppSubsystemToolRegistrations(
+			projectServices.projectRuntime,
+		),
 		AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
 			return broadcastFrontendProjectStateUpdate(
 				ctx,
@@ -2665,6 +2680,7 @@ func initializeAppHandlerAndWatchServices(
 		lspDiagnostics:           projectServices.lspDiagnostics,
 		lspCompletion:            projectServices.lspCompletion,
 		projectLSPSyncer:         projectServices.projectLSPSyncer,
+		pluginRuntime:            platformServices.pluginRuntime,
 	})
 	if err != nil {
 		return appHandlerServices{}, err

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Setta Ty Plugin Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ty": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "configuration": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "environment": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "extra-paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "python": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "configurationFile": {
+          "type": "string"
+        },
+        "disableLanguageServices": {
+          "type": "boolean"
+        },
+        "diagnosticMode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "workspace",
+            "openFilesOnly"
+          ]
+        },
+        "showSyntaxErrors": {
+          "type": "boolean"
+        },
+        "inlayHints": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "variableTypes": {
+              "type": "boolean"
+            },
+            "callArgumentNames": {
+              "type": "boolean"
+            }
+          }
+        },
+        "completions": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "autoImport": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}

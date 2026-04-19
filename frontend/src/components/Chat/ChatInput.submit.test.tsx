@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildAppGenerationSlashCommandDefinitions } from "./appGenerationSlashCommands";
 import {
   buildChatSlashCommands,
   executeManagedChatSlashCommand,
@@ -13,7 +14,7 @@ import {
 import { ChatInput } from "./ChatInput";
 
 const APP_GENERATION_COMMANDS = buildChatSlashCommands({
-  appGenerationModes: true,
+  appGenerationCommands: buildAppGenerationSlashCommandDefinitions(),
 });
 
 function getAppGenerationPrompt(command: string): string {
