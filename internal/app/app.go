@@ -517,14 +517,6 @@ func initializeWorkspaceLSPServices(
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		Environ:       os.Environ,
-		Settings: func() map[string]any {
-			var document map[string]any
-			if services.settingsStateRuntime != nil {
-				cloned := services.settingsStateRuntime.Snapshot().Document.Clone()
-				document = map[string]any(cloned)
-			}
-			return document
-		},
 	})
 	if err != nil {
 		return err

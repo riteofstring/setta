@@ -711,6 +711,9 @@ func invokeGoBackendRuntime(
 	args := append(append([]string(nil), launch.Args...), backendRuntimeArg)
 	command := exec.CommandContext(ctx, launch.Command, args...)
 	command.Dir = pluginRoot
+	if len(launch.Environment) != 0 {
+		command.Env = mergePluginBackendCommandEnv(launch.Environment)
+	}
 	command.Stdin = bytes.NewReader(payload)
 
 	var stdout bytes.Buffer

@@ -1309,22 +1309,6 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
 		Environ:       os.Environ,
-		Settings: func() map[string]any {
-			return codeUpdatesTestPythonSettings(map[string]any{
-				"languageServer": map[string]any{
-					"basedpyright": map[string]any{
-						"analysis": map[string]any{
-							"diagnosticSeverityOverrides": map[string]any{
-								"reportUnknownVariableType":       "none",
-								"reportUnknownMemberType":         "none",
-								"reportUnannotatedClassAttribute": "none",
-								"reportSelfClsParameterName":      "none",
-							},
-						},
-					},
-				},
-			}, []string{settaFilesRoot})
-		},
 	})
 	if err != nil {
 		t.Fatalf("new lsp router: %v", err)
@@ -1423,22 +1407,6 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
 		Environ:       os.Environ,
-		Settings: func() map[string]any {
-			return codeUpdatesTestPythonSettings(map[string]any{
-				"languageServer": map[string]any{
-					"basedpyright": map[string]any{
-						"analysis": map[string]any{
-							"diagnosticSeverityOverrides": map[string]any{
-								"reportUnknownVariableType":       "none",
-								"reportUnknownMemberType":         "none",
-								"reportUnannotatedClassAttribute": "none",
-								"reportSelfClsParameterName":      "none",
-							},
-						},
-					},
-				},
-			}, []string{settaFilesRoot})
-		},
 	})
 	if err != nil {
 		t.Fatalf("new lsp router: %v", err)

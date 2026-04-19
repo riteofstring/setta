@@ -1118,11 +1118,10 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenGoModuleDependencyIsMissing(
 }
 
 func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *testing.T) {
-	pythonPath := firstpartyplugin.BasedpyrightPython(t)
-	t.Setenv("SETTA_PYTHON", pythonPath)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
 
 	roots := newFilesystemResolverTestRoots(t)
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	sitePackages := firstPartyBasedpyrightSitePackages(t)
 	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
 
 	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
@@ -1140,6 +1139,58 @@ func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *te
 	}
 	if len(statusEntry.RegisteredLanguageServers) != 1 || statusEntry.RegisteredLanguageServers[0].Language != "python" {
 		t.Fatalf("expected one python language server registration, got %#v", statusEntry.RegisteredLanguageServers)
+	}
+}
+
+func TestServiceRuntimeKeepsCurrentConfigAcrossUsableDuplicatePromotion(t *testing.T) {
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	if err := service.store.SavePluginsState(PluginsStateFile{
+		PluginConfigByID: map[string]any{
+			pluginConfigKey("setta-basedpyright", PluginScopeSettaFiles): map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{"/tmp/custom"},
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save package-manager config state: %v", err)
+	}
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 1 {
+		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
+	}
+	entry := runtimeResponse.List.Plugins[0]
+	if entry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected workspace duplicate to be primary, got %#v", entry.SourceScope)
+	}
+	basedpyrightSettings, ok := entry.Config.CurrentConfig["basedpyright"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected runtime current config root, got %#v", entry.Config.CurrentConfig)
+	}
+	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected runtime analysis config, got %#v", basedpyrightSettings["analysis"])
+	}
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok || len(extraPaths) != 1 || extraPaths[0] != "/tmp/custom" {
+		t.Fatalf("expected promoted workspace runtime config to keep lower-precedence extraPaths, got %#v", analysis["extraPaths"])
 	}
 }
 

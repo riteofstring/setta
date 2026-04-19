@@ -25,6 +25,17 @@ type pluginBackendMCPRuntime struct {
 	toolNames     []string
 }
 
+func clonePluginBackendLaunchEnv(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
+}
+
 type pluginBackendMCPRuntimeOptions struct {
 	Logger      *slog.Logger
 	RuntimeRoot string
@@ -82,6 +93,7 @@ func (r *pluginBackendMCPRuntime) buildServerConfigs(
 			Transport: mcpx.TransportStdio,
 			Command:   launch.Command,
 			Args:      append([]string(nil), launch.Args...),
+			Env:       clonePluginBackendLaunchEnv(launch.Environment),
 			CWD:       entry.SourcePath,
 		}
 		r.serverIDs[serverID] = struct{}{}

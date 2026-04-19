@@ -602,7 +602,7 @@ func TestDiscoveryServiceRescanKeepsInvalidPackageManagerEntries(t *testing.T) {
 	_ = installPackageManagerFixtureInSearchPath(
 		t,
 		sitePackages,
-		"frontend",
+		"frontend-react",
 		"setta-fixture-ambiguous",
 		"0.1.0",
 		func(pluginRoot string) {

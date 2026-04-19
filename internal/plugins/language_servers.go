@@ -101,7 +101,7 @@ func languageServerSpecsFromEntries(
 			continue
 		}
 		for _, registration := range entry.RegisteredLanguageServers {
-			spec, language, err := buildLanguageServerSpec(entry, registration, pluginsState, normalizedSettaFilesRoot)
+			spec, language, err := buildLanguageServerSpec(entries, entry, registration, pluginsState, normalizedSettaFilesRoot)
 			if err != nil {
 				return nil, err
 			}
@@ -126,6 +126,7 @@ func pluginProvidesLanguageServer(entry DiscoveredPlugin, includePendingLanguage
 }
 
 func buildLanguageServerSpec(
+	entries []DiscoveredPlugin,
 	entry DiscoveredPlugin,
 	registration PluginRegisteredLanguageServer,
 	pluginsState *PluginsStateFile,
@@ -135,7 +136,7 @@ func buildLanguageServerSpec(
 	if language == "" {
 		return lsp.LanguageServerSpec{}, "", fmt.Errorf("plugin language server language is required")
 	}
-	settings := languageServerSettingsWithRuntimePaths(entry, registration, pluginsState, settaFilesRoot)
+	settings := languageServerSettingsWithRuntimePaths(entries, entry, registration, pluginsState, settaFilesRoot)
 	if settings == nil {
 		settings = map[string]any{}
 	}
@@ -151,12 +152,13 @@ func buildLanguageServerSpec(
 }
 
 func languageServerSettingsWithRuntimePaths(
+	entries []DiscoveredPlugin,
 	entry DiscoveredPlugin,
 	registration PluginRegisteredLanguageServer,
 	pluginsState *PluginsStateFile,
 	settaFilesRoot string,
 ) map[string]any {
-	settings := languageServerSettingsRoot(entry, pluginsState)
+	settings := languageServerSettingsRoot(entries, entry, pluginsState)
 	if isFirstPartyBasedpyrightRegistration(entry, registration) {
 		normalizedSettaFilesRoot := strings.TrimSpace(settaFilesRoot)
 		if normalizedSettaFilesRoot != "" {

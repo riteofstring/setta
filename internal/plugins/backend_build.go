@@ -20,9 +20,12 @@ const (
 )
 
 type PluginBackendLaunch struct {
-	Command string
-	Args    []string
+	Command     string
+	Args        []string
+	Environment map[string]string
 }
+
+const pythonBackendSitePackagesDirName = ".setta-python-site-packages"
 
 func ValidateGoBackendBuild(pluginRoot string, manifest PluginManifest) error {
 	if manifest.Backend == nil {
@@ -73,9 +76,19 @@ func ResolvePluginBackendLaunch(pluginRoot string, manifest PluginManifest, outp
 				err.Error(),
 			)
 		}
+		environment, err := pythonBackendLaunchEnvironment(pluginRoot)
+		if err != nil {
+			return PluginBackendLaunch{}, newServiceError(
+				ServiceErrorCodeBackendBuildFailed,
+				"Python backend environment is invalid for plugin %s: %s",
+				manifest.ID,
+				err.Error(),
+			)
+		}
 		return PluginBackendLaunch{
-			Command: pythonBinary,
-			Args:    []string{entrypointPath},
+			Command:     pythonBinary,
+			Args:        []string{entrypointPath},
+			Environment: environment,
 		}, nil
 	default:
 		return PluginBackendLaunch{}, newServiceError(
@@ -152,6 +165,115 @@ func validateGoBackendEntrypoint(entrypointPath string) error {
 		)
 	}
 	return nil
+}
+
+func pythonBackendLaunchEnvironment(pluginRoot string) (map[string]string, error) {
+	importRoots, err := pythonBackendImportRoots(pluginRoot)
+	if err != nil {
+		return nil, err
+	}
+	if len(importRoots) == 0 {
+		return nil, nil
+	}
+
+	pythonPathEntries := append([]string{}, importRoots...)
+	if currentPythonPath, ok := os.LookupEnv("PYTHONPATH"); ok {
+		for _, entry := range filepath.SplitList(currentPythonPath) {
+			trimmed := strings.TrimSpace(entry)
+			if trimmed != "" {
+				pythonPathEntries = append(pythonPathEntries, trimmed)
+			}
+		}
+	}
+	pythonPathEntries = dedupeNonEmptyPaths(pythonPathEntries)
+	if len(pythonPathEntries) == 0 {
+		return nil, nil
+	}
+
+	return map[string]string{
+		"PYTHONPATH": strings.Join(pythonPathEntries, string(os.PathListSeparator)),
+	}, nil
+}
+
+func pythonBackendImportRoots(pluginRoot string) ([]string, error) {
+	roots := []string{}
+
+	vendoredSitePackages := filepath.Join(pluginRoot, pythonBackendSitePackagesDirName)
+	if directoryContainsFiles(vendoredSitePackages) {
+		roots = append(roots, vendoredSitePackages)
+	}
+
+	parentRoot := filepath.Dir(pluginRoot)
+	if parentRoot != "" && parentRoot != pluginRoot {
+		hasDistInfo, err := directoryContainsDistInfo(parentRoot)
+		if err != nil {
+			return nil, err
+		}
+		if hasDistInfo {
+			roots = append(roots, parentRoot)
+		}
+	}
+
+	return dedupeNonEmptyPaths(roots), nil
+}
+
+func directoryContainsDistInfo(root string) (bool, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read python backend import root %s: %w", root, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".dist-info") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func directoryContainsFiles(root string) bool {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return false
+	}
+	return len(entries) != 0
+}
+
+func dedupeNonEmptyPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	deduped := make([]string, 0, len(paths))
+	seen := map[string]struct{}{}
+	for _, rawPath := range paths {
+		trimmed := strings.TrimSpace(rawPath)
+		if trimmed == "" {
+			continue
+		}
+		normalized := filepath.Clean(trimmed)
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		deduped = append(deduped, normalized)
+	}
+	if len(deduped) == 0 {
+		return nil
+	}
+	return deduped
+}
+
+func mergePluginBackendCommandEnv(overrides map[string]string) []string {
+	if len(overrides) == 0 {
+		return nil
+	}
+	env := append([]string(nil), os.Environ()...)
+	for key, value := range overrides {
+		env = withEnvValue(env, key, value)
+	}
+	return env
 }
 
 func buildGoBackendBinary(entrypointPath string, outputPath string, pluginID string) error {

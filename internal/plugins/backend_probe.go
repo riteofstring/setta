@@ -105,6 +105,9 @@ func probePluginBackendRegistrations(pluginRoot string, manifest PluginManifest,
 	args := append(append([]string(nil), launch.Args...), backendProbeArg)
 	command := exec.CommandContext(ctx, launch.Command, args...)
 	command.Dir = pluginRoot
+	if len(launch.Environment) != 0 {
+		command.Env = mergePluginBackendCommandEnv(launch.Environment)
+	}
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {

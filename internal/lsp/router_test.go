@@ -19,7 +19,7 @@ func TestRouterCompleteSnapshotRoutesPluginLanguage(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
-	router := newFixturePythonRouter(t, workspaceRoot, []LanguageServerSpec{fixturePluginLanguageServerSpec(t)}, fixturePluginLanguageServerSettings)
+	router := newFixturePythonRouter(t, workspaceRoot, []LanguageServerSpec{fixturePluginLanguageServerSpec(t)})
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -52,7 +52,7 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
-	router := newFixturePythonRouter(t, workspaceRoot, nil, fixturePluginLanguageServerSettings)
+	router := newFixturePythonRouter(t, workspaceRoot, nil)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -174,15 +174,6 @@ func TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup(t *testin
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot:   t.TempDir(),
 		AdditionalSpecs: []LanguageServerSpec{spec},
-		Settings: func() map[string]any {
-			return map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"extraPaths": []any{"/tmp/global"},
-					},
-				},
-			}
-		},
 	})
 	if err != nil {
 		t.Fatalf("new router with spec-owned settings: %v", err)
@@ -227,15 +218,6 @@ func TestRouterUsesExplicitEmptySpecSettingsWithoutGlobalFallback(t *testing.T) 
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot:   t.TempDir(),
 		AdditionalSpecs: []LanguageServerSpec{spec},
-		Settings: func() map[string]any {
-			return map[string]any{
-				"fixtureDslLanguageServer": map[string]any{
-					"analysis": map[string]any{
-						"emitDiagnostics": true,
-					},
-				},
-			}
-		},
 	})
 	if err != nil {
 		t.Fatalf("new router with explicit empty spec settings: %v", err)
@@ -262,7 +244,7 @@ func TestRouterSyncDocumentsRoutesPluginLanguageDiagnosticsAndCompletion(t *test
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
-	router := newFixturePythonRouter(t, workspaceRoot, []LanguageServerSpec{fixturePluginLanguageServerSpec(t)}, fixturePluginLanguageServerSettings)
+	router := newFixturePythonRouter(t, workspaceRoot, []LanguageServerSpec{fixturePluginLanguageServerSpec(t)})
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -328,7 +310,7 @@ func TestRouterServiceForLanguageFindsPythonAndPluginLanguagesOnly(t *testing.T)
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
-	router := newFixturePythonRouter(t, workspaceRoot, []LanguageServerSpec{fixturePluginLanguageServerSpec(t)}, fixturePluginLanguageServerSettings)
+	router := newFixturePythonRouter(t, workspaceRoot, []LanguageServerSpec{fixturePluginLanguageServerSpec(t)})
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -374,7 +356,7 @@ func TestRouterPluginLanguageStartupFailureDoesNotBreakPythonService(t *testing.
 			Command:    "missing-language-server",
 			Args:       []string{"--stdio"},
 		},
-	}, nil)
+	})
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -426,149 +408,30 @@ func TestRouterPluginLanguageStartupFailureDoesNotBreakPythonService(t *testing.
 	}
 }
 
-func TestResolveLanguageServerSettings(t *testing.T) {
-	t.Parallel()
-
-	baseSettings := map[string]any{
-		"settings": map[string]any{
-			"fixtureDslLanguageServer": map[string]any{
-				"analysis": map[string]any{
-					"emitDiagnostics": true,
-				},
-			},
-		},
-		"topLevel": map[string]any{
-			"enabled": true,
-		},
-	}
-	testCases := []struct {
-		name        string
-		settings    map[string]any
-		settingsKey *string
-		expected    map[string]any
-	}{
-		{
-			name:        "wraps nested key",
-			settings:    baseSettings,
-			settingsKey: stringPtr("settings.fixtureDslLanguageServer"),
-			expected: map[string]any{
-				"settings": map[string]any{
-					"fixtureDslLanguageServer": map[string]any{
-						"analysis": map[string]any{
-							"emitDiagnostics": true,
-						},
-					},
-				},
-			},
-		},
-		{
-			name:        "returns full clone when key is nil",
-			settings:    baseSettings,
-			settingsKey: nil,
-			expected:    baseSettings,
-		},
-		{
-			name:        "drops blank segments around nested key",
-			settings:    baseSettings,
-			settingsKey: stringPtr(" settings..fixtureDslLanguageServer "),
-			expected: map[string]any{
-				"settings": map[string]any{
-					"fixtureDslLanguageServer": map[string]any{
-						"analysis": map[string]any{
-							"emitDiagnostics": true,
-						},
-					},
-				},
-			},
-		},
-		{
-			name:        "returns nil for missing branch",
-			settings:    baseSettings,
-			settingsKey: stringPtr("settings.missing"),
-			expected:    nil,
-		},
-		{
-			name: "returns nil for non map leaf",
-			settings: map[string]any{
-				"settings": map[string]any{
-					"enabled": true,
-				},
-			},
-			settingsKey: stringPtr("settings.enabled"),
-			expected:    nil,
-		},
-		{
-			name:        "returns nil for blank key",
-			settings:    baseSettings,
-			settingsKey: stringPtr("  .  "),
-			expected:    nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			resolved := resolveLanguageServerSettings(tc.settings, tc.settingsKey)
-			if !settingsMapsEqual(resolved, tc.expected) {
-				t.Fatalf("unexpected resolved settings %#v", resolved)
-			}
-		})
-	}
-}
-
-func TestResolveLanguageServerSettingsClonesReturnedMap(t *testing.T) {
-	t.Parallel()
-
-	settingsKey := "settings.fixtureDslLanguageServer"
-	settings := map[string]any{
-		"settings": map[string]any{
-			"fixtureDslLanguageServer": map[string]any{
-				"analysis": map[string]any{
-					"emitDiagnostics": true,
-				},
-			},
-		},
-	}
-
-	resolved := resolveLanguageServerSettings(settings, &settingsKey)
-	analysis := resolved["settings"].(map[string]any)["fixtureDslLanguageServer"].(map[string]any)["analysis"].(map[string]any)
-	analysis["emitDiagnostics"] = false
-
-	original := settings["settings"].(map[string]any)["fixtureDslLanguageServer"].(map[string]any)["analysis"].(map[string]any)
-	if original["emitDiagnostics"] != true {
-		t.Fatalf("expected original settings to remain unchanged, got %#v", original)
-	}
-}
-
 func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
-	settings := func() map[string]any {
-		return CurrentProcessPythonSettings(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType": "none",
-						},
+	settings := basedpyrightTestSettings(map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType": "none",
 					},
 				},
 			},
-		}, nil)
-	}
+		},
+	}, nil)
+	spec := fixturePythonLanguageServerSpecWithPaths(
+		resolveRouterTestPythonBinary(t),
+		filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
+	)
+	spec.Settings = settings
 
 	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		AdditionalSpecs: []LanguageServerSpec{
-			fixturePythonLanguageServerSpecWithPaths(
-				resolveRouterTestPythonBinary(t),
-				filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
-			),
-		},
-		Settings: settings,
+		WorkspaceRoot:   workspaceRoot,
+		AdditionalSpecs: []LanguageServerSpec{spec},
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -621,22 +484,20 @@ func TestRouterCurrentProcessPythonDiagnosticsUseNestedBasedPyrightSettingsForWa
 		t.Fatalf("seed generated code source: %v", err)
 	}
 
-	settings := func() map[string]any {
-		return CurrentProcessPythonSettings(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
+	settings := basedpyrightTestSettings(map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType":       "none",
+						"reportUnknownMemberType":         "none",
+						"reportUnannotatedClassAttribute": "none",
+						"reportSelfClsParameterName":      "none",
 					},
 				},
 			},
-		}, []string{settaFilesRoot})
-	}
+		},
+	}, []string{settaFilesRoot})
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
@@ -721,22 +582,20 @@ func TestRouterCurrentProcessPythonRefreshesGeneratedDiagnosticsWhenImportedWatc
 		t.Fatalf("seed generated code source: %v", err)
 	}
 
-	settings := func() map[string]any {
-		return CurrentProcessPythonSettings(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
+	settings := basedpyrightTestSettings(map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType":       "none",
+						"reportUnknownMemberType":         "none",
+						"reportUnannotatedClassAttribute": "none",
+						"reportSelfClsParameterName":      "none",
 					},
 				},
 			},
-		}, []string{settaFilesRoot})
-	}
+		},
+	}, []string{settaFilesRoot})
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
@@ -823,22 +682,20 @@ func TestRouterCurrentProcessPythonSyncAndRefreshPublishesGeneratedCallDiagnosti
 		t.Fatalf("seed generated code source: %v", err)
 	}
 
-	settings := func() map[string]any {
-		return CurrentProcessPythonSettings(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
+	settings := basedpyrightTestSettings(map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType":       "none",
+						"reportUnknownMemberType":         "none",
+						"reportUnannotatedClassAttribute": "none",
+						"reportSelfClsParameterName":      "none",
 					},
 				},
 			},
-		}, []string{settaFilesRoot})
-	}
+		},
+	}, []string{settaFilesRoot})
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
@@ -946,22 +803,20 @@ func TestRouterCurrentProcessPythonIncrementalWatchCodeTypingStillPublishesGener
 		t.Fatalf("seed generated code source: %v", err)
 	}
 
-	settings := func() map[string]any {
-		return CurrentProcessPythonSettings(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
+	settings := basedpyrightTestSettings(map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType":       "none",
+						"reportUnknownMemberType":         "none",
+						"reportUnannotatedClassAttribute": "none",
+						"reportSelfClsParameterName":      "none",
 					},
 				},
 			},
-		}, []string{settaFilesRoot})
-	}
+		},
+	}, []string{settaFilesRoot})
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
@@ -1043,22 +898,20 @@ func TestRouterCurrentProcessPythonPublishesGeneratedCallDiagnosticsWithWorkspac
 		}
 	}
 
-	settings := func() map[string]any {
-		return CurrentProcessPythonSettings(map[string]any{
-			"languageServer": map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"diagnosticSeverityOverrides": map[string]any{
-							"reportUnknownVariableType":       "none",
-							"reportUnknownMemberType":         "none",
-							"reportUnannotatedClassAttribute": "none",
-							"reportSelfClsParameterName":      "none",
-						},
+	settings := basedpyrightTestSettings(map[string]any{
+		"languageServer": map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"diagnosticSeverityOverrides": map[string]any{
+						"reportUnknownVariableType":       "none",
+						"reportUnknownMemberType":         "none",
+						"reportUnannotatedClassAttribute": "none",
+						"reportSelfClsParameterName":      "none",
 					},
 				},
 			},
-		}, []string{settaFilesRoot})
-	}
+		},
+	}, []string{settaFilesRoot})
 
 	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
@@ -1151,8 +1004,86 @@ func settingsMapsEqual(left map[string]any, right map[string]any) bool {
 	return reflect.DeepEqual(left, right)
 }
 
-func stringPtr(value string) *string {
-	return &value
+func basedpyrightTestSettings(base map[string]any, extraPaths []string) map[string]any {
+	branch := basedpyrightTestSettingsBranch(base)
+	if len(extraPaths) != 0 {
+		analysis, ok := branch["analysis"].(map[string]any)
+		if !ok {
+			analysis = map[string]any{}
+			branch["analysis"] = analysis
+		}
+		analysis["extraPaths"] = basedpyrightTestStringSliceToAnySlice(
+			mergeBasedpyrightTestExtraPaths(analysis["extraPaths"], extraPaths),
+		)
+	}
+	if len(branch) == 0 {
+		return nil
+	}
+	return map[string]any{"basedpyright": branch}
+}
+
+func basedpyrightTestSettingsBranch(base map[string]any) map[string]any {
+	if base == nil {
+		return map[string]any{}
+	}
+	if basedpyrightSettings, ok := base["basedpyright"].(map[string]any); ok {
+		return cloneLanguageServerSettingsMap(basedpyrightSettings)
+	}
+	languageServer, ok := base["languageServer"].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	basedpyrightSettings, ok := languageServer["basedpyright"].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return cloneLanguageServerSettingsMap(basedpyrightSettings)
+}
+
+func mergeBasedpyrightTestExtraPaths(existing any, extraPaths []string) []string {
+	merged := []string{}
+	seen := map[string]struct{}{}
+	appendPath := func(rawPath string) {
+		trimmed := strings.TrimSpace(rawPath)
+		if trimmed == "" {
+			return
+		}
+		normalized := filepath.Clean(trimmed)
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		merged = append(merged, normalized)
+	}
+
+	switch typed := existing.(type) {
+	case []any:
+		for _, value := range typed {
+			path, ok := value.(string)
+			if ok {
+				appendPath(path)
+			}
+		}
+	case []string:
+		for _, value := range typed {
+			appendPath(value)
+		}
+	}
+	for _, value := range extraPaths {
+		appendPath(value)
+	}
+	return merged
+}
+
+func basedpyrightTestStringSliceToAnySlice(values []string) []any {
+	if len(values) == 0 {
+		return nil
+	}
+	result := make([]any, len(values))
+	for index, value := range values {
+		result[index] = value
+	}
+	return result
 }
 
 func diagnosticsContainRule(diagnostics []Diagnostic, rule string) bool {
@@ -1212,7 +1143,6 @@ func newFixturePythonRouter(
 	t *testing.T,
 	workspaceRoot string,
 	additionalSpecs []LanguageServerSpec,
-	settings func() map[string]any,
 ) *Router {
 	t.Helper()
 
@@ -1229,7 +1159,6 @@ func newFixturePythonRouter(
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot:   workspaceRoot,
 		AdditionalSpecs: specs,
-		Settings:        settings,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -1237,15 +1166,14 @@ func newFixturePythonRouter(
 	return router
 }
 
-func newBasedpyrightRouter(t *testing.T, workspaceRoot string, settings func() map[string]any) *Router {
+func newBasedpyrightRouter(t *testing.T, workspaceRoot string, settings map[string]any) *Router {
 	t.Helper()
 
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot: workspaceRoot,
 		AdditionalSpecs: []LanguageServerSpec{
-			basedpyrightLanguageServerSpec(t),
+			basedpyrightLanguageServerSpec(t, settings),
 		},
-		Settings: settings,
 	})
 	if err != nil {
 		t.Fatalf("new basedpyright router: %v", err)
@@ -1253,7 +1181,7 @@ func newBasedpyrightRouter(t *testing.T, workspaceRoot string, settings func() m
 	return router
 }
 
-func basedpyrightLanguageServerSpec(t *testing.T) LanguageServerSpec {
+func basedpyrightLanguageServerSpec(t *testing.T, settings map[string]any) LanguageServerSpec {
 	t.Helper()
 
 	settingsKey := "basedpyright"
@@ -1262,6 +1190,7 @@ func basedpyrightLanguageServerSpec(t *testing.T) LanguageServerSpec {
 		LanguageID:  "python",
 		Command:     firstpartyplugin.BasedpyrightPython(t),
 		Args:        []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		Settings:    cloneLanguageServerSettingsMap(settings),
 		SettingsKey: &settingsKey,
 	}
 }
@@ -1287,16 +1216,6 @@ func fixturePluginLanguageServerSpec(t *testing.T) LanguageServerSpec {
 		Command:     resolveRouterTestPythonBinary(t),
 		Args:        []string{filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py")},
 		SettingsKey: &settingsKey,
-	}
-}
-
-func fixturePluginLanguageServerSettings() map[string]any {
-	return map[string]any{
-		"fixtureDslLanguageServer": map[string]any{
-			"analysis": map[string]any{
-				"emitDiagnostics": true,
-			},
-		},
 	}
 }
 

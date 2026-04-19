@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 )
 
-func languageServerSettingsRoot(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
+func languageServerSettingsRoot(entries []DiscoveredPlugin, entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
 	defaults := pluginLanguageServerDefaults(entry)
-	current := runtimeCurrentConfig(entry, pluginsState)
+	current := pluginConfigSnapshotWithDuplicateFallback(entries, entry, pluginsState).Config
 	switch {
 	case len(defaults) == 0 && len(current) == 0:
 		return nil
@@ -17,6 +17,27 @@ func languageServerSettingsRoot(entry DiscoveredPlugin, pluginsState *PluginsSta
 	default:
 		return mergeStringAnyMaps(defaults, current)
 	}
+}
+
+func pluginConfigSnapshotWithDuplicateFallback(entries []DiscoveredPlugin, entry DiscoveredPlugin, pluginsState *PluginsStateFile) PluginConfigSnapshot {
+	current := pluginConfigSnapshot(entry, pluginsState)
+	if current.Exists || len(entries) == 0 {
+		return current
+	}
+
+	for _, candidate := range entries {
+		if candidate.PluginID != entry.PluginID {
+			continue
+		}
+		if candidate.Scope == entry.Scope && candidate.SourcePath == entry.SourcePath {
+			continue
+		}
+		fallback := pluginConfigSnapshot(candidate, pluginsState)
+		if fallback.Exists {
+			return fallback
+		}
+	}
+	return current
 }
 
 func pluginLanguageServerDefaults(entry DiscoveredPlugin) map[string]any {

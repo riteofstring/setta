@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -663,7 +662,7 @@ func validatePluginConfigSchemaFile(pluginRoot string, manifest PluginManifest) 
 }
 
 func (s *Service) validateMetadataIdentity(pluginRoot string, manifest PluginManifest) error {
-	packageName, packageVersion := readPackageMetadataOptional(pluginRoot)
+	packageName, packageVersion := readPackageMetadataOptional(pluginRoot, manifest.ID)
 	if packageName == "" || packageVersion == "" {
 		pyprojectName, pyprojectVersion := readPyprojectMetadataOptional(pluginRoot)
 		if packageName == "" {
@@ -703,33 +702,48 @@ func readPyprojectMetadataOptional(pluginRoot string) (string, string) {
 	return strings.TrimSpace(payload.Project.Name), strings.TrimSpace(payload.Project.Version)
 }
 
-func readPackageMetadataOptional(pluginRoot string) (string, string) {
-	metadataPath := findPackageMetadataPath(pluginRoot)
-	if metadataPath == "" {
+func readPackageMetadataOptional(pluginRoot string, expectedPackageID string) (string, string) {
+	metadataPaths := findPackageMetadataPaths(pluginRoot)
+	if len(metadataPaths) == 0 {
 		return "", ""
 	}
-	content, err := os.ReadFile(metadataPath)
-	if err != nil {
-		return "", ""
+	expectedNormalized := normalizeIdentityValue(expectedPackageID)
+	fallbackName := ""
+	fallbackVersion := ""
+	for _, metadataPath := range metadataPaths {
+		content, err := os.ReadFile(metadataPath)
+		if err != nil {
+			continue
+		}
+		packageName, packageVersion := parsePackageMetadataNameAndVersion(string(content))
+		if packageName == "" && packageVersion == "" {
+			continue
+		}
+		if fallbackName == "" && fallbackVersion == "" {
+			fallbackName = packageName
+			fallbackVersion = packageVersion
+		}
+		if expectedNormalized != "" && normalizeIdentityValue(packageName) == expectedNormalized {
+			return packageName, packageVersion
+		}
 	}
-	return parsePackageMetadataNameAndVersion(string(content))
+	return fallbackName, fallbackVersion
 }
 
-func findPackageMetadataPath(pluginRoot string) string {
-	metadataPath := ""
+func findPackageMetadataPaths(pluginRoot string) []string {
+	metadataPaths := make([]string, 0, 1)
 	if err := filepath.WalkDir(pluginRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(path, ".dist-info"+string(filepath.Separator)+"METADATA") {
-			metadataPath = path
-			return fs.SkipAll
+			metadataPaths = append(metadataPaths, path)
 		}
 		return nil
 	}); err != nil {
-		return ""
+		return nil
 	}
-	return metadataPath
+	return metadataPaths
 }
 
 func parsePackageMetadataNameAndVersion(content string) (string, string) {

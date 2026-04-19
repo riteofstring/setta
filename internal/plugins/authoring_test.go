@@ -370,9 +370,40 @@ func TestReadPackageMetadataOptionalReadsDistInfoMetadata(t *testing.T) {
 		t.Fatalf("write metadata: %v", err)
 	}
 
-	name, version := readPackageMetadataOptional(pluginRoot)
+	name, version := readPackageMetadataOptional(pluginRoot, "")
 	if name != "setta-fixture" || version != "1.2.3" {
 		t.Fatalf("expected package metadata from dist-info, got name=%q version=%q", name, version)
+	}
+}
+
+func TestReadPackageMetadataOptionalPrefersMatchingDistInfoWhenDependenciesExist(t *testing.T) {
+	pluginRoot := t.TempDir()
+	dependencyDistInfoRoot := filepath.Join(pluginRoot, "basedpyright-1.31.0.dist-info")
+	if err := os.MkdirAll(dependencyDistInfoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir dependency dist-info root: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(dependencyDistInfoRoot, "METADATA"),
+		[]byte("Metadata-Version: 2.4\nName: basedpyright\nVersion: 1.31.0\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write dependency metadata: %v", err)
+	}
+	pluginDistInfoRoot := filepath.Join(pluginRoot, "setta_basedpyright-0.1.0.dist-info")
+	if err := os.MkdirAll(pluginDistInfoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir plugin dist-info root: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(pluginDistInfoRoot, "METADATA"),
+		[]byte("Metadata-Version: 2.4\nName: setta-basedpyright\nVersion: 0.1.0\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write plugin metadata: %v", err)
+	}
+
+	name, version := readPackageMetadataOptional(pluginRoot, "setta-basedpyright")
+	if name != "setta-basedpyright" || version != "0.1.0" {
+		t.Fatalf("expected matching package metadata, got name=%q version=%q", name, version)
 	}
 }
 

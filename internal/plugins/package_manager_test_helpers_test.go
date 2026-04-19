@@ -8,6 +8,7 @@ import (
 
 	"setta/internal/config"
 	"setta/internal/pythonenv"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func mustNewPythonRuntime(t *testing.T) *pythonenv.Runtime {
@@ -119,6 +120,30 @@ func installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t *testing.T,
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join("setta_basedpyright-0.1.0.dist-info", "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
+}
+
+func firstPartyBasedpyrightSitePackages(t *testing.T) string {
+	t.Helper()
+
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	venvRoot := filepath.Dir(filepath.Dir(pythonPath))
+
+	windowsSitePackages := filepath.Join(venvRoot, "Lib", "site-packages")
+	if info, err := os.Stat(windowsSitePackages); err == nil && info.IsDir() {
+		return windowsSitePackages
+	}
+
+	matches, err := filepath.Glob(filepath.Join(venvRoot, "lib", "python*", "site-packages"))
+	if err != nil {
+		t.Fatalf("glob basedpyright site-packages: %v", err)
+	}
+	for _, match := range matches {
+		if info, err := os.Stat(match); err == nil && info.IsDir() {
+			return match
+		}
+	}
+	t.Fatalf("resolve basedpyright site-packages for %s", pythonPath)
+	return ""
 }
 
 func packageManagerFixturePluginRootName(t *testing.T, sourceRoot string) string {

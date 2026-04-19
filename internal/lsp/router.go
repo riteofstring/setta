@@ -30,7 +30,6 @@ type RouterOptions struct {
 	WorkspaceRoot   string
 	Environ         func() []string
 	WorkingDir      string
-	Settings        func() map[string]any
 	AdditionalSpecs []LanguageServerSpec
 }
 
@@ -38,7 +37,6 @@ type Router struct {
 	workspaceRoot string
 	environment   []string
 	workingDir    string
-	settings      func() map[string]any
 
 	mu       sync.Mutex
 	specs    map[string]LanguageServerSpec
@@ -60,7 +58,6 @@ func NewRouter(options RouterOptions) (*Router, error) {
 		workspaceRoot: strings.TrimSpace(options.WorkspaceRoot),
 		environment:   append([]string(nil), environ()...),
 		workingDir:    strings.TrimSpace(options.WorkingDir),
-		settings:      options.Settings,
 		specs:         cloneLanguageServerSpecMap(specs),
 		services:      map[string]*Service{},
 	}, nil
@@ -403,7 +400,7 @@ func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
 		Args:          append([]string(nil), spec.Args...),
 		Environment:   append([]string(nil), r.environment...),
 		WorkingDir:    r.workingDir,
-		Settings:      sessionLanguageServerSettings(spec, r.settings),
+		Settings:      cloneLanguageServerSettingsMap(spec.Settings),
 	})
 	if err != nil {
 		return nil, false, err
@@ -411,85 +408,6 @@ func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
 	service := NewService(session)
 	r.services[normalizedLanguageID] = service
 	return service, true, nil
-}
-
-func loadRouterSettings(settings func() map[string]any) map[string]any {
-	if settings == nil {
-		return nil
-	}
-	return cloneLanguageServerSettingsMap(settings())
-}
-
-func sessionLanguageServerSettings(spec LanguageServerSpec, settings func() map[string]any) map[string]any {
-	if spec.Settings != nil {
-		return cloneLanguageServerSettingsMap(spec.Settings)
-	}
-	return resolveLanguageServerSettings(loadRouterSettings(settings), spec.SettingsKey)
-}
-
-func resolveLanguageServerSettings(settings map[string]any, settingsKey *string) map[string]any {
-	if len(settings) == 0 {
-		return nil
-	}
-	if settingsKey == nil {
-		return cloneLanguageServerSettingsMap(settings)
-	}
-
-	segments := parseLanguageServerSettingsKey(*settingsKey)
-	if len(segments) == 0 {
-		return nil
-	}
-
-	currentMap := resolveLanguageServerSettingsBranch(settings, segments)
-	if currentMap == nil {
-		return nil
-	}
-
-	return wrapLanguageServerSettingsBranch(segments, currentMap)
-}
-
-func parseLanguageServerSettingsKey(key string) []string {
-	segments := strings.Split(strings.TrimSpace(key), ".")
-	filtered := make([]string, 0, len(segments))
-	for _, segment := range segments {
-		trimmed := strings.TrimSpace(segment)
-		if trimmed == "" {
-			continue
-		}
-		filtered = append(filtered, trimmed)
-	}
-	return filtered
-}
-
-func resolveLanguageServerSettingsBranch(settings map[string]any, segments []string) map[string]any {
-	current := settings
-	for index, segment := range segments {
-		value, ok := current[segment]
-		if !ok {
-			return nil
-		}
-		if index == len(segments)-1 {
-			currentMap, ok := value.(map[string]any)
-			if !ok {
-				return nil
-			}
-			return currentMap
-		}
-		next, ok := value.(map[string]any)
-		if !ok {
-			return nil
-		}
-		current = next
-	}
-	return nil
-}
-
-func wrapLanguageServerSettingsBranch(segments []string, settings map[string]any) map[string]any {
-	wrapped := cloneLanguageServerSettingsMap(settings)
-	for index := len(segments) - 1; index >= 0; index-- {
-		wrapped = map[string]any{segments[index]: wrapped}
-	}
-	return wrapped
 }
 
 func cloneLanguageServerSettingsMap(source map[string]any) map[string]any {

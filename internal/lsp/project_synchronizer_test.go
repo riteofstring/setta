@@ -1201,7 +1201,7 @@ func TestProjectSynchronizerTypeCheckProjectRefreshesPythonSectionsWithoutCodege
 	t.Parallel()
 
 	settaFilesRoot := t.TempDir()
-	router := newFixturePythonRouter(t, settaFilesRoot, nil, nil)
+	router := newFixturePythonRouter(t, settaFilesRoot, nil)
 	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
 		Service:        router,

@@ -252,6 +252,7 @@ func (s *Service) buildRuntimeListEntries(
 			Frontend:           buildRuntimeFrontendDescriptor(entry, assetURLBuilder),
 			Content:            buildRuntimeContentDescriptor(entry),
 			Config: buildRuntimeConfigDescriptor(
+				entries,
 				entry,
 				pluginsState,
 				redactConfigDetails,
@@ -313,7 +314,7 @@ func buildRuntimeContentDescriptor(entry DiscoveredPlugin) PluginContentDescript
 	}
 }
 
-func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsStateFile, redactConfigDetails bool) PluginConfigDescriptor {
+func buildRuntimeConfigDescriptor(entries []DiscoveredPlugin, entry DiscoveredPlugin, pluginsState *PluginsStateFile, redactConfigDetails bool) PluginConfigDescriptor {
 	hasSchema, schemaJSON, schemaDigest := buildRuntimeConfigSchemaDescriptor(entry)
 	if redactConfigDetails {
 		return PluginConfigDescriptor{
@@ -325,7 +326,7 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 		}
 	}
 
-	currentConfig := runtimeCurrentConfig(entry, pluginsState)
+	currentConfig := pluginConfigSnapshotWithDuplicateFallback(entries, entry, pluginsState).Config
 	return PluginConfigDescriptor{
 		HasSchema:                 hasSchema,
 		SchemaJSON:                schemaJSON,
@@ -344,10 +345,6 @@ func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[strin
 		return false, map[string]any{}, nil
 	}
 	return true, document.JSON, runtimeDigestJSONValue(document.JSON)
-}
-
-func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
-	return pluginConfigSnapshot(entry, pluginsState).Config
 }
 
 func runtimeDirectoryHasFiles(pluginRoot string, relativePath string) bool {
