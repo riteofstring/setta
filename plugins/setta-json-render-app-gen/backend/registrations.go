@@ -8,6 +8,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 )
 
 type AppSubsystemCapabilityProvider interface {
@@ -38,9 +39,9 @@ func BuildFrontendAPIRouteRegistrations(
 }
 
 func BuildMCPToolRegistrations(
-	projectState mcpx.AppSubsystemProjectStateProvider,
+	service projectstate.AppDefinitionRuntime,
 ) []mcpx.ToolRegistration {
-	return mcpx.BuildAppSubsystemToolRegistrations(projectState)
+	return mcpx.BuildAppSubsystemToolRegistrations(service)
 }
 
 func buildProjectFrontendRouteContributions(
