@@ -104,7 +104,9 @@ func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
 }
 
 func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
-	document, err := BuildFrontendHTTPOpenAPIDocument()
+	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+		buildAppSubsystemRegistrationsForTest,
+	)
 	if err != nil {
 		t.Fatalf("build frontend http openapi document: %v", err)
 	}
