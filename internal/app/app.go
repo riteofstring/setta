@@ -361,11 +361,26 @@ func initializeProjectServices(
 
 func initializeDeploymentProjectServices(cfg config.Config) (projectServices, error) {
 	services := projectServices{}
+	typeRegistry, err := NewDeploymentTypeRegistry()
+	if err != nil {
+		return projectServices{}, err
+	}
+	manifest, err := deployments.LoadManifest(cfg.Paths.DeploymentRoot)
+	if err != nil {
+		return projectServices{}, err
+	}
+	registration, err := typeRegistry.ResolveStartupRegistration(
+		string(cfg.Server.Mode),
+		manifest,
+	)
+	if err != nil {
+		return projectServices{}, err
+	}
 	listenerPython, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
 	if err != nil {
 		listenerPython = ""
 	}
-	services.deploymentRuntime, err = deployments.Open(
+	services.deploymentRuntime, err = registration.OpenRuntime(
 		context.Background(),
 		deployments.RuntimeOptions{
 			DeploymentRoot: cfg.Paths.DeploymentRoot,
