@@ -33,10 +33,6 @@ func HandleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, e
 	handleDeploymentProjectStateError(w, r, err)
 }
 
-func CloneAppDefinition(appDefinition *projectstate.AppDefinition) *projectstate.AppDefinition {
-	return cloneAppDefinition(appDefinition)
-}
-
 func ListDeploymentMetadataHandler(
 	catalog *deployments.Catalog,
 	deploymentType deployments.Type,

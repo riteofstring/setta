@@ -545,7 +545,7 @@ func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) proje
 	return projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		AppDefinition:    appDefinition,
+		AppDefinition:    encodeDeploymentIDERouteAppDefinition(appDefinition),
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
 				ID:   "project-alpha",
@@ -553,4 +553,17 @@ func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) proje
 			},
 		},
 	}
+}
+
+func encodeDeploymentIDERouteAppDefinition(
+	appDefinition *projectstate.AppDefinition,
+) projectstate.RawJSON {
+	if appDefinition == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(appDefinition)
+	if err != nil {
+		panic(err)
+	}
+	return projectstate.RawJSON(encoded)
 }
