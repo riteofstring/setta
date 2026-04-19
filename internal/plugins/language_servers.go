@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -140,15 +141,31 @@ func buildLanguageServerSpec(
 	if settings == nil {
 		settings = map[string]any{}
 	}
+	environment, err := languageServerEnvironment(entry)
+	if err != nil {
+		return lsp.LanguageServerSpec{}, "", err
+	}
 	return lsp.LanguageServerSpec{
 		PluginID:    strings.TrimSpace(registration.PluginID),
 		Name:        strings.TrimSpace(registration.Name),
 		LanguageID:  language,
 		Command:     strings.TrimSpace(registration.Command),
 		Args:        append([]string(nil), registration.Args...),
+		Environment: environment,
 		Settings:    settings,
 		SettingsKey: cloneOptionalString(registration.SettingsKey),
 	}, language, nil
+}
+
+func languageServerEnvironment(entry DiscoveredPlugin) (map[string]string, error) {
+	if entry.Manifest == nil || !manifestUsesPythonBackend(*entry.Manifest) {
+		return nil, nil
+	}
+	pluginRoot := filepath.Clean(strings.TrimSpace(entry.SourcePath))
+	if pluginRoot == "" || pluginRoot == "." {
+		return nil, nil
+	}
+	return pythonBackendLaunchEnvironment(pluginRoot)
 }
 
 func languageServerSettingsWithRuntimePaths(

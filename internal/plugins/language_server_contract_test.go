@@ -97,6 +97,59 @@ func TestFirstPartyBasedpyrightLanguageServerContract(t *testing.T) {
 	})
 }
 
+func TestFirstPartyBasedpyrightLanguageServerContractUsesVendoredDependencyEnvironment(t *testing.T) {
+	target := languageServerContractTarget{
+		name:                    "setta-basedpyright",
+		pluginID:                "setta-basedpyright",
+		languageID:              "python",
+		referenceFileName:       "contract_reference.py",
+		diagnosticsDocumentName: "contract_diagnostics.py",
+		diagnosticsBrokenContent: strings.Join([]string{
+			"value = unknown_symbol",
+			"",
+		}, "\n"),
+		diagnosticsClearedContent: strings.Join([]string{
+			"value = 1",
+			"",
+		}, "\n"),
+		completionContent:   "str.",
+		completionCharacter: len("str."),
+		signatureContent:    "value = sorted(",
+		signatureCharacter:  len("value = sorted("),
+		assertCompletion: func(t *testing.T, result lsp.CompletionResult) {
+			t.Helper()
+			if !completionResultContainsLabel(result, "upper") {
+				t.Fatalf("expected basedpyright completion items to include upper, got %#v", result.Items)
+			}
+		},
+		assertSignature: func(t *testing.T, result lsp.SignatureHelpResult) {
+			t.Helper()
+			if len(result.Signatures) == 0 {
+				t.Fatalf("expected basedpyright signature help, got %#v", result.Signatures)
+			}
+		},
+	}
+
+	harness := newInstalledLanguageServerContractHarness(t, target)
+
+	entry := mustFindDiscoveredPlugin(t, harness.snapshot.Plugins, target.pluginID, PluginScopeWorkspace)
+	if entry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active discovered plugin after wheel install, got %#v", entry.State)
+	}
+	if len(entry.RegisteredLanguageServers) != 1 {
+		t.Fatalf("expected one discovered language server registration after wheel install, got %#v", entry.RegisteredLanguageServers)
+	}
+
+	specs := harness.refreshSelectedSpecs(t, harness.selectedByLanguage)
+	if len(specs) != 1 || specs[0].PluginID != target.pluginID {
+		t.Fatalf("expected selected %s spec after wheel install, got %#v", target.pluginID, specs)
+	}
+
+	target.assertCompletion(t, harness.completeSnapshot(t))
+	target.assertSignature(t, harness.signatureHelpSnapshot(t))
+	harness.assertDiagnosticsRoundTrip(t)
+}
+
 func TestFirstPartyBasedpyrightRejectsRelativeCommandEscape(t *testing.T) {
 	t.Setenv("SETTA_LSP_COMMAND", "../outside/basedpyright-langserver")
 
@@ -343,6 +396,59 @@ func newLanguageServerContractHarness(t *testing.T, target languageServerContrac
 	if err != nil {
 		t.Fatalf("commit backend runtime refresh for %s: %v", target.pluginID, err)
 	}
+
+	return newLanguageServerContractHarnessFromService(t, target, roots, service, snapshot)
+}
+
+func newInstalledLanguageServerContractHarness(t *testing.T, target languageServerContractTarget) *languageServerContractHarness {
+	t.Helper()
+
+	artifactDir := t.TempDir()
+	buildLocalBuiltPyPIWheelFromFirstPartyBasedpyright(t, artifactDir)
+	buildLocalBuiltPyPIWheelFromRoot(t, artifactDir, buildDummyBasedpyrightPackageRoot(t))
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	roots := newFilesystemResolverTestRoots(t)
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	service := mustNewPluginMutationService(t, roots, provider, config.ModeIDE)
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-basedpyright==0.1.0",
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Installer:  installerPointer(PluginInstallerBackendPip),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install wheel plugin %s: %v", target.pluginID, err)
+	}
+	if installResult.RestartRequired {
+		if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+			t.Fatalf("commit backend runtime refresh for %s after install: %v", target.pluginID, err)
+		}
+	}
+
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan installed plugin %s: %v", target.pluginID, err)
+	}
+
+	return newLanguageServerContractHarnessFromService(t, target, roots, service, snapshot)
+}
+
+func newLanguageServerContractHarnessFromService(
+	t *testing.T,
+	target languageServerContractTarget,
+	roots filesystemResolverTestRoots,
+	service *Service,
+	snapshot DiscoverySnapshot,
+) *languageServerContractHarness {
+	t.Helper()
 
 	selectedByLanguage := map[string]*string{
 		target.languageID: stringPointer(target.pluginID),

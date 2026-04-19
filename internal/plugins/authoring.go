@@ -727,6 +727,9 @@ func readPackageMetadataOptional(pluginRoot string, expectedPackageID string) (s
 			return packageName, packageVersion
 		}
 	}
+	if expectedNormalized != "" {
+		return "", ""
+	}
 	return fallbackName, fallbackVersion
 }
 

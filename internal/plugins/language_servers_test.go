@@ -201,6 +201,13 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
 	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
 	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+	vendoredRoot := filepath.Join(targetRoot, pythonBackendSitePackagesDirName)
+	if err := os.MkdirAll(vendoredRoot, 0o755); err != nil {
+		t.Fatalf("mkdir vendored basedpyright root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(vendoredRoot, ".keep"), []byte(""), 0o644); err != nil {
+		t.Fatalf("write vendored root marker: %v", err)
+	}
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
@@ -250,6 +257,17 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 		if overrides[rule] != "none" {
 			t.Fatalf("expected %s to default to none, got %#v", rule, overrides[rule])
 		}
+	}
+	pythonPathEnv, ok := spec.Environment["PYTHONPATH"]
+	if !ok {
+		t.Fatalf("expected basedpyright spec to carry PYTHONPATH override, got %#v", spec.Environment)
+	}
+	pythonPathEntries := filepath.SplitList(pythonPathEnv)
+	if len(pythonPathEntries) < 1 || pythonPathEntries[0] != targetRoot {
+		t.Fatalf("expected plugin root %q to lead basedpyright PYTHONPATH, got %#v", targetRoot, pythonPathEntries)
+	}
+	if len(pythonPathEntries) < 2 || pythonPathEntries[1] != vendoredRoot {
+		t.Fatalf("expected vendored root %q in basedpyright PYTHONPATH, got %#v", vendoredRoot, pythonPathEntries)
 	}
 	extraPaths, ok := analysis["extraPaths"].([]any)
 	if !ok || len(extraPaths) != 1 || extraPaths[0] != roots.settaFilesRoot {

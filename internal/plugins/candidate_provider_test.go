@@ -572,7 +572,17 @@ func buildDummyBasedpyrightPackageRoot(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(root, "basedpyright", "__init__.py"), []byte(""), 0o644); err != nil {
 		t.Fatalf("write dummy basedpyright __init__: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "basedpyright", "langserver.py"), []byte("def main():\n    return None\n"), 0o644); err != nil {
+	langserverPayload, err := os.ReadFile(filepath.Join(
+		workerRPCTestRepoRoot(t),
+		"tests",
+		"fixtures",
+		"lsp",
+		"mini_basedpyright_language_server.py",
+	))
+	if err != nil {
+		t.Fatalf("read dummy basedpyright langserver fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "basedpyright", "langserver.py"), langserverPayload, 0o644); err != nil {
 		t.Fatalf("write dummy basedpyright langserver: %v", err)
 	}
 	return root

@@ -73,16 +73,25 @@ function buildPythonLanguageServerBanner(
     return unselectedBanner;
   }
   if (selectedPluginStatus == null) {
+    if (appliedPythonEntry?.pluginId === selectedPythonPlugin) {
+      return `Selected Python language server plugin "${selectedPythonPlugin}" is still applied, but restart is still required before the current workspace/plugin state takes effect.`;
+    }
     return `Selected Python language server plugin "${selectedPythonPlugin}" is not installed or active. Install or enable it, then restart the language server.`;
+  }
+  if (entryHasAppliedLanguageServer(selectedPluginStatus, "python")) {
+    if (
+      !entryHasActiveRuntime(selectedPluginStatus) ||
+      !entryProvidesLanguage(selectedPluginStatus, "python")
+    ) {
+      return `Selected Python language server plugin "${selectedPythonPlugin}" is still applied, but restart is still required before the current workspace/plugin state takes effect.`;
+    }
+    return null;
   }
   if (!entryHasActiveRuntime(selectedPluginStatus)) {
     return `Selected Python language server plugin "${selectedPythonPlugin}" is unavailable. Enable or reinstall it, then restart the language server.`;
   }
   if (!entryProvidesLanguage(selectedPluginStatus, "python")) {
     return `Selected Python language server plugin "${selectedPythonPlugin}" does not provide Python. Choose a Python language server plugin in workspace settings, then restart the language server.`;
-  }
-  if (entryHasAppliedLanguageServer(selectedPluginStatus, "python")) {
-    return null;
   }
   return `Selected Python language server plugin "${selectedPythonPlugin}" is available, but restart is still required before it is applied.`;
 }

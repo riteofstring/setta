@@ -11220,6 +11220,82 @@ func TestAppRestartLanguageServerClearsPendingStateForDeselectedLanguageServerOn
 	}
 }
 
+func TestAppPluginRuntimeStatusKeepsAppliedLanguageAfterSelectedPluginDisappearsUntilRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	initialStatus := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	initialEntry := mustFindAppPluginStatusEntry(t, initialStatus, "setta-fixture-backend")
+	if len(initialEntry.AppliedLanguageServerLanguages) != 1 || initialEntry.AppliedLanguageServerLanguages[0] != "fixturedsl" {
+		t.Fatalf("expected applied fixture language server before plugin removal, got %#v", initialEntry.AppliedLanguageServerLanguages)
+	}
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
+		t.Fatalf("expected fixture completion before plugin removal, got %#v", completions)
+	}
+
+	if err := os.RemoveAll(filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend")); err != nil {
+		t.Fatalf("remove selected plugin root: %v", err)
+	}
+
+	rescanResponse := rescanAppPlugins(t, server.URL, authCookie)
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugins rescan 200 after plugin removal, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
+
+	statusAfterRemoval := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entryAfterRemoval := mustFindAppPluginStatusEntry(t, statusAfterRemoval, "setta-fixture-backend")
+	if entryAfterRemoval.State != plugins.PluginRuntimeStateInvalid {
+		t.Fatalf("expected synthesized invalid status after plugin removal, got %#v", entryAfterRemoval.State)
+	}
+	if len(entryAfterRemoval.AppliedLanguageServerLanguages) != 1 || entryAfterRemoval.AppliedLanguageServerLanguages[0] != "fixturedsl" {
+		t.Fatalf("expected applied fixture language server to remain published after plugin removal, got %#v", entryAfterRemoval.AppliedLanguageServerLanguages)
+	}
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
+		t.Fatalf("expected fixture completion to remain available before restart, got %#v", completions)
+	}
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart conflict after selected plugin removal, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	statusAfterRestart := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	for _, entry := range statusAfterRestart {
+		if entry.PluginID != "setta-fixture-backend" {
+			continue
+		}
+		if len(entry.AppliedLanguageServerLanguages) != 0 {
+			t.Fatalf("expected removed plugin to stop reporting applied languages after restart, got %#v", entry.AppliedLanguageServerLanguages)
+		}
+	}
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 0 {
+		t.Fatalf("expected no fixture completion after restart clears removed plugin, got %#v", completions)
+	}
+}
+
 func TestAppRestartLanguageServerReturnsUnconfiguredWhenDefaultInterpreterLacksBasedpyright(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

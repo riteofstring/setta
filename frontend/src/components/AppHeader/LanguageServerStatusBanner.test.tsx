@@ -449,4 +449,33 @@ describe("LanguageServerStatusBanner", () => {
       host.remove();
     }
   });
+
+  it("warns when the selected plugin is invalid but still applied until restart", async () => {
+    selectedPythonPlugin = "setta-basedpyright";
+    pluginStatusById = {
+      "setta-basedpyright": buildPluginStatusEntry({
+        pluginId: "setta-basedpyright",
+        state: PluginRuntimeStateEnum.invalid,
+        appliedLanguageServerLanguages: ["python"],
+        registeredLanguageServers: [],
+      }),
+    };
+    statusEntries = Object.values(pluginStatusById);
+
+    const { host, root } = await renderBanner();
+
+    try {
+      const bannerText =
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent ?? "";
+      expect(bannerText).toContain("is still applied");
+      expect(bannerText).toContain("restart is still required");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });

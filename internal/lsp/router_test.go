@@ -98,6 +98,61 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 	}
 }
 
+func TestRouterStartsLanguageServerWithSpecEnvironment(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	echoPath := filepath.Join(t.TempDir(), "pythonpath.txt")
+	spec := fixturePythonLanguageServerSpec(t)
+	spec.Environment = map[string]string{
+		"PYTHONPATH": filepath.Join(t.TempDir(), "from-spec"),
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Environ: func() []string {
+			return []string{
+				"PYTHONPATH=/from-router",
+				"FIXTURE_PYTHONPATH_ECHO_FILE=" + echoPath,
+			}
+		},
+		AdditionalSpecs: []LanguageServerSpec{spec},
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	referencePath := filepath.Join(workspaceRoot, "code", "sections", "alpha", "editor.py")
+	if err := os.MkdirAll(filepath.Dir(referencePath), 0o755); err != nil {
+		t.Fatalf("mkdir fixture dir: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := router.CompleteSnapshot(ctx, SnapshotCompletionRequest{
+		ReferencePath: referencePath,
+		LanguageID:    "python",
+		Content:       "value.",
+		Line:          0,
+		Character:     6,
+	}); err != nil {
+		t.Fatalf("complete snapshot: %v", err)
+	}
+
+	echoed, err := os.ReadFile(echoPath)
+	if err != nil {
+		t.Fatalf("read echoed PYTHONPATH: %v", err)
+	}
+	if string(echoed) != spec.Environment["PYTHONPATH"] {
+		t.Fatalf("expected router to apply spec PYTHONPATH %q, got %q", spec.Environment["PYTHONPATH"], string(echoed))
+	}
+}
+
 func TestNewRouterAllowsNoConfiguredLanguageServers(t *testing.T) {
 	t.Parallel()
 
@@ -423,10 +478,7 @@ func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *tes
 			},
 		},
 	}, nil)
-	spec := fixturePythonLanguageServerSpecWithPaths(
-		resolveRouterTestPythonBinary(t),
-		filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
-	)
+	spec := fixturePythonLanguageServerSpec(t)
 	spec.Settings = settings
 
 	router, err := NewRouter(RouterOptions{
@@ -1146,16 +1198,7 @@ func newFixturePythonRouter(
 ) *Router {
 	t.Helper()
 
-	pythonBinary := resolveRouterTestPythonBinary(t)
-	fixtureServerPath := filepath.Join(
-		routerTestRepoRoot(t),
-		"tests",
-		"fixtures",
-		"lsp",
-		"mini_language_server.py",
-	)
-
-	specs := append([]LanguageServerSpec{fixturePythonLanguageServerSpecWithPaths(pythonBinary, fixtureServerPath)}, additionalSpecs...)
+	specs := append([]LanguageServerSpec{fixturePythonLanguageServerSpec(t)}, additionalSpecs...)
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot:   workspaceRoot,
 		AdditionalSpecs: specs,
@@ -1193,6 +1236,15 @@ func basedpyrightLanguageServerSpec(t *testing.T, settings map[string]any) Langu
 		Settings:    cloneLanguageServerSettingsMap(settings),
 		SettingsKey: &settingsKey,
 	}
+}
+
+func fixturePythonLanguageServerSpec(t *testing.T) LanguageServerSpec {
+	t.Helper()
+
+	return fixturePythonLanguageServerSpecWithPaths(
+		resolveRouterTestPythonBinary(t),
+		filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
+	)
 }
 
 func fixturePythonLanguageServerSpecWithPaths(pythonBinary string, fixtureServerPath string) LanguageServerSpec {

@@ -407,6 +407,61 @@ func TestReadPackageMetadataOptionalPrefersMatchingDistInfoWhenDependenciesExist
 	}
 }
 
+func TestReadPackageMetadataOptionalReturnsEmptyWhenExpectedPackageIDMissing(t *testing.T) {
+	pluginRoot := t.TempDir()
+	dependencyDistInfoRoot := filepath.Join(pluginRoot, "basedpyright-1.31.0.dist-info")
+	if err := os.MkdirAll(dependencyDistInfoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir dependency dist-info root: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(dependencyDistInfoRoot, "METADATA"),
+		[]byte("Metadata-Version: 2.4\nName: basedpyright\nVersion: 1.31.0\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write dependency metadata: %v", err)
+	}
+
+	name, version := readPackageMetadataOptional(pluginRoot, "setta-basedpyright")
+	if name != "" || version != "" {
+		t.Fatalf("expected empty package metadata when expected package id is missing, got name=%q version=%q", name, version)
+	}
+}
+
+func TestValidateMetadataIdentityFromRootsFallsBackToPyprojectWhenExpectedDistInfoMissing(t *testing.T) {
+	pluginRoot := t.TempDir()
+	dependencyDistInfoRoot := filepath.Join(pluginRoot, "basedpyright-1.31.0.dist-info")
+	if err := os.MkdirAll(dependencyDistInfoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir dependency dist-info root: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(dependencyDistInfoRoot, "METADATA"),
+		[]byte("Metadata-Version: 2.4\nName: basedpyright\nVersion: 1.31.0\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write dependency metadata: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(pluginRoot, "pyproject.toml"),
+		[]byte(strings.Join([]string{
+			"[project]",
+			`name = "setta-basedpyright"`,
+			`version = "0.1.0"`,
+			"",
+		}, "\n")),
+		0o644,
+	); err != nil {
+		t.Fatalf("write pyproject metadata: %v", err)
+	}
+
+	err := validateMetadataIdentityFromRoots(pluginRoot, pluginRoot, PluginManifest{
+		ID:      "setta-basedpyright",
+		Version: "0.1.0",
+	})
+	if err != nil {
+		t.Fatalf("expected pyproject fallback metadata validation to succeed, got %v", err)
+	}
+}
+
 // Validate should fail closed on missing manifests, invalid JSON, missing paths,
 // invalid config schemas, incompatible Setta versions, and invalid host version strings.
 func TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions(t *testing.T) {

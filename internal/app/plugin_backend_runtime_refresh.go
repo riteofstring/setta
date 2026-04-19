@@ -564,7 +564,7 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 }
 
 func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status *plugins.PluginStatusResponse) {
-	if r == nil || status == nil || len(status.Plugins) == 0 {
+	if r == nil || status == nil {
 		return
 	}
 
@@ -581,14 +581,46 @@ func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status 
 		if !ok {
 			continue
 		}
-		if entry.State != plugins.PluginRuntimeStateActive && entry.State != plugins.PluginRuntimeStatePendingRestart {
-			continue
-		}
 		entry.AppliedLanguageServerLanguages = append([]string(nil), languages...)
 		delete(appliedByPlugin, entry.PluginID)
-		if len(appliedByPlugin) == 0 {
-			return
-		}
+	}
+	if len(appliedByPlugin) == 0 {
+		return
+	}
+
+	appendMissingAppliedLanguageServerStatusEntries(status, appliedByPlugin)
+}
+
+func appendMissingAppliedLanguageServerStatusEntries(
+	status *plugins.PluginStatusResponse,
+	appliedByPlugin map[string][]string,
+) {
+	if status == nil || len(appliedByPlugin) == 0 {
+		return
+	}
+
+	pluginIDs := make([]string, 0, len(appliedByPlugin))
+	for pluginID := range appliedByPlugin {
+		pluginIDs = append(pluginIDs, pluginID)
+	}
+	for _, pluginID := range uniqueSortedStrings(pluginIDs) {
+		status.Plugins = append(status.Plugins, missingAppliedLanguageServerStatusEntry(pluginID, appliedByPlugin[pluginID]))
+	}
+}
+
+func missingAppliedLanguageServerStatusEntry(pluginID string, languages []string) plugins.PluginStatusEntry {
+	return plugins.PluginStatusEntry{
+		PluginID:                       pluginID,
+		Name:                           pluginID,
+		State:                          plugins.PluginRuntimeStateInvalid,
+		AppliedLanguageServerLanguages: append([]string(nil), languages...),
+		RestartRequired:                true,
+		Errors: []plugins.PluginErrorInfo{
+			{
+				Code:    "applied_language_server_plugin_missing",
+				Message: "Plugin is no longer discovered, but its language server remains applied until restart.",
+			},
+		},
 	}
 }
 
@@ -768,6 +800,7 @@ func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServ
 			LanguageID:  spec.LanguageID,
 			Command:     spec.Command,
 			Args:        append([]string(nil), spec.Args...),
+			Environment: clonePluginLanguageServerEnvironment(spec.Environment),
 			Settings:    clonePluginLanguageServerSettings(spec.Settings),
 			SettingsKey: cloneOptionalString(spec.SettingsKey),
 		})
@@ -797,10 +830,38 @@ func lspLanguageServerSpecsEqual(left lsp.LanguageServerSpec, right lsp.Language
 	if !slices.Equal(left.Args, right.Args) {
 		return false
 	}
+	if !languageServerEnvironmentEqual(left.Environment, right.Environment) {
+		return false
+	}
 	if !languageServerSettingsEqual(left.Settings, right.Settings) {
 		return false
 	}
 	return optionalStringPointersEqual(left.SettingsKey, right.SettingsKey)
+}
+
+func clonePluginLanguageServerEnvironment(source map[string]string) map[string]string {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		normalizedKey := strings.TrimSpace(key)
+		if normalizedKey == "" {
+			continue
+		}
+		cloned[normalizedKey] = value
+	}
+	if len(cloned) == 0 {
+		return nil
+	}
+	return cloned
+}
+
+func languageServerEnvironmentEqual(left map[string]string, right map[string]string) bool {
+	return reflect.DeepEqual(
+		clonePluginLanguageServerEnvironment(left),
+		clonePluginLanguageServerEnvironment(right),
+	)
 }
 
 func languageServerSettingsEqual(left map[string]any, right map[string]any) bool {

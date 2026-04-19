@@ -150,6 +150,58 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 	}
 }
 
+func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusForInvalidEntry(t *testing.T) {
+	refresher := &pluginBackendRuntimeRefresher{
+		appliedLSPSpecs: []lsp.LanguageServerSpec{
+			{
+				PluginID:   "setta-basedpyright",
+				LanguageID: "python",
+			},
+		},
+	}
+	status := plugins.PluginStatusResponse{
+		Plugins: []plugins.PluginStatusEntry{
+			{
+				PluginID: "setta-basedpyright",
+				State:    plugins.PluginRuntimeStateInvalid,
+			},
+		},
+	}
+
+	refresher.applyAppliedLanguageServerStatus(&status)
+
+	if len(status.Plugins[0].AppliedLanguageServerLanguages) != 1 || status.Plugins[0].AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected invalid entry to retain applied python status, got %#v", status.Plugins[0].AppliedLanguageServerLanguages)
+	}
+}
+
+func TestPluginBackendRuntimeRefresherSynthesizesMissingAppliedLanguageServerStatus(t *testing.T) {
+	refresher := &pluginBackendRuntimeRefresher{
+		appliedLSPSpecs: []lsp.LanguageServerSpec{
+			{
+				PluginID:   "setta-basedpyright",
+				LanguageID: "python",
+			},
+		},
+	}
+	status := plugins.PluginStatusResponse{
+		Plugins: []plugins.PluginStatusEntry{},
+	}
+
+	refresher.applyAppliedLanguageServerStatus(&status)
+
+	if len(status.Plugins) != 1 {
+		t.Fatalf("expected synthesized applied status entry, got %#v", status.Plugins)
+	}
+	entry := status.Plugins[0]
+	if entry.PluginID != "setta-basedpyright" || entry.State != plugins.PluginRuntimeStateInvalid {
+		t.Fatalf("expected synthesized invalid entry for missing applied plugin, got %#v", entry)
+	}
+	if len(entry.AppliedLanguageServerLanguages) != 1 || entry.AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected synthesized entry to retain applied python status, got %#v", entry.AppliedLanguageServerLanguages)
+	}
+}
+
 func TestCommitAppliedLanguageServerPluginsDoesNotAdvanceAppliedSpecsOnCommitFailure(t *testing.T) {
 	app := newAppWithFixtureLanguageServer(t)
 

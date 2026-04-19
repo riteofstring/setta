@@ -22,6 +22,7 @@ type LanguageServerSpec struct {
 	LanguageID  string
 	Command     string
 	Args        []string
+	Environment map[string]string
 	Settings    map[string]any
 	SettingsKey *string
 }
@@ -111,6 +112,7 @@ func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, e
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
 		Args:        append([]string(nil), spec.Args...),
+		Environment: cloneLanguageServerEnvironmentMap(spec.Environment),
 		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 		SettingsKey: cloneOptionalString(spec.SettingsKey),
 	}
@@ -163,6 +165,7 @@ func cloneLanguageServerSpec(spec LanguageServerSpec) LanguageServerSpec {
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
 		Args:        append([]string(nil), spec.Args...),
+		Environment: cloneLanguageServerEnvironmentMap(spec.Environment),
 		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 		SettingsKey: cloneOptionalString(spec.SettingsKey),
 	}
@@ -176,6 +179,12 @@ func languageServerSpecsEqual(left LanguageServerSpec, right LanguageServerSpec)
 		return false
 	}
 	if !slices.Equal(left.Args, right.Args) {
+		return false
+	}
+	if !reflect.DeepEqual(
+		cloneLanguageServerEnvironmentMap(left.Environment),
+		cloneLanguageServerEnvironmentMap(right.Environment),
+	) {
 		return false
 	}
 	if !reflect.DeepEqual(
@@ -398,7 +407,7 @@ func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
 		WorkspaceRoot: r.workspaceRoot,
 		Command:       spec.Command,
 		Args:          append([]string(nil), spec.Args...),
-		Environment:   append([]string(nil), r.environment...),
+		Environment:   mergeLanguageServerEnvironment(r.environment, spec.Environment),
 		WorkingDir:    r.workingDir,
 		Settings:      cloneLanguageServerSettingsMap(spec.Settings),
 	})
@@ -419,6 +428,51 @@ func cloneLanguageServerSettingsMap(source map[string]any) map[string]any {
 		cloned[key] = cloneLanguageServerSettingsValue(value)
 	}
 	return cloned
+}
+
+func cloneLanguageServerEnvironmentMap(source map[string]string) map[string]string {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(source))
+	for key, value := range source {
+		normalizedKey := strings.TrimSpace(key)
+		if normalizedKey == "" {
+			continue
+		}
+		cloned[normalizedKey] = value
+	}
+	if len(cloned) == 0 {
+		return nil
+	}
+	return cloned
+}
+
+func mergeLanguageServerEnvironment(base []string, overrides map[string]string) []string {
+	if len(overrides) == 0 {
+		return append([]string(nil), base...)
+	}
+	merged := append([]string(nil), base...)
+	for key, value := range overrides {
+		normalizedKey := strings.TrimSpace(key)
+		if normalizedKey == "" {
+			continue
+		}
+		merged = withEnvValue(merged, normalizedKey, value)
+	}
+	return merged
+}
+
+func withEnvValue(env []string, key string, value string) []string {
+	output := append([]string(nil), env...)
+	prefix := key + "="
+	for index, entry := range output {
+		if strings.HasPrefix(entry, prefix) {
+			output[index] = prefix + value
+			return output
+		}
+	}
+	return append(output, prefix+value)
 }
 
 func cloneLanguageServerSettingsValue(value any) any {
