@@ -4,18 +4,15 @@ package appsubsystemproviders
 
 import plugins "setta/internal/plugins"
 
-var discoveredProviders = []DiscoveredProvider{
+var discoveredProviderCapabilities = []plugins.PluginAppSubsystemFeatureManifest{
 	{
-		PluginID: "setta-json-render-app-gen",
-		Capabilities: plugins.PluginAppSubsystemFeatureManifest{
-			AppAuthoringUI:         true,
-			AppPreviewUI:           true,
-			AppGenerationChatModes: true,
-			AppDeploymentRuntime:   true,
-		},
+		AppAuthoringUI:         true,
+		AppPreviewUI:           true,
+		AppGenerationChatModes: true,
+		AppDeploymentRuntime:   true,
 	},
 }
 
-func DiscoveredProviders() []DiscoveredProvider {
-	return append([]DiscoveredProvider(nil), discoveredProviders...)
+func DiscoveredProviderCapabilities() []plugins.PluginAppSubsystemFeatureManifest {
+	return append([]plugins.PluginAppSubsystemFeatureManifest(nil), discoveredProviderCapabilities...)
 }
