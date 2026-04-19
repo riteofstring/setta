@@ -119,11 +119,6 @@ type InvokeToolSummary struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	SetProjectName(ctx context.Context, projectID string, name string) (projectstate.Snapshot, error)
-	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
-	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
-	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-	StreamAppDefinition(ctx context.Context, input projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
-	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
 	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settings projectstate.StructuralMutationSettings, margin int) (projectstate.Snapshot, error)
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
@@ -385,7 +380,6 @@ func registerServerToolDefinitions(
 		workspaceRoot,
 		registry,
 		opts.ProjectState,
-		opts.SkipDefaultAppSubsystemTools,
 		opts.CodegenTargetValidator,
 		opts.PythonCodegenSectionReconciler,
 		opts.CodeUpdates,
@@ -1664,137 +1658,6 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 	}
 }
 
-func newGetAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-		if err != nil {
-			return nil, err
-		}
-		if service == nil {
-			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		result, err := service.GetAppDefinition(ctx)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
-	}
-}
-
-func newValidateAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
-		if err != nil {
-			return nil, err
-		}
-		if err := requireProjectStateRuntime(service, "Project-state app-definition runtime is unavailable."); err != nil {
-			return nil, err
-		}
-		return executeScopedProjectStateOperation(
-			ctx,
-			projectConfigID,
-			"Structural app-definition invocation context is unavailable.",
-			func() (any, error) {
-				return service.ValidateAppDefinition(ctx, input)
-			},
-		)
-	}
-}
-
-func newSetAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
-		if err != nil {
-			return nil, err
-		}
-		if err := requireProjectStateRuntime(service, "Project-state mutation runtime is unavailable."); err != nil {
-			return nil, err
-		}
-		return executeScopedProjectStateOperation(
-			ctx,
-			projectConfigID,
-			"Structural app-definition invocation context is unavailable.",
-			func() (any, error) {
-				_, result, err := service.SetAppDefinition(ctx, input)
-				return result, err
-			},
-		)
-	}
-}
-
-func newStreamAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
-		if err != nil {
-			return nil, err
-		}
-		if err := requireProjectStateRuntime(service, "Project-state mutation runtime is unavailable."); err != nil {
-			return nil, err
-		}
-		return executeScopedProjectStateOperation(
-			ctx,
-			projectConfigID,
-			"Structural app-definition invocation context is unavailable.",
-			func() (any, error) {
-				_, result, err := service.StreamAppDefinition(ctx, input)
-				if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
-					return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
-				}
-				return result, err
-			},
-		)
-	}
-}
-
-func newUpdateAppDefinitionHandler(service projectstate.AppDefinitionRuntime) tools.Handler {
-	return func(ctx context.Context, arguments map[string]any) (any, error) {
-		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-		if err != nil {
-			return nil, err
-		}
-		patch, err := readRequiredPresentArgument(arguments, "patch")
-		if err != nil {
-			return nil, err
-		}
-		if service == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
-		}
-
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		_, result, err := service.UpdateAppDefinition(ctx, patch)
-		if err != nil {
-			return nil, normalizeProjectStateMutationError(err)
-		}
-		return result, nil
-	}
-}
-
 func newCompareAndSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -2748,7 +2611,6 @@ func defaultToolDefinitions(
 	workspaceRoot string,
 	registry *tools.Registry,
 	projectState projectStateProvider,
-	skipDefaultAppSubsystemTools bool,
 	codegenTargetValidator projectstate.CodegenTargetValidator,
 	pythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler,
 	codeUpdates codeUpdateProvider,
@@ -3422,10 +3284,6 @@ func defaultToolDefinitions(
 			OutputSchema: pluginRollbackResponseSchema(),
 		},
 	}
-	if !skipDefaultAppSubsystemTools {
-		definitions = append(definitions, buildAppCatalogToolDefinitions()...)
-	}
-
 	if projectState != nil {
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
@@ -4480,10 +4338,6 @@ func defaultToolDefinitions(
 				"required": []string{"status"},
 			},
 		})
-
-		if !skipDefaultAppSubsystemTools {
-			definitions = append(definitions, buildAppDefinitionToolDefinitions(projectState)...)
-		}
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
@@ -6378,17 +6232,6 @@ type autoLayoutTopLevelSectionsArgs struct {
 	margin          int
 }
 
-type appDefinitionMutationFields struct {
-	appSpec        map[string]any
-	appSpecVersion *string
-	catalogID      *string
-	routes         *[]projectstate.AppRoute
-	dataBindings   *map[string]any
-	actions        *map[string]any
-	theme          *map[string]any
-	assets         *[]any
-}
-
 func readCreateTopLevelSectionArgs(arguments map[string]any) (createTopLevelSectionArgs, error) {
 	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 	if err != nil {
@@ -6605,121 +6448,6 @@ func readAutoLayoutTopLevelSectionsArgs(arguments map[string]any) (autoLayoutTop
 	return autoLayoutTopLevelSectionsArgs{
 		projectConfigID: projectConfigID,
 		margin:          margin,
-	}, nil
-}
-
-func readAppDefinitionMutationFields(arguments map[string]any) (string, appDefinitionMutationFields, error) {
-	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	routes, err := readOptionalAppRoutesArgument(arguments, "routes")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	actions, err := readOptionalObjectPointerArgument(arguments, "actions")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	theme, err := readOptionalObjectPointerArgument(arguments, "theme")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	assets, err := readOptionalArrayPointerArgument(arguments, "assets")
-	if err != nil {
-		return "", appDefinitionMutationFields{}, err
-	}
-	return projectConfigID, appDefinitionMutationFields{
-		appSpec:        appSpec,
-		appSpecVersion: appSpecVersion,
-		catalogID:      catalogID,
-		routes:         routes,
-		dataBindings:   dataBindings,
-		actions:        actions,
-		theme:          theme,
-		assets:         assets,
-	}, nil
-}
-
-func readValidateAppDefinitionArgs(arguments map[string]any) (string, projectstate.ValidateAppDefinitionInput, error) {
-	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
-	if err != nil {
-		return "", projectstate.ValidateAppDefinitionInput{}, err
-	}
-	return projectConfigID, projectstate.ValidateAppDefinitionInput{
-		AppSpec:        fields.appSpec,
-		AppSpecVersion: fields.appSpecVersion,
-		CatalogID:      fields.catalogID,
-		Routes:         fields.routes,
-		DataBindings:   fields.dataBindings,
-		Actions:        fields.actions,
-		Theme:          fields.theme,
-		Assets:         fields.assets,
-	}, nil
-}
-
-func readSetAppDefinitionArgs(arguments map[string]any) (string, projectstate.SetAppDefinitionInput, error) {
-	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
-	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
-	}
-	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
-	if err != nil {
-		return "", projectstate.SetAppDefinitionInput{}, err
-	}
-	return projectConfigID, projectstate.SetAppDefinitionInput{
-		AppSpec:        fields.appSpec,
-		AppSpecPath:    appSpecPath,
-		AppSpecVersion: fields.appSpecVersion,
-		CatalogID:      fields.catalogID,
-		Routes:         fields.routes,
-		DataBindings:   fields.dataBindings,
-		Actions:        fields.actions,
-		Theme:          fields.theme,
-		Assets:         fields.assets,
-	}, nil
-}
-
-func readStreamAppDefinitionArgs(arguments map[string]any) (string, projectstate.StreamAppDefinitionInput, error) {
-	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	patches, err := readRequiredRawStringArgument(arguments, "patches")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	if strings.TrimSpace(patches) == "" {
-		return "", projectstate.StreamAppDefinitionInput{}, newToolError("invalid_arguments", "patches must be non-empty.")
-	}
-	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
-	if err != nil {
-		return "", projectstate.StreamAppDefinitionInput{}, err
-	}
-	return projectConfigID, projectstate.StreamAppDefinitionInput{
-		Patches:     patches,
-		AppSpecPath: appSpecPath,
-		BaseAppSpec: baseAppSpec,
 	}, nil
 }
 
@@ -7752,6 +7480,15 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 
 func NewToolError(code string, format string, args ...any) error {
 	return newToolError(code, format, args...)
+}
+
+func ExecuteScopedProjectStateOperation(
+	ctx context.Context,
+	projectConfigID string,
+	missingContextMessage string,
+	run func() (any, error),
+) (any, error) {
+	return executeScopedProjectStateOperation(ctx, projectConfigID, missingContextMessage, run)
 }
 
 func boolPtr(value bool) *bool {
