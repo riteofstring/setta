@@ -14,6 +14,10 @@ import {
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+  ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -647,6 +651,68 @@ describe("ParamUI canvas-owned resting text", () => {
       mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
       mocks.state.codeObjImpl = {
         type: CodeObjTypeEnum.TextParam,
+        defaultVal: "",
+      };
+
+      const markup = renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(
+        mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText,
+      ).toBe(true);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+        true,
+      );
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+    },
+  );
+
+  it.each([
+    {
+      codeObjType: CodeObjTypeEnum.CodeParam,
+      paramInfoId:
+        "settings-codeobj__rotaryParamCodeObjDefault__rotaryParamCodeObjDefault__max",
+      sectionId: ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "1",
+    },
+    {
+      codeObjType: CodeObjTypeEnum.CodeParam,
+      paramInfoId:
+        "settings-codeobj__sliderParamCodeObjDefault__sliderParamCodeObjDefault__step",
+      sectionId: SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "1",
+    },
+    {
+      codeObjType: CodeObjTypeEnum.TextAreaParam,
+      paramInfoId:
+        "settings-codeobj__dropdownParamCodeObjDefault__dropdownParamCodeObjDefault__choices",
+      sectionId: DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "[]",
+    },
+    {
+      codeObjType: CodeObjTypeEnum.TextParam,
+      paramInfoId:
+        "settings-codeobj__textParamCodeObjDefault__textParamCodeObjDefault__uiType",
+      sectionId: TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "plain",
+    },
+  ])(
+    "hides the shared param-codeobj resting-text cluster on the canvas path for $sectionId",
+    ({ codeObjType, paramInfoId, sectionId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: codeObjType,
         defaultVal: "",
       };
 

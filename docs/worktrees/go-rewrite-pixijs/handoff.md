@@ -9,6 +9,43 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shared param-codeobj resting-text/value cluster is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-param-codeobj-resting-text-cluster-rerun.md`.
+  - canonical target section: `settings-section__rotaryParamCodeObjDefault`
+  - first sibling proof section: `settings-section__sliderParamCodeObjDefault`
+  - the broader shared ownership set now also includes:
+    - `settings-section__colorPickerParamCodeObjDefault`
+    - `settings-section__dropdownParamCodeObjDefault`
+    - `settings-section__textParamCodeObjDefault`
+    - `settings-section__switchParamCodeObjDefault`
+    - `settings-section__passwordParamCodeObjDefault`
+    - `settings-section__codeParamCodeObjDefault`
+    - `settings-section__textAreaParamCodeObjDefault`
+  - the ownership move stayed on the existing retained value seam:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now treats that nine-section family as shared retained resting-text plus lightweight underline ownership without widening param-label text
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those nine sections directly so the retained scene can paint their text/underline primitives with no new renderer branch
+    - new focused proof now exists at `frontend/tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__rotaryParamCodeObjDefault`: `lightweightRestingTextCount 7`, `underlineCount 7`
+    - `settings-section__sliderParamCodeObjDefault`: `lightweightRestingTextCount 7`, `underlineCount 7`
+    - `settings-section__textParamCodeObjDefault`: `lightweightRestingTextCount 5`, `underlineCount 5`
+    - the canonical rotary `Max` row still focused the inline editor on first interaction with no blank or detached jump
+  - dense rerun outcome versus the prior `6962` checkpoint:
+    - `documentNodeCount: 6879`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 97.2`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15552`
+  - interpretation:
+    - this is a real shared-family DOM reduction slice (`documentNodeCount 6962 -> 6879`), not another section-local cleanup
+    - motion stayed roughly flat on this runtime family, so treat it as a blocker-reduction prerequisite rather than a new motion win
+    - next default pass: rerun the whole-scene remaining-value ranking from the new `6879` checkpoint and choose the next broad survivor from fresh evidence instead of continuing this lane by inertia
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash/error overlay was visible
+    - both `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault` were present
+    - the rotary `Max` row looked intact at rest
+    - focusing `settings-section__rotaryParamCodeObjDefault-settings-codeobj__rotaryParamCodeObjDefault__rotaryParamCodeObjDefault__max-ParamInput` surfaced the inline editor in place with no obvious blank or detached jump
 - A fresh post-shared-size/style/tag whole-scene ranking now exists at `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`.
   - refreshed focused totals: `mountedSectionCount 46`, `totalRowCount 759`, `totalRemainingValueRowCount 220`, `totalRemainingValueElementCount 357`
   - the old shared `Size` / `Height` / `Width` / `Style Color` / `Tag Color` family is no longer the dominant remaining value surface

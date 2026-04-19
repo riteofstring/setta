@@ -155,6 +155,62 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 065
+
+- Item: Move the shared param-codeobj text/value family onto the retained resting-text lane.
+- Status: `done`
+- Details:
+  - Started from the fresh post-size/style/tag whole-scene ranking instead of reopening a closed section-local lane or falling back to `settings-section__languageServer` by inertia.
+  - Chose one bounded shared-family slice with:
+    - canonical target section: `settings-section__rotaryParamCodeObjDefault`
+    - first sibling proof section: `settings-section__sliderParamCodeObjDefault`
+    - broader ownership set:
+      - `settings-section__colorPickerParamCodeObjDefault`
+      - `settings-section__dropdownParamCodeObjDefault`
+      - `settings-section__textParamCodeObjDefault`
+      - `settings-section__switchParamCodeObjDefault`
+      - `settings-section__passwordParamCodeObjDefault`
+      - `settings-section__codeParamCodeObjDefault`
+      - `settings-section__textAreaParamCodeObjDefault`
+  - Landed the ownership move at the existing value seam:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes that nine-section family in the retained resting-text-owned section set and the lightweight text-underline rule
+    - the same file still leaves `isCanvasOwnedSectionParamLabelRestingText(...)` unchanged, so this slice did not widen label text ownership
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures those nine sections directly so the retained scene can paint their text/underline primitives without a new renderer branch
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - added `frontend/tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts`
+    - recorded dense rerun `perf/reports/frontend/2026-04-19_settings-all-settings-param-codeobj-resting-text-cluster-rerun.md`
+  - Focused runtime proof on the live worktree surface:
+    - `settings-section__rotaryParamCodeObjDefault`: canonical `Max` row, `lightweightRestingTextCount 7`, `underlineCount 7`, inline editor surfaced on first focus
+    - `settings-section__sliderParamCodeObjDefault`: sibling `Step` row, `lightweightRestingTextCount 7`, `underlineCount 7`, inline editor surfaced on first focus
+    - `settings-section__textParamCodeObjDefault`: sibling `UI Type` row, `lightweightRestingTextCount 5`, `underlineCount 5`, inline editor surfaced on first focus
+  - Dense rerun outcome on the current runtime:
+    - `documentNodeCount: 6879`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 97.2`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15552`
+  - Interpretation:
+    - this is a real shared-family DOM reduction slice from the active frontier (`documentNodeCount 6962 -> 6879`)
+    - motion stayed roughly flat on this runtime family, so treat it as blocker-reduction progress rather than a new motion win
+    - do not keep extending this same lane by inertia; the next default pass should rerun the whole-scene remaining-value ranking from the new `6879` checkpoint and choose the next broad survivor from fresh evidence
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-009/worktree-ai.log -- tests/e2e/settings/settings-all-settings-param-codeobj-resting-text-cluster.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (59.9s)` on the live worktree runtime with `documentNodeCount: 6879`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault` were both present and visible
+  - the rotary `Max` row looked intact at rest
+  - focusing `#settings-section__rotaryParamCodeObjDefault-settings-codeobj__rotaryParamCodeObjDefault__rotaryParamCodeObjDefault__max-ParamInput` surfaced `#CodeMirror-settings-section__rotaryParamCodeObjDefault-settings-codeobj__rotaryParamCodeObjDefault__rotaryParamCodeObjDefault__max` in place with no obvious blank or detached jump
+- Next action:
+  - rerun the whole-scene remaining-value ranking from the new `6879` checkpoint, then choose the next broad survivor or the `languageServer` fallback only from that refreshed evidence
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 066
 
 - Item: Refresh the whole-scene remaining-value ranking after the shared size/style/tag slice.

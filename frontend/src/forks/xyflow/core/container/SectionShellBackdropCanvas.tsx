@@ -31,23 +31,32 @@ import {
   CANVAS_OWNED_SECTION_SHELL_ID,
   CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CHAT_WINDOWING_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  CODE_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  COLOR_PICKER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+  DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DROPZONE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  PASSWORD_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SWITCH_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionRestingTextSection,
@@ -1472,6 +1481,33 @@ export default function SectionShellBackdropCanvas() {
   const buttonParamNode = nodes.get(
     BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
+  const rotaryParamNode = nodes.get(
+    ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const sliderParamNode = nodes.get(
+    SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const colorPickerParamNode = nodes.get(
+    COLOR_PICKER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const dropdownParamNode = nodes.get(
+    DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const textParamNode = nodes.get(
+    TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const switchParamNode = nodes.get(
+    SWITCH_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const passwordParamNode = nodes.get(
+    PASSWORD_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const codeParamNode = nodes.get(
+    CODE_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const textAreaParamNode = nodes.get(
+    TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const codeSectionNode = nodes.get(CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const dateParamNode = nodes.get(DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
   const guiNode = nodes.get(GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID);
@@ -1590,6 +1626,61 @@ export default function SectionShellBackdropCanvas() {
     sectionId: BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const rotaryParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: rotaryParamNode?.height,
+    nodeWidth: rotaryParamNode?.width,
+    sectionId: ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const sliderParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: sliderParamNode?.height,
+    nodeWidth: sliderParamNode?.width,
+    sectionId: SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const colorPickerParamMeasurements =
+    useCanvasOwnedSectionBackdropMeasurements({
+      nodeHeight: colorPickerParamNode?.height,
+      nodeWidth: colorPickerParamNode?.width,
+      sectionId: COLOR_PICKER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      viewportScale,
+    });
+  const dropdownParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: dropdownParamNode?.height,
+    nodeWidth: dropdownParamNode?.width,
+    sectionId: DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const textParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: textParamNode?.height,
+    nodeWidth: textParamNode?.width,
+    sectionId: TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const switchParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: switchParamNode?.height,
+    nodeWidth: switchParamNode?.width,
+    sectionId: SWITCH_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const passwordParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: passwordParamNode?.height,
+    nodeWidth: passwordParamNode?.width,
+    sectionId: PASSWORD_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const codeParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: codeParamNode?.height,
+    nodeWidth: codeParamNode?.width,
+    sectionId: CODE_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const textAreaParamMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: textAreaParamNode?.height,
+    nodeWidth: textAreaParamNode?.width,
+    sectionId: TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
   const codeSectionMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: codeSectionNode?.height,
     nodeWidth: codeSectionNode?.width,
@@ -1663,6 +1754,24 @@ export default function SectionShellBackdropCanvas() {
         pluginSectionMeasurements,
       [BUTTON_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         buttonParamMeasurements,
+      [ROTARY_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        rotaryParamMeasurements,
+      [SLIDER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        sliderParamMeasurements,
+      [COLOR_PICKER_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        colorPickerParamMeasurements,
+      [DROPDOWN_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        dropdownParamMeasurements,
+      [TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        textParamMeasurements,
+      [SWITCH_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        switchParamMeasurements,
+      [PASSWORD_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        passwordParamMeasurements,
+      [CODE_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        codeParamMeasurements,
+      [TEXT_AREA_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        textAreaParamMeasurements,
       [CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         codeSectionMeasurements,
       [DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
@@ -1695,6 +1804,15 @@ export default function SectionShellBackdropCanvas() {
       genPythonMetadataMeasurements,
       pluginSectionMeasurements,
       buttonParamMeasurements,
+      rotaryParamMeasurements,
+      sliderParamMeasurements,
+      colorPickerParamMeasurements,
+      dropdownParamMeasurements,
+      textParamMeasurements,
+      switchParamMeasurements,
+      passwordParamMeasurements,
+      codeParamMeasurements,
+      textAreaParamMeasurements,
       codeSectionMeasurements,
       dateParamMeasurements,
       guiMeasurements,
