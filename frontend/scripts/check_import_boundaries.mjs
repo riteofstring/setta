@@ -13,6 +13,10 @@ const PLUGIN_FRONTEND_HOST_ALIAS_IMPORT =
   /^(?:components|openapi|plugins|state|utils)(?:\/.*)?$/;
 
 const normalizePath = (filePath) => filePath.split(path.sep).join("/");
+const resolveRelativeModulePath = (filePath, specifier) =>
+  normalizePath(
+    path.posix.normalize(path.posix.join(path.posix.dirname(filePath), specifier)),
+  );
 
 const scriptKindForFilePath = (filePath) => {
   if (filePath.endsWith(".tsx")) {
@@ -111,16 +115,32 @@ export const findImportBoundaryViolations = (entries) => {
     if (!PLUGIN_FRONTEND_FILE.test(normalizedFilePath)) {
       continue;
     }
+    const pluginRootMatch = normalizedFilePath.match(/^(plugins\/[^/]+)\//);
     for (const imported of specifiers) {
-      if (!PLUGIN_FRONTEND_HOST_ALIAS_IMPORT.test(imported.specifier)) {
+      if (PLUGIN_FRONTEND_HOST_ALIAS_IMPORT.test(imported.specifier)) {
+        violations.push({
+          ...imported,
+          filePath: normalizedFilePath,
+          message:
+            "Plugin frontend code must use the published SDK or plugin-owned code instead of importing host source aliases.",
+        });
         continue;
       }
-      violations.push({
-        ...imported,
-        filePath: normalizedFilePath,
-        message:
-          "Plugin frontend code must use the published SDK or plugin-owned code instead of importing host source aliases.",
-      });
+      if (
+        pluginRootMatch &&
+        imported.specifier.startsWith(".") &&
+        !resolveRelativeModulePath(
+          normalizedFilePath,
+          imported.specifier,
+        ).startsWith(`${pluginRootMatch[1]}/`)
+      ) {
+        violations.push({
+          ...imported,
+          filePath: normalizedFilePath,
+          message:
+            "Plugin frontend code must not import repo-private host paths through relative specifiers. Use plugin-owned code or the published SDK instead.",
+        });
+      }
     }
   }
 

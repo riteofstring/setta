@@ -48,4 +48,20 @@ describe("import boundary guardrails", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain("published SDK");
   });
+
+  it("rejects plugin frontend relative imports that escape the plugin root", () => {
+    const violations = findImportBoundaryViolations([
+      {
+        filePath: "plugins/demo/frontend/src/pluginBoundaryFixture.ts",
+        source: `
+          import sidecar from "../../../../frontend/generation/non_http_shared/sidecar.json";
+
+          export const value = sidecar;
+        `,
+      },
+    ]);
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("repo-private host paths");
+  });
 });
