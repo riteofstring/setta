@@ -51,6 +51,12 @@ import {
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
+  applyAppDefinitionStructuredContentToStore,
+  applyAppSpecPatchPreviewDeltaToStore,
+  clearAllAppSpecPatchPreviewStreams,
+  clearAppSpecPatchPreviewStream,
+} from "plugins/appSubsystemRuntime";
+import {
   clearAIFollowToolArgumentsForChat,
   getAIFollowToolArgumentsSnapshot,
   receiveAgenticScopeViolationEdges,
@@ -125,12 +131,6 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
-import {
-  applyAppDefinitionStructuredContentToStore,
-  applyAppSpecPatchPreviewDeltaToStore,
-  clearAllAppSpecPatchPreviewStreams,
-  clearAppSpecPatchPreviewStream,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
