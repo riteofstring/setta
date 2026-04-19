@@ -48,6 +48,11 @@ type pluginMutationRuntimeService struct {
 	base                     *plugins.Service
 	refresher                *pluginBackendRuntimeRefresher
 	appSubsystemCapabilities *appSubsystemCapabilityState
+
+	opMu                 sync.Mutex
+	mu                   sync.RWMutex
+	committedSnapshot    plugins.DiscoverySnapshot
+	hasCommittedSnapshot bool
 }
 
 func newPluginMutationRuntimeService(
@@ -55,11 +60,20 @@ func newPluginMutationRuntimeService(
 	refresher *pluginBackendRuntimeRefresher,
 	appSubsystemCapabilities *appSubsystemCapabilityState,
 ) *pluginMutationRuntimeService {
-	return &pluginMutationRuntimeService{
+	service := &pluginMutationRuntimeService{
 		base:                     base,
 		refresher:                refresher,
 		appSubsystemCapabilities: appSubsystemCapabilities,
 	}
+	if base != nil {
+		if snapshot, err := base.Rescan(); err == nil {
+			service.setCommittedSnapshot(snapshot)
+			if refresher == nil || refresher.runtime == nil {
+				service.syncCapabilitiesFromSnapshot(snapshot)
+			}
+		}
+	}
+	return service
 }
 
 func (s *pluginMutationRuntimeService) syncCapabilitiesFromRuntimeResponse(
@@ -78,6 +92,55 @@ func (s *pluginMutationRuntimeService) syncCapabilitiesFromSnapshot(
 		return
 	}
 	s.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+}
+
+func (s *pluginMutationRuntimeService) commitSnapshot(
+	snapshot plugins.DiscoverySnapshot,
+) {
+	if s == nil {
+		return
+	}
+	s.setCommittedSnapshot(snapshot)
+	s.syncCapabilitiesFromSnapshot(snapshot)
+}
+
+func (s *pluginMutationRuntimeService) setCommittedSnapshot(
+	snapshot plugins.DiscoverySnapshot,
+) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.committedSnapshot = snapshot
+	s.hasCommittedSnapshot = true
+}
+
+func (s *pluginMutationRuntimeService) committedSnapshotView() (plugins.DiscoverySnapshot, bool) {
+	if s == nil {
+		return plugins.DiscoverySnapshot{}, false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if !s.hasCommittedSnapshot {
+		return plugins.DiscoverySnapshot{}, false
+	}
+	return s.committedSnapshot, true
+}
+
+func (s *pluginMutationRuntimeService) currentSnapshot() (plugins.DiscoverySnapshot, error) {
+	if snapshot, ok := s.committedSnapshotView(); ok {
+		return snapshot, nil
+	}
+	if s == nil || s.base == nil {
+		return plugins.DiscoverySnapshot{}, nil
+	}
+	snapshot, err := s.base.Rescan()
+	if err != nil {
+		return plugins.DiscoverySnapshot{}, err
+	}
+	s.commitSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func (r *pluginBackendRuntimeRefresher) SetAppHandlerRefresh(
@@ -109,17 +172,22 @@ func (s *pluginMutationRuntimeService) rescanRuntimeToolsWithoutRestart(
 		return plugins.DiscoverySnapshot{}, err
 	}
 	if s.refresher == nil {
-		s.syncCapabilitiesFromSnapshot(snapshot)
+		s.commitSnapshot(snapshot)
 		return snapshot, nil
 	}
 	if err := s.refresher.RescanRuntimeTools(ctx, snapshot); err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
+	s.commitSnapshot(snapshot)
 	return snapshot, nil
 }
 
 func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	response, err := s.base.Runtime(options)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return plugins.PluginRuntimeResponse{}, err
+	}
+	response, err := s.base.RuntimeFromSnapshot(snapshot, options)
 	if err != nil {
 		return response, err
 	}
@@ -135,63 +203,130 @@ func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (
 }
 
 func (s *pluginMutationRuntimeService) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
-	return s.base.ResolveAssetPath(pluginID, assetPath)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return "", err
+	}
+	return s.base.ResolveAssetPathFromSnapshot(snapshot, pluginID, assetPath)
 }
 
 func (s *pluginMutationRuntimeService) ResolveRegisteredStaticAssetPath(requestPath string) (string, bool, error) {
-	return s.base.ResolveRegisteredStaticAssetPath(requestPath)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return "", false, err
+	}
+	return s.base.ResolveRegisteredStaticAssetPathFromSnapshot(snapshot, requestPath)
 }
 
 func (s *pluginMutationRuntimeService) LookupRegisteredBackendRoute(method string, requestPath string) (plugins.BackendRouteLookup, error) {
-	return s.base.LookupRegisteredBackendRoute(method, requestPath)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return plugins.BackendRouteLookup{}, err
+	}
+	return s.base.LookupRegisteredBackendRouteFromSnapshot(snapshot, method, requestPath)
 }
 
 func (s *pluginMutationRuntimeService) DispatchRegisteredBackendRoute(
 	ctx context.Context,
 	request plugins.BackendHTTPRequest,
 ) (plugins.BackendHTTPResponse, bool, error) {
-	return s.base.DispatchRegisteredBackendRoute(ctx, request)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return plugins.BackendHTTPResponse{}, false, err
+	}
+	return s.base.DispatchRegisteredBackendRouteFromSnapshot(ctx, snapshot, request)
 }
 
 func (s *pluginMutationRuntimeService) InvokeRegisteredListenerEndpoint(
 	ctx context.Context,
 	request plugins.BackendListenerEndpointRequest,
 ) (any, bool, error) {
-	return s.base.InvokeRegisteredListenerEndpoint(ctx, request)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return nil, false, err
+	}
+	return s.base.InvokeRegisteredListenerEndpointFromSnapshot(ctx, snapshot, request)
 }
 
 func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
 	snapshot, err := s.base.Rescan()
 	if err != nil {
 		return snapshot, err
 	}
 	if s.refresher == nil {
-		s.syncCapabilitiesFromSnapshot(snapshot)
+		s.commitSnapshot(snapshot)
 		return snapshot, nil
 	}
 	if err := s.refresher.RescanRuntimeTools(context.Background(), snapshot); err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
+	s.commitSnapshot(snapshot)
 	return snapshot, nil
 }
 
-func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
-	result, err := s.base.Install(ctx, options)
-	if err != nil {
-		return result, err
+func (s *pluginMutationRuntimeService) createMutationCheckpoint() (*plugins.MutationCheckpoint, error) {
+	if s == nil || s.base == nil || s.refresher == nil {
+		return nil, nil
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
-		if syncErr != nil {
-			return result, syncErr
+	return s.base.CreateMutationCheckpoint()
+}
+
+func (s *pluginMutationRuntimeService) restoreMutationCheckpoint(
+	checkpoint *plugins.MutationCheckpoint,
+	cause error,
+) error {
+	if checkpoint == nil || s == nil || s.base == nil {
+		return cause
+	}
+	restoreErr := s.base.RestoreMutationCheckpoint(checkpoint)
+	closeErr := checkpoint.Close()
+	return errors.Join(cause, restoreErr, closeErr)
+}
+
+func closeMutationCheckpoint(checkpoint *plugins.MutationCheckpoint) error {
+	if checkpoint == nil {
+		return nil
+	}
+	return checkpoint.Close()
+}
+
+func discardMutationCheckpoint(checkpoint *plugins.MutationCheckpoint) {
+	_ = closeMutationCheckpoint(checkpoint)
+}
+
+func (s *pluginMutationRuntimeService) refreshMutationResult(
+	ctx context.Context,
+	checkpoint *plugins.MutationCheckpoint,
+	restartRequired bool,
+) (plugins.DiscoverySnapshot, error) {
+	if s.refresher == nil || !restartRequired {
+		snapshot, err := s.rescanRuntimeToolsWithoutRestart(ctx)
+		if err != nil {
+			return plugins.DiscoverySnapshot{}, s.restoreMutationCheckpoint(checkpoint, err)
 		}
-		return result, err
+		discardMutationCheckpoint(checkpoint)
+		return snapshot, nil
 	}
+
 	snapshot, err := s.refresher.Refresh(ctx)
 	if err != nil {
-		return result, err
+		return plugins.DiscoverySnapshot{}, s.restoreMutationCheckpoint(checkpoint, err)
 	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
+	s.commitSnapshot(snapshot)
+	discardMutationCheckpoint(checkpoint)
+	return snapshot, nil
+}
+
+func applyInstallSnapshot(
+	result *plugins.PluginInstallResponse,
+	snapshot plugins.DiscoverySnapshot,
+) {
+	if result == nil {
+		return
+	}
 	if entry, ok := findPluginInScope(snapshot.Plugins, result.PluginID, result.SourceScope); ok {
 		result.State = entry.State
 		result.Version = entry.Version
@@ -199,150 +334,162 @@ func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plug
 		result.SourceDigestSHA256 = cloneOptionalDigest(entry.SourceDigestSHA256)
 	}
 	result.RestartRequired = false
+}
+
+func applyEnableDisableSnapshot(
+	result *plugins.PluginEnableDisableResponse,
+	snapshot plugins.DiscoverySnapshot,
+) {
+	if result == nil {
+		return
+	}
+	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
+		result.State = entry.State
+	}
+	result.RestartRequired = false
+}
+
+func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginInstallResponse{}, err
+	}
+	result, err := s.base.Install(ctx, options)
+	if err != nil {
+		discardMutationCheckpoint(checkpoint)
+		return result, err
+	}
+	snapshot, err := s.refreshMutationResult(ctx, checkpoint, result.RestartRequired)
+	if err != nil {
+		return result, err
+	}
+	applyInstallSnapshot(&result, snapshot)
 	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginInstallResponse{}, err
+	}
 	result, err := s.base.Link(options)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		_, syncErr := s.rescanRuntimeToolsWithoutRestart(context.Background())
-		if syncErr != nil {
-			return result, syncErr
-		}
-		return result, err
-	}
-	snapshot, err := s.refresher.Refresh(context.Background())
+	snapshot, err := s.refreshMutationResult(context.Background(), checkpoint, result.RestartRequired)
 	if err != nil {
 		return result, err
 	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
-	if entry, ok := findPluginInScope(snapshot.Plugins, result.PluginID, result.SourceScope); ok {
-		result.State = entry.State
-		result.Version = entry.Version
-		result.SourcePath = entry.SourcePath
-		result.SourceDigestSHA256 = cloneOptionalDigest(entry.SourceDigestSHA256)
-	}
-	result.RestartRequired = false
+	applyInstallSnapshot(&result, snapshot)
 	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginUninstallResponse{}, err
+	}
 	result, err := s.base.Uninstall(ctx, options)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
-		if syncErr != nil {
-			return result, syncErr
-		}
+	if _, err := s.refreshMutationResult(ctx, checkpoint, result.RestartRequired); err != nil {
 		return result, err
 	}
-	snapshot, err := s.refresher.Refresh(ctx)
-	if err != nil {
-		return result, err
-	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
 	result.RestartRequired = false
 	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginUpdateResponse{}, err
+	}
 	result, err := s.base.Update(ctx, options)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
-		if syncErr != nil {
-			return result, syncErr
-		}
+	if _, err := s.refreshMutationResult(ctx, checkpoint, result.RestartRequired); err != nil {
 		return result, err
 	}
-	snapshot, err := s.refresher.Refresh(ctx)
-	if err != nil {
-		return result, err
-	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
 	result.RestartRequired = false
 	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginRollbackResponse{}, err
+	}
 	result, err := s.base.Rollback(ctx, options)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		_, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
-		if syncErr != nil {
-			return result, syncErr
-		}
+	if _, err := s.refreshMutationResult(ctx, checkpoint, result.RestartRequired); err != nil {
 		return result, err
 	}
-	snapshot, err := s.refresher.Refresh(ctx)
-	if err != nil {
-		return result, err
-	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
 	result.RestartRequired = false
 	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginEnableDisableResponse{}, err
+	}
 	result, err := s.base.Enable(ctx, options)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		snapshot, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
-		if syncErr != nil {
-			return result, syncErr
-		}
-		if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
-			result.State = entry.State
-		}
-		return result, err
-	}
-	snapshot, err := s.refresher.Refresh(ctx)
+	snapshot, err := s.refreshMutationResult(ctx, checkpoint, result.RestartRequired)
 	if err != nil {
 		return result, err
 	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
-	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
-		result.State = entry.State
-	}
-	result.RestartRequired = false
+	applyEnableDisableSnapshot(&result, snapshot)
 	return result, nil
 }
 
 func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginEnableDisableResponse{}, err
+	}
 	result, err := s.base.Disable(ctx, options)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
-	if s.refresher == nil || !result.RestartRequired {
-		snapshot, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx)
-		if syncErr != nil {
-			return result, syncErr
-		}
-		if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
-			result.State = entry.State
-		}
-		return result, err
-	}
-	snapshot, err := s.refresher.Refresh(ctx)
+	snapshot, err := s.refreshMutationResult(ctx, checkpoint, result.RestartRequired)
 	if err != nil {
 		return result, err
 	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
-	if entry, ok := plugins.PrimaryDiscoveredPlugin(snapshot.Plugins, result.PluginID); ok {
-		result.State = entry.State
-	}
-	result.RestartRequired = false
+	applyEnableDisableSnapshot(&result, snapshot)
 	return result, nil
 }
 
@@ -377,15 +524,27 @@ func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options 
 }
 
 func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
-	return s.base.GetBackendUISettings(pluginID)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	return s.base.GetBackendUISettingsFromSnapshot(snapshot, pluginID)
 }
 
 func (s *pluginMutationRuntimeService) ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
-	return s.base.ReadBackendUISettingValue(ctx, options)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	return s.base.ReadBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 }
 
 func (s *pluginMutationRuntimeService) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
-	return s.base.WriteBackendUISettingValue(ctx, options)
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return err
+	}
+	return s.base.WriteBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 }
 
 func (s *pluginMutationRuntimeService) WriteLockfile() (plugins.PluginLockWriteResponse, error) {
@@ -393,23 +552,31 @@ func (s *pluginMutationRuntimeService) WriteLockfile() (plugins.PluginLockWriteR
 }
 
 func (s *pluginMutationRuntimeService) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResponse, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	checkpoint, err := s.createMutationCheckpoint()
+	if err != nil {
+		return plugins.PluginLockApplyResponse{}, err
+	}
 	result, err := s.base.ApplyLockfile(ctx, check)
 	if err != nil {
+		discardMutationCheckpoint(checkpoint)
 		return result, err
 	}
 	if s.refresher == nil || !result.Applied || check {
 		if result.Applied && !check {
-			if _, syncErr := s.rescanRuntimeToolsWithoutRestart(ctx); syncErr != nil {
-				return result, syncErr
+			if _, err := s.refreshMutationResult(ctx, checkpoint, false); err != nil {
+				return result, err
 			}
+			return result, nil
 		}
+		discardMutationCheckpoint(checkpoint)
+		return result, nil
+	}
+	if _, err := s.refreshMutationResult(ctx, checkpoint, true); err != nil {
 		return result, err
 	}
-	snapshot, err := s.refresher.Refresh(ctx)
-	if err != nil {
-		return result, err
-	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
 	return result, nil
 }
 

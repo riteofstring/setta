@@ -196,7 +196,7 @@ func TestRuntimePluginDistributionsReturnsManifestBearingDistributions(t *testin
 	}
 }
 
-func TestRuntimePluginDistributionsFallsBackToDistributionRootWhenMetadataFilesOmitManifest(t *testing.T) {
+func TestRuntimePluginDistributionsSkipsDistributionsWithoutManifestMetadata(t *testing.T) {
 	t.Parallel()
 
 	pythonRuntime, err := NewRuntime(RuntimeOptions{})
@@ -212,14 +212,8 @@ func TestRuntimePluginDistributionsFallsBackToDistributionRootWhenMetadataFilesO
 	if err != nil {
 		t.Fatalf("inspect plugin distributions: %v", err)
 	}
-	if len(distributions) != 1 {
-		t.Fatalf("expected one plugin distribution, got %#v", distributions)
-	}
-	if len(distributions[0].ManifestPaths) != 1 {
-		t.Fatalf("expected one manifest path, got %#v", distributions[0].ManifestPaths)
-	}
-	if !strings.HasSuffix(distributions[0].ManifestPaths[0], filepath.Join("setta-json-render-app-gen", "setta.plugin.json")) {
-		t.Fatalf("unexpected manifest path %#v", distributions[0].ManifestPaths[0])
+	if len(distributions) != 0 {
+		t.Fatalf("expected distributions without manifest metadata to be skipped, got %#v", distributions)
 	}
 }
 

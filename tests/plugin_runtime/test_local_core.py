@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
+from setta import __version__
+from setta import local_core_client as shared_local_core
+from setta.api.runtime_compat import RuntimeCompatibilityError
 from setta.plugin_runtime import app_subsystem, local_core
+from setta.sdk_contracts.generated import SETTA_SDK_CONTRACT_VERSION
 from setta.types.generated.go_shared_constants import (
     LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION,
 )
@@ -66,24 +70,57 @@ class _FakeProcess:
         self.returncode = -9
 
 
+def _handshake(
+    *,
+    sdk_version: str = __version__,
+    sdk_contract_version: int = SETTA_SDK_CONTRACT_VERSION,
+) -> str:
+    return (
+        json.dumps(
+            {
+                "protocolVersion": 1,
+                "sdkVersion": sdk_version,
+                "sdkContractVersion": sdk_contract_version,
+                "coreVersion": "test-core",
+            }
+        )
+        + "\n"
+    )
+
+
+def _result_envelope(*, ok: bool, result: object | None = None, error: str | None = None, details: dict[str, object] | None = None) -> str:
+    return (
+        json.dumps(
+            {
+                "callId": "test-call-id",
+                "ok": ok,
+                "result": result,
+                "error": error,
+                "details": details or {},
+            }
+        )
+        + "\n"
+    )
+
+
 def test_run_local_core_command_dispatches_through_packaged_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_process = _FakeProcess(
         [
-            json.dumps({"protocolVersion": 1}) + "\n",
-            json.dumps({"ok": True, "result": {"status": "ok"}}) + "\n",
+            _handshake(),
+            _result_envelope(ok=True, result={"status": "ok"}),
         ]
     )
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        local_core,
+        shared_local_core,
         "resolve_go_cli_command",
         lambda: (["/tmp/setta"], Path("/tmp/repo")),
     )
     monkeypatch.setattr(
-        local_core,
+        shared_local_core,
         "resolve_go_cli_env",
         lambda command_cwd: {"SETTA_SERVER_BIN": str(command_cwd / "setta-server")},
     )
@@ -107,7 +144,7 @@ def test_run_local_core_command_dispatches_through_packaged_boundary(
         captured["text"] = text
         return fake_process
 
-    monkeypatch.setattr(local_core.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(shared_local_core.subprocess, "Popen", _fake_popen)
 
     result = local_core.run_local_core_command(
         "validate_app_definition",
@@ -132,25 +169,22 @@ def test_run_local_core_command_surfaces_structured_errors(
 ) -> None:
     fake_process = _FakeProcess(
         [
-            json.dumps({"protocolVersion": 1}) + "\n",
-            json.dumps(
-                {
-                    "ok": False,
-                    "error": "validation failed",
-                    "details": {"code": "invalid_request", "field": "catalogId"},
-                }
-            )
-            + "\n",
+            _handshake(),
+            _result_envelope(
+                ok=False,
+                error="validation failed",
+                details={"code": "invalid_request", "field": "catalogId"},
+            ),
         ]
     )
 
     monkeypatch.setattr(
-        local_core,
+        shared_local_core,
         "resolve_go_cli_command",
         lambda: (["/tmp/setta"], None),
     )
-    monkeypatch.setattr(local_core, "resolve_go_cli_env", lambda _command_cwd: {})
-    monkeypatch.setattr(local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process)
+    monkeypatch.setattr(shared_local_core, "resolve_go_cli_env", lambda _command_cwd: {})
+    monkeypatch.setattr(shared_local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process)
 
     with pytest.raises(local_core.LocalCoreCommandError) as excinfo:
         local_core.run_local_core_command("validate_app_definition", {})
@@ -158,6 +192,46 @@ def test_run_local_core_command_surfaces_structured_errors(
     assert str(excinfo.value) == "validation failed"
     assert excinfo.value.code == "invalid_request"
     assert excinfo.value.details == {"code": "invalid_request", "field": "catalogId"}
+
+
+def test_run_local_core_command_rejects_sdk_version_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_process = _FakeProcess([_handshake(sdk_version="9.9.9")])
+
+    monkeypatch.setattr(
+        shared_local_core,
+        "resolve_go_cli_command",
+        lambda: (["/tmp/setta"], None),
+    )
+    monkeypatch.setattr(shared_local_core, "resolve_go_cli_env", lambda _command_cwd: {})
+    monkeypatch.setattr(shared_local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process)
+
+    with pytest.raises(RuntimeCompatibilityError, match="SDK/local core version mismatch"):
+        local_core.run_local_core_command("validate_app_definition", {})
+
+    assert fake_process.stdin.contents == ""
+
+
+def test_run_local_core_command_rejects_sdk_contract_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_process = _FakeProcess(
+        [_handshake(sdk_contract_version=SETTA_SDK_CONTRACT_VERSION + 1)]
+    )
+
+    monkeypatch.setattr(
+        shared_local_core,
+        "resolve_go_cli_command",
+        lambda: (["/tmp/setta"], None),
+    )
+    monkeypatch.setattr(shared_local_core, "resolve_go_cli_env", lambda _command_cwd: {})
+    monkeypatch.setattr(shared_local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process)
+
+    with pytest.raises(RuntimeCompatibilityError, match="local core contract mismatch"):
+        local_core.run_local_core_command("validate_app_definition", {})
+
+    assert fake_process.stdin.contents == ""
 
 
 def test_app_subsystem_endpoint_mapping_uses_go_owned_constants() -> None:

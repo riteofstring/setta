@@ -39,6 +39,9 @@ def _write_minimal_distribution_project(
             "__init__.py",
             "__main__.py",
             "entrypoint.py",
+            "local_core_client.py",
+            "sdk_contract_version.py",
+            "runtime_compat.py",
             "plugin_runtime/__init__.py",
             "plugin_runtime/app_subsystem.py",
             "plugin_runtime/local_core.py",
@@ -60,6 +63,22 @@ def _write_minimal_distribution_project(
         )
         (package_root / "entrypoint.py").write_text(
             "def main() -> None:\n    return None\n",
+            encoding="utf-8",
+        )
+        (package_root / "local_core_client.py").write_text(
+            "class LocalCoreCommandError(RuntimeError):\n"
+            "    pass\n\n"
+            "def run_local_core_command_once(command_name: str, payload: dict[str, object] | None = None) -> object:\n"
+            "    return None\n",
+            encoding="utf-8",
+        )
+        (package_root / "runtime_compat.py").write_text(
+            "class RuntimeCompatibilityError(RuntimeError):\n"
+            "    pass\n",
+            encoding="utf-8",
+        )
+        (package_root / "sdk_contract_version.py").write_text(
+            "SETTA_SDK_CONTRACT_VERSION = 2\n",
             encoding="utf-8",
         )
         (package_root / "plugin_runtime" / "__init__.py").write_text(
@@ -221,6 +240,9 @@ def _write_minimal_host_sdk_for_plugin_runtime(site_packages: Path) -> None:
     for relative_path in (
         Path("__init__.py"),
         Path("entrypoint.py"),
+        Path("local_core_client.py"),
+        Path("sdk_contract_version.py"),
+        Path("runtime_compat.py"),
         Path("plugin_runtime") / "__init__.py",
         Path("plugin_runtime") / "app_subsystem.py",
         Path("plugin_runtime") / "local_core.py",
@@ -576,10 +598,18 @@ def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_tool
 import json
 import sys
 
+from setta import __version__
+from setta.sdk_contract_version import SETTA_SDK_CONTRACT_VERSION
+
 if len(sys.argv) != 2 or sys.argv[1] != "sdk-local-core":
     raise SystemExit(1)
 
-print(json.dumps({"protocolVersion": 1}))
+print(json.dumps({
+    "protocolVersion": 1,
+    "sdkVersion": __version__,
+    "sdkContractVersion": SETTA_SDK_CONTRACT_VERSION,
+    "coreVersion": "test-core",
+}))
 sys.stdout.flush()
 
 request = json.loads(sys.stdin.readline())

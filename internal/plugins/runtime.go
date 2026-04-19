@@ -124,48 +124,7 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 	if err != nil {
 		return PluginRuntimeResponse{}, err
 	}
-
-	redactSourceDetails := shouldRedactRuntimeSourceDetails(snapshot.ServerMode)
-	redactConfigDetails := shouldRedactRuntimeConfigDetails(snapshot.ServerMode)
-	redactedSourcePathByPath := map[string]string{}
-	if redactSourceDetails {
-		redactedSourcePathByPath = buildRedactedSourcePathMap(snapshot.Plugins)
-	}
-
-	var pluginsState *PluginsStateFile
-	if !redactConfigDetails {
-		state, err := s.store.LoadPluginsState()
-		if err != nil {
-			return PluginRuntimeResponse{}, err
-		}
-		pluginsState = &state
-	}
-
-	restartCapability := s.restartCapability()
-	return PluginRuntimeResponse{
-		SchemaVersion: pluginRuntimeSchemaVersion,
-		FeatureCapabilities: &PluginFeatureCapabilities{
-			AppSubsystem: buildRuntimeAppSubsystemCapabilities(snapshot.Plugins),
-		},
-		List: PluginListResponse{
-			SchemaVersion:     pluginListSchemaVersion,
-			ServerMode:        snapshot.ServerMode,
-			RestartCapability: restartCapability,
-			Plugins: s.buildRuntimeListEntries(
-				snapshot.Plugins,
-				pluginsState,
-				options.AssetURLBuilder,
-				redactSourceDetails,
-				redactConfigDetails,
-			),
-		},
-		Status: buildRuntimeStatusResponse(
-			snapshot,
-			restartCapability,
-			redactSourceDetails,
-			redactedSourcePathByPath,
-		),
-	}, nil
+	return s.RuntimeFromSnapshot(snapshot, options)
 }
 
 func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppSubsystemCapabilities {
