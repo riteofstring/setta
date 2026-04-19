@@ -60,6 +60,7 @@ post_commit_settle_seconds="20"
 hotspot_python_min="9"
 hotspot_frontend_min="9"
 hotspot_go_min="9"
+hotspot_shell_min="10"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: AUTHORITY_SEQUENCE_AUDITED_STOP"
 codex_extra_args=()
@@ -236,7 +237,8 @@ hotspot_report_command="$(
     "./report_quality_hotspots.sh" \
     --python-min "${hotspot_python_min}" \
     --frontend-min "${hotspot_frontend_min}" \
-    --go-min "${hotspot_go_min}"
+    --go-min "${hotspot_go_min}" \
+    --shell-min "${hotspot_shell_min}"
 )"
 
 checklist_file="${state_dir}/checklist.md"
@@ -416,7 +418,7 @@ Phase 3 rules:
 - Use the report to pick the highest-leverage actionable hotspot or tight cluster of related hotspots, then simplify it without regressing behavior.
 - Start with contained top-10 hotspots only while that still produces real reductions. If the current top hotspots are concentrated in a few backlog-dense files or \`./check_quality.sh --files <file>\` shows that a narrow slice is blocked by same-file backlog, switch into Phase 3 backlog-burn mode instead of calling plateau.
 - In backlog-burn mode, choose one dominant hotspot file or tightly coupled file cluster and make a broader refactor intended to materially lower that file or cluster's total backlog, even if the change spans multiple functions in the same file.
-- Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
+- Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}, shell ${hotspot_shell_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
 - Favor real structural simplification over just shuffling complexity into neighboring helpers.
 - Do not mark Phase 3 complete just because the remaining hotspots are orchestration paths. You must name the concrete reason they are no longer good cleanup targets.
 - A Phase 3 iteration counts as material only if it does at least one of:
@@ -515,7 +517,7 @@ echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
-echo "Phase 3 hotspot thresholds: python=${hotspot_python_min} frontend=${hotspot_frontend_min} go=${hotspot_go_min}"
+echo "Phase 3 hotspot thresholds: python=${hotspot_python_min} frontend=${hotspot_frontend_min} go=${hotspot_go_min} shell=${hotspot_shell_min}"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"
 else

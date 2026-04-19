@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./check_quality.sh [--staged | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
+Usage: ./check_quality.sh [--staged | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N] [--shell-max N]
 
 Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
 
@@ -16,6 +16,7 @@ Thresholds:
   --python-max N     Maximum allowed Python cyclomatic complexity (default: 9).
   --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 9).
   --go-max N         Maximum allowed Go cyclomatic complexity (default: 9).
+  --shell-max N      Maximum allowed shell function complexity (default: 10).
   -h, --help         Show this help text.
 EOF
 }
@@ -26,6 +27,7 @@ mode="staged"
 python_max="9"
 frontend_max="9"
 go_max="9"
+shell_max="10"
 declare -a explicit_files=()
 
 while [[ $# -gt 0 ]]; do
@@ -47,7 +49,7 @@ while [[ $# -gt 0 ]]; do
       fi
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --staged|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
+          --staged|--all|--files|--python-max|--frontend-max|--go-max|--shell-max|-h|--help)
             break
             ;;
           *)
@@ -86,6 +88,15 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       go_max="$1"
+      shift
+      ;;
+    --shell-max)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --shell-max" >&2
+        exit 1
+      fi
+      shell_max="$1"
       shift
       ;;
     -h|--help)
@@ -178,9 +189,23 @@ is_go_candidate() {
   return 1
 }
 
+is_shell_candidate() {
+  local path="$1"
+  case "${path}" in
+    tests/*|*/tests/*)
+      return 1
+      ;;
+    *.sh)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 validate_integer "${python_max}" "--python-max"
 validate_integer "${frontend_max}" "--frontend-max"
 validate_integer "${go_max}" "--go-max"
+validate_integer "${shell_max}" "--shell-max"
 
 cd "${repo_root}"
 
@@ -188,6 +213,7 @@ declare -a python_files=()
 declare -a frontend_relative_files=()
 declare -a go_files=()
 declare -a go_packages=()
+declare -a shell_files=()
 
 while IFS= read -r file_path; do
   [[ -z "${file_path}" ]] && continue
@@ -203,6 +229,9 @@ while IFS= read -r file_path; do
     go_files+=("${file_path}")
     go_packages+=("./$(dirname "${file_path}")")
   fi
+  if is_shell_candidate "${file_path}"; then
+    shell_files+=("${file_path}")
+  fi
 done < <(collect_files | LC_ALL=C sort -u)
 
 if [[ ${#go_packages[@]} -gt 0 ]]; then
@@ -210,7 +239,7 @@ if [[ ${#go_packages[@]} -gt 0 ]]; then
   unset IFS
 fi
 
-if [[ ${#python_files[@]} -eq 0 && ${#frontend_relative_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
+if [[ ${#python_files[@]} -eq 0 && ${#frontend_relative_files[@]} -eq 0 && ${#go_files[@]} -eq 0 && ${#shell_files[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
@@ -240,6 +269,11 @@ if [[ ${#go_files[@]} -gt 0 ]]; then
   echo "Go quality checks (${#go_files[@]} files)..."
   ./scripts/go.sh vet "${go_packages[@]}" || status=1
   ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "${go_max}" "${go_files[@]}" || status=1
+fi
+
+if [[ ${#shell_files[@]} -gt 0 ]]; then
+  echo "Shell quality checks (${#shell_files[@]} files)..."
+  ./scripts/shell_function_complexity.py --max "${shell_max}" "${shell_files[@]}" || status=1
 fi
 
 exit "${status}"

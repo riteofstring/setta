@@ -54,6 +54,7 @@ Use these first for day-to-day work.
   - Python: `ruff check` plus `C901` complexity checks (default max complexity `9`).
   - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `9`, `max-depth` `4`, `max-params` `5`).
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `9`).
+  - Shell: repo-local shell-function complexity checks on changed `*.sh` files outside test trees (default max complexity `10`).
   - Supports `--all`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
 - `./check_types.sh`
   - Runs full-repo type checks across Go, Python, and frontend TypeScript.
@@ -71,9 +72,9 @@ Use these first for day-to-day work.
   - Follows the current supervisor loop log automatically and switches when Ralph rolls to a new `loop-XXX` directory.
   - Use `--once` to print the current active log path and its latest buffered output without following.
 - `./report_quality_hotspots.sh`
-  - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
+  - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, frontend, and shell.
   - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
-  - Supports `--top`, `--python-min`, `--frontend-min`, and `--go-min` to narrow the report.
+  - Supports `--top`, `--python-min`, `--frontend-min`, `--go-min`, and `--shell-min` to narrow the report.
   - Intended for cleanup planning and hotspot discovery, not commit gating.
 - `./build.sh`
   - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
@@ -165,7 +166,7 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-codex-authority-sequenced-loop.sh`
   - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
   - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
-  - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `9`, frontend `9`, Go `9`.
+  - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `9`, frontend `9`, Go `9`, shell `10`.
   - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires a developer-started browser session.

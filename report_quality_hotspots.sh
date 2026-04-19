@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./report_quality_hotspots.sh [--top N] [--python-min N] [--frontend-min N] [--go-min N]
+Usage: ./report_quality_hotspots.sh [--top N] [--python-min N] [--frontend-min N] [--go-min N] [--shell-min N]
 
 Report the highest-complexity code hotspots across the repo.
 
@@ -12,6 +12,7 @@ Options:
   --python-min N     Only show Python hotspots with complexity >= N (default: 1).
   --frontend-min N   Only show frontend hotspots with complexity >= N (default: 1).
   --go-min N         Only show Go hotspots with complexity >= N (default: 1).
+  --shell-min N      Only show shell hotspots with complexity >= N (default: 1).
   -h, --help         Show this help text.
 
 Notes:
@@ -26,6 +27,7 @@ top_n="20"
 python_min="1"
 frontend_min="1"
 go_min="1"
+shell_min="1"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -63,6 +65,15 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       go_min="$1"
+      shift
+      ;;
+    --shell-min)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --shell-min" >&2
+        exit 1
+      fi
+      shell_min="$1"
       shift
       ;;
     -h|--help)
@@ -119,6 +130,13 @@ collect_go_files() {
     -g '!**/*_gen.go'
 }
 
+collect_shell_files() {
+  rg --files . \
+    -g '*.sh' \
+    -g '!tests/**' \
+    -g '!**/tests/**'
+}
+
 run_ruff_complexity_report() {
   local output_path="$1"
   shift
@@ -162,6 +180,7 @@ validate_positive_integer "${top_n}" "--top"
 validate_positive_integer "${python_min}" "--python-min"
 validate_positive_integer "${frontend_min}" "--frontend-min"
 validate_positive_integer "${go_min}" "--go-min"
+validate_positive_integer "${shell_min}" "--shell-min"
 
 if ! command -v rg >/dev/null 2>&1; then
   echo "rg is required to build the hotspot report." >&2
@@ -182,6 +201,7 @@ trap 'rm -rf "${tmp_dir}"' EXIT
 declare -a python_files=()
 declare -a frontend_relative_files=()
 declare -a go_files=()
+declare -a shell_files=()
 
 while IFS= read -r path; do
   [[ -n "${path}" ]] && python_files+=("${path}")
@@ -194,6 +214,10 @@ done < <(collect_frontend_files)
 while IFS= read -r path; do
   [[ -n "${path}" ]] && go_files+=("${path}")
 done < <(collect_go_files)
+
+while IFS= read -r path; do
+  [[ -n "${path}" ]] && shell_files+=("${path}")
+done < <(collect_shell_files)
 
 echo "Quality hotspots (top ${top_n} per language)"
 echo "Scores are language-specific and should not be compared across sections."
@@ -345,4 +369,13 @@ if not rows:
 for score, path, line, label in rows:
     print(f"{score:>4}  {label}  {path}:{line}")
 PY
+fi
+
+echo
+echo "Shell"
+if [[ ${#shell_files[@]} -eq 0 ]]; then
+  echo "No shell files matched the report filters."
+else
+  echo "Top ${top_n}, minimum complexity ${shell_min}"
+  ./scripts/shell_function_complexity.py --report --top "${top_n}" --min "${shell_min}" "${shell_files[@]}"
 fi

@@ -43,6 +43,11 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
         "package internal\n\nfunc Example() {}\n",
         encoding="utf-8",
     )
+    (scripts_dir / "example.sh").write_text(
+        "#!/usr/bin/env bash\nexample() {\n  return 0\n}\n",
+        encoding="utf-8",
+    )
+    (scripts_dir / "example.sh").chmod(0o755)
 
     write_stub_executable(
         bin_dir / "ruff",
@@ -63,6 +68,13 @@ printf '%s\\n' "$*" >> "{sandbox_root / 'pnpm_args.txt'}"
         f"""#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\\n' "$*" >> "{sandbox_root / 'go_args.txt'}"
+""",
+    )
+    write_stub_executable(
+        scripts_dir / "shell_function_complexity.py",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "{sandbox_root / 'shell_complexity_args.txt'}"
 """,
     )
 
@@ -86,6 +98,7 @@ def test_check_quality_uses_strict_default_complexity_thresholds(tmp_path: Path)
             "backend/setta/example.py",
             "frontend/src/example.ts",
             "internal/example.go",
+            "scripts/example.sh",
         ],
         cwd=sandbox_root,
         env=_script_env(sandbox_root),
@@ -99,6 +112,9 @@ def test_check_quality_uses_strict_default_complexity_thresholds(tmp_path: Path)
     ruff_args = (sandbox_root / "ruff_args.txt").read_text(encoding="utf-8").splitlines()
     pnpm_args = (sandbox_root / "pnpm_args.txt").read_text(encoding="utf-8").splitlines()
     go_args = (sandbox_root / "go_args.txt").read_text(encoding="utf-8").splitlines()
+    shell_args = (sandbox_root / "shell_complexity_args.txt").read_text(
+        encoding="utf-8"
+    ).splitlines()
 
     assert ruff_args == [
         "check backend/setta/example.py",
@@ -110,6 +126,9 @@ def test_check_quality_uses_strict_default_complexity_thresholds(tmp_path: Path)
     assert go_args == [
         "vet ./internal",
         "run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -over 9 internal/example.go",
+    ]
+    assert shell_args == [
+        "--max 10 scripts/example.sh",
     ]
 
 
@@ -128,10 +147,13 @@ def test_check_quality_passes_explicit_threshold_overrides_to_each_tool(
             "6",
             "--go-max",
             "5",
+            "--shell-max",
+            "4",
             "--files",
             "backend/setta/example.py",
             "frontend/src/example.ts",
             "internal/example.go",
+            "scripts/example.sh",
         ],
         cwd=sandbox_root,
         env=_script_env(sandbox_root),
@@ -145,6 +167,9 @@ def test_check_quality_passes_explicit_threshold_overrides_to_each_tool(
     ruff_args = (sandbox_root / "ruff_args.txt").read_text(encoding="utf-8").splitlines()
     pnpm_args = (sandbox_root / "pnpm_args.txt").read_text(encoding="utf-8").splitlines()
     go_args = (sandbox_root / "go_args.txt").read_text(encoding="utf-8").splitlines()
+    shell_args = (sandbox_root / "shell_complexity_args.txt").read_text(
+        encoding="utf-8"
+    ).splitlines()
 
     assert ruff_args[-1] == (
         "check --select C901 --output-format=concise --config "
@@ -157,3 +182,4 @@ def test_check_quality_passes_explicit_threshold_overrides_to_each_tool(
     assert go_args[-1] == (
         "run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -over 5 internal/example.go"
     )
+    assert shell_args[-1] == "--max 4 scripts/example.sh"
