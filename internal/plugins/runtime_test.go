@@ -104,8 +104,8 @@ func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin
 		t.Fatal("expected feature capabilities payload")
 	}
 	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
-	if appSubsystem.PluginID != appSubsystemPluginID {
-		t.Fatalf("expected app subsystem plugin id %q, got %q", appSubsystemPluginID, appSubsystem.PluginID)
+	if appSubsystem.PluginID != AppSubsystemPluginID {
+		t.Fatalf("expected app subsystem plugin id %q, got %q", AppSubsystemPluginID, appSubsystem.PluginID)
 	}
 	if appSubsystem.PluginEnabled {
 		t.Fatalf("expected app subsystem plugin disabled without fixture plugin, got %#v", appSubsystem)
@@ -181,12 +181,12 @@ func installRuntimeAppSubsystemFixture(
 	t.Helper()
 
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
-	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), appSubsystemPluginID)
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), AppSubsystemPluginID)
 	if err := os.Rename(pluginRoot, targetRoot); err != nil {
 		t.Fatalf("rename plugin root %s -> %s: %v", pluginRoot, targetRoot, err)
 	}
 	rewritePluginManifest(t, targetRoot, func(payload map[string]any) {
-		payload["id"] = appSubsystemPluginID
+		payload["id"] = AppSubsystemPluginID
 		payload["name"] = "Setta JSON Render App Gen"
 		payload["enabledByDefault"] = enabledByDefault
 		payload["featureCapabilities"] = map[string]any{
