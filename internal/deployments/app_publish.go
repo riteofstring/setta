@@ -9,28 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 var (
-	ErrAppPublisherRequired                   = errors.New("app deployment publisher is required")
-	ErrAppPublishAppDefinitionServiceRequired = errors.New("app definition service is required for app deployment publish")
-	ErrAppPublishProjectStateRequired         = errors.New("app deployment publish project runtime is required")
-	ErrAppPublishAppDefinitionMissing         = errors.New("app definition is required to publish an app deployment")
-	ErrAppPublishAppSpecPathRequired          = errors.New("app spec path is required to publish an app deployment")
-	ErrAppPublishAppSpecNotFound              = errors.New("app spec was not found for app deployment publish")
-	ErrAppPublishAppSpecInvalid               = errors.New("app spec is invalid for app deployment publish")
+	ErrAppPublisherRequired           = errors.New("app deployment publisher is required")
+	ErrAppPublishProjectStateRequired = errors.New("app deployment publish project runtime is required")
+	ErrAppPublishAppDefinitionMissing = errors.New("app definition is required to publish an app deployment")
+	ErrAppPublishAppSpecPathRequired  = errors.New("app spec path is required to publish an app deployment")
+	ErrAppPublishAppSpecNotFound      = errors.New("app spec was not found for app deployment publish")
+	ErrAppPublishAppSpecInvalid       = errors.New("app spec is invalid for app deployment publish")
 )
 
-type AppPublisherOptions struct {
-	Catalog              *Catalog
-	SettaFilesRoot       string
-	WorkspaceRoot        string
-	Now                  func() time.Time
-	AppDefinitionService projectstate.AppDefinitionRuntime
-}
+type AppPublisherOptions = SharePublisherOptions
 
 type AppPolicyOverrides = SharePolicyOverrides
 
@@ -85,8 +78,7 @@ func (e *AppPublishValidationError) Unwrap() error {
 }
 
 type AppPublisher struct {
-	share                *SharePublisher
-	appDefinitionService projectstate.AppDefinitionRuntime
+	share *SharePublisher
 }
 
 type preparedAppPublish struct {
@@ -100,22 +92,11 @@ type preparedAppPublish struct {
 }
 
 func NewAppPublisher(options AppPublisherOptions) (*AppPublisher, error) {
-	if options.AppDefinitionService == nil {
-		return nil, ErrAppPublishAppDefinitionServiceRequired
-	}
-	sharePublisher, err := NewSharePublisher(SharePublisherOptions{
-		Catalog:        options.Catalog,
-		SettaFilesRoot: options.SettaFilesRoot,
-		WorkspaceRoot:  options.WorkspaceRoot,
-		Now:            options.Now,
-	})
+	sharePublisher, err := NewSharePublisher(options)
 	if err != nil {
 		return nil, err
 	}
-	return &AppPublisher{
-		share:                sharePublisher,
-		appDefinitionService: options.AppDefinitionService,
-	}, nil
+	return &AppPublisher{share: sharePublisher}, nil
 }
 
 func (p *AppPublisher) Publish(ctx context.Context, request AppPublishRequest) (AppPublishResult, error) {
@@ -171,7 +152,7 @@ func (p *AppPublisher) prepareAppPublish(
 	}
 	document.DefaultProjectID = project.ID
 
-	appDefinition, appSpec, targetAppSpecPath, err := p.preparePublishedAppDefinition(ctx, document.AppDefinition)
+	appDefinition, appSpec, targetAppSpecPath, err := p.preparePublishedAppDefinition(ctx, request.ProjectState, document.AppDefinition)
 	if err != nil {
 		return preparedAppPublish{}, err
 	}
@@ -276,6 +257,7 @@ func (p *AppPublisher) buildAppPublishMetadata(
 
 func (p *AppPublisher) preparePublishedAppDefinition(
 	ctx context.Context,
+	runtime *projectstate.Runtime,
 	appDefinition *projectstate.AppDefinition,
 ) (*projectstate.AppDefinition, any, string, error) {
 	if appDefinition == nil {
@@ -300,7 +282,7 @@ func (p *AppPublisher) preparePublishedAppDefinition(
 		return nil, nil, "", ErrAppPublishAppSpecNotFound
 	}
 
-	validationResult, err := p.appDefinitionService.ValidateAppDefinition(ctx, projectstate.ValidateAppDefinitionInput{
+	validationResult, err := runtime.ValidateAppDefinition(ctx, projectstate.ValidateAppDefinitionInput{
 		AppSpec: appSpec,
 	})
 	if err != nil {

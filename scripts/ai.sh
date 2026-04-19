@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
 . "${SCRIPT_DIR}/lib/setta_path_flags.sh"
 . "${SCRIPT_DIR}/lib/setta_port_selection.sh"
+. "${SCRIPT_DIR}/lib/node_tooling.sh"
 if [[ -n "${HOME:-}" ]]; then
   DEFAULT_SETTA_HOME="${HOME}/.setta-development"
 else
@@ -94,10 +95,11 @@ if [[ "${DEBUG_PORT_WAS_SET}" -eq 0 ]]; then
 fi
 
 RUN_MODE="start"
+BROWSER_MODE=""
 
 usage() {
   cat <<'EOF'
-Usage: ai.sh [--reload] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
+Usage: ai.sh [--reload] [--browser-mode headed|headless] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
 
 Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
 Uses per-worktree ports and dev paths by default:
@@ -105,7 +107,8 @@ Uses per-worktree ports and dev paths by default:
   SETTA_FILES_ROOT=<worktree>/setta_files_dev
 
 Flags:
-  --reload   Use backend reload mode (pnpm startr)
+  --reload               Use backend reload mode (pnpm startr)
+  --browser-mode MODE    headed or headless for the devtools browser
 EOF
 }
 
@@ -122,6 +125,24 @@ while [[ $# -gt 0 ]]; do
       RUN_MODE="startr"
       shift
       ;;
+    --browser-mode)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --browser-mode" >&2
+        usage >&2
+        exit 1
+      fi
+      BROWSER_MODE="$2"
+      shift 2
+      ;;
+    --browser-mode=*)
+      BROWSER_MODE="${1#*=}"
+      if [[ -z "${BROWSER_MODE}" ]]; then
+        echo "Missing value for --browser-mode" >&2
+        usage >&2
+        exit 1
+      fi
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -136,10 +157,24 @@ done
 
 setta_path_flags_validate
 
+if [[ -n "${BROWSER_MODE}" ]]; then
+  case "${BROWSER_MODE}" in
+    headed)
+      export DEVTOOLS_HEADLESS="0"
+      ;;
+    headless)
+      export DEVTOOLS_HEADLESS="1"
+      ;;
+    *)
+      echo "Invalid value for --browser-mode: ${BROWSER_MODE}. Expected headed or headless." >&2
+      exit 1
+      ;;
+  esac
+fi
+
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
-export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
 export DEBUG_PORT
 export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
@@ -147,43 +182,118 @@ export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 setta_path_flags_apply_env
 
-missing_dev_requirements=""
-append_missing_requirement() {
-  local requirement="$1"
-  if [[ -n "${missing_dev_requirements}" ]]; then
-    missing_dev_requirements="${missing_dev_requirements}, ${requirement}"
-  else
-    missing_dev_requirements="${requirement}"
-  fi
+run_pnpm() {
+  setta_run_pnpm "${ROOT_DIR}" "$@"
 }
 
+resolve_python_bin() {
+  if [[ -n "${VIRTUAL_ENV:-}" ]] && [[ -x "${VIRTUAL_ENV}/bin/python" ]]; then
+    echo "${VIRTUAL_ENV}/bin/python"
+    return 0
+  fi
+  if [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+    echo "${ROOT_DIR}/.venv/bin/python"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return 0
+  fi
+  return 1
+}
+
+launch_command_in_new_session() {
+  if command -v setsid >/dev/null 2>&1; then
+    setsid "$@" </dev/null &
+    DEV_PID=$!
+    return 0
+  fi
+
+  local python_bin=""
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -n "${python_bin}" ]]; then
+    "${python_bin}" - "$@" <<'PY' &
+import os
+import signal
+import subprocess
+import sys
+
+child = None
+
+
+def forward_signal(signum, _frame):
+    if child is None:
+        return
+    try:
+        os.killpg(child.pid, signum)
+    except ProcessLookupError:
+        return
+
+
+os.setsid()
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
+signal.signal(signal.SIGINT, forward_signal)
+signal.signal(signal.SIGTERM, forward_signal)
+child = subprocess.Popen(sys.argv[1:], stdin=subprocess.DEVNULL, start_new_session=True)
+raise SystemExit(child.wait())
+PY
+    DEV_PID=$!
+    return 0
+  fi
+
+  nohup "$@" </dev/null >/dev/null 2>&1 &
+  DEV_PID=$!
+}
+
+start_dev_runtime() {
+  local pnpm_subcommand="start"
+  if [[ "${RUN_MODE}" == "startr" ]]; then
+    pnpm_subcommand="startr"
+  fi
+
+  launch_command_in_new_session \
+    env \
+    DEV_ROOT_DIR="${ROOT_DIR}" \
+    DEV_PNPM_SUBCOMMAND="${pnpm_subcommand}" \
+    bash -lc '
+      set -euo pipefail
+      . "${DEV_ROOT_DIR}/scripts/lib/node_tooling.sh"
+      cd "${DEV_ROOT_DIR}/frontend"
+      setta_run_pnpm "${DEV_ROOT_DIR}" "${DEV_PNPM_SUBCOMMAND}"
+    '
+}
+
+NEEDS_DEV_INSTALL=0
+if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then
+  NEEDS_DEV_INSTALL=1
+fi
 if [ ! -d "${ROOT_DIR}/frontend/node_modules" ]; then
-  append_missing_requirement "frontend/node_modules"
+  NEEDS_DEV_INSTALL=1
 fi
-if [ ! -x "${ROOT_DIR}/.venv/bin/python" ]; then
-  append_missing_requirement ".venv/bin/python"
-fi
-if ! "${ROOT_DIR}/scripts/go.sh" version >/dev/null 2>&1; then
-  append_missing_requirement "Go toolchain"
-fi
-if [[ -n "${missing_dev_requirements}" ]]; then
-  echo "Missing dev dependencies (${missing_dev_requirements}). Run ./dev_install.sh first." >&2
-  exit 1
+if [ "${NEEDS_DEV_INSTALL}" -eq 1 ]; then
+  echo "Missing dev dependencies; running . ./dev_install.sh" >&2
+  (cd "${ROOT_DIR}" && . ./dev_install.sh)
 fi
 
-if [ "${RUN_MODE}" = "startr" ]; then
-  (cd "${ROOT_DIR}/frontend" && pnpm startr) &
-else
-  (cd "${ROOT_DIR}/frontend" && pnpm start) &
-fi
-DEV_PID=$!
+trap '' HUP
+start_dev_runtime
 
 cleanup() {
   "${ROOT_DIR}/scripts/stop-browser-mcp.sh" --devtools >/dev/null 2>&1 || true
-  kill "${DEV_PID}" 2>/dev/null || true
+  if [[ -n "${DEV_PID:-}" ]]; then
+    kill -- -"${DEV_PID}" 2>/dev/null || kill "${DEV_PID}" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT INT TERM
 
-"${ROOT_DIR}/scripts/start-browser-mcp.sh" --devtools
+browser_mcp_args=(--devtools)
+if [[ -n "${BROWSER_MODE}" ]]; then
+  browser_mcp_args+=(--browser-mode "${BROWSER_MODE}")
+fi
+"${ROOT_DIR}/scripts/start-browser-mcp.sh" "${browser_mcp_args[@]}"
 
 wait "${DEV_PID}"

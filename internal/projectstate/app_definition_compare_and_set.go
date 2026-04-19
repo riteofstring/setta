@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
+	"setta/internal/appspec"
 )
 
 const defaultAppThemeMode = "auto"
@@ -28,7 +28,7 @@ func (r *Runtime) CompareAndSetAppDefinitionCatalogID(
 	catalogID string,
 	expectedOldValue *string,
 ) (Snapshot, CompareAndSetResult[string], error) {
-	projectRoot, err := r.ProjectRoot()
+	projectRoot, err := r.projectRoot()
 	if err != nil {
 		return Snapshot{}, CompareAndSetResult[string]{}, err
 	}
@@ -70,7 +70,7 @@ func (r *Runtime) CompareAndSetAppDefinitionSpecVersion(
 	appSpecVersion string,
 	expectedOldValue *string,
 ) (Snapshot, CompareAndSetResult[string], error) {
-	projectRoot, err := r.ProjectRoot()
+	projectRoot, err := r.projectRoot()
 	if err != nil {
 		return Snapshot{}, CompareAndSetResult[string]{}, err
 	}
@@ -112,7 +112,7 @@ func (r *Runtime) CompareAndSetAppDefinitionSpecPath(
 	appSpecPath string,
 	expectedOldValue *string,
 ) (Snapshot, CompareAndSetResult[string], error) {
-	projectRoot, err := r.ProjectRoot()
+	projectRoot, err := r.projectRoot()
 	if err != nil {
 		return Snapshot{}, CompareAndSetResult[string]{}, err
 	}
@@ -161,7 +161,7 @@ func (r *Runtime) CompareAndSetAppDefinitionThemeMode(
 	themeMode string,
 	expectedOldValue *string,
 ) (Snapshot, CompareAndSetResult[string], error) {
-	projectRoot, err := r.ProjectRoot()
+	projectRoot, err := r.projectRoot()
 	if err != nil {
 		return Snapshot{}, CompareAndSetResult[string]{}, err
 	}

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -30,59 +30,11 @@ type PluginConfigWriteResponse struct {
 	Validation PluginConfigValidationResult `json:"validation"`
 }
 
-type PluginConfigSnapshot struct {
-	Config map[string]any
-	Exists bool
-}
-
 type preparedPluginConfigWrite struct {
 	entry         DiscoveredPlugin
 	state         PluginsStateFile
 	currentConfig map[string]any
 	requested     map[string]any
-}
-
-func (s *Service) CurrentConfigSnapshot(pluginID string) (PluginConfigSnapshot, error) {
-	if s == nil {
-		return PluginConfigSnapshot{}, ErrWorkspaceRootRequired
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	_, _, snapshot, err := s.loadPluginConfigSnapshotLocked(pluginID)
-	if err != nil {
-		return PluginConfigSnapshot{}, err
-	}
-	return snapshot, nil
-}
-
-func (s *Service) RestoreConfig(pluginID string, snapshot PluginConfigSnapshot, expectedCurrentConfig map[string]any) error {
-	if s == nil {
-		return ErrWorkspaceRootRequired
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	entry, state, currentSnapshot, err := s.loadPluginConfigSnapshotLocked(pluginID)
-	if err != nil {
-		return err
-	}
-	if expectedCurrentConfig != nil && !reflect.DeepEqual(currentSnapshot.Config, cloneStringAnyMap(expectedCurrentConfig)) {
-		return newServiceError(
-			ServiceErrorCodeConfigChanged,
-			"Plugin %s config changed since rollback validation.",
-			entry.PluginID,
-		)
-	}
-
-	applyPluginConfigSnapshot(&state, entry, snapshot)
-	if err := s.store.SavePluginsState(state); err != nil {
-		return err
-	}
-	_, err = s.rescanLocked()
-	return err
 }
 
 func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResponse, error) {
@@ -109,7 +61,7 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 }
 
 func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (preparedPluginConfigWrite, error) {
-	entry, state, currentSnapshot, err := s.loadPluginConfigSnapshotLocked(options.PluginID)
+	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
 	if err != nil {
 		return preparedPluginConfigWrite{}, err
 	}
@@ -123,7 +75,13 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 	if err := validatePluginConfig(entry, options.Config); err != nil {
 		return preparedPluginConfigWrite{}, err
 	}
-	if expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig); expectedCurrentConfig != nil && !reflect.DeepEqual(currentSnapshot.Config, expectedCurrentConfig) {
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return preparedPluginConfigWrite{}, err
+	}
+	currentConfig := runtimeCurrentConfig(entry, &state)
+	if expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig); expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
 		return preparedPluginConfigWrite{}, newServiceError(
 			ServiceErrorCodeConfigChanged,
 			"Plugin %s config changed since pre-write validation.",
@@ -134,59 +92,9 @@ func (s *Service) preparePluginConfigWriteLocked(options ConfigWriteOptions) (pr
 	return preparedPluginConfigWrite{
 		entry:         entry,
 		state:         state,
-		currentConfig: currentSnapshot.Config,
+		currentConfig: currentConfig,
 		requested:     cloneStringAnyMap(options.Config),
 	}, nil
-}
-
-func (s *Service) loadPluginConfigSnapshotLocked(pluginID string) (DiscoveredPlugin, PluginsStateFile, PluginConfigSnapshot, error) {
-	entry, err := s.resolveHighestPrecedenceEntryLocked(pluginID)
-	if err != nil {
-		return DiscoveredPlugin{}, PluginsStateFile{}, PluginConfigSnapshot{}, err
-	}
-	state, err := s.store.LoadPluginsState()
-	if err != nil {
-		return DiscoveredPlugin{}, PluginsStateFile{}, PluginConfigSnapshot{}, err
-	}
-	return entry, state, pluginConfigSnapshot(entry, &state), nil
-}
-
-func pluginConfigSnapshot(entry DiscoveredPlugin, pluginsState *PluginsStateFile) PluginConfigSnapshot {
-	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
-		return PluginConfigSnapshot{Config: map[string]any{}}
-	}
-	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
-	if !ok || rawValue == nil {
-		return PluginConfigSnapshot{Config: map[string]any{}}
-	}
-	currentConfig, ok := rawValue.(map[string]any)
-	if !ok {
-		return PluginConfigSnapshot{Config: map[string]any{}}
-	}
-	return PluginConfigSnapshot{
-		Config: cloneStringAnyMap(currentConfig),
-		Exists: true,
-	}
-}
-
-func applyPluginConfigSnapshot(state *PluginsStateFile, entry DiscoveredPlugin, snapshot PluginConfigSnapshot) {
-	if state == nil {
-		return
-	}
-	key := pluginConfigKey(entry.PluginID, entry.Scope)
-	if !snapshot.Exists {
-		if state.PluginConfigByID != nil {
-			delete(state.PluginConfigByID, key)
-			if len(state.PluginConfigByID) == 0 {
-				state.PluginConfigByID = nil
-			}
-		}
-		return
-	}
-	if state.PluginConfigByID == nil {
-		state.PluginConfigByID = map[string]any{}
-	}
-	state.PluginConfigByID[key] = cloneStringAnyMap(snapshot.Config)
 }
 
 func pluginConfigWriteNoopResponse(
@@ -203,10 +111,10 @@ func pluginConfigWriteNoopResponse(
 }
 
 func (s *Service) persistPluginConfigWriteLocked(prepared preparedPluginConfigWrite) (PluginConfigWriteResponse, error) {
-	applyPluginConfigSnapshot(&prepared.state, prepared.entry, PluginConfigSnapshot{
-		Config: prepared.requested,
-		Exists: true,
-	})
+	if prepared.state.PluginConfigByID == nil {
+		prepared.state.PluginConfigByID = map[string]any{}
+	}
+	prepared.state.PluginConfigByID[pluginConfigKey(prepared.entry.PluginID, prepared.entry.Scope)] = prepared.requested
 	if err := s.store.SavePluginsState(prepared.state); err != nil {
 		return PluginConfigWriteResponse{}, err
 	}
@@ -227,31 +135,43 @@ func pluginConfigWriteResponse(pluginID string, config map[string]any) PluginCon
 }
 
 func validatePluginConfig(entry DiscoveredPlugin, config map[string]any) error {
-	document, ok, err := loadPluginConfigSchemaDocument(entry)
-	if err != nil {
-		if !ok {
-			return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema path for %s", entry.PluginID)
-		}
-		return invalidPluginConfigSchemaError(document.Path)
+	if entry.Manifest == nil {
+		return newServiceError(ServiceErrorCodeConfigInvalid, "Plugin manifest missing for plugin: %s", entry.PluginID)
 	}
-	if !ok {
+
+	trimmedSchemaPath := strings.TrimSpace(entry.Manifest.ConfigSchemaPath)
+	if trimmedSchemaPath == "" {
 		return nil
 	}
-	if err := document.Resolved.Validate(config); err != nil {
+
+	schemaPath, err := resolveManifestRegularFile(entry.SourcePath, trimmedSchemaPath, "plugin config schema")
+	if err != nil {
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema path: %s", trimmedSchemaPath)
+	}
+
+	schema, err := loadPluginConfigSchema(schemaPath)
+	if err != nil {
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema JSON: %s", schemaPath)
+	}
+
+	resolved, err := schema.Resolve(&jsonschema.ResolveOptions{
+		BaseURI: schemaFileURI(schemaPath),
+		Loader:  pluginConfigSchemaLoader(),
+	})
+	if err != nil {
+		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema JSON: %s", schemaPath)
+	}
+	if err := resolved.Validate(config); err != nil {
 		return newServiceError(ServiceErrorCodeConfigInvalid, "Invalid plugin config for %s: %s", entry.PluginID, err.Error())
 	}
 	return nil
 }
 
 func loadPluginConfigSchema(schemaPath string) (*jsonschema.Schema, error) {
-	payload, err := loadPluginConfigSchemaPayload(schemaPath)
+	payload, err := os.ReadFile(schemaPath)
 	if err != nil {
 		return nil, err
 	}
-	return parsePluginConfigSchema(payload)
-}
-
-func parsePluginConfigSchema(payload []byte) (*jsonschema.Schema, error) {
 	var schema jsonschema.Schema
 	if err := json.Unmarshal(payload, &schema); err != nil {
 		return nil, err
@@ -266,9 +186,12 @@ func pluginConfigSchemaLoader() jsonschema.Loader {
 		}
 		resolvedURI := *uri
 		resolvedURI.Fragment = ""
-		schemaPath, err := pluginConfigSchemaPathFromFileURI(&resolvedURI)
-		if err != nil {
-			return nil, err
+		if resolvedURI.Scheme != "" && resolvedURI.Scheme != "file" {
+			return nil, fmt.Errorf("plugin config schema refs must use local files: %s", resolvedURI.String())
+		}
+		schemaPath := resolvedURI.Path
+		if strings.TrimSpace(schemaPath) == "" {
+			return nil, fmt.Errorf("plugin config schema path is empty")
 		}
 		return loadPluginConfigSchema(schemaPath)
 	}
@@ -279,66 +202,4 @@ func schemaFileURI(schemaPath string) string {
 		Scheme: "file",
 		Path:   filepath.ToSlash(schemaPath),
 	}).String()
-}
-
-func pluginConfigSchemaPathFromFileURI(uri *url.URL) (string, error) {
-	return pluginConfigSchemaPathFromFileURIForOS(uri, runtime.GOOS)
-}
-
-func pluginConfigSchemaPathFromFileURIForOS(uri *url.URL, goos string) (string, error) {
-	if uri == nil {
-		return "", fmt.Errorf("plugin config schema URI is required")
-	}
-	if uri.Scheme != "" && uri.Scheme != "file" {
-		return "", fmt.Errorf("plugin config schema refs must use local files: %s", uri.String())
-	}
-
-	host := normalizePluginConfigSchemaFileURIHost(uri.Host)
-	path := pluginConfigSchemaPathFromFileURIForTargetOS(host, uri.Path, goos)
-
-	if strings.TrimSpace(path) == "" {
-		return "", fmt.Errorf("plugin config schema path is empty")
-	}
-	return filepath.Clean(path), nil
-}
-
-func normalizePluginConfigSchemaFileURIHost(host string) string {
-	trimmedHost := strings.TrimSpace(host)
-	if strings.EqualFold(trimmedHost, "localhost") {
-		return ""
-	}
-	return trimmedHost
-}
-
-func pluginConfigSchemaPathFromFileURIForTargetOS(host string, path string, goos string) string {
-	if goos == "windows" {
-		return pluginConfigSchemaPathFromWindowsFileURI(host, path)
-	}
-	return pluginConfigSchemaPathFromNonWindowsFileURI(host, path)
-}
-
-func pluginConfigSchemaPathFromWindowsFileURI(host string, path string) string {
-	switch {
-	case host != "":
-		return `\\` + host + windowsPathFromSlash(path)
-	case hasWindowsDriveLetterPrefix(path):
-		return windowsPathFromSlash(path[1:])
-	default:
-		return windowsPathFromSlash(path)
-	}
-}
-
-func pluginConfigSchemaPathFromNonWindowsFileURI(host string, path string) string {
-	if host != "" {
-		path = "//" + host + path
-	}
-	return filepath.FromSlash(path)
-}
-
-func hasWindowsDriveLetterPrefix(path string) bool {
-	return len(path) >= 3 && path[0] == '/' && path[2] == ':'
-}
-
-func windowsPathFromSlash(path string) string {
-	return strings.ReplaceAll(path, "/", `\`)
 }

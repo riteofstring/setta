@@ -1,4 +1,5 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { isCanvasOwnedSectionStateMachineGateDropdown } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import { setStateMachineSectionSettings } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
@@ -231,6 +232,9 @@ export function StateMachineSectionSettings({
           </p>
           <IdNameCombobox
             allItems={GATE_TYPE_OPTIONS}
+            canvasOwnedRestingInput={isCanvasOwnedSectionStateMachineGateDropdown(
+              sectionId,
+            )}
             value={sectionState.gateType}
             isDisabled={isDisabled}
             onSelectedItemChange={(gateType) => {

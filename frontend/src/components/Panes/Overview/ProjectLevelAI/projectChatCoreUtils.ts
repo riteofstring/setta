@@ -251,7 +251,6 @@ function appendUniqueSlashCommands({
 
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
-  appGenerationSlashCommands = [],
   discoveredAgentNativeSlashCommands,
   executableAgentNativeSlashCommands = discoveredAgentNativeSlashCommands,
   customCommandsExecutable = true,
@@ -260,7 +259,6 @@ export function resolveProjectChatComposerSlashCommandSets({
   showSearchExecutionControl,
 }: {
   customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
-  appGenerationSlashCommands?: ChatSlashCommandDefinition[];
   discoveredAgentNativeSlashCommands: string[];
   executableAgentNativeSlashCommands?: string[];
   customCommandsExecutable?: boolean;
@@ -275,13 +273,13 @@ export function resolveProjectChatComposerSlashCommandSets({
     model: true,
     permissions: showPermissionExecutionControl,
     search: showSearchExecutionControl,
-    appGenerationCommands: appGenerationSlashCommands,
+    appGenerationModes: true,
   });
   const globallyReservedManagedCommands = buildChatSlashCommands({
     model: true,
     permissions: true,
     search: true,
-    appGenerationCommands: appGenerationSlashCommands,
+    appGenerationModes: true,
   });
   const customCommandDefinitions = buildCustomPromptSlashCommandDefinitions(
     customProjectChatSlashCommands,
@@ -844,9 +842,7 @@ function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
   return [];
 }
 
-export function extractUserPromptText(
-  message: BaseChatMessageUnion,
-): string | null {
+function extractUserPromptText(message: BaseChatMessageUnion): string | null {
   if (message.role !== ChatRoleEnum.user) {
     return null;
   }
@@ -877,7 +873,7 @@ export function extractUserPromptText(
   return textParts.join("\n");
 }
 
-export function getMessageAttachments(
+function getMessageAttachments(
   message: BaseChatMessageUnion,
 ): Array<ChatFileAttachment> {
   if ("attachments" in message && Array.isArray(message.attachments)) {
