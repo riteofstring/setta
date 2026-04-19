@@ -22,7 +22,8 @@ var (
 	// Keep first-pass shared OpenAPI schema names stable while the app subsystem
 	// moves under the plugin-owned backend path.
 	openAPISchemaLegacyPackagePaths = map[string]string{
-		"setta/plugins/setta-json-render-app-gen/backend/appspec": "setta/internal/appspec",
+		"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp": "setta/internal/httpapi",
+		"setta/plugins/setta-json-render-app-gen/backend/appspec":           "setta/internal/appspec",
 	}
 )
 
