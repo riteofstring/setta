@@ -43,6 +43,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "ChangeParamImplUIConfig",
+			Type: reflect.TypeOf(projectstate.FrontendValueChangeParamImplUIConfig()),
+			Value: func() any {
+				return projectstate.FrontendValueChangeParamImplUIConfig()
+			},
+		},
+		{
 			Name: "ChatRunTypesByName",
 			Type: reflect.TypeOf(httpapi.FrontendValueChatRunTypesByName()),
 			Value: func() any {
