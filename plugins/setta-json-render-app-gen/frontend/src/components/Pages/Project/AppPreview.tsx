@@ -1,6 +1,8 @@
 import { AppRenderer } from "../../App/AppRenderer";
-import { loadProjectConfig as loadProjectConfigRequest } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+import {
+  callOpenAPI,
+  loadProjectConfig as loadProjectConfigRequest,
+} from "@setta/app-subsystem-frontend-sdk";
 import { useEffect, useMemo } from "react";
 import {
   useAppConfigs,

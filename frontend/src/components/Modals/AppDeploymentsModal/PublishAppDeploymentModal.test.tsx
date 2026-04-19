@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { checkIfFileExists } from "openapi/http";
+import { checkIfFileExists } from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,22 +23,20 @@ vi.mock("state/actions/modal", () => ({
   closeModal: vi.fn(),
 }));
 
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
+  const actual = await vi.importActual<
+    typeof import("@setta/app-subsystem-frontend-sdk")
+  >("@setta/app-subsystem-frontend-sdk");
   return {
     ...actual,
     checkIfFileExists: openAPI.checkIfFileExists,
     listAppDeployments: openAPI.listAppDeployments,
     publishAppDeployment: openAPI.publishAppDeployment,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
   };
 });
-
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
 
 import { PublishAppDeploymentModal } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
 

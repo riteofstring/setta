@@ -16,6 +16,10 @@ export default {
   },
   resolve: {
     alias: {
+      "@setta/app-subsystem-frontend-sdk": resolve(
+        repoRootDir,
+        "frontend/plugin-sdk/app-subsystem/src",
+      ),
       "@json-render/core": resolve(
         sharedNodeModulesDir,
         "@json-render/core/dist/index.mjs",

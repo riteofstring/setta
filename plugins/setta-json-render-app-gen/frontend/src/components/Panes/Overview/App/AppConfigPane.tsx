@@ -1,17 +1,14 @@
 import {
-  PaneAccordion,
-  type PaneAccordionItem,
-} from "components/Panes/Common/PaneAccordion";
-import {
+  buildDefaultAppSpecPath,
+  callOpenAPI,
   getAppDefinition,
   setAppDefinition,
   validateAppDefinition,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+} from "@setta/app-subsystem-frontend-sdk";
 import {
-  buildDefaultAppSpecPath,
-  useAppSubsystemFrontendStore,
-} from "plugins/appSubsystem";
+  PaneAccordion,
+  type PaneAccordionItem,
+} from "components/Panes/Common/PaneAccordion";
 import { useAppPreview } from "../../../../appSubsystemProjectState";
 import { useAppDefinition } from "../../../../appSubsystemDefinitionState";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,6 +16,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { type AppDefinition } from "../../../appSubsystemContracts";
+import { getRegisteredAppSubsystemPluginId } from "../../../appSubsystemPluginHost";
 import {
   parseDraftAppAssets,
   parseDraftAppSpec,
@@ -707,10 +705,7 @@ function AppConfigAdvancedContent({
 /** @lintignore Consumed by the app subsystem plugin frontend. */
 export function AppConfigPane() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const appSubsystemPluginID = useAppSubsystemFrontendStore((state) => {
-    const pluginID = state.capabilities?.pluginId?.trim() ?? "";
-    return pluginID.length > 0 ? pluginID : null;
-  });
+  const appSubsystemPluginID = getRegisteredAppSubsystemPluginId();
   const appSpec = useAppDefinition((state) => state.appSpec);
   const isPreviewEnabled = useAppPreview((state) => state.isPreviewEnabled);
   const previewConfigId = useAppPreview((state) => state.previewConfigId);

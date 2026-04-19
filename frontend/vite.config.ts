@@ -38,6 +38,10 @@ export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgrPlugin()],
   resolve: {
     alias: {
+      "@setta/app-subsystem-frontend-sdk": path.resolve(
+        __dirname,
+        "plugin-sdk/app-subsystem/src",
+      ),
       "@json-render/core": path.resolve(
         __dirname,
         "node_modules/@json-render/core/dist/index.mjs",
