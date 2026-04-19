@@ -10,6 +10,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -18,7 +19,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		return fmt.Errorf("router is required")
 	}
 
-	httpapi.RegisterOpenAPIGet[httpapi.AppCatalogResponse](
+	httpapi.RegisterOpenAPIGet[appdefinitionhttp.AppCatalogResponse](
 		router,
 		"getAppCatalog",
 		httpapi.RouteGetAppCatalog,
@@ -26,7 +27,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Get the built-in standalone app component catalog."),
 	)
-	httpapi.RegisterOpenAPIPost[httpapi.GetAppDefinitionRequest, projectstate.AppDefinitionReadResult](
+	httpapi.RegisterOpenAPIPost[appdefinitionhttp.GetAppDefinitionRequest, projectstate.AppDefinitionReadResult](
 		router,
 		"getAppDefinition",
 		httpapi.RouteGetAppDefinition,
@@ -35,7 +36,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		httpapi.WithOpenAPISummary("Load the current app definition and resolved app spec."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
 	)
-	httpapi.RegisterOpenAPIPost[httpapi.ValidateAppDefinitionRequest, projectstate.AppDefinitionValidationResult](
+	httpapi.RegisterOpenAPIPost[appdefinitionhttp.ValidateAppDefinitionRequest, projectstate.AppDefinitionValidationResult](
 		router,
 		"validateAppDefinition",
 		httpapi.RouteValidateAppDefinition,
@@ -44,7 +45,7 @@ func RegisterAppDefinitionRoutes(router chi.Router, deps httpapi.AppDefinitionRo
 		httpapi.WithOpenAPISummary("Validate an app definition payload against the current catalog."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
 	)
-	httpapi.RegisterOpenAPIPost[httpapi.SetAppDefinitionRequest, projectstate.AppDefinitionMutationResult](
+	httpapi.RegisterOpenAPIPost[appdefinitionhttp.SetAppDefinitionRequest, projectstate.AppDefinitionMutationResult](
 		router,
 		"setAppDefinition",
 		httpapi.RouteSetAppDefinition,
@@ -63,19 +64,19 @@ func getAppCatalogHandler() http.HandlerFunc {
 	}
 }
 
-func buildAppCatalogResponse(catalog appspec.Catalog) httpapi.AppCatalogResponse {
+func buildAppCatalogResponse(catalog appspec.Catalog) appdefinitionhttp.AppCatalogResponse {
 	componentNames := make([]string, 0, len(catalog.Components))
 	for name := range catalog.Components {
 		componentNames = append(componentNames, name)
 	}
 	sort.Strings(componentNames)
 
-	components := make([]httpapi.AppCatalogComponentResponse, 0, len(componentNames))
+	components := make([]appdefinitionhttp.AppCatalogComponentResponse, 0, len(componentNames))
 	for _, name := range componentNames {
 		component := catalog.Components[name]
-		props := make(map[string]httpapi.AppCatalogPropResponse, len(component.Props))
+		props := make(map[string]appdefinitionhttp.AppCatalogPropResponse, len(component.Props))
 		for propName, prop := range component.Props {
-			props[propName] = httpapi.AppCatalogPropResponse{
+			props[propName] = appdefinitionhttp.AppCatalogPropResponse{
 				Type:       prop.Type,
 				Responsive: prop.Responsive,
 				Required:   prop.Required,
@@ -85,7 +86,7 @@ func buildAppCatalogResponse(catalog appspec.Catalog) httpapi.AppCatalogResponse
 				Default:    prop.Default,
 			}
 		}
-		components = append(components, httpapi.AppCatalogComponentResponse{
+		components = append(components, appdefinitionhttp.AppCatalogComponentResponse{
 			Type:     component.Type,
 			Children: component.Children,
 			Props:    props,
@@ -98,12 +99,12 @@ func buildAppCatalogResponse(catalog appspec.Catalog) httpapi.AppCatalogResponse
 	}
 	sort.Strings(actionNames)
 
-	actions := make([]httpapi.AppCatalogActionResponse, 0, len(actionNames))
+	actions := make([]appdefinitionhttp.AppCatalogActionResponse, 0, len(actionNames))
 	for _, name := range actionNames {
-		actions = append(actions, httpapi.AppCatalogActionResponse{Name: name})
+		actions = append(actions, appdefinitionhttp.AppCatalogActionResponse{Name: name})
 	}
 
-	return httpapi.AppCatalogResponse{
+	return appdefinitionhttp.AppCatalogResponse{
 		ID:         catalog.ID,
 		Version:    catalog.Version,
 		Components: components,
@@ -121,7 +122,7 @@ func getAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			httpapi.WriteDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
-		payload, err := httpapi.DecodeJSONBody[httpapi.GetAppDefinitionRequest](r)
+		payload, err := httpapi.DecodeJSONBody[appdefinitionhttp.GetAppDefinitionRequest](r)
 		if err != nil {
 			httpapi.WriteValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
@@ -148,7 +149,7 @@ func validateAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) h
 			httpapi.WriteDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
-		payload, err := httpapi.DecodeJSONBody[httpapi.ValidateAppDefinitionRequest](r)
+		payload, err := httpapi.DecodeJSONBody[appdefinitionhttp.ValidateAppDefinitionRequest](r)
 		if err != nil {
 			httpapi.WriteValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
@@ -189,7 +190,7 @@ func setAppDefinitionHandler(deps httpapi.AppDefinitionRouteDependencies) http.H
 			httpapi.WriteDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
-		payload, err := httpapi.DecodeJSONBody[httpapi.SetAppDefinitionRequest](r)
+		payload, err := httpapi.DecodeJSONBody[appdefinitionhttp.SetAppDefinitionRequest](r)
 		if err != nil {
 			httpapi.WriteValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
