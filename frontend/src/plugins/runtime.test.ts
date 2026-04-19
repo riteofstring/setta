@@ -1,6 +1,7 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
+import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystemRuntime";
 import {
   invokePluginSettingRevealHandler,
   receivePluginRuntimeUpdate,
@@ -64,6 +65,7 @@ import { type StateCreator, type StoreApi } from "zustand/vanilla";
 
 function resetPluginRuntimeStateForTests(): void {
   clearPluginRuntimeSideEffects();
+  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState({
     status: "idle",
     statusMessage: null,
