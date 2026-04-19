@@ -23,6 +23,10 @@ type AppSubsystemAppModeRouteRegistration = {
   component: ComponentType;
 };
 
+type AppSubsystemAppDeploymentModalRegistration = {
+  component: ComponentType<{ open: boolean }>;
+};
+
 type AppSubsystemCustomSlashCommandModeOption = {
   id: string;
   name: string;
@@ -37,6 +41,7 @@ type AppSubsystemFrontendRegistration = {
   overviewTab?: AppSubsystemOverviewTabRegistration;
   previewSurface?: AppSubsystemPreviewSurfaceRegistration;
   appModeRoute?: AppSubsystemAppModeRouteRegistration;
+  appDeploymentModal?: AppSubsystemAppDeploymentModalRegistration;
   slashCommands?: ChatSlashCommandDefinition[];
   imageRequiredModes?: string[];
   customSlashCommandModes?: AppSubsystemCustomSlashCommandModesRegistration;
@@ -151,6 +156,12 @@ function isAppModeRouteRegistration(
   return isRecord(value) && isComponent(value.component);
 }
 
+function isAppDeploymentModalRegistration(
+  value: unknown,
+): value is AppSubsystemAppDeploymentModalRegistration {
+  return isRecord(value) && isComponent(value.component);
+}
+
 function isSlashCommandRegistration(
   value: unknown,
 ): value is ChatSlashCommandDefinition[] {
@@ -218,39 +229,28 @@ function hasOptionalFunction(
   return isFunction(entry);
 }
 
+const APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS = [
+  ["overviewTab", isOverviewTabRegistration],
+  ["previewSurface", isPreviewSurfaceRegistration],
+  ["appModeRoute", isAppModeRouteRegistration],
+  ["appDeploymentModal", isAppDeploymentModalRegistration],
+  ["slashCommands", isSlashCommandRegistration],
+  ["imageRequiredModes", isImageRequiredModeRegistration],
+  ["customSlashCommandModes", isCustomSlashCommandModeRegistration],
+] as const;
+
 function isFrontendRegistration(
   value: unknown,
 ): value is AppSubsystemFrontendRegistration {
   if (!isRecord(value)) {
     return false;
   }
+  for (const [key, validator] of APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS) {
+    if (!hasOptionalRegistration(value, key, validator)) {
+      return false;
+    }
+  }
   return (
-    hasOptionalRegistration(value, "overviewTab", isOverviewTabRegistration) &&
-    hasOptionalRegistration(
-      value,
-      "previewSurface",
-      isPreviewSurfaceRegistration,
-    ) &&
-    hasOptionalRegistration(
-      value,
-      "appModeRoute",
-      isAppModeRouteRegistration,
-    ) &&
-    hasOptionalRegistration(
-      value,
-      "slashCommands",
-      isSlashCommandRegistration,
-    ) &&
-    hasOptionalRegistration(
-      value,
-      "imageRequiredModes",
-      isImageRequiredModeRegistration,
-    ) &&
-    hasOptionalRegistration(
-      value,
-      "customSlashCommandModes",
-      isCustomSlashCommandModeRegistration,
-    ) &&
     hasOptionalFunction(value, "initializeProjectState") &&
     hasOptionalFunction(value, "resetProjectState")
   );
@@ -349,6 +349,11 @@ function validateFrontendRegistrationCapabilities(
     capabilities?.appDeploymentRuntime,
     Boolean(registration.appModeRoute),
     "App subsystem frontend adapter is missing the app mode route registration.",
+  );
+  requireCapabilityRegistration(
+    capabilities?.appDeploymentRuntime,
+    Boolean(registration.appDeploymentModal),
+    "App subsystem frontend adapter is missing the app deployment modal registration.",
   );
 }
 
@@ -474,6 +479,18 @@ export function useAppSubsystemAppModeRoute(): AppSubsystemAppModeRouteRegistrat
       return null;
     }
     return state.registration?.appModeRoute ?? null;
+  });
+}
+
+export function useAppSubsystemAppDeploymentModal(): AppSubsystemAppDeploymentModalRegistration | null {
+  return useAppSubsystemFrontendStore((state) => {
+    if (
+      !state.capabilities?.pluginEnabled ||
+      !state.capabilities.appDeploymentRuntime
+    ) {
+      return null;
+    }
+    return state.registration?.appDeploymentModal ?? null;
   });
 }
 
