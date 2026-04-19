@@ -88,3 +88,88 @@ func TestAppGenerationModeRegistryBuildsPromptForRegisteredMode(t *testing.T) {
 		t.Fatalf("expected streaming prompt, got %q", prompt)
 	}
 }
+
+func TestAppGenerationModeRegistryTracksReferenceImageCapability(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewAppGenerationModeRegistry(AppGenerationModeRegistryOptions{
+		Contributions: []AppGenerationModeContribution{
+			{
+				Mode:                 "json_render_with_image",
+				AllowsReferenceImage: true,
+				PromptBuilder: func(options AppGenerationPromptOptions) string {
+					return "image"
+				},
+			},
+			{
+				Mode: "prompt_builder",
+				PromptBuilder: func(options AppGenerationPromptOptions) string {
+					return "prompt"
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	imageMode := "json_render_with_image"
+	if !registry.AllowsReferenceImage(&imageMode) {
+		t.Fatalf("expected image mode to allow reference-image inputs")
+	}
+
+	promptBuilderMode := "prompt_builder"
+	if registry.AllowsReferenceImage(&promptBuilderMode) {
+		t.Fatalf("expected prompt_builder mode to reject reference-image inputs")
+	}
+}
+
+func TestAppGenerationModeRegistryRunsCurrentTurnValidatorForMatchingMode(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("image required")
+	registry, err := NewAppGenerationModeRegistry(AppGenerationModeRegistryOptions{
+		Contributions: []AppGenerationModeContribution{
+			{
+				Mode: "json_render_with_image",
+				PromptBuilder: func(options AppGenerationPromptOptions) string {
+					return "image"
+				},
+				ValidateCurrentTurn: func(options AppGenerationTurnValidationOptions) error {
+					if options.Message["id"] != "user-1" {
+						t.Fatalf("unexpected validation message %#v", options.Message)
+					}
+					if len(options.PriorMessages) != 1 {
+						t.Fatalf("unexpected validation history %#v", options.PriorMessages)
+					}
+					if got := options.AppGenerationByMessageID["user-1"]; got != "json_render_with_image" {
+						t.Fatalf("unexpected validation provenance %#v", options.AppGenerationByMessageID)
+					}
+					return wantErr
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	mode := "json_render_with_image"
+	err = registry.ValidateCurrentTurn(&mode, AppGenerationTurnValidationOptions{
+		Message: map[string]any{"id": "user-1"},
+		PriorMessages: []map[string]any{
+			{"id": "user-0"},
+		},
+		AppGenerationByMessageID: map[string]string{
+			"user-1": "json_render_with_image",
+		},
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected validator error %v, got %v", wantErr, err)
+	}
+
+	plainMode := "prompt_builder"
+	if err := registry.ValidateCurrentTurn(&plainMode, AppGenerationTurnValidationOptions{}); err != nil {
+		t.Fatalf("expected unrelated mode validation to skip, got %v", err)
+	}
+}
