@@ -5,6 +5,7 @@ package sharedtypes
 import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
+	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
 	deployments "setta/internal/deployments"
 	projectstate "setta/internal/projectstate"
@@ -17,6 +18,9 @@ import (
 func discoveredAdditionalTypes() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeOf(binary.ContentRef{}),
+		reflect.TypeOf(backendlogs.Severity("")),
+		reflect.TypeOf(backendlogs.BackendLogEvent{}),
+		reflect.TypeOf(backendlogs.WebsocketMessage{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
@@ -26,6 +30,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
 		reflect.TypeOf(projectstate.BrowserSavedSearch{}),
 		reflect.TypeOf(projectstate.SignatureHelpStatus("")),
+		reflect.TypeOf(projectstate.ChangeParamImplUIConfigValue{}),
 		reflect.TypeOf(projectstate.LineChartSettings{}),
 		reflect.TypeOf(projectstate.ScatterChartSettings{}),
 		reflect.TypeOf(projectstate.ChartType("")),
@@ -86,6 +91,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.FrontendChatSectionState{}),
 		reflect.TypeOf(projectstate.FrontendChatSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendBrowserSectionImpl{}),
+		reflect.TypeOf(projectstate.FrontendIFrameSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendListRootSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendGroupSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendStateMachineStartSectionImpl{}),
@@ -97,6 +103,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.FrontendTerminalSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
+		reflect.TypeOf(projectstate.FrontendMetaControlSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendTaskBoardTask{}),
 		reflect.TypeOf(projectstate.FrontendTaskBoardSectionImpl{}),
 		reflect.TypeOf(projectstate.FrontendChartSectionImpl{}),
@@ -306,6 +313,7 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(realtime.ProjectStateUpdateContent{}),
 		reflect.TypeOf(realtime.ProjectStateUpdateMessage{}),
 		reflect.TypeOf(realtime.SettingsUpdateMessage{}),
+		reflect.TypeOf(realtime.PluginRuntimeUpdateMessage{}),
 		reflect.TypeOf(realtime.RenameReferenceDependencyKey{}),
 		reflect.TypeOf(realtime.RenameReferenceChangedValue{}),
 		reflect.TypeOf(realtime.RenameRefactorBroadcastContent{}),

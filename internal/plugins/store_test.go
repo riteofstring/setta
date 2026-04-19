@@ -24,9 +24,10 @@ func TestStorePersistsPluginStateFiles(t *testing.T) {
 	}
 
 	if err := store.SavePluginsState(PluginsStateFile{
-		EnabledPluginIDs:               []string{"beta", "alpha", "beta"},
-		DisabledPluginIDs:              []string{"delta", "delta", "gamma"},
-		PendingRestartBackendPluginIDs: []string{"backend-b", "backend-a", "backend-b"},
+		EnabledPluginIDs:                          []string{"beta", "alpha", "beta"},
+		DisabledPluginIDs:                         []string{"delta", "delta", "gamma"},
+		PendingRestartBackendPluginIDs:            []string{"backend-b", "backend-a", "backend-b"},
+		PendingRestartLanguageServerOnlyPluginIDs: []string{"backend-b", "backend-c", "backend-b"},
 		PluginConfigByID: map[string]any{
 			"workspace:alpha": map[string]any{"enabled": true},
 		},
@@ -51,6 +52,9 @@ func TestStorePersistsPluginStateFiles(t *testing.T) {
 	}
 	if len(state.PendingRestartBackendPluginIDs) != 2 || state.PendingRestartBackendPluginIDs[0] != "backend-a" || state.PendingRestartBackendPluginIDs[1] != "backend-b" {
 		t.Fatalf("unexpected pending restart ids: %#v", state.PendingRestartBackendPluginIDs)
+	}
+	if len(state.PendingRestartLanguageServerOnlyPluginIDs) != 1 || state.PendingRestartLanguageServerOnlyPluginIDs[0] != "backend-b" {
+		t.Fatalf("unexpected pending LSP-only restart ids: %#v", state.PendingRestartLanguageServerOnlyPluginIDs)
 	}
 
 	globalState, err := store.LoadPluginsGlobalState()

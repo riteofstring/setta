@@ -1,6 +1,6 @@
-import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { type BackendLogEvent } from "utils/generatedTypes";
 
-export type BackendLogSeverity = SettaBackendLogEvent["severity"];
+export type BackendLogSeverity = BackendLogEvent["severity"];
 export type BackendLogCopyStatus = "copied" | "failed";
 
 export type BackendLogColumnWidths = {
@@ -135,9 +135,9 @@ export async function copyBackendLogMessage(
 }
 
 export function getBackendLogEventsById(
-  events: Array<SettaBackendLogEvent>,
-): Map<string, SettaBackendLogEvent> {
-  const eventsById = new Map<string, SettaBackendLogEvent>();
+  events: Array<BackendLogEvent>,
+): Map<string, BackendLogEvent> {
+  const eventsById = new Map<string, BackendLogEvent>();
   for (const event of events) {
     eventsById.set(event.id, event);
   }
@@ -145,9 +145,9 @@ export function getBackendLogEventsById(
 }
 
 export function getBackendLogEventById(
-  eventsById: Map<string, SettaBackendLogEvent>,
+  eventsById: Map<string, BackendLogEvent>,
   eventId: string | null,
-): SettaBackendLogEvent | null {
+): BackendLogEvent | null {
   if (!eventId) {
     return null;
   }
@@ -155,13 +155,13 @@ export function getBackendLogEventById(
 }
 
 export function filterEvents(
-  events: Array<SettaBackendLogEvent>,
+  events: Array<BackendLogEvent>,
   filter: {
     projectConfigId: string | null;
     minSeverity: BackendLogSeverity;
     query: string;
   },
-): Array<SettaBackendLogEvent> {
+): Array<BackendLogEvent> {
   const query = filter.query.trim().toLowerCase();
   const minSeverityValue = SEVERITY_ORDER[filter.minSeverity];
   return events.filter((event) => {
