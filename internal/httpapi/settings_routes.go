@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,25 +12,18 @@ import (
 )
 
 const (
-	RouteLoadSettings               = "/loadSettings"
-	RouteSaveSettings               = "/saveSettings"
-	RouteSetLanguageServerSelection = "/setLanguageServerSelection"
+	RouteLoadSettings = "/loadSettings"
+	RouteSaveSettings = "/saveSettings"
 )
 
 type SettingsRouteDependencies struct {
 	ModePolicy    modes.Policy
 	SettingsState *settingsstate.Runtime
 	WebsocketHub  *realtime.WebsocketHub
-	PluginRuntime pluginRuntimeUpdateService
 }
 
 type SaveSettingsRequest struct {
 	Settings any `json:"settings"`
-}
-
-type SetLanguageServerSelectionRequest struct {
-	Language string  `json:"language"`
-	PluginID *string `json:"pluginId"`
 }
 
 func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) error {
@@ -45,9 +37,6 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 		}
 		if deps.WebsocketHub == nil {
 			return fmt.Errorf("settings routes: websocket hub is required")
-		}
-		if deps.PluginRuntime == nil {
-			return fmt.Errorf("settings routes: plugin runtime service is required")
 		}
 	}
 
@@ -67,15 +56,6 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 		saveSettingsHandler(deps),
 		withOpenAPITags("Settings"),
 		withOpenAPISummary("Validate and save the frontend settings document."),
-		withOpenAPIModeRequirement("not-deployment-and-not-launcher"),
-	)
-	registerOpenAPIPost[SetLanguageServerSelectionRequest, openAPIJSONNull](
-		router,
-		"setLanguageServerSelection",
-		RouteSetLanguageServerSelection,
-		setLanguageServerSelectionHandler(deps),
-		withOpenAPITags("Settings"),
-		withOpenAPISummary("Select or disable the language-server plugin for a language in workspace settings."),
 		withOpenAPIModeRequirement("not-deployment-and-not-launcher"),
 	)
 	return nil
@@ -106,13 +86,28 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			writeDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if !settingsWriteDependenciesReady(deps) {
+		if deps.SettingsState == nil || deps.WebsocketHub == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		document, ok := decodeSaveSettingsDocument(w, r)
-		if !ok {
+		payload, err := decodeJSONBody[SaveSettingsRequest](r)
+		if err != nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		if payload.Settings == nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, "settings: Field required")
+			return
+		}
+
+		document, err := settingsstate.NormalizeRaw(payload.Settings)
+		if err != nil {
+			writeSettingsSaveError(w, r, err)
+			return
+		}
+		if err := settingsstate.ValidateDirectSaveDocument(document); err != nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -122,85 +117,17 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if err := broadcastSettingsSnapshotUpdate(r.Context(), snapshot, deps); err != nil {
+		if _, err := deps.WebsocketHub.BroadcastJSON(
+			r.Context(),
+			realtime.NewSettingsUpdateMessage(snapshot.Document),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
 		writeJSON(w, http.StatusOK, nil)
 	}
-}
-
-func setLanguageServerSelectionHandler(deps SettingsRouteDependencies) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if detail, blocked := settingsSaveModeDetail(deps.ModePolicy); blocked {
-			writeDetail(w, http.StatusForbidden, detail)
-			return
-		}
-		if !settingsWriteDependenciesReady(deps) {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-
-		payload, err := decodeJSONBody[SetLanguageServerSelectionRequest](r)
-		if err != nil {
-			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
-			return
-		}
-
-		snapshot, err := deps.SettingsState.MutateAndSave(r.Context(), func(document settingsstate.Document) (settingsstate.Document, error) {
-			return settingsstate.SetLanguageServerSelection(document, payload.Language, payload.PluginID)
-		})
-		if err != nil {
-			writeSettingsSaveError(w, r, err)
-			return
-		}
-
-		if err := broadcastSettingsSnapshotUpdate(r.Context(), snapshot, deps); err != nil {
-			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
-			return
-		}
-
-		writeJSON(w, http.StatusOK, nil)
-	}
-}
-
-func settingsWriteDependenciesReady(deps SettingsRouteDependencies) bool {
-	return deps.SettingsState != nil && deps.WebsocketHub != nil && deps.PluginRuntime != nil
-}
-
-func decodeSaveSettingsDocument(w http.ResponseWriter, r *http.Request) (settingsstate.Document, bool) {
-	payload, err := decodeJSONBody[SaveSettingsRequest](r)
-	if err != nil {
-		writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
-		return nil, false
-	}
-	if payload.Settings == nil {
-		writeValidationError(w, http.StatusUnprocessableEntity, "settings: Field required")
-		return nil, false
-	}
-
-	document, err := settingsstate.NormalizeRaw(payload.Settings)
-	if err != nil {
-		writeSettingsSaveError(w, r, err)
-		return nil, false
-	}
-	if err := settingsstate.ValidateDirectSaveDocument(document); err != nil {
-		writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
-		return nil, false
-	}
-	return document, true
-}
-
-func broadcastSettingsSnapshotUpdate(ctx context.Context, snapshot settingsstate.Snapshot, deps SettingsRouteDependencies) error {
-	if _, err := deps.WebsocketHub.BroadcastJSON(
-		ctx,
-		realtime.NewSettingsUpdateMessage(snapshot.Document),
-		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-	); err != nil {
-		return err
-	}
-	return broadcastPluginRuntimeUpdate(ctx, deps.PluginRuntime, deps.WebsocketHub)
 }
 
 func settingsLoadModeDetail(policy modes.Policy) (string, bool) {

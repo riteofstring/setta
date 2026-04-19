@@ -325,9 +325,47 @@ export async function clearProjectChatWindows(page: Page): Promise<void> {
     return [
       '[data-testid="project-chat-floating-window"]',
       '[data-testid="project-chat-bottom-dock-window-panel"]',
+      '[data-testid="project-chat-bottom-dock-pill"]',
       '[data-testid="project-chat-maximized-window"]',
-      '[data-testid="project-chat-window-title"]',
     ].every((selector) => document.querySelector(selector) === null);
+  });
+}
+
+export async function disableProjectChatAutoCreate(page: Page): Promise<void> {
+  await page.route("**/api/loadSettings", async (route) => {
+    const response = await route.fetch();
+    const settings = (await response.json()) as {
+      chatWindowing?: Record<string, unknown>;
+    };
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...settings,
+        chatWindowing: {
+          ...(settings.chatWindowing ?? {}),
+          autoCreateInitialChat: false,
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/loadProjectConfig", async (route) => {
+    const response = await route.fetch();
+    const projectState = (await response.json()) as {
+      projectChatWindowing?: Record<string, unknown>;
+    };
+    await route.fulfill({
+      response,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...projectState,
+        projectChatWindowing: {
+          order: [],
+          instancesById: {},
+        },
+      }),
+    });
   });
 }
 
