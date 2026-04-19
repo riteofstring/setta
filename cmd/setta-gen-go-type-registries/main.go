@@ -354,15 +354,6 @@ func appSubsystemProvidersFromRepoRoot(
 			continue
 		}
 
-		backendRoot := filepath.Join(pluginRoot, "backend")
-		hasGoFiles, err := directoryHasNonTestGoFiles(backendRoot)
-		if err != nil {
-			return nil, err
-		}
-		if !hasGoFiles {
-			continue
-		}
-
 		entries = append(entries, appSubsystemProviderEntry{
 			PluginID:     manifest.ID,
 			Capabilities: *manifest.FeatureCapabilities.AppSubsystem,
@@ -1071,23 +1062,18 @@ func renderAppSubsystemProviderRegistry(entries []appSubsystemProviderEntry) str
 	builder.WriteString("package appsubsystemproviders\n\n")
 	builder.WriteString("import plugins \"setta/internal/plugins\"\n\n")
 
-	builder.WriteString("var discoveredProviders = []DiscoveredProvider{\n")
+	builder.WriteString("var discoveredProviderCapabilities = []plugins.PluginAppSubsystemFeatureManifest{\n")
 	for _, entry := range entries {
 		builder.WriteString("\t{\n")
-		builder.WriteString("\t\tPluginID: ")
-		builder.WriteString(fmt.Sprintf("%q", entry.PluginID))
-		builder.WriteString(",\n")
-		builder.WriteString("\t\tCapabilities: plugins.PluginAppSubsystemFeatureManifest{\n")
-		builder.WriteString(fmt.Sprintf("\t\t\tAppAuthoringUI: %t,\n", entry.Capabilities.AppAuthoringUI))
-		builder.WriteString(fmt.Sprintf("\t\t\tAppPreviewUI: %t,\n", entry.Capabilities.AppPreviewUI))
-		builder.WriteString(fmt.Sprintf("\t\t\tAppGenerationChatModes: %t,\n", entry.Capabilities.AppGenerationChatModes))
-		builder.WriteString(fmt.Sprintf("\t\t\tAppDeploymentRuntime: %t,\n", entry.Capabilities.AppDeploymentRuntime))
-		builder.WriteString("\t\t},\n")
+		builder.WriteString(fmt.Sprintf("\t\tAppAuthoringUI: %t,\n", entry.Capabilities.AppAuthoringUI))
+		builder.WriteString(fmt.Sprintf("\t\tAppPreviewUI: %t,\n", entry.Capabilities.AppPreviewUI))
+		builder.WriteString(fmt.Sprintf("\t\tAppGenerationChatModes: %t,\n", entry.Capabilities.AppGenerationChatModes))
+		builder.WriteString(fmt.Sprintf("\t\tAppDeploymentRuntime: %t,\n", entry.Capabilities.AppDeploymentRuntime))
 		builder.WriteString("\t},\n")
 	}
 	builder.WriteString("}\n\n")
-	builder.WriteString("func DiscoveredProviders() []DiscoveredProvider {\n")
-	builder.WriteString("\treturn append([]DiscoveredProvider(nil), discoveredProviders...)\n")
+	builder.WriteString("func DiscoveredProviderCapabilities() []plugins.PluginAppSubsystemFeatureManifest {\n")
+	builder.WriteString("\treturn append([]plugins.PluginAppSubsystemFeatureManifest(nil), discoveredProviderCapabilities...)\n")
 	builder.WriteString("}\n")
 	return builder.String()
 }
