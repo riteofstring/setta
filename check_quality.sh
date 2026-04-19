@@ -3,40 +3,35 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./check_quality.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
+Usage: ./check_quality.sh [--staged | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
 
 Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
 
 Modes:
-  --git-changes      Check tracked files changed from HEAD plus untracked files (default).
-  --staged           Check staged files only.
+  --staged           Check staged files only (default).
   --all              Check all tracked files covered by this tool.
   --files <path>...  Check only the provided files.
 
 Thresholds:
-  --python-max N     Maximum allowed Python cyclomatic complexity (default: 10).
-  --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 10).
-  --go-max N         Maximum allowed Go cyclomatic complexity (default: 12).
+  --python-max N     Maximum allowed Python cyclomatic complexity (default: 9).
+  --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 9).
+  --go-max N         Maximum allowed Go cyclomatic complexity (default: 9).
   -h, --help         Show this help text.
 EOF
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
-mode="git-changes"
-python_max="10"
-frontend_max="10"
-go_max="12"
+mode="staged"
+python_max="9"
+frontend_max="9"
+go_max="9"
 declare -a explicit_files=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --staged)
       mode="staged"
-      shift
-      ;;
-    --git-changes)
-      mode="git-changes"
       shift
       ;;
     --all)
@@ -52,7 +47,7 @@ while [[ $# -gt 0 ]]; do
       fi
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --staged|--git-changes|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
+          --staged|--all|--files|--python-max|--frontend-max|--go-max|-h|--help)
             break
             ;;
           *)
@@ -118,12 +113,6 @@ collect_files() {
   case "${mode}" in
     staged)
       git diff --cached --name-only --diff-filter=ACMR
-      ;;
-    git-changes)
-      {
-        git diff --name-only --diff-filter=ACMR HEAD --
-        git ls-files --others --exclude-standard
-      }
       ;;
     all)
       git ls-files

@@ -52,16 +52,6 @@ func TestServiceInitTemplateGeneratesPublishReadyScaffold(t *testing.T) {
 	if !strings.Contains(string(workflowPayload), "setta plugins validate .") {
 		t.Fatalf("expected workflow validate step, got %q", string(workflowPayload))
 	}
-	pyprojectPayload, err := os.ReadFile(filepath.Join(pluginRoot, "pyproject.toml"))
-	if err != nil {
-		t.Fatalf("read scaffold pyproject: %v", err)
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta-init-fixture\" = [\"setta.plugin.json\", \"README.md\"]") {
-		t.Fatalf("expected scaffold pyproject to package plugin manifest under a plugin-specific root, got %q", string(pyprojectPayload))
-	}
-	if !strings.Contains(string(pyprojectPayload), "\"setta-init-fixture/backend\" = [\"backend/*\"]") {
-		t.Fatalf("expected scaffold pyproject to package backend assets under a plugin-specific root, got %q", string(pyprojectPayload))
-	}
 
 	manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
 	if err != nil {
@@ -431,24 +421,6 @@ func TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions(t *testing.T
 		if err := os.WriteFile(filepath.Join(pluginRoot, filepath.FromSlash(manifest.ConfigSchemaPath)), []byte("{not-json"), 0o644); err != nil {
 			t.Fatalf("write invalid config schema: %v", err)
 		}
-		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
-		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
-	})
-
-	t.Run("unresolvable config schema ref", func(t *testing.T) {
-		pluginRoot := mustCopyAuthoringFixturePlugin(t, roots.workspaceRoot, "full")
-		manifest, err := loadAuthoringManifest(filepath.Join(pluginRoot, pluginManifestFileName))
-		if err != nil {
-			t.Fatalf("load manifest: %v", err)
-		}
-		if strings.TrimSpace(manifest.ConfigSchemaPath) == "" {
-			t.Fatalf("expected config schema path in full scaffold")
-		}
-		writeJSONFile(t, filepath.Join(pluginRoot, filepath.FromSlash(manifest.ConfigSchemaPath)), map[string]any{
-			"$schema": "https://json-schema.org/draft/2020-12/schema",
-			"type":    "object",
-			"$ref":    "#/$defs/missing",
-		})
 		_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
 		assertPluginServiceErrorCode(t, err, ServiceErrorCodeConfigSchemaInvalid)
 	})

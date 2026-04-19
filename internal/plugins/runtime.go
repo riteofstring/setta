@@ -336,18 +336,44 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 }
 
 func buildRuntimeConfigSchemaDescriptor(entry DiscoveredPlugin) (bool, map[string]any, *string) {
-	document, ok, err := loadPluginConfigSchemaDocument(entry)
+	if entry.Manifest == nil {
+		return false, map[string]any{}, nil
+	}
+	trimmedPath := strings.TrimSpace(entry.Manifest.ConfigSchemaPath)
+	if trimmedPath == "" {
+		return false, map[string]any{}, nil
+	}
+	schemaPath, err := resolveManifestRegularFile(entry.SourcePath, trimmedPath, "plugin config schema")
 	if err != nil {
 		return false, map[string]any{}, nil
 	}
-	if !ok {
-		return false, map[string]any{}, nil
+	payload, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return true, map[string]any{}, nil
 	}
-	return true, document.JSON, runtimeDigestJSONValue(document.JSON)
+	var schemaJSON map[string]any
+	if err := json.Unmarshal(payload, &schemaJSON); err != nil {
+		return true, map[string]any{}, nil
+	}
+	if schemaJSON == nil {
+		return true, map[string]any{}, nil
+	}
+	return true, schemaJSON, runtimeDigestJSONValue(schemaJSON)
 }
 
 func runtimeCurrentConfig(entry DiscoveredPlugin, pluginsState *PluginsStateFile) map[string]any {
-	return pluginConfigSnapshot(entry, pluginsState).Config
+	if pluginsState == nil || pluginsState.PluginConfigByID == nil {
+		return map[string]any{}
+	}
+	rawValue, ok := pluginsState.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)]
+	if !ok || rawValue == nil {
+		return map[string]any{}
+	}
+	currentConfig, ok := rawValue.(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return cloneStringAnyMap(currentConfig)
 }
 
 func runtimeDirectoryHasFiles(pluginRoot string, relativePath string) bool {
