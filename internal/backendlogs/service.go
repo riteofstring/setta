@@ -31,7 +31,7 @@ var (
 	ErrMessageRequired      = fmt.Errorf("backendlogs: message is required")
 )
 
-type BackendLogEvent struct {
+type Event struct {
 	ID        string   `json:"id"`
 	ProjectID *string  `json:"projectConfigId"`
 	Severity  Severity `json:"severity"`
@@ -42,7 +42,7 @@ type BackendLogEvent struct {
 type WebsocketMessage struct {
 	ID          *string                       `json:"id"`
 	MessageType realtime.WebsocketMessageType `json:"messageType"`
-	Content     BackendLogEvent               `json:"content"`
+	Content     Event                         `json:"content"`
 }
 
 type LogRequest struct {
@@ -124,7 +124,7 @@ func (s *Service) LogAndBroadcast(ctx context.Context, request LogRequest) error
 		return nil
 	}
 
-	event := BackendLogEvent{
+	event := Event{
 		ID:        s.idGenerator(),
 		Severity:  severity,
 		Message:   message,
