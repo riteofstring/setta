@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/appsubsystem"
+	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
@@ -39,10 +40,11 @@ func clonePluginBackendLaunchEnv(values map[string]string) map[string]string {
 }
 
 type pluginBackendMCPRuntimeOptions struct {
-	Logger         *slog.Logger
-	RuntimeRoot    string
-	Snapshot       plugins.DiscoverySnapshot
-	ProjectRuntime *projectstate.Runtime
+	Logger                 *slog.Logger
+	RuntimeRoot            string
+	Snapshot               plugins.DiscoverySnapshot
+	ProjectRuntime         *projectstate.Runtime
+	BackendListenerInvoker appdefinition.BackendListenerInvoker
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
@@ -75,6 +77,7 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 	if err := runtime.appendAppSubsystemTools(
 		options.Snapshot,
 		options.ProjectRuntime,
+		options.BackendListenerInvoker,
 	); err != nil {
 		return nil, err
 	}
@@ -84,6 +87,7 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 	snapshot plugins.DiscoverySnapshot,
 	projectRuntime *projectstate.Runtime,
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) error {
 	if r == nil || projectRuntime == nil {
 		return nil
@@ -95,6 +99,7 @@ func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
 	registrations, err := appsubsystem.BuildMCPToolRegistrations(
 		capabilities,
 		projectRuntime,
+		backendListenerInvoker,
 	)
 	if err != nil {
 		return err

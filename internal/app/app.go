@@ -2057,10 +2057,11 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 	}
 	appSubsystemRouteRegistrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
 		appsubsystem.FrontendRouteRegistrationOptions{
-			Capabilities: deps.appSubsystemCapabilities,
-			ProjectState: deps.projectRuntime,
-			ModePolicy:   deps.modePolicy,
-			AppGenSkill:  apiDeps.AppGenSkill,
+			Capabilities:           deps.appSubsystemCapabilities,
+			BackendListenerInvoker: deps.pluginRouteService,
+			ProjectState:           deps.projectRuntime,
+			ModePolicy:             deps.modePolicy,
+			AppGenSkill:            apiDeps.AppGenSkill,
 			ShareDeploymentIDE: httpapi.ShareDeploymentIDERouteDependencies{
 				ModePolicy:     deps.modePolicy,
 				ProjectState:   deps.projectRuntime,
@@ -2545,6 +2546,7 @@ func initializeAppMCPServer(
 				return appsubsystem.BuildScopedUISettingEntries(
 					runtime.FeatureCapabilities.AppSubsystem,
 					projectServices.projectRuntime,
+					services.pluginRouteService,
 				)
 			},
 		},

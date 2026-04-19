@@ -1,5 +1,6 @@
 import contextlib
 import importlib.util
+import json
 import pathlib
 import subprocess
 import sys
@@ -11,6 +12,7 @@ from setta.sdk_contracts.generated import (
     ListenerDependencyCatalogEntry,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
+    LocalCoreCommandEnvelope,
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
@@ -83,12 +85,20 @@ class _FakeStream:
         self._line = line
         self._text = text
         self.closed = False
+        self.writes: list[str] = []
 
     def readline(self) -> str:
         return self._line
 
     def read(self) -> str:
         return self._text
+
+    def write(self, value: str) -> int:
+        self.writes.append(value)
+        return len(value)
+
+    def flush(self) -> None:
+        return None
 
     def close(self) -> None:
         self.closed = True
@@ -216,6 +226,47 @@ def test_terminate_process_closes_pipes_without_signaling_exited_process() -> No
         assert stderr.closed
 
 
+def test_send_command_locked_raises_structured_local_core_error() -> None:
+    with _loaded_local_core_module() as local_core_module:
+        client = local_core_module.LocalCoreClient()
+        stdin = _FakeStream()
+        stdout = _FakeStream(
+            line=json.dumps(
+                {
+                    "callId": "call-1",
+                    "ok": False,
+                    "error": "old value mismatch",
+                    "details": {
+                        "code": "expected_old_value_mismatch",
+                        "settingId": "core.app.catalog_id",
+                    },
+                }
+            )
+            + "\n"
+        )
+        process = _FakeProcess(stdin=stdin, stdout=stdout, stderr=_FakeStream())
+        state = local_core_module._LocalCoreProcessState(process=process, handshake=None)
+
+        with pytest.raises(local_core_module.LocalCoreCommandError) as excinfo:
+            client._send_command_locked(
+                state,
+                LocalCoreCommandEnvelope(
+                    callId="call-1",
+                    commandName="compare_and_set_app_definition_catalog_id",
+                    payload={"value": "next"},
+                ),
+            )
+
+        assert excinfo.value.code == "expected_old_value_mismatch"
+        assert excinfo.value.details == {
+            "code": "expected_old_value_mismatch",
+            "settingId": "core.app.catalog_id",
+        }
+        assert "".join(stdin.writes) == (
+            '{"callId":"call-1","commandName":"compare_and_set_app_definition_catalog_id","payload":{"value":"next"}}\n'
+        )
+
+
 @pytest.mark.asyncio
 async def test_local_core_renders_realtime_dependency_values_via_hidden_go_cli() -> (
     None
@@ -238,14 +289,14 @@ async def test_local_core_renders_realtime_dependency_values_via_hidden_go_cli()
                     dependencyCatalog=ListenerDependencyCatalog(
                         entries=[
                             ListenerDependencyCatalogEntry(
-                                dependencyKey=section_key,
+                                dependencyKey=section_key.model_dump(mode="json"),
                                 name="Config",
                                 fullPathName="Config",
-                                dependencies=[param_key],
+                                dependencies=[param_key.model_dump(mode="json")],
                                 sectionType="Dict",
                             ),
                             ListenerDependencyCatalogEntry(
-                                dependencyKey=param_key,
+                                dependencyKey=param_key.model_dump(mode="json"),
                                 name="count",
                                 fullPathName="Config.count",
                                 codeObjType="CodeParam",
@@ -256,18 +307,18 @@ async def test_local_core_renders_realtime_dependency_values_via_hidden_go_cli()
                     currentDependencyValues=ListenerRenderedDependencyValues(
                         entries=[
                             ListenerRenderedDependencyValue(
-                                dependencyKey=section_key,
+                                dependencyKey=section_key.model_dump(mode="json"),
                                 renderedValue="{'count': 1}",
                             ),
                             ListenerRenderedDependencyValue(
-                                dependencyKey=param_key,
+                                dependencyKey=param_key.model_dump(mode="json"),
                                 renderedValue="1",
                             ),
                         ]
                     ),
                     deltas=[
                         LocalCoreListenerRealtimeDelta(
-                            dependency=param_key,
+                            dependency=param_key.model_dump(mode="json"),
                             value=LiteralDependencyValue(
                                 type=DependencyValueType.Literal,
                                 payload="2",

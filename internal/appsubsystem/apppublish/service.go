@@ -12,7 +12,6 @@ import (
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/deployments"
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
 )
 
 type service struct {
@@ -34,7 +33,7 @@ type preparedPublish struct {
 
 func NewService(
 	options deployments.AppPublisherOptions,
-	projectRuntime *projectstate.Runtime,
+	appDefinitionService appdefinition.Runtime,
 	pluginID string,
 ) (deployments.AppPublishService, error) {
 	sharePublisher, err := deployments.NewSharePublisher(deployments.SharePublisherOptions{
@@ -57,7 +56,7 @@ func NewService(
 	return &service{
 		share: sharePublisher,
 		contentService: deploymentContentService{
-			appDefinitionService: appdefinition.NewAppDefinitionService(projectRuntime, pluginID),
+			appDefinitionService: appDefinitionService,
 			appSpecStore:         appSpecStore,
 		},
 		pluginID:         strings.TrimSpace(pluginID),
