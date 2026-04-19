@@ -49,7 +49,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionCatalogID(
 			}
 			current.AppSpecPath = normalizedPath
 			current.CatalogID = catalogID
-			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, projectstate.SetAppDefinitionInput{
+			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, SetInput{
 				AppSpec:        currentAppSpec,
 				AppSpecPath:    &normalizedPath,
 				AppSpecVersion: &current.AppSpecVersion,
@@ -94,7 +94,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecVersion(
 			}
 			current.AppSpecPath = normalizedPath
 			current.AppSpecVersion = appSpecVersion
-			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, projectstate.SetAppDefinitionInput{
+			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, SetInput{
 				AppSpec:        currentAppSpec,
 				AppSpecPath:    &normalizedPath,
 				AppSpecVersion: &current.AppSpecVersion,
@@ -142,7 +142,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 				return projectstate.Document{}, nil, "", err
 			}
 			current.AppSpecPath = normalizedPath
-			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, projectstate.SetAppDefinitionInput{
+			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, SetInput{
 				AppSpec:        currentAppSpec,
 				AppSpecPath:    &normalizedPath,
 				AppSpecVersion: &current.AppSpecVersion,
@@ -190,7 +190,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 			}
 			theme["mode"] = themeMode
 			current.AppSpecPath = normalizedPath
-			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, projectstate.SetAppDefinitionInput{
+			nextDocument, nextAppSpec, err := setAppDefinitionDocument(document, SetInput{
 				AppSpec:        currentAppSpec,
 				AppSpecPath:    &normalizedPath,
 				AppSpecVersion: &current.AppSpecVersion,
@@ -326,7 +326,7 @@ func assertAppDefinitionExpectedOldValueMatches(settingID string, expectedOldVal
 	}
 }
 
-func resolveCurrentAppSpecForMetadataUpdate(projectRoot string, appDefinition projectstate.AppDefinition) (string, any, error) {
+func resolveCurrentAppSpecForMetadataUpdate(projectRoot string, appDefinition AppDefinition) (string, any, error) {
 	targetPath := appDefinition.AppSpecPath
 	if strings.TrimSpace(targetPath) == "" {
 		targetPath = appspec.DefaultPath()

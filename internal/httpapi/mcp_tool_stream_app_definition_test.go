@@ -12,7 +12,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
-	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -20,7 +20,7 @@ func TestMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -92,7 +92,7 @@ func TestMCPToolCallRouteStreamAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{

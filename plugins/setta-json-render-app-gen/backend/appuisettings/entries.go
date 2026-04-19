@@ -7,9 +7,10 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
-func BuildEntries(service projectstate.AppDefinitionRuntime) ([]uisettings.RuntimeEntry, error) {
+func BuildEntries(service appdefinition.Runtime) ([]uisettings.RuntimeEntry, error) {
 	if service == nil {
 		return nil, fmt.Errorf("app subsystem UI settings require an app definition runtime")
 	}
@@ -32,7 +33,7 @@ func BuildEntries(service projectstate.AppDefinitionRuntime) ([]uisettings.Runti
 				"Catalog id for the app definition.",
 				nonEmptyStringSchema,
 			),
-			readValue(service, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+			readValue(service, func(ctx context.Context, runtime appdefinition.Runtime) (any, error) {
 				definition, err := runtime.GetEffectiveAppDefinition(ctx)
 				if err != nil {
 					return nil, err
@@ -54,7 +55,7 @@ func BuildEntries(service projectstate.AppDefinitionRuntime) ([]uisettings.Runti
 				"Version marker for the app definition schema payload.",
 				nonEmptyStringSchema,
 			),
-			readValue(service, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+			readValue(service, func(ctx context.Context, runtime appdefinition.Runtime) (any, error) {
 				definition, err := runtime.GetEffectiveAppDefinition(ctx)
 				if err != nil {
 					return nil, err
@@ -76,7 +77,7 @@ func BuildEntries(service projectstate.AppDefinitionRuntime) ([]uisettings.Runti
 				"Filesystem path where app spec JSON is saved.",
 				nonEmptyStringSchema,
 			),
-			readValue(service, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+			readValue(service, func(ctx context.Context, runtime appdefinition.Runtime) (any, error) {
 				return runtime.GetEffectiveAppSpecPath(ctx)
 			}),
 			uisettings.NormalizeOptionalNonEmptyStringWrite,
@@ -94,7 +95,7 @@ func BuildEntries(service projectstate.AppDefinitionRuntime) ([]uisettings.Runti
 				"Theme mode for the app definition.",
 				themeModeSchema,
 			),
-			readValue(service, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+			readValue(service, func(ctx context.Context, runtime appdefinition.Runtime) (any, error) {
 				return runtime.GetEffectiveAppThemeMode(ctx)
 			}),
 			uisettings.NormalizeOptionalThemeModeWrite,
@@ -135,8 +136,8 @@ func entryMetadata(
 }
 
 func readValue(
-	runtime projectstate.AppDefinitionRuntime,
-	read func(context.Context, projectstate.AppDefinitionRuntime) (any, error),
+	runtime appdefinition.Runtime,
+	read func(context.Context, appdefinition.Runtime) (any, error),
 ) uisettings.ReadFunc {
 	return func(ctx context.Context, _ string) (any, error) {
 		return read(ctx, runtime)

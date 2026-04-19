@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -16,7 +16,7 @@ func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{

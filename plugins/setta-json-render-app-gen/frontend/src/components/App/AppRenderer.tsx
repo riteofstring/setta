@@ -5,7 +5,8 @@ import {
   VisibilityProvider,
 } from "@json-render/react";
 import type { CSSProperties } from "react";
-import type { AppDefinition, Policy } from "utils/generatedTypes";
+import type { Policy } from "utils/generatedTypes";
+import type { AppDefinition } from "../../appSubsystemContracts";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
 import { appRegistry } from "./appRegistry";

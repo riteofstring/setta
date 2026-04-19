@@ -9,19 +9,20 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/tools"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type stubAppDefinitionRuntime struct{}
 
-var _ projectstate.AppDefinitionRuntime = (*stubAppDefinitionRuntime)(nil)
+var _ appdefinition.Runtime = (*stubAppDefinitionRuntime)(nil)
 
-func (stubAppDefinitionRuntime) GetAppDefinition(context.Context) (projectstate.AppDefinitionReadResult, error) {
-	return projectstate.AppDefinitionReadResult{}, nil
+func (stubAppDefinitionRuntime) GetAppDefinition(context.Context) (appdefinition.ReadResult, error) {
+	return appdefinition.ReadResult{}, nil
 }
 
-func (stubAppDefinitionRuntime) GetEffectiveAppDefinition(context.Context) (projectstate.AppDefinition, error) {
-	return projectstate.AppDefinition{}, nil
+func (stubAppDefinitionRuntime) GetEffectiveAppDefinition(context.Context) (appdefinition.AppDefinition, error) {
+	return appdefinition.AppDefinition{}, nil
 }
 
 func (stubAppDefinitionRuntime) GetEffectiveAppSpecPath(context.Context) (string, error) {
@@ -32,20 +33,20 @@ func (stubAppDefinitionRuntime) GetEffectiveAppThemeMode(context.Context) (strin
 	return "", nil
 }
 
-func (stubAppDefinitionRuntime) ValidateAppDefinition(context.Context, projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error) {
-	return projectstate.AppDefinitionValidationResult{}, nil
+func (stubAppDefinitionRuntime) ValidateAppDefinition(context.Context, appdefinition.ValidateInput) (appdefinition.ValidationResult, error) {
+	return appdefinition.ValidationResult{}, nil
 }
 
-func (stubAppDefinitionRuntime) SetAppDefinition(context.Context, projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
+func (stubAppDefinitionRuntime) SetAppDefinition(context.Context, appdefinition.SetInput) (projectstate.Snapshot, appdefinition.MutationResult, error) {
+	return projectstate.Snapshot{}, appdefinition.MutationResult{}, nil
 }
 
-func (stubAppDefinitionRuntime) StreamAppDefinition(context.Context, projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
+func (stubAppDefinitionRuntime) StreamAppDefinition(context.Context, appdefinition.StreamInput) (projectstate.Snapshot, appdefinition.MutationResult, error) {
+	return projectstate.Snapshot{}, appdefinition.MutationResult{}, nil
 }
 
-func (stubAppDefinitionRuntime) UpdateAppDefinition(context.Context, any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error) {
-	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, nil
+func (stubAppDefinitionRuntime) UpdateAppDefinition(context.Context, any) (projectstate.Snapshot, appdefinition.MutationResult, error) {
+	return projectstate.Snapshot{}, appdefinition.MutationResult{}, nil
 }
 
 func (stubAppDefinitionRuntime) CompareAndSetAppDefinitionCatalogID(context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {

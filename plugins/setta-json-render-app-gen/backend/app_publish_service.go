@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"setta/internal/deployments"
-	"setta/internal/projectstate"
 	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
@@ -24,7 +23,7 @@ type preparedAppPublish struct {
 
 func NewAppPublishService(
 	options deployments.AppPublisherOptions,
-	service projectstate.AppDefinitionRuntime,
+	service appdefinition.Runtime,
 ) (deployments.AppPublishService, error) {
 	sharePublisher, err := deployments.NewSharePublisher(deployments.SharePublisherOptions{
 		Catalog:        options.Catalog,
