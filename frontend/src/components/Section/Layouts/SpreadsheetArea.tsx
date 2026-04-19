@@ -3,14 +3,7 @@ import _ from "lodash";
 import { setSpreadsheetFilePath } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type { DragEvent } from "react";
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -99,51 +92,8 @@ async function persistImportedSpreadsheetFile(
   persistPath(importResult.filePath);
 }
 
-function normalizeFlowZoom(value: number) {
-  return Number.isFinite(value) && value > 0 ? value : 1;
-}
-
-function useSpreadsheetFlowZoom(viewportInteractionActive: boolean) {
-  const [flowZoom, setFlowZoom] = useState(() =>
-    normalizeFlowZoom(useReactFlow.getState().transform[2]),
-  );
-
-  useLayoutEffect(() => {
-    const syncFlowZoom = () => {
-      const nextFlowZoom = normalizeFlowZoom(
-        useReactFlow.getState().transform[2],
-      );
-      setFlowZoom((previousFlowZoom) =>
-        previousFlowZoom === nextFlowZoom ? previousFlowZoom : nextFlowZoom,
-      );
-    };
-
-    syncFlowZoom();
-    if (viewportInteractionActive) {
-      return;
-    }
-
-    return useReactFlow.subscribe(
-      (state) => normalizeFlowZoom(state.transform[2]),
-      (nextFlowZoom, previousFlowZoom) => {
-        if (nextFlowZoom === previousFlowZoom) {
-          return;
-        }
-        setFlowZoom((previousZoom) =>
-          previousZoom === nextFlowZoom ? previousZoom : nextFlowZoom,
-        );
-      },
-    );
-  }, [viewportInteractionActive]);
-
-  return flowZoom;
-}
-
 export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
-  const flowZoom = useSpreadsheetFlowZoom(viewportInteractionActive);
+  const flowZoom = useReactFlow((state) => state.transform[2]);
   const { canEditLayout } = useShareCapabilities();
   const {
     filePath,

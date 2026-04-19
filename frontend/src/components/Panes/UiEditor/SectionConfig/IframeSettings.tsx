@@ -1,22 +1,26 @@
-import { useEffect, useState } from "react";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import { useEffect, useState, type ChangeEvent } from "react";
+import {
+  getCurrIFrameSectionImpl,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import type { IFrameSectionImpl } from "utils/generatedTypes";
 
-export function IframeSettings({ sectionId }) {
+export function IframeSettings({ sectionId }: { sectionId: string }) {
   const iframeCode = useProjectState(
-    (x) => getDisplayedSectionVariant(sectionId, x).code,
+    (state) => getCurrIFrameSectionImpl(state, sectionId).code,
   );
   const [code, setCode] = useState(iframeCode);
   const [error, setError] = useState("");
 
-  const validateIframeCode = (code) => {
+  const validateIframeCode = (code: string) => {
     if (code && !code.toLowerCase().includes("<iframe")) {
       return "Input must contain an iframe tag";
     }
     return "";
   };
 
-  const handleCodeChange = (e) => {
+  const handleCodeChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newCode = e.target.value;
     setCode(newCode);
 
@@ -25,9 +29,10 @@ export function IframeSettings({ sectionId }) {
 
     // Only pass valid code to parent
     if (!validationError) {
-      useProjectState.setState((x) => {
-        const sectionVariant = getSectionVariant(sectionId, x);
-        sectionVariant.code = newCode;
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<IFrameSectionImpl>(state, sectionId, {
+          code: newCode,
+        });
       });
     }
   };

@@ -12,16 +12,6 @@ export type ParamDuplicateIndex = {
   namesByParent: Record<string, Record<string, string[]>>;
 };
 
-type ParamDuplicateIndexSelectorDeps = {
-  codeObjImpls: ZustandProjectState["codeObjImpls"];
-  codeObjs: ZustandProjectState["codeObjs"];
-  codeObjVariants: ZustandProjectState["codeObjVariants"];
-  sectionImpls: ZustandProjectState["sectionImpls"];
-  sectionVariantMap: ZustandProjectState["projectConfig"]["sectionVariantMap"];
-  sectionVariants: ZustandProjectState["sectionVariants"];
-  sections: ZustandProjectState["sections"];
-};
-
 function getRootParamId(sectionImpl: BaseSectionWithParamsImpl): string | null {
   if (sectionImpl.type === SectionTypeEnum.Callable) {
     return sectionImpl.callable ?? null;
@@ -68,54 +58,4 @@ export function buildParamDuplicateIndex(
     namesForParent[paramName].push(paramId);
   }
   return { parentById, namesByParent };
-}
-
-function getParamDuplicateIndexSelectorDeps(
-  state: ZustandProjectState,
-): ParamDuplicateIndexSelectorDeps {
-  return {
-    codeObjImpls: state.codeObjImpls,
-    codeObjs: state.codeObjs,
-    codeObjVariants: state.codeObjVariants,
-    sectionImpls: state.sectionImpls,
-    sectionVariantMap: state.projectConfig.sectionVariantMap,
-    sectionVariants: state.sectionVariants,
-    sections: state.sections,
-  };
-}
-
-function areParamDuplicateIndexSelectorDepsEqual(
-  left: ParamDuplicateIndexSelectorDeps,
-  right: ParamDuplicateIndexSelectorDeps,
-) {
-  return (
-    left.codeObjImpls === right.codeObjImpls &&
-    left.codeObjs === right.codeObjs &&
-    left.codeObjVariants === right.codeObjVariants &&
-    left.sectionImpls === right.sectionImpls &&
-    left.sectionVariantMap === right.sectionVariantMap &&
-    left.sectionVariants === right.sectionVariants &&
-    left.sections === right.sections
-  );
-}
-
-export function createParamDuplicateIndexSelector(sectionId: string) {
-  let previousDeps: ParamDuplicateIndexSelectorDeps | null = null;
-  let previousResult: ParamDuplicateIndex | null = null;
-
-  return (state: ZustandProjectState): ParamDuplicateIndex => {
-    const nextDeps = getParamDuplicateIndexSelectorDeps(state);
-    if (
-      previousDeps &&
-      previousResult &&
-      areParamDuplicateIndexSelectorDepsEqual(previousDeps, nextDeps)
-    ) {
-      return previousResult;
-    }
-
-    const nextResult = buildParamDuplicateIndex(state, sectionId);
-    previousDeps = nextDeps;
-    previousResult = nextResult;
-    return nextResult;
-  };
 }
