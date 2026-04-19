@@ -21,6 +21,7 @@ type MotionBodyState = {
   hiddenHeaderControlsCount: number;
   hiddenBodyCount: number;
   sections: Array<{
+    backgroundColor: string;
     childElementCount: number;
     display: string;
     headerControlsHidden: boolean;
@@ -28,6 +29,8 @@ type MotionBodyState = {
     headerTitleOpacity: string;
     headerTitleRoot: boolean;
     hidden: boolean;
+    motionShellHidden: boolean;
+    motionShellRoot: boolean;
     root: boolean;
     sectionId: string;
   }>;
@@ -79,6 +82,8 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
     expect(section.headerControlsHidden).toBe(false);
     expect(section.headerTitleRoot).toBe(true);
     expect(section.headerTitleOpacity).toBe("0");
+    expect(section.motionShellRoot).toBe(true);
+    expect(section.motionShellHidden).toBe(false);
     expect(section.root).toBe(true);
     expect(section.hidden).toBe(false);
     expect(section.childElementCount).toBeGreaterThan(0);
@@ -117,6 +122,9 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
     expect(section.headerControlsHidden).toBe(true);
     expect(section.headerTitleRoot).toBe(true);
     expect(section.headerTitleOpacity).toBe("0");
+    expect(section.motionShellRoot).toBe(true);
+    expect(section.motionShellHidden).toBe(true);
+    expect(section.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(section.hidden).toBe(true);
     expect(section.display).toBe("none");
     expect(section.childElementCount).toBe(0);
@@ -129,6 +137,8 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
     expect(section.headerControlsHidden).toBe(false);
     expect(section.headerTitleRoot).toBe(true);
     expect(section.headerTitleOpacity).toBe("0");
+    expect(section.motionShellRoot).toBe(true);
+    expect(section.motionShellHidden).toBe(false);
     expect(section.hidden).toBe(false);
     expect(section.childElementCount).toBeGreaterThan(0);
   }
@@ -207,6 +217,12 @@ async function readMotionBodyState(
       if (!(body instanceof HTMLElement)) {
         throw new Error(`Missing motion body root for ${sectionId}`);
       }
+      const shell = document.getElementById(
+        `${sectionId}-CustomResizable`,
+      );
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error(`Missing motion shell root for ${sectionId}`);
+      }
       const headerControls = document.querySelector<HTMLElement>(
         `section[data-section-id="${sectionId}"] [data-canvas-owned-motion-header-controls-root="true"]`,
       );
@@ -220,6 +236,7 @@ async function readMotionBodyState(
         throw new Error(`Missing motion header title root for ${sectionId}`);
       }
       return {
+        backgroundColor: window.getComputedStyle(shell).backgroundColor,
         childElementCount: body.childElementCount,
         display: window.getComputedStyle(body).display,
         headerControlsHidden:
@@ -231,6 +248,10 @@ async function readMotionBodyState(
         headerTitleRoot:
           headerTitle.dataset.canvasOwnedHeaderTitle === "true",
         hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
+        motionShellHidden:
+          shell.dataset.canvasOwnedMotionShellHidden === "true",
+        motionShellRoot:
+          shell.dataset.canvasOwnedMotionShellRoot === "true",
         root: body.dataset.canvasOwnedMotionBodyRoot === "true",
         sectionId,
       };
@@ -279,6 +300,12 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
           if (!(body instanceof HTMLElement)) {
             throw new Error(`Missing motion body root for ${sectionId}`);
           }
+          const shell = document.getElementById(
+            `${sectionId}-CustomResizable`,
+          );
+          if (!(shell instanceof HTMLElement)) {
+            throw new Error(`Missing motion shell root for ${sectionId}`);
+          }
           const headerControls = document.querySelector<HTMLElement>(
             `section[data-section-id="${sectionId}"] [data-canvas-owned-motion-header-controls-root="true"]`,
           );
@@ -294,6 +321,7 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
             throw new Error(`Missing motion header title root for ${sectionId}`);
           }
           return {
+            backgroundColor: window.getComputedStyle(shell).backgroundColor,
             childElementCount: body.childElementCount,
             display: window.getComputedStyle(body).display,
             headerControlsHidden:
@@ -306,6 +334,10 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
             headerTitleRoot:
               headerTitle.dataset.canvasOwnedHeaderTitle === "true",
             hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
+            motionShellHidden:
+              shell.dataset.canvasOwnedMotionShellHidden === "true",
+            motionShellRoot:
+              shell.dataset.canvasOwnedMotionShellRoot === "true",
             root: body.dataset.canvasOwnedMotionBodyRoot === "true",
             sectionId,
           };

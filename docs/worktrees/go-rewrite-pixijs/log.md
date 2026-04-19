@@ -4452,3 +4452,57 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the named `browserSectionDefault` lane and choose a stronger motion-state primitive than `visibility: hidden`, or another per-section paint reduction that rides this broadened boundary, instead of reopening named-family broadening
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 081
+
+- Item: Hand motion-hidden resting-text section shell chrome to the retained canvas during viewport interaction.
+- Status: `done`
+- Details:
+  - Re-read the current handoff stop signal and chose a stronger renderer-side structural reduction on the existing `browserSectionDefault` motion lane instead of another menu/header chrome harvest.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so the section container resolves one shared motion-hidden canvas state and passes it to both `CustomResizable` and `CanvasSectionBody`.
+  - Updated `frontend/src/components/Utils/Resizable/CustomResizable.tsx` so motion-hidden sections expose `data-canvas-owned-motion-shell-root="true"` and flip to `data-canvas-owned-motion-shell-hidden="true"` with a transparent, borderless DOM surface while viewport interaction is active.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so motion-hidden resting-text sections receive full shell/header paint from the retained canvas during viewport interaction instead of only detail text/boxes.
+  - Extended focused proof in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - resting-text motion-body overlay probe:
+      - initial `hiddenBodyCount: 0`
+      - initial `hiddenHeaderControlsCount: 0`
+      - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `motionShellRoot: true`, `motionShellHidden: false`, `backgroundColor: rgb(16, 20, 27)`, and `childElementCount: 2`
+      - during one renderer wheel interaction, `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+      - the same canonical sections each reported `motionShellHidden: true`, `backgroundColor: rgba(0, 0, 0, 0)`, `data-canvas-owned-motion-body-hidden="true"`, and `childElementCount: 0`
+      - settled `hiddenBodyCount: 0` and `hiddenHeaderControlsCount: 0`
+      - the canonical sections restored `motionShellHidden: false`, `backgroundColor: rgb(16, 20, 27)`, and `childElementCount: 2`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5584`
+      - `inputCount: 5`
+      - `textareaCount: 2`
+      - `buttonCount: 60`
+      - `raf.meanMs: 130.39`
+      - `raf.p95Ms: 116.7`
+      - `longTasks.totalMs: 17604`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this is a real motion-time shell/header ownership handoff on the named `browserSectionDefault` lane rather than another wrapper-only or chrome-only pass
+    - the dense rerun stayed noisy-to-worse on this runtime family, so treat this slice as structural ownership proof, not as a fresh motion win
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target the remaining hidden-section subtree/layout cost beyond this shell handoff instead of reopening menu/header micro-slices
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: `1 passed (11 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - `fit view` plus one `zoom in` kept exactly one retained graph canvas mounted
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` remained present with no obvious blank or detached shell/header artifact
+- Next action:
+  - keep the named `browserSectionDefault` lane and target the remaining hidden-section subtree/layout cost after shell handoff, or stop for replan if no stronger inactive-row/body primitive is viable on the current ownership boundary
+LOOP_TERMINAL_MARKER: none

@@ -91,6 +91,28 @@ type SectionChromeMode = "header" | "meta-control" | "text-block-meta";
 
 type SectionAreaRenderer = (props: AreaSwitchProps) => React.ReactNode;
 
+function resolveMotionHiddenCanvasState({
+  graphSurfaceImplementation,
+  isSectionUIActive,
+  sectionId,
+  viewportInteractionActive,
+}: {
+  graphSurfaceImplementation: "legacy-dom" | "canvas-shell-underlay";
+  isSectionUIActive: boolean;
+  sectionId: string;
+  viewportInteractionActive: boolean;
+}) {
+  const motionHiddenRoot =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionMotionHiddenBody(sectionId);
+  const motionHidden =
+    motionHiddenRoot && viewportInteractionActive && !isSectionUIActive;
+  return {
+    motionHidden,
+    motionHiddenRoot,
+  };
+}
+
 function getSectionContainerResizableSnapshot(
   state: ZustandProjectState,
   sectionId: string,
@@ -403,6 +425,17 @@ function _SectionContainerCoreResizable({
     : undefined;
   const metaControlLayoutClassName =
     chromeMode === "meta-control" ? "grid-cols-1 grid-rows-1" : undefined;
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const isSectionUIActive = useIsSectionUIActive(sectionId);
+  const { motionHidden, motionHiddenRoot } = resolveMotionHiddenCanvasState({
+    graphSurfaceImplementation,
+    isSectionUIActive,
+    sectionId,
+    viewportInteractionActive,
+  });
 
   return (
     <CustomResizable
@@ -416,6 +449,8 @@ function _SectionContainerCoreResizable({
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
+      motionCanvasOwnedShell={motionHidden}
+      motionCanvasOwnedShellRoot={motionHiddenRoot}
     >
       <SectionContainerChrome
         sectionId={sectionId}
@@ -434,6 +469,8 @@ function _SectionContainerCoreResizable({
         bgColor={bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
+        motionHiddenBody={motionHidden}
+        motionHiddenBodyRoot={motionHiddenRoot}
       />
     </CustomResizable>
   );
@@ -480,12 +517,16 @@ function CanvasSectionBody({
   bgColor,
   isMinimized,
   isUserView,
+  motionHiddenBody,
+  motionHiddenBodyRoot,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
+  motionHiddenBody: boolean;
+  motionHiddenBodyRoot: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -498,16 +539,6 @@ function CanvasSectionBody({
       )?.instanceId ?? null
     );
   });
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
-  const isSectionUIActive = useIsSectionUIActive(sectionId);
-  const motionHiddenBodyRoot =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionMotionHiddenBody(sectionId);
-  const motionHiddenBody =
-    motionHiddenBodyRoot && viewportInteractionActive && !isSectionUIActive;
 
   if (externalizedWindowId) {
     return (

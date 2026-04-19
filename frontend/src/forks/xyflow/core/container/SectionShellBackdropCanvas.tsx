@@ -61,6 +61,7 @@ import {
   TEXT_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  isCanvasOwnedSectionMotionHiddenBody,
   isCanvasOwnedSectionRestingTextSection,
   isCanvasOwnedSectionShell,
   resolveCanvasOwnedSectionShellChrome,
@@ -1646,6 +1647,9 @@ export default function SectionShellBackdropCanvas() {
   const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportScale = useReactFlow((state) => state.transform[2]);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
   const callableNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
   const dictNode = nodes.get(DICT_CANVAS_OWNED_SECTION_SHELL_ID);
   const globalVariablesNode = nodes.get(
@@ -2072,6 +2076,10 @@ export default function SectionShellBackdropCanvas() {
             styleColor: measurements.styleColor,
           });
           const shellOwned = isCanvasOwnedSectionShell(node.id);
+          const motionShellOwned =
+            viewportInteractionActive &&
+            isCanvasOwnedSectionMotionHiddenBody(node.id);
+          const frameOwned = shellOwned || motionShellOwned;
           const callableToolbarOffsetY =
             measurements.headerHeight + measurements.searchHeight;
           const detailBands: Array<{
@@ -2172,7 +2180,7 @@ export default function SectionShellBackdropCanvas() {
             }),
           );
 
-          if (!shellOwned) {
+          if (!frameOwned) {
             return {
               detailBoxes,
               detailTexts,
@@ -2192,6 +2200,7 @@ export default function SectionShellBackdropCanvas() {
       backdropMeasurementsBySectionId,
       darkMode,
       nodes,
+      viewportInteractionActive,
     ],
   );
 

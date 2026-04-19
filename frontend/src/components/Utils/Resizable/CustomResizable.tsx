@@ -106,6 +106,8 @@ export function CustomResizable({
   allowPointerEventsDuringDnd = false,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
+  motionCanvasOwnedShell = false,
+  motionCanvasOwnedShellRoot = false,
   children,
   as,
 }) {
@@ -122,6 +124,8 @@ export function CustomResizable({
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
+      motionCanvasOwnedShell={motionCanvasOwnedShell}
+      motionCanvasOwnedShellRoot={motionCanvasOwnedShellRoot}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
@@ -143,6 +147,8 @@ function CustomResizableCore({
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
+  motionCanvasOwnedShell = false,
+  motionCanvasOwnedShellRoot = false,
   minHeight,
   maxHeight,
   minWidth,
@@ -324,6 +330,8 @@ function CustomResizableCore({
       maxHeight={maxHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
+      motionCanvasOwnedShell={motionCanvasOwnedShell}
+      motionCanvasOwnedShellRoot={motionCanvasOwnedShellRoot}
       heightResizable={heightResizable}
       widthResizable={widthResizable}
       positionAndSizeLocked={positionAndSizeLocked}
@@ -353,6 +361,8 @@ function CustomResizableSuperCore({
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
+  motionCanvasOwnedShell = false,
+  motionCanvasOwnedShellRoot = false,
   size,
   minHeight,
   maxHeight,
@@ -400,7 +410,7 @@ function CustomResizableSuperCore({
   const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const canvasOwnedShell =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionShell(sectionId);
+    (isCanvasOwnedSectionShell(sectionId) || motionCanvasOwnedShell);
   const inputClasses = getSectionSurfaceClassName({
     bgColor: canvasOwnedShell ? "bg-transparent" : bgColor,
     hasSectionStyleTheme,
@@ -469,6 +479,12 @@ function CustomResizableSuperCore({
       enable={enable}
       className={inputClasses}
       data-canvas-owned-shell={canvasOwnedShell ? "true" : undefined}
+      data-canvas-owned-motion-shell-hidden={
+        motionCanvasOwnedShell ? "true" : undefined
+      }
+      data-canvas-owned-motion-shell-root={
+        motionCanvasOwnedShellRoot ? "true" : undefined
+      }
       handleStyles={handleStyles}
       handleClasses={handleClasses}
       grid={snapToGrid ? snapGrid : null}

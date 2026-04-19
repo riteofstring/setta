@@ -8,6 +8,60 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The motion-shell handoff slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-handoff-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now resolves one shared motion-hidden canvas state on the existing resting-text boundary and passes it through to both `CustomResizable` and `CanvasSectionBody`
+    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx` now exposes `data-canvas-owned-motion-shell-root="true"` / `data-canvas-owned-motion-shell-hidden="true"` and makes inactive motion-hidden section surfaces transparent while viewport interaction is active
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now paints full shell/header chrome for motion-hidden resting-text sections during viewport interaction instead of limiting those sections to detail text/boxes only
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+      - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` each reported `motionShellRoot: true`, `motionShellHidden: false`, `backgroundColor: rgb(16, 20, 27)`, and `childElementCount: 2`
+    - during the peak motion snapshot:
+      - `hiddenBodyCount: 45`
+      - `hiddenHeaderControlsCount: 45`
+      - the same canonical sections each flipped to `motionShellHidden: true`, `backgroundColor: rgba(0, 0, 0, 0)`, `motionBodyHidden: true`, and `childElementCount: 0`
+    - after the interaction settled:
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+      - the canonical sections restored `motionShellHidden: false`, `backgroundColor: rgb(16, 20, 27)`, and `childElementCount: 2`
+  - dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 130.39`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 17604`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a stronger renderer-side structural reduction on the canonical motion lane, not another header/menu chrome harvest: inactive motion-hidden sections now hand shell/header paint to the retained canvas while keeping only the root box mounted in DOM
+    - the dense rerun stayed noisy-to-worse on this runtime family, so treat this as ownership proof rather than a clean motion win
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target the remaining hidden-section subtree/layout cost beyond this shell handoff instead of reopening motion-chrome micro-slices
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: `1 passed (11 tests)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `All Settings` was active on `http://127.0.0.1:3068/settings`
+    - `fit view` was applied and one `zoom in` kept exactly one retained graph canvas mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` remained visually intact with no obvious blank or detached shell/header artifact
 - The motion-header menu-trigger suspension slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-menu-trigger-suspension-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:

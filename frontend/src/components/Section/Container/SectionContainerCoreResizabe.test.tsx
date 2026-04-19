@@ -64,8 +64,26 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({ children }: { children: ReactNode }) => (
-    <section data-testid="mock-custom-resizable">{children}</section>
+  CustomResizable: ({
+    children,
+    motionCanvasOwnedShell,
+    motionCanvasOwnedShellRoot,
+  }: {
+    children: ReactNode;
+    motionCanvasOwnedShell?: boolean;
+    motionCanvasOwnedShellRoot?: boolean;
+  }) => (
+    <section
+      data-testid="mock-custom-resizable"
+      data-canvas-owned-motion-shell-hidden={
+        motionCanvasOwnedShell ? "true" : undefined
+      }
+      data-canvas-owned-motion-shell-root={
+        motionCanvasOwnedShellRoot ? "true" : undefined
+      }
+    >
+      {children}
+    </section>
   ),
 }));
 
@@ -360,6 +378,8 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
+    expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
+    expect(markup).toContain('data-canvas-owned-motion-shell-hidden="true"');
     expect(markup).toContain('style="display:none"');
     expect(markup).not.toContain('data-testid="mock-browser-area"');
   });
@@ -404,6 +424,8 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
+    expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
+    expect(markup).not.toContain('data-canvas-owned-motion-shell-hidden="true"');
     expect(markup).not.toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-browser-area"');
   });
