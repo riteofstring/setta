@@ -22,6 +22,7 @@ Keep this page short and stable. Change it only when the branch guardrails or su
 - That `/home/ubuntu/dev/setta` checkout is currently on branch `go-rewrite` and acts as the temporary pristine oracle until `go-rewrite` merges back into `main`.
 - Closed micro-lanes stay closed by default; the default frontier is retained-graph / renderer-side motion cost, not another section-local resting-text harvest.
 - After run `033` closed the visible row-body/article-chrome frontier at zero on the live canary, the next restart must target a retained-graph invalidation / redraw / snapshot decision or a broader canvas-side structural step, not another survivor-family DOM cleanup.
+- After run `048` closed the immediate `SectionContainerCoreResizable` local prop-fanout lane, the next restart must begin with one chat-normalized attribution pass and then choose either a broader graph-surface ownership step or a new shared renderer-main hotspot outside that closed micro-lane.
 - Prior Pixi/frontend-performance branches are research inputs only, not structural templates to recreate wholesale.
 - Port ideas as narrow `go-rewrite`-native seams, helpers, instrumentation, and measured product slices only.
 - Do not back out broad `go-rewrite` refactors just to make older branch code easier to transplant.
@@ -34,6 +35,7 @@ Keep this page short and stable. Change it only when the branch guardrails or su
 - Treat `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint until a newer clean checkpoint replaces it.
 - Treat the `languageServer`, backend, and run-033 row-body refresh reruns as the branch’s explicit proof that survivor-family harvesting is spent: if a new slice only removes another visible DOM leaf/subtree and does not remove retained-graph motion cost, replan instead of running it.
 - Treat narrow canary probes as slice verification or smoke checks unless a result is explicitly recorded as a durable benchmark replacement.
+- When a frontend lane closes without a credible next product slice, require one saved trace or equivalent instrumentation artifact on the same normalized runtime before reopening a different hotspot family.
 - Keep CDP visual verification as a first-class gate for UI-relevant slices.
 
 ## UX gates

@@ -8,7 +8,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `048`: `section_container_core_resizable_local_prop_fanout_evidence_replan`.
+- Decision for the 2026-04-20 checkpoint after run `048`: `chat_normalized_attribution_or_broader_graph_surface_replan`.
 - Recent progress is real:
   - run `048` landed the bounded evidence slice requested by the run-`047` handoff on the traced `SectionContainerCoreResizable` frontier: `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now proves that a remaining surface-only snapshot change (`hasEmbeddedTerminal`) rerenders `SectionContainerCoreResizable` plus `CustomResizable` without fanning out into the section header or code body, `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-local-prop-fanout-evidence.md` records the paired code inspection showing that the remaining immediate local inputs are already split between the memoized resizable surface, chrome, and body paths, and the only obvious cross-path left (`positionAndSizeLocked`) is not part of the measured dense pan/zoom hotspot
   - run `047` landed one bounded correctness slice on the traced `SectionContainerCoreResizable` frontier by removing the remaining inline `display: none` hide from `CanvasSectionBody`; the newer motion-hidden DOM-sync path now relies entirely on the existing `data-canvas-owned-motion-body-hidden` attribute contract, so a body that mounted hidden during viewport motion can restore when its section becomes active without needing a React rerender, the paired rerun on the canonical `settings-section__browserSectionDefault` lane recorded `documentNodeCount 5494`, `raf.meanMs 43.42`, `longTasks.totalMs 3068`, `peakMotion.graphSurfaceMenuTriggerCount 1`, and `peakMotion.graphSurfaceSectionResizeHandleCount 3`, and the fresh headless CDP check kept the graph surface visibly nonblank with `browserSectionDefault` present
@@ -32,6 +32,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `038` removed another retained-detail invalidation on that same lane by stopping `SectionShellBackdropCanvas` from forcing a fresh post-motion remeasure after every interaction settle when no observer-driven invalidation or queued measurement existed
 - Diminishing returns are now visible:
   - run `048` closes the immediate `SectionContainerCoreResizable` local prop-fanout lane for this hotspot; do not spend another automated pass on more memo wrappers, prop splitting, or `CustomResizable` / chrome / body reshaping inside this file unless fresh trace evidence names a different high-frequency prop than the already-removed viewport and active-section motion paths
+  - run `041` was the durable attribution pivot toward section-container rerender fanout, but runs `042` through `048` have now spent that immediate local frontier; the remaining `~43ms` band should no longer default to another `_SectionContainerCore` / `_SectionContainerCoreResizable` micro-lane by inertia
   - runs `023`, `025`, `026`, `027`, `028`, and `029` all landed safe reducer work yet settled back into the same dense `~43ms` / `~5.8-6.0s` band, so the default micro-reducer lane is closed
   - run `031` closes `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md` as the default guide for another selector-cache / viewport / guessed trace pass
   - run `033` closes the queued row-body/article-chrome survivor lane as stale on the current runtime, so another shell/body cleanup pass from the April 19 ranking would also be churn
@@ -55,9 +56,17 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
   - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, another backdrop node-map equality micro-pass, another generic backdrop invalidation pass on the same measurement families, or another pass that only re-proves the `SectionContainerCoreResizable` viewport or active-section motion-hidden DOM sync
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - run `048` completed the bounded evidence pass requested here and still did not name a credible next `SectionContainerCoreResizable` product slice
-  - stop automation for a human replan instead of reopening `SectionContainerCoreResizable`, `SectionShellBackdropCanvas`, `ZoomPane`, or motion-hidden DOM-sync micro-lanes by inertia
-  - treat `SectionShellBackdropCanvas` and `ZoomPane` as secondary suspects from the saved attribution trace, not the default primary target for the next pass
+  - run `048` completed the last allowed evidence pass on the immediate section-container local-fanout lane and still did not name a credible next `SectionContainerCoreResizable` product slice
+  - the next restart must begin with one chat-normalized attribution pass on the same runtime:
+    - one fresh dense rerun on `settings` -> `All Settings`
+    - one saved trace or equivalent instrumentation artifact on that same runtime after normalizing project chat/workspace-chat noise off the measurement path
+    - one trustworthy visual confirmation path for the retained graph on that same runtime
+  - that attribution pass must end by choosing exactly one new frontier:
+    - one broader Pixi-owned graph-surface ownership step that changes a shared dense family or retained primitive rather than another local container memo/subscription cleanup
+    - or one fresh shared renderer-main JS hotspot outside the already-closed `SectionContainerCore` / `SectionContainerCoreResizable` micro-lane, if the cleaned trace names it credibly
+  - if the cleaned attribution still does not name a better shared JS hotspot, default to the broader graph-surface ownership step rather than reopening `SectionContainerCoreResizable`, `SectionShellBackdropCanvas`, `ZoomPane`, or motion-hidden DOM-sync micro-lanes by inertia
+  - the only acceptable single-section fallback is the next non-shell-owned dense outlier that can move from resting-text-only to full shell ownership without opening a new renderer branch; do not choose that fallback unless no stronger shared family or primitive is credible on the cleaned attribution
+  - treat `SectionShellBackdropCanvas` and `ZoomPane` as secondary suspects from the saved attribution trace, not the default primary target for the next pass; they only reopen if the chat-normalized trace upgrades them
   - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
