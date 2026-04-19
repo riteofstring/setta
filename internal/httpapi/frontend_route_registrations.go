@@ -100,9 +100,9 @@ func BuildAppSubsystemFrontendAPIRouteRegistrations(
 				},
 			},
 			{
-				Family: "deployment ide",
+				Family: "app deployment ide",
 				Register: func(router chi.Router) error {
-					return RegisterDeploymentIDERoutes(router, deps.DeploymentIDE)
+					return RegisterAppDeploymentIDERoutes(router, deps.DeploymentIDE)
 				},
 			},
 		},
@@ -182,6 +182,9 @@ func registerFrontendDeploymentRoutes(
 	contributions []FrontendAPIRouteContribution,
 ) error {
 	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterDeploymentRoutes(router, deps.ShareDeployment)); err != nil {
+		return err
+	}
+	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment ide", RegisterShareDeploymentIDERoutes(router, deps.DeploymentIDE)); err != nil {
 		return err
 	}
 	if err := registerFrontendRouteContributions(router, contributions); err != nil {

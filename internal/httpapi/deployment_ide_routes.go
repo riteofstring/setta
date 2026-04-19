@@ -55,24 +55,18 @@ type PublishAppDeploymentRequest struct {
 }
 
 func RegisterDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDependencies) error {
-	if router == nil {
-		return fmt.Errorf("router is required")
+	if err := RegisterShareDeploymentIDERoutes(router, deps); err != nil {
+		return err
+	}
+	return RegisterAppDeploymentIDERoutes(router, deps)
+}
+
+func RegisterShareDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDependencies) error {
+	if err := validateDeploymentIDERouteDependencies(router, deps, true, false); err != nil {
+		return err
 	}
 	if !deps.ModePolicy.IsIDE() {
 		return nil
-	}
-	documentOnly := openAPIDocumentOnlyFromRouter(router)
-	if deps.ProjectState == nil && !documentOnly {
-		return fmt.Errorf("project state is required in ide mode")
-	}
-	if deps.Catalog == nil && !documentOnly {
-		return fmt.Errorf("deployment catalog is required in ide mode")
-	}
-	if deps.SharePublisher == nil && !documentOnly {
-		return fmt.Errorf("share deployment publisher is required in ide mode")
-	}
-	if deps.AppPublisher == nil && !documentOnly {
-		return fmt.Errorf("app deployment publisher is required in ide mode")
 	}
 
 	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
@@ -114,7 +108,18 @@ func RegisterDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDepen
 		withOpenAPISummary("Publish the current project config as a share deployment."),
 		withOpenAPIModeRequirement("ide"),
 	)
+	return nil
+}
 
+func RegisterAppDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDependencies) error {
+	if err := validateDeploymentIDERouteDependencies(router, deps, false, true); err != nil {
+		return err
+	}
+	if !deps.ModePolicy.IsIDE() {
+		return nil
+	}
+
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
 	registerOpenAPIGet[[]DeploymentMetadataResponse](
 		ideRouter,
 		"listAppDeployments",
@@ -153,6 +158,59 @@ func RegisterDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDepen
 		withOpenAPISummary("Publish the current project config as an app deployment."),
 		withOpenAPIModeRequirement("ide"),
 	)
+	return nil
+}
+
+func validateDeploymentIDERouteDependencies(
+	router chi.Router,
+	deps DeploymentIDERouteDependencies,
+	requireSharePublisher bool,
+	requireAppPublisher bool,
+) error {
+	documentOnly, err := validateDeploymentIDEBaseDependencies(router, deps)
+	if err != nil || !deps.ModePolicy.IsIDE() {
+		return err
+	}
+	return validateDeploymentIDEPublisherDependencies(
+		deps,
+		documentOnly,
+		requireSharePublisher,
+		requireAppPublisher,
+	)
+}
+
+func validateDeploymentIDEBaseDependencies(
+	router chi.Router,
+	deps DeploymentIDERouteDependencies,
+) (bool, error) {
+	if router == nil {
+		return false, fmt.Errorf("router is required")
+	}
+	if !deps.ModePolicy.IsIDE() {
+		return false, nil
+	}
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ProjectState == nil && !documentOnly {
+		return false, fmt.Errorf("project state is required in ide mode")
+	}
+	if deps.Catalog == nil && !documentOnly {
+		return false, fmt.Errorf("deployment catalog is required in ide mode")
+	}
+	return documentOnly, nil
+}
+
+func validateDeploymentIDEPublisherDependencies(
+	deps DeploymentIDERouteDependencies,
+	documentOnly bool,
+	requireSharePublisher bool,
+	requireAppPublisher bool,
+) error {
+	if requireSharePublisher && deps.SharePublisher == nil && !documentOnly {
+		return fmt.Errorf("share deployment publisher is required in ide mode")
+	}
+	if requireAppPublisher && deps.AppPublisher == nil && !documentOnly {
+		return fmt.Errorf("app deployment publisher is required in ide mode")
+	}
 	return nil
 }
 
