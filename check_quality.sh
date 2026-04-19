@@ -13,9 +13,9 @@ Modes:
   --files <path>...  Check only the provided files.
 
 Thresholds:
-  --python-max N     Maximum allowed Python cyclomatic complexity (default: 10).
-  --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 10).
-  --go-max N         Maximum allowed Go cyclomatic complexity (default: 12).
+  --python-max N     Maximum allowed Python cyclomatic complexity (default: 9).
+  --frontend-max N   Maximum allowed frontend JS/TS cyclomatic complexity (default: 9).
+  --go-max N         Maximum allowed Go cyclomatic complexity (default: 9).
   -h, --help         Show this help text.
 EOF
 }
@@ -23,9 +23,9 @@ EOF
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
 mode="staged"
-python_max="10"
-frontend_max="10"
-go_max="12"
+python_max="9"
+frontend_max="9"
+go_max="9"
 declare -a explicit_files=()
 
 while [[ $# -gt 0 ]]; do

@@ -17,7 +17,7 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Phase 3 hotspot thresholds: Python `10`, frontend `10`, Go `12`
+- Phase 3 hotspot thresholds: Python `9`, frontend `9`, Go `9`
 - Phase 3 escalates to broader backlog-burn refactors in dominant hotspot files before declaring plateau
 - Stop when Codex explicitly reports either true audited completion or a documented sustained plateau
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
@@ -57,9 +57,9 @@ model="gpt-5.4"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
-hotspot_python_min="10"
-hotspot_frontend_min="10"
-hotspot_go_min="12"
+hotspot_python_min="9"
+hotspot_frontend_min="9"
+hotspot_go_min="9"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: AUTHORITY_SEQUENCE_AUDITED_STOP"
 codex_extra_args=()
