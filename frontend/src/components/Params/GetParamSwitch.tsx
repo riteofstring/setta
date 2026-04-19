@@ -18,6 +18,7 @@ export function GetParamSwitch({
   isTopLevel = false,
   listKey,
   hasSectionStyleTheme,
+  lightweightNestedLeafRows = false,
 }: {
   sectionId: string;
   paramIds: Array<string>;
@@ -26,6 +27,7 @@ export function GetParamSwitch({
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  lightweightNestedLeafRows?: boolean;
 }) {
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuardIfPresent(
@@ -123,6 +125,7 @@ export function GetParamSwitch({
       isTopLevelWithPad={isTopLevel && idx > 0}
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      lightweightNestedLeafRows={lightweightNestedLeafRows}
     />
   ));
 }
