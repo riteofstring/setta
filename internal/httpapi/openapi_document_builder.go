@@ -15,7 +15,6 @@ var openAPIRouteDependencyModePolicyType = reflect.TypeFor[modes.Policy]()
 
 var frontendOpenAPIDocumentModeOverrides = map[string]config.Mode{
 	"ShareDeployment": config.ModeShare,
-	"AppDeployment":   config.ModeApp,
 	"LauncherHome":    config.ModeLauncher,
 	"AI":              config.ModeShare,
 }

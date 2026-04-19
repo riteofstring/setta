@@ -17,6 +17,7 @@ type FrontendRouteRegistrationOptions struct {
 	Capabilities              AppSubsystemCapabilityProvider
 	API                       httpapi.FrontendAPIRouteDependencies
 	AppDeploymentIDEPublisher deployments.AppPublishService
+	AppDeployment             httpapi.DeploymentRouteDependencies
 }
 
 func BuildFrontendAPIRouteRegistrations(
@@ -68,7 +69,7 @@ func buildDeploymentFrontendRouteContributions(
 		{
 			Family: "app deployment",
 			Register: func(router chi.Router) error {
-				return RegisterAppDeploymentRoutes(router, options.API.AppDeployment)
+				return RegisterAppDeploymentRoutes(router, options.AppDeployment)
 			},
 		},
 		{
