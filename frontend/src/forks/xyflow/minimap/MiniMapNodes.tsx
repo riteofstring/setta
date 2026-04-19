@@ -310,7 +310,19 @@ function _MiniMapNodesReactive(props: MiniMapNodesType) {
 export const MiniMapNodesReactive = memo(_MiniMapNodesReactive);
 
 function resolveMiniMapNodesProps(props: MiniMapNodesType & { nodes: Node[] }) {
-  return { ...defaultMiniMapNodesProps, ...props };
+  return {
+    ...defaultMiniMapNodesProps,
+    ...props,
+    nodeStrokeColor:
+      props.nodeStrokeColor ?? defaultMiniMapNodesProps.nodeStrokeColor,
+    nodeColor: props.nodeColor ?? defaultMiniMapNodesProps.nodeColor,
+    nodeClassName: props.nodeClassName ?? defaultMiniMapNodesProps.nodeClassName,
+    nodeBorderRadius:
+      props.nodeBorderRadius ?? defaultMiniMapNodesProps.nodeBorderRadius,
+    nodeStrokeWidth:
+      props.nodeStrokeWidth ?? defaultMiniMapNodesProps.nodeStrokeWidth,
+    nodeComponent: props.nodeComponent ?? defaultMiniMapNodesProps.nodeComponent,
+  };
 }
 
 function _MiniMapNodes(props: MiniMapNodesType & { nodes: Node[] }) {

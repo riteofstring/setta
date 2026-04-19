@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -17,17 +16,16 @@ var (
 )
 
 type LanguageServerSpec struct {
-	PluginID    string
 	Name        string
 	LanguageID  string
 	Command     string
 	Args        []string
-	Settings    map[string]any
 	SettingsKey *string
 }
 
 type RouterOptions struct {
 	WorkspaceRoot   string
+	LookupEnv       func(string) (string, bool)
 	Environ         func() []string
 	WorkingDir      string
 	Settings        func() map[string]any
@@ -40,29 +38,48 @@ type Router struct {
 	workingDir    string
 	settings      func() map[string]any
 
-	mu       sync.Mutex
-	specs    map[string]LanguageServerSpec
-	services map[string]*Service
+	mu              sync.Mutex
+	baseSpecs       map[string]LanguageServerSpec
+	additionalSpecs map[string]LanguageServerSpec
+	specs           map[string]LanguageServerSpec
+	services        map[string]*Service
 }
 
 func NewRouter(options RouterOptions) (*Router, error) {
+	lookupEnv := options.LookupEnv
+	if lookupEnv == nil {
+		lookupEnv = os.LookupEnv
+	}
 	environ := options.Environ
 	if environ == nil {
 		environ = os.Environ
 	}
 
-	specs, err := normalizeAdditionalLanguageServerSpecs(options.AdditionalSpecs)
+	pythonSpec, err := currentProcessPythonSpec(lookupEnv)
+	if err != nil {
+		return nil, err
+	}
+	normalizedPythonSpec, err := normalizeLanguageServerSpec(pythonSpec)
+	if err != nil {
+		return nil, err
+	}
+	baseSpecs := map[string]LanguageServerSpec{
+		normalizedPythonSpec.LanguageID: normalizedPythonSpec,
+	}
+	additionalSpecs, err := normalizeAdditionalLanguageServerSpecs(baseSpecs, options.AdditionalSpecs)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Router{
-		workspaceRoot: strings.TrimSpace(options.WorkspaceRoot),
-		environment:   append([]string(nil), environ()...),
-		workingDir:    strings.TrimSpace(options.WorkingDir),
-		settings:      options.Settings,
-		specs:         cloneLanguageServerSpecMap(specs),
-		services:      map[string]*Service{},
+		workspaceRoot:   strings.TrimSpace(options.WorkspaceRoot),
+		environment:     append([]string(nil), environ()...),
+		workingDir:      strings.TrimSpace(options.WorkingDir),
+		settings:        options.Settings,
+		baseSpecs:       cloneLanguageServerSpecMap(baseSpecs),
+		additionalSpecs: cloneLanguageServerSpecMap(additionalSpecs),
+		specs:           mergeLanguageServerSpecMaps(baseSpecs, additionalSpecs),
+		services:        map[string]*Service{},
 	}, nil
 }
 
@@ -75,10 +92,11 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 	}
 
 	r.mu.Lock()
-	currentSpecs := cloneLanguageServerSpecMap(r.specs)
+	baseSpecs := cloneLanguageServerSpecMap(r.baseSpecs)
+	currentAdditionalSpecs := cloneLanguageServerSpecMap(r.additionalSpecs)
 	r.mu.Unlock()
 
-	nextSpecs, err := normalizeAdditionalLanguageServerSpecs(specs)
+	nextAdditionalSpecs, err := normalizeAdditionalLanguageServerSpecs(baseSpecs, specs)
 	if err != nil {
 		return err
 	}
@@ -86,18 +104,19 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 	r.mu.Lock()
 	servicesToClose := make([]*Service, 0)
 	for languageID, service := range r.services {
-		currentSpec, currentExists := currentSpecs[languageID]
-		if !currentExists {
+		currentSpec, currentIsAdditional := currentAdditionalSpecs[languageID]
+		if !currentIsAdditional {
 			continue
 		}
-		nextSpec, nextExists := nextSpecs[languageID]
+		nextSpec, nextExists := nextAdditionalSpecs[languageID]
 		if nextExists && languageServerSpecsEqual(currentSpec, nextSpec) {
 			continue
 		}
 		servicesToClose = append(servicesToClose, service)
 		delete(r.services, languageID)
 	}
-	r.specs = cloneLanguageServerSpecMap(nextSpecs)
+	r.additionalSpecs = cloneLanguageServerSpecMap(nextAdditionalSpecs)
+	r.specs = mergeLanguageServerSpecMaps(baseSpecs, nextAdditionalSpecs)
 	r.mu.Unlock()
 
 	var joined error
@@ -107,14 +126,27 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 	return joined
 }
 
+func currentProcessPythonSpec(lookupEnv func(string) (string, bool)) (LanguageServerSpec, error) {
+	command, args, err := resolveCurrentProcessCommand(lookupEnv)
+	if err != nil {
+		return LanguageServerSpec{}, err
+	}
+	settingsKey := "basedpyright"
+	return LanguageServerSpec{
+		Name:        "full",
+		LanguageID:  "python",
+		Command:     command,
+		Args:        args,
+		SettingsKey: &settingsKey,
+	}, nil
+}
+
 func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, error) {
 	normalized := LanguageServerSpec{
-		PluginID:    strings.TrimSpace(spec.PluginID),
 		Name:        strings.TrimSpace(spec.Name),
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
 		Args:        append([]string(nil), spec.Args...),
-		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 		SettingsKey: cloneOptionalString(spec.SettingsKey),
 	}
 	if normalized.Name == "" {
@@ -129,12 +161,15 @@ func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, e
 	return normalized, nil
 }
 
-func normalizeAdditionalLanguageServerSpecs(specs []LanguageServerSpec) (map[string]LanguageServerSpec, error) {
+func normalizeAdditionalLanguageServerSpecs(baseSpecs map[string]LanguageServerSpec, specs []LanguageServerSpec) (map[string]LanguageServerSpec, error) {
 	normalizedSpecs := map[string]LanguageServerSpec{}
 	for _, spec := range specs {
 		normalized, err := normalizeLanguageServerSpec(spec)
 		if err != nil {
 			return nil, err
+		}
+		if _, exists := baseSpecs[normalized.LanguageID]; exists {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateLanguageServer, normalized.LanguageID)
 		}
 		if _, exists := normalizedSpecs[normalized.LanguageID]; exists {
 			return nil, fmt.Errorf("%w: %s", ErrDuplicateLanguageServer, normalized.LanguageID)
@@ -146,6 +181,14 @@ func normalizeAdditionalLanguageServerSpecs(specs []LanguageServerSpec) (map[str
 
 func normalizeLanguageID(languageID string) string {
 	return strings.ToLower(strings.TrimSpace(languageID))
+}
+
+func mergeLanguageServerSpecMaps(base map[string]LanguageServerSpec, additional map[string]LanguageServerSpec) map[string]LanguageServerSpec {
+	merged := cloneLanguageServerSpecMap(base)
+	for languageID, spec := range additional {
+		merged[languageID] = cloneLanguageServerSpec(spec)
+	}
+	return merged
 }
 
 func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string]LanguageServerSpec {
@@ -161,30 +204,19 @@ func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string
 
 func cloneLanguageServerSpec(spec LanguageServerSpec) LanguageServerSpec {
 	return LanguageServerSpec{
-		PluginID:    strings.TrimSpace(spec.PluginID),
 		Name:        strings.TrimSpace(spec.Name),
 		LanguageID:  normalizeLanguageID(spec.LanguageID),
 		Command:     strings.TrimSpace(spec.Command),
 		Args:        append([]string(nil), spec.Args...),
-		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
 		SettingsKey: cloneOptionalString(spec.SettingsKey),
 	}
 }
 
 func languageServerSpecsEqual(left LanguageServerSpec, right LanguageServerSpec) bool {
-	if left.PluginID != right.PluginID ||
-		left.Name != right.Name ||
-		left.LanguageID != right.LanguageID ||
-		left.Command != right.Command {
+	if left.Name != right.Name || left.LanguageID != right.LanguageID || left.Command != right.Command {
 		return false
 	}
 	if !slices.Equal(left.Args, right.Args) {
-		return false
-	}
-	if !reflect.DeepEqual(
-		cloneLanguageServerSettingsMap(left.Settings),
-		cloneLanguageServerSettingsMap(right.Settings),
-	) {
 		return false
 	}
 	switch {
@@ -403,7 +435,7 @@ func (r *Router) serviceForLanguage(languageID string) (*Service, bool, error) {
 		Args:          append([]string(nil), spec.Args...),
 		Environment:   append([]string(nil), r.environment...),
 		WorkingDir:    r.workingDir,
-		Settings:      sessionLanguageServerSettings(spec, r.settings),
+		Settings:      resolveLanguageServerSettings(loadRouterSettings(r.settings), spec.SettingsKey),
 	})
 	if err != nil {
 		return nil, false, err
@@ -418,13 +450,6 @@ func loadRouterSettings(settings func() map[string]any) map[string]any {
 		return nil
 	}
 	return cloneLanguageServerSettingsMap(settings())
-}
-
-func sessionLanguageServerSettings(spec LanguageServerSpec, settings func() map[string]any) map[string]any {
-	if spec.Settings != nil {
-		return cloneLanguageServerSettingsMap(spec.Settings)
-	}
-	return resolveLanguageServerSettings(loadRouterSettings(settings), spec.SettingsKey)
 }
 
 func resolveLanguageServerSettings(settings map[string]any, settingsKey *string) map[string]any {
