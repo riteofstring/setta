@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveAppTheme } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appTheme";
+import { resolveAppTheme } from "./appTheme";
 
 describe("resolveAppTheme vars", () => {
   it("applies component-role defaults and allows overriding via theme.vars", () => {

@@ -22,6 +22,7 @@ import (
 	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
+	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
@@ -30,8 +31,6 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func assertInstalledPythonPackages(t *testing.T, packages []string) {
@@ -89,7 +88,6 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	if err := os.MkdirAll(cfg.Paths.WorkspaceRoot, 0o755); err != nil {
 		t.Fatalf("mkdir workspace root: %v", err)
@@ -622,7 +620,6 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -3571,7 +3568,6 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3608,7 +3604,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    appspec.JoinPath("custom.json"),
+			"appSpecPath":    "app_specs/custom.json",
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"theme":          map[string]any{"mode": "dark"},
@@ -3621,19 +3617,15 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected set_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.JoinPath("custom.json"))
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, "app_specs/custom.json")
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"]), storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(
-		t,
-		appdefinition.StoredDocumentAppDefinitionRaw(app.ProjectStates().Main().Snapshot().Document),
-	)
-	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
-		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", storedAppDefinition)
+	if app.ProjectStates().Main().Snapshot().Document.AppDefinition == nil || app.ProjectStates().Main().Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", app.ProjectStates().Main().Snapshot().Document.AppDefinition)
 	}
 }
 
@@ -3643,7 +3635,6 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3654,12 +3645,14 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3711,7 +3704,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3725,12 +3717,14 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3776,7 +3770,6 @@ func TestAppIDEMCPServerSupportsValidateAppDefinitionOverAuthenticatedSSE(t *tes
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3864,7 +3857,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenti
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3925,7 +3917,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticated
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3989,7 +3980,6 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -4000,7 +3990,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -4012,7 +4002,9 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -4075,7 +4067,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -4089,7 +4080,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -4100,7 +4091,9 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -8013,7 +8006,6 @@ func TestAppIDEMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9704,7 +9696,6 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9731,7 +9722,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 					"root":{"key":"root","type":"Stack"},
 					"elements":{}
 				},
-				"appSpecPath":"`+appspec.JoinPath("custom.json")+`",
+				"appSpecPath":"app_specs/custom.json",
 				"appSpecVersion":"v2",
 				"catalogId":"setta.app.default",
 				"theme":{"mode":"dark"}
@@ -9763,7 +9754,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 		t.Fatalf("expected set_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.JoinPath("custom.json"))
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, "app_specs/custom.json")
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -9778,7 +9769,6 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9789,12 +9779,14 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -9849,7 +9841,6 @@ func TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9930,7 +9921,6 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9941,7 +9931,7 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -9953,7 +9943,9 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()

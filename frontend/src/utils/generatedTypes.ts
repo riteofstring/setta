@@ -116,6 +116,16 @@ export function createAllConfigs(
 
 export type AllProjectMetadata = gt.AllProjectMetadata;
 
+export type AppDefinition = gt.AppDefinition;
+
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return options as AppDefinition;
+}
+
+export type AppRoute = gt.AppRoute;
+
 export type AssistantChatMessage = gt.AssistantChatMessage;
 
 export function createAssistantChatMessage(
@@ -3757,6 +3767,14 @@ export const AgenticEdgeKindEnum = {
 } as const;
 export type AgenticEdgeKind = gt.AgenticEdgeKind;
 
+export const AppGenerationModeEnum = {
+  json_render: "json_render",
+  json_render_with_image: "json_render_with_image",
+  prompt_builder: "prompt_builder",
+  mcp_server: "mcp_server",
+} as const;
+export type AppGenerationMode = gt.AppGenerationMode;
+
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -4403,6 +4421,15 @@ export function isBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
+export const AppSpecPatchPolicyConfig = {
+  allowedOps: ["set", "add", "replace", "remove"],
+  commentPrefix: "//",
+  elementsPathPrefix: "/elements/",
+  rootPath: "/root",
+  rootResetValue: "",
+  valueOptionalOps: ["remove"],
+} satisfies gt.PatchPolicy;
+
 export const BootstrapProtocol = {
   backendOriginOverrideQueryParam: "__setta_backend_origin",
   launcherOriginHashParam: "lo",
@@ -4850,6 +4877,14 @@ export const ProjectChatUIConfig = {
     { label: "Inline text", value: "inline_text" },
     { label: "Summary", value: "summary" },
   ],
+  customSlashCommandModeOptions: [
+    { label: "Plain chat", value: "plain_chat" },
+    { label: "JSON Render", value: "json_render" },
+    { label: "Image to JSON Render", value: "json_render_with_image" },
+    { label: "Prompt Builder", value: "prompt_builder" },
+    { label: "MCP Server", value: "mcp_server" },
+  ],
+  defaultCustomSlashCommandMode: "plain_chat",
   permissionModeOptions: [
     { label: "minimal", value: "minimal" },
     { label: "yolo", value: "yolo" },
