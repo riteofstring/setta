@@ -686,22 +686,30 @@ func writeAppDeploymentFixture(
 func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string) {
 	t.Helper()
 
-	writeAppJSON(t, filepath.Join(deploymentRoot, ".setta_plugins", plugins.AppSubsystemPluginID, "setta.plugin.json"), map[string]any{
-		"schemaVersion":     1,
-		"id":                plugins.AppSubsystemPluginID,
-		"name":              "Setta JSON Render App Generation",
-		"version":           "0.1.0",
-		"settaVersionRange": ">=0.0.0",
-		"enabledByDefault":  false,
-		"featureCapabilities": map[string]any{
-			"appSubsystem": map[string]any{
-				"appDeploymentRuntime": true,
-			},
-		},
-		"capabilities": []string{},
+	enableAppDeploymentRuntimePluginWithID(
+		t,
+		deploymentRoot,
+		plugins.AppSubsystemPluginID,
+		plugins.AppSubsystemPluginID,
+	)
+}
+
+func enableAppDeploymentRuntimePluginWithID(
+	t *testing.T,
+	deploymentRoot string,
+	sourcePluginID string,
+	targetPluginID string,
+) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	pluginRoot := filepath.Join(deploymentRoot, ".setta_plugins", targetPluginID)
+	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", sourcePluginID), pluginRoot)
+	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["id"] = targetPluginID
 	})
 	writeAppJSON(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
-		"enabledPluginIds": []string{plugins.AppSubsystemPluginID},
+		"enabledPluginIds": []string{targetPluginID},
 	})
 }
 

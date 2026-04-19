@@ -18,8 +18,11 @@ import (
 	"setta/internal/observability"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
 )
+
+const unknownAppSubsystemPluginID = appsubsystemprovider.PluginID
 
 func TestAppSubsystemPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
 	cfg := testConfig(t)
@@ -231,6 +234,61 @@ func TestAppSubsystemPackageManagerPluginEnabledRestoresBackendRoutesAndTools(t 
 	assertAppSubsystemToolPresence(t, app, true)
 }
 
+func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	installAppRepoPluginAsID(
+		t,
+		cfg,
+		plugins.AppSubsystemPluginID,
+		unknownAppSubsystemPluginID,
+	)
+	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := appSubsystemPluginTestAuthCookie(t, app)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemToolPresence(t, app, true)
+}
+
 func appSubsystemPluginTestAuthCookie(t *testing.T, app *App) *http.Cookie {
 	t.Helper()
 
@@ -318,6 +376,23 @@ func enableAppSubsystemPluginForTest(t *testing.T, cfg config.Config) {
 
 	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
 	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+}
+
+func installAppRepoPluginAsID(
+	t *testing.T,
+	cfg config.Config,
+	sourcePluginID string,
+	targetPluginID string,
+) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", sourcePluginID)
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", targetPluginID)
+	copyAppTestDir(t, sourceRoot, targetRoot)
+	rewriteAppPluginManifest(t, targetRoot, func(payload map[string]any) {
+		payload["id"] = targetPluginID
+	})
 }
 
 func installAppPackageManagerPlugin(t *testing.T, sitePackages string, pluginID string) {
