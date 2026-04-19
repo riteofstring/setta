@@ -21,6 +21,7 @@ import {
 } from "components/Chat/engineUtils";
 import { getFileBrowserRoot } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { useAppSubsystemSlashCommands } from "plugins/appSubsystemRuntime";
 import {
   Dispatch,
   memo,
@@ -581,6 +582,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const customCommandsExecutable =
     !isExternalEngine || isAgentRunsAuthorityReady(agentRunsAuthorityState);
+  const appGenerationSlashCommands = useAppSubsystemSlashCommands();
   const { slashCommands, recognizedSlashCommands } = useMemo(() => {
     const discoveredAgentNativeSlashCommands =
       resolveProjectChatComposerNativeSlashCommandTokens({
@@ -594,6 +596,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       });
     return resolveProjectChatComposerSlashCommandSets({
       customProjectChatSlashCommands,
+      appGenerationSlashCommands,
       discoveredAgentNativeSlashCommands,
       executableAgentNativeSlashCommands,
       customCommandsExecutable,
@@ -607,6 +610,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     agentRunsAuthorityState,
     customCommandsExecutable,
     customProjectChatSlashCommands,
+    appGenerationSlashCommands,
     runtimeAgentNativeSlashCommandTokens,
     showPermissionExecutionControl,
     showSearchExecutionControl,
@@ -906,6 +910,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState);
       return resolveProjectChatComposerSlashCommandSets({
         customProjectChatSlashCommands,
+        appGenerationSlashCommands,
         discoveredAgentNativeSlashCommands:
           refreshedDiscoveredAgentNativeSlashCommands,
         executableAgentNativeSlashCommands:
@@ -920,6 +925,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       customProjectChatSlashCommands,
+      appGenerationSlashCommands,
       engineConfigId,
       engineType,
       isExternalEngine,
