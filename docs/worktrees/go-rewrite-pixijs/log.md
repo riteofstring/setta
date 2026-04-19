@@ -155,6 +155,30 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 047
+
+- Landed the `SectionContainerCoreResizable` motion-body inline-style removal slice on the canonical `settings-section__browserSectionDefault` lane.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` no longer stamps an inline `display: none` style on motion-hidden `CanvasSectionBody` roots and instead relies entirely on the existing `data-canvas-owned-motion-body-hidden` attribute plus React Flow CSS.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now removes the old static inline-style expectations and adds a mounted regression that proves a hidden body can become active without rerendering and without retaining a stale inline hidden style, although the focused vitest run remains blocked by the pre-existing repo `html-encoding-sniffer` ESM failure before collection.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-motion-body-inline-style-removal-rerun.md` with the current evidence: `documentNodeCount 5494`, `raf.meanMs 43.42`, `longTasks.totalMs 3068`, `peakMotion.graphSurfaceMenuTriggerCount 1`, `peakMotion.graphSurfaceSectionResizeHandleCount 3`, and `hiddenResizeHandleRootCount 45`.
+- Interpretation:
+  - this closes the motion-body inline-style restore sub-lane on the current `SectionContainerCoreResizable` frontier
+  - the trusted live motion inventory stayed intact, so this did not reopen the closed motion-hidden shell/body, menu, or resize-handle contracts
+  - the next pass should return to one bounded evidence slice on `SectionContainerCoreResizable` and its immediate children to determine whether any remaining local prop-fanout path is still credible; if not, stop for human replan instead of reopening more motion-body or DOM-sync micropolish
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-014/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - reached `/settings` with the settings surface mounted and nonblank, `All Settings` present in the tab bar, and `browserSectionDefault` visible on the graph surface
+    - there was no obvious detached shell/body or blank-graph regression on that lane
+- Next frontier: run one bounded evidence slice on `SectionContainerCoreResizable` and its immediate children to decide whether any remaining local prop-fanout path still exists beyond the removed viewport and active-section subscriptions, the memoized chrome/body and `CustomResizable` boundaries, and the removed motion-body inline hide; if not, stop for human replan.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 043 end marker
 
 - Latest completed iteration: removed the direct `viewportInteractionActive` React subscription from `SectionContainerCoreResizable` and kept the existing motion-hidden DOM contract through imperative React Flow store sync.

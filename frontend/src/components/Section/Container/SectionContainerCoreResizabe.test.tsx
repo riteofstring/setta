@@ -520,7 +520,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-code-area"');
   });
 
@@ -541,7 +540,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-callable-area"');
   });
 
@@ -564,7 +562,6 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
     expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-shell-hidden="true"');
-    expect(markup).toContain('style="display:none"');
     expect(markup).toContain(
       'data-motion-hidden-interaction-active="true"',
     );
@@ -590,7 +587,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-callable-area"');
   });
 
@@ -614,7 +610,6 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
     expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-shell-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
     expect(markup).toContain(
       'data-motion-hidden-interaction-active="false"',
     );
@@ -640,7 +635,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-code-area"');
   });
 
@@ -661,7 +655,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-code-area"');
   });
 
@@ -683,7 +676,6 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
     expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
     expect(markup).toContain('data-testid="mock-code-area"');
   });
 
@@ -826,5 +818,57 @@ describe("SectionContainerCoreResizable", () => {
     ).toBeNull();
     expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
     expect(mockSectionHeaderRenderCount).toBe(1);
+  });
+
+  it("does not leave a stale inline hidden style behind when a hidden body becomes active without rerendering", async () => {
+    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
+    mockCanvasState.viewportInteractionActive = true;
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(
+        <SectionContainerCoreResizable
+          sectionId="settings-section__browserSectionDefault"
+          sectionTypeName={SectionTypeEnum.Browser}
+          isInOtherProjectConfigs={false}
+          isUserView={false}
+          positionAndSizeLocked={false}
+          hasSectionStyleTheme={false}
+        />,
+      );
+    });
+
+    const sectionRoot = document.getElementById(
+      "settings-section__browserSectionDefault-CustomResizable",
+    );
+    if (!(sectionRoot instanceof HTMLElement)) {
+      throw new Error("Expected the mock custom resizable to render.");
+    }
+
+    const bodyRoot = sectionRoot.querySelector(
+      '[data-canvas-owned-motion-body-root="true"]',
+    );
+    if (!(bodyRoot instanceof HTMLElement)) {
+      throw new Error("Expected the motion-hidden body root to render.");
+    }
+
+    expect(bodyRoot.getAttribute("data-canvas-owned-motion-body-hidden")).toBe(
+      "true",
+    );
+    expect(bodyRoot.getAttribute("style")).toBeNull();
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
+
+    await act(async () => {
+      setMockActiveSectionId("settings-section__browserSectionDefault");
+    });
+
+    expect(
+      bodyRoot.getAttribute("data-canvas-owned-motion-body-hidden"),
+    ).toBeNull();
+    expect(bodyRoot.getAttribute("style")).toBeNull();
+    expect(mockSectionContainerCoreResizableRenderCount).toBe(1);
   });
 });
