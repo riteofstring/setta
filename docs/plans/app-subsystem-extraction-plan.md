@@ -29,8 +29,8 @@ For this plan, the "app subsystem" includes:
 - app-definition HTTP and MCP routes/tools
 - app deployment publish/load/runtime behavior
 
-This plan assumes the subsystem remains first-party during the extraction. True
-plugin packaging is a final step, not the starting point.
+This plan assumes the subsystem becomes a first-party plugin in `plugins/`, but
+the host/plugin registries still need to be built before code can move cleanly.
 
 ## Goals
 
@@ -48,6 +48,110 @@ plugin packaging is a final step, not the starting point.
 - Replacing the current AppSpec catalog with a new generic UI IR.
 - Reworking the general plugin system as part of the first extraction step.
 - Breaking existing app deployments or silently dropping persisted app data.
+
+## Concrete Decisions
+
+The following decisions are fixed for this extraction unless a later design doc
+explicitly changes them.
+
+### 1) Plugin identity and default state
+
+- The extracted subsystem will land as a first-party plugin in
+  `plugins/setta-json-render-app-gen/`.
+- The plugin id will be `setta-json-render-app-gen`.
+- The plugin manifest will set `enabledByDefault: false`.
+- The intended steady state is:
+  - Setta works normally without `setta-json-render-app-gen` enabled.
+  - AppSpec/app-generation/app-mode behavior only appears when
+    `setta-json-render-app-gen` is installed and enabled.
+
+### 2) Meaning of "disabled" and "absent"
+
+For this project, "disabled" and "absent" are treated the same at the product
+surface:
+
+- no app HTTP routes are registered
+- no app MCP tools are registered
+- no app-generation slash commands or prompt contributions are registered
+- no App Config/App Preview/App mode frontend surfaces are registered
+- no app deployment runtime is available
+
+The implementation may distinguish between:
+
+- plugin present but disabled
+- plugin not installed
+- plugin installed but failed to load
+
+But the host-facing default should still be "app capabilities unavailable" with
+feature-specific error messages where needed.
+
+### 3) Ownership of persisted app data
+
+- During the first pass, core keeps the legacy persisted shape for compatibility:
+  - `project.json` may still contain `appDefinition`
+  - app specs may still live under `app_specs/`
+- Core may carry this data as opaque JSON for snapshot/storage compatibility.
+- Only `setta-json-render-app-gen` may parse, validate, mutate, publish, or
+  interpret that app data.
+- Core should not contain business logic that understands AppSpec/AppDefinition
+  semantics after extraction.
+
+This resolves the boundary as:
+
+- storage compatibility remains in core
+- meaning and behavior move to the plugin
+
+### 4) Generated contracts
+
+- For the first pass, app-specific generated OpenAPI/TypeScript/shared-value
+  outputs may remain in the repo-wide generated artifacts to avoid generator
+  churn.
+- Only plugin code may import or rely on those app-specific generated surfaces.
+- Core host code must stop importing app-specific generated types.
+- No new app-only generated surfaces should be added to generic host-owned code
+  after Phase 1.
+
+After the plugin works end to end, a follow-up can move app-specific generation
+to plugin-local outputs if the current shared generation becomes a maintenance
+problem.
+
+### 5) CLI, route, and startup behavior when unavailable
+
+- `setta app` remains a reserved host command for compatibility.
+- If `setta-json-render-app-gen` is unavailable, `setta app ...` should fail
+  immediately with a specific non-zero error such as:
+  - `App mode requires the first-party plugin "setta-json-render-app-gen" to be enabled.`
+- App HTTP routes should simply be absent when the plugin is unavailable.
+  Requests to `/app/...` should therefore return `404`.
+- Attempts to load existing app deployments without the plugin should fail
+  loudly at startup or command entry, not degrade into share mode or partial
+  behavior.
+
+### 6) Frontend loading model
+
+- The host frontend shell must not statically import app plugin UI.
+- The backend capability manifest will advertise whether
+  `setta-json-render-app-gen` is enabled and which app surfaces are available.
+- When the capability is present, the host frontend lazily loads the plugin's
+  frontend entrypoint and lets it register:
+  - routes/pages
+  - overview panes
+  - slash commands
+  - feature-scoped state hooks
+- When the capability is absent, the host never loads the app plugin frontend
+  chunk.
+
+### 7) Historical chat compatibility
+
+- Historical chat data containing app-generation provenance must be preserved as
+  stored metadata even when `setta-json-render-app-gen` is unavailable.
+- When hydrating such history without the plugin:
+  - the thread still loads
+  - app-specific controls/previews do not appear
+  - the UI may show an explicit unsupported-feature notice
+- Editing or replaying old app-generation turns without the plugin should be
+  blocked with a clear message rather than silently converting them to plain
+  chat.
 
 ## Current Coupling Inventory
 
@@ -136,7 +240,7 @@ Core host should not know about:
 - app deployment routes or pages
 - app-definition validation or patch formats
 
-### 2) App subsystem
+### 2) App subsystem / plugin
 
 The extracted subsystem should own:
 
@@ -146,8 +250,9 @@ The extracted subsystem should own:
 - app-generation prompt contributions, slash commands, and preview logic
 - App Config, App Preview, and App mode pages/components
 - app deployment publish/load/runtime logic
+- the first-party plugin package `plugins/setta-json-render-app-gen/`
 
-If the subsystem is disabled or absent:
+If the `setta-json-render-app-gen` plugin is disabled or absent:
 
 - app-generation commands/modes disappear
 - app-definition routes/tools disappear
@@ -159,12 +264,13 @@ If the subsystem is disabled or absent:
 
 Do this in two stages:
 
-1. Extract into a first-party feature module behind explicit registries.
-2. Only after that boundary is working, package it as an optional plugin/add-on.
+1. Introduce host/plugin registries and capability gating.
+2. Move the subsystem into the first-party plugin
+   `plugins/setta-json-render-app-gen/`.
 
-Do not start by moving code into `plugins/` or by trying to shoehorn the
-current subsystem into the existing plugin model. The current plugin/runtime
-surface is not designed to register all of the things the app subsystem needs:
+Do not start by moving code into `plugins/setta-json-render-app-gen/` before
+the registries exist. The current plugin/runtime surface is not designed to
+register all of the things the app subsystem needs:
 
 - backend routes
 - MCP tools
@@ -201,8 +307,8 @@ Introduce registries for:
 ### Capability manifest
 
 Add a backend-owned capability manifest that the frontend can read at startup.
-At minimum it should indicate whether the app subsystem is enabled and which
-surfaces are available:
+At minimum it should indicate whether `setta-json-render-app-gen` is enabled
+and which surfaces are available:
 
 - app authoring UI
 - app preview UI
@@ -250,8 +356,11 @@ Tasks:
   deployment types.
 - Add frontend registries for routes/pages, panes, and slash commands.
 - Add a capability manifest flow from backend to frontend.
-- Register the existing app subsystem through those registries without moving
-  code yet.
+- Create the initial plugin package skeleton at
+  `plugins/setta-json-render-app-gen/` with `enabledByDefault: false`, even if
+  it temporarily delegates to host-owned code.
+- Register the existing app subsystem through the new plugin/registry path
+  without moving most code yet.
 - Remove direct unconditional mounting of app pages/panes/commands from the
   host shell.
 
@@ -259,11 +368,13 @@ Exit criteria:
 
 - Core bootstraps the current app behavior through registries instead of direct
   imports.
-- A build/runtime flag can hide app UI and app routes without breaking core.
+- Disabling `setta-json-render-app-gen` hides app UI and app routes without
+  breaking core.
 
 ### Phase 2: Isolate backend AppSpec/AppDefinition ownership
 
-Deliverable: app-specific domain logic lives under one backend feature module.
+Deliverable: app-specific domain logic lives behind the
+`setta-json-render-app-gen` plugin.
 
 Tasks:
 
@@ -277,12 +388,10 @@ Tasks:
 - Keep the current on-disk layout initially unless storage migration is required
   to complete the extraction.
 
-Recommended first-pass package shape:
+Recommended first-pass backend shape:
 
-- `internal/features/app/domain/*`
-- `internal/features/app/httpapi/*`
-- `internal/features/app/mcp/*`
-- `internal/features/app/runtime/*`
+- `plugins/setta-json-render-app-gen/backend/...`
+- host-facing shared helpers only where strictly required
 
 Exit criteria:
 
@@ -306,8 +415,8 @@ Tasks:
   registries.
 - Gate chat hydration and replay logic so missing subsystem support does not
   crash when historical messages contain app-generation provenance.
-- Decide whether app-generation mode enums stay in shared generated types for
-  the first pass or move into subsystem-owned generated outputs later.
+- Keep existing app-generation mode generated types where they are for the first
+  pass, but restrict all imports of those surfaces to plugin-owned code.
 
 Important rule:
 
@@ -318,12 +427,13 @@ Important rule:
 Exit criteria:
 
 - Generic chat code no longer needs to know what `json_render` means.
-- Disabling the subsystem removes app-generation commands and prompt injection
-  without breaking plain chat.
+- Disabling `setta-json-render-app-gen` removes app-generation commands and
+  prompt injection without breaking plain chat.
 
 ### Phase 4: Isolate frontend authoring and runtime UI
 
-Deliverable: all app-specific frontend UI lives under one feature module.
+Deliverable: all app-specific frontend UI lives behind the
+`setta-json-render-app-gen` plugin.
 
 Tasks:
 
@@ -337,15 +447,14 @@ Tasks:
 
 Recommended first-pass frontend shape:
 
-- `frontend/src/features/app/runtime/*`
-- `frontend/src/features/app/editor/*`
-- `frontend/src/features/app/chat/*`
-- `frontend/src/features/app/state/*`
+- `plugins/setta-json-render-app-gen/frontend/...`
+- host-facing registration adapters only where strictly required
 
 Exit criteria:
 
 - Host frontend shell mounts app UI only through feature registration.
-- Disabling the subsystem removes app pages/panes/preview state cleanly.
+- Disabling `setta-json-render-app-gen` removes app pages/panes/preview state
+  cleanly.
 
 ### Phase 5: Isolate app deployment mode and publish/runtime behavior
 
@@ -362,7 +471,13 @@ Tasks:
 - Remove unconditional core assumptions that app deployments exist.
 - Decide how the CLI exposes feature-owned commands:
   - direct feature command registration, or
-  - a core command with feature-contributed subcommands
+  - reserved core compatibility stubs that delegate to plugin capabilities
+
+Decision for first pass:
+
+- Keep `setta app` as a reserved host command that checks for
+  `setta-json-render-app-gen` and fails immediately with a specific error when
+  the plugin is unavailable.
 
 Exit criteria:
 
@@ -380,8 +495,8 @@ Tasks:
   shape for compatibility or migrate to a feature-extension storage model.
 - If migration is required, add explicit legacy read support and a controlled
   write path.
-- Decide whether app-specific generated types stay in the shared generated
-  bundle or move to a subsystem-owned generated bundle.
+- Keep app-specific generated types in the shared generated bundle for the first
+  pass, but prevent host-owned code from importing them.
 - Move `AppSpecPatchPolicyConfig` and similar app-only shared exports under the
   subsystem if practical.
 
@@ -399,26 +514,27 @@ Exit criteria:
 
 ### Phase 7: Package the subsystem
 
-Deliverable: the first-party app subsystem can be shipped optionally.
+Deliverable: the first-party plugin `plugins/setta-json-render-app-gen/` can
+be shipped optionally and remains non-default.
 
 Tasks:
 
-- Define packaging format:
-  - first-party optional module, or
-  - first-party plugin package
+- Materialize the final plugin package structure under
+  `plugins/setta-json-render-app-gen/`.
 - Ensure packaging includes:
   - backend registrars
   - frontend bundle/assets
   - generated contract surfaces
   - version compatibility metadata
-- Add startup wiring that loads the subsystem when present and reports disabled
-  capabilities when absent.
+- Add startup wiring that loads `setta-json-render-app-gen` when enabled and
+  reports disabled capabilities when absent.
 - Add developer install/build flows for enabled vs disabled distributions.
 
 Exit criteria:
 
-- A distribution can run without the app subsystem.
-- A distribution with the subsystem enabled preserves current behavior.
+- A distribution can run without `setta-json-render-app-gen`.
+- A distribution with `setta-json-render-app-gen` enabled preserves current
+  behavior.
 
 ## Persistence Strategy
 
@@ -429,8 +545,10 @@ first pass.
 
 - Keep the current persisted AppSpec/AppDefinition data model readable and
   writable.
-- Move ownership of that model into the subsystem code, but do not force an
-  on-disk migration immediately.
+- Let core carry legacy app data only as opaque compatibility payload.
+- Move ownership of the meaning of that model into
+  `setta-json-render-app-gen`, but do not force an on-disk migration
+  immediately.
 
 This keeps the extraction focused on ownership and registration rather than data
 migration risk.
@@ -460,6 +578,7 @@ When disabled:
 
 - old app data may remain on disk, but host code should not crash on load
 - historical chats containing app-generation provenance must hydrate safely
+- `setta app` must fail immediately with a specific plugin-required error
 - app deployment startup should fail loudly and specifically, not silently
   downgrade to some other mode
 
@@ -472,6 +591,7 @@ When disabled:
 - integration tests for feature-owned route/tool registration
 - deployment publish/load/runtime tests with subsystem enabled
 - startup/runtime tests with subsystem disabled
+- command tests for `setta app` when plugin is unavailable
 
 ### Frontend tests
 
@@ -479,6 +599,7 @@ When disabled:
 - integration tests for App Config save/validate/preview flow
 - integration tests for app slash-command registration and disabled-state hiding
 - routing tests for App mode and feature-gated pages
+- lazy-load tests ensuring the app frontend chunk is not loaded when disabled
 
 ### End-to-end tests
 
@@ -495,14 +616,16 @@ When disabled:
 ## Sequencing Recommendation
 
 1. Add registries and capability manifest.
-2. Register the existing app subsystem through those registries with no major
-   moves yet.
-3. Move backend app domain/routes/tools into a dedicated feature package.
-4. Move app-generation prompt/mode/command ownership into the feature package.
-5. Move frontend App Config/Preview/App mode into a dedicated feature module.
-6. Move app deployment type handling behind deployment registries.
+2. Create `plugins/setta-json-render-app-gen/` as a disabled-by-default
+   first-party plugin and register the current subsystem through that path with
+   no major moves yet.
+3. Move backend app domain/routes/tools behind the plugin.
+4. Move app-generation prompt/mode/command ownership behind the plugin.
+5. Move frontend App Config/Preview/App mode behind the plugin frontend entry.
+6. Move app deployment type handling behind deployment registries and plugin
+   ownership.
 7. Clean up generated and persistence ownership.
-8. Package the subsystem optionally.
+8. Finish plugin packaging and disabled-state behavior.
 
 ## Risks And Mitigations
 
@@ -510,8 +633,9 @@ When disabled:
 
 Mitigation:
 
-- introduce first-party feature registries first
-- package later
+- introduce host/plugin registries first
+- move code into `plugins/setta-json-render-app-gen/` only after registration
+  surfaces exist
 
 ### Risk: hidden coupling in generated types and state stores
 
@@ -546,8 +670,11 @@ Mitigation:
 This project is done when all of the following are true:
 
 - core backend and frontend can run without the app subsystem enabled
+- `plugins/setta-json-render-app-gen/` exists as a first-party plugin and is
+  disabled by default
 - the app subsystem registers its own routes, tools, chat modes, and pages
 - generic chat, deployment, and shell code no longer hard-code app concepts
 - current app behavior is preserved when the subsystem is enabled
 - disabled-state behavior is tested and documented
-- packaging the subsystem separately is straightforward rather than theoretical
+- the subsystem can be enabled through the plugin system rather than being
+  compiled in as a mandatory default feature
