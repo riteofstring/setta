@@ -9,6 +9,50 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shared lightweight nested-children row-structure generalization is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-children-generalization-rerun.md`.
+  - canonical target section: `settings-section__codeSectionDefault`
+  - sibling proof sections:
+    - `settings-section__stateMachineGateSectionDefault`
+    - `settings-section__browserSectionDefault`
+  - negative control kept on the legacy wrapper path:
+    - `settings-section__callableSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now resolves lightweight nested-children ownership from the shared canvas-owned resting-text settings boundary while intentionally excluding the shell canaries
+    - `frontend/src/components/Params/ParamContainer.tsx` already removes the extra `div.section-args-nested...` wrapper whenever that helper returns `true`, so the slice stays on the current retained-canvas primitive with no new renderer branch
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settings-section__codeSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `settings-section__stateMachineGateSectionDefault`: `rowCount 14`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 1`
+    - `settings-section__callableSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 1`, `lightweightGuideRootCount 0`
+    - shared lightweight nested-guide ownership now covers `25` resting-text settings sections on the live surface, including `codeSectionDefault`, `stateMachineGateSectionDefault`, `browserSectionDefault`, `chartSectionDefault`, `chatSectionDefault`, `chatWindowing`, `drawSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, `groupSectionDefault`, `iFrameSectionDefault`, `imageSectionDefault`, `languageServer`, `listRootSectionDefault`, `metaControlSectionDefault`, `pluginSectionDefault`, `promptSectionDefault`, `sectionSizingPolicy`, `socialSectionDefault`, `spreadsheetSectionDefault`, `stateMachineEndSectionDefault`, `stateMachineStartSectionDefault`, `taskBoardSectionDefault`, `terminalSectionDefault`, and `textBlockSectionDefault`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 92.64`
+    - `raf.p95Ms: 183.2`
+    - `longTasks.totalMs: 14696`
+  - compared against the prior color-input row-body/value-shell rerun:
+    - `documentNodeCount: 6709 -> 6679`
+    - `raf.meanMs: 94.6 -> 92.64`
+    - `raf.p95Ms: 183.3 -> 183.2`
+    - `longTasks.totalMs: 15114 -> 14696`
+  - interpretation:
+    - this is a real row-structure reduction pass on the current retained-text boundary, not another value-leaf cleanup
+    - the shared lightweight nested-children primitive was broad enough to remove legacy nested wrapper DOM across a meaningful family of existing canvas-owned settings sections
+    - the dense probe moved in the right direction, but the branch still misses the `33.3ms` motion budget badly; the next default frontier should stay on `ParamContainer` row/article structure or a stronger inactive-row overlay/body primitive rather than reopening closed value-shell lanes
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - one retained canvas was mounted under `.react-flow__section-shell-backdrop`
+    - `settings-section__codeSectionDefault`, `settings-section__stateMachineGateSectionDefault`, `settings-section__browserSectionDefault`, and `settings-section__callableSectionDefault` were present and looked intact
+    - no obvious blank or detached nested-guide/body artifact was visible after the new lightweight nested-children ownership
+    - caveat: the page still contains some `Render Errornull` text in the content DOM, but it was not surfaced as a visible overlay in this pass
 - The shared lightweight color-input row-body/value-shell slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-color-input-value-shell-rerun.md`.
   - canonical target section: `settings-section__gui`
   - sibling proof sections:

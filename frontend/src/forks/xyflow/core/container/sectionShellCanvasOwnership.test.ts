@@ -924,7 +924,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("keeps nested guide ownership on the shell canaries and the active section sizing policy dense lane", () => {
+  it("keeps nested guide ownership on the shell canaries and the shared resting-text nested-children boundary", () => {
     expect(isCanvasOwnedSectionNestedGuide(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(
       true,
     );
@@ -951,6 +951,49 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionNestedGuide(
         "settings-section__textBlockSectionDefault",
+      ),
+    ).toBe(true);
+  });
+
+  it("targets the shared resting-text settings boundary for lightweight nested children without widening the shell canaries", () => {
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        DICT_CANVAS_OWNED_SECTION_SHELL_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
       ),
     ).toBe(false);
   });

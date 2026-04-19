@@ -155,6 +155,59 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 069
+
+- Item: Generalize lightweight nested-children ownership across the shared canvas-owned resting-text settings boundary.
+- Status: `done`
+- Details:
+  - Chose a real row-structure reduction slice instead of another value-leaf cleanup after re-reading the current handoff and the older row-shell benchmark that identified `ParamContainer` structure as the dominant remaining non-widget cost bucket.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so `isCanvasOwnedSectionLightweightNestedChildren(...)` now follows the shared canvas-owned resting-text settings boundary while intentionally excluding the legacy shell canaries.
+  - Reused the existing retained-canvas primitive in `frontend/src/components/Params/ParamContainer.tsx`, which already removes the extra `div.section-args-nested...` wrapper whenever that helper returns `true`; no new renderer branch was added.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts`
+  - Live canary result on the worktree runtime:
+    - `settings-section__codeSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `settings-section__stateMachineGateSectionDefault`: `rowCount 14`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 2`
+    - `settings-section__browserSectionDefault`: `rowCount 15`, `legacyNestedWrapperCount 0`, `lightweightGuideRootCount 1`
+    - negative control `settings-section__callableSectionDefault`: `rowCount 16`, `legacyNestedWrapperCount 1`, `lightweightGuideRootCount 0`
+    - shared lightweight nested-guide ownership now covers `25` resting-text settings sections on the live surface
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 92.64`
+    - `raf.p95Ms: 183.2`
+    - `longTasks.totalMs: 14696`
+  - Compared against the prior color-input row-body/value-shell rerun:
+    - `documentNodeCount: 6709 -> 6679`
+    - `raf.meanMs: 94.6 -> 92.64`
+    - `raf.p95Ms: 183.3 -> 183.2`
+    - `longTasks.totalMs: 15114 -> 14696`
+  - Interpretation:
+    - this is a true `ParamContainer` row-structure reduction pass rather than another text/value survivor-family harvest
+    - the existing lightweight nested-children primitive was broad enough to cut real nested wrapper DOM across a meaningful retained-text section family
+    - the dense probe improved slightly but remains far above the motion budget, so the next frontier must continue on row/article structure or a stronger inactive-row overlay/body primitive instead of reopening closed value-shell lanes
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-nested-children-generalization.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (34.3s)` with the focused ownership summary recorded above
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-002/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (51.6s)` with the dense metrics recorded above
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent after refreshing the runtime info for a fresh one-shot bootstrap URL
+  - `/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - one retained canvas was mounted under `.react-flow__section-shell-backdrop`
+  - `settings-section__codeSectionDefault`, `settings-section__stateMachineGateSectionDefault`, `settings-section__browserSectionDefault`, and `settings-section__callableSectionDefault` were present and looked intact
+  - no obvious blank or detached nested-guide/body artifact was visible
+  - caveat: some `Render Errornull` text remains in the content DOM, but it was not surfaced as a visible overlay in this pass
+- Next action:
+  - keep the new lightweight nested-children lane closed and move the next product pass to a broader `ParamContainer` row/article simplification or stronger inactive-row overlay/body primitive on the same retained-text boundary
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 067
 
 - Item: Land the backend plain text-value resting-text lane, rerank the whole scene, and check whether the motion gate still justifies default automation.

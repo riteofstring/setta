@@ -71,13 +71,14 @@ vi.mock("./ParamDndContext", () => ({
 import { ParamContainer } from "./ParamContainer";
 
 describe("ParamContainer lightweight nested children", () => {
-  it("removes the extra nested-child wrapper on the active canvas lane", () => {
+  it("removes the extra nested-child wrapper on the shared resting-text canvas lane", () => {
     mocks.graphSurfaceImplementation = "canvas-shell-underlay";
-    mocks.lightweightNestedChildrenSectionId = "section-sizing-policy";
+    mocks.lightweightNestedChildrenSectionId =
+      "settings-section__codeSectionDefault";
 
     const markup = renderToStaticMarkup(
       <ParamContainer
-        sectionId="section-sizing-policy"
+        sectionId="settings-section__codeSectionDefault"
         paramInfoId="param-current"
         requiredParamIdsToPaths={{}}
         onResizeStart={() => undefined}
@@ -102,5 +103,36 @@ describe("ParamContainer lightweight nested children", () => {
     );
     expect(markup).toContain('data-testid="nested-child-row-1"');
     expect(markup).toContain('data-testid="nested-child-row-2"');
+  });
+
+  it("keeps the legacy nested-child wrapper when the shared helper does not own the section", () => {
+    mocks.graphSurfaceImplementation = "canvas-shell-underlay";
+    mocks.lightweightNestedChildrenSectionId =
+      "settings-section__codeSectionDefault";
+
+    const markup = renderToStaticMarkup(
+      <ParamContainer
+        sectionId="settings-section__callableSectionDefault"
+        paramInfoId="param-current"
+        requiredParamIdsToPaths={{}}
+        onResizeStart={() => undefined}
+        listKey="unpinned"
+        isKwarg={false}
+        isNestedParam={false}
+        hasSectionStyleTheme={false}
+        paramChildren={["param-child"]}
+        border=""
+        bg=""
+      >
+        <span data-testid="param-label">Param</span>
+      </ParamContainer>,
+    );
+
+    expect(markup).toContain(
+      'class="section-args-nested section-key-value relative grid',
+    );
+    expect(markup).not.toContain(
+      'data-canvas-owned-nested-guide-lightweight="true"',
+    );
   });
 });

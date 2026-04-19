@@ -312,8 +312,8 @@ export function isCanvasOwnedSectionLightweightNestedChildren(
   sectionId: string,
 ) {
   return (
-    sectionId === SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID ||
-    sectionId === LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID
+    isCanvasOwnedSectionRestingTextSection(sectionId) &&
+    !isCanvasOwnedSectionShell(sectionId)
   );
 }
 
