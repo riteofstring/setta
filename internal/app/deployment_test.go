@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/appsubsystem"
 	"setta/internal/artifacts"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
@@ -78,6 +80,7 @@ func TestAppOpensDeploymentRuntimeForAppMode(t *testing.T) {
 	t.Parallel()
 
 	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
+	enableAppDeploymentRuntimePlugin(t, cfg.Paths.DeploymentRoot)
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
 		t.Fatalf("new app: %v", err)
@@ -96,6 +99,19 @@ func TestAppOpensDeploymentRuntimeForAppMode(t *testing.T) {
 	}
 	if app.shareSessions == nil {
 		t.Fatal("expected app mode to expose deployment-backed share sessions")
+	}
+}
+
+func TestAppRejectsAppModeWithoutAppSubsystemPlugin(t *testing.T) {
+	t.Parallel()
+
+	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
+	_, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if !errors.Is(err, appsubsystem.ErrAppModePluginRequired) {
+		t.Fatalf("expected app mode plugin-required error, got %v", err)
+	}
+	if err == nil || err.Error() != appsubsystem.ErrAppModePluginRequired.Error() {
+		t.Fatalf("expected exact app mode plugin-required error %q, got %v", appsubsystem.ErrAppModePluginRequired.Error(), err)
 	}
 }
 
@@ -664,6 +680,28 @@ func writeAppDeploymentFixture(
 	})
 	writeAppJSON(t, filepath.Join(deploymentRoot, "policy.json"), map[string]any{
 		"allowRun": true,
+	})
+}
+
+func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string) {
+	t.Helper()
+
+	writeAppJSON(t, filepath.Join(deploymentRoot, ".setta_plugins", plugins.AppSubsystemPluginID, "setta.plugin.json"), map[string]any{
+		"schemaVersion":     1,
+		"id":                plugins.AppSubsystemPluginID,
+		"name":              "Setta JSON Render App Generation",
+		"version":           "0.1.0",
+		"settaVersionRange": ">=0.0.0",
+		"enabledByDefault":  false,
+		"featureCapabilities": map[string]any{
+			"appSubsystem": map[string]any{
+				"appDeploymentRuntime": true,
+			},
+		},
+		"capabilities": []string{},
+	})
+	writeAppJSON(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds": []string{plugins.AppSubsystemPluginID},
 	})
 }
 
