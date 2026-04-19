@@ -31,7 +31,6 @@ import (
 	"setta/internal/statefs"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const (
@@ -41,32 +40,32 @@ const (
 )
 
 type Server struct {
-	logger               *slog.Logger
-	registry             *tools.Registry
-	projectState         projectStateProvider
-	appDefinitionService appdefinition.Runtime
-	afterProjectMutation func(context.Context, string) error
-	pluginMutations      pluginMutationProvider
-	pythonPackages       pythonPackageProvider
-	lspDiagnostics       lspDiagnosticsProvider
-	mcpStatuses          mcpStatusProvider
-	terminals            terminalHistoryProvider
-	docs                 *settadocs.Loader
-	toolSearch           *tools.SearchIndex
-	searchEntries        []tools.SearchEntry
-	temporaryIDs         *TemporaryIDStore
-	agentProfiles        agentProfileProvider
-	promptTemplates      promptTemplateProvider
-	externalAgentConfigs externalAgentConfigProvider
-	llmAPIKeys           llmAPIKeyProvider
-	agentRuns            agentRunProvider
-	uiSettingReveals     uisettings.RevealService
-	stateMachineRuns     stateMachineRunProvider
-	toolInvocations      toolInvocationRecorder
-	server               *sdkmcp.Server
-	handler              http.Handler
-	agenticContextMu     sync.RWMutex
-	agenticContextBySess map[string]AgenticContext
+	logger                       *slog.Logger
+	registry                     *tools.Registry
+	projectState                 projectStateProvider
+	afterProjectMutation         func(context.Context, string) error
+	pluginMutations              pluginMutationProvider
+	pythonPackages               pythonPackageProvider
+	lspDiagnostics               lspDiagnosticsProvider
+	mcpStatuses                  mcpStatusProvider
+	terminals                    terminalHistoryProvider
+	docs                         *settadocs.Loader
+	toolSearch                   *tools.SearchIndex
+	searchEntries                []tools.SearchEntry
+	temporaryIDs                 *TemporaryIDStore
+	agentProfiles                agentProfileProvider
+	promptTemplates              promptTemplateProvider
+	externalAgentConfigs         externalAgentConfigProvider
+	llmAPIKeys                   llmAPIKeyProvider
+	agentRuns                    agentRunProvider
+	uiSettingReveals             uisettings.RevealService
+	contributedUISettingBuilders []uisettings.RuntimeEntryBuilder
+	stateMachineRuns             stateMachineRunProvider
+	toolInvocations              toolInvocationRecorder
+	server                       *sdkmcp.Server
+	handler                      http.Handler
+	agenticContextMu             sync.RWMutex
+	agenticContextBySess         map[string]AgenticContext
 }
 
 type ServerOptions struct {
@@ -74,9 +73,9 @@ type ServerOptions struct {
 	Registry                       *tools.Registry
 	WorkspaceRoot                  string
 	ProjectState                   projectStateProvider
-	AppDefinitionService           appdefinition.Runtime
 	SkipDefaultAppSubsystemTools   bool
 	ContributedToolRegistrations   []ToolRegistration
+	ContributedUISettingBuilders   []uisettings.RuntimeEntryBuilder
 	AfterProjectStateMutation      func(context.Context, string) error
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
@@ -325,26 +324,26 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	})
 
 	instance := &Server{
-		logger:               opts.Logger,
-		registry:             registry,
-		projectState:         opts.ProjectState,
-		appDefinitionService: opts.AppDefinitionService,
-		afterProjectMutation: opts.AfterProjectStateMutation,
-		pluginMutations:      opts.PluginMutations,
-		pythonPackages:       opts.PythonPackages,
-		lspDiagnostics:       opts.LSPDiagnostics,
-		mcpStatuses:          opts.MCPStatuses,
-		terminals:            opts.Terminals,
-		agentProfiles:        opts.AgentProfiles,
-		promptTemplates:      opts.PromptTemplates,
-		externalAgentConfigs: opts.ExternalAgentConfigs,
-		llmAPIKeys:           opts.LLMAPIKeys,
-		agentRuns:            opts.AgentRuns,
-		uiSettingReveals:     opts.UISettingReveals,
-		stateMachineRuns:     opts.StateMachineRuns,
-		toolInvocations:      opts.ToolInvocations,
-		server:               server,
-		agenticContextBySess: map[string]AgenticContext{},
+		logger:                       opts.Logger,
+		registry:                     registry,
+		projectState:                 opts.ProjectState,
+		afterProjectMutation:         opts.AfterProjectStateMutation,
+		pluginMutations:              opts.PluginMutations,
+		pythonPackages:               opts.PythonPackages,
+		lspDiagnostics:               opts.LSPDiagnostics,
+		mcpStatuses:                  opts.MCPStatuses,
+		terminals:                    opts.Terminals,
+		agentProfiles:                opts.AgentProfiles,
+		promptTemplates:              opts.PromptTemplates,
+		externalAgentConfigs:         opts.ExternalAgentConfigs,
+		llmAPIKeys:                   opts.LLMAPIKeys,
+		agentRuns:                    opts.AgentRuns,
+		uiSettingReveals:             opts.UISettingReveals,
+		contributedUISettingBuilders: append([]uisettings.RuntimeEntryBuilder(nil), opts.ContributedUISettingBuilders...),
+		stateMachineRuns:             opts.StateMachineRuns,
+		toolInvocations:              opts.ToolInvocations,
+		server:                       server,
+		agenticContextBySess:         map[string]AgenticContext{},
 	}
 	if strings.TrimSpace(opts.DocsRoot) != "" {
 		docsLoader, err := settadocs.NewLoader(opts.DocsRoot)
@@ -6143,26 +6142,6 @@ func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]
 	return &copied, nil
 }
 
-func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]appdefinition.AppRoute, error) {
-	rawValue, ok := arguments[key]
-	if !ok || rawValue == nil {
-		return nil, nil
-	}
-	rawRoutes, ok := rawValue.([]any)
-	if !ok {
-		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
-	}
-	encoded, err := json.Marshal(rawRoutes)
-	if err != nil {
-		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
-	}
-	var routes []appdefinition.AppRoute
-	if err := json.Unmarshal(encoded, &routes); err != nil {
-		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
-	}
-	return &routes, nil
-}
-
 func readOptionalPositionArgument(arguments map[string]any, key string) (*projectstate.Position, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -7173,8 +7152,6 @@ func projectStateMutationErrorCode(err error) string {
 		return projectNotFoundErrorCode
 	case projectstate.IsExpectedOldValueMismatchError(err):
 		return "mutation_failed"
-	case errors.Is(err, appdefinition.ErrAppSpecNotFound):
-		return "file_not_found"
 	case errors.Is(err, projectstate.ErrPersistedStoreUnsupported):
 		return "internal_error"
 	case isInvalidProjectStateMutationError(err):
@@ -7208,7 +7185,7 @@ func isSettingsOrWatchCodeMutationError(err error) bool {
 }
 
 func isAppSpecOrCodegenMutationError(err error) bool {
-	return isAppSpecMutationError(err) || isCodegenMutationError(err)
+	return isCodegenMutationError(err)
 }
 
 func isSectionOrParamMutationError(err error) bool {
@@ -7227,10 +7204,6 @@ func isStructureMutationError(err error) bool {
 		isDeleteSectionsMutationError(err) ||
 		isTopLevelSectionMutationError(err) ||
 		isCodeSectionStructureMutationError(err)
-}
-
-func isAppSpecMutationError(err error) bool {
-	return errors.Is(err, appdefinition.ErrAppSpecPathUnconfigured)
 }
 
 func isCodegenMutationError(err error) bool {
