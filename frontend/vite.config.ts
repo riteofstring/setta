@@ -42,6 +42,18 @@ export default defineConfig({
         __dirname,
         "plugin-sdk/app-subsystem/src",
       ),
+      "@radix-ui/react-accordion": path.resolve(
+        __dirname,
+        "node_modules/@radix-ui/react-accordion",
+      ),
+      "@radix-ui/react-dialog": path.resolve(
+        __dirname,
+        "node_modules/@radix-ui/react-dialog",
+      ),
+      "@radix-ui/react-switch": path.resolve(
+        __dirname,
+        "node_modules/@radix-ui/react-switch",
+      ),
       "@json-render/core": path.resolve(
         __dirname,
         "node_modules/@json-render/core/dist/index.mjs",
@@ -62,6 +74,10 @@ export default defineConfig({
       "react-markdown": path.resolve(
         __dirname,
         "node_modules/react-markdown/index.js",
+      ),
+      "react-icons/hi2": path.resolve(
+        __dirname,
+        "node_modules/react-icons/hi2/index.js",
       ),
       "react-router-dom": path.resolve(
         __dirname,

@@ -192,4 +192,39 @@ describe("PublishAppDeploymentModal", () => {
       root.unmount();
     });
   });
+
+  it("toggles policy switches through the plugin-owned switch input", async () => {
+    openAPI.checkIfFileExists.mockResolvedValue({
+      data: false,
+      status: 200,
+      hasResponse: true,
+    });
+    openAPI.listAppDeployments.mockResolvedValue({
+      data: [],
+      status: 200,
+      hasResponse: true,
+    });
+
+    const { host, root } = await renderModal();
+    await flushEffects();
+
+    const firstSwitch = host.querySelector(
+      'button[role="switch"]',
+    ) as HTMLButtonElement | null;
+    expect(firstSwitch?.getAttribute("aria-checked")).toBe("true");
+
+    await act(async () => {
+      firstSwitch?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      (
+        host.querySelector('button[role="switch"]') as HTMLButtonElement | null
+      )?.getAttribute("aria-checked"),
+    ).toBe("false");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
