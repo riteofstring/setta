@@ -2,7 +2,9 @@ import {
   createAppSubsystemFrontendHost,
   type AppSubsystemFrontendHost,
   type AppSubsystemProjectContext,
+  type AppSubsystemProjectStateSnapshot,
   type AppSubsystemRuntimeContext,
+  type AppSubsystemServerModeState,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
   createContext,
@@ -66,4 +68,36 @@ export function useAppSubsystemRuntimeContext(): AppSubsystemRuntimeContext {
   }, [host]);
 
   return runtimeContext;
+}
+
+export function useAppSubsystemProjectStateSnapshot(): AppSubsystemProjectStateSnapshot {
+  const host = useAppSubsystemFrontendHost();
+  const [projectState, setProjectState] = useState(() =>
+    host.getProjectStateSnapshot(),
+  );
+
+  useEffect(() => {
+    setProjectState(host.getProjectStateSnapshot());
+    return host.subscribeProjectStateSnapshot((nextProjectState) => {
+      setProjectState(nextProjectState);
+    });
+  }, [host]);
+
+  return projectState;
+}
+
+export function useAppSubsystemServerModeState(): AppSubsystemServerModeState {
+  const host = useAppSubsystemFrontendHost();
+  const [serverModeState, setServerModeState] = useState(() =>
+    host.getServerModeState(),
+  );
+
+  useEffect(() => {
+    setServerModeState(host.getServerModeState());
+    return host.subscribeServerModeState((nextServerModeState) => {
+      setServerModeState(nextServerModeState);
+    });
+  }, [host]);
+
+  return serverModeState;
 }

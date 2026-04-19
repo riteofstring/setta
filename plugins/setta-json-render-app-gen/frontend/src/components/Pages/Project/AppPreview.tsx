@@ -2,6 +2,8 @@ import { AppRenderer } from "../../App/AppRenderer";
 import {
   callOpenAPI,
   loadProjectConfig as loadProjectConfigRequest,
+  res200,
+  type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import { useEffect, useMemo } from "react";
 import {
@@ -10,16 +12,14 @@ import {
   useAppPreview,
 } from "../../../appSubsystemProjectState";
 import {
-  NULL_PROJECT_CONFIG_ID,
-  useAllProjectMetadata,
-  useProjectState,
-} from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
   createAppDefinition,
   type AppDefinition,
 } from "../../../appSubsystemContracts";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
+import {
+  useAppSubsystemProjectContext,
+  useAppSubsystemProjectStateSnapshot,
+} from "../../../appSubsystemFrontendHostContext";
 
 type LoadProjectConfigRouteResponse =
   ResponseDataAndStatus<AppProjectStateSnapshot>;
@@ -32,12 +32,10 @@ export function AppPreview() {
   const previewThemeOverride = useAppPreview((x) => x.previewThemeOverride);
   const previewAssetsOverride = useAppPreview((x) => x.previewAssetsOverride);
   const appConfigs = useAppConfigs((x) => x.configs);
-  const { projectMetadata } = useAllProjectMetadata((x) => x);
-  const activeConfigId = useProjectState((x) => x.projectConfig.id);
-  const projectState = useProjectState((x) => x);
-  const resolvedConfigId =
-    previewConfigId ??
-    (activeConfigId !== NULL_PROJECT_CONFIG_ID ? activeConfigId : null);
+  const { projectMetadata, projectConfig } = useAppSubsystemProjectContext();
+  const projectState = useAppSubsystemProjectStateSnapshot();
+  const activeConfigId = projectConfig.id;
+  const resolvedConfigId = previewConfigId ?? activeConfigId;
   let previewSpec = appSpec;
   if (previewSpecOverride !== undefined) {
     previewSpec = previewSpecOverride;
@@ -65,7 +63,7 @@ export function AppPreview() {
     } as AppDefinition;
   }, [appDefinition, previewAssetsOverride, previewThemeOverride]);
   useEffect(() => {
-    if (!activeConfigId || activeConfigId === NULL_PROJECT_CONFIG_ID) {
+    if (!activeConfigId) {
       return;
     }
     useAppConfigs.setState((state) => ({
@@ -73,17 +71,13 @@ export function AppPreview() {
         ...state.configs,
         [activeConfigId]: {
           ...projectState,
-          previewSectionVariantMap: projectState.previewSectionVariantMap ?? {},
+          previewSectionVariantMap: projectState.previewSectionVariantMap,
         },
       },
     }));
   }, [activeConfigId, projectState]);
   useEffect(() => {
-    if (
-      !resolvedConfigId ||
-      resolvedConfigId === activeConfigId ||
-      resolvedConfigId === NULL_PROJECT_CONFIG_ID
-    ) {
+    if (!resolvedConfigId || resolvedConfigId === activeConfigId) {
       return;
     }
     if (appConfigs[resolvedConfigId]) {
