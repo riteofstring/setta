@@ -13,7 +13,7 @@ import {
   resolveAuthoritativeContextTelemetry,
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
-import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystemRuntime";
+import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystem";
 import {
   getRunInputString,
   getRunLastUpdatedMs,

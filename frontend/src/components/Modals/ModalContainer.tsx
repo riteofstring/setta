@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystemRuntime";
+import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystem";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { openWorkspaceSwitcherModal } from "state/actions/modal";

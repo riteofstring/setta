@@ -1,4 +1,4 @@
-import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystemRuntime";
+import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystem";
 import {
   usePluginRuntimeStore,
   type PluginPaneTabEntry,
@@ -93,6 +93,7 @@ function resetPluginRuntimeStateForTests(): void {
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},

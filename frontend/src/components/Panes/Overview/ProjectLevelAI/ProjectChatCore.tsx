@@ -24,7 +24,7 @@ import { callOpenAPI } from "openapi/http/result";
 import {
   useAppSubsystemFrontendStatus,
   useAppSubsystemSlashCommands,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import {
   Dispatch,
   memo,

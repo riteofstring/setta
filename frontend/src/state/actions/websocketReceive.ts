@@ -12,7 +12,7 @@ import {
   initializeAppSessionFromCurrentDeployment,
   processAppProjectStateUpdateFromBackend,
   resetAppSessionState,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import { receivePluginRuntimeUpdate } from "plugins/runtime";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {

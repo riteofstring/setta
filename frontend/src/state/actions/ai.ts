@@ -55,7 +55,7 @@ import {
   applyAppSpecPatchPreviewDeltaToStore,
   clearAllAppSpecPatchPreviewStreams,
   clearAppSpecPatchPreviewStream,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import {
   clearAIFollowToolArgumentsForChat,
   getAIFollowToolArgumentsSnapshot,
