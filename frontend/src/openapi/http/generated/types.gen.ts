@@ -2806,6 +2806,55 @@ export type PluginsPluginUpdateResponse = {
   toVersion: string;
 };
 
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition = {
+  actions?: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: unknown;
+  catalogId?: string;
+  dataBindings?: unknown;
+  routes?: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute> | null;
+  theme?: unknown;
+};
+
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute = {
+  name?: string;
+  path: string;
+  rootKey?: string;
+};
+
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult = {
+  appDefinition?: PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult = {
+  appDefinition?: PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+export type PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult = {
+  capabilities: PluginsSettaJsonRenderAppGenBackendAppdefinitionCapabilities;
+  errors: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue> | null;
+  warnings: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationIssue> | null;
+};
+
 export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse =
   {
     name: string;
@@ -2860,7 +2909,7 @@ export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinition
       [key: string]: unknown;
     };
     frontendOpId?: string;
-    routes?: Array<ProjectstateAppRoute>;
+    routes?: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute>;
     theme?: {
       [key: string]: unknown;
     };
@@ -2879,7 +2928,7 @@ export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefin
       [key: string]: unknown;
     };
     frontendOpId?: string;
-    routes?: Array<ProjectstateAppRoute>;
+    routes?: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionAppRoute>;
     theme?: {
       [key: string]: unknown;
     };
@@ -2899,7 +2948,7 @@ export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentSes
 
 export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse =
   {
-    appDefinition: ProjectstateAppDefinition;
+    appDefinition: PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition;
     appPolicy: DeploymentsPolicy;
     appSpec: unknown;
     projectState: ProjectviewSingleConfig;
@@ -2929,55 +2978,6 @@ export type ProjectstateAgenticEdge = {
   style?: unknown;
   targetSectionId: string;
   zIndex?: number;
-};
-
-export type ProjectstateAppDefinition = {
-  actions?: unknown;
-  appSpecPath?: string;
-  appSpecVersion?: string;
-  assets?: unknown;
-  catalogId?: string;
-  dataBindings?: unknown;
-  routes?: Array<ProjectstateAppRoute> | null;
-  theme?: unknown;
-};
-
-export type ProjectstateAppDefinitionCapabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-export type ProjectstateAppDefinitionMutationResult = {
-  appDefinition?: ProjectstateAppDefinition;
-  appSpec: unknown;
-};
-
-export type ProjectstateAppDefinitionReadResult = {
-  appDefinition?: ProjectstateAppDefinition;
-  appSpec: unknown;
-};
-
-export type ProjectstateAppDefinitionValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
-};
-
-export type ProjectstateAppDefinitionValidationResult = {
-  capabilities: ProjectstateAppDefinitionCapabilities;
-  errors: Array<ProjectstateAppDefinitionValidationIssue> | null;
-  warnings: Array<ProjectstateAppDefinitionValidationIssue> | null;
-};
-
-export type ProjectstateAppRoute = {
-  name?: string;
-  path: string;
-  rootKey?: string;
 };
 
 export type ProjectstateBrowserSavedSearch = {
@@ -5997,7 +5997,7 @@ export type GetAppDefinitionResponses = {
   /**
    * OK
    */
-  200: ProjectstateAppDefinitionReadResult;
+  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionReadResult;
 };
 
 export type GetAppDefinitionResponse =
@@ -8638,7 +8638,7 @@ export type SetAppDefinitionResponses = {
   /**
    * OK
    */
-  200: ProjectstateAppDefinitionMutationResult;
+  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionMutationResult;
 };
 
 export type SetAppDefinitionResponse =
@@ -11975,7 +11975,7 @@ export type ValidateAppDefinitionResponses = {
   /**
    * OK
    */
-  200: ProjectstateAppDefinitionValidationResult;
+  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionValidationResult;
 };
 
 export type ValidateAppDefinitionResponse =
