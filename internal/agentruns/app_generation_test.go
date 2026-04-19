@@ -2,53 +2,25 @@ package agentruns
 
 import "testing"
 
-func TestParseAppGenerationModeKeepsFirstPassPublicNames(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{name: "json_render", input: "json_render", want: "json_render"},
-		{name: "json_render_with_image", input: "json_render_with_image", want: "json_render_with_image"},
-	}
-
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, ok := ParseAppGenerationMode(testCase.input)
-			if !ok {
-				t.Fatalf("expected %q to remain an allowed app-generation mode", testCase.input)
-			}
-			if got != testCase.want {
-				t.Fatalf("expected normalized mode %q, got %q", testCase.want, got)
-			}
-		})
-	}
-
-	if _, ok := ParseAppGenerationMode("json-render"); ok {
-		t.Fatal("expected renamed json-render mode to remain rejected")
-	}
-}
-
-func TestNormalizeAppGenerationByMessageIDKeepsPlainChatAndDropsInvalidEntries(t *testing.T) {
+func TestNormalizeAppGenerationByMessageIDPreservesAnyNonEmptyMode(t *testing.T) {
 	t.Parallel()
 
 	normalized := NormalizeAppGenerationByMessageID(map[string]any{
-		"msg-plain": ChatAppGenerationMessageModePlainChat,
-		"msg-app":   ChatAppGenerationMessageModeMCPServer,
-		"msg-bad":   "invalid_mode",
-		"":          ChatAppGenerationMessageModeJSONRender,
+		"msg-plain":  ChatAppGenerationMessageModePlainChat,
+		"msg-vendor": " vendor_mode ",
+		"msg-app":    ChatAppGenerationMessageModeMCPServer,
+		"msg-empty":  "   ",
+		"":           "vendor_mode",
 	})
 
-	if len(normalized) != 2 {
-		t.Fatalf("expected two normalized entries, got %#v", normalized)
+	if len(normalized) != 3 {
+		t.Fatalf("expected three normalized entries, got %#v", normalized)
 	}
 	if normalized["msg-plain"] != string(ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain-chat entry to survive normalization, got %#v", normalized)
+	}
+	if normalized["msg-vendor"] != "vendor_mode" {
+		t.Fatalf("expected provider-defined mode to survive normalization, got %#v", normalized)
 	}
 	if normalized["msg-app"] != string(ChatAppGenerationMessageModeMCPServer) {
 		t.Fatalf("expected app-generation entry to survive normalization, got %#v", normalized)
@@ -77,12 +49,12 @@ func TestNormalizeSubmittedTurnAppGenerationByMessageIDRecordsPlainChatWhenModeU
 	t.Parallel()
 
 	normalized := NormalizeSubmittedTurnAppGenerationByMessageID(
-		map[string]any{"msg-old": ChatAppGenerationMessageModeMCPServer},
+		map[string]any{"msg-old": "vendor_mode"},
 		"msg-new",
 		nil,
 	)
 
-	if normalized["msg-old"] != string(ChatAppGenerationMessageModeMCPServer) {
+	if normalized["msg-old"] != "vendor_mode" {
 		t.Fatalf("expected prior normalized entries to survive, got %#v", normalized)
 	}
 	if normalized["msg-new"] != string(ChatAppGenerationMessageModePlainChat) {
@@ -90,17 +62,20 @@ func TestNormalizeSubmittedTurnAppGenerationByMessageIDRecordsPlainChatWhenModeU
 	}
 }
 
-func TestNormalizeSubmittedTurnAppGenerationByMessageIDOverridesSubmittedMode(t *testing.T) {
+func TestNormalizeSubmittedTurnAppGenerationByMessageIDOverridesSubmittedModeAndPreservesProviderModes(t *testing.T) {
 	t.Parallel()
 
-	requestedMode := string(ChatAppGenerationMessageModeJSONRender)
+	requestedMode := "vendor_mode"
 	normalized := NormalizeSubmittedTurnAppGenerationByMessageID(
-		map[string]any{"msg-new": ChatAppGenerationMessageModePlainChat},
+		map[string]any{"msg-old": "vendor_mode_old", "msg-new": ChatAppGenerationMessageModePlainChat},
 		"msg-new",
 		&requestedMode,
 	)
 
-	if normalized["msg-new"] != string(ChatAppGenerationMessageModeJSONRender) {
+	if normalized["msg-old"] != "vendor_mode_old" {
+		t.Fatalf("expected existing provider-defined mode to survive, got %#v", normalized)
+	}
+	if normalized["msg-new"] != "vendor_mode" {
 		t.Fatalf("expected submitted turn to use requested mode, got %#v", normalized)
 	}
 }
