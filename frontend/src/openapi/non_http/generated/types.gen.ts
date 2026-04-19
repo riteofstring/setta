@@ -3777,7 +3777,7 @@ type PasteSectionsInput = {
 /**
  * PatchPolicy
  */
-export type PatchPolicy = {
+type PatchPolicy = {
   allowedOps: null | Array<string>;
   commentPrefix: string;
   elementsPathPrefix: string;

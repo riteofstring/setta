@@ -1,5 +1,5 @@
-import { buildAppGenerationSlashCommandDefinitions } from "plugins/appSubsystemChatUi";
 import { describe, expect, it, vi } from "vitest";
+import { buildAppGenerationSlashCommandDefinitions } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
 import {
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,

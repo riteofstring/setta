@@ -9,13 +9,10 @@ import {
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useAppPreview } from "../../../../appSubsystemProjectState";
+import { useAppDefinition } from "../../../../appSubsystemDefinitionState";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  useAllProjectMetadata,
-  useAppDefinition,
-  useProjectState,
-} from "state/definitions";
+import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { type AppDefinition } from "utils/generatedTypes";
 import {
