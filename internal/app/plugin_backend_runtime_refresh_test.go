@@ -202,6 +202,60 @@ func TestPluginBackendRuntimeRefresherSynthesizesMissingAppliedLanguageServerSta
 	}
 }
 
+func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusToMatchingDuplicateImplementation(t *testing.T) {
+	workspaceDigest := "workspace-digest"
+	settaFilesDigest := "setta-files-digest"
+	refresher := &pluginBackendRuntimeRefresher{
+		appliedLSPSpecs: []lsp.LanguageServerSpec{
+			{
+				PluginID:                 "setta-basedpyright",
+				LanguageID:               "python",
+				PluginSourceScope:        string(plugins.PluginScopeWorkspace),
+				PluginSourceManager:      string(plugins.PluginSourceManagerSetta),
+				PluginCanonicalSourceKey: "local:/workspace/setta-basedpyright",
+				PluginSourcePath:         "/workspace/setta-basedpyright",
+				PluginSourceDigestSHA256: &workspaceDigest,
+			},
+		},
+	}
+	status := plugins.PluginStatusResponse{
+		Plugins: []plugins.PluginStatusEntry{
+			{
+				PluginID:           "setta-basedpyright",
+				State:              plugins.PluginRuntimeStateActive,
+				SourceScope:        plugins.PluginScopeSettaFiles,
+				SourceScopeLabel:   string(plugins.PluginScopeSettaFiles),
+				SourceManager:      plugins.PluginSourceManagerSetta,
+				SourcePath:         "/setta-files/setta-basedpyright",
+				CanonicalSourceKey: "local:/setta-files/setta-basedpyright",
+				SourceDigestSHA256: &settaFilesDigest,
+			},
+			{
+				PluginID:           "setta-basedpyright",
+				State:              plugins.PluginRuntimeStateInvalid,
+				SourceScope:        plugins.PluginScopeWorkspace,
+				SourceScopeLabel:   string(plugins.PluginScopeWorkspace),
+				SourceManager:      plugins.PluginSourceManagerSetta,
+				SourcePath:         "/workspace/setta-basedpyright",
+				CanonicalSourceKey: "local:/workspace/setta-basedpyright",
+				SourceDigestSHA256: &workspaceDigest,
+			},
+		},
+	}
+
+	refresher.applyAppliedLanguageServerStatus(&status)
+
+	if status.Plugins[0].SourcePath != "/workspace/setta-basedpyright" {
+		t.Fatalf("expected applied workspace duplicate to move to the front, got %#v", status.Plugins)
+	}
+	if len(status.Plugins[0].AppliedLanguageServerLanguages) != 1 || status.Plugins[0].AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected applied language to stay on the matching workspace duplicate, got %#v", status.Plugins[0].AppliedLanguageServerLanguages)
+	}
+	if len(status.Plugins[1].AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected lower-precedence duplicate to remain unapplied, got %#v", status.Plugins[1].AppliedLanguageServerLanguages)
+	}
+}
+
 func TestCommitAppliedLanguageServerPluginsDoesNotAdvanceAppliedSpecsOnCommitFailure(t *testing.T) {
 	app := newAppWithFixtureLanguageServer(t)
 
@@ -498,4 +552,46 @@ func TestRefreshedAppliedLanguageServerSpecsKeepsSwitchedSelectionPendingUntilRe
 			Args:       []string{"fixture-lsp-alt.py"},
 		},
 	})
+}
+
+func TestRefreshedAppliedLanguageServerSpecsKeepsCommittedDuplicateImplementation(t *testing.T) {
+	workspaceDigest := "workspace-digest"
+	settaFilesDigest := "setta-files-digest"
+	applied := []lsp.LanguageServerSpec{
+		{
+			PluginID:                 "setta-fixture-backend",
+			LanguageID:               "fixturedsl",
+			Command:                  "python",
+			Args:                     []string{"workspace-fixture-lsp.py"},
+			PluginSourceScope:        string(plugins.PluginScopeWorkspace),
+			PluginSourceManager:      string(plugins.PluginSourceManagerSetta),
+			PluginCanonicalSourceKey: "local:/workspace/setta-fixture-backend",
+			PluginSourcePath:         "/workspace/setta-fixture-backend",
+			PluginSourceDigestSHA256: &workspaceDigest,
+		},
+	}
+	selected := []lsp.LanguageServerSpec{
+		{
+			PluginID:                 "setta-fixture-backend",
+			LanguageID:               "fixturedsl",
+			Command:                  "python",
+			Args:                     []string{"setta-files-fixture-lsp.py"},
+			PluginSourceScope:        string(plugins.PluginScopeSettaFiles),
+			PluginSourceManager:      string(plugins.PluginSourceManagerSetta),
+			PluginCanonicalSourceKey: "local:/setta-files/setta-fixture-backend",
+			PluginSourcePath:         "/setta-files/setta-fixture-backend",
+			PluginSourceDigestSHA256: &settaFilesDigest,
+		},
+	}
+
+	refreshed := refreshedAppliedLanguageServerSpecs(applied, selected, "setta-fixture-backend")
+	if len(refreshed) != 1 {
+		t.Fatalf("expected one applied spec to remain, got %#v", refreshed)
+	}
+	if len(refreshed[0].Args) != 1 || refreshed[0].Args[0] != "workspace-fixture-lsp.py" {
+		t.Fatalf("expected config refresh to keep the committed duplicate implementation, got %#v", refreshed[0].Args)
+	}
+	if refreshed[0].PluginSourcePath != "/workspace/setta-fixture-backend" {
+		t.Fatalf("expected committed source path to remain unchanged, got %q", refreshed[0].PluginSourcePath)
+	}
 }

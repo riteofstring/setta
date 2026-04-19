@@ -146,14 +146,19 @@ func buildLanguageServerSpec(
 		return lsp.LanguageServerSpec{}, "", err
 	}
 	return lsp.LanguageServerSpec{
-		PluginID:    strings.TrimSpace(registration.PluginID),
-		Name:        strings.TrimSpace(registration.Name),
-		LanguageID:  language,
-		Command:     strings.TrimSpace(registration.Command),
-		Args:        append([]string(nil), registration.Args...),
-		Environment: environment,
-		Settings:    settings,
-		SettingsKey: cloneOptionalString(registration.SettingsKey),
+		PluginID:                 strings.TrimSpace(registration.PluginID),
+		Name:                     strings.TrimSpace(registration.Name),
+		LanguageID:               language,
+		Command:                  strings.TrimSpace(registration.Command),
+		Args:                     append([]string(nil), registration.Args...),
+		Environment:              environment,
+		Settings:                 settings,
+		SettingsKey:              cloneOptionalString(registration.SettingsKey),
+		PluginSourceScope:        strings.TrimSpace(string(entry.Scope)),
+		PluginSourceManager:      strings.TrimSpace(string(entry.SourceManager)),
+		PluginCanonicalSourceKey: strings.TrimSpace(entry.CanonicalSourceKey),
+		PluginSourcePath:         strings.TrimSpace(entry.SourcePath),
+		PluginSourceDigestSHA256: cloneOptionalString(entry.SourceDigestSHA256),
 	}, language, nil
 }
 

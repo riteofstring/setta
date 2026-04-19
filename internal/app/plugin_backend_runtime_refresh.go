@@ -91,7 +91,14 @@ func (s *pluginMutationRuntimeService) InvokeRegisteredListenerEndpoint(
 }
 
 func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, error) {
-	return s.base.Rescan()
+	snapshot, err := s.base.Rescan()
+	if err != nil || s.refresher == nil {
+		return snapshot, err
+	}
+	if err := s.refresher.RescanRuntimeTools(context.Background(), snapshot); err != nil {
+		return plugins.DiscoverySnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
@@ -325,6 +332,31 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		return plugins.DiscoverySnapshot{}, err
 	}
 	return r.commitRefreshTransitionLocked(transition)
+}
+
+func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, snapshot plugins.DiscoverySnapshot) error {
+	if r == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
+	if err != nil {
+		return err
+	}
+	previousRuntime := r.runtime
+	if err := r.replaceRuntimeToolsLocked(previousRuntime, nextRuntime); err != nil {
+		closePluginBackendRuntime(nextRuntime)
+		return err
+	}
+	r.runtime = nextRuntime
+	closePluginBackendRuntime(previousRuntime)
+	return nil
 }
 
 func (r *pluginBackendRuntimeRefresher) RefreshLanguageServers(ctx context.Context) error {
@@ -569,49 +601,100 @@ func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status 
 	}
 
 	r.mu.Lock()
-	appliedByPlugin := appliedLanguageServerLanguagesByPlugin(r.appliedLSPSpecs)
+	appliedByPlugin := appliedLanguageServerStatusesByPlugin(r.appliedLSPSpecs)
 	r.mu.Unlock()
 	if len(appliedByPlugin) == 0 {
 		return
 	}
 
-	for index := range status.Plugins {
-		entry := &status.Plugins[index]
-		languages, ok := appliedByPlugin[entry.PluginID]
-		if !ok {
-			continue
-		}
-		entry.AppliedLanguageServerLanguages = append([]string(nil), languages...)
-		delete(appliedByPlugin, entry.PluginID)
-	}
-	if len(appliedByPlugin) == 0 {
-		return
-	}
-
-	appendMissingAppliedLanguageServerStatusEntries(status, appliedByPlugin)
+	status.Plugins = appliedLanguageServerStatusEntries(status.Plugins, appliedByPlugin)
 }
 
-func appendMissingAppliedLanguageServerStatusEntries(
-	status *plugins.PluginStatusResponse,
-	appliedByPlugin map[string][]string,
-) {
-	if status == nil || len(appliedByPlugin) == 0 {
-		return
+type appliedLanguageServerStatus struct {
+	spec      lsp.LanguageServerSpec
+	languages []string
+}
+
+func appliedLanguageServerStatusEntries(
+	entries []plugins.PluginStatusEntry,
+	appliedByPlugin map[string]appliedLanguageServerStatus,
+) []plugins.PluginStatusEntry {
+	if len(entries) == 0 && len(appliedByPlugin) == 0 {
+		return nil
 	}
 
+	output := make([]plugins.PluginStatusEntry, 0, len(entries)+len(appliedByPlugin))
+	for index := 0; index < len(entries); {
+		groupStart := index
+		pluginID := entries[index].PluginID
+		for index < len(entries) && entries[index].PluginID == pluginID {
+			index++
+		}
+		group := append([]plugins.PluginStatusEntry(nil), entries[groupStart:index]...)
+		applied, ok := appliedByPlugin[pluginID]
+		if !ok {
+			output = append(output, group...)
+			continue
+		}
+		if matchedIndex := matchingAppliedLanguageServerStatusIndex(group, applied); matchedIndex >= 0 {
+			group[matchedIndex].AppliedLanguageServerLanguages = append([]string(nil), applied.languages...)
+			group = movePluginStatusEntryToFront(group, matchedIndex)
+		} else {
+			output = append(output, missingAppliedLanguageServerStatusEntry(pluginID, applied.languages))
+		}
+		output = append(output, group...)
+		delete(appliedByPlugin, pluginID)
+	}
+	return appendMissingAppliedLanguageServerStatuses(output, appliedByPlugin)
+}
+
+func matchingAppliedLanguageServerStatusIndex(
+	group []plugins.PluginStatusEntry,
+	applied appliedLanguageServerStatus,
+) int {
+	for index := range group {
+		if languageServerSpecMatchesStatusEntry(applied.spec, group[index]) {
+			return index
+		}
+	}
+	return -1
+}
+
+func appendMissingAppliedLanguageServerStatuses(
+	output []plugins.PluginStatusEntry,
+	appliedByPlugin map[string]appliedLanguageServerStatus,
+) []plugins.PluginStatusEntry {
+	if len(appliedByPlugin) == 0 {
+		return output
+	}
 	pluginIDs := make([]string, 0, len(appliedByPlugin))
 	for pluginID := range appliedByPlugin {
 		pluginIDs = append(pluginIDs, pluginID)
 	}
 	for _, pluginID := range uniqueSortedStrings(pluginIDs) {
-		status.Plugins = append(status.Plugins, missingAppliedLanguageServerStatusEntry(pluginID, appliedByPlugin[pluginID]))
+		applied := appliedByPlugin[pluginID]
+		output = append(output, missingAppliedLanguageServerStatusEntry(pluginID, applied.languages))
 	}
+	return output
+}
+
+func movePluginStatusEntryToFront(entries []plugins.PluginStatusEntry, index int) []plugins.PluginStatusEntry {
+	if index <= 0 || index >= len(entries) {
+		return entries
+	}
+	moved := entries[index]
+	output := make([]plugins.PluginStatusEntry, 0, len(entries))
+	output = append(output, moved)
+	output = append(output, entries[:index]...)
+	output = append(output, entries[index+1:]...)
+	return output
 }
 
 func missingAppliedLanguageServerStatusEntry(pluginID string, languages []string) plugins.PluginStatusEntry {
+	trimmedPluginID := strings.TrimSpace(pluginID)
 	return plugins.PluginStatusEntry{
-		PluginID:                       pluginID,
-		Name:                           pluginID,
+		PluginID:                       trimmedPluginID,
+		Name:                           trimmedPluginID,
 		State:                          plugins.PluginRuntimeStateInvalid,
 		AppliedLanguageServerLanguages: append([]string(nil), languages...),
 		RestartRequired:                true,
@@ -795,14 +878,19 @@ func cloneLanguageServerSpecs(specs []lsp.LanguageServerSpec) []lsp.LanguageServ
 	cloned := make([]lsp.LanguageServerSpec, 0, len(specs))
 	for _, spec := range specs {
 		cloned = append(cloned, lsp.LanguageServerSpec{
-			PluginID:    spec.PluginID,
-			Name:        spec.Name,
-			LanguageID:  spec.LanguageID,
-			Command:     spec.Command,
-			Args:        append([]string(nil), spec.Args...),
-			Environment: clonePluginLanguageServerEnvironment(spec.Environment),
-			Settings:    clonePluginLanguageServerSettings(spec.Settings),
-			SettingsKey: cloneOptionalString(spec.SettingsKey),
+			PluginID:                 spec.PluginID,
+			Name:                     spec.Name,
+			LanguageID:               spec.LanguageID,
+			Command:                  spec.Command,
+			Args:                     append([]string(nil), spec.Args...),
+			Environment:              clonePluginLanguageServerEnvironment(spec.Environment),
+			Settings:                 clonePluginLanguageServerSettings(spec.Settings),
+			SettingsKey:              cloneOptionalString(spec.SettingsKey),
+			PluginSourceScope:        spec.PluginSourceScope,
+			PluginSourceManager:      spec.PluginSourceManager,
+			PluginCanonicalSourceKey: spec.PluginCanonicalSourceKey,
+			PluginSourcePath:         spec.PluginSourcePath,
+			PluginSourceDigestSHA256: cloneOptionalString(spec.PluginSourceDigestSHA256),
 		})
 	}
 	return cloned
@@ -821,10 +909,7 @@ func languageServerSpecSlicesEqual(left []lsp.LanguageServerSpec, right []lsp.La
 }
 
 func lspLanguageServerSpecsEqual(left lsp.LanguageServerSpec, right lsp.LanguageServerSpec) bool {
-	if left.PluginID != right.PluginID ||
-		left.Name != right.Name ||
-		left.LanguageID != right.LanguageID ||
-		left.Command != right.Command {
+	if !lspLanguageServerSpecScalarFieldsEqual(left, right) {
 		return false
 	}
 	if !slices.Equal(left.Args, right.Args) {
@@ -836,7 +921,19 @@ func lspLanguageServerSpecsEqual(left lsp.LanguageServerSpec, right lsp.Language
 	if !languageServerSettingsEqual(left.Settings, right.Settings) {
 		return false
 	}
-	return optionalStringPointersEqual(left.SettingsKey, right.SettingsKey)
+	return optionalStringPointersEqual(left.SettingsKey, right.SettingsKey) &&
+		optionalStringPointersEqual(left.PluginSourceDigestSHA256, right.PluginSourceDigestSHA256)
+}
+
+func lspLanguageServerSpecScalarFieldsEqual(left lsp.LanguageServerSpec, right lsp.LanguageServerSpec) bool {
+	return left.PluginID == right.PluginID &&
+		left.Name == right.Name &&
+		left.LanguageID == right.LanguageID &&
+		left.Command == right.Command &&
+		left.PluginSourceScope == right.PluginSourceScope &&
+		left.PluginSourceManager == right.PluginSourceManager &&
+		left.PluginCanonicalSourceKey == right.PluginCanonicalSourceKey &&
+		left.PluginSourcePath == right.PluginSourcePath
 }
 
 func clonePluginLanguageServerEnvironment(source map[string]string) map[string]string {
@@ -992,13 +1089,76 @@ func refreshedAppliedLanguageServerSpecs(
 		}
 		languageID := strings.ToLower(strings.TrimSpace(spec.LanguageID))
 		updated, ok := selectedByLanguage[languageID]
-		if !ok {
+		if !ok || !languageServerSpecsShareImplementation(spec, updated) {
 			next = append(next, spec)
 			continue
 		}
 		next = append(next, updated)
 	}
 	return next
+}
+
+func appliedLanguageServerStatusesByPlugin(specs []lsp.LanguageServerSpec) map[string]appliedLanguageServerStatus {
+	if len(specs) == 0 {
+		return nil
+	}
+	byPlugin := map[string]appliedLanguageServerStatus{}
+	for _, spec := range specs {
+		pluginID := strings.TrimSpace(spec.PluginID)
+		languageID := strings.ToLower(strings.TrimSpace(spec.LanguageID))
+		if pluginID == "" || languageID == "" {
+			continue
+		}
+		applied := byPlugin[pluginID]
+		if strings.TrimSpace(applied.spec.PluginID) == "" {
+			applied.spec = spec
+		}
+		if slices.Contains(applied.languages, languageID) {
+			byPlugin[pluginID] = applied
+			continue
+		}
+		applied.languages = append(applied.languages, languageID)
+		slices.Sort(applied.languages)
+		byPlugin[pluginID] = applied
+	}
+	if len(byPlugin) == 0 {
+		return nil
+	}
+	return byPlugin
+}
+
+func languageServerSpecsShareImplementation(left lsp.LanguageServerSpec, right lsp.LanguageServerSpec) bool {
+	if strings.TrimSpace(left.PluginID) != strings.TrimSpace(right.PluginID) {
+		return false
+	}
+	if !languageServerSpecHasImplementationMetadata(left) || !languageServerSpecHasImplementationMetadata(right) {
+		return true
+	}
+	return strings.TrimSpace(left.PluginSourceScope) == strings.TrimSpace(right.PluginSourceScope) &&
+		strings.TrimSpace(left.PluginSourceManager) == strings.TrimSpace(right.PluginSourceManager) &&
+		strings.TrimSpace(left.PluginCanonicalSourceKey) == strings.TrimSpace(right.PluginCanonicalSourceKey) &&
+		strings.TrimSpace(left.PluginSourcePath) == strings.TrimSpace(right.PluginSourcePath)
+}
+
+func languageServerSpecMatchesStatusEntry(spec lsp.LanguageServerSpec, entry plugins.PluginStatusEntry) bool {
+	if strings.TrimSpace(spec.PluginID) != strings.TrimSpace(entry.PluginID) {
+		return false
+	}
+	if !languageServerSpecHasImplementationMetadata(spec) {
+		return true
+	}
+	return strings.TrimSpace(spec.PluginSourceScope) == strings.TrimSpace(string(entry.SourceScope)) &&
+		strings.TrimSpace(spec.PluginSourceManager) == strings.TrimSpace(string(entry.SourceManager)) &&
+		strings.TrimSpace(spec.PluginCanonicalSourceKey) == strings.TrimSpace(entry.CanonicalSourceKey) &&
+		strings.TrimSpace(spec.PluginSourcePath) == strings.TrimSpace(entry.SourcePath)
+}
+
+func languageServerSpecHasImplementationMetadata(spec lsp.LanguageServerSpec) bool {
+	return strings.TrimSpace(spec.PluginSourceScope) != "" ||
+		strings.TrimSpace(spec.PluginSourceManager) != "" ||
+		strings.TrimSpace(spec.PluginCanonicalSourceKey) != "" ||
+		strings.TrimSpace(spec.PluginSourcePath) != "" ||
+		spec.PluginSourceDigestSHA256 != nil
 }
 
 func clonePluginLanguageServerSettings(settings map[string]any) map[string]any {

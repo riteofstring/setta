@@ -17,14 +17,19 @@ var (
 )
 
 type LanguageServerSpec struct {
-	PluginID    string
-	Name        string
-	LanguageID  string
-	Command     string
-	Args        []string
-	Environment map[string]string
-	Settings    map[string]any
-	SettingsKey *string
+	PluginID                 string
+	Name                     string
+	LanguageID               string
+	Command                  string
+	Args                     []string
+	Environment              map[string]string
+	Settings                 map[string]any
+	SettingsKey              *string
+	PluginSourceScope        string
+	PluginSourceManager      string
+	PluginCanonicalSourceKey string
+	PluginSourcePath         string
+	PluginSourceDigestSHA256 *string
 }
 
 type RouterOptions struct {
@@ -107,14 +112,19 @@ func (r *Router) ReplaceAdditionalSpecs(ctx context.Context, specs []LanguageSer
 
 func normalizeLanguageServerSpec(spec LanguageServerSpec) (LanguageServerSpec, error) {
 	normalized := LanguageServerSpec{
-		PluginID:    strings.TrimSpace(spec.PluginID),
-		Name:        strings.TrimSpace(spec.Name),
-		LanguageID:  normalizeLanguageID(spec.LanguageID),
-		Command:     strings.TrimSpace(spec.Command),
-		Args:        append([]string(nil), spec.Args...),
-		Environment: cloneLanguageServerEnvironmentMap(spec.Environment),
-		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
-		SettingsKey: cloneOptionalString(spec.SettingsKey),
+		PluginID:                 strings.TrimSpace(spec.PluginID),
+		Name:                     strings.TrimSpace(spec.Name),
+		LanguageID:               normalizeLanguageID(spec.LanguageID),
+		Command:                  strings.TrimSpace(spec.Command),
+		Args:                     append([]string(nil), spec.Args...),
+		Environment:              cloneLanguageServerEnvironmentMap(spec.Environment),
+		Settings:                 cloneLanguageServerSettingsMap(spec.Settings),
+		SettingsKey:              cloneOptionalString(spec.SettingsKey),
+		PluginSourceScope:        strings.TrimSpace(spec.PluginSourceScope),
+		PluginSourceManager:      strings.TrimSpace(spec.PluginSourceManager),
+		PluginCanonicalSourceKey: strings.TrimSpace(spec.PluginCanonicalSourceKey),
+		PluginSourcePath:         strings.TrimSpace(spec.PluginSourcePath),
+		PluginSourceDigestSHA256: cloneOptionalString(spec.PluginSourceDigestSHA256),
 	}
 	if normalized.Name == "" {
 		normalized.Name = normalized.LanguageID
@@ -160,22 +170,24 @@ func cloneLanguageServerSpecMap(source map[string]LanguageServerSpec) map[string
 
 func cloneLanguageServerSpec(spec LanguageServerSpec) LanguageServerSpec {
 	return LanguageServerSpec{
-		PluginID:    strings.TrimSpace(spec.PluginID),
-		Name:        strings.TrimSpace(spec.Name),
-		LanguageID:  normalizeLanguageID(spec.LanguageID),
-		Command:     strings.TrimSpace(spec.Command),
-		Args:        append([]string(nil), spec.Args...),
-		Environment: cloneLanguageServerEnvironmentMap(spec.Environment),
-		Settings:    cloneLanguageServerSettingsMap(spec.Settings),
-		SettingsKey: cloneOptionalString(spec.SettingsKey),
+		PluginID:                 strings.TrimSpace(spec.PluginID),
+		Name:                     strings.TrimSpace(spec.Name),
+		LanguageID:               normalizeLanguageID(spec.LanguageID),
+		Command:                  strings.TrimSpace(spec.Command),
+		Args:                     append([]string(nil), spec.Args...),
+		Environment:              cloneLanguageServerEnvironmentMap(spec.Environment),
+		Settings:                 cloneLanguageServerSettingsMap(spec.Settings),
+		SettingsKey:              cloneOptionalString(spec.SettingsKey),
+		PluginSourceScope:        strings.TrimSpace(spec.PluginSourceScope),
+		PluginSourceManager:      strings.TrimSpace(spec.PluginSourceManager),
+		PluginCanonicalSourceKey: strings.TrimSpace(spec.PluginCanonicalSourceKey),
+		PluginSourcePath:         strings.TrimSpace(spec.PluginSourcePath),
+		PluginSourceDigestSHA256: cloneOptionalString(spec.PluginSourceDigestSHA256),
 	}
 }
 
 func languageServerSpecsEqual(left LanguageServerSpec, right LanguageServerSpec) bool {
-	if left.PluginID != right.PluginID ||
-		left.Name != right.Name ||
-		left.LanguageID != right.LanguageID ||
-		left.Command != right.Command {
+	if !languageServerSpecScalarFieldsEqual(left, right) {
 		return false
 	}
 	if !slices.Equal(left.Args, right.Args) {
@@ -193,14 +205,19 @@ func languageServerSpecsEqual(left LanguageServerSpec, right LanguageServerSpec)
 	) {
 		return false
 	}
-	switch {
-	case left.SettingsKey == nil && right.SettingsKey == nil:
-		return true
-	case left.SettingsKey == nil || right.SettingsKey == nil:
-		return false
-	default:
-		return *left.SettingsKey == *right.SettingsKey
-	}
+	return optionalStringPointersEqual(left.SettingsKey, right.SettingsKey) &&
+		optionalStringPointersEqual(left.PluginSourceDigestSHA256, right.PluginSourceDigestSHA256)
+}
+
+func languageServerSpecScalarFieldsEqual(left LanguageServerSpec, right LanguageServerSpec) bool {
+	return left.PluginID == right.PluginID &&
+		left.Name == right.Name &&
+		left.LanguageID == right.LanguageID &&
+		left.Command == right.Command &&
+		left.PluginSourceScope == right.PluginSourceScope &&
+		left.PluginSourceManager == right.PluginSourceManager &&
+		left.PluginCanonicalSourceKey == right.PluginCanonicalSourceKey &&
+		left.PluginSourcePath == right.PluginSourcePath
 }
 
 func (r *Router) SyncDocuments(ctx context.Context, desired map[string]SyncedDocument) error {
@@ -496,4 +513,15 @@ func cloneOptionalString(value *string) *string {
 	}
 	cloned := strings.TrimSpace(*value)
 	return &cloned
+}
+
+func optionalStringPointersEqual(left *string, right *string) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return strings.TrimSpace(*left) == strings.TrimSpace(*right)
+	}
 }

@@ -244,6 +244,59 @@ describe("LanguageServerStatusBanner", () => {
     }
   });
 
+  it("warns when a same-id replacement copy is active but the old one is still applied", async () => {
+    selectedPythonPlugin = "setta-basedpyright";
+    statusEntries = [
+      buildPluginStatusEntry({
+        pluginId: "setta-basedpyright",
+        state: PluginRuntimeStateEnum.invalid,
+        sourceScope: "workspace",
+        sourceScopeLabel: "workspace",
+        sourcePath: "/workspace/setta-basedpyright",
+        canonicalSourceKey: "local:/workspace/setta-basedpyright",
+        appliedLanguageServerLanguages: ["python"],
+      }),
+      buildPluginStatusEntry({
+        pluginId: "setta-basedpyright",
+        state: PluginRuntimeStateEnum.active,
+        sourceScope: "setta_files",
+        sourceScopeLabel: "setta_files",
+        sourcePath: "/setta-files/plugins/setta-basedpyright",
+        canonicalSourceKey: "local:/setta-files/plugins/setta-basedpyright",
+        registeredLanguageServers: [
+          {
+            pluginId: "setta-basedpyright",
+            name: "basedpyright",
+            language: "python",
+            command: "/bin/python",
+            args: ["-c", "from basedpyright.langserver import main; main()"],
+            settingsKey: "basedpyright",
+          },
+        ],
+      }),
+    ];
+    pluginStatusById = {
+      "setta-basedpyright": statusEntries[0],
+    };
+
+    const { host, root } = await renderBanner();
+
+    try {
+      expect(
+        host.querySelector(
+          '[data-testid="python-language-server-status-banner"]',
+        )?.textContent,
+      ).toContain(
+        'Selected Python language server plugin "setta-basedpyright" is still applied, but restart is still required before the current workspace/plugin state takes effect.',
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("stays hidden when the selected plugin is active for Python", async () => {
     selectedPythonPlugin = "setta-python-lsp";
     pluginStatusById = {
