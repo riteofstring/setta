@@ -1,20 +1,20 @@
 /* @vitest-environment jsdom */
 
+import {
+  createAppSubsystemFrontendHost,
+  type AppSubsystemProjectStateSnapshot,
+} from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  NULL_PROJECT_CONFIG_ID,
-  useAllProjectMetadata,
-  useProjectState,
-} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { createProjectConfig, createSingleConfig } from "utils/generatedTypes";
 import { createAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
 import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
 import {
   useAppConfigs,
   useAppPreview,
@@ -88,11 +88,53 @@ vi.mock("openapi/http/result", () => ({
   },
 }));
 
-function renderPreview() {
+function createPreviewHost(
+  args: {
+    projectContext?: {
+      defaultProjectConfigId: string | null;
+      projectMetadata: Array<{ id: string; name: string }>;
+      projectConfig: {
+        id: string | null;
+        name: string;
+        entryCodeBlockId: string | null;
+      };
+    };
+    projectStateSnapshot?: AppSubsystemProjectStateSnapshot;
+  } = {},
+) {
+  const projectContext = args.projectContext ?? {
+    defaultProjectConfigId: null,
+    projectMetadata: [],
+    projectConfig: {
+      id: null,
+      name: "",
+      entryCodeBlockId: null,
+    },
+  };
+  const projectStateSnapshot =
+    args.projectStateSnapshot ??
+    ({
+      ...createSingleConfig(),
+      previewSectionVariantMap: {},
+    } as AppSubsystemProjectStateSnapshot);
+
+  return createAppSubsystemFrontendHost({
+    getProjectContext: () => projectContext,
+    subscribeProjectContext: () => () => undefined,
+    getProjectStateSnapshot: () => projectStateSnapshot,
+    subscribeProjectStateSnapshot: () => () => undefined,
+  });
+}
+
+function renderPreview(frontendHost = createPreviewHost()) {
   latestProps = null;
   syncStoreInitialState(useAppDefinition);
   syncStoreInitialState(useAppPreview);
-  return renderToStaticMarkup(<AppPreview />);
+  return renderToStaticMarkup(
+    <AppSubsystemFrontendHostProvider host={frontendHost}>
+      <AppPreview />
+    </AppSubsystemFrontendHostProvider>,
+  );
 }
 
 type RenderedPreview = {
@@ -100,14 +142,20 @@ type RenderedPreview = {
   root: Root;
 };
 
-async function renderPreviewInDom(): Promise<RenderedPreview> {
+async function renderPreviewInDom(
+  frontendHost = createPreviewHost(),
+): Promise<RenderedPreview> {
   latestProps = null;
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
 
   await act(async () => {
-    root.render(<AppPreview />);
+    root.render(
+      <AppSubsystemFrontendHostProvider host={frontendHost}>
+        <AppPreview />
+      </AppSubsystemFrontendHostProvider>,
+    );
   });
 
   return { host, root };
@@ -234,6 +282,54 @@ describe("AppPreview", () => {
     expect(latestProps?.appDefinition).not.toBeNull();
   });
 
+  it("hydrates the active app config cache from the frontend host project snapshot", async () => {
+    const frontendHost = createPreviewHost({
+      projectContext: {
+        defaultProjectConfigId: "active-config",
+        projectMetadata: [{ id: "active-config", name: "Active Project" }],
+        projectConfig: {
+          id: "active-config",
+          name: "Active Project",
+          entryCodeBlockId: "entry-code-block",
+        },
+      },
+      projectStateSnapshot: {
+        ...createSingleConfig({
+          projectConfig: createProjectConfig({
+            id: "active-config",
+            name: "Active Project",
+            entryCodeBlockId: "entry-code-block",
+          }),
+        }),
+        previewSectionVariantMap: {
+          sectionA: "variant-a",
+        },
+      },
+    });
+
+    const { host, root } = await renderPreviewInDom(frontendHost);
+
+    try {
+      await flushEffects();
+
+      expect(useAppConfigs.getState().configs["active-config"]).toMatchObject({
+        projectConfig: {
+          id: "active-config",
+          name: "Active Project",
+          entryCodeBlockId: "entry-code-block",
+        },
+        previewSectionVariantMap: {
+          sectionA: "variant-a",
+        },
+      });
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("loads a preview config through the Go project-load route when previewing another project", async () => {
     routeLoadProjectConfigMock.mockResolvedValue({
       data: createSingleConfig({
@@ -245,25 +341,25 @@ describe("AppPreview", () => {
       status: 200,
       hasResponse: true,
     });
-    useProjectState.setState((state) => ({
-      ...state,
-      projectConfig: createProjectConfig({
-        id: NULL_PROJECT_CONFIG_ID,
-        name: "Current Project",
-      }),
-    }));
-    useAllProjectMetadata.setState({
-      defaultProjectConfigId: null,
-      projectMetadata: [
-        createProjectConfig({
-          id: "preview-config",
-          name: "Preview Project",
-        }),
-      ],
-    });
     useAppPreview.setState({ previewConfigId: "preview-config" });
+    const frontendHost = createPreviewHost({
+      projectContext: {
+        defaultProjectConfigId: null,
+        projectMetadata: [
+          {
+            id: "preview-config",
+            name: "Preview Project",
+          },
+        ],
+        projectConfig: {
+          id: null,
+          name: "Current Project",
+          entryCodeBlockId: null,
+        },
+      },
+    });
 
-    const { host, root } = await renderPreviewInDom();
+    const { host, root } = await renderPreviewInDom(frontendHost);
 
     try {
       await flushEffects();

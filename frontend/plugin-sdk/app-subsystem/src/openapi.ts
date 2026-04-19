@@ -33,6 +33,7 @@ export {
   DefaultAppPolicy,
   RunSnapshotModeUIConfig,
   createSettingsState,
+  createSingleConfig,
   createPolicy,
   type Policy,
   type RunSnapshotMode,
