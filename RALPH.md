@@ -51,6 +51,7 @@ Reference worktree note:
 
 - Treat the prior `go-rewrite-pixijs` branch as research input only, not as the default code path to continue.
 - The visible xyflow area must be replaced by a Pixi-owned scene. Hybrid transparent-DOM-shell underlay work does not count as the target architecture.
+- Pixi is the current substrate choice, not a reason to force rollout if Gate 0 stays red. If bounded scene/bootstrap/zoom/text passes still leave the canary visibly worse than DOM, stop for replan instead of widening Pixi ownership.
 - `origin/go-rewrite` is the product-architecture source of truth for this restart.
 - Do not revert broad `go-rewrite` refactors or transplant older branch structure wholesale; port proven ideas, instrumentation, and narrow code slices only.
 - Do not install, add, upgrade, or fetch new dependencies without explicit user permission.

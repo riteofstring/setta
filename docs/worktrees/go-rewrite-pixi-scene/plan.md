@@ -51,6 +51,16 @@ That means Pixi owns:
 
 xyflow may remain only if it is off the visible hot path and not the thing rendering, transforming, or hit-testing the default scene.
 
+Pixi is the current rendering substrate choice, not the product goal by itself.
+
+The real goal is:
+
+- a GPU-owned visible scene
+- our own scene ownership, geometry, and picking
+- premium pan/zoom and stable editing handoff
+
+Do not confuse "using Pixi" with success. If Pixi cannot clear the early scene-quality gates on text, zoom, or interaction, stop and reassess before rolling it out more broadly.
+
 ### 2. Hybrid underlay work is not the target architecture
 
 The previous branch proved that "transparent DOM shells plus a canvas underlay" can still be slower, visually broken, and conceptually muddled.
@@ -84,6 +94,16 @@ Before broad rollout, pick and validate one text strategy that can survive zoom:
 - a different Pixi-native text strategy that is demonstrably crisp and stable
 
 Do not assume plain raster `Text` scaled arbitrarily will be good enough.
+
+### 5. Keep the usable DOM path while proving the new scene
+
+The DOM reference path remains the usability fallback while this branch proves the new renderer.
+
+That means:
+
+- do not regress the normal usable path just to keep the Pixi branch moving
+- do not expand Pixi ownership while Gate 0 is still failing
+- if the new scene is visibly worse, treat that as a stop signal, not as debt to normalize later
 
 ## Non-goals
 
@@ -168,6 +188,7 @@ Exit criteria:
 
 - a full-scene Pixi canary renders recognizable sections from real layout data
 - panning and zooming move the Pixi scene directly
+- if this cannot be achieved cleanly, stop for replan instead of widening the old hybrid path
 
 ### Phase 2: Premium camera and zoom quality
 
@@ -187,6 +208,7 @@ Exit criteria:
 
 - Gate 0 viability is green on the Pixi scene
 - the scene is subjectively usable for normal pan/zoom
+- if Gate 0 stays red after bounded scene/bootstrap/zoom passes, stop and reassess the substrate/scene approach before further rollout
 
 ### Phase 3: Section shell and chrome fidelity
 
@@ -307,3 +329,4 @@ Do not spend early iterations on:
 - chat activator plumbing
 - transparent DOM shell experiments
 - DOM micro-optimizations that do not move the renderer ownership boundary
+- forcing more Pixi rollout after repeated Gate 0 failures just because Pixi was the initial substrate choice

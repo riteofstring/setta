@@ -27,6 +27,7 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixi-scene/checklist.md
 - xyflow cannot remain the default viewport/rendering owner on the canary path.
 - DOM is limited to active editors, menus/popups, chat, and other explicit exceptions.
 - Scene hit-testing must resolve against Pixi-owned geometry, not hidden DOM anchors.
+- Pixi is the current substrate choice, not a success condition by itself. If the scene stays visibly worse or cannot clear Gate 0, stop for replan instead of widening Pixi ownership by inertia.
 
 ## Immediate next action
 
@@ -51,6 +52,7 @@ While Gate 0 is red, do not spend time on:
 - chat work
 - support-only micro-optimizations
 - parity polish that does not improve scene viability
+- further Pixi rollout whose only justification is "we already picked Pixi"
 
 ## Loop memory rules
 

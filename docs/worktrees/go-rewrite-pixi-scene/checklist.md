@@ -19,10 +19,12 @@ Use `docs/worktrees/go-rewrite-pixi-scene/log.md` as the canonical append-only e
 - `origin/go-rewrite` remains the product-architecture source of truth.
 - `/home/ubuntu/dev/setta` remains the read-only reference worktree for visual comparisons.
 - The visible xyflow graph area must be replaced by a Pixi-owned scene.
+- Pixi is a substrate choice, not the goal. The real goal is a GPU-owned visible scene with premium pan/zoom and stable editing handoff.
 - Hybrid transparent-DOM-shell underlay work does not count as the target architecture.
 - DOM is allowed only for active editors, menus/popups, chat, and other explicit exceptions.
 - Chat is a documented DOM exception for this restart and is not the primary blocker lane.
 - Do not widen section-family ownership before the scene passes Gate 0 viability.
+- If the Pixi scene cannot clear Gate 0 after bounded bootstrap/zoom/text passes, stop for replan instead of forcing more Pixi rollout.
 
 ## Scene-quality guardrails
 
