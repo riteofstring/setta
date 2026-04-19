@@ -6,7 +6,10 @@ import {
   type GetAppDeploymentCurrentSessionResponses,
   type GetAppDeploymentStateResponses,
 } from "@setta/app-subsystem-frontend-sdk";
-import { useAppConfigs } from "../../appSubsystemProjectState";
+import {
+  type AppProjectStateSnapshot,
+  useAppConfigs,
+} from "../../appSubsystemProjectState";
 import {
   useAllProjectMetadata,
   useProjectLoading,
@@ -20,7 +23,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import type { SingleConfig } from "utils/generatedTypes";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
 type AppDeploymentState = GetAppDeploymentStateResponses[200];
@@ -53,7 +55,7 @@ function normalizeAppDeploymentStateResponse(
     ...response,
     appDefinition: response.appDefinition ?? null,
     appSpec: response.appSpec ?? null,
-    projectState: response.projectState as SingleConfig,
+    projectState: response.projectState as AppProjectStateSnapshot,
   };
 }
 function clearAppSessionCookie() {
@@ -383,7 +385,7 @@ export async function ensureAppProjectConfigLoaded(
   }
   return await loadAppDeploymentState({ projectConfigId });
 }
-function storeAppConfigState(projectState: SingleConfig) {
+function storeAppConfigState(projectState: AppProjectStateSnapshot) {
   useAppConfigs.setState((state) => ({
     configs: {
       ...state.configs,

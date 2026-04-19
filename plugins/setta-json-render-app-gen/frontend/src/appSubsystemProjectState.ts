@@ -1,19 +1,23 @@
-import type { ZustandProjectState } from "state/definitions";
-import { withProjectState, withResetFn } from "state/utils";
-import { createWithEqualityFn } from "utils/zustandTraditional";
+import type { GetLatestProjectStateResponse } from "@setta/app-subsystem-frontend-sdk";
+import {
+  createWithEqualityFn,
+  withAppSubsystemResetFn,
+} from "./appSubsystemStore";
 
-type AppConfigState = ZustandProjectState;
+export type AppProjectStateSnapshot =
+  GetLatestProjectStateResponse["projectState"];
+export type AppConfigState = AppProjectStateSnapshot & {
+  previewSectionVariantMap: Record<string, string>;
+};
 
 type AppConfigsState = {
   configs: Record<string, AppConfigState>;
 };
 
-export const useAppConfigs = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppConfigsState>(() => ({
-      configs: {},
-    })),
-  ),
+export const useAppConfigs = createWithEqualityFn(
+  withAppSubsystemResetFn<AppConfigsState>(() => ({
+    configs: {},
+  })),
 );
 
 type AppPreviewState = {
@@ -28,15 +32,13 @@ type AppPreviewState = {
   previewAssetsOverride?: unknown[] | null;
 };
 
-export const useAppPreview = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppPreviewState>(() => ({
-      isPreviewEnabled: false,
-      previewConfigId: null,
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    })),
-  ),
+export const useAppPreview = createWithEqualityFn(
+  withAppSubsystemResetFn<AppPreviewState>(() => ({
+    isPreviewEnabled: false,
+    previewConfigId: null,
+    previewSpecOverride: undefined,
+    aiPreviewSpecOverride: undefined,
+    previewThemeOverride: undefined,
+    previewAssetsOverride: undefined,
+  })),
 );
