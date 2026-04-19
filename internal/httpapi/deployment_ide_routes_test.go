@@ -234,6 +234,17 @@ func TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot(t *tes
 	}
 }
 
+func TestDeploymentTypeLabelUsesGenericTypeNames(t *testing.T) {
+	t.Parallel()
+
+	if got := deploymentTypeLabel(deployments.TypeShare); got != "Share" {
+		t.Fatalf("expected Share label, got %q", got)
+	}
+	if got := deploymentTypeLabel(deployments.Type("plugin-app")); got != "Plugin-app" {
+		t.Fatalf("expected generic plugin label, got %q", got)
+	}
+}
+
 func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnSharePublish(t *testing.T) {
 	t.Parallel()
 

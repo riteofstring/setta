@@ -37,6 +37,33 @@ func TestNewTypeRegistryRejectsDuplicateStartupModes(t *testing.T) {
 	}
 }
 
+func TestNewTypeRegistryAcceptsPluginOwnedDeploymentTypes(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewTypeRegistry([]TypeRegistration{
+		ShareTypeRegistration(),
+		{
+			Type: Type(" plugin-app "),
+			Startup: StartupRegistration{
+				ModeName: "plugin-app",
+				URLLabel: "Plugin App URL",
+			},
+			OpenRuntime: Open,
+		},
+	})
+	if err != nil {
+		t.Fatalf("new type registry: %v", err)
+	}
+
+	registration, err := registry.RegistrationForType(Type("plugin-app"))
+	if err != nil {
+		t.Fatalf("lookup plugin deployment type: %v", err)
+	}
+	if registration.Type != Type("plugin-app") {
+		t.Fatalf("expected normalized plugin deployment type, got %#v", registration)
+	}
+}
+
 func TestTypeRegistryResolveStartupRegistrationMatchesModeAndManifest(t *testing.T) {
 	t.Parallel()
 
