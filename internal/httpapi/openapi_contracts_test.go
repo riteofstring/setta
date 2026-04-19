@@ -795,17 +795,29 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
 	)
 }
 
-func TestSettaOpenAPISchemaNameKeepsLegacyAppspecPrefixAfterPluginMove(t *testing.T) {
+func TestSettaOpenAPISchemaNameUsesPluginOwnedAppschemaPrefixes(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		typ  reflect.Type
 		want string
 	}{
-		{typ: reflect.TypeOf(appdefinitionhttp.SetAppDefinitionRequest{}), want: "HttpapiSetAppDefinitionRequest"},
-		{typ: reflect.TypeOf(appdefinitionhttp.ValidateAppDefinitionRequest{}), want: "HttpapiValidateAppDefinitionRequest"},
-		{typ: reflect.TypeOf(appspec.AppCapabilities{}), want: "AppspecAppCapabilities"},
-		{typ: reflect.TypeOf(appspec.AppValidationIssue{}), want: "AppspecAppValidationIssue"},
+		{
+			typ:  reflect.TypeOf(appdefinitionhttp.SetAppDefinitionRequest{}),
+			want: "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinitionRequest",
+		},
+		{
+			typ:  reflect.TypeOf(appdefinitionhttp.ValidateAppDefinitionRequest{}),
+			want: "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefinitionRequest",
+		},
+		{
+			typ:  reflect.TypeOf(appspec.AppCapabilities{}),
+			want: "PluginsSettaJsonRenderAppGenBackendAppspecAppCapabilities",
+		},
+		{
+			typ:  reflect.TypeOf(appspec.AppValidationIssue{}),
+			want: "PluginsSettaJsonRenderAppGenBackendAppspecAppValidationIssue",
+		},
 	}
 
 	for _, tc := range cases {

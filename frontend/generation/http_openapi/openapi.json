@@ -1502,149 +1502,6 @@
         ],
         "type": "object"
       },
-      "HttpapiAppCatalogActionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": ["name"],
-        "type": "object"
-      },
-      "HttpapiAppCatalogComponentResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "children": {
-            "type": "boolean"
-          },
-          "props": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/HttpapiAppCatalogPropResponse"
-            },
-            "type": "object"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "required": ["type", "children"],
-        "type": "object"
-      },
-      "HttpapiAppCatalogPropResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "default": {},
-          "enum": {
-            "items": {},
-            "type": ["array", "null"]
-          },
-          "max": {
-            "format": "double",
-            "type": "number"
-          },
-          "min": {
-            "format": "double",
-            "type": "number"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "responsive": {
-            "type": "boolean"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "required": ["type"],
-        "type": "object"
-      },
-      "HttpapiAppCatalogResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "items": {
-              "$ref": "#/components/schemas/HttpapiAppCatalogActionResponse"
-            },
-            "type": ["array", "null"]
-          },
-          "components": {
-            "items": {
-              "$ref": "#/components/schemas/HttpapiAppCatalogComponentResponse"
-            },
-            "type": ["array", "null"]
-          },
-          "id": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "version", "components", "actions"],
-        "type": "object"
-      },
-      "HttpapiAppDeploymentSessionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "appPolicy": {
-            "$ref": "#/components/schemas/DeploymentsPolicy"
-          },
-          "defaultProjectConfigId": {
-            "type": "string"
-          },
-          "deploymentName": {
-            "type": "string"
-          },
-          "deploymentVersion": {
-            "type": "string"
-          },
-          "manifest": {
-            "$ref": "#/components/schemas/DeploymentsManifest"
-          },
-          "projectMetadata": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateProjectConfigMetadata"
-            },
-            "type": ["array", "null"]
-          },
-          "sessionRunCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "shareSessionId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "deploymentName",
-          "deploymentVersion",
-          "shareSessionId",
-          "sessionRunCount",
-          "defaultProjectConfigId",
-          "projectMetadata",
-          "appPolicy"
-        ],
-        "type": "object"
-      },
-      "HttpapiAppDeploymentStateResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "$ref": "#/components/schemas/ProjectstateAppDefinition"
-          },
-          "appPolicy": {
-            "$ref": "#/components/schemas/DeploymentsPolicy"
-          },
-          "appSpec": {},
-          "projectState": {
-            "$ref": "#/components/schemas/ProjectviewSingleConfig"
-          }
-        },
-        "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
-        "type": "object"
-      },
       "HttpapiAppendDrawAreaLayerItemRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3107,15 +2964,6 @@
           }
         },
         "required": ["projectConfigId", "chatSectionId"],
-        "type": "object"
-      },
-      "HttpapiGetAppDefinitionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          }
-        },
         "type": "object"
       },
       "HttpapiGetAppGenSkillContentRequest": {
@@ -4738,34 +4586,6 @@
         ],
         "type": "object"
       },
-      "HttpapiPublishAppDeploymentRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "appPolicyOverrides": {
-            "$ref": "#/components/schemas/DeploymentsSharePolicyOverrides"
-          },
-          "deploymentName": {
-            "type": "string"
-          },
-          "listenerEnabled": {
-            "type": ["boolean", "null"]
-          },
-          "listenerEntrypoint": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "deploymentName",
-          "projectConfigId",
-          "appPolicyOverrides",
-          "listenerEntrypoint",
-          "listenerEnabled"
-        ],
-        "type": "object"
-      },
       "HttpapiPublishShareDeploymentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5189,48 +5009,6 @@
           }
         },
         "required": ["projectConfigId", "edges"],
-        "type": "object"
-      },
-      "HttpapiSetAppDefinitionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "appSpec": {},
-          "appSpecPath": {
-            "type": "string"
-          },
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "assets": {
-            "items": {},
-            "type": "array"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "dataBindings": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "routes": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateAppRoute"
-            },
-            "type": "array"
-          },
-          "theme": {
-            "additionalProperties": {},
-            "type": "object"
-          }
-        },
-        "required": ["appSpec"],
         "type": "object"
       },
       "HttpapiSetBrowserAreaViewModeRequest": {
@@ -7589,45 +7367,6 @@
         "required": ["skillId", "relativePath", "content"],
         "type": "object"
       },
-      "HttpapiValidateAppDefinitionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "appSpec": {},
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "assets": {
-            "items": {},
-            "type": "array"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "dataBindings": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "routes": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateAppRoute"
-            },
-            "type": "array"
-          },
-          "theme": {
-            "additionalProperties": {},
-            "type": "object"
-          }
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
       "HttpapiWindowSpaceMutationResponse": {
         "additionalProperties": false,
         "properties": {
@@ -8781,6 +8520,267 @@
           "toVersion",
           "sourceDigestSha256",
           "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["name"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogComponentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "type": "boolean"
+          },
+          "props": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogPropResponse"
+            },
+            "type": "object"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "children"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogPropResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {},
+          "enum": {
+            "items": {},
+            "type": ["array", "null"]
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "min": {
+            "format": "double",
+            "type": "number"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "responsive": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse"
+            },
+            "type": ["array", "null"]
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogComponentResponse"
+            },
+            "type": ["array", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "version", "components", "actions"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpGetAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frontendOpId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "appSpec": {},
+          "appSpecPath": {
+            "type": "string"
+          },
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {
+            "items": {},
+            "type": "array"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": "array"
+          },
+          "theme": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "appSpec": {},
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {
+            "items": {},
+            "type": "array"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": "array"
+          },
+          "theme": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "appPolicy": {
+            "$ref": "#/components/schemas/DeploymentsPolicy"
+          },
+          "defaultProjectConfigId": {
+            "type": "string"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "deploymentVersion": {
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/DeploymentsManifest"
+          },
+          "projectMetadata": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateProjectConfigMetadata"
+            },
+            "type": ["array", "null"]
+          },
+          "sessionRunCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "shareSessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deploymentName",
+          "deploymentVersion",
+          "shareSessionId",
+          "sessionRunCount",
+          "defaultProjectConfigId",
+          "projectMetadata",
+          "appPolicy"
+        ],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/ProjectstateAppDefinition"
+          },
+          "appPolicy": {
+            "$ref": "#/components/schemas/DeploymentsPolicy"
+          },
+          "appSpec": {},
+          "projectState": {
+            "$ref": "#/components/schemas/ProjectviewSingleConfig"
+          }
+        },
+        "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
+        "type": "object"
+      },
+      "PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpPublishAppDeploymentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "appPolicyOverrides": {
+            "$ref": "#/components/schemas/DeploymentsSharePolicyOverrides"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "listenerEnabled": {
+            "type": ["boolean", "null"]
+          },
+          "listenerEntrypoint": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deploymentName",
+          "projectConfigId",
+          "appPolicyOverrides",
+          "listenerEntrypoint",
+          "listenerEnabled"
         ],
         "type": "object"
       },
@@ -12131,7 +12131,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HttpapiPublishAppDeploymentRequest"
+                "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpPublishAppDeploymentRequest"
               }
             }
           },
@@ -12173,7 +12173,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpapiAppDeploymentSessionResponse"
+                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentSessionResponse"
                 }
               }
             },
@@ -12317,7 +12317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpapiAppDeploymentStateResponse"
+                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse"
                 }
               }
             },
@@ -12366,7 +12366,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpapiAppDeploymentStateResponse"
+                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse"
                 }
               }
             },
@@ -14997,7 +14997,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpapiAppCatalogResponse"
+                  "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogResponse"
                 }
               }
             },
@@ -15026,7 +15026,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HttpapiGetAppDefinitionRequest"
+                "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpGetAppDefinitionRequest"
               }
             }
           },
@@ -18876,7 +18876,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HttpapiSetAppDefinitionRequest"
+                "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinitionRequest"
               }
             }
           },
@@ -23790,7 +23790,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HttpapiValidateAppDefinitionRequest"
+                "$ref": "#/components/schemas/PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefinitionRequest"
               }
             }
           },

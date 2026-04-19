@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type { Policy } from "utils/generatedTypes";
@@ -16,6 +15,7 @@ import {
   createSectionCapabilities,
   createSingletonSections,
 } from "utils/generatedTypes";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import { AppRenderer } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer";
 

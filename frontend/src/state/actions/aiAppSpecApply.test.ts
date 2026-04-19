@@ -2,14 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { receiveLLMResponseChunk } from "./ai";
 
-import { useAppPreview } from "plugins/appSubsystemProjectState";
-import { useAppDefinition, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
   StreamingEventTypeEnum,
   createProjectConfig,
 } from "utils/generatedTypes";
+import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 describe("ai app spec tool results", () => {
   beforeEach(() => {
