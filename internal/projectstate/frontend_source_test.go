@@ -192,33 +192,38 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	}
 }
 
-func TestDocumentNormalizedRejectsNonObjectAppDefinitionDataBindings(t *testing.T) {
+func TestDocumentNormalizedPreservesOpaqueAppDefinitionPayload(t *testing.T) {
 	t.Parallel()
 
 	document := newFrontendSourceTestDocument(t)
 	document.AppDefinition.DataBindings = mustRawJSON(t, `["not","an","object"]`)
-
-	_, err := document.Normalized()
-	if err == nil {
-		t.Fatal("expected non-object appDefinition.dataBindings to fail normalization")
-	}
-	if !strings.Contains(err.Error(), "appDefinition.dataBindings") {
-		t.Fatalf("expected appDefinition.dataBindings error, got %v", err)
-	}
-}
-
-func TestDocumentNormalizedRejectsNonObjectAppDefinitionActions(t *testing.T) {
-	t.Parallel()
-
-	document := newFrontendSourceTestDocument(t)
 	document.AppDefinition.Actions = mustRawJSON(t, `["not","an","object"]`)
+	document.AppDefinition.Routes = []AppRoute{{Path: "   ", Name: "  Home  ", RootKey: " root "}}
 
-	_, err := document.Normalized()
-	if err == nil {
-		t.Fatal("expected non-object appDefinition.actions to fail normalization")
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize rich project document with opaque app payload: %v", err)
 	}
-	if !strings.Contains(err.Error(), "appDefinition.actions") {
-		t.Fatalf("expected appDefinition.actions error, got %v", err)
+	if normalized.AppDefinition == nil {
+		t.Fatal("expected app definition to be preserved")
+	}
+	assertJSONEqual(
+		t,
+		mustRawJSON(t, `["not","an","object"]`),
+		normalized.AppDefinition.DataBindings,
+		"opaque appDefinition.dataBindings",
+	)
+	assertJSONEqual(
+		t,
+		mustRawJSON(t, `["not","an","object"]`),
+		normalized.AppDefinition.Actions,
+		"opaque appDefinition.actions",
+	)
+	if len(normalized.AppDefinition.Routes) != 1 {
+		t.Fatalf("expected one opaque route, got %#v", normalized.AppDefinition.Routes)
+	}
+	if normalized.AppDefinition.Routes[0].Path != "   " {
+		t.Fatalf("expected opaque app route path to be preserved, got %q", normalized.AppDefinition.Routes[0].Path)
 	}
 }
 
