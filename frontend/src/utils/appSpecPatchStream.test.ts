@@ -4,7 +4,7 @@ import {
   applyPatchOp,
   createEmptySpec,
   parsePatchLine,
-} from "./appSpecPatchStream";
+} from "../../../plugins/setta-json-render-app-gen/frontend/src/appSpecPatchStream";
 
 describe("appSpecPatchStream", () => {
   it("uses the Go-owned patch policy when parsing lines", () => {

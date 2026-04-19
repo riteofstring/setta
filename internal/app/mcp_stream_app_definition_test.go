@@ -12,11 +12,11 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
-	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
@@ -25,6 +25,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -35,7 +36,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -48,9 +49,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -98,6 +97,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -111,7 +111,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -124,9 +124,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -174,6 +172,7 @@ func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -184,7 +183,7 @@ func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -197,9 +196,7 @@ func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()

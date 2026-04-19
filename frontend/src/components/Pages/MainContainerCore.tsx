@@ -6,8 +6,11 @@ import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMir
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
+import {
+  useAppSubsystemPreviewEnabled,
+  useAppSubsystemPreviewSurface,
+} from "plugins/appSubsystemRuntime";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
@@ -15,7 +18,6 @@ import {
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
-import { AppPreview } from "./Project/AppPreview";
 import { UIPage } from "./Project/UiPage";
 import { ViewModeTabs } from "./Project/ViewModeTabs";
 
@@ -28,7 +30,8 @@ export function MainContainerCore({
   doneLoading,
   is404,
 }: MainContainerCoreProps) {
-  const isAppPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
+  const isAppPreviewEnabled = useAppSubsystemPreviewEnabled();
+  const appPreviewSurface = useAppSubsystemPreviewSurface();
   useCodeMirrorStyleLoader(doneLoading, is404);
   useAddMouseLocationListener();
   useAIFollowViewport();
@@ -44,12 +47,18 @@ export function MainContainerCore({
     return <NotFound />;
   }
 
+  const AppPreviewComponent = appPreviewSurface?.component;
+
   return (
     <>
       <Overview />
       <UiEditor />
       <GridWrapper>
-        {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
+        {isAppPreviewEnabled && AppPreviewComponent ? (
+          <AppPreviewComponent />
+        ) : (
+          <UIPage />
+        )}
       </GridWrapper>
       <ProjectChatBottomDock />
       <ViewModeTabs />
