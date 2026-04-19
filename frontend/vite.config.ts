@@ -1,3 +1,4 @@
+import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import svgrPlugin from "vite-plugin-svgr";
@@ -30,11 +31,53 @@ const devFrontendHost = resolveHost(
   process.env.SETTA_DEV_FRONTEND_HOST ?? process.env.SETTA_HOST,
   C.DEFAULT_HOST
 );
+const srcRoot = path.resolve(__dirname, "src");
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgrPlugin()],
   resolve: {
+    alias: {
+      "@json-render/core": path.resolve(
+        __dirname,
+        "node_modules/@json-render/core/dist/index.mjs",
+      ),
+      "@json-render/react": path.resolve(
+        __dirname,
+        "node_modules/@json-render/react/dist/index.mjs",
+      ),
+      components: path.resolve(srcRoot, "components"),
+      forks: path.resolve(srcRoot, "forks"),
+      "katex/dist/katex.min.css": path.resolve(
+        __dirname,
+        "node_modules/katex/dist/katex.min.css",
+      ),
+      lodash: path.resolve(__dirname, "node_modules/lodash"),
+      openapi: path.resolve(srcRoot, "openapi"),
+      plugins: path.resolve(srcRoot, "plugins"),
+      "react-markdown": path.resolve(
+        __dirname,
+        "node_modules/react-markdown/index.js",
+      ),
+      "react-router-dom": path.resolve(
+        __dirname,
+        "node_modules/react-router-dom/dist/index.js",
+      ),
+      "rehype-katex": path.resolve(
+        __dirname,
+        "node_modules/rehype-katex/index.js",
+      ),
+      "remark-gfm": path.resolve(
+        __dirname,
+        "node_modules/remark-gfm/index.js",
+      ),
+      "remark-math": path.resolve(
+        __dirname,
+        "node_modules/remark-math/index.js",
+      ),
+      state: path.resolve(srcRoot, "state"),
+      utils: path.resolve(srcRoot, "utils"),
+    },
     dedupe: [
       "@codemirror/state",
       "@codemirror/view",
