@@ -23,7 +23,12 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
   - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, or another isolated shell-id promotion
-  - the next real step now needs a broader renderer-side structural decision or a newly scoped hotspot/research pass, so stop for a real replan instead of letting the loop continue by inertia
+  - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
+  - the next real step must either:
+    - attribute the remaining `~43ms` / `~6s` band to one concrete retained-graph / renderer-side path on the live canary
+    - or land one broader canvas-side structural slice only if existing evidence already points to that path
+  - default retained-graph candidates are snapshot invalidation/reuse, redraw/re-measure fanout while `viewportInteractionActive`, or motion-hidden-body orchestration that still fires even with the visible row-body frontier at zero
+  - treat the run-033 transparent headless canvas sample as verification ambiguity unless a more trustworthy visual path reproduces it; do not let that one sample force a rollback by itself
 
 ## Current status
 
