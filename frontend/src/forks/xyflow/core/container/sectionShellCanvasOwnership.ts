@@ -297,10 +297,7 @@ export function isCanvasOwnedSectionLightweightSwitch({
 export function isCanvasOwnedSectionLightweightSwitchValueShell(
   sectionId: string,
 ) {
-  return (
-    sectionId !== BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID &&
-    isCanvasOwnedSectionRestingTextSection(sectionId)
-  );
+  return isCanvasOwnedSectionRestingTextSection(sectionId);
 }
 
 export function isCanvasOwnedSectionLightweightSwitchTrack(sectionId: string) {

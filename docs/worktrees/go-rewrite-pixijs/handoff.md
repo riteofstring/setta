@@ -8,6 +8,64 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The backend switch value-shell flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backend-switch-value-shell-flattening-rerun.md`.
+  - canonical target section: `settings-section__backend`
+  - focused proof row:
+    - `settings-codeobj__backend__backend__autobackup`
+  - sibling proof sections:
+    - `settings-section__browserSectionDefault`
+    - `settings-section__promptSectionDefault`
+    - `settings-section__gui`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes the backend settings section in `isCanvasOwnedSectionLightweightSwitchValueShell(...)` instead of leaving backend as the last retained-resting-text exception
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `backendSectionLightweightSwitchCount: 9`
+    - `backendCanvasTrack: "true"`
+    - focused `autobackup` row:
+      - `backendRootIsValueShell: true`
+      - `backendCanvasThumbCount: 1`
+      - `backendValueShellWrapperCount: 0`
+      - `backendThumbBackgroundColor: rgba(0, 0, 0, 0)`
+    - first-click toggle stayed intact on the backend lightweight switch family
+    - shared sibling proof remained aligned:
+      - `browserSectionDefault`, `promptSectionDefault`, and `gui` switch rows still report `rootIsValueShell: true`
+      - whole-scene focused switch totals stayed on the retained canvas path with:
+        - `settingsLightweightSwitchCount: 156`
+        - `settingsCanvasTrackSwitchCount: 156`
+        - `settingsCanvasThumbCount: 156`
+        - `settingsButtonSwitchCount: 0`
+  - dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5570`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 125.63`
+    - `raf.p95Ms: 133.3`
+    - `longTasks.totalMs: 17079`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this closes the backend-only exception on the shared switch value-shell seam rather than opening another section-local switch lane
+    - the dense readout moved only modestly and not cleanly enough to justify another switch-family micro-pass by inertia
+    - the next real frontier should stay on a broader row-body / inactive-overlay primitive or the renderer-main JS/GC hotspot on the canvas-shell path, not another backend-only survivor harvest
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - result: `2 passed (73 tests)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts frontend/tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `3 passed (1.4m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - `fit view` plus one `zoom in` kept exactly one retained graph canvas mounted
+    - the backend section switches remained visually intact and nearby `browserSectionDefault` / `promptSectionDefault` showed no obvious blank or detached artifact
 - A fresh post-motion-shell hotspot report is now landed in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:

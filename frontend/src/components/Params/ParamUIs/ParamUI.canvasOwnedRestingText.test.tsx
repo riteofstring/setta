@@ -994,7 +994,8 @@ describe("ParamUI canvas-owned resting text", () => {
   it.each([
     {
       expectedCanvasOwnedTrack: true,
-      expectedLightweightRootClassName: undefined,
+      expectedLightweightRootClassName:
+        "section-value justify-self-start self-center",
       paramInfoId: "settings-codeobj__backend__backend__autosave",
       sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
     },

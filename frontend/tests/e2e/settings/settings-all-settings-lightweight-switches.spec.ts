@@ -292,7 +292,7 @@ test("canvas shell path paints lightweight switch visuals on the retained canvas
   expect(restingState.targetRootIsValueShell).toBe(true);
   expect(restingState.siblingRootIsValueShell).toBe(true);
   expect(restingState.guiRootIsValueShell).toBe(true);
-  expect(restingState.backendRootIsValueShell).toBe(false);
+  expect(restingState.backendRootIsValueShell).toBe(true);
   expect(restingState.targetTagName).toBe("DIV");
   expect(restingState.targetCanvasTrack).toBe("true");
   expect(restingState.targetCanvasThumbCount).toBe(1);
@@ -317,8 +317,8 @@ test("canvas shell path paints lightweight switch visuals on the retained canvas
   expect(restingState.backendSectionLightweightSwitchCount).toBeGreaterThan(0);
   expect(restingState.backendCanvasTrack).toBe("true");
   expect(restingState.backendCanvasThumbCount).toBe(1);
-  expect(restingState.backendValueShellWrapperCount).toBe(1);
-  expect(restingState.backendValueShellWrapperOpacity).toBe("0");
+  expect(restingState.backendValueShellWrapperCount).toBe(0);
+  expect(restingState.backendValueShellWrapperOpacity).toBeNull();
   expect(restingState.backendThumbBackgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(restingState.settingsButtonSwitchCount).toBe(0);
   expect(restingState.settingsCanvasTrackSwitchCount).toBeGreaterThan(80);

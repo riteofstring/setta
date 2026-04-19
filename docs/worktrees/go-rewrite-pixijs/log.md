@@ -155,6 +155,64 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 083
+
+- Item: Flatten the remaining backend switch value-shell wrapper on the retained canvas switch lane.
+- Status: `done`
+- Details:
+  - Landed the bounded report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-backend-switch-value-shell-flattening-rerun.md`
+  - Product change:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes backend in `isCanvasOwnedSectionLightweightSwitchValueShell(...)`, closing the last backend-only exception on the shared retained-resting-text switch seam
+  - Focused backend proof on the live worktree surface:
+    - canonical target section: `settings-section__backend`
+    - focused row: `settings-codeobj__backend__backend__autobackup`
+    - `backendSectionLightweightSwitchCount: 9`
+    - `backendCanvasTrack: "true"`
+    - focused row state:
+      - `backendRootIsValueShell: true`
+      - `backendCanvasThumbCount: 1`
+      - `backendValueShellWrapperCount: 0`
+      - `backendThumbBackgroundColor: rgba(0, 0, 0, 0)`
+    - first-click toggle stayed intact on the backend lightweight switch family
+    - sibling proof sections `browserSectionDefault`, `promptSectionDefault`, and `gui` still matched the flattened value-shell shape
+    - whole-scene focused switch totals remained:
+      - `settingsLightweightSwitchCount: 156`
+      - `settingsCanvasTrackSwitchCount: 156`
+      - `settingsCanvasThumbCount: 156`
+      - `settingsButtonSwitchCount: 0`
+  - Dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5570`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 125.63`
+    - `raf.p95Ms: 133.3`
+    - `longTasks.totalMs: 17079`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this is a real product ownership cut on the switch value-shell seam, not another forwarding-layer lift
+    - the dense readout moved only modestly and still misses the branch motion budget badly, so do not continue another backend/switch-family micro-pass by inertia
+    - the next real frontier remains a broader row-body / inactive-overlay primitive or the renderer-main JS/GC hotspot on the canvas-shell path
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - result: `2 passed (73 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-007/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts frontend/tests/e2e/settings/settings-all-settings-backend-lightweight-switch.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.4m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - `fit view` plus one `zoom in` kept exactly one retained graph canvas mounted
+  - the backend section switches remained visually intact and nearby `browserSectionDefault` / `promptSectionDefault` showed no obvious blank or detached artifact
+- Next action:
+  - keep the backend switch exception lane closed and choose one bounded broader row-body / inactive-overlay or renderer-main hotspot slice instead of another switch-family cleanup
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 082
 
 - Item: Suspend lightweight header menu triggers during viewport interaction on the motion-hidden settings lane.

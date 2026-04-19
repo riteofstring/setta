@@ -755,7 +755,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
-  it("targets the retained resting-text section boundary for switch value-shell flattening without widening backend", () => {
+  it("targets the retained resting-text section boundary for switch value-shell flattening across backend too", () => {
     expect(
       isCanvasOwnedSectionLightweightSwitchValueShell(
         CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -770,7 +770,7 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionLightweightSwitchValueShell(
         BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isCanvasOwnedSectionLightweightSwitchValueShell(
         GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
