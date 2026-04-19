@@ -13,13 +13,12 @@ import {
   type HttpapiPublishAppDeploymentRequest,
   type RunSnapshotMode,
 } from "@setta/app-subsystem-frontend-sdk";
-import * as Dialog from "components/Modals/radixDialog";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   normalizeActionDefinitions,
   resolveActionBinding,
   resolveActionType,
 } from "../../App/appBindings";
-import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useAppDefinition } from "../../../appSubsystemDefinitionState";
@@ -27,6 +26,7 @@ import {
   useAppSubsystemFrontendHost,
   useAppSubsystemProjectContext,
 } from "../../../appSubsystemFrontendHostContext";
+import { SwitchInput } from "../../ui/SwitchInput";
 
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type AppPolicyOverridesInput = Policy;

@@ -10,7 +10,7 @@ import {
 import {
   PaneAccordion,
   type PaneAccordionItem,
-} from "components/Panes/Common/PaneAccordion";
+} from "../../../ui/PaneAccordion";
 import { useAppPreview } from "../../../../appSubsystemProjectState";
 import { useAppDefinition } from "../../../../appSubsystemDefinitionState";
 import {
@@ -532,6 +532,7 @@ function DraftSpecEditor({
 }
 function AppConfigAdvancedContent({
   appSpecPath,
+  appSpecPathPlaceholder,
   catalogId,
   draftAssets,
   draftAssetsError,
@@ -550,6 +551,7 @@ function AppConfigAdvancedContent({
   themeMode,
 }: {
   appSpecPath: string;
+  appSpecPathPlaceholder: string;
   catalogId: string;
   draftAssets: string;
   draftAssetsError: string | null;
@@ -1068,6 +1070,7 @@ export function AppConfigPane() {
               content: (
                 <AppConfigAdvancedContent
                   appSpecPath={appSpecPath}
+                  appSpecPathPlaceholder={appSpecPathPlaceholder}
                   catalogId={catalogId}
                   draftAssets={draftAssets}
                   draftAssetsError={draftAssetsError}
