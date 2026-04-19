@@ -8,10 +8,10 @@
 - Still unverified: No browser verification needed for this backend-only invariant; no live plugin-backed replay was run outside package tests.
 
 ### App-Subsystem Live Capability Dispatch
-- Invariant: app-generation mode resolution, app HTTP routes, MCP tools, app publish wiring, and queued frontend app-subsystem operations must follow the current active registered provider without restart; unregistered provider ids and `pending_restart` entries must fail closed, and handler-refresh failures must leave runtime capabilities, tools, and pending-restart state unchanged.
-- Last finding commit: ea9eb19552054e2bcef9626ef38c83004dda5459
-- Proof tests: `TestNewAppGenerationModeResolverTracksCapabilityChangesAfterConstruction`, `TestNewAppGenerationModeResolverUsesCurrentProviderAfterSwitch`, `TestNewAppGenerationModeResolverTreatsUnavailableProviderAsNoop`, `TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider`, `TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools`, `TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders`, `TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError`, `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError`, `buffers app-subsystem updates while the selected provider frontend is still importing`, `drops queued app-subsystem updates when the provider changes before the first frontend load finishes`
-- Still unverified: No successful Playwright or CDP run covered an affected app-subsystem flow; the earlier CDP attempt failed with `net::ERR_ALPN_NEGOTIATION_FAILED`, and this iteration did not rerun browser verification because the changes stayed in backend owners/tests.
+- Invariant: compiled-in app-subsystem providers must register on production boot, CLI, and generator paths through discovered provider imports; app-generation mode resolution, app HTTP routes, MCP tools, app publish wiring, and queued frontend app-subsystem operations must follow the current active registered provider without restart; unregistered provider ids and `pending_restart` entries must fail closed, and non-chat providers must not publish app-subsystem MCP tools.
+- Last finding commit: 4da45919cd990e996cb5beab49219067844937b2
+- Proof tests: `TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities`, `TestEmitAppStartupOutputRequiresAppSubsystemProvider`, `TestRunAppRequiresEnabledAppSubsystemPlugin`, `TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools`, `TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider`, `TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes`, `TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders`
+- Still unverified: No Playwright or CDP run covered provider switching, app authoring, or published deployment startup after these fixes; browser verification was not rerun in this iteration because no frontend code changed.
 
 ### App Deployment Packaging Self-Containment
 - Invariant: published app deployments must package the selected app-subsystem provider plus deployment-normalized enabled/config state so app mode can boot from the deployment without manual provider seeding or missing provider config.
@@ -20,16 +20,16 @@
 - Still unverified: No end-to-end browser or standalone deployment startup run was completed after publish; packaging is covered by backend publish assertions only.
 
 ### Provider-Scoped App Persistence
-- Invariant: app-definition persistence, app-spec storage/default paths, and provider-facing app metadata must derive from the selected provider id rather than a first-party plugin constant.
-- Last finding commit: e4a6499edf0ecb97318cd24505fc380b3fbf9cca
-- Proof tests: `TestAppDefinitionServiceUsesSelectedProviderNamespace`, `builds a provider-scoped default app spec path`
-- Still unverified: No browser authoring flow was completed against an unknown provider id; provider scoping is proven through backend/frontend owner tests only.
+- Invariant: app-definition persistence, app-spec storage/default paths, and provider-facing app metadata must derive from the selected provider id rather than a first-party plugin constant; `pluginData` namespaces must be canonicalized at normalization time, and provider-scoped helpers must not silently synthesize first-party default paths.
+- Last finding commit: 4da45919cd990e996cb5beab49219067844937b2
+- Proof tests: `TestAppDefinitionServiceUsesSelectedProviderNamespace`, `TestAppDefinitionServiceReadsCanonicalizedWhitespacePluginDataKey`, `TestDocumentNormalizedCanonicalizesPluginDataKeys`, `TestDocumentNormalizedRejectsPluginDataCanonicalKeyCollisions`, `TestBuildMCPToolRegistrationsRequiresExplicitDefaultPath`
+- Still unverified: No browser authoring flow was completed against an unknown provider id; persistence and provider scoping remain proven through owner tests only.
 
 ### Provider Discovery And Contract Ownership
-- Invariant: app-subsystem provider discovery, generated route/contract registration, and MCP tool registration must flow from provider-owned discovery paths and owner contract types, without repeated hard-coded first-party imports or shadow bridge structs.
-- Last finding commit: e4a6499edf0ecb97318cd24505fc380b3fbf9cca
-- Proof tests: `TestPluginAppDefinitionPackagePathsDiscoversPluginProviders`, `TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes`, `TestNewPluginBackendMCPRuntimeIncludesUnknownProviderTools`, `TestBuildMCPToolRegistrationsKeepsFrozenToolSet`
-- Still unverified: Discovery was exercised against in-repo plugin packages only; no out-of-tree third-party provider package was run through generators in this iteration.
+- Invariant: app-subsystem provider discovery, generated route/contract registration, and MCP tool registration must flow from provider-owned discovery paths and owner contract types; production and generator wiring must use discovered provider imports and capability metadata instead of repeated hard-coded first-party imports or shadow bridge structs.
+- Last finding commit: 4da45919cd990e996cb5beab49219067844937b2
+- Proof tests: `TestPluginAppDefinitionPackagePathsDiscoversPluginProviders`, `TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders`, `TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities`, `TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes`, `TestBuildOpenAPIDocumentAppSubsystemRegistrationsIncludesAdditionalProviders`, `TestNewPluginBackendMCPRuntimeIncludesUnknownProviderTools`
+- Still unverified: Discovery and generation were exercised against in-repo providers only; no out-of-tree third-party provider package was run end-to-end in this iteration.
 
 ## 2026-04-21 00:31:44 PDT
 Fixes applied:
@@ -88,3 +88,27 @@ Verification run:
 Residual risks / verification gaps:
 - No Playwright or CDP end-to-end run covered app-subsystem authoring, provider switching, or published deployment startup after these fixes.
 - Published deployment startup and unknown-provider flows remain proven through owner tests rather than browser or standalone runtime launch.
+
+## 2026-04-21 04:03:11 PDT
+Fixes applied:
+- Added discovered app-subsystem provider imports and generated registry metadata so production boot paths, CLI app startup, and OpenAPI generation register compiled-in providers without direct host imports.
+- Made app-subsystem HTTP/OpenAPI and MCP publication capability-scoped so chat-mode capability owns app MCP tools, authoring-only providers expose only their routes, and deployment routes publish only when deployment runtime capability is declared.
+- Canonicalized `pluginData` keys during document normalization, removed dead unscoped app-definition helpers, and required an explicit default app-spec path for app-definition MCP registrations.
+Tests added or upgraded:
+- Added `TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders`, `TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities`, and `TestBuildOpenAPIDocumentAppSubsystemRegistrationsIncludesAdditionalProviders`.
+- Added `TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes`, `TestDocumentNormalizedCanonicalizesPluginDataKeys`, `TestDocumentNormalizedRejectsPluginDataCanonicalKeyCollisions`, `TestBuildFrontendAPIRouteRegistrationsWithChatModesOnlyRegistersSkillRoutes`, `TestBuildFrontendAPIRouteRegistrationsWithoutDeploymentCapabilityOmitsDeploymentRoutes`, `TestAppDefinitionServiceReadsCanonicalizedWhitespacePluginDataKey`, and `TestBuildMCPToolRegistrationsRequiresExplicitDefaultPath`.
+Verification run:
+- `./scripts/go.sh run ./cmd/setta-gen-go-type-registries`
+- `./scripts/go.sh test ./cmd/setta-gen-go-type-registries ./cmd/setta-gen-http-openapi`
+- `./scripts/go.sh test ./plugins/setta-json-render-app-gen/backend`
+- `./scripts/go.sh test ./internal/projectstate -run 'TestDocumentNormalized(CanonicalizesPluginDataKeys|RejectsPluginDataCanonicalKeyCollisions|SupportsFrontendSourceFields|PreservesOpaquePluginDataPayload)'`
+- `./scripts/go.sh test ./internal/app -run 'Test(NewPluginBackendMCPRuntime(IncludesUnknownProviderTools|SkipsUnregisteredProvider|SkipsAppSubsystemToolsWithoutChatModes)|AppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools)'`
+- `./scripts/go.sh test ./internal/settacmd -run 'TestRun(RoutesAppSubcommandAndDelegatesLatestDeployment|AppRequiresEnabledAppSubsystemPlugin)'`
+- `./scripts/go.sh test ./cmd/setta-server -run 'TestEmitAppStartupOutput(WarnsForPublicHostAndPrintsURL|FallsBackWhenBrowserOpenFails|RequiresAppSubsystemProvider)'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- Browser verification: not run; no frontend code changed in this iteration.
+Residual risks / verification gaps:
+- No successful Playwright or CDP run covered provider switching, app authoring, or published deployment startup after these fixes.
+- Discovery and generation coverage still exercised only against in-repo providers.
+- A broader `./scripts/go.sh test ./internal/projectstate` run still hit unrelated pre-existing failures outside the touched invariant scope.

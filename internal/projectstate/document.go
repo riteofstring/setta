@@ -162,17 +162,27 @@ func normalizeDocumentPluginData(pluginData map[string]RawJSON) (map[string]RawJ
 
 	normalized := make(map[string]RawJSON, len(pluginData))
 	for pluginID, payload := range pluginData {
-		if strings.TrimSpace(pluginID) == "" {
+		normalizedPluginID := strings.TrimSpace(pluginID)
+		if normalizedPluginID == "" {
 			return nil, fmt.Errorf("pluginData key is required")
 		}
-		normalizedPayload, err := normalizeRawJSON(payload, fmt.Sprintf("pluginData.%s", pluginID))
+		if _, exists := normalized[normalizedPluginID]; exists {
+			return nil, fmt.Errorf(
+				"pluginData key %q collides after normalization",
+				normalizedPluginID,
+			)
+		}
+		normalizedPayload, err := normalizeRawJSON(
+			payload,
+			fmt.Sprintf("pluginData.%s", normalizedPluginID),
+		)
 		if err != nil {
 			return nil, err
 		}
 		if len(normalizedPayload) == 0 {
 			continue
 		}
-		normalized[pluginID] = normalizedPayload
+		normalized[normalizedPluginID] = normalizedPayload
 	}
 	if len(normalized) == 0 {
 		return nil, nil
