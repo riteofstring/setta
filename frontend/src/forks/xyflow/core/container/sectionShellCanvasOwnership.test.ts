@@ -22,9 +22,12 @@ import {
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionLightweightNestedChildren,
@@ -179,6 +182,21 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionRestingTextSection(
+        SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
+        TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
+        STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingTextSection(
         BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
@@ -281,6 +299,24 @@ describe("sectionShellCanvasOwnership", () => {
       isCanvasOwnedSectionRestingText({
         codeObjType: CodeObjTypeEnum.TextParam,
         sectionId: SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionRestingText({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        sectionId: STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       }),
     ).toBe(true);
     expect(
@@ -692,6 +728,21 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightTextUnderline(
         SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightTextUnderline(
+        STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(true);
     expect(

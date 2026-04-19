@@ -1775,6 +1775,14 @@ That leaves one primary architectural move:
     - prefer a shared resting-body/value primitive or ownership seam that can lower the dense mounted surface across multiple sections at once
     - do not spend the next default pass on another tidy section-local resting-text/date/time/body cleanup hop unless a fresh whole-scene ranking makes that the only defensible highest-payoff move
 17. If the next candidate slice does not plausibly move the global dense-scene numbers or the mounted section-body/value surface before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
+18. The ranking-backed untouched resting-text trio is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-untouched-resting-text-trio-rerun.md`:
+    - canonical target section: `settings-section__stateMachineStartSectionDefault`
+    - sibling sections landed in the same slice: `settings-section__spreadsheetSectionDefault` and `settings-section__taskBoardSectionDefault`
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes that trio in the retained resting-text + lightweight underline lane while keeping actual param-label text on those sections DOM-visible
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that trio so the existing retained scene paints their resting values/underlines with no new renderer branch
+    - focused verification passed via `frontend/tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts` and confirmed `7` lightweight resting-text roots, `7` underline roots, and `0` live editors at rest on each section while preserving first-focus inline editing on the state-machine-start `Label` row
+    - the dense rerun on the same noisy runtime moved to `documentNodeCount 7093`, `inputCount 4`, `buttonCount 53`, `raf.meanMs 94.97`, `raf.p95Ms 183.3`, and `longTasks.totalMs 15184`; treat this as another section-scoped ownership proof plus smoke-level dense checkpoint rather than a new clean interactive-core benchmark
+19. Keep actual param-label text on the untouched trio DOM-visible unless a future visual defect or stronger whole-scene ranking justifies widening label-text ownership there; the next default pass should rerank the remaining non-lightweight value surface instead of reopening label work on those sections.
 
 ## First product frontier
 

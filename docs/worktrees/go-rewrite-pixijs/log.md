@@ -2589,3 +2589,61 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the shared lightweight param-label lane closed again and return to a fresh whole-scene ranking of the remaining dense row/body/value DOM instead of taking another label-wrapper or section-local follow-up
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 064
+
+- Item: Move the top untouched settings text-value trio onto the retained resting-text lane.
+- Status: `done`
+- Details:
+  - Re-checked the anti-inertia guardrail before coding and started from a fresh whole-scene value ranking instead of reopening the just-closed label wrapper lane.
+  - The live `All Settings` ranking showed the remaining highest-payoff untouched value family was the same `7`-root trio:
+    - `settings-section__spreadsheetSectionDefault`: `nonLightweightValueRoots 7`
+    - `settings-section__taskBoardSectionDefault`: `nonLightweightValueRoots 7`
+    - `settings-section__stateMachineStartSectionDefault`: `nonLightweightValueRoots 7`
+  - Chose one bounded shared value slice rather than another label/body cleanup hop:
+    - canonical target section: `settings-section__stateMachineStartSectionDefault`
+    - sibling proof sections in the same slice:
+      - `settings-section__spreadsheetSectionDefault`
+      - `settings-section__taskBoardSectionDefault`
+    - canonical target row/editor:
+      - `settings-section__stateMachineStartSectionDefault-settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label-ParamInput`
+      - `CodeMirror-settings-section__stateMachineStartSectionDefault-settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label`
+  - Landed the shared ownership move:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes that trio in the retained resting-text-owned section set and in the lightweight text-underline rule
+    - the same file now keeps `isCanvasOwnedSectionParamLabelRestingText(...)` on an explicit older allowlist so actual label text on those trio sections stays DOM-visible; this slice stayed on value DOM instead of widening label ownership again
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that trio directly so the retained scene can paint their resting text and underline primitives with no new renderer branch
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - added focused probe `frontend/tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts`
+    - recorded dense rerun `perf/reports/frontend/2026-04-19_settings-all-settings-untouched-resting-text-trio-rerun.md`
+  - The focused probe proved the trio now rides the lightweight retained-text path on the live surface:
+    - `settings-section__spreadsheetSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__taskBoardSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - `settings-section__stateMachineStartSectionDefault`: `uniqueParamInputCount 7`, `canvasOwnedRestingTextCount 8`, `lightweightRestingTextCount 7`, `underlineCount 7`, `liveInputCount 0`
+    - the canonical state-machine-start `Label` input root became `opacity: 0` with `data-canvas-owned-resting-text-lightweight="true"` and still focused the inline editor on first focus with no blank or detached jump
+  - Dense rerun outcome on the current runtime:
+    - `documentNodeCount: 7093`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 53`
+    - `raf.meanMs: 94.97`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15184`
+  - Interpretation:
+    - this stayed on the dominant remaining value surface from the fresh whole-scene ranking instead of extending another closed label/date-time/body micro-lane by inertia
+    - the dense mounted surface moved again: `documentNodeCount` dropped from the prior smoke checkpoint `7155` to `7093`
+    - the global `input` / `button` totals stayed on the same noisy `4 / 53` plateau, so the authoritative proof remains the focused trio summary plus the dense node-count drop rather than a new clean interactive-core benchmark
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-005/worktree-ai.log -- tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (59.2s)` on the live worktree runtime with `documentNodeCount: 7093`, `inputCount: 4`, and `buttonCount: 53`
+- CDP visual check is done:
+  - no visible crash/error overlay was present
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `settings-section__spreadsheetSectionDefault`, `settings-section__taskBoardSectionDefault`, and `settings-section__stateMachineStartSectionDefault` were present on the live surface
+  - the state-machine-start `Label` row still showed `Start` intact after the new retained ownership
+  - focusing the inline editor did not produce a blank or detached jump
+- Next action:
+  - rerank the remaining non-lightweight value surface from the whole `All Settings` scene and choose the next shared body/value primitive or the single highest-payoff untouched family; keep the new trio closed unless a fresh defect appears
+LOOP_TERMINAL_MARKER: none

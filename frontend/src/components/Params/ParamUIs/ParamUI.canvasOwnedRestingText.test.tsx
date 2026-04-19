@@ -16,9 +16,12 @@ import {
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
@@ -385,6 +388,58 @@ describe("ParamUI canvas-owned resting text", () => {
     expect(markup).toContain('data-canvas-owned-underline="true"');
     expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
   });
+
+  it.each([
+    {
+      paramInfoId:
+        "settings-codeobj__spreadsheetSectionDefault__spreadsheetSectionDefault__activeSheet",
+      sectionId: SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "null",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__taskBoardSectionDefault__taskBoardSectionDefault__viewMode",
+      sectionId: TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "kanban",
+    },
+    {
+      paramInfoId:
+        "settings-codeobj__stateMachineStartSectionDefault__stateMachineStartSectionDefault__label",
+      sectionId: STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      value: "Start",
+    },
+  ])(
+    "hides the untouched top-rank settings text path on $sectionId",
+    ({ paramInfoId, sectionId, value }) => {
+      mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";
+      mocks.state.codeObjImpl = {
+        type: CodeObjTypeEnum.TextParam,
+        defaultVal: "",
+      };
+
+      const markup = renderToStaticMarkup(
+        <ParamUI
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          onChange={() => undefined}
+        />,
+      );
+
+      expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+      expect(
+        mocks.textInputProps.mock.calls[0][0].canvasOwnedRestingText,
+      ).toBe(true);
+      expect(mocks.textInputProps.mock.calls[0][0].canvasOwnedUnderline).toBe(
+        true,
+      );
+      expect(
+        mocks.textInputProps.mock.calls[0][0].dummyCodeClassName,
+      ).toContain("opacity-0");
+      expect(markup).toContain('data-canvas-owned-underline="true"');
+      expect(markup).not.toContain("peer-focus-within/textinput:opacity-100");
+    },
+  );
 
   it("hides draw-section resting text on the canvas path", () => {
     mocks.state.graphSurfaceImplementation = "canvas-shell-underlay";

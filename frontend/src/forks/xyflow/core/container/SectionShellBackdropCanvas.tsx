@@ -42,9 +42,12 @@ import {
   GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+  STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   isCanvasOwnedSectionRestingTextSection,
@@ -1450,6 +1453,13 @@ export default function SectionShellBackdropCanvas() {
     SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
   const browserNode = nodes.get(BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const spreadsheetNode = nodes.get(
+    SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
+  const taskBoardNode = nodes.get(TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID);
+  const stateMachineStartNode = nodes.get(
+    STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  );
   const genPythonCodeNode = nodes.get(
     GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   );
@@ -1536,6 +1546,25 @@ export default function SectionShellBackdropCanvas() {
     sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     viewportScale,
   });
+  const spreadsheetMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: spreadsheetNode?.height,
+    nodeWidth: spreadsheetNode?.width,
+    sectionId: SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const taskBoardMeasurements = useCanvasOwnedSectionBackdropMeasurements({
+    nodeHeight: taskBoardNode?.height,
+    nodeWidth: taskBoardNode?.width,
+    sectionId: TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+    viewportScale,
+  });
+  const stateMachineStartMeasurements =
+    useCanvasOwnedSectionBackdropMeasurements({
+      nodeHeight: stateMachineStartNode?.height,
+      nodeWidth: stateMachineStartNode?.width,
+      sectionId: STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      viewportScale,
+    });
   const genPythonCodeMeasurements = useCanvasOwnedSectionBackdropMeasurements({
     nodeHeight: genPythonCodeNode?.height,
     nodeWidth: genPythonCodeNode?.width,
@@ -1620,6 +1649,12 @@ export default function SectionShellBackdropCanvas() {
         dropzoneParamMeasurements,
       [SHORTCUTS_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: shortcutsMeasurements,
       [BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]: browserMeasurements,
+      [SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        spreadsheetMeasurements,
+      [TASK_BOARD_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        taskBoardMeasurements,
+      [STATE_MACHINE_START_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
+        stateMachineStartMeasurements,
       [GEN_PYTHON_CODE_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
         genPythonCodeMeasurements,
       [GEN_PYTHON_METADATA_CANVAS_OWNED_RESTING_TEXT_SECTION_ID]:
@@ -1653,6 +1688,9 @@ export default function SectionShellBackdropCanvas() {
       dropzoneParamMeasurements,
       shortcutsMeasurements,
       browserMeasurements,
+      spreadsheetMeasurements,
+      taskBoardMeasurements,
+      stateMachineStartMeasurements,
       genPythonCodeMeasurements,
       genPythonMetadataMeasurements,
       pluginSectionMeasurements,
