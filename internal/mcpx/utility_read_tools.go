@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/settadocs"
 	"setta/internal/terminals"
@@ -34,6 +35,14 @@ type mcpServerRuntimeStatusEntry struct {
 
 type mcpServerRuntimeStatusResult struct {
 	Servers []mcpServerRuntimeStatusEntry `json:"servers"`
+}
+
+type appCatalogResult struct {
+	Catalog map[string]any `json:"catalog"`
+}
+
+type appComponentListResult struct {
+	Components []string `json:"components"`
 }
 
 const defaultMCPToolSearchLimit = 2
@@ -193,6 +202,18 @@ func newGetTerminalOutputHandler(server *Server) tools.Handler {
 			return nil, err
 		}
 		return history, nil
+	}
+}
+
+func newGetAppCatalogHandler() tools.Handler {
+	return func(context.Context, map[string]any) (any, error) {
+		return appCatalogResult{Catalog: appspec.DefaultCatalogJSON()}, nil
+	}
+}
+
+func newListAppComponentsHandler() tools.Handler {
+	return func(context.Context, map[string]any) (any, error) {
+		return appComponentListResult{Components: appspec.DefaultComponentTypes()}, nil
 	}
 }
 

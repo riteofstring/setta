@@ -1917,11 +1917,6 @@ export type HttpapiSetLlmapiKeysRequest = {
   expectedRevision: number;
 };
 
-export type HttpapiSetLanguageServerSelectionRequest = {
-  language: string;
-  pluginId: string | null;
-};
-
 export type HttpapiSetListRootViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
@@ -2674,33 +2669,6 @@ export type NotificationsNotification = {
   type: string;
 };
 
-export type PluginsLanguageServerProviderOption = {
-  available: boolean;
-  name: string;
-  pluginId: string;
-};
-
-export type PluginsLanguageServerSelectionStatus = {
-  appliedPluginId: string | null;
-  availableProviders: Array<PluginsLanguageServerProviderOption> | null;
-  language: string;
-  message: string;
-  restartRequired: boolean;
-  selectedPluginId: string | null;
-  selectionState: string;
-  severity: string;
-  status: string;
-};
-
-export type PluginsPluginAppSubsystemCapabilities = {
-  appAuthoringUi: boolean;
-  appDeploymentRuntime: boolean;
-  appGenerationChatModes: boolean;
-  appPreviewUi: boolean;
-  pluginEnabled: boolean;
-  pluginId: string;
-};
-
 export type PluginsPluginBlockedCapability = {
   capability: string;
   reason: string;
@@ -2745,10 +2713,6 @@ export type PluginsPluginEnableDisableResponse = {
 export type PluginsPluginErrorInfo = {
   code: string;
   message: string;
-};
-
-export type PluginsPluginFeatureCapabilities = {
-  appSubsystem: PluginsPluginAppSubsystemCapabilities;
 };
 
 export type PluginsPluginFrontendDescriptor = {
@@ -2822,15 +2786,6 @@ export type PluginsPluginRegisteredCodegenTarget = {
   targetId: string;
 };
 
-export type PluginsPluginRegisteredLanguageServer = {
-  args: Array<string> | null;
-  command: string;
-  language: string;
-  name: string;
-  pluginId: string;
-  settingsKey?: string;
-};
-
 export type PluginsPluginRegisteredListenerEndpoint = {
   name: string;
 };
@@ -2861,14 +2816,12 @@ export type PluginsPluginRollbackResponse = {
 };
 
 export type PluginsPluginRuntimeResponse = {
-  featureCapabilities?: PluginsPluginFeatureCapabilities;
   list: PluginsPluginListResponse;
   schemaVersion: number;
   status: PluginsPluginStatusResponse;
 };
 
 export type PluginsPluginStatusEntry = {
-  appliedLanguageServerLanguages?: Array<string> | null;
   blockedCapabilities: Array<PluginsPluginBlockedCapability> | null;
   canonicalSourceKey: string;
   components: Array<string> | null;
@@ -2879,7 +2832,6 @@ export type PluginsPluginStatusEntry = {
   pluginId: string;
   registeredBackendRoutes: Array<PluginsPluginRegisteredBackendRoute> | null;
   registeredCodegenTargets: Array<PluginsPluginRegisteredCodegenTarget> | null;
-  registeredLanguageServers: Array<PluginsPluginRegisteredLanguageServer> | null;
   registeredListenerEndpoints: Array<PluginsPluginRegisteredListenerEndpoint> | null;
   registeredStaticDirs: Array<PluginsPluginRegisteredStaticDir> | null;
   requestedCapabilities: Array<string> | null;
@@ -2897,7 +2849,6 @@ export type PluginsPluginStatusEntry = {
 };
 
 export type PluginsPluginStatusResponse = {
-  languageServerSelections: Array<PluginsLanguageServerSelectionStatus> | null;
   plugins: Array<PluginsPluginStatusEntry> | null;
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
@@ -3775,22 +3726,6 @@ export type SettingsstateFrontendSettingsBackend = {
   showDefaultConfigOnLoad: boolean;
 };
 
-export type SettingsstateFrontendSettingsChatWindowing = {
-  autoCreateInitialChat: boolean;
-  restorePriorStateOnUnmaximize: boolean;
-  shortcuts: SettingsstateFrontendSettingsChatWindowingShortcuts;
-};
-
-export type SettingsstateFrontendSettingsChatWindowingShortcuts = {
-  canvasToggle: string;
-  maximizeFocused: string;
-  minimizeFocused: string;
-  snapBottom: string;
-  snapLeft: string;
-  snapRight: string;
-  snapTop: string;
-};
-
 export type SettingsstateFrontendSettingsGui = {
   defaultZoomLevel: number;
   gridColor: string;
@@ -3814,12 +3749,6 @@ export type SettingsstateFrontendSettingsGui = {
   zoomOnDoubleClick: boolean;
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
-};
-
-export type SettingsstateFrontendSettingsLanguageServer = {
-  selectedByLanguage: {
-    [key: string]: string | null;
-  };
 };
 
 export type SettingsstateFrontendSettingsShortcuts = {
@@ -3889,9 +3818,10 @@ export type SettingsstateFrontendSettingsShortcuts = {
 
 export type SettingsstateFrontendSettingsState = {
   backend: SettingsstateFrontendSettingsBackend;
-  chatWindowing: SettingsstateFrontendSettingsChatWindowing;
   gui: SettingsstateFrontendSettingsGui;
-  languageServer: SettingsstateFrontendSettingsLanguageServer;
+  languageServer: {
+    [key: string]: unknown;
+  };
   sectionSizingPolicy: ProjectstateFrontendSectionSizingPolicy;
   shortcuts: SettingsstateFrontendSettingsShortcuts;
 };
@@ -9327,33 +9257,6 @@ export type SetImageAreaImagePathResponses = {
 
 export type SetImageAreaImagePathResponse =
   SetImageAreaImagePathResponses[keyof SetImageAreaImagePathResponses];
-
-export type SetLanguageServerSelectionData = {
-  body: HttpapiSetLanguageServerSelectionRequest;
-  path?: never;
-  query?: never;
-  url: "/setLanguageServerSelection";
-};
-
-export type SetLanguageServerSelectionErrors = {
-  /**
-   * Error
-   */
-  default: HttpapiErrorResponse;
-};
-
-export type SetLanguageServerSelectionError =
-  SetLanguageServerSelectionErrors[keyof SetLanguageServerSelectionErrors];
-
-export type SetLanguageServerSelectionResponses = {
-  /**
-   * OK
-   */
-  200: null;
-};
-
-export type SetLanguageServerSelectionResponse =
-  SetLanguageServerSelectionResponses[keyof SetLanguageServerSelectionResponses];
 
 export type SetListRootViewModeData = {
   body: HttpapiSetListRootViewModeRequest;

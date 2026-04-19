@@ -20,8 +20,8 @@ const (
 )
 
 type AppDefinitionRouteDependencies struct {
-	ModePolicy modes.Policy
-	Service    projectstate.AppDefinitionRuntime
+	ModePolicy   modes.Policy
+	ProjectState *projectstate.Runtime
 }
 
 type GetAppDefinitionRequest struct {
@@ -184,7 +184,7 @@ func getAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 			writeDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.Service == nil {
+		if deps.ProjectState == nil {
 			writeDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
@@ -194,7 +194,7 @@ func getAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 			return
 		}
 
-		result, err := deps.Service.GetAppDefinition(projectMutationContext(r.Context(), payload.FrontendOpID))
+		result, err := deps.ProjectState.GetAppDefinition(projectMutationContext(r.Context(), payload.FrontendOpID))
 		if err != nil {
 			writeAppDefinitionRouteError(w, r, err)
 			return
@@ -209,7 +209,7 @@ func validateAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.Hand
 			writeDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.Service == nil {
+		if deps.ProjectState == nil {
 			writeDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
@@ -223,7 +223,7 @@ func validateAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.Hand
 			return
 		}
 
-		result, err := deps.Service.ValidateAppDefinition(
+		result, err := deps.ProjectState.ValidateAppDefinition(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectstate.ValidateAppDefinitionInput{
 				AppSpec:        payload.AppSpec,
@@ -250,7 +250,7 @@ func setAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 			writeDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.Service == nil {
+		if deps.ProjectState == nil {
 			writeDetail(w, http.StatusNotFound, "Project manager not available.")
 			return
 		}
@@ -264,7 +264,7 @@ func setAppDefinitionHandler(deps AppDefinitionRouteDependencies) http.HandlerFu
 			return
 		}
 
-		_, result, err := deps.Service.SetAppDefinition(
+		_, result, err := deps.ProjectState.SetAppDefinition(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectstate.SetAppDefinitionInput{
 				AppSpec:        payload.AppSpec,
