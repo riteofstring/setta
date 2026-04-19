@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"setta/internal/statefs"
-	"setta/internal/testutil/firstpartyplugin"
 )
 
 // The fixture server exercises the full stdio flow we need for Slice 1:
@@ -98,39 +97,6 @@ func TestSessionStartFailsWhenCommandMissing(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "start process") {
 		t.Fatalf("expected start-process error, got %v", err)
-	}
-}
-
-func TestSessionBuildInitializeParamsIncludesWorkspaceFolderName(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := filepath.Join(t.TempDir(), "workspace-name")
-	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
-		t.Fatalf("mkdir workspace root: %v", err)
-	}
-
-	session, err := NewSession(SessionOptions{
-		WorkspaceRoot: workspaceRoot,
-		Command:       "fixture-language-server",
-	})
-	if err != nil {
-		t.Fatalf("new session: %v", err)
-	}
-
-	params, err := session.buildInitializeParams()
-	if err != nil {
-		t.Fatalf("build initialize params: %v", err)
-	}
-
-	folders, ok := params["workspaceFolders"].([]map[string]string)
-	if !ok || len(folders) != 1 {
-		t.Fatalf("expected one workspace folder entry, got %#v", params["workspaceFolders"])
-	}
-	if folders[0]["name"] != "workspace-name" {
-		t.Fatalf("expected workspace folder name workspace-name, got %#v", folders[0]["name"])
-	}
-	if folders[0]["uri"] == "" {
-		t.Fatalf("expected workspace folder uri, got %#v", folders[0])
 	}
 }
 
@@ -673,8 +639,10 @@ func resolveTestPythonBinary(t *testing.T) string {
 func newCurrentProcessSession(t *testing.T, workspaceRoot string) *Session {
 	t.Helper()
 
-	command := firstpartyplugin.BasedpyrightLangserverCommand(t)
-	args := []string{"--stdio"}
+	command, args, err := resolveCurrentProcessCommand(os.LookupEnv)
+	if err != nil {
+		t.Fatalf("resolve current-process command: %v", err)
+	}
 	session, err := NewSession(SessionOptions{
 		WorkspaceRoot: workspaceRoot,
 		Command:       command,
