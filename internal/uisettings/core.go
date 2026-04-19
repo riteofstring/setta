@@ -2,7 +2,6 @@ package uisettings
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"setta/internal/projectstate"
@@ -29,21 +28,15 @@ var (
 	}
 )
 
-var errAppDefinitionRuntimeRequired = errors.New("uisettings: app definition runtime is required")
-
-func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDefinitionRuntime, workspaceRoot string) (*Registry, error) {
+func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
 	}
-	if appDefinition == nil {
-		return nil, errAppDefinitionRuntimeRequired
-	}
 	boolSchema := ValueSchema{Type: ValueTypeBoolean}
 	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: intPointer(1)}
-	themeModeSchema := ValueSchema{Type: ValueTypeString, EnumValues: []any{"auto", "dark", "light"}}
 
 	return New([]RuntimeEntry{
-		newCoreCompareAndSetEntry(
+		NewCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.watch_code.enabled",
 				Title:       "Watch Code Enabled",
@@ -63,9 +56,9 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				_, result, err := runtime.CompareAndSetWatchCodeEnabled(ctx, projectID, enabled, workspaceRoot, expected)
 				return result, err
 			},
-			comparableMutationResult[bool],
+			ComparableMutationResult[bool],
 		),
-		newCoreCompareAndSetEntry(
+		NewCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.watch_code.folders",
 				Title:       "Watch Code Folders",
@@ -87,7 +80,7 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 			},
 			watchCodeFoldersMutationResult,
 		),
-		newCoreCompareAndSetEntry(
+		NewCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.watch_code.files",
 				Title:       "Watch Code Files",
@@ -109,7 +102,7 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 			},
 			stringSliceMutationResult,
 		),
-		newCoreCompareAndSetEntry(
+		NewCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.project.name",
 				Title:       "Project Name",
@@ -124,14 +117,14 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 			readProjectValue(runtime, func(project *projectstate.Project) any {
 				return project.Name
 			}),
-			normalizeOptionalNonEmptyStringWrite,
+			NormalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, projectID string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
 				_, result, err := runtime.CompareAndSetProjectName(ctx, projectID, nextValue, expected)
 				return result, err
 			},
-			comparableMutationResult[string],
+			ComparableMutationResult[string],
 		),
-		newCoreCompareAndSetEntry(
+		NewCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.project.show_param_display_names",
 				Title:       "Show Param Display Names",
@@ -151,9 +144,9 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				_, result, err := runtime.CompareAndSetShowParamDisplayNames(ctx, projectID, show, expected)
 				return result, err
 			},
-			comparableMutationResult[bool],
+			ComparableMutationResult[bool],
 		),
-		newCoreCompareAndSetEntry(
+		NewCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.run_instructions.python_codegen_enabled",
 				Title:       "Python Codegen Enabled",
@@ -190,117 +183,21 @@ func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDef
 				)
 				return result, err
 			},
-			comparableMutationResult[bool],
-		),
-		newCoreCompareAndSetEntry(
-			Entry{
-				SettingID:   "core.app.catalog_id",
-				Title:       "App Catalog ID",
-				Synonyms:    []string{"app catalog", "catalog id"},
-				Description: "Catalog id for the app definition.",
-				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.catalog_id"},
-				Source:      SourceCore,
-				Mutability:  MutabilityWritable,
-				ValueSchema: nonEmptyStringSchema,
-			},
-			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
-				definition, err := runtime.GetEffectiveAppDefinition(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return definition.CatalogID, nil
-			}),
-			normalizeOptionalNonEmptyStringWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := appDefinition.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
-				return result, err
-			},
-			comparableMutationResult[string],
-		),
-		newCoreCompareAndSetEntry(
-			Entry{
-				SettingID:   "core.app.spec_version",
-				Title:       "App Spec Version",
-				Synonyms:    []string{"app version", "spec version"},
-				Description: "Version marker for the app definition schema payload.",
-				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.spec_version"},
-				Source:      SourceCore,
-				Mutability:  MutabilityWritable,
-				ValueSchema: nonEmptyStringSchema,
-			},
-			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
-				definition, err := runtime.GetEffectiveAppDefinition(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return definition.AppSpecVersion, nil
-			}),
-			normalizeOptionalNonEmptyStringWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := appDefinition.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
-				return result, err
-			},
-			comparableMutationResult[string],
-		),
-		newCoreCompareAndSetEntry(
-			Entry{
-				SettingID:   "core.app.spec_path",
-				Title:       "App Spec Path",
-				Synonyms:    []string{"app path", "spec path"},
-				Description: "Filesystem path where app spec JSON is saved.",
-				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.spec_path"},
-				Source:      SourceCore,
-				Mutability:  MutabilityWritable,
-				ValueSchema: nonEmptyStringSchema,
-			},
-			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
-				return runtime.GetEffectiveAppSpecPath(ctx)
-			}),
-			normalizeOptionalNonEmptyStringWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := appDefinition.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
-				return result, err
-			},
-			comparableMutationResult[string],
-		),
-		newCoreCompareAndSetEntry(
-			Entry{
-				SettingID:   "core.app.theme_mode",
-				Title:       "App Theme Mode",
-				Synonyms:    []string{"theme mode", "app theme", "light mode", "dark mode"},
-				Description: "Theme mode for the app definition.",
-				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.theme_mode"},
-				Source:      SourceCore,
-				Mutability:  MutabilityWritable,
-				ValueSchema: themeModeSchema,
-			},
-			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
-				return runtime.GetEffectiveAppThemeMode(ctx)
-			}),
-			normalizeOptionalThemeModeWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := appDefinition.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
-				return result, err
-			},
-			comparableMutationResult[string],
+			ComparableMutationResult[bool],
 		),
 	})
 }
 
-type compareAndSetEntryNormalizer[Value any, Expected any] func(value any, expectedOldValue any) (Value, Expected, error)
-type compareAndSetEntryWriter[Value any, Expected any, Result any] func(ctx context.Context, projectID string, value Value, expectedOldValue Expected) (projectstate.CompareAndSetResult[Result], error)
-type compareAndSetEntryMutationBuilder[Result any] func(projectstate.CompareAndSetResult[Result]) MutationResult
+type CompareAndSetEntryNormalizer[Value any, Expected any] func(value any, expectedOldValue any) (Value, Expected, error)
+type CompareAndSetEntryWriter[Value any, Expected any, Result any] func(ctx context.Context, projectID string, value Value, expectedOldValue Expected) (projectstate.CompareAndSetResult[Result], error)
+type CompareAndSetEntryMutationBuilder[Result any] func(projectstate.CompareAndSetResult[Result]) MutationResult
 
-func newCoreCompareAndSetEntry[Value any, Expected any, Result any](
+func NewCompareAndSetEntry[Value any, Expected any, Result any](
 	metadata Entry,
 	read ReadFunc,
-	normalize compareAndSetEntryNormalizer[Value, Expected],
-	write compareAndSetEntryWriter[Value, Expected, Result],
-	buildMutationResult compareAndSetEntryMutationBuilder[Result],
+	normalize CompareAndSetEntryNormalizer[Value, Expected],
+	write CompareAndSetEntryWriter[Value, Expected, Result],
+	buildMutationResult CompareAndSetEntryMutationBuilder[Result],
 ) RuntimeEntry {
 	return RuntimeEntry{
 		Metadata:  metadata,
@@ -329,22 +226,13 @@ func readProjectValue(runtime CoreProjectState, selectValue func(*projectstate.P
 	}
 }
 
-func readAppDefinitionValue(
-	runtime projectstate.AppDefinitionRuntime,
-	read func(context.Context, projectstate.AppDefinitionRuntime) (any, error),
-) ReadFunc {
-	return func(ctx context.Context, _ string) (any, error) {
-		return read(ctx, runtime)
-	}
-}
-
-func normalizeBoolWrite(schema ValueSchema) compareAndSetEntryNormalizer[bool, *bool] {
+func normalizeBoolWrite(schema ValueSchema) CompareAndSetEntryNormalizer[bool, *bool] {
 	return func(value any, expectedOldValue any) (bool, *bool, error) {
 		return normalizeOptionalBoolWrite(schema, value, expectedOldValue)
 	}
 }
 
-func normalizeStringSliceWrite(schema ValueSchema) compareAndSetEntryNormalizer[[]string, []string] {
+func normalizeStringSliceWrite(schema ValueSchema) CompareAndSetEntryNormalizer[[]string, []string] {
 	return func(value any, expectedOldValue any) ([]string, []string, error) {
 		if err := ValidateValue(schema, value); err != nil {
 			return nil, nil, err
@@ -367,7 +255,7 @@ func normalizeStringSliceWrite(schema ValueSchema) compareAndSetEntryNormalizer[
 	}
 }
 
-func comparableMutationResult[Value comparable](result projectstate.CompareAndSetResult[Value]) MutationResult {
+func ComparableMutationResult[Value comparable](result projectstate.CompareAndSetResult[Value]) MutationResult {
 	return MutationResult{
 		OldValue:        result.OldValue,
 		NewValue:        result.NewValue,
@@ -409,7 +297,7 @@ func normalizeOptionalBoolWrite(schema ValueSchema, value any, expectedOldValue 
 	return normalizedValue, &expected, nil
 }
 
-func normalizeOptionalNonEmptyStringWrite(value any, expectedOldValue any) (string, *string, error) {
+func NormalizeOptionalNonEmptyStringWrite(value any, expectedOldValue any) (string, *string, error) {
 	normalizedValue, err := normalizeNonEmptyString(value)
 	if err != nil {
 		return "", nil, err
@@ -424,7 +312,7 @@ func normalizeOptionalNonEmptyStringWrite(value any, expectedOldValue any) (stri
 	return normalizedValue, &expected, nil
 }
 
-func normalizeOptionalThemeModeWrite(value any, expectedOldValue any) (string, *string, error) {
+func NormalizeOptionalThemeModeWrite(value any, expectedOldValue any) (string, *string, error) {
 	normalizedValue, err := normalizeThemeMode(value)
 	if err != nil {
 		return "", nil, err

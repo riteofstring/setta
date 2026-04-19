@@ -7,9 +7,11 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/plugins"
 	"setta/internal/realtime"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
+	appsubsystemuisettings "setta/plugins/setta-json-render-app-gen/backend/appuisettings"
 )
 
 type uiSettingToolErrorResult struct {
@@ -488,16 +490,30 @@ func resolveScopedUISettingRegistry(
 	}
 
 	registry, err := uisettings.NewScopedRegistry(uisettings.ScopedRegistryOptions{
-		Runtime:           projectState,
-		AppDefinition:     server.appDefinitionService,
-		WorkspaceRoot:     workspaceRoot,
-		PluginService:     server.pluginMutations,
-		ProjectAISettings: buildProjectAISettingProviders(server),
+		Runtime:                  projectState,
+		WorkspaceRoot:            workspaceRoot,
+		PluginService:            server.pluginMutations,
+		ProjectAISettings:        buildProjectAISettingProviders(server),
+		ContributedEntryBuilders: buildScopedUISettingEntryBuilders(server),
 	})
 	if err != nil {
 		return "", nil, newToolError("internal_error", "UI setting registry is unavailable: %s", err.Error())
 	}
 	return projectConfigID, registry, nil
+}
+
+func buildScopedUISettingEntryBuilders(server *Server) []uisettings.RuntimeEntryBuilder {
+	if server == nil || server.appDefinitionService == nil {
+		return nil
+	}
+	return []uisettings.RuntimeEntryBuilder{
+		func(runtime plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
+			if runtime.FeatureCapabilities == nil || !runtime.FeatureCapabilities.AppSubsystem.PluginEnabled {
+				return nil, nil
+			}
+			return appsubsystemuisettings.BuildEntries(server.appDefinitionService)
+		},
+	}
 }
 
 func buildProjectAISettingProviders(server *Server) uisettings.ProjectAISettingProviders {

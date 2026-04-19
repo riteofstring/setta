@@ -94,7 +94,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 
 	getResponse := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"projectConfigId":"project-alpha","settingId":"core.app.spec_path"},
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.name"},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if getResponse.Code != http.StatusOK {
@@ -105,8 +105,8 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getPayload.StructuredContent)
 	}
 	getResult := mustStructuredMapForRoute(t, getPayload.StructuredContent)
-	if getResult["value"] != "app_specs/app.json" {
-		t.Fatalf("expected default app spec path, got %#v", getResult["value"])
+	if getResult["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", getResult["value"])
 	}
 
 	setResponse := postMCPToolRoute(t, handler, `{
@@ -238,7 +238,7 @@ func TestMCPToolCallRouteUISettingReadRejectsShareScopeWithoutProjectContext(t *
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"settingId":"core.app.spec_path"},
+		"arguments":{"settingId":"core.project.name"},
 		"agenticContext":{"shareSessionId":"share-session-1","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
