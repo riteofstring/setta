@@ -467,6 +467,73 @@ func TestDiscoveryServiceRescanPrefersUsableLowerPrecedenceBasedpyrightWhenWorks
 	}
 }
 
+func TestDiscoveryServiceRescanFallsBackToActiveLowerPrecedenceDuplicateWhenWorkspaceCopyDefaultsDisabled(t *testing.T) {
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
+	rewritePluginManifest(t, workspaceRoot, func(payload map[string]any) {
+		payload["enabledByDefault"] = false
+	})
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	packageManagerRoot := installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	service := mustNewDiscoveryServiceWithPackageManager(t, roots, config.ModeIDE, []string{sitePackages})
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins with disabled workspace duplicate: %v", err)
+	}
+
+	if snapshot.InstalledPlugins != 2 {
+		t.Fatalf("expected both visible installed duplicates, got %d", snapshot.InstalledPlugins)
+	}
+	if snapshot.ActivePlugins != 1 {
+		t.Fatalf("expected one active duplicate, got %d", snapshot.ActivePlugins)
+	}
+	if len(snapshot.Plugins) != 2 {
+		t.Fatalf("expected exactly two duplicates, got %#v", snapshot.Plugins)
+	}
+
+	primaryEntry := snapshot.Plugins[0]
+	if primaryEntry.PluginID != "setta-basedpyright" ||
+		primaryEntry.SourceManager != PluginSourceManagerPackageManager ||
+		primaryEntry.State != PluginRuntimeStateActive ||
+		primaryEntry.Scope != PluginScopeSettaFiles ||
+		primaryEntry.ShadowedBySourcePath != "" {
+		t.Fatalf("expected active package-manager duplicate to lead the ordered results, got %#v", primaryEntry)
+	}
+
+	disabledEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-basedpyright", PluginScopeWorkspace)
+	if disabledEntry.State != PluginRuntimeStateDisabled {
+		t.Fatalf("expected disabled workspace duplicate, got %#v", disabledEntry)
+	}
+	if disabledEntry.ShadowedBySourcePath != "" {
+		t.Fatalf("expected disabled workspace duplicate to stay visible, got %#v", disabledEntry.ShadowedBySourcePath)
+	}
+
+	activeEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-basedpyright", PluginScopeSettaFiles)
+	if activeEntry.SourceManager != PluginSourceManagerPackageManager || activeEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active package-manager duplicate, got %#v", activeEntry)
+	}
+	if activeEntry.ShadowedBySourcePath != "" {
+		t.Fatalf("expected active package-manager duplicate to stay unshadowed, got %#v", activeEntry.ShadowedBySourcePath)
+	}
+	resolvedPackageManagerRoot, err := filepath.EvalSymlinks(packageManagerRoot)
+	if err != nil {
+		t.Fatalf("resolve package-manager root symlinks: %v", err)
+	}
+	if activeEntry.SourcePath != resolvedPackageManagerRoot {
+		t.Fatalf("expected package-manager root %q, got %q", resolvedPackageManagerRoot, activeEntry.SourcePath)
+	}
+	if len(activeEntry.RegisteredLanguageServers) != 1 || activeEntry.RegisteredLanguageServers[0].Language != "python" {
+		t.Fatalf("expected active package-manager duplicate to keep its python registration, got %#v", activeEntry.RegisteredLanguageServers)
+	}
+}
+
 // Package-manager source digests should still change when editable/no-hash plugin roots change on disk.
 func TestDiscoveryServiceRescanPackageManagerSourceDigestTracksPluginRootChanges(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

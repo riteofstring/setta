@@ -275,7 +275,7 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
+	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot, false)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 	if err != nil {
 		return nil, err
 	}
-	nextLSPSpecs, err := r.selectedLanguageServerSpecs(previewSnapshot)
+	nextLSPSpecs, err := r.selectedLanguageServerSpecs(previewSnapshot, true)
 	if err != nil {
 		closePluginBackendRuntime(nextRuntime)
 		return nil, err
@@ -566,12 +566,18 @@ func (r *pluginBackendRuntimeRefresher) applyAppliedLanguageServerStatus(status 
 	}
 }
 
-func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(snapshot plugins.DiscoverySnapshot) ([]lsp.LanguageServerSpec, error) {
+func (r *pluginBackendRuntimeRefresher) selectedLanguageServerSpecs(
+	snapshot plugins.DiscoverySnapshot,
+	includePendingLanguageServerOnly bool,
+) ([]lsp.LanguageServerSpec, error) {
 	selections, err := r.selectedLanguageServerPlugins()
 	if err != nil {
 		return nil, err
 	}
-	return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
+	if includePendingLanguageServerOnly {
+		return r.service.LanguageServerSpecsForSnapshot(snapshot, selections)
+	}
+	return r.service.ActiveLanguageServerSpecsForSnapshot(snapshot, selections)
 }
 
 func (r *pluginBackendRuntimeRefresher) nextRefreshedLanguageServerSpecsLocked(
@@ -579,9 +585,9 @@ func (r *pluginBackendRuntimeRefresher) nextRefreshedLanguageServerSpecsLocked(
 	appliedPluginID string,
 ) ([]lsp.LanguageServerSpec, error) {
 	if strings.TrimSpace(appliedPluginID) == "" {
-		return r.selectedLanguageServerSpecs(snapshot)
+		return r.selectedLanguageServerSpecs(snapshot, true)
 	}
-	selectedLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot)
+	selectedLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot, true)
 	if err != nil {
 		return nil, err
 	}

@@ -291,6 +291,40 @@ func TestServiceLanguageServerSpecsFallsBackToUsableLowerPrecedenceBasedpyrightD
 	}
 }
 
+func TestServiceLanguageServerSpecsFallsBackToActiveLowerPrecedenceDuplicateWhenWorkspaceCopyDefaultsDisabled(t *testing.T) {
+	pythonPath := firstpartyplugin.BasedpyrightPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
+	rewritePluginManifest(t, workspaceRoot, func(payload map[string]any) {
+		payload["enabledByDefault"] = false
+	})
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-basedpyright"),
+	})
+	if err != nil {
+		t.Fatalf("load basedpyright specs with disabled workspace duplicate: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one basedpyright spec from the active lower-precedence duplicate, got %#v", specs)
+	}
+	if specs[0].PluginID != "setta-basedpyright" || specs[0].LanguageID != "python" {
+		t.Fatalf("unexpected basedpyright spec %#v", specs[0])
+	}
+	assertEquivalentLanguageServerCommandPath(t, specs[0].Command, pythonPath)
+	if _, ok := specs[0].Settings["basedpyright"].(map[string]any); !ok {
+		t.Fatalf("expected plugin-owned basedpyright settings root, got %#v", specs[0].Settings)
+	}
+}
+
 func TestServiceLanguageServerSpecsMergesConfiguredBasedpyrightExtraPathsWithSettaFilesRoot(t *testing.T) {
 	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)

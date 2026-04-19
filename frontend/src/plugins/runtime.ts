@@ -8,7 +8,6 @@ import {
   PluginListResponse,
   PluginRestartCapability,
   PluginRuntimeResponse,
-  PluginRuntimeStateEnum,
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -785,8 +784,7 @@ function mapPrimaryStatusByPluginId(
 ): Record<string, PluginStatusEntry> {
   const pluginStatusById: Record<string, PluginStatusEntry> = {};
   for (const entry of statusEntries) {
-    const existing = pluginStatusById[entry.pluginId];
-    if (!existing || prefersPrimaryPluginStatusEntry(existing, entry)) {
+    if (!(entry.pluginId in pluginStatusById)) {
       pluginStatusById[entry.pluginId] = entry;
     }
   }
@@ -796,28 +794,6 @@ function mapPrimaryStatusByPluginId(
   )
     ? previousPluginStatusById
     : pluginStatusById;
-}
-
-function prefersPrimaryPluginStatusEntry(
-  current: PluginStatusEntry,
-  candidate: PluginStatusEntry,
-): boolean {
-  const currentRank = pluginStatusPrimaryRank(current);
-  const candidateRank = pluginStatusPrimaryRank(candidate);
-  if (candidateRank !== currentRank) {
-    return candidateRank < currentRank;
-  }
-  return false;
-}
-
-function pluginStatusPrimaryRank(entry: PluginStatusEntry): number {
-  if (entry.shadowedBySourcePath) {
-    return 2;
-  }
-  if (entry.state === PluginRuntimeStateEnum.invalid) {
-    return 1;
-  }
-  return 0;
 }
 
 function deriveSortedRuntimeViews({

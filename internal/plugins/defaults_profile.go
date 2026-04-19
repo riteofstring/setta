@@ -68,7 +68,7 @@ func hasAvailableProfilePlugin(entries []DiscoveredPlugin, pluginID string, lang
 }
 
 func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {
-	if !pluginProvidesLanguageServer(entry) {
+	if !pluginProvidesLanguageServer(entry, true) {
 		return false
 	}
 	for _, registration := range entry.RegisteredLanguageServers {

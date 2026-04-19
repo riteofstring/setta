@@ -15,6 +15,11 @@ import (
 	"setta/internal/testutil/firstpartyplugin"
 )
 
+type defaultsProfilePluginHarness struct {
+	service       *plugins.Service
+	workspaceRoot string
+}
+
 func TestBootstrapWorkspaceDefaultsInstallProfileWritesMissingPythonSelection(t *testing.T) {
 	runtimeRoot := t.TempDir()
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
@@ -153,6 +158,38 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsUsableLowerPrecedenceDup
 	}
 }
 
+func TestBootstrapWorkspaceDefaultsInstallProfileSelectsUsableLowerPrecedenceDuplicateWhenWorkspaceCopyDefaultsDisabled(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	harness := newDefaultsProfilePluginHarness(t, []string{sitePackages})
+	workspacePluginRoot := filepath.Join(harness.workspaceRoot, ".setta_plugins", "setta-basedpyright")
+	copyAppTestDir(t, filepath.Join(appTestRepoRoot(t), "plugins", "setta-basedpyright"), workspacePluginRoot)
+	manifestPath := filepath.Join(workspacePluginRoot, "setta.plugin.json")
+	if err := os.WriteFile(
+		manifestPath,
+		mustRewriteDefaultsProfileManifest(t, manifestPath, func(payload map[string]any) {
+			payload["enabledByDefault"] = false
+		}),
+		0o644,
+	); err != nil {
+		t.Fatalf("write disabled local workspace manifest: %v", err)
+	}
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, harness.service); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected python defaults selection from active lower-precedence duplicate, got ok=%v selection=%#v", ok, selection)
+	}
+}
+
 func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t *testing.T) {
 	runtimeRoot := t.TempDir()
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
@@ -235,6 +272,12 @@ func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugins.Service {
 	t.Helper()
 
+	return newDefaultsProfilePluginHarness(t, searchPaths).service
+}
+
+func newDefaultsProfilePluginHarness(t *testing.T, searchPaths []string) defaultsProfilePluginHarness {
+	t.Helper()
+
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
 
 	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
@@ -269,7 +312,10 @@ func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugin
 	if err != nil {
 		t.Fatalf("new plugin service: %v", err)
 	}
-	return service
+	return defaultsProfilePluginHarness{
+		service:       service,
+		workspaceRoot: workspaceRoot,
+	}
 }
 
 func copyDefaultsProfileLinkedPlugin(t *testing.T) string {
@@ -279,6 +325,25 @@ func copyDefaultsProfileLinkedPlugin(t *testing.T) string {
 	localPluginRoot := filepath.Join(t.TempDir(), "setta-basedpyright")
 	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), localPluginRoot)
 	return localPluginRoot
+}
+
+func mustRewriteDefaultsProfileManifest(t *testing.T, manifestPath string, mutate func(map[string]any)) []byte {
+	t.Helper()
+
+	payload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read defaults profile manifest %s: %v", manifestPath, err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatalf("decode defaults profile manifest %s: %v", manifestPath, err)
+	}
+	mutate(manifest)
+	encoded, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode defaults profile manifest %s: %v", manifestPath, err)
+	}
+	return append(encoded, '\n')
 }
 
 func installDefaultsProfilePackageManagerPlugin(t *testing.T, sitePackages string) {

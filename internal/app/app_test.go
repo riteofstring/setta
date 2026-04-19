@@ -11022,6 +11022,95 @@ func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestar
 	expectAppFixturePluginAppliedState(t, server.URL, authCookie, "after full plugin restart")
 }
 
+func TestAppInitializeKeepsSelectedLanguageServerOnlyPluginPendingUntilRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "python", "setta-basedpyright")
+	writeAppPendingRestartPluginState(t, cfg, "setta-basedpyright")
+	if err := app.pluginRuntime.Close(context.Background()); err != nil {
+		t.Fatalf("close plugin runtime before reinitialize: %v", err)
+	}
+	if err := app.pluginRuntime.Initialize(context.Background()); err != nil {
+		t.Fatalf("reinitialize plugin runtime: %v", err)
+	}
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	currentSpecs, appliedSpecs := cloneAppRuntimeLanguageServerSpecs(t, app)
+	if len(currentSpecs) != 0 || len(appliedSpecs) != 0 {
+		t.Fatalf("expected startup to keep pending language-server-only plugin unapplied, got current=%#v applied=%#v", currentSpecs, appliedSpecs)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	status := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entry := mustFindAppPluginStatusEntry(t, status, "setta-basedpyright")
+	if entry.State != plugins.PluginRuntimeStatePendingRestart || !entry.RestartRequired {
+		t.Fatalf("expected basedpyright pending restart before restart, got %#v", entry)
+	}
+	if len(entry.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected no applied languages before restart, got %#v", entry.AppliedLanguageServerLanguages)
+	}
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4); len(completions) != 0 {
+		t.Fatalf("expected no python completions before restart, got %#v", completions)
+	}
+	persistedState := readAppPluginsState(t, cfg)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 1 || persistedState.PendingRestartBackendPluginIDs[0] != "setta-basedpyright" {
+		t.Fatalf("expected pending restart ids to keep basedpyright before restart, got %#v", persistedState.PendingRestartBackendPluginIDs)
+	}
+	if len(persistedState.PendingRestartLanguageServerOnlyPluginIDs) != 1 || persistedState.PendingRestartLanguageServerOnlyPluginIDs[0] != "setta-basedpyright" {
+		t.Fatalf("expected pending LSP-only restart ids to keep basedpyright before restart, got %#v", persistedState.PendingRestartLanguageServerOnlyPluginIDs)
+	}
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	status = fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	entry = mustFindAppPluginStatusEntry(t, status, "setta-basedpyright")
+	if entry.State != plugins.PluginRuntimeStateActive || entry.RestartRequired {
+		t.Fatalf("expected active basedpyright after restart, got %#v", entry)
+	}
+	if len(entry.AppliedLanguageServerLanguages) != 1 || entry.AppliedLanguageServerLanguages[0] != "python" {
+		t.Fatalf("expected python to be applied after restart, got %#v", entry.AppliedLanguageServerLanguages)
+	}
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4); len(completions) == 0 {
+		t.Fatalf("expected python completions after restart, got %#v", completions)
+	}
+	currentSpecs, appliedSpecs = cloneAppRuntimeLanguageServerSpecs(t, app)
+	if len(currentSpecs) != 1 || currentSpecs[0].LanguageID != "python" {
+		t.Fatalf("expected current specs to apply python after restart, got %#v", currentSpecs)
+	}
+	if len(appliedSpecs) != 1 || appliedSpecs[0].LanguageID != "python" {
+		t.Fatalf("expected applied specs to apply python after restart, got %#v", appliedSpecs)
+	}
+
+	persistedState = readAppPluginsState(t, cfg)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 0 {
+		t.Fatalf("expected pending restart ids to clear after LSP restart, got %#v", persistedState.PendingRestartBackendPluginIDs)
+	}
+	if len(persistedState.PendingRestartLanguageServerOnlyPluginIDs) != 0 {
+		t.Fatalf("expected pending LSP-only restart ids to clear after LSP restart, got %#v", persistedState.PendingRestartLanguageServerOnlyPluginIDs)
+	}
+}
+
 func TestAppRestartLanguageServerClearsPendingStateForSelectedLanguageServerOnlyPlugin(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

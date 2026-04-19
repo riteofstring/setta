@@ -161,7 +161,7 @@ func (s *DiscoveryService) resolveDiscoveredGroup(
 			return nil, err
 		}
 		group[index] = resolved
-		if discoveredPluginCanShadowLowerEntries(resolved) {
+		if discoveredPluginIsUsablePrimary(resolved) {
 			primaryIndex = index
 			break
 		}
@@ -171,6 +171,7 @@ func (s *DiscoveryService) resolveDiscoveredGroup(
 		primaryIndex = 0
 	}
 	markShadowedDiscoveredPlugins(group, group[primaryIndex].SourcePath, primaryIndex+1)
+	slices.SortFunc(group, compareResolvedDiscoveredPlugins)
 	return group, nil
 }
 
@@ -199,8 +200,13 @@ func markShadowedDiscoveredPlugins(group []DiscoveredPlugin, primarySourcePath s
 	}
 }
 
-func discoveredPluginCanShadowLowerEntries(entry DiscoveredPlugin) bool {
-	return entry.State != PluginRuntimeStateInvalid
+func discoveredPluginIsUsablePrimary(entry DiscoveredPlugin) bool {
+	switch entry.State {
+	case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart:
+		return true
+	default:
+		return false
+	}
 }
 
 func countDiscoverySnapshotEntries(entries []DiscoveredPlugin) (int, int) {
@@ -348,6 +354,31 @@ func compareDiscoveredPlugins(left DiscoveredPlugin, right DiscoveredPlugin) int
 		return -1
 	}
 	if left.SourcePath > right.SourcePath {
+		return 1
+	}
+	return 0
+}
+
+func compareResolvedDiscoveredPlugins(left DiscoveredPlugin, right DiscoveredPlugin) int {
+	if left.PluginID < right.PluginID {
+		return -1
+	}
+	if left.PluginID > right.PluginID {
+		return 1
+	}
+	leftRank := discoveredPluginPrimarySelectionRank(left)
+	rightRank := discoveredPluginPrimarySelectionRank(right)
+	if leftRank != rightRank {
+		return leftRank - rightRank
+	}
+	return compareDiscoveredPlugins(left, right)
+}
+
+func discoveredPluginPrimarySelectionRank(entry DiscoveredPlugin) int {
+	if entry.ShadowedBySourcePath != "" {
+		return 2
+	}
+	if !discoveredPluginIsUsablePrimary(entry) {
 		return 1
 	}
 	return 0

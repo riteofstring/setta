@@ -1167,7 +1167,7 @@ describe("plugin runtime helpers", () => {
     await refreshPluginRuntime();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
-  it("prefers non-shadowed status entries as the primary plugin status", async () => {
+  it("uses the first backend-ordered status entry as the primary plugin status", async () => {
     const plugin = buildPluginListEntry({});
     vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
@@ -1175,13 +1175,13 @@ describe("plugin runtime helpers", () => {
         buildPluginStatusResponse([
           buildPluginStatusEntry({
             pluginId: "acme.plugin",
-            sourcePath: "/tmp/shadowed",
-            shadowedBySourcePath: "/tmp/primary",
+            sourcePath: "/tmp/primary",
+            shadowedBySourcePath: null,
           }),
           buildPluginStatusEntry({
             pluginId: "acme.plugin",
-            sourcePath: "/tmp/primary",
-            shadowedBySourcePath: null,
+            sourcePath: "/tmp/shadowed",
+            shadowedBySourcePath: "/tmp/primary",
           }),
         ]),
       ),
@@ -1200,14 +1200,41 @@ describe("plugin runtime helpers", () => {
         buildPluginStatusResponse([
           buildPluginStatusEntry({
             pluginId: "acme.plugin",
-            state: PluginRuntimeStateEnum.invalid,
-            sourcePath: "/tmp/workspace-invalid",
+            state: PluginRuntimeStateEnum.active,
+            sourcePath: "/tmp/setta-files-active",
             shadowedBySourcePath: null,
           }),
           buildPluginStatusEntry({
             pluginId: "acme.plugin",
+            state: PluginRuntimeStateEnum.invalid,
+            sourcePath: "/tmp/workspace-invalid",
+            shadowedBySourcePath: null,
+          }),
+        ]),
+      ),
+    );
+    await refreshPluginRuntime();
+    const state = usePluginRuntimeStore.getState();
+    expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
+      "/tmp/setta-files-active",
+    );
+  });
+  it("prefers active non-shadowed status entries over disabled duplicates", async () => {
+    const plugin = buildPluginListEntry({});
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: "acme.plugin",
             state: PluginRuntimeStateEnum.active,
             sourcePath: "/tmp/setta-files-active",
+            shadowedBySourcePath: null,
+          }),
+          buildPluginStatusEntry({
+            pluginId: "acme.plugin",
+            state: PluginRuntimeStateEnum.disabled,
+            sourcePath: "/tmp/workspace-disabled",
             shadowedBySourcePath: null,
           }),
         ]),

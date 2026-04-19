@@ -948,7 +948,7 @@ func (s *Service) rescanLocked() (DiscoverySnapshot, error) {
 			RestartRequired:       true,
 		})
 	}
-	slices.SortFunc(snapshot.Plugins, compareDiscoveredPlugins)
+	slices.SortFunc(snapshot.Plugins, compareResolvedDiscoveredPlugins)
 	snapshot.InstalledPlugins = 0
 	snapshot.ActivePlugins = 0
 	for _, entry := range snapshot.Plugins {
@@ -1058,22 +1058,7 @@ func PrimaryDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) (Disco
 }
 
 func discoveredPluginIsPreferredPrimary(current DiscoveredPlugin, candidate DiscoveredPlugin) bool {
-	currentRank := discoveredPluginPrimarySelectionRank(current)
-	candidateRank := discoveredPluginPrimarySelectionRank(candidate)
-	if candidateRank != currentRank {
-		return candidateRank < currentRank
-	}
-	return compareDiscoveredPlugins(candidate, current) < 0
-}
-
-func discoveredPluginPrimarySelectionRank(entry DiscoveredPlugin) int {
-	if entry.ShadowedBySourcePath != "" {
-		return 2
-	}
-	if entry.State == PluginRuntimeStateInvalid {
-		return 1
-	}
-	return 0
+	return compareResolvedDiscoveredPlugins(candidate, current) < 0
 }
 
 func resolveEnablementBeforeMutation(entry DiscoveredPlugin, state PluginsStateFile, globalState PluginsGlobalStateFile) bool {

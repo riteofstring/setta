@@ -21,14 +21,22 @@ func (s *Service) LanguageServerSpecs(_ context.Context, selectedByLanguage map[
 	if err != nil {
 		return nil, err
 	}
-	state, err := s.store.LoadPluginsState()
-	if err != nil {
-		return nil, err
-	}
-	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.settaFilesRoot)
+	return s.languageServerSpecsForSnapshotLocked(snapshot, selectedByLanguage, true)
 }
 
 func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	return s.languageServerSpecsForSnapshot(snapshot, selectedByLanguage, true)
+}
+
+func (s *Service) ActiveLanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	return s.languageServerSpecsForSnapshot(snapshot, selectedByLanguage, false)
+}
+
+func (s *Service) languageServerSpecsForSnapshot(
+	snapshot DiscoverySnapshot,
+	selectedByLanguage map[string]*string,
+	includePendingLanguageServerOnly bool,
+) ([]lsp.LanguageServerSpec, error) {
 	if s == nil {
 		return nil, ErrWorkspaceRootRequired
 	}
@@ -36,15 +44,29 @@ func (s *Service) LanguageServerSpecsForSnapshot(snapshot DiscoverySnapshot, sel
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	return s.languageServerSpecsForSnapshotLocked(snapshot, selectedByLanguage, includePendingLanguageServerOnly)
+}
+
+func (s *Service) languageServerSpecsForSnapshotLocked(
+	snapshot DiscoverySnapshot,
+	selectedByLanguage map[string]*string,
+	includePendingLanguageServerOnly bool,
+) ([]lsp.LanguageServerSpec, error) {
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
 		return nil, err
 	}
-	return languageServerSpecsFromSnapshotWithState(snapshot, &state, selectedByLanguage, s.settaFilesRoot)
+	return languageServerSpecsFromSnapshotWithState(
+		snapshot,
+		&state,
+		selectedByLanguage,
+		s.settaFilesRoot,
+		includePendingLanguageServerOnly,
+	)
 }
 
 func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage, "")
+	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage, "", true)
 }
 
 func languageServerSpecsFromSnapshotWithState(
@@ -52,19 +74,30 @@ func languageServerSpecsFromSnapshotWithState(
 	pluginsState *PluginsStateFile,
 	selectedByLanguage map[string]*string,
 	settaFilesRoot string,
+	includePendingLanguageServerOnly bool,
 ) ([]lsp.LanguageServerSpec, error) {
-	registrations, err := languageServerSpecsFromEntries(snapshot.Plugins, pluginsState, settaFilesRoot)
+	registrations, err := languageServerSpecsFromEntries(
+		snapshot.Plugins,
+		pluginsState,
+		settaFilesRoot,
+		includePendingLanguageServerOnly,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return selectedLanguageServerSpecs(registrations, selectedByLanguage), nil
 }
 
-func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *PluginsStateFile, settaFilesRoot string) ([]lsp.LanguageServerSpec, error) {
+func languageServerSpecsFromEntries(
+	entries []DiscoveredPlugin,
+	pluginsState *PluginsStateFile,
+	settaFilesRoot string,
+	includePendingLanguageServerOnly bool,
+) ([]lsp.LanguageServerSpec, error) {
 	normalizedSettaFilesRoot := strings.TrimSpace(settaFilesRoot)
 	specs := make([]lsp.LanguageServerSpec, 0)
 	for _, entry := range entries {
-		if !pluginProvidesLanguageServer(entry) {
+		if !pluginProvidesLanguageServer(entry, includePendingLanguageServerOnly) {
 			continue
 		}
 		for _, registration := range entry.RegisteredLanguageServers {
@@ -80,12 +113,16 @@ func languageServerSpecsFromEntries(entries []DiscoveredPlugin, pluginsState *Pl
 	return specs, nil
 }
 
-func pluginProvidesLanguageServer(entry DiscoveredPlugin) bool {
+func pluginProvidesLanguageServer(entry DiscoveredPlugin, includePendingLanguageServerOnly bool) bool {
 	if entry.Manifest == nil || !containsString(entry.EffectiveCapabilities, "registerLanguageServer") {
 		return false
 	}
-	return entry.State == PluginRuntimeStateActive ||
-		(entry.State == PluginRuntimeStatePendingRestart && entryHasLanguageServerOnlyBackendRuntime(entry))
+	if entry.State == PluginRuntimeStateActive {
+		return true
+	}
+	return includePendingLanguageServerOnly &&
+		entry.State == PluginRuntimeStatePendingRestart &&
+		entryHasLanguageServerOnlyBackendRuntime(entry)
 }
 
 func buildLanguageServerSpec(
