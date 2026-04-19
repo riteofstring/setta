@@ -5,6 +5,7 @@ import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
   DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
+  doesAppSubsystemModeRequireImageAttachment,
 } from "plugins/appSubsystemChatUi";
 import { useAppConfigs, useAppPreview } from "state/definitions";
 
@@ -22,6 +23,9 @@ export default {
     component: AppPage,
   },
   slashCommands: buildAppGenerationSlashCommandDefinitions(),
+  imageRequiredModes: APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS.filter(
+    (option) => doesAppSubsystemModeRequireImageAttachment(option.id),
+  ).map((option) => option.id),
   customSlashCommandModes: {
     options: APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
     defaultMode: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
