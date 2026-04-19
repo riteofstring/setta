@@ -1,82 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  type AppSubsystemFrontendRegistrationsByPluginId,
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystem";
 import { receiveLLMResponseChunk } from "./ai";
 
-import { useProjectState } from "state/definitions";
+import {
+  useAppDefinition,
+  useAppPreview,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
   StreamingEventTypeEnum,
   createProjectConfig,
 } from "utils/generatedTypes";
-import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { applyAppDefinitionStructuredContentToStore as applyAppDefinitionStructuredContentToProviderStore } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
-import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
-
-const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
-  pluginId: "setta-json-render-app-gen",
-  pluginEnabled: true,
-  appAuthoringUi: true,
-  appPreviewUi: true,
-  appGenerationChatModes: true,
-  appDeploymentRuntime: true,
-} as const;
-const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
-const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
-  {
-    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
-      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
-      overviewTab: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-        titleQuickInfo: "Authoring quick info",
-        moreMenuQuickInfo: "More menu quick info",
-        moreMenuLabel: "JSON Render",
-      },
-      previewSurface: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      appModeRoute: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      appDeploymentModal: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      chat: {
-        slashCommands: [
-          {
-            command: "/app-json",
-            action: "app_json_render",
-            summary: "Generate an app spec.",
-            promptTemplate: "Generate an app spec.",
-            appGenerationMode: "json_render",
-          },
-        ],
-        imageRequiredModes: [],
-        customSlashCommandModes: {
-          options: [{ id: "plain_chat", name: "Plain chat" }],
-          defaultMode: "plain_chat",
-        },
-      },
-      controller: {
-        applyAppDefinitionStructuredContentToStore:
-          applyAppDefinitionStructuredContentToProviderStore,
-      },
-    },
-  };
 
 describe("ai app spec tool results", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.useFakeTimers();
     resetProjectStores();
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-      APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
-    );
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
@@ -85,7 +26,6 @@ describe("ai app spec tool results", () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
-    resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 
@@ -105,7 +45,7 @@ describe("ai app spec tool results", () => {
     const nextDefinition = {
       catalogId: "setta.app.default",
       appSpecVersion: "v1",
-      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/app.json",
+      appSpecPath: "app_specs/app.json",
       routes: [],
       dataBindings: {},
       actions: {},
@@ -182,8 +122,7 @@ describe("ai app spec tool results", () => {
               appDefinition: {
                 catalogId: "setta.app.default",
                 appSpecVersion: "v1",
-                appSpecPath:
-                  "plugins/setta-json-render-app-gen/app_specs/app.json",
+                appSpecPath: "app_specs/app.json",
                 routes: [],
                 dataBindings: {},
                 actions: {},

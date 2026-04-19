@@ -437,24 +437,4 @@ LOCAL_CORE_PROTOCOL_VERSION = 1
 LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES = (
     "listener_render_realtime_dependency_values"
 )
-LOCAL_CORE_COMMAND_GET_APP_DEFINITION = "get_app_definition"
-LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION = "get_effective_app_definition"
-LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH = "get_effective_app_spec_path"
-LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE = "get_effective_app_theme_mode"
-LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION = "validate_app_definition"
-LOCAL_CORE_COMMAND_SET_APP_DEFINITION = "set_app_definition"
-LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION = "stream_app_definition"
-LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION = "update_app_definition"
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID = (
-    "compare_and_set_app_definition_catalog_id"
-)
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION = (
-    "compare_and_set_app_definition_spec_version"
-)
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH = (
-    "compare_and_set_app_definition_spec_path"
-)
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = (
-    "compare_and_set_app_definition_theme_mode"
-)
 DEPLOYMENT_LISTENER_READY_SENTINEL = "SETTA_DEPLOYMENT_LISTENER_READY"

@@ -1,11 +1,13 @@
 import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
-import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
   useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
   useServerMode,
   useShareSession,
 } from "state/definitions";
 import {
+  createAppDefinition,
   createPolicy,
   createProjectConfig,
   createSingleConfig,
@@ -21,9 +23,6 @@ import {
   it,
   vi,
 } from "vitest";
-import { createAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
-import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 const routeCreateAppSessionCurrentMock = vi.fn();
 const routeGetAppDeploymentStateMock = vi.fn();
@@ -59,10 +58,9 @@ import {
   ensureAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
   resetAppSessionState,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
+} from "./app";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
-const frontendHost = createRuntimeAppSubsystemFrontendHost();
 
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -163,7 +161,7 @@ describe("app deployment actions", () => {
   });
 
   beforeEach(() => {
-    resetAppSessionState(frontendHost);
+    resetAppSessionState();
     useServerMode.setState({
       mode: null,
       modeResolved: false,
@@ -178,7 +176,7 @@ describe("app deployment actions", () => {
   });
 
   afterEach(() => {
-    resetAppSessionState(frontendHost);
+    resetAppSessionState();
     useServerMode.setState({
       mode: null,
       modeResolved: false,
@@ -214,8 +212,8 @@ describe("app deployment actions", () => {
       data: session,
     });
 
-    const first = await ensureAppSessionFromCurrentDeployment(frontendHost);
-    const second = await ensureAppSessionFromCurrentDeployment(frontendHost);
+    const first = await ensureAppSessionFromCurrentDeployment();
+    const second = await ensureAppSessionFromCurrentDeployment();
 
     expect(first).toEqual(session);
     expect(second).toEqual(session);
@@ -243,7 +241,7 @@ describe("app deployment actions", () => {
     const projectState = buildProjectState("project-alpha", "Alpha");
     const appDefinition = createAppDefinition({
       catalogId: "catalog-demo",
-      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/spec.json",
+      appSpecPath: "app_specs/spec.json",
     });
     const appSpec = { root: { key: "root", type: "Stack" } };
     setDeploymentAppState();
@@ -258,7 +256,7 @@ describe("app deployment actions", () => {
       },
     });
 
-    const loaded = await loadAppDeploymentState({ frontendHost });
+    const loaded = await loadAppDeploymentState();
 
     expect(loaded).toBe(true);
     expect(routeGetAppDeploymentStateMock).toHaveBeenCalledWith({
@@ -313,10 +311,7 @@ describe("app deployment actions", () => {
       data: refreshedSession,
     });
 
-    const loaded = await ensureAppProjectConfigLoaded(
-      frontendHost,
-      "project-beta",
-    );
+    const loaded = await ensureAppProjectConfigLoaded("project-beta");
 
     expect(loaded).toBe(true);
     expect(routeLoadAppProjectConfigMock).toHaveBeenCalledTimes(2);
@@ -353,7 +348,6 @@ describe("app deployment actions", () => {
     });
 
     const loaded = await loadAppDeploymentState({
-      frontendHost,
       projectConfigId: "missing-project",
     });
 

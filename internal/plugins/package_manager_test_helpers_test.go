@@ -100,60 +100,21 @@ func installFirstPartyTyPackageManagerPluginInSearchPath(t *testing.T, sitePacka
 	)
 }
 
-func installBuiltFirstPartyPackageManagerPluginInSearchPath(
-	t *testing.T,
-	sitePackages string,
-	pluginID string,
-) string {
+func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
 	t.Helper()
 
 	repoRoot := workerRPCTestRepoRoot(t)
-	stagingRoot := filepath.Join(t.TempDir(), pluginID)
-	copyBackendCodegenFixtureDir(
-		t,
-		filepath.Join(repoRoot, "plugins", pluginID),
-		stagingRoot,
-	)
-	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, t.TempDir(), stagingRoot)
-	runTestCommand(
-		t,
-		repoRoot,
-		mustNewPythonRuntime(t).InterpreterPath(),
-		"-m",
-		"pip",
-		"install",
-		"--no-deps",
-		"--target",
-		sitePackages,
-		wheelPath,
-	)
-	return filepath.Join(sitePackages, pluginID)
-}
-
-func installFirstPartyPackageManagerPluginAsIDInSearchPath(
-	t *testing.T,
-	sitePackages string,
-	sourcePluginID string,
-	targetPluginID string,
-	summary string,
-) string {
-	t.Helper()
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, targetPluginID)
-	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", sourcePluginID), pluginRoot)
+	pluginRoot := filepath.Join(sitePackages, pluginID)
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
 	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
 		t.Fatalf("remove copied plugin build dir: %v", err)
 	}
-	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
-		payload["id"] = targetPluginID
-	})
 
-	distInfoName := strings.ReplaceAll(targetPluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoName := strings.ReplaceAll(pluginID, "-", "_") + "-0.1.0.dist-info"
 	distInfoRoot := filepath.Join(sitePackages, distInfoName)
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
 		"Metadata-Version: 2.1",
-		"Name: " + targetPluginID,
+		"Name: " + pluginID,
 		"Version: 0.1.0",
 		"Summary: " + summary,
 		"",
@@ -182,18 +143,6 @@ func installFirstPartyPackageManagerPluginAsIDInSearchPath(
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
-}
-
-func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
-	t.Helper()
-
-	return installFirstPartyPackageManagerPluginAsIDInSearchPath(
-		t,
-		sitePackages,
-		pluginID,
-		pluginID,
-		summary,
-	)
 }
 
 func firstPartyBasedpyrightSitePackages(t *testing.T) string {

@@ -5,7 +5,6 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildAppGenerationSlashCommandDefinitions } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
 import {
   buildChatSlashCommands,
   executeManagedChatSlashCommand,
@@ -14,7 +13,7 @@ import {
 import { ChatInput } from "./ChatInput";
 
 const APP_GENERATION_COMMANDS = buildChatSlashCommands({
-  appGenerationCommands: buildAppGenerationSlashCommandDefinitions(),
+  appGenerationModes: true,
 });
 
 function getAppGenerationPrompt(command: string): string {
@@ -175,7 +174,7 @@ describe("ChatInput queued slash-command replay", () => {
     );
   });
 
-  it("keeps queued /app-json drafts blocked with a provider-required message once app commands disappear", async () => {
+  it("replays queued /app-json drafts from the original snapshot even if the command list changes", async () => {
     const onSubmit = vi.fn(async () => true);
     const onStartNewChat = vi.fn();
     const onResumeLatestChat = vi.fn(async () => false);
@@ -255,13 +254,15 @@ describe("ChatInput queued slash-command replay", () => {
       await Promise.resolve();
     });
 
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(host.textContent).toContain(
-      "/app-json requires an active app subsystem provider with app-generation chat-mode support.",
-    );
-    const queuedDraft = host.querySelector('[data-chat-queued-draft="true"]');
-    expect(queuedDraft?.textContent).toContain(
-      "/app-json dashboard for support ops",
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith(
+      `${getAppGenerationPrompt("/app-json")}\n\ndashboard for support ops`,
+      [],
+      {
+        appGeneration: {
+          mode: "json_render",
+        },
+      },
     );
   });
 
@@ -629,7 +630,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      "Attach at least one image before using /app-image.",
+      "Queued message failed. Edit it and retry.",
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
@@ -668,7 +669,6 @@ describe("ChatInput queued slash-command replay", () => {
               summary: "Generate from an attached reference image.",
               promptTemplate: "Match the attached design.",
               appGenerationMode: "json_render_with_image",
-              requiresImageAttachment: true,
             },
           ]}
           recognizedSlashCommands={[
@@ -678,7 +678,6 @@ describe("ChatInput queued slash-command replay", () => {
               summary: "Generate from an attached reference image.",
               promptTemplate: "Match the attached design.",
               appGenerationMode: "json_render_with_image",
-              requiresImageAttachment: true,
             },
           ]}
           onSubmit={onSubmit}
@@ -728,7 +727,6 @@ describe("ChatInput queued slash-command replay", () => {
       summary: "Generate from an attached reference image.",
       promptTemplate: "Match the attached design.",
       appGenerationMode: "json_render_with_image",
-      requiresImageAttachment: true,
     };
 
     const App = () => {
@@ -773,7 +771,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      "Attach at least one image before using /wireframe.",
+      "Queued message failed. Edit it and retry.",
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
@@ -844,7 +842,7 @@ describe("ChatInput queued slash-command replay", () => {
     );
   });
 
-  it("keeps queued custom app-generation slash commands queued when the command is removed before replay", async () => {
+  it("keeps queued custom slash commands queued when the command is removed before replay", async () => {
     const onSubmit = vi.fn(async () => true);
     let setWaitingForResponse:
       | ((next: boolean | ((current: boolean) => boolean)) => void)
@@ -912,14 +910,14 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      "/wireframe requires an active app subsystem provider with app-generation chat-mode support.",
+      "/wireframe is unavailable in the current context. Use /help.",
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
     ).toContain("/wireframe support ops");
   });
 
-  it("replays queued custom slash commands against the refreshed registry definition", async () => {
+  it("replays queued custom slash commands with the original prompt snapshot", async () => {
     const onSubmit = vi.fn(async () => true);
     let setWaitingForResponse:
       | ((next: boolean | ((current: boolean) => boolean)) => void)
@@ -938,7 +936,6 @@ describe("ChatInput queued slash-command replay", () => {
     const editedCommand: ChatSlashCommandDefinition = {
       ...initialCommand,
       promptTemplate: "Draft the edited wireframe.",
-      appGenerationMode: "wireframe_v2",
     };
 
     const App = () => {
@@ -992,93 +989,14 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith(
-      "Draft the edited wireframe.\n\nsupport ops",
+      "Draft the original wireframe.\n\nsupport ops",
       [],
       {
         appGeneration: {
-          mode: "wireframe_v2",
+          mode: "json_render",
         },
       },
     );
-  });
-
-  it("replays queued custom slash commands with refreshed image requirements", async () => {
-    const onSubmit = vi.fn(async () => true);
-    let setWaitingForResponse:
-      | ((next: boolean | ((current: boolean) => boolean)) => void)
-      | null = null;
-    let setSlashCommands:
-      | ((next: ChatSlashCommandDefinition[]) => void)
-      | null = null;
-
-    const initialCommand: ChatSlashCommandDefinition = {
-      command: "/wireframe",
-      action: "custom_prompt",
-      summary: "Generate a layout proposal.",
-      promptTemplate: "Draft a wireframe.",
-      appGenerationMode: "json_render",
-    };
-    const editedCommand: ChatSlashCommandDefinition = {
-      ...initialCommand,
-      requiresImageAttachment: true,
-    };
-
-    const App = () => {
-      const [waitingForResponse, setLocalWaitingForResponse] = useState(true);
-      const [slashCommands, setLocalSlashCommands] = useState([initialCommand]);
-      setWaitingForResponse = setLocalWaitingForResponse;
-      setSlashCommands = setLocalSlashCommands;
-
-      return (
-        <ChatInput
-          placeholderText="Type a message..."
-          waitingForResponse={waitingForResponse}
-          slashCommands={slashCommands}
-          recognizedSlashCommands={slashCommands}
-          onSubmit={onSubmit}
-          onStop={() => {}}
-        />
-      );
-    };
-
-    await act(async () => {
-      root.render(<App />);
-    });
-
-    const { textarea, submitButton } = getComposerElements(host);
-
-    await act(async () => {
-      setTextareaValue(textarea, "/wireframe support ops");
-      submitButton.click();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    if (!setSlashCommands) {
-      throw new Error("Expected slash command setter.");
-    }
-    await act(async () => {
-      setSlashCommands([editedCommand]);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    if (!setWaitingForResponse) {
-      throw new Error("Expected waiting state setter.");
-    }
-    await act(async () => {
-      setWaitingForResponse(false);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(host.textContent).toContain(
-      "Attach at least one image before using /wireframe.",
-    );
-    expect(
-      host.querySelector('[data-chat-queued-draft="true"]')?.textContent,
-    ).toContain("/wireframe support ops");
   });
 
   it("replays queued unavailable slash commands when they become executable", async () => {

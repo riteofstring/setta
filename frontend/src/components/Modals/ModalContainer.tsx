@@ -1,14 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystem";
-import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
-import { AppSubsystemRendererHost } from "plugins/appSubsystemRendererHost";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { closeModal, openWorkspaceSwitcherModal } from "state/actions/modal";
+import { openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { MODAL_OVERLAY_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
+import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { DropzoneFilePickerModal } from "./DropzoneFilePickerModal/DropzoneFilePickerModal";
@@ -22,7 +19,7 @@ import { ModalTypeEnum } from "./types";
 
 type ModalRenderer = (open: boolean) => JSX.Element;
 
-const MODAL_RENDERERS: Partial<Record<ModalTypeEnum, ModalRenderer>> = {
+const MODAL_RENDERERS: Record<ModalTypeEnum, ModalRenderer> = {
   [ModalTypeEnum.DELETE_PROJECT_WARNING]: () => <DeleteProjectWarningModal />,
   [ModalTypeEnum.DELETE_JSON_SOURCE_FILE]: () => (
     <DeleteJSONSourceVariantModal />
@@ -36,6 +33,9 @@ const MODAL_RENDERERS: Partial<Record<ModalTypeEnum, ModalRenderer>> = {
   [ModalTypeEnum.RENAME_REFERENCES]: () => <RenameReferencesModal />,
   [ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT]: (open) => (
     <PublishShareDeploymentModal open={open} />
+  ),
+  [ModalTypeEnum.PUBLISH_APP_DEPLOYMENT]: (open) => (
+    <PublishAppDeploymentModal open={open} />
   ),
   [ModalTypeEnum.DROPZONE_FILE_PICKER]: (open) => (
     <DropzoneFilePickerModal open={open} />
@@ -79,35 +79,10 @@ export function ModalContainer({ children }) {
 
 function ModalContent({ open }: { open: boolean }) {
   const modalInfo = useModal((x) => x.modalInfo);
-  const appDeploymentModal = useAppSubsystemAppDeploymentModal();
-  const appSubsystemHost = useMemo(
-    () =>
-      createRuntimeAppSubsystemFrontendHost({
-        closeModal,
-        resetProjectRuntimeState: resetProjectStores,
-      }),
-    [],
-  );
 
   if (!open || !modalInfo) {
     return null;
   }
 
-  if (modalInfo.type === ModalTypeEnum.PUBLISH_APP_DEPLOYMENT) {
-    if (!appDeploymentModal) {
-      return null;
-    }
-    return (
-      <AppSubsystemRendererHost
-        renderer={appDeploymentModal.renderer}
-        props={{ open }}
-        host={appSubsystemHost}
-        className="w-full"
-        testId="app-subsystem-app-deployment-modal"
-      />
-    );
-  }
-
-  const renderModal = MODAL_RENDERERS[modalInfo.type];
-  return renderModal ? renderModal(open) : null;
+  return MODAL_RENDERERS[modalInfo.type](open);
 }
