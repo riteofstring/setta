@@ -715,6 +715,28 @@ func enableAppDeploymentRuntimePluginWithID(
 	})
 }
 
+func enableInvalidAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string, pluginID string) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	pluginRoot := filepath.Join(deploymentRoot, ".setta_plugins", pluginID)
+	copyAppTestDir(t, filepath.Join(repoRoot, "tests", "fixtures", "plugins", "frontend"), pluginRoot)
+	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["id"] = pluginID
+		payload["featureCapabilities"] = map[string]any{
+			"appSubsystem": map[string]any{
+				"appAuthoringUi":         true,
+				"appPreviewUi":           true,
+				"appGenerationChatModes": true,
+				"appDeploymentRuntime":   true,
+			},
+		}
+	})
+	writeAppJSON(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds": []string{pluginID},
+	})
+}
+
 func enableAppDeploymentListener(t *testing.T, deploymentRoot string, entrypointContent string) {
 	t.Helper()
 
