@@ -116,6 +116,18 @@ func TestBuildMCPToolRegistrationsWithoutServiceLeavesOnlyCatalogTools(t *testin
 	}
 }
 
+func TestBuildMCPToolRegistrationsRequiresExplicitDefaultPath(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("expected missing default app spec path to panic")
+		}
+	}()
+
+	BuildMCPToolRegistrations(stubAppDefinitionRuntime{}, "")
+}
+
 func TestBuildMCPToolRegistrationsWorkThroughServerContributions(t *testing.T) {
 	t.Parallel()
 

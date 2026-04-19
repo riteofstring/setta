@@ -9,24 +9,43 @@ import (
 	"strings"
 
 	"setta/internal/appsubsystem"
+	"setta/internal/appsubsystemproviders"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
-	"setta/internal/plugins"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
-type openAPIDocumentAppSubsystemCapabilities struct{}
-
-func (openAPIDocumentAppSubsystemCapabilities) AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities {
-	return plugins.PluginAppSubsystemCapabilities{
-		PluginID:               appsubsystemplugin.ProviderPluginID,
-		PluginEnabled:          true,
-		AppAuthoringUI:         true,
-		AppPreviewUI:           true,
-		AppGenerationChatModes: true,
-		AppDeploymentRuntime:   true,
+func buildOpenAPIDocumentAppSubsystemRegistrations(
+	deps httpapi.FrontendAPIRouteDependencies,
+	providers []appsubsystemproviders.DiscoveredProvider,
+) (httpapi.FrontendAPIRouteRegistrations, error) {
+	registrations := httpapi.FrontendAPIRouteRegistrations{}
+	for _, provider := range providers {
+		providerRegistrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
+			appsubsystem.FrontendRouteRegistrationOptions{
+				Capabilities:       provider,
+				ModePolicy:         deps.Project.ModePolicy,
+				ProjectState:       deps.Project.ProjectState,
+				AppGenSkill:        deps.AppGenSkill,
+				ShareDeploymentIDE: deps.ShareDeploymentIDE,
+				AppDeployment: httpapi.DeploymentRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeApp),
+				},
+			},
+		)
+		if err != nil {
+			return httpapi.FrontendAPIRouteRegistrations{}, err
+		}
+		registrations.Project = append(
+			registrations.Project,
+			providerRegistrations.Project...,
+		)
+		registrations.Deployment = append(
+			registrations.Deployment,
+			providerRegistrations.Deployment...,
+		)
 	}
+	return registrations, nil
 }
 
 func main() {
@@ -42,17 +61,9 @@ func main() {
 	var registrationErr error
 	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			registrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
-				appsubsystem.FrontendRouteRegistrationOptions{
-					Capabilities:       openAPIDocumentAppSubsystemCapabilities{},
-					ModePolicy:         deps.Project.ModePolicy,
-					ProjectState:       deps.Project.ProjectState,
-					AppGenSkill:        deps.AppGenSkill,
-					ShareDeploymentIDE: deps.ShareDeploymentIDE,
-					AppDeployment: httpapi.DeploymentRouteDependencies{
-						ModePolicy: modes.NewPolicy(config.ModeApp),
-					},
-				},
+			registrations, err := buildOpenAPIDocumentAppSubsystemRegistrations(
+				deps,
+				appsubsystemproviders.DiscoveredProviders(),
 			)
 			registrationErr = err
 			return registrations

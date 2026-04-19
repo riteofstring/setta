@@ -165,6 +165,55 @@ func TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider(t *testing.T) {
 	}
 }
 
+func TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay project runtime: %v", err)
+	}
+	defer func() {
+		if closeErr := projectRuntime.Close(); closeErr != nil {
+			t.Fatalf("close overlay project runtime: %v", closeErr)
+		}
+	}()
+
+	runtime, err := newPluginBackendMCPRuntime(context.Background(), pluginBackendMCPRuntimeOptions{
+		RuntimeRoot: t.TempDir(),
+		Snapshot: plugins.DiscoverySnapshot{
+			Plugins: []plugins.DiscoveredPlugin{
+				{
+					PluginID: appsubsystemprovider.PluginID,
+					State:    plugins.PluginRuntimeStateActive,
+					Manifest: &plugins.PluginManifest{
+						ID: appsubsystemprovider.PluginID,
+						FeatureCapabilities: &plugins.PluginFeatureCapabilitiesManifest{
+							AppSubsystem: &plugins.PluginAppSubsystemFeatureManifest{
+								AppPreviewUI: true,
+							},
+						},
+					},
+				},
+			},
+		},
+		ProjectRuntime: projectRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new plugin backend MCP runtime: %v", err)
+	}
+	defer func() {
+		if closeErr := runtime.Close(context.Background()); closeErr != nil {
+			t.Fatalf("close plugin backend MCP runtime: %v", closeErr)
+		}
+	}()
+
+	for _, toolName := range runtime.toolNames {
+		if strings.Contains(toolName, "app") {
+			t.Fatalf("expected preview-only provider to skip app MCP tools, got %#v", runtime.toolNames)
+		}
+	}
+}
+
 func testStringPtr(value string) *string {
 	return &value
 }

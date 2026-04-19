@@ -110,22 +110,6 @@ func effectiveAppThemeModeWithStorage(
 	return defaultAppThemeMode, nil
 }
 
-func effectiveAppDefinition(document projectstate.Document) (AppDefinition, error) {
-	return effectiveAppDefinitionWithStorage(document, StorageForPlugin(""))
-}
-
-func effectiveAppSpecPath(document projectstate.Document) (string, error) {
-	return effectiveAppSpecPathWithStore(
-		document,
-		StorageForPlugin(""),
-		appspec.ForPlugin(""),
-	)
-}
-
-func effectiveAppThemeMode(document projectstate.Document) (string, error) {
-	return effectiveAppThemeModeWithStorage(document, StorageForPlugin(""))
-}
-
 func normalizeAppDefinition(definition AppDefinition) (AppDefinition, error) {
 	normalized := definition.Clone()
 	normalized.AppSpecVersion = strings.TrimSpace(normalized.AppSpecVersion)
