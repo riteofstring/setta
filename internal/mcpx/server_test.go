@@ -23,6 +23,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 	"setta/internal/tools"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -9299,6 +9300,9 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.ProjectState == nil {
 		options.ProjectState = projectRuntime
+	}
+	if options.AppDefinitionService == nil && projectRuntime != nil {
+		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
 	}
 	if options.LSPDiagnostics == nil {
 		options.LSPDiagnostics = openScopedTestLSPDiagnosticsRegistry()

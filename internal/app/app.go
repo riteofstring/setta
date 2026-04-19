@@ -2538,6 +2538,7 @@ func initializeAppMCPServer(
 		Registry:                     base.mcpToolRegistry,
 		WorkspaceRoot:                cfg.Paths.WorkspaceRoot,
 		ProjectState:                 projectServices.projectRuntime,
+		AppDefinitionService:         appsubsystemplugin.NewAppDefinitionService(projectServices.projectRuntime),
 		SkipDefaultAppSubsystemTools: true,
 		AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
 			return broadcastFrontendProjectStateUpdate(
