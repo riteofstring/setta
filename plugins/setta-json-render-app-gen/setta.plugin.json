@@ -7,10 +7,10 @@
   "enabledByDefault": false,
   "featureCapabilities": {
     "appSubsystem": {
-      "appAuthoringUi": false,
-      "appPreviewUi": false,
-      "appGenerationChatModes": false,
-      "appDeploymentRuntime": false
+      "appAuthoringUi": true,
+      "appPreviewUi": true,
+      "appGenerationChatModes": true,
+      "appDeploymentRuntime": true
     }
   },
   "capabilities": []

@@ -23,6 +23,9 @@ func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContribution
 		RouteGetAppDefinition,
 		RouteSetAppDefinition,
 		RouteValidateAppDefinition,
+		RouteGetAppGenSkills,
+		RouteGetAppGenSkillContent,
+		RouteUpsertAppGenCustomSkill,
 		RouteAppDeployments,
 		RouteAppDeploymentVersions,
 		RouteAppDeploymentLatest,
@@ -46,13 +49,13 @@ func TestBuildAppSubsystemFrontendAPIRouteRegistrationsRestoresFrozenRoutes(t *t
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
 	registrations := BuildAppSubsystemFrontendAPIRouteRegistrations(deps)
-	if len(registrations.Project) != 1 {
-		t.Fatalf("expected one project contribution, got %#v", registrations.Project)
+	if len(registrations.Project) != 2 {
+		t.Fatalf("expected two project contributions, got %#v", registrations.Project)
 	}
 	if len(registrations.Deployment) != 2 {
 		t.Fatalf("expected two deployment contributions, got %#v", registrations.Deployment)
 	}
-	if registrations.Project[0].Family != "app definition" {
+	if registrations.Project[0].Family != "app definition" || registrations.Project[1].Family != "app generation skill" {
 		t.Fatalf("unexpected project contribution family %#v", registrations.Project)
 	}
 	if registrations.Deployment[0].Family != "app deployment" || registrations.Deployment[1].Family != "deployment ide" {
@@ -66,6 +69,9 @@ func TestBuildAppSubsystemFrontendAPIRouteRegistrationsRestoresFrozenRoutes(t *t
 		RouteGetAppDefinition,
 		RouteSetAppDefinition,
 		RouteValidateAppDefinition,
+		RouteGetAppGenSkills,
+		RouteGetAppGenSkillContent,
+		RouteUpsertAppGenCustomSkill,
 		RouteAppDeployments,
 		RouteAppDeploymentVersions,
 		RouteAppDeploymentLatest,
@@ -89,6 +95,9 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesAppSubsystemRouteContributions(
 		RouteGetAppDefinition,
 		RouteSetAppDefinition,
 		RouteValidateAppDefinition,
+		RouteGetAppGenSkills,
+		RouteGetAppGenSkillContent,
+		RouteUpsertAppGenCustomSkill,
 		RouteAppDeployments,
 		RouteAppDeploymentVersions,
 		RouteAppDeploymentLatest,
