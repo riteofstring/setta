@@ -34,6 +34,8 @@ function createEntry(
   };
 }
 
+const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
+
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",
   pluginEnabled: true,
@@ -47,37 +49,39 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
     [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
       pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
       overviewTab: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
         titleQuickInfo: "Authoring quick info",
         moreMenuQuickInfo: "More menu quick info",
         moreMenuLabel: "JSON Render",
       },
       previewSurface: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
       },
       appModeRoute: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
       },
       appDeploymentModal: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
       },
-      slashCommands: [
-        {
-          command: "/app-image",
-          action: "app_json_render_with_image",
-          summary: "Generate an app spec using attached image guidance.",
-          promptTemplate: "Generate an app spec using an image.",
-          appGenerationMode: "json_render_with_image",
-          requiresImageAttachment: true,
-        },
-      ],
-      imageRequiredModes: ["json_render_with_image"],
-      customSlashCommandModes: {
-        options: [
-          { id: "plain_chat", name: "Plain chat" },
-          { id: "json_render_with_image", name: "Image to JSON Render" },
+      chat: {
+        slashCommands: [
+          {
+            command: "/app-image",
+            action: "app_json_render_with_image",
+            summary: "Generate an app spec using attached image guidance.",
+            promptTemplate: "Generate an app spec using an image.",
+            appGenerationMode: "json_render_with_image",
+            requiresImageAttachment: true,
+          },
         ],
-        defaultMode: "plain_chat",
+        imageRequiredModes: ["json_render_with_image"],
+        customSlashCommandModes: {
+          options: [
+            { id: "plain_chat", name: "Plain chat" },
+            { id: "json_render_with_image", name: "Image to JSON Render" },
+          ],
+          defaultMode: "plain_chat",
+        },
       },
     },
   };

@@ -1,6 +1,5 @@
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import type { GetLatestProjectStateResponse } from "openapi/http";
-import { type ComponentType } from "react";
 import { PluginRuntimeResponse } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 
@@ -8,23 +7,64 @@ type AppSubsystemCapabilities = NonNullable<
   PluginRuntimeResponse["featureCapabilities"]
 >["appSubsystem"];
 
+export const APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION = 1;
+
+export type AppSubsystemFrontendHost = {
+  apiVersion: typeof APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION;
+  closeModal: () => void;
+};
+
+export function createAppSubsystemFrontendHost(
+  overrides: Partial<AppSubsystemFrontendHost> = {},
+): AppSubsystemFrontendHost {
+  return {
+    apiVersion: APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION,
+    closeModal: () => undefined,
+    ...overrides,
+  };
+}
+
+export const DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST =
+  createAppSubsystemFrontendHost();
+
+type AppSubsystemOverviewTabProps = Record<string, never>;
+type AppSubsystemPreviewSurfaceProps = Record<string, never>;
+type AppSubsystemAppModeRouteProps = Record<string, never>;
+type AppSubsystemAppDeploymentModalProps = {
+  open: boolean;
+};
+
+export type AppSubsystemRenderer<Props> = {
+  mount: (
+    target: HTMLElement,
+    props: Props,
+    host: AppSubsystemFrontendHost,
+  ) => void;
+  update?: (
+    target: HTMLElement,
+    props: Props,
+    host: AppSubsystemFrontendHost,
+  ) => void;
+  unmount?: (target: HTMLElement) => void;
+};
+
 type AppSubsystemOverviewTabRegistration = {
-  component: ComponentType;
+  renderer: AppSubsystemRenderer<AppSubsystemOverviewTabProps>;
   titleQuickInfo: string;
   moreMenuQuickInfo: string;
   moreMenuLabel: string;
 };
 
 type AppSubsystemPreviewSurfaceRegistration = {
-  component: ComponentType;
+  renderer: AppSubsystemRenderer<AppSubsystemPreviewSurfaceProps>;
 };
 
 type AppSubsystemAppModeRouteRegistration = {
-  component: ComponentType;
+  renderer: AppSubsystemRenderer<AppSubsystemAppModeRouteProps>;
 };
 
 type AppSubsystemAppDeploymentModalRegistration = {
-  component: ComponentType<{ open: boolean }>;
+  renderer: AppSubsystemRenderer<AppSubsystemAppDeploymentModalProps>;
 };
 
 type AppSubsystemCustomSlashCommandModeOption = {
@@ -46,14 +86,13 @@ type AppSubsystemSessionInitializationOptions = {
   forceNewSession?: boolean;
 };
 
-export type AppSubsystemFrontendRegistration = {
-  overviewTab?: AppSubsystemOverviewTabRegistration;
-  previewSurface?: AppSubsystemPreviewSurfaceRegistration;
-  appModeRoute?: AppSubsystemAppModeRouteRegistration;
-  appDeploymentModal?: AppSubsystemAppDeploymentModalRegistration;
-  slashCommands?: ChatSlashCommandDefinition[];
-  imageRequiredModes?: string[];
-  customSlashCommandModes?: AppSubsystemCustomSlashCommandModesRegistration;
+type AppSubsystemChatRegistration = {
+  slashCommands: ChatSlashCommandDefinition[];
+  imageRequiredModes: string[];
+  customSlashCommandModes: AppSubsystemCustomSlashCommandModesRegistration;
+};
+
+type AppSubsystemFrontendController = {
   getPreviewEnabled?: () => boolean;
   subscribePreviewEnabled?: (
     listener: (previewEnabled: boolean) => void,
@@ -75,6 +114,15 @@ export type AppSubsystemFrontendRegistration = {
   ) => void;
   initializeProjectState?: () => void;
   resetProjectState?: () => void;
+};
+
+export type AppSubsystemFrontendRegistration = {
+  overviewTab?: AppSubsystemOverviewTabRegistration;
+  previewSurface?: AppSubsystemPreviewSurfaceRegistration;
+  appModeRoute?: AppSubsystemAppModeRouteRegistration;
+  appDeploymentModal?: AppSubsystemAppDeploymentModalRegistration;
+  chat?: AppSubsystemChatRegistration;
+  controller?: AppSubsystemFrontendController;
 };
 
 export type RegisteredAppSubsystemFrontendRegistration =
@@ -209,27 +257,27 @@ function appendSupportedAppGenerationMode(
 }
 
 function collectSupportedAppGenerationModes(
-  registration: AppSubsystemFrontendRegistration | null,
+  chat: AppSubsystemChatRegistration | null,
 ): string[] {
-  if (registration === null) {
+  if (chat === null) {
     return EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES;
   }
   const seenModes = new Set<string>();
   const modes: string[] = [];
-  for (const command of registration.slashCommands ?? []) {
+  for (const command of chat.slashCommands ?? []) {
     appendSupportedAppGenerationMode(
       modes,
       seenModes,
       command.appGenerationMode,
     );
   }
-  for (const option of registration.customSlashCommandModes?.options ?? []) {
+  for (const option of chat.customSlashCommandModes?.options ?? []) {
     appendSupportedAppGenerationMode(modes, seenModes, option.id, true);
   }
   appendSupportedAppGenerationMode(
     modes,
     seenModes,
-    registration.customSlashCommandModes?.defaultMode,
+    chat.customSlashCommandModes?.defaultMode,
     true,
   );
   return modes.length === 0
@@ -307,8 +355,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isComponent(value: unknown): value is ComponentType {
-  return isFunction(value);
+function isAppSubsystemRenderer<Props>(
+  value: unknown,
+): value is AppSubsystemRenderer<Props> {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFunction(value.mount) &&
+    (value.update === undefined || isFunction(value.update)) &&
+    (value.unmount === undefined || isFunction(value.unmount))
+  );
 }
 
 function isOverviewTabRegistration(
@@ -318,7 +375,7 @@ function isOverviewTabRegistration(
     return false;
   }
   return (
-    isComponent(value.component) &&
+    isAppSubsystemRenderer<AppSubsystemOverviewTabProps>(value.renderer) &&
     typeof value.titleQuickInfo === "string" &&
     typeof value.moreMenuQuickInfo === "string" &&
     typeof value.moreMenuLabel === "string"
@@ -328,19 +385,28 @@ function isOverviewTabRegistration(
 function isPreviewSurfaceRegistration(
   value: unknown,
 ): value is AppSubsystemPreviewSurfaceRegistration {
-  return isRecord(value) && isComponent(value.component);
+  return (
+    isRecord(value) &&
+    isAppSubsystemRenderer<AppSubsystemPreviewSurfaceProps>(value.renderer)
+  );
 }
 
 function isAppModeRouteRegistration(
   value: unknown,
 ): value is AppSubsystemAppModeRouteRegistration {
-  return isRecord(value) && isComponent(value.component);
+  return (
+    isRecord(value) &&
+    isAppSubsystemRenderer<AppSubsystemAppModeRouteProps>(value.renderer)
+  );
 }
 
 function isAppDeploymentModalRegistration(
   value: unknown,
 ): value is AppSubsystemAppDeploymentModalRegistration {
-  return isRecord(value) && isComponent(value.component);
+  return (
+    isRecord(value) &&
+    isAppSubsystemRenderer<AppSubsystemAppDeploymentModalProps>(value.renderer)
+  );
 }
 
 function isSlashCommandRegistration(
@@ -384,6 +450,17 @@ function isCustomSlashCommandModeRegistration(
       isRecord(entry) &&
       typeof entry.id === "string" &&
       typeof entry.name === "string",
+  );
+}
+
+function isChatRegistration(
+  value: unknown,
+): value is AppSubsystemChatRegistration {
+  return (
+    isRecord(value) &&
+    isSlashCommandRegistration(value.slashCommands) &&
+    isImageRequiredModeRegistration(value.imageRequiredModes) &&
+    isCustomSlashCommandModeRegistration(value.customSlashCommandModes)
   );
 }
 
@@ -464,11 +541,9 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATION_VALIDATORS = [
   ["previewSurface", isPreviewSurfaceRegistration],
   ["appModeRoute", isAppModeRouteRegistration],
   ["appDeploymentModal", isAppDeploymentModalRegistration],
-  ["slashCommands", isSlashCommandRegistration],
-  ["imageRequiredModes", isImageRequiredModeRegistration],
-  ["customSlashCommandModes", isCustomSlashCommandModeRegistration],
+  ["chat", isChatRegistration],
 ] as const;
-const APP_SUBSYSTEM_FRONTEND_OPTIONAL_FUNCTION_KEYS = [
+const APP_SUBSYSTEM_FRONTEND_CONTROLLER_OPTIONAL_FUNCTION_KEYS = [
   "getPreviewEnabled",
   "subscribePreviewEnabled",
   "applyAppDefinitionStructuredContentToStore",
@@ -482,12 +557,21 @@ const APP_SUBSYSTEM_FRONTEND_OPTIONAL_FUNCTION_KEYS = [
   "resetProjectState",
 ] as const;
 
+function isControllerRegistration(
+  value: unknown,
+): value is AppSubsystemFrontendController {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return APP_SUBSYSTEM_FRONTEND_CONTROLLER_OPTIONAL_FUNCTION_KEYS.every((key) =>
+    hasOptionalFunction(value, key),
+  );
+}
+
 function hasValidOptionalFrontendFunctions(
   value: Record<string, unknown>,
 ): boolean {
-  return APP_SUBSYSTEM_FRONTEND_OPTIONAL_FUNCTION_KEYS.every((key) =>
-    hasOptionalFunction(value, key),
-  );
+  return hasOptionalRegistration(value, "controller", isControllerRegistration);
 }
 
 export function isAppSubsystemFrontendRegistration(
@@ -517,12 +601,13 @@ function formatAppSubsystemFrontendLoadError(error: unknown): string {
 function bindPreviewEnabledRegistration(
   registration: AppSubsystemFrontendRegistration,
 ): boolean {
+  const controller = registration.controller;
   clearPreviewEnabledSubscription();
-  const previewEnabled = registration.getPreviewEnabled?.() ?? false;
-  if (!registration.subscribePreviewEnabled) {
+  const previewEnabled = controller?.getPreviewEnabled?.() ?? false;
+  if (!controller?.subscribePreviewEnabled) {
     return previewEnabled;
   }
-  appSubsystemPreviewEnabledUnsubscribe = registration.subscribePreviewEnabled(
+  appSubsystemPreviewEnabledUnsubscribe = controller.subscribePreviewEnabled(
     (nextPreviewEnabled) => {
       applyPreviewEnabledState(nextPreviewEnabled);
     },
@@ -538,7 +623,7 @@ const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
       { kind: "applyAppDefinitionStructuredContent" }
     >,
   ): void => {
-    registration.applyAppDefinitionStructuredContentToStore?.(
+    registration.controller?.applyAppDefinitionStructuredContentToStore?.(
       operation.structured,
     );
   },
@@ -549,7 +634,9 @@ const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
       { kind: "applyAppSpecPatchPreviewDelta" }
     >,
   ): void => {
-    registration.applyAppSpecPatchPreviewDeltaToStore?.(operation.args);
+    registration.controller?.applyAppSpecPatchPreviewDeltaToStore?.(
+      operation.args,
+    );
   },
   clearAppSpecPatchPreviewStream: (
     registration: AppSubsystemFrontendRegistration,
@@ -558,12 +645,14 @@ const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
       { kind: "clearAppSpecPatchPreviewStream" }
     >,
   ): void => {
-    registration.clearAppSpecPatchPreviewStream?.(operation.toolCallId);
+    registration.controller?.clearAppSpecPatchPreviewStream?.(
+      operation.toolCallId,
+    );
   },
   clearAllAppSpecPatchPreviewStreams: (
     registration: AppSubsystemFrontendRegistration,
   ): void => {
-    registration.clearAllAppSpecPatchPreviewStreams?.();
+    registration.controller?.clearAllAppSpecPatchPreviewStreams?.();
   },
   processAppProjectStateUpdate: (
     registration: AppSubsystemFrontendRegistration,
@@ -572,12 +661,14 @@ const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
       { kind: "processAppProjectStateUpdate" }
     >,
   ): void => {
-    registration.processAppProjectStateUpdateFromBackend?.(operation.payload);
+    registration.controller?.processAppProjectStateUpdateFromBackend?.(
+      operation.payload,
+    );
   },
   resetAppSessionState: (
     registration: AppSubsystemFrontendRegistration,
   ): void => {
-    registration.resetAppSessionState?.();
+    registration.controller?.resetAppSessionState?.();
   },
 } as const;
 
@@ -621,7 +712,9 @@ function setUnavailableAppSubsystemFrontendState(
 ): void {
   clearPreviewEnabledSubscription();
   clearPendingAppSubsystemOperations();
-  useAppSubsystemFrontendStore.getState().registration?.resetProjectState?.();
+  useAppSubsystemFrontendStore
+    .getState()
+    .registration?.controller?.resetProjectState?.();
   useAppSubsystemFrontendStore.setState({
     capabilities,
     status: "unavailable",
@@ -669,7 +762,7 @@ function setLoadingAppSubsystemFrontendState(
   if (
     shouldResetProjectStateForFrontendLoad(capabilities, capabilitySignature)
   ) {
-    currentState.registration?.resetProjectState?.();
+    currentState.registration?.controller?.resetProjectState?.();
   }
   useAppSubsystemFrontendStore.setState({
     capabilities,
@@ -712,40 +805,100 @@ function requireCapabilityRegistration(
   }
 }
 
+type AppSubsystemCapabilityRequirement = {
+  required: boolean | undefined;
+  present: boolean;
+  message: string;
+};
+
+type AppSubsystemFrontendCapabilityFlag = keyof Pick<
+  AppSubsystemCapabilities,
+  | "appAuthoringUi"
+  | "appPreviewUi"
+  | "appGenerationChatModes"
+  | "appDeploymentRuntime"
+>;
+
+function getAppSubsystemCapabilityFlag(
+  capabilities: AppSubsystemCapabilities | null,
+  key: AppSubsystemFrontendCapabilityFlag,
+): boolean | undefined {
+  return capabilities?.[key];
+}
+
+function hasAppSubsystemSlashCommands(
+  chat: AppSubsystemChatRegistration | undefined,
+): boolean {
+  return (chat?.slashCommands.length ?? 0) > 0;
+}
+
+function hasAppSubsystemCustomSlashCommandModes(
+  chat: AppSubsystemChatRegistration | undefined,
+): boolean {
+  return Boolean(chat?.customSlashCommandModes);
+}
+
 function validateFrontendRegistrationCapabilities(
   registration: AppSubsystemFrontendRegistration,
   capabilities: AppSubsystemCapabilities | null,
 ): void {
-  requireCapabilityRegistration(
-    capabilities?.appAuthoringUi,
-    Boolean(registration.overviewTab),
-    "App subsystem frontend adapter is missing the authoring overview registration.",
-  );
-  requireCapabilityRegistration(
-    capabilities?.appPreviewUi,
-    Boolean(registration.previewSurface),
-    "App subsystem frontend adapter is missing the preview surface registration.",
-  );
-  requireCapabilityRegistration(
-    capabilities?.appGenerationChatModes,
-    (registration.slashCommands?.length ?? 0) > 0,
-    "App subsystem frontend adapter is missing slash command registrations.",
-  );
-  requireCapabilityRegistration(
-    capabilities?.appGenerationChatModes,
-    Boolean(registration.customSlashCommandModes),
-    "App subsystem frontend adapter is missing custom slash-command mode registrations.",
-  );
-  requireCapabilityRegistration(
-    capabilities?.appDeploymentRuntime,
-    Boolean(registration.appModeRoute),
-    "App subsystem frontend adapter is missing the app mode route registration.",
-  );
-  requireCapabilityRegistration(
-    capabilities?.appDeploymentRuntime,
-    Boolean(registration.appDeploymentModal),
-    "App subsystem frontend adapter is missing the app deployment modal registration.",
-  );
+  const requirements: AppSubsystemCapabilityRequirement[] = [
+    {
+      required: getAppSubsystemCapabilityFlag(capabilities, "appAuthoringUi"),
+      present: Boolean(registration.overviewTab),
+      message:
+        "App subsystem frontend adapter is missing the authoring overview registration.",
+    },
+    {
+      required: getAppSubsystemCapabilityFlag(capabilities, "appPreviewUi"),
+      present: Boolean(registration.previewSurface),
+      message:
+        "App subsystem frontend adapter is missing the preview surface registration.",
+    },
+    {
+      required: getAppSubsystemCapabilityFlag(
+        capabilities,
+        "appGenerationChatModes",
+      ),
+      present: hasAppSubsystemSlashCommands(registration.chat),
+      message:
+        "App subsystem frontend adapter is missing slash command registrations.",
+    },
+    {
+      required: getAppSubsystemCapabilityFlag(
+        capabilities,
+        "appGenerationChatModes",
+      ),
+      present: hasAppSubsystemCustomSlashCommandModes(registration.chat),
+      message:
+        "App subsystem frontend adapter is missing custom slash-command mode registrations.",
+    },
+    {
+      required: getAppSubsystemCapabilityFlag(
+        capabilities,
+        "appDeploymentRuntime",
+      ),
+      present: Boolean(registration.appModeRoute),
+      message:
+        "App subsystem frontend adapter is missing the app mode route registration.",
+    },
+    {
+      required: getAppSubsystemCapabilityFlag(
+        capabilities,
+        "appDeploymentRuntime",
+      ),
+      present: Boolean(registration.appDeploymentModal),
+      message:
+        "App subsystem frontend adapter is missing the app deployment modal registration.",
+    },
+  ];
+  for (const requirement of requirements) {
+    requireCapabilityRegistration(
+      requirement.required,
+      requirement.present,
+      requirement.message,
+    );
+  }
 }
 
 function buildMissingFrontendRegistrationMessage(
@@ -825,7 +978,7 @@ export async function syncAppSubsystemFrontendRegistration(
     ) {
       return;
     }
-    resolvedRegistration.initializeProjectState?.();
+    resolvedRegistration.controller?.initializeProjectState?.();
     const previewEnabled = bindPreviewEnabledRegistration(resolvedRegistration);
     flushPendingAppSubsystemOperations(
       resolvedRegistration,
@@ -942,7 +1095,8 @@ export function useAppSubsystemSlashCommands(): ChatSlashCommandDefinition[] {
       return EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS;
     }
     return (
-      state.registration?.slashCommands ?? EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS
+      state.registration?.chat?.slashCommands ??
+      EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS
     );
   });
 }
@@ -955,24 +1109,33 @@ export function useAppSubsystemSupportedAppGenerationModes(): string[] {
     ) {
       return EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES;
     }
-    return collectSupportedAppGenerationModes(state.registration);
+    return collectSupportedAppGenerationModes(state.registration?.chat ?? null);
   });
+}
+
+function hasAppSubsystemChatCapability(
+  capabilities: AppSubsystemCapabilities | null,
+): boolean {
+  return Boolean(
+    capabilities?.pluginEnabled && capabilities.appGenerationChatModes,
+  );
 }
 
 export function appSubsystemModeRequiresImageAttachment(
   mode: string | null | undefined,
 ): boolean {
-  if (typeof mode !== "string" || mode.trim().length === 0) {
+  const normalizedMode = mode?.trim() ?? "";
+  if (normalizedMode.length === 0) {
     return false;
   }
   const state = useAppSubsystemFrontendStore.getState();
-  if (
-    !state.capabilities?.pluginEnabled ||
-    !state.capabilities.appGenerationChatModes
-  ) {
+  if (!hasAppSubsystemChatCapability(state.capabilities)) {
     return false;
   }
-  return state.registration?.imageRequiredModes?.includes(mode) ?? false;
+  return (
+    state.registration?.chat?.imageRequiredModes?.includes(normalizedMode) ??
+    false
+  );
 }
 
 export function useAppSubsystemCustomSlashCommandModeOptions(): AppSubsystemCustomSlashCommandModeOption[] {
@@ -984,7 +1147,7 @@ export function useAppSubsystemCustomSlashCommandModeOptions(): AppSubsystemCust
       return DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS;
     }
     return (
-      state.registration?.customSlashCommandModes?.options ??
+      state.registration?.chat?.customSlashCommandModes?.options ??
       DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS
     );
   });
@@ -999,14 +1162,16 @@ export function useAppSubsystemDefaultCustomSlashCommandMode(): string {
       return DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE;
     }
     return (
-      state.registration?.customSlashCommandModes?.defaultMode ??
+      state.registration?.chat?.customSlashCommandModes?.defaultMode ??
       DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE
     );
   });
 }
 
 export function runAppSubsystemProjectResetHooks(): void {
-  useAppSubsystemFrontendStore.getState().registration?.resetProjectState?.();
+  useAppSubsystemFrontendStore
+    .getState()
+    .registration?.controller?.resetProjectState?.();
 }
 
 export function useAppSubsystemPreviewEnabled(): boolean {
@@ -1072,8 +1237,10 @@ export function applyAppDefinitionStructuredContentToStore(
   structured: Record<string, unknown>,
 ): boolean {
   const registration = getAppSubsystemLoadedRegistration();
-  if (registration?.applyAppDefinitionStructuredContentToStore) {
-    return registration.applyAppDefinitionStructuredContentToStore(structured);
+  if (registration?.controller?.applyAppDefinitionStructuredContentToStore) {
+    return registration.controller.applyAppDefinitionStructuredContentToStore(
+      structured,
+    );
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
   if (!capabilitySignature) {
@@ -1091,8 +1258,8 @@ export function applyAppSpecPatchPreviewDeltaToStore(args: {
   previewValueDelta: string;
 }): void {
   const registration = getAppSubsystemLoadedRegistration();
-  if (registration?.applyAppSpecPatchPreviewDeltaToStore) {
-    registration.applyAppSpecPatchPreviewDeltaToStore(args);
+  if (registration?.controller?.applyAppSpecPatchPreviewDeltaToStore) {
+    registration.controller.applyAppSpecPatchPreviewDeltaToStore(args);
     return;
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
@@ -1107,8 +1274,8 @@ export function applyAppSpecPatchPreviewDeltaToStore(args: {
 
 export function clearAppSpecPatchPreviewStream(toolCallId: string): void {
   const registration = getAppSubsystemLoadedRegistration();
-  if (registration?.clearAppSpecPatchPreviewStream) {
-    registration.clearAppSpecPatchPreviewStream(toolCallId);
+  if (registration?.controller?.clearAppSpecPatchPreviewStream) {
+    registration.controller.clearAppSpecPatchPreviewStream(toolCallId);
     return;
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
@@ -1123,8 +1290,8 @@ export function clearAppSpecPatchPreviewStream(toolCallId: string): void {
 
 export function clearAllAppSpecPatchPreviewStreams(): void {
   const registration = getAppSubsystemLoadedRegistration();
-  if (registration?.clearAllAppSpecPatchPreviewStreams) {
-    registration.clearAllAppSpecPatchPreviewStreams();
+  if (registration?.controller?.clearAllAppSpecPatchPreviewStreams) {
+    registration.controller.clearAllAppSpecPatchPreviewStreams();
     return;
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
@@ -1144,16 +1311,18 @@ export async function initializeAppSessionFromCurrentDeployment(
   const registration =
     getAppSubsystemLoadedRegistration() ??
     (await waitForLoadedAppSubsystemRegistration());
-  if (!registration?.initializeAppSessionFromCurrentDeployment) {
+  if (!registration?.controller?.initializeAppSessionFromCurrentDeployment) {
     return false;
   }
-  return registration.initializeAppSessionFromCurrentDeployment(options);
+  return registration.controller.initializeAppSessionFromCurrentDeployment(
+    options,
+  );
 }
 
 export function resetAppSessionState(): void {
   const registration = getAppSubsystemLoadedRegistration();
-  if (registration?.resetAppSessionState) {
-    registration.resetAppSessionState();
+  if (registration?.controller?.resetAppSessionState) {
+    registration.controller.resetAppSessionState();
     return;
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
@@ -1169,8 +1338,8 @@ export function processAppProjectStateUpdateFromBackend(
   payload: GetLatestProjectStateResponse,
 ): void {
   const registration = getAppSubsystemLoadedRegistration();
-  if (registration?.processAppProjectStateUpdateFromBackend) {
-    registration.processAppProjectStateUpdateFromBackend(payload);
+  if (registration?.controller?.processAppProjectStateUpdateFromBackend) {
+    registration.controller.processAppProjectStateUpdateFromBackend(payload);
     return;
   }
   const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();

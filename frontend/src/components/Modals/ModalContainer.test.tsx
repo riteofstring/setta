@@ -138,8 +138,21 @@ describe("ModalContainer", () => {
 
   it("renders the app deployment modal through the app subsystem runtime hook", async () => {
     useAppSubsystemAppDeploymentModalMock.mockReturnValue({
-      component: ({ open }: { open: boolean }) =>
-        open ? <div>Plugin-owned App Deployment Modal</div> : null,
+      renderer: {
+        mount: (target: HTMLElement, props: { open: boolean }) => {
+          target.textContent = props.open
+            ? "Plugin-owned App Deployment Modal"
+            : "";
+        },
+        update: (target: HTMLElement, props: { open: boolean }) => {
+          target.textContent = props.open
+            ? "Plugin-owned App Deployment Modal"
+            : "";
+        },
+        unmount: (target: HTMLElement) => {
+          target.textContent = "";
+        },
+      },
     });
     useModal.setState({
       open: true,

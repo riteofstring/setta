@@ -26,40 +26,46 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appGenerationChatModes: true,
   appDeploymentRuntime: true,
 } as const;
+const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
 const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
   {
     [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
       pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
       overviewTab: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
         titleQuickInfo: "Authoring quick info",
         moreMenuQuickInfo: "More menu quick info",
         moreMenuLabel: "JSON Render",
       },
       previewSurface: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
       },
       appModeRoute: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
       },
       appDeploymentModal: {
-        component: () => null,
+        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
       },
-      slashCommands: [
-        {
-          command: "/app-json",
-          action: "app_json_render",
-          summary: "Generate an app spec.",
-          promptTemplate: "Generate an app spec.",
-          appGenerationMode: "json_render",
+      chat: {
+        slashCommands: [
+          {
+            command: "/app-json",
+            action: "app_json_render",
+            summary: "Generate an app spec.",
+            promptTemplate: "Generate an app spec.",
+            appGenerationMode: "json_render",
+          },
+        ],
+        imageRequiredModes: [],
+        customSlashCommandModes: {
+          options: [{ id: "plain_chat", name: "Plain chat" }],
+          defaultMode: "plain_chat",
         },
-      ],
-      customSlashCommandModes: {
-        options: [{ id: "plain_chat", name: "Plain chat" }],
-        defaultMode: "plain_chat",
       },
-      applyAppDefinitionStructuredContentToStore:
-        applyAppDefinitionStructuredContentToProviderStore,
+      controller: {
+        applyAppDefinitionStructuredContentToStore:
+          applyAppDefinitionStructuredContentToProviderStore,
+      },
     },
   };
 
