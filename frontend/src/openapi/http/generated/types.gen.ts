@@ -2726,6 +2726,7 @@ export type PluginsPluginRegisteredLanguageServer = {
   language: string;
   name: string;
   pluginId: string;
+  runtimeSearchPathsKey?: string;
   settingsKey?: string;
 };
 

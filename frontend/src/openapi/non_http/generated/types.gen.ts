@@ -4106,6 +4106,7 @@ type PluginRegisteredLanguageServer = {
   language: string;
   name: string;
   pluginId: string;
+  runtimeSearchPathsKey?: null | string;
   settingsKey?: null | string;
 };
 

@@ -294,6 +294,25 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 	}
 }
 
+func TestNormalizeBackendLanguageServerRegistrationPreservesRuntimeSearchPathsKey(t *testing.T) {
+	pluginRoot := t.TempDir()
+	runtimeSearchPathsKey := " fixtureDslLanguageServer.analysis.extraPaths "
+
+	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:                  "Fixture DSL",
+		Language:              "FixtureDSL",
+		Command:               "python3",
+		Args:                  []string{"--stdio"},
+		RuntimeSearchPathsKey: &runtimeSearchPathsKey,
+	})
+	if err != nil {
+		t.Fatalf("normalize backend language server registration: %v", err)
+	}
+	if normalized.RuntimeSearchPathsKey == nil || *normalized.RuntimeSearchPathsKey != "fixtureDslLanguageServer.analysis.extraPaths" {
+		t.Fatalf("expected runtime search paths key to be preserved, got %#v", normalized.RuntimeSearchPathsKey)
+	}
+}
+
 func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testing.T) {
 	// Language-server registrations must fail closed on missing commands.
 	pluginRoot := t.TempDir()
