@@ -206,19 +206,6 @@ type Allocation = {
 };
 
 /**
- * AppCapabilities
- */
-type AppCapabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-/**
  * AppDefinition
  */
 export type AppDefinition = {
@@ -237,6 +224,19 @@ export type AppDefinition = {
 };
 
 /**
+ * AppDefinitionCapabilities
+ */
+type AppDefinitionCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
+/**
  * AppDefinitionMutationResult
  */
 type AppDefinitionMutationResult = {
@@ -251,12 +251,21 @@ type AppDefinitionReadResult = {
 };
 
 /**
+ * AppDefinitionValidationIssue
+ */
+type AppDefinitionValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+/**
  * AppDefinitionValidationResult
  */
 type AppDefinitionValidationResult = {
-  capabilities: AppCapabilities;
-  errors: null | Array<AppValidationIssue>;
-  warnings: null | Array<AppValidationIssue>;
+  capabilities: AppDefinitionCapabilities;
+  errors: null | Array<AppDefinitionValidationIssue>;
+  warnings: null | Array<AppDefinitionValidationIssue>;
 };
 
 /**
@@ -275,15 +284,6 @@ export type AppRoute = {
   name?: string;
   path: string;
   rootKey?: string;
-};
-
-/**
- * AppValidationIssue
- */
-type AppValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
 };
 
 /**

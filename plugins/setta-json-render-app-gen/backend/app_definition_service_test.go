@@ -31,6 +31,39 @@ func TestAppDefinitionServiceGetAppDefinitionEmpty(t *testing.T) {
 	}
 }
 
+func TestAppDefinitionServiceGetEffectiveMetadataDefaults(t *testing.T) {
+	t.Parallel()
+
+	_, runtime := openPersistedPluginAppDefinitionRuntime(t)
+	service := appDefinitionServiceForTest(runtime)
+
+	definition, err := service.GetEffectiveAppDefinition(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app definition: %v", err)
+	}
+	specPath, err := service.GetEffectiveAppSpecPath(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app spec path: %v", err)
+	}
+	themeMode, err := service.GetEffectiveAppThemeMode(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app theme mode: %v", err)
+	}
+
+	if definition.CatalogID != appspec.DefaultCatalogID {
+		t.Fatalf("expected default catalog id %q, got %q", appspec.DefaultCatalogID, definition.CatalogID)
+	}
+	if definition.AppSpecVersion != "v1" {
+		t.Fatalf("expected default app spec version v1, got %q", definition.AppSpecVersion)
+	}
+	if specPath != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %q", appspec.DefaultPath(), specPath)
+	}
+	if themeMode != "auto" {
+		t.Fatalf("expected default app theme mode auto, got %q", themeMode)
+	}
+}
+
 func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	t.Parallel()
 
