@@ -2455,8 +2455,43 @@ export function dispatchViewportUpdateImmediately() {
 }
 
 export function dispatchViewportUpdateWhileInteracting() {
-  dispatchViewportUpdate(getCurrProjectConfigViewport(), {
-    mirrorToProjectState: false,
-    scheduleSend: false,
-  });
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+
+  // Active pan/zoom only needs to retain the latest optimistic viewport.
+  // Once that queue exists, avoid rescanning project state or pending ops on
+  // every transform tick.
+  if (pendingViewportRef.opId && !pendingViewportRef.hasQueuedSend) {
+    clearCompletedPendingOpId(pendingViewportRef);
+  }
+
+  const viewport = getCurrProjectConfigViewport();
+  const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
+
+  if (pendingViewportRef.hasQueuedSend || pendingViewportRef.opId) {
+    if (snapshotUnchanged) {
+      return;
+    }
+    pendingViewportRef.snapshot = viewport;
+    pendingViewportRef.hasQueuedSend = true;
+    if (!pendingViewportRef.opId) {
+      pendingViewportRef.opId = addPendingOp(applyPendingViewport);
+    }
+    return;
+  }
+
+  const currentProjectState = useProjectState.getState();
+  if (
+    _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
+    currentProjectState.projectConfig.viewportInitialized ===
+      (viewport !== null)
+  ) {
+    return;
+  }
+
+  pendingViewportRef.snapshot = viewport;
+  pendingViewportRef.hasQueuedSend = true;
+  pendingViewportRef.opId = addPendingOp(applyPendingViewport);
 }

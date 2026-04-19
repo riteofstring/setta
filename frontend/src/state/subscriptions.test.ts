@@ -213,6 +213,108 @@ describe("subscriptions viewport persistence", () => {
     );
   });
 
+  it("does not queue a pending viewport op when interaction starts without moving the camera", () => {
+    const initialViewport = { x: 0, y: 0, zoom: 1 };
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        viewport: initialViewport,
+        viewportInitialized: true,
+      }),
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    useReactFlow.setState({
+      ...initialState,
+      transform: [initialViewport.x, initialViewport.y, initialViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: false,
+    });
+    debouncedDispatchViewportUpdate.cancel();
+    routeSetViewportMock.mockClear();
+    usePendingOperations.setState({ pending: [] });
+
+    useReactFlow.setState({
+      transform: [initialViewport.x, initialViewport.y, initialViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: true,
+    });
+
+    expect(usePendingOperations.getState().pending).toHaveLength(0);
+    expect(useProjectState.getState().projectConfig.viewport).toEqual(
+      initialViewport,
+    );
+    expect(routeSetViewportMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a single pending viewport op while interaction snapshots advance", () => {
+    const firstViewport = { x: 120, y: -40, zoom: 0.9 };
+    const settledViewport = { x: 240, y: -120, zoom: 0.75 };
+
+    useReactFlow.setState({
+      ...initialState,
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: false,
+    });
+    debouncedDispatchViewportUpdate.cancel();
+    routeSetViewportMock.mockClear();
+    usePendingOperations.setState({ pending: [] });
+
+    useReactFlow.setState({
+      transform: [firstViewport.x, firstViewport.y, firstViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: true,
+    });
+
+    const firstPending = usePendingOperations.getState().pending;
+    expect(firstPending).toHaveLength(1);
+    const firstPendingOpId = firstPending[0]?.opId;
+
+    useReactFlow.setState({
+      transform: [settledViewport.x, settledViewport.y, settledViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: true,
+    });
+
+    const advancedPending = usePendingOperations.getState().pending;
+    expect(advancedPending).toHaveLength(1);
+    expect(advancedPending[0]?.opId).toBe(firstPendingOpId);
+    expect(useProjectState.getState().projectConfig.viewport).toBeNull();
+    expect(routeSetViewportMock).not.toHaveBeenCalled();
+
+    useReactFlow.setState({
+      transform: [settledViewport.x, settledViewport.y, settledViewport.zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      viewportInteractionActive: false,
+    });
+
+    expect(useProjectState.getState().projectConfig.viewport).toEqual(
+      settledViewport,
+    );
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending[0]?.opId).toBe(
+      firstPendingOpId,
+    );
+  });
+
   it("does not start the backend viewport debounce until interaction settles", async () => {
     vi.useFakeTimers();
     const settledViewport = { x: 320, y: -210, zoom: 0.7 };

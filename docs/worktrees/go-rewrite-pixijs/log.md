@@ -4957,3 +4957,54 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - return to the broader `browserSectionDefault` viewport-interaction JS/GC lane and choose one bounded reduction that can plausibly move the whole-scene dense metrics, or escalate to the stronger graph-surface step if no such slice is viable
 LOOP_TERMINAL_MARKER: none
+## 2026-04-20 - viewport interaction pending snapshot fast path
+
+- Summary:
+  - Specialized the active viewport-interaction pending viewport path so once a pending viewport op already exists, motion ticks update only the latest optimistic snapshot and queued-send flag instead of rescanning pending ops and project-state viewport equality on every tick.
+  - Added focused coverage that interaction start without camera movement does not queue a pending viewport op and that multiple active interaction snapshots reuse the same pending op until settle.
+- Files:
+  - `frontend/src/state/actions/sectionInfos.ts`
+  - `frontend/src/state/subscriptions.test.ts`
+  - `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md`
+- Canonical target section:
+  - `settings-section__browserSectionDefault`
+- Sibling proof sections:
+  - `settings-section__promptSectionDefault`
+  - `settings-section__languageServer`
+- Live canary result on the worktree runtime:
+  - motion-aware dense rerun:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 42.58`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1050.06`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5844`
+    - `longTasks.maxMs: 3553`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a bounded whole-scene JS/GC cleanup, not a new dense-scene breakthrough
+  - the checked canary stayed visually clean and the rerun improved slightly versus the prior camera-wrapper checkpoint (`raf.meanMs 44.26 -> 42.58`, `raf.p95Ms 66.7 -> 50`, `longTasks.totalMs 5885 -> 5844`)
+  - close this viewport-persistence sub-lane here instead of continuing to shave the same family by inertia
+  - the next default frontier should escalate to the broader Pixi-owned graph-surface step unless a fresh trace identifies another comparably credible viewport-interaction JS hotspot with whole-scene reach
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.test.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-014/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.7s)`
+  - CDP visual check:
+    - first headless DevTools sub-agent hit `401 invalid_token` on the one-shot bootstrap URL; treated as tooling noise
+    - retried once with a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `/settings` mounted with `All Settings` active and `browserSectionDefault`, `promptSectionDefault`, and `languageServer` stayed visually intact with no obvious blank or detached shell/body artifact
+    - visible workspace noise was limited to the persistent worktree label/sidebar and an inactive chat panel
+- Next action:
+  - start the broader Pixi-owned graph-surface step on `All Settings` unless a fresh trace identifies another high-confidence viewport-interaction JS hotspot with whole-scene reach
+LOOP_TERMINAL_MARKER: none
