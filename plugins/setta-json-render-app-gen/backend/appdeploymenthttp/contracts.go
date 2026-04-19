@@ -4,6 +4,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type AppDeploymentSessionResponse struct {
@@ -18,10 +19,10 @@ type AppDeploymentSessionResponse struct {
 }
 
 type AppDeploymentStateResponse struct {
-	ProjectState  projectview.SingleConfig    `json:"projectState"`
-	AppDefinition *projectstate.AppDefinition `json:"appDefinition"`
-	AppSpec       any                         `json:"appSpec"`
-	AppPolicy     deployments.Policy          `json:"appPolicy"`
+	ProjectState  projectview.SingleConfig     `json:"projectState"`
+	AppDefinition *appdefinition.AppDefinition `json:"appDefinition"`
+	AppSpec       any                          `json:"appSpec"`
+	AppPolicy     deployments.Policy           `json:"appPolicy"`
 }
 
 type PublishAppDeploymentRequest struct {
