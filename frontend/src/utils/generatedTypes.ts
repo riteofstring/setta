@@ -124,8 +124,6 @@ export function createAppDefinition(
   return options as AppDefinition;
 }
 
-export type AppRoute = gt.AppRoute;
-
 export type AssistantChatMessage = gt.AssistantChatMessage;
 
 export function createAssistantChatMessage(
@@ -3767,14 +3765,6 @@ export const AgenticEdgeKindEnum = {
 } as const;
 export type AgenticEdgeKind = gt.AgenticEdgeKind;
 
-export const AppGenerationModeEnum = {
-  json_render: "json_render",
-  json_render_with_image: "json_render_with_image",
-  prompt_builder: "prompt_builder",
-  mcp_server: "mcp_server",
-} as const;
-export type AppGenerationMode = gt.AppGenerationMode;
-
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -4429,51 +4419,6 @@ export const AppSpecPatchPolicyConfig = {
   rootResetValue: "",
   valueOptionalOps: ["remove"],
 } satisfies gt.PatchPolicy;
-
-export const AppSubsystemChatUIConfig = {
-  customSlashCommandModeOptions: [
-    { label: "Plain chat", value: "plain_chat" },
-    { label: "JSON Render", value: "json_render" },
-    { label: "Image to JSON Render", value: "json_render_with_image" },
-    { label: "Prompt Builder", value: "prompt_builder" },
-    { label: "MCP Server", value: "mcp_server" },
-  ],
-  defaultCustomSlashCommandMode: "plain_chat",
-  slashCommands: [
-    {
-      action: "app_json_render",
-      appGenerationMode: "json_render",
-      command: "/app-json",
-      promptTemplate:
-        "Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.",
-      summary: "Generate a standalone app spec through JSON render.",
-    },
-    {
-      action: "app_json_render_with_image",
-      appGenerationMode: "json_render_with_image",
-      command: "/app-image",
-      promptTemplate:
-        "Generate a JSON-render app spec that matches the attached reference image as closely as possible. Prioritize layout composition first, then spacing, typography scale, and color intent. Stay within catalog constraints and preserve the closest visual approximation when exact parity is impossible.",
-      summary: "Generate an app spec using attached image guidance.",
-    },
-    {
-      action: "app_prompt_builder",
-      appGenerationMode: "prompt_builder",
-      command: "/app-prompt",
-      promptTemplate:
-        "Generate a practical, polished JSON-render app spec for this project. Use strong information hierarchy, clear spacing rhythm, and one primary action path. Persist the result into the project via Setta app-definition tools.",
-      summary: "Generate an app-definition plan for chat-driven iteration.",
-    },
-    {
-      action: "app_mcp_server",
-      appGenerationMode: "mcp_server",
-      command: "/app-mcp",
-      promptTemplate:
-        "Use MCP tools to produce a high-fidelity UI implementation for this project. If design-import tools are available, import an existing design or generate one before mapping it back into Setta's app definition. Preserve clear hierarchy, responsive layout behavior, and practical defaults.",
-      summary: "Route app generation through MCP-capable tools.",
-    },
-  ],
-} satisfies gt.AppSubsystemChatUIConfigValue;
 
 export const BootstrapProtocol = {
   backendOriginOverrideQueryParam: "__setta_backend_origin",

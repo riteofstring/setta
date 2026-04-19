@@ -271,7 +271,7 @@ type AppDefinitionValidationResult = {
 /**
  * AppGenerationMode
  */
-export type AppGenerationMode =
+type AppGenerationMode =
   | "json_render"
   | "json_render_with_image"
   | "prompt_builder"
@@ -280,7 +280,7 @@ export type AppGenerationMode =
 /**
  * AppRoute
  */
-export type AppRoute = {
+type AppRoute = {
   name?: string;
   path: string;
   rootKey?: string;
@@ -300,7 +300,7 @@ type AppSubsystemChatSlashCommandValue = {
 /**
  * AppSubsystemChatUIConfigValue
  */
-export type AppSubsystemChatUIConfigValue = {
+type AppSubsystemChatUIConfigValue = {
   customSlashCommandModeOptions: null | Array<AppSubsystemCustomSlashCommandModeOptionValue>;
   defaultCustomSlashCommandMode: string;
   slashCommands: null | Array<AppSubsystemChatSlashCommandValue>;
