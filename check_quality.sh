@@ -180,6 +180,7 @@ fi
 if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
   echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
   pnpm -C frontend exec eslint \
+    --no-warn-ignored \
     --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
     --rule 'max-depth:["error",4]' \
     --rule 'max-params:["error",5]' \

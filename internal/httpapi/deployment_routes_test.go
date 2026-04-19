@@ -446,7 +446,7 @@ func newDeploymentRouteTestHandler(t *testing.T, mode config.Mode, deploymentRun
 			case config.ModeShare:
 				err = RegisterShareDeploymentRoutes(r, deps)
 			default:
-				err = RegisterDeploymentRoutes(r, deps)
+				err = RegisterShareDeploymentRoutes(r, deps)
 			}
 			if err != nil {
 				t.Fatalf("register deployment routes: %v", err)

@@ -765,12 +765,16 @@
         },
         "label": {
           "type": "string"
+        },
+        "requiresImageAttachment": {
+          "type": "boolean"
         }
       },
       "title": "AppSubsystemCustomSlashCommandModeOptionValue",
       "required": [
         "value",
-        "label"
+        "label",
+        "requiresImageAttachment"
       ],
       "additionalProperties": false
     },

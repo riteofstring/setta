@@ -27,7 +27,7 @@ func setTestAppDefinition(
 	if err != nil {
 		t.Fatalf("project root: %v", err)
 	}
-	current := appdefinition.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document)
+	current := appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document)
 	metadata := appdefinition.AppDefinition{}
 	if len(current) != 0 {
 		metadata = mustDecodeStoredAppDefinition(t, current)
@@ -39,14 +39,14 @@ func setTestAppDefinition(
 		metadata.CatalogID = appspec.DefaultCatalogID
 	}
 
-	targetPath := appspec.DefaultPath()
+	targetPath := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 	if trimmed := strings.TrimSpace(metadata.AppSpecPath); trimmed != "" {
 		targetPath = trimmed
 	}
 	if input.AppSpecPath != nil && strings.TrimSpace(*input.AppSpecPath) != "" {
 		targetPath = *input.AppSpecPath
 	}
-	normalizedPath, err := appspec.NormalizePath(projectRoot, targetPath)
+	normalizedPath, err := appspec.MustForPlugin("setta-json-render-app-gen").NormalizePath(projectRoot, targetPath)
 	if err != nil {
 		t.Fatalf("normalize app spec path: %v", err)
 	}
@@ -73,12 +73,12 @@ func setTestAppDefinition(
 		metadata.Assets = mustMarshalTestRawJSON(t, *input.Assets, "appDefinition.assets")
 	}
 
-	previousAppSpec, err := appspec.Read(projectRoot, normalizedPath)
+	previousAppSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(projectRoot, normalizedPath)
 	if err != nil {
 		t.Fatalf("read previous app spec: %v", err)
 	}
 	_, err = runtime.MutatePersistedWithContext(context.Background(), func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		next := appdefinition.WithStoredDocumentAppDefinition(
+		next := appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(
 			document,
 			mustMarshalStoredAppDefinition(t, metadata),
 		)
@@ -86,7 +86,7 @@ func setTestAppDefinition(
 		return projectstate.PersistedMutationPlan{
 			NextDocument: next,
 			ApplyExternalChanges: func() error {
-				return appspec.Write(projectRoot, normalizedPath, appSpec)
+				return appspec.MustForPlugin("setta-json-render-app-gen").Write(projectRoot, normalizedPath, appSpec)
 			},
 			RollbackExternalChanges: func() error {
 				return rollbackTestAppSpecWrite(projectRoot, normalizedPath, previousAppSpec)
@@ -163,10 +163,10 @@ func newAppDefinitionToolRouteServer(
 
 func rollbackTestAppSpecWrite(projectRoot string, appSpecPath string, previousAppSpec any) error {
 	if previousAppSpec != nil {
-		return appspec.Write(projectRoot, appSpecPath, previousAppSpec)
+		return appspec.MustForPlugin("setta-json-render-app-gen").Write(projectRoot, appSpecPath, previousAppSpec)
 	}
 
-	resolvedPath, err := appspec.ResolvePath(projectRoot, appSpecPath)
+	resolvedPath, err := appspec.MustForPlugin("setta-json-render-app-gen").ResolvePath(projectRoot, appSpecPath)
 	if err != nil {
 		return err
 	}

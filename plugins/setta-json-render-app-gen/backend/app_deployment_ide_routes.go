@@ -125,7 +125,7 @@ func publishAppDeploymentHandler(
 			DeploymentName:     payload.DeploymentName,
 			PolicyOverrides:    payload.AppPolicyOverrides,
 			ListenerEntrypoint: strings.TrimSpace(payload.ListenerEntrypoint),
-			ListenerEnabled:    listenerEnabledOrDefault(payload.ListenerEnabled),
+			ListenerEnabled:    httpapi.ListenerEnabledOrDefault(payload.ListenerEnabled),
 		})
 		if err != nil {
 			handleAppDeploymentPublishError(w, r, err)
@@ -134,13 +134,6 @@ func publishAppDeploymentHandler(
 
 		httpapi.WriteJSON(w, http.StatusOK, httpapi.DeploymentMetadataResponseFromMetadata(result.Metadata))
 	}
-}
-
-func listenerEnabledOrDefault(value *bool) bool {
-	if value == nil {
-		return true
-	}
-	return *value
 }
 
 func handleAppDeploymentPublishError(w http.ResponseWriter, r *http.Request, err error) {

@@ -1,29 +1,35 @@
 package appdefinition
 
 import (
+	"errors"
 	"strings"
 
 	"setta/internal/projectstate"
 )
 
-const defaultDocumentPluginDataKey = "setta-json-render-app-gen"
+var ErrPluginIDRequired = errors.New("app definition storage plugin id is required")
 
 type DocumentStorage struct {
 	pluginID string
 }
 
-func StorageForPlugin(pluginID string) DocumentStorage {
+func StorageForPlugin(pluginID string) (DocumentStorage, error) {
 	trimmedPluginID := strings.TrimSpace(pluginID)
 	if trimmedPluginID == "" {
-		trimmedPluginID = defaultDocumentPluginDataKey
+		return DocumentStorage{}, ErrPluginIDRequired
 	}
-	return DocumentStorage{pluginID: trimmedPluginID}
+	return DocumentStorage{pluginID: trimmedPluginID}, nil
+}
+
+func MustStorageForPlugin(pluginID string) DocumentStorage {
+	storage, err := StorageForPlugin(pluginID)
+	if err != nil {
+		panic(err)
+	}
+	return storage
 }
 
 func (s DocumentStorage) pluginDataKey() string {
-	if strings.TrimSpace(s.pluginID) == "" {
-		return defaultDocumentPluginDataKey
-	}
 	return s.pluginID
 }
 
@@ -57,15 +63,4 @@ func (s DocumentStorage) WithStoredDocumentAppDefinition(
 	}
 	next.PluginData[pluginDataKey] = cloneAppDefinitionRawJSON(raw)
 	return next
-}
-
-func StoredDocumentAppDefinitionRaw(document projectstate.Document) projectstate.RawJSON {
-	return StorageForPlugin("").StoredDocumentAppDefinitionRaw(document)
-}
-
-func WithStoredDocumentAppDefinition(
-	document projectstate.Document,
-	raw projectstate.RawJSON,
-) projectstate.Document {
-	return StorageForPlugin("").WithStoredDocumentAppDefinition(document, raw)
 }

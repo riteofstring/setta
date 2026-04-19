@@ -266,6 +266,7 @@ type AppSubsystemChatUIConfigValue = {
  */
 type AppSubsystemCustomSlashCommandModeOptionValue = {
   label: string;
+  requiresImageAttachment: boolean;
   value: string;
 };
 

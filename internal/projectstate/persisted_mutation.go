@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"reflect"
 )
 
 type PersistedMutationPlan struct {
@@ -43,41 +42,61 @@ func (r *Runtime) MutatePersistedWithContext(
 			if err != nil {
 				return snapshotFromState(*state), err
 			}
-
-			normalized, err := plan.NextDocument.Normalized()
-			if err != nil {
-				return snapshotFromState(*state), err
-			}
-
-			nextState := runtimeState{
-				current:  state.current.Clone(),
-				revision: state.revision,
-			}
-			if !reflect.DeepEqual(state.current, normalized) {
-				nextState.current = normalized.Clone()
-				nextState.revision++
-			}
-			nextSnapshot := snapshotFromState(nextState)
-
-			if plan.ApplyExternalChanges != nil {
-				if err := plan.ApplyExternalChanges(); err != nil {
-					return snapshotFromState(*state), err
-				}
-			}
-
-			if err := r.persistSnapshot(ctx, nextSnapshot); err != nil {
-				if plan.RollbackExternalChanges == nil {
-					return snapshotFromState(*state), err
-				}
-				rollbackErr := plan.RollbackExternalChanges()
-				if rollbackErr != nil {
-					return snapshotFromState(*state), errors.Join(err, rollbackErr)
-				}
-				return snapshotFromState(*state), err
-			}
-
-			*state = nextState
-			return nextSnapshot, nil
+			return r.applyPersistedMutationPlan(ctx, state, plan)
 		},
 	})
+}
+
+func (r *Runtime) applyPersistedMutationPlan(
+	ctx context.Context,
+	state *runtimeState,
+	plan PersistedMutationPlan,
+) (Snapshot, error) {
+	normalized, err := plan.NextDocument.Normalized()
+	if err != nil {
+		return snapshotFromState(*state), err
+	}
+
+	previousState := cloneRuntimeState(*state)
+	applyRuntimeMutationState(state, normalized, runtimeHistoryModeAppend)
+	nextSnapshot := snapshotFromState(*state)
+
+	if err := applyPersistedExternalChanges(plan); err != nil {
+		return rollbackPersistedMutationState(state, previousState, plan, err)
+	}
+
+	if err := r.persistSnapshotSync(ctx, nextSnapshot); err != nil {
+		if persistSnapshotErrorCommitted(err) {
+			return nextSnapshot, err
+		}
+		return rollbackPersistedMutationState(state, previousState, plan, err)
+	}
+
+	return nextSnapshot, nil
+}
+
+func applyPersistedExternalChanges(plan PersistedMutationPlan) error {
+	if plan.ApplyExternalChanges == nil {
+		return nil
+	}
+	return plan.ApplyExternalChanges()
+}
+
+func rollbackPersistedMutationState(
+	state *runtimeState,
+	previousState runtimeState,
+	plan PersistedMutationPlan,
+	cause error,
+) (Snapshot, error) {
+	*state = previousState
+	if plan.RollbackExternalChanges == nil {
+		return snapshotFromState(*state), cause
+	}
+
+	rollbackErr := plan.RollbackExternalChanges()
+	if rollbackErr != nil {
+		return snapshotFromState(*state), errors.Join(cause, rollbackErr)
+	}
+
+	return snapshotFromState(*state), cause
 }
