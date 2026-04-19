@@ -120,12 +120,33 @@ type FrontendSettingsBackend struct {
 	CompletionGuardEnabled                 bool                            `json:"completionGuardEnabled"`
 }
 
+type FrontendSettingsChatWindowingShortcuts struct {
+	CanvasToggle    string `json:"canvasToggle"`
+	MaximizeFocused string `json:"maximizeFocused"`
+	MinimizeFocused string `json:"minimizeFocused"`
+	SnapLeft        string `json:"snapLeft"`
+	SnapRight       string `json:"snapRight"`
+	SnapTop         string `json:"snapTop"`
+	SnapBottom      string `json:"snapBottom"`
+}
+
+type FrontendSettingsChatWindowing struct {
+	AutoCreateInitialChat         bool                                   `json:"autoCreateInitialChat"`
+	RestorePriorStateOnUnmaximize bool                                   `json:"restorePriorStateOnUnmaximize"`
+	Shortcuts                     FrontendSettingsChatWindowingShortcuts `json:"shortcuts"`
+}
+
+type FrontendSettingsLanguageServer struct {
+	SelectedByLanguage map[string]*string `json:"selectedByLanguage"`
+}
+
 type FrontendSettingsState struct {
 	Shortcuts           FrontendSettingsShortcuts                `json:"shortcuts"`
 	GUI                 FrontendSettingsGUI                      `json:"gui"`
 	Backend             FrontendSettingsBackend                  `json:"backend"`
+	ChatWindowing       FrontendSettingsChatWindowing            `json:"chatWindowing"`
 	SectionSizingPolicy projectstate.FrontendSectionSizingPolicy `json:"sectionSizingPolicy"`
-	LanguageServer      map[string]any                           `json:"languageServer"`
+	LanguageServer      FrontendSettingsLanguageServer           `json:"languageServer"`
 }
 
 func FrontendDefaultSettingsShortcuts() FrontendSettingsShortcuts {
@@ -138,6 +159,21 @@ func FrontendDefaultSettingsGUI() FrontendSettingsGUI {
 
 func FrontendDefaultSettingsBackend() FrontendSettingsBackend {
 	return frontendDefaultSettingsSection[FrontendSettingsBackend]("backend")
+}
+
+func FrontendDefaultSettingsChatWindowingShortcuts() FrontendSettingsChatWindowingShortcuts {
+	return frontendDefaultSettingsValue[FrontendSettingsChatWindowingShortcuts](
+		"frontend settings defaults chatWindowing.shortcuts",
+		frontendDefaultSettingsSection[map[string]any]("chatWindowing")["shortcuts"],
+	)
+}
+
+func FrontendDefaultSettingsChatWindowing() FrontendSettingsChatWindowing {
+	return frontendDefaultSettingsSection[FrontendSettingsChatWindowing]("chatWindowing")
+}
+
+func FrontendDefaultSettingsLanguageServer() FrontendSettingsLanguageServer {
+	return frontendDefaultSettingsSection[FrontendSettingsLanguageServer]("languageServer")
 }
 
 func FrontendDefaultSettingsState() FrontendSettingsState {

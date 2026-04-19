@@ -20,6 +20,7 @@ import (
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 )
 
 // The Go-owned completion routes should accept the existing frontend payloads,
@@ -292,11 +293,13 @@ func newCompletionRouteTestHandler(
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterLSPRoutes(r, LSPRouteDependencies{
-				ModePolicy:   modes.NewPolicy(mode),
-				ProjectState: projectRuntime,
-				Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
-				Completions:  completions,
-				Admin:        &stubLSPAdminService{},
+				ModePolicy:    modes.NewPolicy(mode),
+				ProjectState:  projectRuntime,
+				Diagnostics:   projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+				Completions:   completions,
+				Admin:         &stubLSPAdminService{},
+				WebsocketHub:  realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
+				PluginRuntime: &stubPluginRuntimeUpdateService{response: newTestPluginRuntimeResponse()},
 			}); err != nil {
 				t.Fatalf("register lsp routes: %v", err)
 			}

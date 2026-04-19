@@ -2,8 +2,6 @@ import { arrayMove } from "@dnd-kit/helpers";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionLightweightColorInput } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   useCallback,
@@ -155,10 +153,6 @@ function DrawAreaColorPicker({
   }, _.isEqual);
 
   const [localValue, setLocalValue] = useState(brushColor);
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const lightweightActivator =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionLightweightColorInput(sectionId);
 
   const debouncedSetBrushColor = useCallback(
     _.debounce((v) => {
@@ -179,7 +173,6 @@ function DrawAreaColorPicker({
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
-      lightweightActivator={lightweightActivator}
       value={localValue}
       onChange={onChange}
       colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 w-full min-w-0 max-w-24 items-center text-white"

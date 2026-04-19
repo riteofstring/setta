@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  clampChangedSize,
-  getResizableEnable,
-  shouldEmitResizeEndEvent,
-} from "./CustomResizable";
+import { clampChangedSize, shouldEmitResizeEndEvent } from "./CustomResizable";
 
 describe("clampChangedSize", () => {
   it("clamps width and height independently when aspect ratio is off", () => {
@@ -68,40 +64,5 @@ describe("shouldEmitResizeEndEvent", () => {
         isDoubleClick: false,
       }),
     ).toBe(true);
-  });
-});
-
-describe("getResizableEnable", () => {
-  it("suppresses all section resize handles while the motion canvas shell is active", () => {
-    expect(
-      getResizableEnable({
-        disablePointerEvents: false,
-        suppressHandles: true,
-        positionAndSizeLocked: false,
-        heightResizable: true,
-        widthResizable: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps the shared bottom/right handle set when motion suppression is off", () => {
-    expect(
-      getResizableEnable({
-        disablePointerEvents: false,
-        suppressHandles: false,
-        positionAndSizeLocked: false,
-        heightResizable: true,
-        widthResizable: true,
-      }),
-    ).toEqual({
-      top: false,
-      left: false,
-      bottom: true,
-      right: true,
-      topRight: false,
-      bottomRight: true,
-      topLeft: false,
-      bottomLeft: false,
-    });
   });
 });

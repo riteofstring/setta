@@ -1,8 +1,5 @@
-/* @vitest-environment jsdom */
-
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
-import { act, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ChatWindowModeEnum,
@@ -10,7 +7,7 @@ import {
   SectionTypeEnum,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AreaSwitch,
   SectionContainerCoreResizable,
@@ -23,49 +20,12 @@ type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
-const mockCanvasState = {
-  activeSectionId: null as string | null,
-  graphSurfaceImplementation: "legacy-dom" as
-    | "legacy-dom"
-    | "canvas-shell-underlay",
-  viewportInteractionActive: false,
-};
-
 let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-1",
   },
   projectChatWindowing: createProjectChatWindowingState(),
 };
-let root: Root | null = null;
-let mockSectionHeaderMotionHiddenInteractionActive = false;
-let mockSectionHeaderRenderCount = 0;
-
-const mockReactFlowSubscriptions = new Set<{
-  currentValue: unknown;
-  listener: (nextValue: unknown, previousValue: unknown) => void;
-  selector: (state: { viewportInteractionActive: boolean }) => unknown;
-}>();
-
-function getMockReactFlowState() {
-  return {
-    viewportInteractionActive: mockCanvasState.viewportInteractionActive,
-  };
-}
-
-function setMockViewportInteractionActive(nextViewportInteractionActive: boolean) {
-  mockCanvasState.viewportInteractionActive = nextViewportInteractionActive;
-  const nextState = getMockReactFlowState();
-  for (const subscription of mockReactFlowSubscriptions) {
-    const nextValue = subscription.selector(nextState);
-    if (Object.is(nextValue, subscription.currentValue)) {
-      continue;
-    }
-    const previousValue = subscription.currentValue;
-    subscription.currentValue = nextValue;
-    subscription.listener(nextValue, previousValue);
-  }
-}
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -96,29 +56,8 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({
-    sectionId,
-    children,
-    motionCanvasOwnedShell,
-    motionCanvasOwnedShellRoot,
-  }: {
-    sectionId: string;
-    children: ReactNode;
-    motionCanvasOwnedShell?: boolean;
-    motionCanvasOwnedShellRoot?: boolean;
-  }) => (
-    <section
-      id={`${sectionId}-CustomResizable`}
-      data-testid="mock-custom-resizable"
-      data-canvas-owned-motion-shell-hidden={
-        motionCanvasOwnedShell ? "true" : undefined
-      }
-      data-canvas-owned-motion-shell-root={
-        motionCanvasOwnedShellRoot ? "true" : undefined
-      }
-    >
-      {children}
-    </section>
+  CustomResizable: ({ children }: { children: ReactNode }) => (
+    <section data-testid="mock-custom-resizable">{children}</section>
   ),
 }));
 
@@ -135,75 +74,13 @@ vi.mock("state/actions/uiTypes/utils", () => ({
   getIsRoot: () => false,
 }));
 
-vi.mock("forks/xyflow/core/container/graphSurfaceImplementation", () => ({
-  useGraphSurfaceImplementation: () => mockCanvasState.graphSurfaceImplementation,
-}));
-
-vi.mock("forks/xyflow/core/store", () => ({
-  useReactFlow: Object.assign(
-    (
-      selector: (state: { viewportInteractionActive: boolean }) => unknown,
-    ) => selector(getMockReactFlowState()),
-    {
-      getState: () => getMockReactFlowState(),
-      subscribe: (
-        selector: (state: { viewportInteractionActive: boolean }) => unknown,
-        listener: (nextValue: unknown, previousValue: unknown) => void,
-      ) => {
-        const subscription = {
-          selector,
-          listener,
-          currentValue: selector(getMockReactFlowState()),
-        };
-        mockReactFlowSubscriptions.add(subscription);
-        return () => {
-          mockReactFlowSubscriptions.delete(subscription);
-        };
-      },
-    },
-  ),
-}));
-
-vi.mock("state/activeSectionUI", () => ({
-  useIsSectionUIActive: (sectionId: string) =>
-    mockCanvasState.activeSectionId === sectionId,
-}));
-
 vi.mock("state/definitions", () => ({
   useProjectState: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
 }));
 
 vi.mock("../Header/SectionHeader", () => ({
-  SectionHeader: ({
-    motionHiddenInteractionActive,
-  }: {
-    motionHiddenInteractionActive?: boolean;
-  }) => {
-    mockSectionHeaderRenderCount += 1;
-    mockSectionHeaderMotionHiddenInteractionActive = !!motionHiddenInteractionActive;
-    return (
-      <header
-        data-testid="mock-section-header"
-        data-motion-hidden-interaction-active={
-          motionHiddenInteractionActive ? "true" : "false"
-        }
-      >
-        <div
-          data-canvas-owned-motion-header-controls-root="true"
-          data-canvas-owned-motion-header-controls-hidden={
-            motionHiddenInteractionActive ? "true" : undefined
-          }
-        />
-        <div
-          data-canvas-owned-lightweight-menu-trigger="true"
-          data-canvas-owned-motion-menu-trigger-hidden={
-            motionHiddenInteractionActive ? "true" : undefined
-          }
-        />
-      </header>
-    );
-  },
+  SectionHeader: () => <header data-testid="mock-section-header" />,
 }));
 
 vi.mock("../Header/SectionWindowToggleButton", () => ({
@@ -312,23 +189,6 @@ describe("SectionContainerCoreResizable", () => {
       },
       projectChatWindowing: createProjectChatWindowingState(),
     };
-    mockCanvasState.activeSectionId = null;
-    mockCanvasState.graphSurfaceImplementation = "legacy-dom";
-    setMockViewportInteractionActive(false);
-    mockReactFlowSubscriptions.clear();
-    mockSectionHeaderMotionHiddenInteractionActive = false;
-    mockSectionHeaderRenderCount = 0;
-  });
-
-  afterEach(() => {
-    if (root) {
-      act(() => {
-        root?.unmount();
-      });
-    }
-    root = null;
-    document.body.innerHTML = "";
-    mockReactFlowSubscriptions.clear();
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
@@ -412,265 +272,5 @@ describe("SectionContainerCoreResizable", () => {
     );
     expect(markup).toContain('data-project-chat-id="saved-thread"');
     expect(markup).toContain('data-project-chat-controlled="true"');
-  });
-
-  it("hides shared param-codeobj bodies during viewport interaction on the canvas path", () => {
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__rotaryParamCodeObjDefault"
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="display:none"');
-    expect(markup).toContain('data-testid="mock-code-area"');
-  });
-
-  it("hides shared shell bodies during viewport interaction on the canvas path", () => {
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__callableSectionDefault"
-        sectionTypeName={SectionTypeEnum.Callable}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="display:none"');
-    expect(markup).toContain('data-testid="mock-callable-area"');
-  });
-
-  it("hides shared resting-text bodies during viewport interaction on the canvas path", () => {
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__browserSectionDefault"
-        sectionTypeName={SectionTypeEnum.Browser}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
-    expect(markup).toContain('data-canvas-owned-motion-shell-hidden="true"');
-    expect(markup).toContain('style="display:none"');
-    expect(markup).toContain(
-      'data-motion-hidden-interaction-active="true"',
-    );
-    expect(mockSectionHeaderMotionHiddenInteractionActive).toBe(true);
-    expect(markup).toContain('data-testid="mock-browser-area"');
-  });
-
-  it("keeps the active shared shell body visible during viewport interaction", () => {
-    mockCanvasState.activeSectionId = "settings-section__callableSectionDefault";
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__callableSectionDefault"
-        sectionTypeName={SectionTypeEnum.Callable}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
-    expect(markup).toContain('data-testid="mock-callable-area"');
-  });
-
-  it("keeps the active shared resting-text body visible during viewport interaction", () => {
-    mockCanvasState.activeSectionId = "settings-section__browserSectionDefault";
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__browserSectionDefault"
-        sectionTypeName={SectionTypeEnum.Browser}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('data-canvas-owned-motion-shell-root="true"');
-    expect(markup).not.toContain('data-canvas-owned-motion-shell-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
-    expect(markup).toContain(
-      'data-motion-hidden-interaction-active="false"',
-    );
-    expect(mockSectionHeaderMotionHiddenInteractionActive).toBe(false);
-    expect(markup).toContain('data-testid="mock-browser-area"');
-  });
-
-  it("keeps the active shared param-codeobj body visible during viewport interaction", () => {
-    mockCanvasState.activeSectionId = "settings-section__rotaryParamCodeObjDefault";
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__rotaryParamCodeObjDefault"
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
-    expect(markup).toContain('data-testid="mock-code-area"');
-  });
-
-  it("hides shared settings dropdown bodies during viewport interaction on the canvas path", () => {
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__backend"
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).toContain('style="display:none"');
-    expect(markup).toContain('data-testid="mock-code-area"');
-  });
-
-  it("keeps the active shared settings dropdown body visible during viewport interaction", () => {
-    mockCanvasState.activeSectionId = "settings-section__backend";
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-    mockCanvasState.viewportInteractionActive = true;
-
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="settings-section__backend"
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-motion-body-root="true"');
-    expect(markup).not.toContain('data-canvas-owned-motion-body-hidden="true"');
-    expect(markup).not.toContain('style="display:none"');
-    expect(markup).toContain('data-testid="mock-code-area"');
-  });
-
-  it("syncs motion-hidden DOM attrs after mount without rerendering the section header", async () => {
-    mockCanvasState.graphSurfaceImplementation = "canvas-shell-underlay";
-
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    root = createRoot(host);
-
-    await act(async () => {
-      root?.render(
-        <SectionContainerCoreResizable
-          sectionId="settings-section__browserSectionDefault"
-          sectionTypeName={SectionTypeEnum.Browser}
-          isInOtherProjectConfigs={false}
-          isUserView={false}
-          positionAndSizeLocked={false}
-          hasSectionStyleTheme={false}
-        />,
-      );
-    });
-
-    const sectionRoot = document.getElementById(
-      "settings-section__browserSectionDefault-CustomResizable",
-    );
-    if (!(sectionRoot instanceof HTMLElement)) {
-      throw new Error("Expected the mock custom resizable to render.");
-    }
-
-    expect(mockSectionHeaderRenderCount).toBe(1);
-    expect(
-      sectionRoot.getAttribute("data-canvas-owned-motion-shell-hidden"),
-    ).toBeNull();
-    expect(
-      sectionRoot.querySelector(
-        '[data-canvas-owned-motion-body-hidden="true"]',
-      ),
-    ).toBeNull();
-    expect(
-      sectionRoot.querySelector(
-        '[data-canvas-owned-motion-header-controls-hidden="true"]',
-      ),
-    ).toBeNull();
-    expect(
-      sectionRoot.querySelector(
-        '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
-      ),
-    ).toBeNull();
-
-    await act(async () => {
-      setMockViewportInteractionActive(true);
-    });
-
-    expect(mockSectionHeaderRenderCount).toBe(1);
-    expect(mockSectionHeaderMotionHiddenInteractionActive).toBe(false);
-    expect(
-      sectionRoot.getAttribute("data-canvas-owned-motion-shell-hidden"),
-    ).toBe("true");
-    expect(
-      sectionRoot.getAttribute("data-canvas-owned-motion-resize-handles-hidden"),
-    ).toBe("true");
-    expect(
-      sectionRoot.querySelector(
-        '[data-canvas-owned-motion-body-hidden="true"]',
-      ),
-    ).not.toBeNull();
-    expect(
-      sectionRoot.querySelector(
-        '[data-canvas-owned-motion-header-controls-hidden="true"]',
-      ),
-    ).not.toBeNull();
-    expect(
-      sectionRoot.querySelector(
-        '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
-      ),
-    ).not.toBeNull();
   });
 });

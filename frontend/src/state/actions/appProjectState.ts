@@ -1,5 +1,5 @@
 import type { GetLatestProjectStateResponse } from "openapi/http";
-import { useAppConfigs } from "state/definitions";
+import { useAppConfigs } from "plugins/appSubsystemProjectState";
 
 export function processAppProjectStateUpdateFromBackend(
   payload: GetLatestProjectStateResponse,

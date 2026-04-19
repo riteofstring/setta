@@ -56,6 +56,9 @@ func TestRunPluginsListJSONIncludesStatusPayload(t *testing.T) {
 	if got := entry["sourceScopeLabel"]; got != "workspace" {
 		t.Fatalf("unexpected source scope label %#v", got)
 	}
+	if _, ok := entry["appliedLanguageServerLanguages"]; ok {
+		t.Fatalf("expected raw plugins list status to omit applied language-server languages, got %#v", entry["appliedLanguageServerLanguages"])
+	}
 }
 
 // Plugins list text should keep the explicit empty-state message when no plugins are discovered.
@@ -1198,7 +1201,7 @@ func installPackageManagerDistributionFixtureForSettacmdTest(t *testing.T, packa
 	t.Helper()
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	pluginRoot := filepath.Join(sitePackages, strings.ReplaceAll(packageName, "-", "_"))
+	pluginRoot := filepath.Join(sitePackages, packageName)
 	writeFrontendPluginFixture(t, pluginRoot, packageName, "Setta Fixture Frontend", version)
 
 	distInfoName := strings.ReplaceAll(packageName, "-", "_") + "-" + version + ".dist-info"
@@ -1216,7 +1219,7 @@ func installPackageManagerDistributionFixtureForSettacmdTest(t *testing.T, packa
 		t.Fatalf("write metadata: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(distInfoRoot, "RECORD"), []byte(strings.Join([]string{
-		filepath.ToSlash(filepath.Join(strings.ReplaceAll(packageName, "-", "_"), "setta.plugin.json")) + ",,",
+		filepath.ToSlash(filepath.Join(packageName, "setta.plugin.json")) + ",,",
 		filepath.ToSlash(filepath.Join(distInfoName, "METADATA")) + ",,",
 		filepath.ToSlash(filepath.Join(distInfoName, "RECORD")) + ",,",
 		"",

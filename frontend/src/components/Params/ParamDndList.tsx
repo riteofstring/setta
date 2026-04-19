@@ -1,7 +1,7 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import React, { useMemo } from "react";
-import { createParamDuplicateIndexSelector } from "state/actions/params/paramDuplicateIndex";
+import React from "react";
+import { buildParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
@@ -36,11 +36,10 @@ export function ParamDndList({
   listKey,
   hasSectionStyleTheme,
 }: ParamDndListProps) {
-  const duplicateIndexSelector = useMemo(
-    () => createParamDuplicateIndexSelector(sectionId),
-    [sectionId],
+  const duplicateIndex = useProjectState(
+    (state) => buildParamDuplicateIndex(state, sectionId),
+    _.isEqual,
   );
-  const duplicateIndex = useProjectState(duplicateIndexSelector);
   const paramFilterActive = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
