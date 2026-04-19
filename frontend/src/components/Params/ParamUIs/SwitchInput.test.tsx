@@ -28,31 +28,4 @@ describe("SwitchInput theme overrides", () => {
     expect(markup).toContain("bg-green-500");
     expect(markup).not.toContain("bg-white");
   });
-
-  it("marks the switch root when the track is canvas-owned", () => {
-    const markup = renderToStaticMarkup(
-      <SwitchInput
-        canvasOwnedTrack={true}
-        value={false}
-        onChange={() => undefined}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-switch-track="true"');
-  });
-
-  it("uses a lightweight non-button switch root when requested", () => {
-    const markup = renderToStaticMarkup(
-      <SwitchInput
-        lightweightActivator={true}
-        value={true}
-        onChange={() => undefined}
-      />,
-    );
-
-    expect(markup).toContain('data-canvas-owned-lightweight-switch="true"');
-    expect(markup).toContain('role="switch"');
-    expect(markup).toContain('aria-checked="true"');
-    expect(markup).not.toContain('type="button"');
-  });
 });

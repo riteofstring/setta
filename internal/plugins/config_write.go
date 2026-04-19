@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -135,43 +134,31 @@ func pluginConfigWriteResponse(pluginID string, config map[string]any) PluginCon
 }
 
 func validatePluginConfig(entry DiscoveredPlugin, config map[string]any) error {
-	if entry.Manifest == nil {
-		return newServiceError(ServiceErrorCodeConfigInvalid, "Plugin manifest missing for plugin: %s", entry.PluginID)
+	document, ok, err := loadPluginConfigSchemaDocument(entry)
+	if err != nil {
+		if !ok {
+			return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema path for %s", entry.PluginID)
+		}
+		return invalidPluginConfigSchemaError(document.Path)
 	}
-
-	trimmedSchemaPath := strings.TrimSpace(entry.Manifest.ConfigSchemaPath)
-	if trimmedSchemaPath == "" {
+	if !ok {
 		return nil
 	}
-
-	schemaPath, err := resolveManifestRegularFile(entry.SourcePath, trimmedSchemaPath, "plugin config schema")
-	if err != nil {
-		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema path: %s", trimmedSchemaPath)
-	}
-
-	schema, err := loadPluginConfigSchema(schemaPath)
-	if err != nil {
-		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema JSON: %s", schemaPath)
-	}
-
-	resolved, err := schema.Resolve(&jsonschema.ResolveOptions{
-		BaseURI: schemaFileURI(schemaPath),
-		Loader:  pluginConfigSchemaLoader(),
-	})
-	if err != nil {
-		return newServiceError(ServiceErrorCodeConfigSchemaInvalid, "Invalid plugin config schema JSON: %s", schemaPath)
-	}
-	if err := resolved.Validate(config); err != nil {
+	if err := document.Resolved.Validate(config); err != nil {
 		return newServiceError(ServiceErrorCodeConfigInvalid, "Invalid plugin config for %s: %s", entry.PluginID, err.Error())
 	}
 	return nil
 }
 
 func loadPluginConfigSchema(schemaPath string) (*jsonschema.Schema, error) {
-	payload, err := os.ReadFile(schemaPath)
+	payload, err := loadPluginConfigSchemaPayload(schemaPath)
 	if err != nil {
 		return nil, err
 	}
+	return parsePluginConfigSchema(payload)
+}
+
+func parsePluginConfigSchema(payload []byte) (*jsonschema.Schema, error) {
 	var schema jsonschema.Schema
 	if err := json.Unmarshal(payload, &schema); err != nil {
 		return nil, err

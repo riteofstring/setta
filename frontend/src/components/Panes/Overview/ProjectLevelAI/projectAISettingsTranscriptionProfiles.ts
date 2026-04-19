@@ -2,6 +2,7 @@ import {
   TranscriptionProfileUIConfig,
   type TranscriptionProfile,
 } from "utils/generatedTypes";
+import { normalizeOptionalText } from "./projectAISettingsShared";
 
 type TranscriptionTransportModeValue = TranscriptionProfile["transportMode"];
 
@@ -83,12 +84,4 @@ export function resolveTranscriptionChunkMsForSave({
     return null;
   }
   return parsedChunkMs;
-}
-
-function normalizeOptionalText(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
 }

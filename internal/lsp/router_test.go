@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/statefs"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestRouterCompleteSnapshotRoutesPluginLanguage(t *testing.T) {
@@ -93,6 +95,166 @@ func TestRouterReplaceAdditionalSpecsRefreshesPluginLanguages(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.Items[0].Label != "fixtureCompletion" {
 		t.Fatalf("unexpected completion result after refresh %#v", result)
+	}
+}
+
+func TestNewRouterAllowsNoConfiguredLanguageServers(t *testing.T) {
+	t.Parallel()
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new router without language servers: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	_, err = router.CompleteSnapshot(context.Background(), SnapshotCompletionRequest{
+		ReferencePath: filepath.Join(t.TempDir(), "fixture.py"),
+		LanguageID:    "python",
+		Content:       "value.",
+		Line:          0,
+		Character:     6,
+	})
+	if !errors.Is(err, ErrLanguageServerNotConfigured) {
+		t.Fatalf("expected unconfigured language server error, got %v", err)
+	}
+}
+
+func TestRouterInitializesFromExplicitSpecsOnly(t *testing.T) {
+	t.Parallel()
+
+	spec := fixturePluginLanguageServerSpec(t)
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot:   t.TempDir(),
+		AdditionalSpecs: []LanguageServerSpec{spec},
+	})
+	if err != nil {
+		t.Fatalf("new router with explicit specs: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	if len(router.specs) != 1 {
+		t.Fatalf("expected one explicit router spec, got %#v", router.specs)
+	}
+	stored, ok := router.specs[spec.LanguageID]
+	if !ok {
+		t.Fatalf("expected explicit router spec for %q, got %#v", spec.LanguageID, router.specs)
+	}
+	if !languageServerSpecsEqual(stored, spec) {
+		t.Fatalf("expected stored explicit spec %#v, got %#v", spec, stored)
+	}
+}
+
+func TestRouterUsesSpecOwnedSettingsWithoutReapplyingSettingsKeyLookup(t *testing.T) {
+	t.Parallel()
+
+	settingsKey := "basedpyright"
+	spec := LanguageServerSpec{
+		Name:       "python",
+		LanguageID: "python",
+		Command:    "python",
+		Settings: map[string]any{
+			"basedpyright": map[string]any{
+				"analysis": map[string]any{
+					"extraPaths": []any{"/tmp/spec"},
+				},
+			},
+		},
+		SettingsKey: &settingsKey,
+	}
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot:   t.TempDir(),
+		AdditionalSpecs: []LanguageServerSpec{spec},
+		Settings: func() map[string]any {
+			return map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{"/tmp/global"},
+					},
+				},
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new router with spec-owned settings: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	expected := map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"extraPaths": []any{"/tmp/spec"},
+			},
+		},
+	}
+	if !reflect.DeepEqual(service.session.options.Settings, expected) {
+		t.Fatalf("expected session settings %#v, got %#v", expected, service.session.options.Settings)
+	}
+}
+
+func TestRouterUsesExplicitEmptySpecSettingsWithoutGlobalFallback(t *testing.T) {
+	t.Parallel()
+
+	settingsKey := "fixtureDslLanguageServer"
+	spec := LanguageServerSpec{
+		Name:        "fixture-dsl",
+		LanguageID:  "fixturedsl",
+		Command:     "python",
+		Settings:    map[string]any{},
+		SettingsKey: &settingsKey,
+	}
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot:   t.TempDir(),
+		AdditionalSpecs: []LanguageServerSpec{spec},
+		Settings: func() map[string]any {
+			return map[string]any{
+				"fixtureDslLanguageServer": map[string]any{
+					"analysis": map[string]any{
+						"emitDiagnostics": true,
+					},
+				},
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new router with explicit empty spec settings: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("fixturedsl")
+	if err != nil {
+		t.Fatalf("resolve fixture service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected fixture service to be configured")
+	}
+	if !reflect.DeepEqual(service.session.options.Settings, map[string]any{}) {
+		t.Fatalf("expected explicit empty settings to bypass global fallback, got %#v", service.session.options.Settings)
 	}
 }
 
@@ -400,7 +562,13 @@ func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *tes
 
 	router, err := NewRouter(RouterOptions{
 		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
+		AdditionalSpecs: []LanguageServerSpec{
+			fixturePythonLanguageServerSpecWithPaths(
+				resolveRouterTestPythonBinary(t),
+				filepath.Join(routerTestRepoRoot(t), "tests", "fixtures", "lsp", "mini_language_server.py"),
+			),
+		},
+		Settings: settings,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
@@ -470,13 +638,7 @@ func TestRouterCurrentProcessPythonDiagnosticsUseNestedBasedPyrightSettingsForWa
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -576,13 +738,7 @@ func TestRouterCurrentProcessPythonRefreshesGeneratedDiagnosticsWhenImportedWatc
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -684,13 +840,7 @@ func TestRouterCurrentProcessPythonSyncAndRefreshPublishesGeneratedCallDiagnosti
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -813,13 +963,7 @@ func TestRouterCurrentProcessPythonIncrementalWatchCodeTypingStillPublishesGener
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -916,13 +1060,7 @@ func TestRouterCurrentProcessPythonPublishesGeneratedCallDiagnosticsWithWorkspac
 		}, []string{settaFilesRoot})
 	}
 
-	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Settings:      settings,
-	})
-	if err != nil {
-		t.Fatalf("new router: %v", err)
-	}
+	router := newBasedpyrightRouter(t, workspaceRoot, settings)
 	defer func() {
 		if err := router.Close(context.Background()); err != nil {
 			t.Fatalf("close router: %v", err)
@@ -1087,25 +1225,56 @@ func newFixturePythonRouter(
 		"mini_language_server.py",
 	)
 
+	specs := append([]LanguageServerSpec{fixturePythonLanguageServerSpecWithPaths(pythonBinary, fixtureServerPath)}, additionalSpecs...)
 	router, err := NewRouter(RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		LookupEnv: func(key string) (string, bool) {
-			switch key {
-			case lspCommandEnv:
-				return pythonBinary, true
-			case lspArgsEnv:
-				return fixtureServerPath, true
-			default:
-				return "", false
-			}
-		},
-		AdditionalSpecs: additionalSpecs,
+		WorkspaceRoot:   workspaceRoot,
+		AdditionalSpecs: specs,
 		Settings:        settings,
 	})
 	if err != nil {
 		t.Fatalf("new router: %v", err)
 	}
 	return router
+}
+
+func newBasedpyrightRouter(t *testing.T, workspaceRoot string, settings func() map[string]any) *Router {
+	t.Helper()
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		AdditionalSpecs: []LanguageServerSpec{
+			basedpyrightLanguageServerSpec(t),
+		},
+		Settings: settings,
+	})
+	if err != nil {
+		t.Fatalf("new basedpyright router: %v", err)
+	}
+	return router
+}
+
+func basedpyrightLanguageServerSpec(t *testing.T) LanguageServerSpec {
+	t.Helper()
+
+	settingsKey := "basedpyright"
+	return LanguageServerSpec{
+		Name:        "basedpyright",
+		LanguageID:  "python",
+		Command:     firstpartyplugin.BasedpyrightPython(t),
+		Args:        []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"},
+		SettingsKey: &settingsKey,
+	}
+}
+
+func fixturePythonLanguageServerSpecWithPaths(pythonBinary string, fixtureServerPath string) LanguageServerSpec {
+	settingsKey := "basedpyright"
+	return LanguageServerSpec{
+		Name:        "fixture-python",
+		LanguageID:  "python",
+		Command:     pythonBinary,
+		Args:        []string{fixtureServerPath},
+		SettingsKey: &settingsKey,
+	}
 }
 
 func fixturePluginLanguageServerSpec(t *testing.T) LanguageServerSpec {

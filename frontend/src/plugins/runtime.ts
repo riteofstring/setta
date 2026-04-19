@@ -148,6 +148,7 @@ const pluginStatusEntryComparisonKeys = [
   "sourceDigestSha256",
   "shadowedBySourcePath",
   "enablementSource",
+  "appliedLanguageServerLanguages",
   "restartRequired",
 ] as const satisfies readonly (keyof PluginStatusEntry)[];
 

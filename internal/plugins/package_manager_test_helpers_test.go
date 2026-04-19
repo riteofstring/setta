@@ -31,9 +31,9 @@ func installPackageManagerFixture(t *testing.T, fixtureName string, packageName 
 func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string, fixtureName string, packageName string, version string, mutate func(string)) string {
 	t.Helper()
 
-	pluginRoot := filepath.Join(sitePackages, strings.ReplaceAll(packageName, "-", "_"))
 	repoRoot := workerRPCTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
+	pluginRoot := filepath.Join(sitePackages, packageManagerFixturePluginRootName(t, sourceRoot))
 	copyBackendCodegenFixtureDir(t, sourceRoot, pluginRoot)
 	if mutate != nil {
 		mutate(pluginRoot)
@@ -75,6 +75,16 @@ func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string,
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
+}
+
+func packageManagerFixturePluginRootName(t *testing.T, sourceRoot string) string {
+	t.Helper()
+
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load package-manager fixture manifest: %v", err)
+	}
+	return manifest.ID
 }
 
 func mustNewDiscoveryServiceWithPackageManager(t *testing.T, roots filesystemResolverTestRoots, mode config.Mode, searchPaths []string) *DiscoveryService {
