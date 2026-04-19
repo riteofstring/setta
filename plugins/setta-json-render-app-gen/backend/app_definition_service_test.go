@@ -77,7 +77,8 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 		},
 		"elements": map[string]any{},
 	}
-	if err := appspec.Write(root, "app_specs/custom.json", appSpec); err != nil {
+	customPath := appspec.JoinPath("custom.json")
+	if err := appspec.Write(root, customPath, appSpec); err != nil {
 		t.Fatalf("write app spec: %v", err)
 	}
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -85,7 +86,7 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 		next.AppDefinition = mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 			AppSpecVersion: " v2 ",
 			CatalogID:      " " + appspec.DefaultCatalogID + " ",
-			AppSpecPath:    " app_specs/custom.json ",
+			AppSpecPath:    " " + customPath + " ",
 			Routes: []projectstate.AppRoute{
 				{Path: " / ", Name: " Home ", RootKey: " root "},
 			},
@@ -112,8 +113,8 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 	if result.AppDefinition.CatalogID != appspec.DefaultCatalogID {
 		t.Fatalf("expected trimmed catalog id %q, got %q", appspec.DefaultCatalogID, result.AppDefinition.CatalogID)
 	}
-	if result.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected trimmed app spec path app_specs/custom.json, got %q", result.AppDefinition.AppSpecPath)
+	if result.AppDefinition.AppSpecPath != customPath {
+		t.Fatalf("expected trimmed app spec path %q, got %q", customPath, result.AppDefinition.AppSpecPath)
 	}
 	if len(result.AppDefinition.Routes) != 1 {
 		t.Fatalf("expected one normalized route, got %#v", result.AppDefinition.Routes)
@@ -157,7 +158,8 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 
 	appSpecVersion := " v2 "
 	catalogID := " " + appspec.DefaultCatalogID + " "
-	absoluteAppSpecPath := "  " + filepath.Join(root, "app_specs", "custom.json") + "  "
+	customPath := appspec.JoinPath("custom.json")
+	absoluteAppSpecPath := "  " + filepath.Join(root, filepath.FromSlash(customPath)) + "  "
 	routes := []projectstate.AppRoute{{Path: " / ", Name: " Home ", RootKey: " root "}}
 	dataBindings := map[string]any{"title": map[string]any{"text": "hello"}}
 	actions := map[string]any{"customRun": map[string]any{"type": "run"}}
@@ -189,8 +191,8 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	if result.AppDefinition == nil {
 		t.Fatal("expected app definition result")
 	}
-	if result.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected normalized app spec path app_specs/custom.json, got %q", result.AppDefinition.AppSpecPath)
+	if result.AppDefinition.AppSpecPath != customPath {
+		t.Fatalf("expected normalized app spec path %q, got %q", customPath, result.AppDefinition.AppSpecPath)
 	}
 	if result.AppDefinition.AppSpecVersion != "v2" {
 		t.Fatalf("expected app spec version v2, got %q", result.AppDefinition.AppSpecVersion)
@@ -205,11 +207,11 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 		t.Fatalf("expected normalized route metadata, got %#v", result.AppDefinition.Routes[0])
 	}
 	snapshotDefinition := mustDecodeStoredAppDefinition(t, snapshot.Document.AppDefinition)
-	if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != "app_specs/custom.json" {
+	if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != customPath {
 		t.Fatalf("expected snapshot app definition with normalized path, got %#v", snapshotDefinition)
 	}
 
-	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	storedSpec, err := appspec.Read(root, customPath)
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -221,7 +223,7 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get app definition: %v", err)
 	}
-	if readResult.AppDefinition == nil || readResult.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+	if readResult.AppDefinition == nil || readResult.AppDefinition.AppSpecPath != customPath {
 		t.Fatalf("expected persisted metadata, got %#v", readResult.AppDefinition)
 	}
 	if !reflect.DeepEqual(readResult.AppSpec, appSpec) {
@@ -472,7 +474,7 @@ func TestAppDefinitionServiceStreamHandlesBaseSpecAndInvalidPatch(t *testing.T) 
 
 		root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 		service := appDefinitionServiceForTest(runtime)
-		appSpecPath := "app_specs/generated.json"
+		appSpecPath := appspec.JoinPath("generated.json")
 		baseAppSpec := map[string]any{
 			"root": "root",
 			"elements": map[string]any{

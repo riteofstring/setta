@@ -4118,7 +4118,7 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    "app_specs/custom.json",
+			"appSpecPath":    appspec.JoinPath("custom.json"),
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"routes": []any{
@@ -4136,14 +4136,14 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	appDefinition := mustStructuredMap(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != "app_specs/custom.json" {
+	if appDefinition["appSpecPath"] != appspec.JoinPath("custom.json") {
 		t.Fatalf("expected normalized app spec path, got %#v", appDefinition["appSpecPath"])
 	}
 	if appDefinition["appSpecVersion"] != "v2" {
 		t.Fatalf("expected app spec version v2, got %#v", appDefinition["appSpecVersion"])
 	}
 
-	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	storedSpec, err := appspec.Read(root, appspec.JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4151,7 +4151,7 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
 	}
 	storedAppDefinition := mustDecodeStoredAppDefinition(t, projectRuntime.Snapshot().Document.AppDefinition)
-	if storedAppDefinition.AppSpecPath != "app_specs/custom.json" {
+	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
 		t.Fatalf("expected runtime app definition after mutation, got %#v", storedAppDefinition)
 	}
 }
