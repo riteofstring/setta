@@ -9,6 +9,8 @@ if ! ./scripts/go.sh version >/dev/null 2>&1; then
   ./scripts/go.sh version >/dev/null 2>&1
 fi
 
+./scripts/install_gopls.sh
+
 (
   cd frontend
   pnpm install --frozen-lockfile

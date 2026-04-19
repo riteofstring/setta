@@ -93,6 +93,9 @@ pick_go_bin() {
 }
 
 GO_BIN="$(pick_go_bin)"
+GO_BIN_DIR="$(dirname "${GO_BIN}")"
+
+export PATH="${GO_BIN_DIR}:${PATH}"
 
 if [[ $# -eq 0 ]]; then
   exec "${GO_BIN}" version

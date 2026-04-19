@@ -124,8 +124,8 @@ def test_dev_install_bootstraps_python_go_frontend_and_sidecars(
     tmp_path: Path,
 ) -> None:
     # The default dev installer should sync the repo Python env first, then
-    # ensure the pinned Go toolchain exists before frontend deps, sidecars, and
-    # cleanup.
+    # ensure the pinned Go toolchain and repo-local gopls exist before frontend
+    # deps, sidecars, and cleanup.
     sandbox_root = tmp_path / "dev_install_sandbox"
     frontend_dir = sandbox_root / "frontend"
     scripts_dir = sandbox_root / "scripts"
@@ -160,6 +160,13 @@ fi
 set -euo pipefail
 echo install-go-toolchain >> "{command_log}"
 touch "{toolchain_ready}"
+""",
+    )
+    write_stub_executable(
+        scripts_dir / "install_gopls.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo install-gopls >> "{command_log}"
 """,
     )
     write_stub_executable(
@@ -199,6 +206,7 @@ echo "pnpm $*" >> "{command_log}"
         "go version",
         "install-go-toolchain",
         "go version",
+        "install-gopls",
         "pnpm install --frozen-lockfile",
         "install-sidecars",
         "cleanup",
