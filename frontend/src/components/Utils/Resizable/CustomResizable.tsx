@@ -390,11 +390,13 @@ function CustomResizableSuperCore({
   const isAttachedTerminalChild = useProjectState(
     (x) => getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null,
   );
+  const motionResizeHandlesHidden = motionCanvasOwnedShell;
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );
   const enable = getResizableEnable({
     disablePointerEvents,
+    suppressHandles: motionResizeHandlesHidden,
     positionAndSizeLocked,
     heightResizable,
     widthResizable,
@@ -484,6 +486,9 @@ function CustomResizableSuperCore({
       }
       data-canvas-owned-motion-shell-root={
         motionCanvasOwnedShellRoot ? "true" : undefined
+      }
+      data-canvas-owned-motion-resize-handles-hidden={
+        motionResizeHandlesHidden ? "true" : undefined
       }
       handleStyles={handleStyles}
       handleClasses={handleClasses}
@@ -770,18 +775,20 @@ function getAutoClampSize({
     minWidth,
   });
 }
-function getResizableEnable({
+export function getResizableEnable({
   disablePointerEvents,
+  suppressHandles,
   positionAndSizeLocked,
   heightResizable,
   widthResizable,
 }: {
   disablePointerEvents: boolean;
+  suppressHandles: boolean;
   positionAndSizeLocked: boolean;
   heightResizable: boolean;
   widthResizable: boolean;
 }) {
-  if (disablePointerEvents || positionAndSizeLocked) {
+  if (disablePointerEvents || positionAndSizeLocked || suppressHandles) {
     return false;
   }
   return {

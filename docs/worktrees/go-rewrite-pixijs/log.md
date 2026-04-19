@@ -154,6 +154,63 @@ Record:
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
+## 2026-04-20 - motion-hidden section resize handle suppression
+
+- Summary:
+  - Suppressed the shared top-level `re-resizable` section handles whenever an inactive canvas-owned settings section is already in the motion shell state, and marked that state with `data-canvas-owned-motion-resize-handles-hidden="true"`.
+  - Added focused unit coverage for the pure enable/disable decision and widened the live motion inventory probe so it records mounted section resize handle counts before motion, at peak motion, and after settle.
+- Files:
+  - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+  - `frontend/src/components/Utils/Resizable/CustomResizable.test.ts`
+  - `frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+  - `perf/reports/frontend/2026-04-20_settings-all-settings-motion-hidden-section-resize-handles-rerun.md`
+- Canonical target section:
+  - `settings-section__browserSectionDefault`
+- Sibling proof sections:
+  - `settings-section__promptSectionDefault`
+  - `settings-section__languageServer`
+- Live canary result on the worktree runtime:
+  - motion-aware dense rerun:
+    - `documentNodeCount: 5496`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.14`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1150`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5989`
+    - `longTasks.maxMs: 3560`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion inventory:
+    - before motion `graphSurfaceSectionResizeHandleCount: 138`
+    - peak motion `graphSurfaceSectionResizeHandleCount: 3`
+    - peak motion `hiddenResizeHandleRootCount: 45`
+    - after settle `graphSurfaceSectionResizeHandleCount: 138`
+- Interpretation:
+  - this is a bounded shared motion-chrome reduction on the active renderer-main lane, not a new dense-scene breakthrough
+  - the direct product proof is that inactive settings sections no longer keep all top-level section resize handles mounted during viewport interaction; the live surface drops from `138` mounted section resize handles to `3` while motion is active and restores them after settle
+  - the dense canary stayed in the same `43ms` / `~6.0s long-task total` band, so close this section-resize-handle sub-lane here instead of polishing it further by inertia
+  - the next default frontier should return to the broader `browserSectionDefault` renderer-main JS / GC lane or escalate to the stronger graph-surface step if no larger shared reducer is credible
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/Resizable/CustomResizable.tsx src/components/Utils/Resizable/CustomResizable.test.ts tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/Resizable/CustomResizable.test.ts`
+    - result: `8 passed`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-018/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+  - CDP visual check:
+    - verified in a fresh headless DevTools sub-agent on a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `/settings` mounted with `All Settings` active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were present on the graph surface
+    - no obvious blank or detached shell/body artifact was visible after the motion-time resize-handle suppression
+- Next action:
+  - return to the broader `browserSectionDefault` renderer-main JS / GC lane and choose one larger shared reducer, or escalate to the stronger graph-surface step if no such bounded product slice is credible
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-20 - prompt shell ownership sibling
 
 - Summary:

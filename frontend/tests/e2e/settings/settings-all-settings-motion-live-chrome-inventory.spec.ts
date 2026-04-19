@@ -24,7 +24,9 @@ type SectionChromeSummary = {
   motionBodyHidden: boolean;
   motionHeaderControlsHidden: boolean;
   motionMenuTriggerHidden: boolean;
+  motionResizeHandlesHidden: boolean;
   roleSwitchCount: number;
+  sectionResizeHandleCount: number;
   sectionId: string;
   textareaCount: number;
   totalTrackedChromeElementCount: number;
@@ -38,10 +40,12 @@ type MotionChromeSnapshot = {
   graphSurfaceIncrementerRootCount: number;
   graphSurfaceMenuTriggerCount: number;
   graphSurfaceRoleSwitchCount: number;
+  graphSurfaceSectionResizeHandleCount: number;
   graphSurfaceTextareaCount: number;
   hiddenBodyCount: number;
   hiddenHeaderControlsCount: number;
   hiddenMenuTriggerCount: number;
+  hiddenResizeHandleRootCount: number;
   topSectionsByTrackedChrome: SectionChromeSummary[];
   totalTrackedChromeElementCount: number;
 };
@@ -138,11 +142,24 @@ test("settings All Settings motion live chrome inventory isolates the remaining 
         section.sectionId === "settings-section__browserSectionDefault",
     )?.motionBodyHidden,
   ).toBe(true);
+  expect(
+    inventory.peakMotion.canonicalSections.find(
+      (section) =>
+        section.sectionId === "settings-section__browserSectionDefault",
+    )?.motionResizeHandlesHidden,
+  ).toBe(true);
   expect(inventory.peakMotion.graphSurfaceMenuTriggerCount).toBeLessThan(
     inventory.beforeMotion.graphSurfaceMenuTriggerCount,
   );
+  expect(inventory.beforeMotion.graphSurfaceSectionResizeHandleCount).toBeGreaterThan(
+    0,
+  );
+  expect(
+    inventory.peakMotion.graphSurfaceSectionResizeHandleCount,
+  ).toBeLessThan(inventory.beforeMotion.graphSurfaceSectionResizeHandleCount);
   expect(inventory.settledMotion.hiddenMenuTriggerCount).toBe(0);
   expect(inventory.settledMotion.hiddenBodyCount).toBe(0);
+  expect(inventory.settledMotion.hiddenResizeHandleRootCount).toBe(0);
 });
 
 async function clickFitViewIfVisible(page: Page): Promise<void> {
@@ -264,6 +281,9 @@ async function measureMotionLiveChromeInventory(
             '[data-canvas-owned-lightweight-menu-trigger="true"]',
           ),
         ).filter(isMotionVisible);
+        const sectionResizeHandles = section.querySelectorAll(
+          ".section-resize-handle",
+        );
         const incrementerRoots = Array.from(
           section.querySelectorAll('[data-section-incrementer-root="true"]'),
         ).filter(isMotionVisible);
@@ -297,7 +317,12 @@ async function measureMotionLiveChromeInventory(
             section.querySelector(
               '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
             ) !== null,
+          motionResizeHandlesHidden:
+            section.querySelector(
+              '[data-canvas-owned-motion-resize-handles-hidden="true"]',
+            ) !== null,
           roleSwitchCount: roleSwitches.length,
+          sectionResizeHandleCount: sectionResizeHandles.length,
           sectionId,
           textareaCount: textareas.length,
           totalTrackedChromeElementCount: trackedChromeElements.size,
@@ -372,6 +397,9 @@ async function measureMotionLiveChromeInventory(
               `${SETTINGS_SECTION_SELECTOR} [role="switch"]`,
             ),
           ).filter(isMotionVisible).length,
+          graphSurfaceSectionResizeHandleCount: document.querySelectorAll(
+            `${SETTINGS_SECTION_SELECTOR} .section-resize-handle`,
+          ).length,
           graphSurfaceTextareaCount: Array.from(
             document.querySelectorAll<HTMLElement>(
               `${SETTINGS_SECTION_SELECTOR} textarea`,
@@ -385,6 +413,9 @@ async function measureMotionLiveChromeInventory(
           ).length,
           hiddenMenuTriggerCount: document.querySelectorAll(
             '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
+          ).length,
+          hiddenResizeHandleRootCount: document.querySelectorAll(
+            '[data-canvas-owned-motion-resize-handles-hidden="true"]',
           ).length,
           topSectionsByTrackedChrome,
           totalTrackedChromeElementCount: trackedChromeElements.size,
