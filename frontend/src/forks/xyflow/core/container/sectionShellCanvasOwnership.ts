@@ -9,6 +9,8 @@ export const GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__globalVariablesSectionDefault";
 export const BROWSER_CANVAS_OWNED_SECTION_SHELL_ID =
   "settings-section__browserSectionDefault";
+export const PROMPT_CANVAS_OWNED_SECTION_SHELL_ID =
+  "settings-section__promptSectionDefault";
 export const SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__sectionSizingPolicy";
 export const DRAW_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
@@ -87,7 +89,7 @@ export const CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
 export const DATE_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__dateParamCodeObjDefault";
 export const PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
-  "settings-section__promptSectionDefault";
+  PROMPT_CANVAS_OWNED_SECTION_SHELL_ID;
 export const TIME_PARAM_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
   "settings-section__timeParamCodeObjDefault";
 export const TEXT_BLOCK_CANVAS_OWNED_RESTING_TEXT_SECTION_ID =
@@ -119,6 +121,7 @@ export const CANVAS_OWNED_SECTION_SHELL_IDS = [
   DICT_CANVAS_OWNED_SECTION_SHELL_ID,
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   BROWSER_CANVAS_OWNED_SECTION_SHELL_ID,
+  PROMPT_CANVAS_OWNED_SECTION_SHELL_ID,
 ] as const;
 export const CANVAS_OWNED_RESTING_TEXT_SECTION_IDS = [
   ...CANVAS_OWNED_SECTION_SHELL_IDS,

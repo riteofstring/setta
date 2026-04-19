@@ -8,6 +8,46 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The prompt shell-ownership sibling slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-prompt-shell-ownership-rerun.md`.
+  - canonical target section: `settings-section__promptSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now promotes `settings-section__promptSectionDefault` from resting-text-only to full `CANVAS_OWNED_SECTION_SHELL_IDS` ownership on the retained canvas path
+    - the prompt section stays on the same resting-text alias, so the retained text measurements, motion-hidden body path, and first-click editor handoff continue to reuse the existing code-like prompt lane instead of opening a separate editor seam
+    - `frontend/tests/e2e/settings/settings-all-settings-prompt-shell-resting-text.spec.ts` now proves the prompt section DOM shell and inner resizable surface are transparent/canvas-owned while a real `mousedown` on the lightweight dummy still swaps in one live CodeMirror editor
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts` now proves the prompt section widened to shell ownership and no longer belongs to the lightweight nested-children lane
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5496`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1116.63`
+    - `longTasks.count: 9`
+    - `longTasks.totalMs: 6013`
+    - `longTasks.maxMs: 3583`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a second real graph-surface ownership step on a dense-lane sibling, not another viewport micro-pass or pure forwarding-layer seam lift
+    - the prompt shell frame now lives on the retained canvas while the dense smoke stays in the same improved runtime band, so treat this as an ownership expansion that keeps the active lane stable rather than a new whole-scene checkpoint
+    - close the prompt shell-ownership sibling here; do not spend the next default pass on a third shell canary by inertia
+    - the next default frontier should return to the broader trace-backed renderer-main JS / GC reduction or a stronger graph-surface step unless one more dense sibling has an explicit ownership payoff that is better than the current hotspot lane
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-prompt-shell-resting-text.spec.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - result: `1 passed`, `27` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-017/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-prompt-shell-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (57.5s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent on `/settings` with `All Settings` active and `promptSectionDefault` selected
+    - the prompt section shell/frame looked present and intact with no obvious blank or detached shell/body artifact
+    - only expected workspace chrome noise was visible (top nav, left sidebar, and the bottom settings tabs)
+
 - The browser shell-ownership canary is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-browser-shell-ownership-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - implementation shape:

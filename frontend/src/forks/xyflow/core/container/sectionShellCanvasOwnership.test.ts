@@ -25,6 +25,7 @@ import {
   GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
   LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   PLUGIN_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+  PROMPT_CANVAS_OWNED_SECTION_SHELL_ID,
   PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
   SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS,
   SHARED_PARAM_CODEOBJ_CANVAS_OWNED_RESTING_TEXT_SECTION_IDS,
@@ -62,7 +63,7 @@ import {
 } from "./sectionShellCanvasOwnership";
 
 describe("sectionShellCanvasOwnership", () => {
-  it("targets the callable, dict, global variables, and browser settings canary sections", () => {
+  it("targets the callable, dict, global variables, browser, and prompt settings shell canaries", () => {
     expect(isCanvasOwnedSectionShell(CANVAS_OWNED_SECTION_SHELL_ID)).toBe(true);
     expect(
       isCanvasOwnedSectionShell(DICT_CANVAS_OWNED_SECTION_SHELL_ID),
@@ -72,6 +73,9 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionShell(PROMPT_CANVAS_OWNED_SECTION_SHELL_ID),
     ).toBe(true);
     expect(
       isCanvasOwnedSectionShell(
@@ -1060,7 +1064,7 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(true);
   });
 
-  it("keeps lightweight nested children on the shared resting-text lane without widening the shell-owned browser canary", () => {
+  it("keeps lightweight nested children on the shared resting-text lane without widening the shell-owned browser or prompt canaries", () => {
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         CODE_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
@@ -1074,6 +1078,11 @@ describe("sectionShellCanvasOwnership", () => {
     expect(
       isCanvasOwnedSectionLightweightNestedChildren(
         BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightNestedChildren(
+        PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
       ),
     ).toBe(false);
     expect(

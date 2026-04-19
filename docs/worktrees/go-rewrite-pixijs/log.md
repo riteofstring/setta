@@ -154,6 +154,56 @@ Record:
 - Next action:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
+## 2026-04-20 - prompt shell ownership sibling
+
+- Summary:
+  - Promoted `settings-section__promptSectionDefault` from resting-text-only to full canvas-owned shell ownership on the retained `canvas-shell-underlay` path.
+  - Kept the prompt section on the same retained-text alias so the existing lightweight dummy -> live CodeMirror handoff still activates with one real `mousedown` on the prompt canary.
+- Files:
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts`
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `frontend/tests/e2e/settings/settings-all-settings-prompt-shell-resting-text.spec.ts`
+  - `perf/reports/frontend/2026-04-20_settings-all-settings-prompt-shell-ownership-rerun.md`
+- Canonical target section:
+  - `settings-section__promptSectionDefault`
+- Live canary result on the worktree runtime:
+  - prompt shell ownership proof:
+    - section root: `data-canvas-owned-shell="true"`
+    - inner resizable shell: `data-canvas-owned-shell="true"`
+    - both shell backgrounds: `rgba(0, 0, 0, 0)`
+    - retained canvas header/title pixel: non-transparent
+    - lightweight resting text dummy: `opacity: 0`, `data-canvas-owned-resting-text-lightweight="true"`, no highlight spans
+    - one synthetic left-button `mousedown` on the dummy input replaced it with one live `.cm-editor`
+  - dense companion rerun:
+    - `documentNodeCount: 5496`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43`
+    - `raf.p95Ms: 50`
+    - `longTasks.totalMs: 6013`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a second real graph-surface ownership step on a dense-lane sibling, not another viewport-persistence micro-pass or pure forwarding-layer churn
+  - the dense runtime stayed in the same improved band, so keep treating `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md` as the clean whole-scene checkpoint
+  - close the prompt shell sibling here; the next default frontier should return to a broader trace-backed renderer-main reduction or stronger graph-surface step unless another dense sibling has a clearer ownership payoff
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-prompt-shell-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - result: `1 passed (27 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-017/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-prompt-shell-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (57.5s)`
+  - CDP visual check:
+    - verified in a fresh headless DevTools sub-agent on `/settings` with `All Settings` active and `promptSectionDefault` selected
+    - the prompt section shell frame looked present/intact with no obvious blank or detached shell/body artifact
+    - visible workspace noise was limited to the top nav, left sidebar, and bottom settings tabs
+- Next action:
+  - return to the broader `browserSectionDefault` whole-scene renderer-main JS / GC lane or the next stronger graph-surface step instead of taking a third shell canary by inertia
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-20 - browser shell ownership canary
 
 - Summary:
