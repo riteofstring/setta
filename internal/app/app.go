@@ -2452,6 +2452,7 @@ func initializeAppRuntimeServices(
 func initializeAppDeploymentPublishers(
 	cfg config.Config,
 	modePolicy modes.Policy,
+	projectRuntime *projectstate.Runtime,
 	services *appPlatformServices,
 ) error {
 	if !modePolicy.IsIDE() {
@@ -2479,7 +2480,7 @@ func initializeAppDeploymentPublishers(
 		Catalog:        services.deploymentCatalog,
 		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-	})
+	}, appsubsystemplugin.NewAppDefinitionService(projectRuntime))
 	return err
 }
 
@@ -2602,7 +2603,7 @@ func initializeAppPlatformServices(
 		pluginRouteService:       projectServices.pluginRouteService,
 		appSubsystemCapabilities: appSubsystemCapabilities,
 	}
-	if err := initializeAppDeploymentPublishers(cfg, modePolicy, &services); err != nil {
+	if err := initializeAppDeploymentPublishers(cfg, modePolicy, projectServices.projectRuntime, &services); err != nil {
 		return appPlatformServices{}, err
 	}
 	configureAppPluginRuntime(cfg, logger, modePolicy, projectServices, &services)

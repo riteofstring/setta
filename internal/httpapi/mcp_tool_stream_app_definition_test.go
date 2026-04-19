@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,7 +20,7 @@ func TestMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -34,9 +33,7 @@ func TestMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
@@ -100,7 +97,7 @@ func TestMCPToolCallRouteStreamAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -113,9 +110,7 @@ func TestMCPToolCallRouteStreamAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")

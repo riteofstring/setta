@@ -89,7 +89,7 @@ func TestBuildMCPToolRegistrationsWorkThroughServerContributions(t *testing.T) {
 		WorkspaceRoot:                t.TempDir(),
 		ProjectState:                 runtime,
 		SkipDefaultAppSubsystemTools: true,
-		ContributedToolRegistrations: BuildMCPToolRegistrations(runtime),
+		ContributedToolRegistrations: BuildMCPToolRegistrations(appDefinitionServiceForTest(runtime)),
 	})
 	if err != nil {
 		t.Fatalf("new server: %v", err)
