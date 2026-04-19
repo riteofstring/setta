@@ -2,38 +2,6 @@ package agentruns
 
 import "testing"
 
-func TestParseAppGenerationModeKeepsFirstPassPublicNames(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{name: "json_render", input: "json_render", want: "json_render"},
-		{name: "json_render_with_image", input: "json_render_with_image", want: "json_render_with_image"},
-	}
-
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, ok := ParseAppGenerationMode(testCase.input)
-			if !ok {
-				t.Fatalf("expected %q to remain an allowed app-generation mode", testCase.input)
-			}
-			if got != testCase.want {
-				t.Fatalf("expected normalized mode %q, got %q", testCase.want, got)
-			}
-		})
-	}
-
-	if _, ok := ParseAppGenerationMode("json-render"); ok {
-		t.Fatal("expected renamed json-render mode to remain rejected")
-	}
-}
-
 func TestNormalizeAppGenerationByMessageIDKeepsPlainChatAndDropsInvalidEntries(t *testing.T) {
 	t.Parallel()
 

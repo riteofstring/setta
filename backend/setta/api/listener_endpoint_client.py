@@ -2,8 +2,6 @@
 
 from typing import Awaitable, Callable, NotRequired, TypedDict
 
-from pydantic import TypeAdapter
-
 from setta.types.generated.go_shared_types import (
     BaseChatMessageUnion,
     Chat,
@@ -101,72 +99,50 @@ class RouterEndpointAPI:
         self._caller = caller
 
     async def create_chat(self, payload: ListenerCreateChatRequestPayload) -> Chat:
-        return TypeAdapter(Chat).validate_python(
-            await self._caller(ROUTER_ENDPOINT_CREATE_CHAT, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_CREATE_CHAT, payload)
 
     async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
-        return TypeAdapter(Chat).validate_python(
-            await self._caller(ROUTER_ENDPOINT_GET_CHAT, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_GET_CHAT, payload)
 
     async def append_chat_messages(
         self, payload: ListenerAppendChatMessagesRequestPayload
     ) -> Chat:
-        return TypeAdapter(Chat).validate_python(
-            await self._caller(ROUTER_ENDPOINT_APPEND_CHAT_MESSAGES, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_APPEND_CHAT_MESSAGES, payload)
 
     async def delete_chat(self, payload: ListenerDeleteChatRequestPayload) -> None:
-        return TypeAdapter(type(None)).validate_python(
-            await self._caller(ROUTER_ENDPOINT_DELETE_CHAT, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_DELETE_CHAT, payload)
 
     async def set_chat_system_prompt(
         self, payload: ListenerSetChatSystemPromptRequestPayload
     ) -> Chat:
-        return TypeAdapter(Chat).validate_python(
-            await self._caller(ROUTER_ENDPOINT_SET_CHAT_SYSTEM_PROMPT, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SYSTEM_PROMPT, payload)
 
     async def get_all_chat_metadata(
         self, payload: ListenerGetAllChatMetadataRequestPayload
     ) -> list[ChatMetadata]:
-        return TypeAdapter(list[ChatMetadata]).validate_python(
-            await self._caller(ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA, payload)
 
     async def get_chat_section_chat_id(
         self, payload: ListenerGetChatSectionChatIDRequestPayload
     ) -> str | None:
-        return TypeAdapter(str | None).validate_python(
-            await self._caller(ROUTER_ENDPOINT_GET_CHAT_SECTION_CHAT_ID, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_GET_CHAT_SECTION_CHAT_ID, payload)
 
     async def set_chat_section_chat_id(
         self, payload: ListenerSetChatSectionChatIDRequestPayload
     ) -> None:
-        return TypeAdapter(type(None)).validate_python(
-            await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_CHAT_ID, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_CHAT_ID, payload)
 
     async def emit_chat_stream_delta(
         self, payload: ListenerEmitChatStreamDeltaRequestPayload
     ) -> None:
-        return TypeAdapter(type(None)).validate_python(
-            await self._caller(ROUTER_ENDPOINT_EMIT_CHAT_STREAM_DELTA, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_EMIT_CHAT_STREAM_DELTA, payload)
 
     async def run_mcp_tools(
         self, payload: ListenerRunMCPToolsRequestPayload
     ) -> list[ToolChatMessage]:
-        return TypeAdapter(list[ToolChatMessage]).validate_python(
-            await self._caller(ROUTER_ENDPOINT_RUN_MCP_TOOLS, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_RUN_MCP_TOOLS, payload)
 
     async def set_chat_section_state(
         self, payload: ListenerSetChatSectionStateRequestPayload
     ) -> None:
-        return TypeAdapter(type(None)).validate_python(
-            await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE, payload)
-        )
+        return await self._caller(ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE, payload)

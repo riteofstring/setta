@@ -8,7 +8,6 @@ import {
   type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { receivePluginRuntimeUpdate } from "plugins/runtime";
 import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
@@ -677,11 +676,6 @@ const websocketMessageHandlers = {
     Parameters<typeof updateSettings>[0]
   >((content) => {
     updateSettings(content);
-  }),
-  [WebsocketMessageTypeEnum.UpdatePluginRuntime]: createWebsocketMessageHandler<
-    Parameters<typeof receivePluginRuntimeUpdate>[0]
-  >((content) => {
-    void receivePluginRuntimeUpdate(content);
   }),
   [WebsocketMessageTypeEnum.AllProjectMetadata]: createWebsocketMessageHandler<
     Parameters<typeof updateAllProjectMetadata>[0]
