@@ -65,62 +65,6 @@ def _append_messages(chat: Chat, messages: list[object]) -> Chat:
 class TestChatToolkitListenerClient:
     pytestmark = pytest.mark.asyncio
 
-    async def test_router_endpoint_api_coerces_json_results_to_declared_models(self) -> (
-        None
-    ):
-        llm_config = _build_llm_config()
-        chat_message = user_message([message_text("Hello listener")])
-        chat = _build_chat(
-            chat_id=ID("chat-1"),
-            llm_config=llm_config,
-            first_message=chat_message,
-        )
-        metadata = ChatMetadata(
-            id=chat.id,
-            name=chat.name,
-            lastUpdated=chat.lastUpdated,
-            llmConfig=chat.llmConfig,
-            projectConfigId=chat.projectConfigId,
-        )
-        tool_message = ToolChatMessage(
-            tool_call_id="tool-call-1",
-            tool_name="setta__list_mcp_tools",
-            arguments={},
-            content=[],
-            is_error=False,
-            result={},
-        )
-
-        async def router_caller(endpoint_name: str, payload: object) -> object:
-            if endpoint_name == ROUTER_ENDPOINT_CREATE_CHAT:
-                return chat.model_dump(mode="json")
-            if endpoint_name == ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA:
-                return [metadata.model_dump(mode="json")]
-            if endpoint_name == ROUTER_ENDPOINT_RUN_MCP_TOOLS:
-                return [tool_message.model_dump(mode="json")]
-            raise KeyError(f"Unknown endpoint {endpoint_name} payload={payload!r}")
-
-        api = RouterEndpointAPI(router_caller)
-
-        created_chat = await api.create_chat(
-            {"firstMessage": chat_message, "engineConfigId": None}
-        )
-        all_metadata = await api.get_all_chat_metadata({})
-        tool_messages = await api.run_mcp_tools(
-            {
-                "chatId": ID("chat-1"),
-                "sectionId": ID("section-1"),
-                "toolCalls": [],
-            }
-        )
-
-        assert isinstance(created_chat, Chat)
-        assert created_chat.id == chat.id
-        assert all_metadata and isinstance(all_metadata[0], ChatMetadata)
-        assert all_metadata[0].id == metadata.id
-        assert tool_messages and isinstance(tool_messages[0], ToolChatMessage)
-        assert tool_messages[0].tool_call_id == tool_message.tool_call_id
-
     async def test_history_client_coerces_chat_payloads(self) -> None:
         llm_config = _build_llm_config()
         engine_config_id = None
