@@ -73,6 +73,19 @@ describe("GraphSurface", () => {
     expect(viewport.style.transform).toBe(
       "translate(120px,80px) scale(1.5)",
     );
+
+    await act(async () => {
+      useReactFlow.setState({
+        transform: [-40, 25, 0.75],
+      });
+    });
+
+    expect(cameraLayer.style.transform).toBe(
+      "translate(-40px,25px) scale(0.75)",
+    );
+    expect(viewport.style.transform).toBe(
+      "translate(-40px,25px) scale(0.75)",
+    );
     expect(cameraLayer.nextElementSibling).toBe(viewport);
     expect(
       cameraLayer.querySelector('[data-testid="section-shell-backdrop-canvas"]'),

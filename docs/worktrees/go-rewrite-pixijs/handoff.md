@@ -8,6 +8,50 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The graph-surface camera-transform subscription cleanup is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-camera-transform-imperative-sync-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - new `frontend/src/forks/xyflow/core/container/useViewportTransformStyle.ts` writes the current React Flow transform directly onto wrapper refs through an imperative store subscription instead of rerendering those wrappers on every camera tick
+    - `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx` and `frontend/src/forks/xyflow/core/container/Viewport.tsx` now reuse that hook for the retained canvas camera layer and the DOM viewport wrapper
+    - `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` now proves both wrappers update after a post-mount transform change
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 44.26`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 66.7`
+    - `raf.maxMs: 1049.92`
+    - `longTasks.count: 11`
+    - `longTasks.totalMs: 5885`
+    - `longTasks.maxMs: 3408`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a safe shared transform-path cleanup on the active viewport-interaction lane, not a new dense-scene breakthrough
+    - the checked canary stayed in the same improved band and the live visual check stayed clean, so the wrapper-level imperative sync does not reopen the checked path
+    - the result is mixed rather than decisive: `longTasks.totalMs` improved slightly (`6076 -> 5885`), but `raf.meanMs` / `raf.p95Ms` did not materially beat the checkpoint
+    - close this camera-wrapper sub-lane now; do not spend another default iteration on top-level transform-wrapper polish
+    - the current trace-backed evidence still points more strongly at motion-time subtree unmount/remount churn or the broader Pixi-owned graph-surface step than at another wrapper-level transform subscription cleanup
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/Viewport.tsx src/forks/xyflow/core/container/useViewportTransformStyle.ts src/forks/xyflow/core/container/GraphSurface.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-013/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.5s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/GraphSurface.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `/settings` was mounted with `All Settings` active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell/body artifact after one bounded fit-view adjustment
+    - only expected workspace chrome noise was visible (top/side/bottom workspace chrome), with nothing anomalous on the graph surface
+
 - The viewport-send deferral slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-send-deferral-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
@@ -54,11 +98,13 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - decision: keep the loop running, but only on the sharper post-run-010 frontier
   - strongest evidence: the viewport-persistence interaction-deferral slice moved the chat-normalized dense canary from `raf.meanMs 126.46`, `raf.p95Ms 116.7`, `longTasks.totalMs 17245` to `43.28`, `33.4`, and `6076` without reopening DOM counts or visual regressions
   - bounded follow-up: the spreadsheet `flowZoom` freeze stayed in the same range (`raf.meanMs 44.12`, `longTasks.totalMs 6044`) and is now closed as a support lane rather than a default next action
+  - later bounded follow-up: the camera-transform imperative sync cleanup also stayed in the same range (`raf.meanMs 44.26`, `longTasks.totalMs 5885`) and is now closed as a shared transform-path cleanup rather than a default next action
   - real red herrings / closed defaults:
     - motion-shell/header/menu micro-harvests
     - backend-only switch-family cleanup
     - more chat-window normalization or other probe-only cleanup as the default next step
     - more spreadsheet-only or section-local zoom freezes unless a fresh trace makes them dominant again
+    - more camera-wrapper transform-wrapper cleanup unless a fresh trace explicitly points back to it
   - next default pass: broader `settings-section__browserSectionDefault` viewport-interaction JS / GC reduction with whole-scene reach, or escalate to the next Pixi-owned graph-surface step if no such bounded reducer is credible
 
 - The spreadsheet `flowZoom` interaction-freeze slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-spreadsheet-flowzoom-freeze-rerun.md`.

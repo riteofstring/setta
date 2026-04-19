@@ -155,6 +155,55 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 087
+
+- Item: Move the top-level graph-surface camera wrappers off React-driven transform rerenders on the canonical `browserSectionDefault` dense lane.
+- Status: `done`
+- Details:
+  - Chose one bounded shared transform-path reducer on the active viewport-interaction JS lane instead of reopening another closed section-family or motion-shell micro-lane.
+  - Added `frontend/src/forks/xyflow/core/container/useViewportTransformStyle.ts` so the current React Flow transform is written directly onto wrapper refs through an imperative store subscription.
+  - Updated `frontend/src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx` and `frontend/src/forks/xyflow/core/container/Viewport.tsx` to reuse that hook instead of rerendering those wrappers from `useReactFlow(...)` on every camera tick.
+  - Extended `frontend/src/forks/xyflow/core/container/GraphSurface.test.tsx` so the retained camera layer and DOM viewport both prove they pick up a post-mount transform change.
+  - Added the durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-camera-transform-imperative-sync-rerun.md`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5494`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 44.26`
+      - `raf.p50Ms: 33.3`
+      - `raf.p95Ms: 66.7`
+      - `raf.maxMs: 1049.92`
+      - `longTasks.count: 11`
+      - `longTasks.totalMs: 5885`
+      - `longTasks.maxMs: 3408`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this is a safe shared transform-path cleanup on the active viewport-interaction lane, not a new dense-scene perf milestone
+    - the dense canary stayed broadly flat versus the current whole-scene checkpoint (`raf.meanMs 43.28 -> 44.26`, `longTasks.totalMs 6076 -> 5885`), so the wrapper seam should close here rather than taking another default iteration
+    - the next real frontier remains the trace-backed renderer-main JS / GC blocker, with current evidence pointing more strongly at motion-time React DOM unmount/remount churn or the broader Pixi-owned graph-surface step than at more camera-wrapper polish
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/forks/xyflow/core/container/Viewport.tsx src/forks/xyflow/core/container/useViewportTransformStyle.ts src/forks/xyflow/core/container/GraphSurface.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-013/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.5s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/GraphSurface.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+  - `/settings` was mounted with `All Settings` active
+  - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell/body artifact after one bounded fit-view adjustment
+  - only expected workspace chrome noise was visible (top/side/bottom workspace chrome), with nothing anomalous on the graph surface
+- Next action:
+  - keep the camera-wrapper transform lane closed and choose the next bounded pass on motion-time unmount/remount JS/GC or explicitly escalate to the broader Pixi-owned graph-surface step if no trace-backed reducer is credible
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 086
 
 - Item: Defer backend viewport-send scheduling until active interaction settles on the canonical `browserSectionDefault` motion lane.

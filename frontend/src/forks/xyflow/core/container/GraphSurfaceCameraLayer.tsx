@@ -1,10 +1,6 @@
 import { memo, type ReactNode } from "react";
-import { useReactFlow } from "../store";
-import type { ReactFlowState } from "../types";
 import { containerStyle } from "../styles";
-
-const selector = (state: ReactFlowState) =>
-  `translate(${state.transform[0]}px,${state.transform[1]}px) scale(${state.transform[2]})`;
+import { useViewportTransformStyleRef } from "./useViewportTransformStyle";
 
 type GraphSurfaceCameraLayerProps = {
   children: ReactNode;
@@ -13,14 +9,16 @@ type GraphSurfaceCameraLayerProps = {
 function GraphSurfaceCameraLayer({
   children,
 }: GraphSurfaceCameraLayerProps) {
-  const transform = useReactFlow(selector);
+  const { initialTransform, ref } =
+    useViewportTransformStyleRef<HTMLDivElement>();
 
   return (
     <div
       className="react-flow__graph-surface-camera react-flow__container"
+      ref={ref}
       style={{
         ...containerStyle,
-        transform,
+        transform: initialTransform,
       }}
     >
       {children}
