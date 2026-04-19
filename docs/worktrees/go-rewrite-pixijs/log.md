@@ -157,6 +157,63 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-20 084
 
+- Item: Defer project-state viewport mirroring during active viewport interaction on the canonical `browserSectionDefault` motion lane.
+- Status: `done`
+- Details:
+  - Chose the repeated renderer-main JS/GC blocker instead of reopening another closed section-family or motion-shell ownership lane.
+  - Updated `frontend/src/state/actions/sectionInfos.ts` so the viewport persistence path can refresh the pending viewport snapshot without immediately mirroring that snapshot into `useProjectState`.
+  - Updated `frontend/src/state/subscriptions.ts` so the React Flow transform subscription now tracks `viewportInteractionActive`, refreshes only the pending viewport snapshot while interaction is active, and mirrors the latest viewport into `useProjectState` once when interaction settles; the immediate auto-fit flush path stays intact.
+  - Added focused coverage in `frontend/src/state/subscriptions.test.ts` for the deferred mirror behavior.
+  - Added the durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md`
+  - Fresh dense rerun on the live chat-normalized worktree runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.28`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 33.4`
+    - `raf.maxMs: 1183.29`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6076`
+    - `longTasks.maxMs: 3610`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Compared against the last chat-normalized dense rerun on the same lane:
+    - `documentNodeCount: 5494 -> 5494`
+    - `inputCount: 3 -> 3`
+    - `textareaCount: 1 -> 1`
+    - `buttonCount: 47 -> 47`
+    - `raf.meanMs: 126.46 -> 43.28`
+    - `raf.p95Ms: 116.7 -> 33.4`
+    - `longTasks.count: 81 -> 8`
+    - `longTasks.totalMs: 17245 -> 6076`
+  - Interpretation:
+    - this is a real renderer-main JS/store-churn reduction on the live dense canary, not another ownership proof: the whole-scene DOM counts stayed flat while motion metrics improved sharply
+    - because the probe shape, chat-window normalization, document-node counts, interactive-core counts, and motion-hidden-body totals stayed aligned, the intended explanation holds up: the dense path no longer rewrites `useProjectState.projectConfig.viewport` on every active interaction frame
+    - close this viewport-persistence sub-lane now that the per-frame project-store mirror is removed, but keep the broader `browserSectionDefault` motion-performance lane open for the next renderer-main hotspot
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.ts src/state/subscriptions.test.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.6s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+- CDP visual check is done:
+  - first fresh headless DevTools pass surfaced a docked `Chat Window 1` panel on the right side; treated as workspace-chrome noise rather than a renderer defect
+  - reran the visual check in a fresh headless DevTools sub-agent after closing that docked chat panel
+  - `/settings` loaded with `All Settings` active and `fit view` applied
+  - exactly one retained `react-flow__section-shell-backdrop` canvas was mounted
+  - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached artifact
+- Next action:
+  - keep the canonical `browserSectionDefault` lane and profile the next renderer-main transform/subscription hotspot now that per-frame `useProjectState` viewport mirroring is removed
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 084
+
 - Item: Normalize the canonical `All Settings` motion probes so project chat windows do not contaminate the dense renderer lane.
 - Status: `done`
 - Details:

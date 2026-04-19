@@ -2397,7 +2397,18 @@ function shouldSkipViewportDispatch(
     currentMatches
   );
 }
-function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
+type DispatchViewportUpdateOptions = {
+  immediate?: boolean;
+  mirrorToProjectState?: boolean;
+};
+
+function dispatchViewportUpdate(
+  viewport: Viewport | null,
+  {
+    immediate = false,
+    mirrorToProjectState = true,
+  }: DispatchViewportUpdateOptions = {},
+) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
@@ -2409,9 +2420,11 @@ function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   }
   pendingViewportRef.snapshot = viewport;
   pendingViewportRef.hasQueuedSend = true;
-  useProjectState.setState((state) => {
-    applyViewportSnapshotToProjectState(state, viewport);
-  });
+  if (mirrorToProjectState) {
+    useProjectState.setState((state) => {
+      applyViewportSnapshotToProjectState(state, viewport);
+    });
+  }
   if (!pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
   }
@@ -2433,5 +2446,11 @@ export const debouncedDispatchViewportUpdate = Object.assign(
 );
 export function dispatchViewportUpdateImmediately() {
   debouncedDispatchViewportUpdate.cancel();
-  dispatchViewportUpdate(getCurrProjectConfigViewport(), true);
+  dispatchViewportUpdate(getCurrProjectConfigViewport(), { immediate: true });
+}
+
+export function dispatchViewportUpdateWhileInteracting() {
+  dispatchViewportUpdate(getCurrProjectConfigViewport(), {
+    mirrorToProjectState: false,
+  });
 }

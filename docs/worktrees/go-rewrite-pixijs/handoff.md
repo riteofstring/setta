@@ -8,6 +8,48 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The viewport-persistence interaction-deferral slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/sectionInfos.ts` now lets the viewport persistence path refresh the pending viewport snapshot without immediately mirroring that snapshot into `useProjectState`
+    - `frontend/src/state/subscriptions.ts` now includes `viewportInteractionActive` in the React Flow transform subscription, defers the `useProjectState.projectConfig.viewport` mirror while interaction is active, and mirrors the latest snapshot once when interaction settles while keeping the immediate auto-fit flush path intact
+    - `frontend/src/state/subscriptions.test.ts` now contains focused coverage for the deferred mirror behavior
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.28`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 33.4`
+    - `raf.maxMs: 1183.29`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 6076`
+    - `longTasks.maxMs: 3610`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a real renderer-main JS/store-churn reduction on the active `All Settings` motion lane, not another ownership proof: the whole-scene DOM counts stayed flat while dense motion metrics dropped sharply against the last chat-normalized rerun (`raf.meanMs 126.46 -> 43.28`, `longTasks.totalMs 17245 -> 6076`)
+    - because the chat-window normalization, document-node counts, interactive-core counts, and motion-hidden-body totals all stayed aligned, the most credible explanation is the intended one: dense motion no longer rewrites `useProjectState.projectConfig.viewport` on every active interaction frame
+    - keep the canonical `browserSectionDefault` lane open on renderer-main JS/GC reduction, but close this viewport-persistence sub-lane now that the per-frame project-store mirror is removed
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.ts src/state/subscriptions.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.6s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - first fresh headless DevTools pass surfaced a docked `Chat Window 1` panel on the right side; treated as workspace-chrome noise rather than a renderer defect
+    - reran the visual check in a fresh headless DevTools sub-agent after closing that docked chat panel
+    - `/settings` loaded with `All Settings` active and `fit view` applied
+    - exactly one retained `react-flow__section-shell-backdrop` canvas was mounted
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached artifact
 - The canonical settings motion probes are now chat-window normalized and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-chat-window-normalized-motion-probes-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
