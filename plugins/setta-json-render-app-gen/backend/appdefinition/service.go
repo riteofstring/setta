@@ -29,8 +29,8 @@ func NewAppDefinitionService(runtime *projectstate.Runtime, pluginID string) Run
 	}
 	return &AppDefinitionService{
 		runtime:      runtime,
-		storage:      StorageForPlugin(pluginID),
-		appSpecStore: appspec.ForPlugin(pluginID),
+		storage:      MustStorageForPlugin(pluginID),
+		appSpecStore: appspec.MustForPlugin(pluginID),
 	}
 }
 

@@ -41,11 +41,6 @@ type LoadDeploymentProjectConfigRequest struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }
 
-func RegisterDeploymentRoutes(router chi.Router, deps DeploymentRouteDependencies) error {
-	// App deployment routes are contributed by the app subsystem plugin.
-	return RegisterShareDeploymentRoutes(router, deps)
-}
-
 func RegisterShareDeploymentRoutes(router chi.Router, deps DeploymentRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -127,6 +122,10 @@ func currentDeploymentSession(runtime *deployments.Runtime, request *http.Reques
 	return session, nil
 }
 
+func CurrentDeploymentSession(runtime *deployments.Runtime, request *http.Request) (deployments.Session, error) {
+	return currentDeploymentSession(runtime, request)
+}
+
 func deploymentProjectMetadataFromRuntime(runtime *deployments.Runtime) []projectstate.ProjectConfigMetadata {
 	snapshot := runtime.Base().Snapshot()
 	metadata := make([]projectstate.ProjectConfigMetadata, 0, len(snapshot.Document.Projects))
@@ -146,6 +145,10 @@ func deploymentProjectMetadataFromRuntime(runtime *deployments.Runtime) []projec
 		return leftName < rightName
 	})
 	return metadata
+}
+
+func DeploymentProjectMetadataFromRuntime(runtime *deployments.Runtime) []projectstate.ProjectConfigMetadata {
+	return deploymentProjectMetadataFromRuntime(runtime)
 }
 
 func shareDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
@@ -209,6 +212,10 @@ func requireDeploymentMatch(w http.ResponseWriter, r *http.Request, runtime *dep
 	return true
 }
 
+func RequireDeploymentMatch(w http.ResponseWriter, r *http.Request, runtime *deployments.Runtime, label string) bool {
+	return requireDeploymentMatch(w, r, runtime, label)
+}
+
 func currentDeploymentProjectState(runtime *deployments.Runtime, request *http.Request) (projectview.SingleConfig, error) {
 	defaultProjectID := runtime.Manifest().DefaultProjectID
 	if err := ensureDeploymentListener(runtime, request, defaultProjectID); err != nil {
@@ -248,12 +255,20 @@ func currentDeploymentSnapshot(runtime *deployments.Runtime, request *http.Reque
 	return runtime.SessionSnapshot(requestInfo.ShareSessionID)
 }
 
+func CurrentDeploymentSnapshot(runtime *deployments.Runtime, request *http.Request) (projectstate.Snapshot, error) {
+	return currentDeploymentSnapshot(runtime, request)
+}
+
 func ensureDeploymentListener(runtime *deployments.Runtime, request *http.Request, projectConfigID string) error {
 	requestInfo, ok := modes.RequestInfoFromRequest(request)
 	if !ok || strings.TrimSpace(requestInfo.ShareSessionID) == "" {
 		return &modes.MissingShareSessionError{}
 	}
 	return runtime.EnsureListenerForSession(requestInfo.ShareSessionID, projectConfigID)
+}
+
+func EnsureDeploymentListener(runtime *deployments.Runtime, request *http.Request, projectConfigID string) error {
+	return ensureDeploymentListener(runtime, request, projectConfigID)
 }
 
 func handleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, err error) {
@@ -267,4 +282,8 @@ func handleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, e
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
+}
+
+func HandleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, err error) {
+	handleDeploymentProjectStateError(w, r, err)
 }

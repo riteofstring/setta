@@ -333,16 +333,16 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 		context.Background(),
 		"project-alpha",
 		"core.app.spec_path",
-		"  "+filepath.Join(root, filepath.FromSlash(appspec.RootPath()), "ui-settings.json")+"  ",
-		appspec.DefaultPath(),
+		"  "+filepath.Join(root, filepath.FromSlash(appspec.MustForPlugin("setta-json-render-app-gen").RootPath()), "ui-settings.json")+"  ",
+		appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 	)
 	if err != nil {
 		t.Fatalf("write app spec path: %v", err)
 	}
-	if result.OldValue != appspec.DefaultPath() {
-		t.Fatalf("expected old spec path %q, got %#v", appspec.DefaultPath(), result.OldValue)
+	if result.OldValue != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected old spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), result.OldValue)
 	}
-	expectedPath := appspec.JoinPath("ui-settings.json")
+	expectedPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("ui-settings.json")
 	if result.NewValue != expectedPath {
 		t.Fatalf("expected normalized spec path %q, got %#v", expectedPath, result.NewValue)
 	}
@@ -700,13 +700,13 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	runtime := openCoreRegistryPersistedRuntime(t, root)
 	registry := mustNewAppScopedRegistry(t, runtime, root)
 
-	nextSpecPath := appspec.JoinPath("ui-settings-test-app.json")
+	nextSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("ui-settings-test-app.json")
 	result, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
 		"core.app.spec_path",
 		nextSpecPath,
-		appspec.DefaultPath(),
+		appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 	)
 	if err != nil {
 		t.Fatalf("write app spec path: %v", err)

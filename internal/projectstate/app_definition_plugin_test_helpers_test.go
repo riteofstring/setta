@@ -66,14 +66,14 @@ func setTestAppDefinition(
 		metadata.CatalogID = appspec.DefaultCatalogID
 	}
 
-	targetPath := appspec.DefaultPath()
+	targetPath := appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath()
 	if trimmed := strings.TrimSpace(metadata.AppSpecPath); trimmed != "" {
 		targetPath = trimmed
 	}
 	if input.AppSpecPath != nil && strings.TrimSpace(*input.AppSpecPath) != "" {
 		targetPath = *input.AppSpecPath
 	}
-	normalizedPath, err := appspec.NormalizePath(projectRoot, targetPath)
+	normalizedPath, err := appspec.MustForPlugin("setta-json-render-app-gen").NormalizePath(projectRoot, targetPath)
 	if err != nil {
 		t.Fatalf("normalize app spec path: %v", err)
 	}
@@ -100,7 +100,7 @@ func setTestAppDefinition(
 		metadata.Assets = mustMarshalTestRawJSON(t, *input.Assets, "appDefinition.assets")
 	}
 
-	previousAppSpec, err := appspec.Read(projectRoot, normalizedPath)
+	previousAppSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(projectRoot, normalizedPath)
 	if err != nil {
 		t.Fatalf("read previous app spec: %v", err)
 	}
@@ -114,7 +114,7 @@ func setTestAppDefinition(
 		return PersistedMutationPlan{
 			NextDocument: next,
 			ApplyExternalChanges: func() error {
-				return appspec.Write(projectRoot, normalizedPath, appSpec)
+				return appspec.MustForPlugin("setta-json-render-app-gen").Write(projectRoot, normalizedPath, appSpec)
 			},
 			RollbackExternalChanges: func() error {
 				return rollbackTestAppSpecWrite(projectRoot, normalizedPath, previousAppSpec)
@@ -154,10 +154,10 @@ func mustDecodeStoredAppDefinition(t *testing.T, raw RawJSON) AppDefinition {
 
 func rollbackTestAppSpecWrite(projectRoot string, appSpecPath string, previousAppSpec any) error {
 	if previousAppSpec != nil {
-		return appspec.Write(projectRoot, appSpecPath, previousAppSpec)
+		return appspec.MustForPlugin("setta-json-render-app-gen").Write(projectRoot, appSpecPath, previousAppSpec)
 	}
 
-	resolvedPath, err := appspec.ResolvePath(projectRoot, appSpecPath)
+	resolvedPath, err := appspec.MustForPlugin("setta-json-render-app-gen").ResolvePath(projectRoot, appSpecPath)
 	if err != nil {
 		return err
 	}

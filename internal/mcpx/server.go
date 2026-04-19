@@ -31,6 +31,7 @@ import (
 	"setta/internal/statefs"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 const (
@@ -7150,6 +7151,8 @@ func projectStateMutationErrorCode(err error) string {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		return projectNotFoundErrorCode
+	case errors.Is(err, appdefinition.ErrAppSpecNotFound):
+		return "file_not_found"
 	case projectstate.IsExpectedOldValueMismatchError(err):
 		return "mutation_failed"
 	case errors.Is(err, projectstate.ErrPersistedStoreUnsupported):

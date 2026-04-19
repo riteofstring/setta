@@ -24,7 +24,11 @@ func LoadPublishedAppSpecFromRuntime(
 	if runtime == nil {
 		return nil, deployments.ErrRuntimeRequired
 	}
-	return appDeploymentContentService{appSpecStore: appspec.ForPlugin(pluginID)}.LoadPublishedAppSpec(
+	appSpecStore, err := appspec.ForPlugin(pluginID)
+	if err != nil {
+		return nil, err
+	}
+	return appDeploymentContentService{appSpecStore: appSpecStore}.LoadPublishedAppSpec(
 		runtime.Paths().DeploymentRoot,
 		appDefinition,
 	)

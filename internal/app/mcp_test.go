@@ -3608,7 +3608,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    appspec.JoinPath("custom.json"),
+			"appSpecPath":    appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"),
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"theme":          map[string]any{"mode": "dark"},
@@ -3621,7 +3621,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected set_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.JoinPath("custom.json"))
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3630,9 +3630,9 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 	}
 	storedAppDefinition := mustDecodeStoredAppDefinition(
 		t,
-		appdefinition.StoredDocumentAppDefinitionRaw(app.ProjectStates().Main().Snapshot().Document),
+		appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(app.ProjectStates().Main().Snapshot().Document),
 	)
-	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
+	if storedAppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
 		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", storedAppDefinition)
 	}
 }
@@ -3691,14 +3691,14 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected get_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	payload := mustStructuredMapValue(t, result.StructuredContent)
 	appDefinition := mustStructuredMapValue(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
 	}
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, payload["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, mustStructuredMapValue(t, payload["appSpec"]))
@@ -3762,7 +3762,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 		t.Fatalf("expected temp-id get_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3974,7 +3974,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticated
 		t.Fatalf("expected temp-id set_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4051,7 +4051,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 		t.Fatalf("expected update_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4139,7 +4139,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 		t.Fatalf("expected temp-id update_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -9731,7 +9731,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 					"root":{"key":"root","type":"Stack"},
 					"elements":{}
 				},
-				"appSpecPath":"`+appspec.JoinPath("custom.json")+`",
+				"appSpecPath":"`+appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")+`",
 				"appSpecVersion":"v2",
 				"catalogId":"setta.app.default",
 				"theme":{"mode":"dark"}
@@ -9763,7 +9763,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 		t.Fatalf("expected set_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.JoinPath("custom.json"))
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -9835,7 +9835,7 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 		t.Fatalf("expected get_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -9995,7 +9995,7 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 		t.Fatalf("expected update_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}

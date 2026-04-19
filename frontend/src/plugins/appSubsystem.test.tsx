@@ -73,6 +73,36 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   },
 };
 
+const OTHER_APP_SUBSYSTEM_CAPABILITIES = {
+  pluginId: "acme-alt-provider",
+  pluginEnabled: true,
+  appAuthoringUi: true,
+  appPreviewUi: true,
+  appGenerationChatModes: true,
+  appDeploymentRuntime: true,
+} as const;
+
+const OTHER_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
+  ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+  slashCommands: [
+    {
+      command: "/acme-app",
+      action: "acme_app_render",
+      summary: "Generate the alternate provider app spec.",
+      promptTemplate: "Generate an alternate provider app spec.",
+      appGenerationMode: "acme_render",
+    },
+  ],
+  imageRequiredModes: ["acme_render"],
+  customSlashCommandModes: {
+    options: [
+      { id: "plain_chat", name: "Plain chat" },
+      { id: "acme_render", name: "Acme Render" },
+    ],
+    defaultMode: "acme_render",
+  },
+};
+
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",
   pluginEnabled: true,
@@ -87,11 +117,22 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistratio
       ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
       pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
     },
+    [OTHER_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+      ...OTHER_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+      pluginId: OTHER_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+    },
   };
 
 async function syncEnabledAppSubsystem(): Promise<void> {
   await syncAppSubsystemFrontendRegistration(
     ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
+  );
+}
+
+async function syncOtherAppSubsystem(): Promise<void> {
+  await syncAppSubsystemFrontendRegistration(
+    OTHER_APP_SUBSYSTEM_CAPABILITIES,
     MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
   );
 }
@@ -202,6 +243,29 @@ describe("appSubsystem", () => {
     expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
       "/app-json",
     );
+  });
+
+  it("switches slash commands and default mode with the selected provider", async () => {
+    await syncEnabledAppSubsystem();
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
+      "/app-json",
+    );
+    expect(
+      renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
+    ).toContain("plain_chat:plain_chat=Plain chat,json_render=JSON Render");
+
+    await syncOtherAppSubsystem();
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
+      "/acme-app",
+    );
+    expect(
+      renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
+    ).toContain("acme_render:plain_chat=Plain chat,acme_render=Acme Render");
+    expect(appSubsystemModeRequiresImageAttachment("acme_render")).toBe(true);
   });
 
   it("exposes the app deployment modal through capability-gated hooks", async () => {

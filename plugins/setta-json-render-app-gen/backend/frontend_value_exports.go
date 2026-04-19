@@ -3,6 +3,7 @@ package settajsonrenderappgenbackend
 import (
 	"setta/internal/agentruns"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
+	settajsonrenderappgenbackendchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type AppSubsystemChatSlashCommandValue struct {
@@ -14,8 +15,9 @@ type AppSubsystemChatSlashCommandValue struct {
 }
 
 type AppSubsystemCustomSlashCommandModeOptionValue struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Value                   string `json:"value"`
+	Label                   string `json:"label"`
+	RequiresImageAttachment bool   `json:"requiresImageAttachment"`
 }
 
 type AppSubsystemChatUIConfigValue struct {
@@ -63,20 +65,38 @@ var frontendAppSubsystemCustomSlashCommandModeOptions = []AppSubsystemCustomSlas
 	{Value: string(agentruns.AppGenerationModeMCPServer), Label: "MCP Server"},
 }
 
+func authoritativeImageRequiredModes() map[string]struct{} {
+	requiredModes := map[string]struct{}{}
+	for _, contribution := range settajsonrenderappgenbackendchatmodes.BuildChatModeContributions() {
+		if !contribution.AllowsReferenceImage {
+			continue
+		}
+		requiredModes[contribution.Mode] = struct{}{}
+	}
+	return requiredModes
+}
+
 func FrontendValueAppSpecPatchPolicyConfig() appspec.PatchPolicy {
 	return appspec.DefaultPatchPolicy()
 }
 
 func FrontendValueAppSubsystemChatUIConfig() AppSubsystemChatUIConfigValue {
+	imageRequiredModes := authoritativeImageRequiredModes()
+	modeOptions := make([]AppSubsystemCustomSlashCommandModeOptionValue, 0, len(frontendAppSubsystemCustomSlashCommandModeOptions))
+	for _, option := range frontendAppSubsystemCustomSlashCommandModeOptions {
+		_, requiresImageAttachment := imageRequiredModes[option.Value]
+		modeOptions = append(modeOptions, AppSubsystemCustomSlashCommandModeOptionValue{
+			Value:                   option.Value,
+			Label:                   option.Label,
+			RequiresImageAttachment: requiresImageAttachment,
+		})
+	}
 	return AppSubsystemChatUIConfigValue{
 		SlashCommands: append(
 			[]AppSubsystemChatSlashCommandValue(nil),
 			frontendAppSubsystemSlashCommands...,
 		),
-		CustomSlashCommandModeOptions: append(
-			[]AppSubsystemCustomSlashCommandModeOptionValue(nil),
-			frontendAppSubsystemCustomSlashCommandModeOptions...,
-		),
+		CustomSlashCommandModeOptions: modeOptions,
 		DefaultCustomSlashCommandMode: string(agentruns.ChatAppGenerationMessageModePlainChat),
 	}
 }

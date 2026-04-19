@@ -79,7 +79,7 @@ func TestMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestMCPToolCallRouteStreamAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}

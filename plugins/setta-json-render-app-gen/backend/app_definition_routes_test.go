@@ -168,10 +168,10 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	if payload.AppDefinition == nil {
 		t.Fatalf("expected app definition metadata, got %#v", payload)
 	}
-	if payload.AppDefinition.AppSpecPath != appspec.DefaultPath() {
-		t.Fatalf("expected app spec path %q, got %q", appspec.DefaultPath(), payload.AppDefinition.AppSpecPath)
+	if payload.AppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected app spec path %q, got %q", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), payload.AppDefinition.AppSpecPath)
 	}
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testi
 			},
 		},
 	})
-	if err := os.Remove(filepath.Join(root, appspec.DefaultPath())); err != nil {
+	if err := os.Remove(filepath.Join(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())); err != nil {
 		t.Fatalf("remove stored app spec: %v", err)
 	}
 
@@ -248,8 +248,8 @@ func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testi
 	if payload.AppDefinition == nil {
 		t.Fatalf("expected app definition metadata, got %#v", payload)
 	}
-	if payload.AppDefinition.AppSpecPath != appspec.DefaultPath() {
-		t.Fatalf("expected app spec path %q, got %q", appspec.DefaultPath(), payload.AppDefinition.AppSpecPath)
+	if payload.AppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected app spec path %q, got %q", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), payload.AppDefinition.AppSpecPath)
 	}
 	if payload.AppSpec != nil {
 		t.Fatalf("expected nil app spec for missing stored file, got %#v", payload.AppSpec)
@@ -290,7 +290,7 @@ func TestRegisterAppDefinitionRoutesPersistsDefinition(t *testing.T) {
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, runtime)
-	customPath := appspec.JoinPath("custom.json")
+	customPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+httpapi.RouteSetAppDefinition,
@@ -320,7 +320,7 @@ func TestRegisterAppDefinitionRoutesPersistsDefinition(t *testing.T) {
 	if payload.AppDefinition.AppSpecPath != customPath {
 		t.Fatalf("expected app spec path %q, got %q", customPath, payload.AppDefinition.AppSpecPath)
 	}
-	storedSpec, err := appspec.Read(root, customPath)
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, customPath)
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -549,6 +549,7 @@ func newAppDefinitionRouteTestHandler(
 			if err := RegisterAppDefinitionRoutes(r, AppDefinitionRouteDependencies{
 				ModePolicy:   modes.NewPolicy(mode),
 				ProjectState: projectRuntime,
+				PluginID:     ProviderPluginID,
 			}); err != nil {
 				t.Fatalf("register app definition routes: %v", err)
 			}
@@ -640,6 +641,7 @@ func buildAppDefinitionRouteRegistrationsForTest(
 					return RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
 						ModePolicy:   deps.Project.ModePolicy,
 						ProjectState: deps.Project.ProjectState,
+						PluginID:     ProviderPluginID,
 					})
 				},
 			},

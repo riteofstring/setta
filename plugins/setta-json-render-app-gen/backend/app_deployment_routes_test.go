@@ -230,7 +230,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 	t.Parallel()
 
 	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	appSpecPath := appspec.JoinPath("spec.json")
+	appSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("spec.json")
 	deploymentRuntime := openPluginAppDeploymentRuntimeWithOptions(t, pluginAppDeploymentRuntimeOptions{
 		Now:            &now,
 		GeneratedID:    "generated-app",
@@ -304,7 +304,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 	t.Parallel()
 
 	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	appSpecPath := appspec.JoinPath("spec.json")
+	appSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("spec.json")
 	deploymentRuntime := openPluginAppDeploymentRuntimeWithOptions(t, pluginAppDeploymentRuntimeOptions{
 		Now:            &now,
 		GeneratedID:    "generated-app",

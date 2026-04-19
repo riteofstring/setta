@@ -57,8 +57,8 @@ func TestAppDefinitionServiceGetEffectiveMetadataDefaults(t *testing.T) {
 	if definition.AppSpecVersion != "v1" {
 		t.Fatalf("expected default app spec version v1, got %q", definition.AppSpecVersion)
 	}
-	if specPath != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %q", appspec.DefaultPath(), specPath)
+	if specPath != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %q", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), specPath)
 	}
 	if themeMode != "auto" {
 		t.Fatalf("expected default app theme mode auto, got %q", themeMode)
@@ -71,7 +71,7 @@ func TestAppDefinitionServiceUsesSelectedProviderNamespace(t *testing.T) {
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	providerPluginID := "acme.third-party-app-provider"
 	service := NewAppDefinitionService(runtime, providerPluginID)
-	defaultAppSpecPath := appspec.ForPlugin(providerPluginID).DefaultPath()
+	defaultAppSpecPath := appspec.MustForPlugin(providerPluginID).DefaultPath()
 	appSpec := map[string]any{
 		"root": map[string]any{
 			"key":  "root",
@@ -101,7 +101,7 @@ func TestAppDefinitionServiceUsesSelectedProviderNamespace(t *testing.T) {
 	if len(snapshot.Document.PluginData[ProviderPluginID]) != 0 {
 		t.Fatalf("did not expect first-party plugin data entry for %q, got %#v", ProviderPluginID, snapshot.Document.PluginData[ProviderPluginID])
 	}
-	storedSpec, err := appspec.ForPlugin(providerPluginID).Read(
+	storedSpec, err := appspec.MustForPlugin(providerPluginID).Read(
 		root,
 		defaultAppSpecPath,
 	)
@@ -119,7 +119,7 @@ func TestAppDefinitionServiceReadsCanonicalizedWhitespacePluginDataKey(t *testin
 	_, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	providerPluginID := "acme.third-party-app-provider"
 	service := NewAppDefinitionService(runtime, providerPluginID)
-	defaultAppSpecPath := appspec.ForPlugin(providerPluginID).DefaultPath()
+	defaultAppSpecPath := appspec.MustForPlugin(providerPluginID).DefaultPath()
 
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		next := document.Clone()
@@ -163,8 +163,8 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 		},
 		"elements": map[string]any{},
 	}
-	customPath := appspec.JoinPath("custom.json")
-	if err := appspec.Write(root, customPath, appSpec); err != nil {
+	customPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")
+	if err := appspec.MustForPlugin("setta-json-render-app-gen").Write(root, customPath, appSpec); err != nil {
 		t.Fatalf("write app spec: %v", err)
 	}
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -244,7 +244,7 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 
 	appSpecVersion := " v2 "
 	catalogID := " " + appspec.DefaultCatalogID + " "
-	customPath := appspec.JoinPath("custom.json")
+	customPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")
 	absoluteAppSpecPath := "  " + filepath.Join(root, filepath.FromSlash(customPath)) + "  "
 	routes := []appdefinition.AppRoute{{Path: " / ", Name: " Home ", RootKey: " root "}}
 	dataBindings := map[string]any{"title": map[string]any{"text": "hello"}}
@@ -297,7 +297,7 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 		t.Fatalf("expected snapshot app definition with normalized path, got %#v", snapshotDefinition)
 	}
 
-	storedSpec, err := appspec.Read(root, customPath)
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, customPath)
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestAppDefinitionServiceGetReturnsNilSpecWhenStoredFileMissing(t *testing.T
 			},
 		},
 	})
-	if err := os.Remove(filepath.Join(root, appspec.DefaultPath())); err != nil {
+	if err := os.Remove(filepath.Join(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())); err != nil {
 		t.Fatalf("remove stored app spec: %v", err)
 	}
 
@@ -342,7 +342,7 @@ func TestAppDefinitionServiceGetReturnsNilSpecWhenStoredFileMissing(t *testing.T
 	if err != nil {
 		t.Fatalf("get app definition with missing stored file: %v", err)
 	}
-	if result.AppDefinition == nil || result.AppDefinition.AppSpecPath != appspec.DefaultPath() {
+	if result.AppDefinition == nil || result.AppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
 		t.Fatalf("expected app definition metadata with default path, got %#v", result.AppDefinition)
 	}
 	if result.AppSpec != nil {
@@ -466,11 +466,11 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 			t.Fatalf("expected preserved direction column, got %#v", propsObject["direction"])
 		}
 		snapshotDefinition := storedDocumentAppDefinition(t, snapshot.Document)
-		if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != appspec.DefaultPath() {
+		if snapshotDefinition == nil || snapshotDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
 			t.Fatalf("expected snapshot app definition with default path, got %#v", snapshotDefinition)
 		}
 
-		storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+		storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 		if err != nil {
 			t.Fatalf("read stored app spec: %v", err)
 		}
@@ -502,7 +502,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 			t.Fatalf("expected unknown component error, got %v", err)
 		}
 
-		storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+		storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 		if err != nil {
 			t.Fatalf("read stored app spec after rejected update: %v", err)
 		}
@@ -532,7 +532,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 		service := appDefinitionServiceForTest(runtime)
 		_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 			next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
-				AppSpecPath:    appspec.DefaultPath(),
+				AppSpecPath:    appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 				AppSpecVersion: "v1",
 				CatalogID:      appspec.DefaultCatalogID,
 			}))
@@ -559,7 +559,7 @@ func TestAppDefinitionServiceStreamHandlesBaseSpecAndInvalidPatch(t *testing.T) 
 
 		root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 		service := appDefinitionServiceForTest(runtime)
-		appSpecPath := appspec.JoinPath("generated.json")
+		appSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("generated.json")
 		baseAppSpec := map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -589,7 +589,7 @@ func TestAppDefinitionServiceStreamHandlesBaseSpecAndInvalidPatch(t *testing.T) 
 			t.Fatalf("expected result app definition path %q, got %#v", appSpecPath, result.AppDefinition)
 		}
 
-		storedSpec, err := appspec.Read(root, appSpecPath)
+		storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appSpecPath)
 		if err != nil {
 			t.Fatalf("read stored app spec: %v", err)
 		}
