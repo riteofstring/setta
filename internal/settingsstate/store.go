@@ -299,23 +299,16 @@ func loadSettingsObjectForPath(
 		if !hasExisting {
 			return nil, newValidationError("settings.%s: Field required", settingsSlice)
 		}
-		if err := validateSettingsSliceValue(settingsSlice, existingSlice, defaults); err != nil {
+		if err := validateValueAgainstDefault(
+			existingSlice,
+			defaults[settingsSlice],
+			"settings."+settingsSlice,
+			true,
+		); err != nil {
 			return nil, err
 		}
 	}
 	return documentRoot, nil
-}
-
-func validateSettingsSliceValue(settingsSlice string, existingSlice any, defaults Document) error {
-	if settingsSlice == "languageServer" {
-		return validateLanguageServerSettingsBranch(existingSlice, true)
-	}
-	return validateValueAgainstDefault(
-		existingSlice,
-		defaults[settingsSlice],
-		"settings."+settingsSlice,
-		true,
-	)
 }
 
 func writeSettingsObject(path string, payload map[string]any) error {

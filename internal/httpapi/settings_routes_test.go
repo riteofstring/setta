@@ -141,111 +141,6 @@ func TestRegisterSettingsRoutesSavePersistsSnapshot(t *testing.T) {
 	}
 }
 
-func TestRegisterSettingsRoutesSetLanguageServerSelectionPersistsPluginAndNull(t *testing.T) {
-	t.Parallel()
-
-	runtime, settingsPath := newSettingsRouteTestRuntime(t)
-	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
-	selectedPluginID := "setta-basedpyright"
-
-	requestBody, err := json.Marshal(SetLanguageServerSelectionRequest{
-		Language: "python",
-		PluginID: &selectedPluginID,
-	})
-	if err != nil {
-		t.Fatalf("marshal set language server selection payload: %v", err)
-	}
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetLanguageServerSelection,
-		strings.NewReader(string(requestBody)),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected set language server selection 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	pythonSelection, ok, err := settingsstate.LanguageServerSelectionForLanguage(runtime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage runtime python returned error: %v", err)
-	}
-	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
-		t.Fatalf("expected runtime python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
-	}
-
-	content, err := os.ReadFile(settingsPath)
-	if err != nil {
-		t.Fatalf("read saved settings file: %v", err)
-	}
-	var persisted settingsstate.Document
-	if err := json.Unmarshal(content, &persisted); err != nil {
-		t.Fatalf("decode saved settings file: %v", err)
-	}
-	pythonSelection, ok, err = settingsstate.LanguageServerSelectionForLanguage(persisted, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage persisted python returned error: %v", err)
-	}
-	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
-		t.Fatalf("expected persisted python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
-	}
-
-	disableBody, err := json.Marshal(SetLanguageServerSelectionRequest{
-		Language: "python",
-		PluginID: nil,
-	})
-	if err != nil {
-		t.Fatalf("marshal disable language server selection payload: %v", err)
-	}
-	disableRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetLanguageServerSelection,
-		strings.NewReader(string(disableBody)),
-	)
-	disableRequest.Header.Set("Content-Type", "application/json")
-	disableResponse := httptest.NewRecorder()
-	handler.ServeHTTP(disableResponse, disableRequest)
-	if disableResponse.Code != http.StatusOK {
-		t.Fatalf("expected disable language server selection 200, got %d with body %q", disableResponse.Code, disableResponse.Body.String())
-	}
-
-	pythonSelection, ok, err = settingsstate.LanguageServerSelectionForLanguage(runtime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage runtime python after disable returned error: %v", err)
-	}
-	if !ok || pythonSelection != nil {
-		t.Fatalf("expected explicit runtime python null selection after disable, got ok=%v selection=%#v", ok, pythonSelection)
-	}
-}
-
-func TestRegisterSettingsRoutesSetLanguageServerSelectionRejectsBlankPluginID(t *testing.T) {
-	t.Parallel()
-
-	runtime, _ := newSettingsRouteTestRuntime(t)
-	handler := newSettingsRouteTestHandler(t, config.ModeIDE, runtime, realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}))
-	blankPluginID := "   "
-
-	requestBody, err := json.Marshal(SetLanguageServerSelectionRequest{
-		Language: "python",
-		PluginID: &blankPluginID,
-	})
-	if err != nil {
-		t.Fatalf("marshal invalid language server selection payload: %v", err)
-	}
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetLanguageServerSelection,
-		strings.NewReader(string(requestBody)),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected invalid language server selection 400, got %d with body %q", response.Code, response.Body.String())
-	}
-}
-
 func TestRegisterSettingsRoutesSaveAndLoadPreserveMetaControlSizingOverrides(t *testing.T) {
 	t.Parallel()
 
@@ -852,9 +747,6 @@ func newSettingsRouteTestHandler(
 				ModePolicy:    modes.NewPolicy(mode),
 				SettingsState: runtime,
 				WebsocketHub:  websocketHub,
-				PluginRuntime: &stubPluginRuntimeUpdateService{
-					response: newTestPluginRuntimeResponse(),
-				},
 			}); err != nil {
 				t.Fatalf("register settings routes: %v", err)
 			}

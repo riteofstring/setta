@@ -1,7 +1,9 @@
 package plugins
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -210,48 +212,6 @@ func TestProductionCandidateProviderResolvePyPICandidateFromLocalWheel(t *testin
 	}
 }
 
-func TestProductionCandidateProviderResolvePyPICandidatePreservesPythonBackendDependencyEnvironment(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	artifactDir := t.TempDir()
-	buildLocalBuiltPyPIWheelFromFirstPartyBasedpyright(t, artifactDir)
-	buildLocalBuiltPyPIWheelFromRoot(
-		t,
-		artifactDir,
-		buildDummyBasedpyrightPackageRoot(t),
-	)
-
-	t.Setenv("PIP_NO_INDEX", "1")
-	t.Setenv("PIP_FIND_LINKS", artifactDir)
-
-	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
-		PackageManagerRuntime: mustNewPythonRuntime(t),
-		SettaFilesRoot:        roots.settaFilesRoot,
-		SettaVersion:          "0.1.0",
-	})
-	spec, err := ParseSourceSpec("pypi:setta-basedpyright==0.1.0")
-	if err != nil {
-		t.Fatalf("parse source spec: %v", err)
-	}
-
-	candidate, err := provider.ResolveCandidate(context.Background(), spec, PluginInstallerBackendPip)
-	if err != nil {
-		t.Fatalf("resolve first-party basedpyright candidate: %v", err)
-	}
-	defer func() {
-		if candidate.cleanup != nil {
-			_ = candidate.cleanup()
-		}
-	}()
-
-	dependencyRoot := filepath.Join(candidate.Root, pythonBackendSitePackagesDirName, "basedpyright")
-	if _, err := os.Stat(filepath.Join(dependencyRoot, "__init__.py")); err != nil {
-		t.Fatalf("expected vendored basedpyright package in candidate root: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dependencyRoot, "langserver.py")); err != nil {
-		t.Fatalf("expected vendored basedpyright langserver in candidate root: %v", err)
-	}
-}
-
 // Auto installer mode should fall back to pip when uv exists but the uv install command fails.
 func TestProductionCandidateProviderResolvePyPICandidateFallsBackToPipAfterUVFailure(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
@@ -440,6 +400,124 @@ func TestProductionCandidateProviderResolvePyPICandidateRequiresExplicitUVBinary
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeInstallerUnavailable)
 }
 
+// Artifact extraction should reject out-of-root zip members deterministically.
+func TestExtractPluginArtifactRejectsZipTraversal(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "malicious.whl")
+	file, err := os.Create(artifactPath)
+	if err != nil {
+		t.Fatalf("create malicious archive: %v", err)
+	}
+	archive := zip.NewWriter(file)
+	writer, err := archive.Create("../escape.txt")
+	if err != nil {
+		t.Fatalf("create malicious member: %v", err)
+	}
+	if _, err := writer.Write([]byte("escape")); err != nil {
+		t.Fatalf("write malicious payload: %v", err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close malicious archive: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close malicious archive file: %v", err)
+	}
+
+	err = extractPluginArtifact(artifactPath, filepath.Join(t.TempDir(), "extract"))
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceArchiveTraversal)
+}
+
+func TestExtractPluginArtifactExtractsZipMembers(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "plugin.whl")
+	file, err := os.Create(artifactPath)
+	if err != nil {
+		t.Fatalf("create archive: %v", err)
+	}
+	archive := zip.NewWriter(file)
+	directory, err := archive.Create("plugin/data/")
+	if err != nil {
+		t.Fatalf("create directory member: %v", err)
+	}
+	if _, err := directory.Write(nil); err != nil {
+		t.Fatalf("write directory member: %v", err)
+	}
+	payload, err := archive.Create("plugin/data/config.json")
+	if err != nil {
+		t.Fatalf("create payload member: %v", err)
+	}
+	if _, err := payload.Write([]byte(`{"enabled":true}`)); err != nil {
+		t.Fatalf("write payload member: %v", err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close archive: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close archive file: %v", err)
+	}
+
+	extractRoot := filepath.Join(t.TempDir(), "extract")
+	if err := extractPluginArtifact(artifactPath, extractRoot); err != nil {
+		t.Fatalf("extract plugin artifact: %v", err)
+	}
+	extractedPayload, err := os.ReadFile(filepath.Join(extractRoot, "plugin", "data", "config.json"))
+	if err != nil {
+		t.Fatalf("read extracted payload: %v", err)
+	}
+	if string(extractedPayload) != `{"enabled":true}` {
+		t.Fatalf("unexpected extracted payload %q", string(extractedPayload))
+	}
+}
+
+// Artifact extraction should reject tar symlink and hardlink members deterministically.
+func TestExtractPluginArtifactRejectsTarSymlinkEntries(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "malicious.tgz")
+	file, err := os.Create(artifactPath)
+	if err != nil {
+		t.Fatalf("create malicious archive: %v", err)
+	}
+	gzipWriter := gzip.NewWriter(file)
+	tarWriter := tar.NewWriter(gzipWriter)
+	header := &tar.Header{
+		Name:     "link-out",
+		Typeflag: tar.TypeSymlink,
+		Linkname: "/etc/passwd",
+		Mode:     0o777,
+	}
+	if err := tarWriter.WriteHeader(header); err != nil {
+		t.Fatalf("write malicious header: %v", err)
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close malicious archive file: %v", err)
+	}
+
+	err = extractPluginArtifact(artifactPath, filepath.Join(t.TempDir(), "extract"))
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceArchiveTraversal)
+}
+
+// Artifact extraction should fail closed for unsupported file extensions.
+func TestExtractPluginArtifactRejectsUnsupportedArtifactType(t *testing.T) {
+	t.Parallel()
+
+	artifactPath := filepath.Join(t.TempDir(), "plugin-artifact.txt")
+	if err := os.WriteFile(artifactPath, []byte("fixture"), 0o644); err != nil {
+		t.Fatalf("write unsupported artifact: %v", err)
+	}
+
+	err := extractPluginArtifact(artifactPath, filepath.Join(t.TempDir(), "extract"))
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceFetchFailed)
+}
+
 func buildLocalPyPIWheelFromFixture(t *testing.T, artifactDir string, fixtureName string, packageName string, version string) string {
 	t.Helper()
 
@@ -515,77 +593,6 @@ func buildLocalPyPIWheelFromRoot(t *testing.T, artifactDir string, sourceRoot st
 		t.Fatalf("close wheel file: %v", err)
 	}
 	return artifactPath
-}
-
-func buildLocalBuiltPyPIWheelFromFirstPartyBasedpyright(t *testing.T, artifactDir string) string {
-	t.Helper()
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
-	stagingRoot := filepath.Join(t.TempDir(), "setta-basedpyright")
-	copyBackendCodegenFixtureDir(t, sourceRoot, stagingRoot)
-	return buildLocalBuiltPyPIWheelFromRoot(t, artifactDir, stagingRoot)
-}
-
-func buildLocalBuiltPyPIWheelFromRoot(t *testing.T, artifactDir string, sourceRoot string) string {
-	t.Helper()
-
-	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
-		t.Fatalf("mkdir artifact dir: %v", err)
-	}
-	buildPython := mustNewPythonRuntime(t).InterpreterPath()
-	runTestCommand(t, sourceRoot, buildPython, "-m", "build", "--wheel", "--outdir", artifactDir)
-
-	wheels, err := filepath.Glob(filepath.Join(artifactDir, "*.whl"))
-	if err != nil {
-		t.Fatalf("glob built wheels: %v", err)
-	}
-	if len(wheels) == 0 {
-		t.Fatalf("expected built wheel in %s", artifactDir)
-	}
-	return wheels[len(wheels)-1]
-}
-
-func buildDummyBasedpyrightPackageRoot(t *testing.T) string {
-	t.Helper()
-
-	root := filepath.Join(t.TempDir(), "basedpyright")
-	if err := os.MkdirAll(filepath.Join(root, "basedpyright"), 0o755); err != nil {
-		t.Fatalf("mkdir dummy basedpyright package root: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(strings.Join([]string{
-		"[build-system]",
-		`requires = ["setuptools==80.9.0", "wheel==0.45.1"]`,
-		`build-backend = "setuptools.build_meta"`,
-		"",
-		"[project]",
-		`name = "basedpyright"`,
-		`version = "1.25.0"`,
-		`requires-python = ">=3.12"`,
-		"",
-		"[tool.setuptools]",
-		`packages = ["basedpyright"]`,
-		"",
-	}, "\n")), 0o644); err != nil {
-		t.Fatalf("write dummy basedpyright pyproject: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "basedpyright", "__init__.py"), []byte(""), 0o644); err != nil {
-		t.Fatalf("write dummy basedpyright __init__: %v", err)
-	}
-	langserverPayload, err := os.ReadFile(filepath.Join(
-		workerRPCTestRepoRoot(t),
-		"tests",
-		"fixtures",
-		"lsp",
-		"mini_basedpyright_language_server.py",
-	))
-	if err != nil {
-		t.Fatalf("read dummy basedpyright langserver fixture: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "basedpyright", "langserver.py"), langserverPayload, 0o644); err != nil {
-		t.Fatalf("write dummy basedpyright langserver: %v", err)
-	}
-	return root
 }
 
 func writeWheelMetadataFile(t *testing.T, archive *zip.Writer, path string, content string) {

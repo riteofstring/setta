@@ -11,7 +11,6 @@ import {
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
 import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
-import type { AppNotification } from "state/types/notifications";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -40,29 +39,30 @@ import {
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
+  BrushStrokeMapping,
+  ChartDataMapping,
   ChatDictationModeEnum,
   Connection,
   createProjectChatWindowingState,
   createProjectConfig,
   createSettingsState,
   createSingletonSections,
+  DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
+  ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
   LSPDiagnostic,
+  Notification,
   Policy,
   RenameRefactorBroadcastContent,
+  SettaBackendLogEvent,
   SettingsState,
   SingleConfig,
   Template,
   TranscriptionProfile,
-  type BackendLogEvent,
-  type BrushStrokeMapping,
-  type ChartDataMapping,
   type ChatDictationMode,
-  type DrawAreaLayerItemTransformMapping,
-  type ImageMapping,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -198,6 +198,20 @@ export const useAppDefinition = withProjectState(
   ),
 );
 
+type AppConfigState = ZustandProjectState;
+
+type AppConfigsState = {
+  configs: Record<string, AppConfigState>;
+};
+
+export const useAppConfigs = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppConfigsState>(() => ({
+      configs: {},
+    })),
+  ),
+);
+
 type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
@@ -233,6 +247,31 @@ export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
   modeResolved: false,
   modeError: null,
 }));
+
+type AppPreviewState = {
+  isPreviewEnabled: boolean;
+  previewConfigId: string | null;
+  // Draft-only overrides used for live preview while editing App Config.
+  // `undefined` means "no override"; `null` means "explicitly cleared".
+  previewSpecOverride?: unknown | null;
+  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
+  aiPreviewSpecOverride?: unknown | null;
+  previewThemeOverride?: unknown | null;
+  previewAssetsOverride?: unknown[] | null;
+};
+
+export const useAppPreview = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppPreviewState>(() => ({
+      isPreviewEnabled: false,
+      previewConfigId: null,
+      previewSpecOverride: undefined,
+      aiPreviewSpecOverride: undefined,
+      previewThemeOverride: undefined,
+      previewAssetsOverride: undefined,
+    })),
+  ),
+);
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -445,7 +484,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<AppNotification> };
+type ZustandNotificationState = { notifications: Array<Notification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -815,7 +854,7 @@ export const useRunControl = withProjectState(
   ),
 );
 
-type BackendLogSeverity = BackendLogEvent["severity"];
+type BackendLogSeverity = SettaBackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {
   projectConfigId: string | null;
@@ -830,7 +869,7 @@ export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
 };
 
 type BackendLogEventsState = {
-  events: Array<BackendLogEvent>;
+  events: Array<SettaBackendLogEvent>;
   filter: BackendLogEventsFilter;
   unreadHighSeverityCount: number;
 };
