@@ -20,6 +20,18 @@ export default {
         repoRootDir,
         "frontend/plugin-sdk/app-subsystem/src",
       ),
+      "@radix-ui/react-accordion": resolve(
+        sharedNodeModulesDir,
+        "@radix-ui/react-accordion",
+      ),
+      "@radix-ui/react-dialog": resolve(
+        sharedNodeModulesDir,
+        "@radix-ui/react-dialog",
+      ),
+      "@radix-ui/react-switch": resolve(
+        sharedNodeModulesDir,
+        "@radix-ui/react-switch",
+      ),
       "@json-render/core": resolve(
         sharedNodeModulesDir,
         "@json-render/core/dist/index.mjs",
@@ -38,6 +50,7 @@ export default {
       openapi: resolve(sharedFrontendSrcDir, "openapi"),
       plugins: resolve(sharedFrontendSrcDir, "plugins"),
       react: resolve(sharedNodeModulesDir, "react"),
+      "react-icons/hi2": resolve(sharedNodeModulesDir, "react-icons/hi2/index.js"),
       "react/jsx-dev-runtime": resolve(
         sharedNodeModulesDir,
         "react/jsx-dev-runtime.js",
