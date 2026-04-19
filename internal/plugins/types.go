@@ -154,10 +154,11 @@ type PluginManifest struct {
 }
 
 type PluginsStateFile struct {
-	EnabledPluginIDs               []string       `json:"enabledPluginIds"`
-	DisabledPluginIDs              []string       `json:"disabledPluginIds"`
-	PendingRestartBackendPluginIDs []string       `json:"pendingRestartBackendPluginIds"`
-	PluginConfigByID               map[string]any `json:"pluginConfigById"`
+	EnabledPluginIDs                          []string       `json:"enabledPluginIds"`
+	DisabledPluginIDs                         []string       `json:"disabledPluginIds"`
+	PendingRestartBackendPluginIDs            []string       `json:"pendingRestartBackendPluginIds"`
+	PendingRestartLanguageServerOnlyPluginIDs []string       `json:"pendingRestartLanguageServerOnlyPluginIds"`
+	PluginConfigByID                          map[string]any `json:"pluginConfigById"`
 }
 
 type PluginsGlobalStateFile struct {
