@@ -10,10 +10,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
+	"setta/internal/appsubsystemproviders/builtin/appdefinitionhttp"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinitionhttp"
 )
 
 type AppDefinitionRouteDependencies struct {
