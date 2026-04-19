@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 
 	"setta/internal/lsp"
 	"setta/internal/plugins"
@@ -192,6 +195,144 @@ func TestCommitAppliedLanguageServerPluginsDoesNotAdvanceAppliedSpecsOnCommitFai
 
 	if !languageServerSpecSlicesEqual(app.pluginRuntime.appliedLSPSpecs, previous) {
 		t.Fatalf("expected applied specs to remain unchanged after commit failure, got %#v", app.pluginRuntime.appliedLSPSpecs)
+	}
+}
+
+func TestCommitAppliedLanguageServerPluginsDoesNotOverwriteNewerAppliedSpecs(t *testing.T) {
+	app := newAppWithFixtureLanguageServer(t)
+
+	previous := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp.py"},
+			Settings:   map[string]any{},
+		},
+	}
+	staleNext := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-basedpyright",
+			LanguageID: "python",
+			Command:    "python",
+			Args:       []string{"basedpyright.py"},
+			Settings: map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"extraPaths": []any{"/tmp/stale"},
+					},
+				},
+			},
+		},
+	}
+	updated := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend-alt",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp-alt.py"},
+			Settings: map[string]any{
+				"fixtureDslLanguageServer": map[string]any{
+					"analysis": map[string]any{
+						"emitDiagnostics": true,
+					},
+				},
+			},
+		},
+	}
+
+	app.pluginRuntime.mu.Lock()
+	app.pluginRuntime.appliedLSPSpecs = cloneLanguageServerSpecs(previous)
+	app.pluginRuntime.lspSpecs = cloneLanguageServerSpecs(staleNext)
+	app.pluginRuntime.mu.Unlock()
+
+	statePath := filepath.Join(app.config.Paths.SettaFilesRoot, "plugins_state.json")
+	if err := os.Remove(statePath); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("remove plugins state: %v", err)
+	}
+	if err := syscall.Mkfifo(statePath, 0o600); err != nil {
+		t.Fatalf("mkfifo plugins state: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Remove(statePath); err != nil && !os.IsNotExist(err) {
+			t.Fatalf("cleanup plugins state fifo: %v", err)
+		}
+	})
+
+	commitErrs := make(chan error, 1)
+	go func() {
+		commitErrs <- app.pluginRuntime.CommitAppliedLanguageServerPlugins(context.Background())
+	}()
+
+	mutationDone := make(chan struct{})
+	go func() {
+		app.pluginRuntime.mu.Lock()
+		app.pluginRuntime.lspSpecs = cloneLanguageServerSpecs(updated)
+		app.pluginRuntime.appliedLSPSpecs = cloneLanguageServerSpecs(updated)
+		app.pluginRuntime.mu.Unlock()
+		close(mutationDone)
+	}()
+
+	writerErrs := make(chan error, 1)
+	go func() {
+		payload, err := json.Marshal(map[string]any{
+			"pendingRestartBackendPluginIds": []string{"setta-unrelated"},
+		})
+		if err != nil {
+			writerErrs <- err
+			return
+		}
+		for range 2 {
+			writer, err := os.OpenFile(statePath, os.O_WRONLY, 0)
+			if err != nil {
+				writerErrs <- err
+				return
+			}
+			if _, err := writer.Write(payload); err != nil {
+				_ = writer.Close()
+				writerErrs <- err
+				return
+			}
+			if err := writer.Close(); err != nil {
+				writerErrs <- err
+				return
+			}
+		}
+		writerErrs <- nil
+	}()
+
+	select {
+	case err := <-writerErrs:
+		if err != nil {
+			t.Fatalf("write plugins state fifo: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out writing plugins state fifo")
+	}
+
+	select {
+	case err := <-commitErrs:
+		if err != nil {
+			t.Fatalf("commit applied language server plugins: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for applied language server commit")
+	}
+
+	select {
+	case <-mutationDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for concurrent applied spec mutation")
+	}
+
+	app.pluginRuntime.mu.Lock()
+	defer app.pluginRuntime.mu.Unlock()
+
+	if !languageServerSpecSlicesEqual(app.pluginRuntime.appliedLSPSpecs, updated) {
+		t.Fatalf("expected applied specs to keep the newer updated set, got %#v", app.pluginRuntime.appliedLSPSpecs)
+	}
+	if !languageServerSpecSlicesEqual(app.pluginRuntime.lspSpecs, updated) {
+		t.Fatalf("expected current specs to keep the newer updated set, got %#v", app.pluginRuntime.lspSpecs)
 	}
 }
 

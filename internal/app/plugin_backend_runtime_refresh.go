@@ -90,11 +90,7 @@ func (s *pluginMutationRuntimeService) InvokeRegisteredListenerEndpoint(
 }
 
 func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, error) {
-	snapshot, err := s.base.Rescan()
-	if err != nil || s.refresher == nil {
-		return snapshot, err
-	}
-	return s.refresher.Refresh(context.Background())
+	return s.base.Rescan()
 }
 
 func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
@@ -514,6 +510,8 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	}
 
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	previousLSPSpecs := cloneLanguageServerSpecs(r.appliedLSPSpecs)
 	nextAppliedLSPSpecs := cloneLanguageServerSpecs(r.lspSpecs)
 	service := r.service
@@ -521,15 +519,11 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	allAppliedSpecs = append(allAppliedSpecs, previousLSPSpecs...)
 	allAppliedSpecs = append(allAppliedSpecs, nextAppliedLSPSpecs...)
 	pluginIDs := appliedLanguageServerPluginIDs(allAppliedSpecs)
-	r.mu.Unlock()
 	if len(pluginIDs) != 0 && service != nil {
 		if err := service.CommitAppliedLanguageServerPlugins(pluginIDs); err != nil {
 			return err
 		}
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	r.appliedLSPSpecs = nextAppliedLSPSpecs
 	return nil

@@ -15,4 +15,24 @@ describe("createSettingsState", () => {
       restorePriorStateOnUnmaximize: false,
     });
   });
+
+  it("merges languageServer defaults for partial overrides", () => {
+    const state = createSettingsState({
+      languageServer: {},
+    });
+
+    expect(state.languageServer.selectedByLanguage).toEqual({});
+  });
+
+  it("preserves explicit null languageServer selections", () => {
+    const state = createSettingsState({
+      languageServer: {
+        selectedByLanguage: {
+          python: null,
+        },
+      },
+    });
+
+    expect(state.languageServer.selectedByLanguage.python).toBeNull();
+  });
 });

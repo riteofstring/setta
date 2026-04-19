@@ -10861,6 +10861,108 @@ func TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection(t *testing.T
 	}
 }
 
+func TestAppPluginRescanKeepsSelectedLanguageServerOnlyPluginPendingUntilRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
+	writeAppPendingRestartPluginState(t, cfg, "setta-fixture-backend")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "before rescan")
+
+	rescanResponse := rescanAppPlugins(t, server.URL, authCookie)
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugins rescan 200, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
+
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "after rescan")
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200 after rescan, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	expectAppFixturePluginAppliedState(t, server.URL, authCookie, "after restart")
+}
+
+func TestAppPluginRescanKeepsMixedBackendPluginPendingUntilPluginRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer", "registerRouter"}
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
+	writeAppPendingRestartPluginState(t, cfg, "setta-fixture-backend")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "before rescan")
+
+	rescanResponse := rescanAppPlugins(t, server.URL, authCookie)
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugins rescan 200, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
+
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "after rescan")
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart conflict for mixed backend plugin after rescan, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "after LSP restart")
+
+	pluginRestartResponse := restartAppPlugins(t, server.URL, authCookie)
+	defer pluginRestartResponse.Body.Close()
+	if pluginRestartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(pluginRestartResponse.Body)
+		t.Fatalf("expected plugins restart 200 after rescan, got %d with body %q", pluginRestartResponse.StatusCode, string(body))
+	}
+
+	expectAppFixturePluginAppliedState(t, server.URL, authCookie, "after full plugin restart")
+}
+
 func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestart(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -10888,17 +10990,7 @@ func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestar
 	defer server.Close()
 	authCookie := newAppTestAuthCookie(t, app)
 
-	initialStatus := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
-	initialEntry := mustFindAppPluginStatusEntry(t, initialStatus, "setta-fixture-backend")
-	if initialEntry.State != plugins.PluginRuntimeStatePendingRestart || !initialEntry.RestartRequired {
-		t.Fatalf("expected mixed backend plugin to remain pending before restart, got %#v", initialEntry)
-	}
-	if len(initialEntry.AppliedLanguageServerLanguages) != 0 {
-		t.Fatalf("expected pending mixed backend plugin to remain unapplied, got %#v", initialEntry.AppliedLanguageServerLanguages)
-	}
-	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 0 {
-		t.Fatalf("expected no completions before mixed backend plugin restart, got %#v", completions)
-	}
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "before restart")
 
 	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
 	defer restartResponse.Body.Close()
@@ -10918,41 +11010,16 @@ func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestar
 		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
 	}
 
-	statusAfterLSPRestart := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
-	entryAfterLSPRestart := mustFindAppPluginStatusEntry(t, statusAfterLSPRestart, "setta-fixture-backend")
-	if entryAfterLSPRestart.State != plugins.PluginRuntimeStatePendingRestart || !entryAfterLSPRestart.RestartRequired {
-		t.Fatalf("expected mixed backend plugin to stay pending after LSP restart, got %#v", entryAfterLSPRestart)
-	}
-	if len(entryAfterLSPRestart.AppliedLanguageServerLanguages) != 0 {
-		t.Fatalf("expected pending mixed backend plugin to stay unapplied after LSP restart, got %#v", entryAfterLSPRestart.AppliedLanguageServerLanguages)
-	}
+	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "after LSP restart")
 
-	pluginRestartRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsRestart, nil)
-	if err != nil {
-		t.Fatalf("new plugins restart request: %v", err)
-	}
-	pluginRestartRequest.AddCookie(authCookie)
-	pluginRestartResponse, err := http.DefaultClient.Do(pluginRestartRequest)
-	if err != nil {
-		t.Fatalf("post plugins restart: %v", err)
-	}
+	pluginRestartResponse := restartAppPlugins(t, server.URL, authCookie)
 	defer pluginRestartResponse.Body.Close()
 	if pluginRestartResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(pluginRestartResponse.Body)
 		t.Fatalf("expected plugins restart 200, got %d with body %q", pluginRestartResponse.StatusCode, string(body))
 	}
 
-	statusAfterPluginRestart := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
-	entryAfterPluginRestart := mustFindAppPluginStatusEntry(t, statusAfterPluginRestart, "setta-fixture-backend")
-	if entryAfterPluginRestart.State != plugins.PluginRuntimeStateActive || entryAfterPluginRestart.RestartRequired {
-		t.Fatalf("expected mixed backend plugin to become active after full plugin restart, got %#v", entryAfterPluginRestart)
-	}
-	if len(entryAfterPluginRestart.AppliedLanguageServerLanguages) != 1 || entryAfterPluginRestart.AppliedLanguageServerLanguages[0] != "fixturedsl" {
-		t.Fatalf("expected mixed backend plugin to apply fixturedsl after plugin restart, got %#v", entryAfterPluginRestart.AppliedLanguageServerLanguages)
-	}
-	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
-		t.Fatalf("expected completions after full plugin restart, got %#v", completions)
-	}
+	expectAppFixturePluginAppliedState(t, server.URL, authCookie, "after full plugin restart")
 }
 
 func TestAppRestartLanguageServerClearsPendingStateForSelectedLanguageServerOnlyPlugin(t *testing.T) {
@@ -12124,6 +12191,38 @@ func restartAppLanguageServer(t *testing.T, serverURL string, cookie *http.Cooki
 	return response
 }
 
+func restartAppPlugins(t *testing.T, serverURL string, cookie *http.Cookie) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RoutePluginsRestart, nil)
+	if err != nil {
+		t.Fatalf("new plugins restart request: %v", err)
+	}
+	request.AddCookie(cookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins restart: %v", err)
+	}
+	return response
+}
+
+func rescanAppPlugins(t *testing.T, serverURL string, cookie *http.Cookie) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RoutePluginsRescan, nil)
+	if err != nil {
+		t.Fatalf("new plugins rescan request: %v", err)
+	}
+	request.AddCookie(cookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins rescan: %v", err)
+	}
+	return response
+}
+
 func postAppPluginConfig(t *testing.T, serverURL string, cookie *http.Cookie, pluginID string, config any) *http.Response {
 	t.Helper()
 
@@ -12191,6 +12290,48 @@ func readAppPluginsState(t *testing.T, cfg config.Config) plugins.PluginsStateFi
 		t.Fatalf("decode persisted plugin state: %v", err)
 	}
 	return persistedState
+}
+
+func expectAppFixturePluginPendingRestartState(
+	t *testing.T,
+	cfg config.Config,
+	serverURL string,
+	cookie *http.Cookie,
+	phase string,
+) {
+	t.Helper()
+
+	status := fetchAppPluginRuntimeStatus(t, serverURL, cookie)
+	entry := mustFindAppPluginStatusEntry(t, status, "setta-fixture-backend")
+	if entry.State != plugins.PluginRuntimeStatePendingRestart || !entry.RestartRequired {
+		t.Fatalf("expected fixture plugin pending restart %s, got %#v", phase, entry)
+	}
+	if len(entry.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected no applied fixture languages %s, got %#v", phase, entry.AppliedLanguageServerLanguages)
+	}
+	persistedState := readAppPluginsState(t, cfg)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 1 || persistedState.PendingRestartBackendPluginIDs[0] != "setta-fixture-backend" {
+		t.Fatalf("expected pending restart ids to keep fixture plugin %s, got %#v", phase, persistedState.PendingRestartBackendPluginIDs)
+	}
+	if completions := requestAppCodeAreaCompletion(t, serverURL, cookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 0 {
+		t.Fatalf("expected no fixture completions %s, got %#v", phase, completions)
+	}
+}
+
+func expectAppFixturePluginAppliedState(t *testing.T, serverURL string, cookie *http.Cookie, phase string) {
+	t.Helper()
+
+	status := fetchAppPluginRuntimeStatus(t, serverURL, cookie)
+	entry := mustFindAppPluginStatusEntry(t, status, "setta-fixture-backend")
+	if entry.State != plugins.PluginRuntimeStateActive || entry.RestartRequired {
+		t.Fatalf("expected fixture plugin active %s, got %#v", phase, entry)
+	}
+	if len(entry.AppliedLanguageServerLanguages) != 1 || entry.AppliedLanguageServerLanguages[0] != "fixturedsl" {
+		t.Fatalf("expected fixture plugin to apply fixturedsl %s, got %#v", phase, entry.AppliedLanguageServerLanguages)
+	}
+	if completions := requestAppCodeAreaCompletion(t, serverURL, cookie, "project-alpha", "runner", "fixture.", 8); len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
+		t.Fatalf("expected fixture completions %s, got %#v", phase, completions)
+	}
 }
 
 func mustFindAppPluginStatusEntry(

@@ -2636,7 +2636,12 @@ type SettingsLanguageServer = gt.SettingsLanguageServer;
 function createSettingsLanguageServer(
   options: Partial<SettingsLanguageServer> = {},
 ): SettingsLanguageServer {
-  return options as SettingsLanguageServer;
+  const defaults: SettingsLanguageServer = {
+    selectedByLanguage: {},
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsLanguageServer>(defaults, options),
+  };
 }
 
 type SettingsShortcuts = gt.SettingsShortcuts;

@@ -9858,6 +9858,13 @@
     },
     {
       "profile": "frontend",
+      "type": "SettingsLanguageServer",
+      "value": {
+        "selectedByLanguage": {}
+      }
+    },
+    {
+      "profile": "frontend",
       "type": "SettingsShortcuts",
       "value": {
         "advancedSearchShortcut": "Mod + P",
