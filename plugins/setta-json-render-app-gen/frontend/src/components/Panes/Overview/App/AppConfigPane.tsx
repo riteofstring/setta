@@ -69,6 +69,8 @@ type ParsedAppDefinitionRequest = {
 };
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
+const DEFAULT_APP_SPEC_PATH =
+  "plugins/setta-json-render-app-gen/app_specs/app.json";
 const DEFAULT_THEME_MODE: AppThemeMode = "auto";
 const ADVANCED_ACCORDION_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.app-config-advanced-chevron]:rotate-180";
@@ -617,7 +619,7 @@ function AppConfigAdvancedContent({
           <input
             aria-label="Spec path"
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            placeholder="app_specs/app.json"
+            placeholder={DEFAULT_APP_SPEC_PATH}
             value={appSpecPath}
             onChange={(event) => onAppSpecPathChange(event.target.value)}
           />
@@ -930,7 +932,7 @@ export function AppConfigPane() {
     const spec = buildDefaultSpec();
     setDraftSpec(JSON.stringify(spec, null, 2));
     if (!appSpecPath) {
-      setAppSpecPath("app_specs/app.json");
+      setAppSpecPath(DEFAULT_APP_SPEC_PATH);
     }
   }
   async function handleSave() {

@@ -2,6 +2,7 @@ package settajsonrenderappgenbackend
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -198,16 +199,17 @@ func TestRegisterAppDefinitionRoutesPersistsDefinition(t *testing.T) {
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	handler := newAppDefinitionRouteTestHandler(t, config.ModeIDE, runtime)
+	customPath := appspec.JoinPath("custom.json")
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+httpapi.RouteSetAppDefinition,
-		strings.NewReader(`{
+		strings.NewReader(fmt.Sprintf(`{
 			"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}},
-			"appSpecPath":"app_specs/custom.json",
+			"appSpecPath":"%s",
 			"appSpecVersion":"v2",
 			"catalogId":"setta.app.default",
 			"theme":{"mode":"dark"}
-		}`),
+		}`, customPath)),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -224,10 +226,10 @@ func TestRegisterAppDefinitionRoutesPersistsDefinition(t *testing.T) {
 	if payload.AppDefinition == nil {
 		t.Fatalf("expected persisted app definition, got %#v", payload)
 	}
-	if payload.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected app spec path app_specs/custom.json, got %q", payload.AppDefinition.AppSpecPath)
+	if payload.AppDefinition.AppSpecPath != customPath {
+		t.Fatalf("expected app spec path %q, got %q", customPath, payload.AppDefinition.AppSpecPath)
 	}
-	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	storedSpec, err := appspec.Read(root, customPath)
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}

@@ -241,7 +241,7 @@ describe("app deployment actions", () => {
     const projectState = buildProjectState("project-alpha", "Alpha");
     const appDefinition = createAppDefinition({
       catalogId: "catalog-demo",
-      appSpecPath: "app_specs/spec.json",
+      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/spec.json",
     });
     const appSpec = { root: { key: "root", type: "Stack" } };
     setDeploymentAppState();

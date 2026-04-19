@@ -18,11 +18,12 @@ func TestWriteAndReadRoundTrip(t *testing.T) {
 		},
 	}
 
-	if err := Write(root, "app_specs/sample.json", payload); err != nil {
+	specPath := JoinPath("sample.json")
+	if err := Write(root, specPath, payload); err != nil {
 		t.Fatalf("write app spec: %v", err)
 	}
 
-	loaded, err := Read(root, "app_specs/sample.json")
+	loaded, err := Read(root, specPath)
 	if err != nil {
 		t.Fatalf("read app spec: %v", err)
 	}
@@ -35,9 +36,9 @@ func TestNormalizePathReturnsRelativePath(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	absolutePath := filepath.Join(root, "app_specs", "spec.json")
+	absolutePath := filepath.Join(root, filepath.FromSlash(RootPath()), "spec.json")
 	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		t.Fatalf("create app_specs dir: %v", err)
+		t.Fatalf("create app spec dir: %v", err)
 	}
 	if err := os.WriteFile(absolutePath, []byte("{}\n"), 0o644); err != nil {
 		t.Fatalf("write spec file: %v", err)
@@ -47,8 +48,8 @@ func TestNormalizePathReturnsRelativePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("normalize path: %v", err)
 	}
-	if normalized != "app_specs/spec.json" {
-		t.Fatalf("expected normalized path app_specs/spec.json, got %q", normalized)
+	if want := JoinPath("spec.json"); normalized != want {
+		t.Fatalf("expected normalized path %q, got %q", want, normalized)
 	}
 }
 
@@ -64,6 +65,6 @@ func TestWriteOutsideAppSpecsFails(t *testing.T) {
 	}
 
 	if err := Write(root, "outside.json", payload); err == nil {
-		t.Fatal("expected write outside app_specs to fail")
+		t.Fatalf("expected write outside %s to fail", RootPath())
 	}
 }
