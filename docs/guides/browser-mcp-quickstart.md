@@ -3,14 +3,6 @@
 This is the shortest path to a headed browser in Codex + Claude for
 chrome-devtools-mcp and performance profiling.
 
-Codex can start and stop the CDP/browser helper stack itself when browser
-verification is needed. Prefer `./ai.sh`; use `./aireset.sh` only when a clean
-reset is required. If Codex starts `./ai.sh` or `./aireset.sh` for temporary
-verification, it should stop that session before finishing, ideally by
-terminating the launched process. Use `./kill.sh` as the repo-scoped fallback.
-Use `./scripts/stop-browser-mcp.sh --devtools` only when the browser MCP helper
-was started separately and Setta should keep running.
-
 ## Setup once
 
 1. Install frontend deps:
@@ -20,15 +12,14 @@ was started separately and Setta should keep running.
 
 ## Default use (Chrome DevTools MCP)
 
-1. Start your app (or let Codex start it):
+1. Start your app:
    `pnpm start`
 
    Or use the combined helpers:
    `./ai.sh` (adds CDP Chrome + bootstrap/app open)
-   `./aireset.sh` (same, but with a clean reset first)
    Tip: set `CHROME_EXTRA_ARGS=--auto-open-devtools-for-tabs` to auto-open DevTools.
 
-2. Start the debug Chrome instance (if you are not using `./ai.sh` or `./aireset.sh`):
+2. Start the debug Chrome instance (if you are not using `./ai.sh`):
    `./scripts/start-browser-mcp.sh --devtools`
 
    Override MCP state location:
@@ -59,11 +50,7 @@ was started separately and Setta should keep running.
   multiple Setta instances in parallel without collisions.
 - The debug Chrome profile lives under `${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>` by default.
   Override with `MCP_RUN_DIR` (base dir) or `PROFILE_DIR` (exact profile path).
-- Stop only the browser MCP helper for this repo with `./scripts/stop-browser-mcp.sh --devtools`.
-- If you started `./ai.sh` or `./aireset.sh`, stop that session instead of only stopping browser MCP; `./kill.sh` is the repo-scoped fallback.
-- For assistant-managed browser verification, prefer the repo-root helpers
-  `./ai.sh` / `./aireset.sh` over `pnpm` wrappers so startup and cleanup stay
-  worktree-aware.
+- Stop browser MCP processes for this repo with `./scripts/stop-browser-mcp.sh --devtools`.
 - `scripts/chrome-devtools-mcp.sh` writes MCP stderr logs to `${TMPDIR:-/tmp}/setta-mcp-logs/` so MCP transport stdout remains clean.
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.

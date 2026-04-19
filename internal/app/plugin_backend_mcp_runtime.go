@@ -14,7 +14,6 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/tools"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 const pluginBackendBuildRootName = "plugin_backend_builds"
@@ -26,22 +25,10 @@ type pluginBackendMCPRuntime struct {
 	toolNames     []string
 }
 
-func clonePluginBackendLaunchEnv(values map[string]string) map[string]string {
-	if len(values) == 0 {
-		return nil
-	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
-	}
-	return cloned
-}
-
 type pluginBackendMCPRuntimeOptions struct {
-	Logger                   *slog.Logger
-	RuntimeRoot              string
-	Snapshot                 plugins.DiscoverySnapshot
-	AppSubsystemProjectState mcpx.AppSubsystemProjectStateProvider
+	Logger      *slog.Logger
+	RuntimeRoot string
+	Snapshot    plugins.DiscoverySnapshot
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
@@ -57,75 +44,23 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 	if err != nil {
 		return nil, err
 	}
-	if len(serverConfigs) != 0 {
-		client, registrations, toolNames, err := startPluginBackendMCPClient(
-			pluginBackendMCPContext(ctx),
-			options.Logger,
-			serverConfigs,
-			runtime.serverIDs,
-		)
-		if err != nil {
-			return nil, err
-		}
-		runtime.client = client
-		runtime.registrations = registrations
-		runtime.toolNames = toolNames
+	if len(serverConfigs) == 0 {
+		return runtime, nil
 	}
-	runtime.appendAppSubsystemTools(
-		options.Snapshot,
-		options.AppSubsystemProjectState,
+
+	client, registrations, toolNames, err := startPluginBackendMCPClient(
+		pluginBackendMCPContext(ctx),
+		options.Logger,
+		serverConfigs,
+		runtime.serverIDs,
 	)
+	if err != nil {
+		return nil, err
+	}
+	runtime.client = client
+	runtime.registrations = registrations
+	runtime.toolNames = toolNames
 	return runtime, nil
-}
-
-func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
-	snapshot plugins.DiscoverySnapshot,
-	projectState mcpx.AppSubsystemProjectStateProvider,
-) {
-	if r == nil || projectState == nil {
-		return
-	}
-	capabilities := plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
-	if !appSubsystemMCPToolsEnabled(capabilities) {
-		return
-	}
-	registrations := appsubsystemplugin.BuildMCPToolRegistrations(projectState)
-	if len(registrations) == 0 {
-		return
-	}
-	r.registrations = append(r.registrations, registrations...)
-	r.toolNames = append(r.toolNames, toolNamesForRegistrations(registrations)...)
-}
-
-func appSubsystemMCPToolsEnabled(
-	capabilities plugins.PluginAppSubsystemCapabilities,
-) bool {
-	return capabilities.PluginEnabled &&
-		(capabilities.AppAuthoringUI ||
-			capabilities.AppPreviewUI ||
-			capabilities.AppGenerationChatModes)
-}
-
-func toolNamesForRegistrations(
-	registrations []mcpx.ToolRegistration,
-) []string {
-	if len(registrations) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(registrations))
-	seen := map[string]struct{}{}
-	for _, registration := range registrations {
-		name := strings.TrimSpace(registration.Spec.Name)
-		if name == "" {
-			continue
-		}
-		if _, ok := seen[name]; ok {
-			continue
-		}
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-	return names
 }
 
 func (r *pluginBackendMCPRuntime) buildServerConfigs(
@@ -138,16 +73,14 @@ func (r *pluginBackendMCPRuntime) buildServerConfigs(
 			continue
 		}
 
-		launch, err := plugins.ResolvePluginBackendLaunch(entry.SourcePath, *entry.Manifest, buildRoot)
+		executablePath, err := plugins.BuildGoBackendExecutable(entry.SourcePath, *entry.Manifest, buildRoot)
 		if err != nil {
 			return nil, err
 		}
 		serverID := pluginBackendMCPServerID(entry.PluginID)
 		serverConfigs[serverID] = mcpx.ServerConfig{
 			Transport: mcpx.TransportStdio,
-			Command:   launch.Command,
-			Args:      append([]string(nil), launch.Args...),
-			Env:       clonePluginBackendLaunchEnv(launch.Environment),
+			Command:   executablePath,
 			CWD:       entry.SourcePath,
 		}
 		r.serverIDs[serverID] = struct{}{}

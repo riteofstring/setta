@@ -11,10 +11,10 @@ import {
   UIEditorTabNameEnum,
   isOverviewTabKey,
   type OverviewTabKey,
+  type UIEditorTabName,
 } from "utils/constants";
 import type {
   SectionType,
-  UIEditorTabName,
   UISettingRevealContent,
   UISettingRevealTarget,
 } from "utils/generatedTypes";
