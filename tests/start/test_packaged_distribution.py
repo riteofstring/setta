@@ -413,6 +413,93 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
 
 
+def test_first_party_app_subsystem_plugin_installed_frontend_bundle_imports_without_repo_path_assumptions(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            str(wheel_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    installed_bundle = (
+        site_packages
+        / "setta-json-render-app-gen"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    )
+    bundle_text = installed_bundle.read_text(encoding="utf-8")
+    assert "frontend/node_modules" not in bundle_text
+    assert "plugin-sdk/app-subsystem/dist/index.js" not in bundle_text
+    assert str(_repo_root()) not in bundle_text
+
+    node_script = f"""
+import {{ JSDOM }} from "jsdom";
+
+const dom = new JSDOM("<!doctype html><html><body></body></html>", {{
+  url: "http://localhost/",
+}});
+const globals = {{
+  window: dom.window,
+  document: dom.window.document,
+  DOMParser: dom.window.DOMParser,
+  navigator: dom.window.navigator,
+  Node: dom.window.Node,
+  HTMLElement: dom.window.HTMLElement,
+  SVGElement: dom.window.SVGElement,
+  Event: dom.window.Event,
+  CustomEvent: dom.window.CustomEvent,
+  MutationObserver: dom.window.MutationObserver,
+  getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
+}};
+for (const [key, value] of Object.entries(globals)) {{
+  Object.defineProperty(globalThis, key, {{
+    configurable: true,
+    writable: true,
+    value,
+  }});
+}}
+
+const module = await import({json.dumps(installed_bundle.as_uri())});
+if (module.apiVersion !== 1) {{
+  throw new Error(`unexpected apiVersion: ${{module.apiVersion}}`);
+}}
+if (module.default?.overviewTab?.moreMenuLabel !== "JSON Render") {{
+  throw new Error("installed bundle did not expose the app subsystem registration");
+}}
+if ((module.default?.chat?.slashCommands?.length ?? 0) < 1) {{
+  throw new Error("installed bundle did not expose chat slash commands");
+}}
+"""
+    node_result = subprocess.run(
+        ["node", "--input-type=module"],
+        cwd=_repo_root() / "frontend",
+        input=node_script,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert node_result.returncode == 0, (
+        f"{node_result.stdout}\n{node_result.stderr}"
+    ).strip()
+
+
 def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain(
     tmp_path: Path,
 ) -> None:
