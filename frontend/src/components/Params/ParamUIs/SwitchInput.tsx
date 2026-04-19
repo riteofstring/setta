@@ -14,6 +14,11 @@ type SwitchInputProps = {
   thumbThemeClassName?: string;
 };
 
+const CANVAS_OWNED_TRANSPARENT_SWITCH_ROOT_THEME =
+  "bg-transparent data-[state='checked']:bg-transparent dark:bg-transparent dark:data-[state='checked']:bg-transparent";
+const CANVAS_OWNED_TRANSPARENT_SWITCH_THUMB_THEME =
+  "bg-transparent dark:bg-transparent";
+
 export function SwitchInput({
   canvasOwnedTrack,
   lightweightActivator,
@@ -30,15 +35,24 @@ export function SwitchInput({
     "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none";
   const rootResolvedThemeClassName =
     rootThemeClassName ??
-    "bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
+    (canvasOwnedTrack
+      ? CANVAS_OWNED_TRANSPARENT_SWITCH_ROOT_THEME
+      : "bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700");
   const thumbBaseClassName =
     "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4";
   const thumbResolvedThemeClassName =
-    thumbThemeClassName ?? "bg-white dark:bg-setta-800";
+    thumbThemeClassName ??
+    (canvasOwnedTrack
+      ? CANVAS_OWNED_TRANSPARENT_SWITCH_THUMB_THEME
+      : "bg-white dark:bg-setta-800");
   const checked = value === true || value === "true";
   const switchState = checked ? "checked" : "unchecked";
   const rootClassName =
     `${rootBaseClassName} ${rootResolvedThemeClassName} ${isDisabled ? "pointer-events-none" : ""}`.trim();
+  const outerClassName =
+    canvasOwnedTrack && outerDivClassName
+      ? `${outerDivClassName} opacity-0`
+      : outerDivClassName;
 
   if (lightweightActivator) {
     const toggleValue = () => {
@@ -86,6 +100,9 @@ export function SwitchInput({
       >
         <span
           className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
+          data-canvas-owned-switch-thumb={
+            canvasOwnedTrack ? "true" : undefined
+          }
           data-state={switchState}
         />
       </div>
@@ -95,11 +112,11 @@ export function SwitchInput({
       return lightweightRoot;
     }
 
-    return <div className={outerDivClassName}>{lightweightRoot}</div>;
+    return <div className={outerClassName}>{lightweightRoot}</div>;
   }
 
   return (
-    <div className={outerDivClassName}>
+    <div className={outerClassName}>
       <Switch.Root
         className={`${rootBaseClassName} ${rootResolvedThemeClassName}`}
         checked={checked}
@@ -116,6 +133,9 @@ export function SwitchInput({
       >
         <Switch.Thumb
           className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
+          data-canvas-owned-switch-thumb={
+            canvasOwnedTrack ? "true" : undefined
+          }
         />
       </Switch.Root>
     </div>

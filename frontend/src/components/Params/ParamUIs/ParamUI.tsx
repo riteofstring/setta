@@ -3,11 +3,11 @@ import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graph
 import {
   isCanvasOwnedSectionLightweightColorInput,
   isCanvasOwnedSectionLightweightSwitch,
+  isCanvasOwnedSectionLightweightSwitchTrack,
   isCanvasOwnedSectionLightweightSwitchValueShell,
   isCanvasOwnedSectionLightweightTextUnderline,
   isCanvasOwnedSectionRestingDropdown,
   isCanvasOwnedSectionRestingText,
-  isCanvasOwnedSectionShell,
 } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
@@ -103,9 +103,9 @@ type ParamUIState = {
 type ParamUIRenderContext = ParamUIProps & {
   canvasOwnedLightweightColorInput: boolean;
   canvasOwnedLightweightSwitch: boolean;
+  canvasOwnedLightweightSwitchTrack: boolean;
   canvasOwnedLightweightSwitchValueShell: boolean;
   canvasOwnedRestingDropdown: boolean;
-  canvasOwnedSectionChrome: boolean;
   canvasOwnedRestingText: boolean;
   isDisabled: boolean;
   isSelectingParams: boolean;
@@ -397,8 +397,8 @@ function renderRotaryParam({
 
 function renderSwitchParam({
   canvasOwnedLightweightSwitch,
+  canvasOwnedLightweightSwitchTrack,
   canvasOwnedLightweightSwitchValueShell,
-  canvasOwnedSectionChrome,
   value,
   onChange,
   onEscape,
@@ -409,7 +409,7 @@ function renderSwitchParam({
     <SwitchParamConfigured
       lightweightActivator={canvasOwnedLightweightSwitch}
       canvasOwnedValueShell={canvasOwnedLightweightSwitchValueShell}
-      canvasOwnedTrack={canvasOwnedSectionChrome}
+      canvasOwnedTrack={canvasOwnedLightweightSwitchTrack}
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
@@ -651,6 +651,10 @@ export function ParamUI({
         codeObjType: paramUiState.codeObjType,
         sectionId,
       }),
+    canvasOwnedLightweightSwitchTrack:
+      graphSurfaceImplementation === "canvas-shell-underlay" &&
+      paramUiState.codeObjType === CodeObjTypeEnum.SwitchParam &&
+      isCanvasOwnedSectionLightweightSwitchTrack(sectionId),
     canvasOwnedLightweightSwitchValueShell:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionLightweightSwitchValueShell(sectionId),
@@ -661,9 +665,6 @@ export function ParamUI({
         paramInfoId,
         sectionId,
       }),
-    canvasOwnedSectionChrome:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionShell(sectionId),
     canvasOwnedRestingText:
       graphSurfaceImplementation === "canvas-shell-underlay" &&
       isCanvasOwnedSectionRestingText({

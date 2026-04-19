@@ -18,7 +18,7 @@ const BACKEND_ROW_ID =
   "ParamContainer-settings-section__backend-settings-codeobj__backend__backend__autobackup";
 const CALLABLE_CANARY_SECTION_ID = "settings-section__callableSectionDefault";
 
-test("canvas shell path flattens lightweight switch value shells across retained resting-text settings sections", async ({
+test("canvas shell path paints lightweight switch visuals on the retained canvas across resting-text settings sections", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -158,8 +158,23 @@ test("canvas shell path flattens lightweight switch value shells across retained
           'section[data-section-id^="settings-section__"]',
         ),
       );
+      const backendWrapper = backendRow.querySelector<HTMLElement>(
+        '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
+      );
+      const targetThumb = targetSwitch.querySelector<HTMLElement>(
+        '[data-canvas-owned-switch-thumb="true"]',
+      );
+      const backendThumb = backendSwitch.querySelector<HTMLElement>(
+        '[data-canvas-owned-switch-thumb="true"]',
+      );
 
       return {
+        backendCanvasThumbCount:
+          backendSwitch.querySelectorAll('[data-canvas-owned-switch-thumb="true"]')
+            .length,
+        backendCanvasTrack: backendSwitch.getAttribute(
+          "data-canvas-owned-switch-track",
+        ),
         backendRootIsValueShell: backendSwitch.matches(".section-value"),
         backendSectionButtonSwitchCount:
           backendSection.querySelectorAll('button[role="switch"]').length,
@@ -169,6 +184,14 @@ test("canvas shell path flattens lightweight switch value shells across retained
         backendValueShellWrapperCount: backendRow.querySelectorAll(
           '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
         ).length,
+        backendValueShellWrapperOpacity:
+          backendWrapper instanceof HTMLElement
+            ? window.getComputedStyle(backendWrapper).opacity
+            : null,
+        backendThumbBackgroundColor:
+          backendThumb instanceof HTMLElement
+            ? window.getComputedStyle(backendThumb).backgroundColor
+            : null,
         callableCanvasTrackSwitchCount: callableSection.querySelectorAll(
           '[data-canvas-owned-lightweight-switch="true"][data-canvas-owned-switch-track="true"]',
         ).length,
@@ -202,14 +225,35 @@ test("canvas shell path flattens lightweight switch value shells across retained
             section.querySelectorAll('[data-canvas-owned-lightweight-switch="true"]').length,
           0,
         ),
+        settingsCanvasThumbCount: settingsSections.reduce(
+          (count, section) =>
+            count +
+            section.querySelectorAll('[data-canvas-owned-switch-thumb="true"]').length,
+          0,
+        ),
+        settingsCanvasTrackSwitchCount: settingsSections.reduce(
+          (count, section) =>
+            count +
+            section.querySelectorAll(
+              '[data-canvas-owned-lightweight-switch="true"][data-canvas-owned-switch-track="true"]',
+            ).length,
+          0,
+        ),
         settingsRoleSwitchCount: settingsSections.reduce(
           (count, section) => count + section.querySelectorAll('[role="switch"]').length,
           0,
         ),
         targetAriaChecked: targetSwitch.getAttribute("aria-checked"),
+        targetCanvasThumbCount:
+          targetSwitch.querySelectorAll('[data-canvas-owned-switch-thumb="true"]')
+            .length,
+        targetCanvasTrack: targetSwitch.getAttribute(
+          "data-canvas-owned-switch-track",
+        ),
         targetLabel:
           targetRow.querySelector(".section-key")?.textContent?.replace(/\s+/g, " ").trim() ??
           null,
+        targetRootBackgroundColor: window.getComputedStyle(targetSwitch).backgroundColor,
         targetRootIsValueShell: targetSwitch.matches(".section-value"),
         targetSectionButtonSwitchCount:
           targetSection.querySelectorAll('button[role="switch"]').length,
@@ -222,6 +266,10 @@ test("canvas shell path flattens lightweight switch value shells across retained
           '.section-value:not([data-canvas-owned-lightweight-switch="true"])',
         ).length,
         targetTagName: targetSwitch.tagName,
+        targetThumbBackgroundColor:
+          targetThumb instanceof HTMLElement
+            ? window.getComputedStyle(targetThumb).backgroundColor
+            : null,
       };
     },
     {
@@ -236,6 +284,9 @@ test("canvas shell path flattens lightweight switch value shells across retained
       targetSectionId: TARGET_SECTION_ID,
     },
   );
+  console.log(
+    `LIGHTWEIGHT_SWITCH_RESTING_STATE ${JSON.stringify(restingState, null, 2)}`,
+  );
 
   expect(restingState.targetLabel).toBe("Aspect Ratio");
   expect(restingState.targetRootIsValueShell).toBe(true);
@@ -243,12 +294,16 @@ test("canvas shell path flattens lightweight switch value shells across retained
   expect(restingState.guiRootIsValueShell).toBe(true);
   expect(restingState.backendRootIsValueShell).toBe(false);
   expect(restingState.targetTagName).toBe("DIV");
+  expect(restingState.targetCanvasTrack).toBe("true");
+  expect(restingState.targetCanvasThumbCount).toBe(1);
   expect(restingState.targetSectionButtonSwitchCount).toBe(0);
   expect(restingState.targetSectionLightweightSwitchCount).toBeGreaterThan(0);
   expect(restingState.targetSectionRoleSwitchCount).toBe(
     restingState.targetSectionLightweightSwitchCount,
   );
   expect(restingState.targetValueShellWrapperCount).toBe(0);
+  expect(restingState.targetRootBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(restingState.targetThumbBackgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(restingState.siblingSectionButtonSwitchCount).toBe(0);
   expect(restingState.siblingSectionLightweightSwitchCount).toBeGreaterThan(0);
   expect(restingState.siblingSectionRoleSwitchCount).toBe(
@@ -260,8 +315,16 @@ test("canvas shell path flattens lightweight switch value shells across retained
   expect(restingState.guiValueShellWrapperCount).toBe(0);
   expect(restingState.backendSectionButtonSwitchCount).toBe(0);
   expect(restingState.backendSectionLightweightSwitchCount).toBeGreaterThan(0);
+  expect(restingState.backendCanvasTrack).toBe("true");
+  expect(restingState.backendCanvasThumbCount).toBe(1);
   expect(restingState.backendValueShellWrapperCount).toBe(1);
+  expect(restingState.backendValueShellWrapperOpacity).toBe("0");
+  expect(restingState.backendThumbBackgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(restingState.settingsButtonSwitchCount).toBe(0);
+  expect(restingState.settingsCanvasTrackSwitchCount).toBeGreaterThan(80);
+  expect(restingState.settingsCanvasThumbCount).toBe(
+    restingState.settingsCanvasTrackSwitchCount,
+  );
   expect(restingState.settingsLightweightSwitchCount).toBeGreaterThan(100);
   expect(restingState.settingsRoleSwitchCount).toBe(
     restingState.settingsLightweightSwitchCount,

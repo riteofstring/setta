@@ -69,6 +69,7 @@ import { useReactFlow } from "../store";
 const SHELL_BACKDROP_PADDING_PX = 24;
 const CALLABLE_TOOLBAR_CORNER_RADIUS_PX = 12;
 const SWITCH_TRACK_ATTRIBUTE = "data-canvas-owned-switch-track";
+const SWITCH_THUMB_ATTRIBUTE = "data-canvas-owned-switch-thumb";
 const CANVAS_OWNED_NESTED_GUIDE_ATTRIBUTE = "data-canvas-owned-nested-guide";
 const CANVAS_OWNED_NESTED_GUIDE_LIGHTWEIGHT_ATTRIBUTE =
   "data-canvas-owned-nested-guide-lightweight";
@@ -92,6 +93,13 @@ const LIGHTWEIGHT_NESTED_GUIDE_DARK_FILL = "hsla(220, 26%, 57%, 0.2)";
 
 type CanvasOwnedSwitchTrackBox = {
   checked: boolean;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+};
+
+type CanvasOwnedSwitchThumbBox = {
   height: number;
   offsetX: number;
   offsetY: number;
@@ -152,6 +160,7 @@ type CanvasOwnedSectionBackdropMeasurements = {
   searchHeight: number;
   styleColor: string | null;
   switchTrackBoxes: Array<CanvasOwnedSwitchTrackBox>;
+  switchThumbBoxes: Array<CanvasOwnedSwitchThumbBox>;
   underlineBoxes: Array<CanvasOwnedUnderlineBox>;
 };
 
@@ -173,6 +182,25 @@ function areSwitchTrackBoxesEqual(
     const rightBox = right[index];
     return (
       leftBox.checked === rightBox.checked &&
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.width === rightBox.width
+    );
+  });
+}
+
+function areSwitchThumbBoxesEqual(
+  left: Array<CanvasOwnedSwitchThumbBox>,
+  right: Array<CanvasOwnedSwitchThumbBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
       leftBox.height === rightBox.height &&
       leftBox.offsetX === rightBox.offsetX &&
       leftBox.offsetY === rightBox.offsetY &&
@@ -330,6 +358,52 @@ function measureCanvasOwnedSwitchTrackBoxes(
     .filter(
       (switchTrackBox): switchTrackBox is CanvasOwnedSwitchTrackBox =>
         switchTrackBox !== null,
+    );
+}
+
+function measureCanvasOwnedSwitchThumbBoxes(
+  sectionId: string,
+  viewportScale: number,
+): Array<CanvasOwnedSwitchThumbBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(`[${SWITCH_THUMB_ATTRIBUTE}="true"]`),
+  )
+    .map((switchThumb) => {
+      const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+        rect: switchThumb.getBoundingClientRect(),
+        sectionRect,
+        viewportScale,
+      });
+      if (!graphSpaceRect) {
+        return null;
+      }
+
+      return {
+        height: graphSpaceRect.height,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY,
+        width: graphSpaceRect.width,
+      };
+    })
+    .filter(
+      (switchThumbBox): switchThumbBox is CanvasOwnedSwitchThumbBox =>
+        switchThumbBox !== null,
     );
 }
 
@@ -919,6 +993,89 @@ function useCanvasOwnedSwitchTrackBoxes(
   return switchTrackBoxes;
 }
 
+function useCanvasOwnedSwitchThumbBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+  viewportScale: number,
+) {
+  const [switchThumbBoxes, setSwitchThumbBoxes] = useState<
+    Array<CanvasOwnedSwitchThumbBox>
+  >([]);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    const section = document.querySelector<HTMLElement>(
+      `section[data-section-id="${sectionId}"]`,
+    );
+
+    const updateMeasuredBoxes = () => {
+      const nextBoxes = measureCanvasOwnedSwitchThumbBoxes(
+        sectionId,
+        viewportScale,
+      );
+      setSwitchThumbBoxes((previousBoxes) =>
+        areSwitchThumbBoxesEqual(previousBoxes, nextBoxes)
+          ? previousBoxes
+          : nextBoxes,
+      );
+    };
+
+    if (!(section instanceof HTMLElement)) {
+      setSwitchThumbBoxes((previousBoxes) =>
+        previousBoxes.length === 0 ? previousBoxes : [],
+      );
+      return;
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredBoxes);
+    };
+
+    const observeMeasuredElements = () => {
+      resizeObserver?.disconnect();
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(section);
+      for (const switchThumb of section.querySelectorAll<HTMLElement>(
+        `[${SWITCH_THUMB_ATTRIBUTE}="true"]`,
+      )) {
+        resizeObserver.observe(switchThumb);
+      }
+    };
+
+    observeMeasuredElements();
+    scheduleMeasure();
+
+    const mutationObserver = new MutationObserver(() => {
+      observeMeasuredElements();
+      scheduleMeasure();
+    });
+    mutationObserver.observe(section, {
+      attributeFilter: ["aria-checked", "class", "data-state", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [layoutRefreshKey, sectionId, viewportScale]);
+
+  return switchThumbBoxes;
+}
+
 function useCanvasOwnedUnderlineBoxes(
   sectionId: string,
   layoutRefreshKey: string,
@@ -1383,6 +1540,11 @@ function useCanvasOwnedSectionBackdropMeasurements({
     layoutRefreshKey,
     stableViewportScale,
   );
+  const switchThumbBoxes = useCanvasOwnedSwitchThumbBoxes(
+    sectionId,
+    layoutRefreshKey,
+    stableViewportScale,
+  );
   const underlineBoxes = useCanvasOwnedUnderlineBoxes(
     sectionId,
     layoutRefreshKey,
@@ -1421,6 +1583,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       searchHeight,
       styleColor,
       switchTrackBoxes,
+      switchThumbBoxes,
       underlineBoxes,
     }),
     [
@@ -1434,6 +1597,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       searchHeight,
       styleColor,
       switchTrackBoxes,
+      switchThumbBoxes,
       underlineBoxes,
     ],
   );
@@ -1935,6 +2099,15 @@ export default function SectionShellBackdropCanvas() {
               width: switchTrackBox.width,
               x: switchTrackBox.offsetX,
               y: switchTrackBox.offsetY,
+            })),
+            ...measurements.switchThumbBoxes.map((switchThumbBox) => ({
+              cornerRadius:
+                Math.min(switchThumbBox.height, switchThumbBox.width) / 2,
+              fill: chrome.switchThumbFill,
+              height: switchThumbBox.height,
+              width: switchThumbBox.width,
+              x: switchThumbBox.offsetX,
+              y: switchThumbBox.offsetY,
             })),
           ];
           const detailTexts = measurements.restingTextLines.map(

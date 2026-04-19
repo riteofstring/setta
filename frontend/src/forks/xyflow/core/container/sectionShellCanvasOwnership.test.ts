@@ -38,6 +38,7 @@ import {
   isCanvasOwnedSectionLightweightMenuTrigger,
   isCanvasOwnedSectionLightweightParamFilter,
   isCanvasOwnedSectionLightweightSwitchValueShell,
+  isCanvasOwnedSectionLightweightSwitchTrack,
   isCanvasOwnedSectionNestedGuide,
   isCanvasOwnedSectionLightweightResizeHandle,
   isCanvasOwnedSectionLightweightParamLabel,
@@ -739,6 +740,34 @@ describe("sectionShellCanvasOwnership", () => {
     ).toBe(false);
   });
 
+  it("targets the retained resting-text section boundary for canvas-owned switch visuals", () => {
+    expect(
+      isCanvasOwnedSectionLightweightSwitchTrack(
+        CHAT_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchTrack(
+        BACKEND_CANVAS_OWNED_LIGHTWEIGHT_SWITCH_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchTrack(
+        GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      ),
+    ).toBe(true);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchTrack(
+        "settings-section__nestedParamCodeObjDefault",
+      ),
+    ).toBe(false);
+    expect(
+      isCanvasOwnedSectionLightweightSwitchTrack(
+        "round_lime__callableSectionDefault",
+      ),
+    ).toBe(false);
+  });
+
   it("targets the section sizing policy dense lane for lightweight resize handles", () => {
     expect(
       isCanvasOwnedSectionLightweightResizeHandle(
@@ -1015,6 +1044,7 @@ describe("sectionShellCanvasOwnership", () => {
       stroke: "#ffffff",
       switchTrackCheckedFill: "#3b82f6",
       switchTrackFill: "hsl(220, 26%, 57%)",
+      switchThumbFill: "#ffffff",
     });
 
     expect(
@@ -1033,6 +1063,7 @@ describe("sectionShellCanvasOwnership", () => {
       stroke: "hsl(219, 26%, 23%)",
       switchTrackCheckedFill: "#1d4ed8",
       switchTrackFill: "hsl(219, 25%, 34%)",
+      switchThumbFill: "hsl(220, 24%, 12%)",
     });
   });
 
@@ -1058,6 +1089,7 @@ describe("sectionShellCanvasOwnership", () => {
       stroke: theme.border,
       switchTrackCheckedFill: theme.outline,
       switchTrackFill: theme.border,
+      switchThumbFill: "#ffffff",
     });
   });
 });

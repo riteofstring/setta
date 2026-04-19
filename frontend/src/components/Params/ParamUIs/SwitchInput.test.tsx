@@ -39,6 +39,10 @@ describe("SwitchInput theme overrides", () => {
     );
 
     expect(markup).toContain('data-canvas-owned-switch-track="true"');
+    expect(markup).toContain('data-canvas-owned-switch-thumb="true"');
+    expect(markup).not.toContain("bg-setta-400");
+    expect(markup).not.toContain("bg-white");
+    expect(markup).toContain("bg-transparent");
   });
 
   it("uses a lightweight non-button switch root when requested", () => {
@@ -59,6 +63,7 @@ describe("SwitchInput theme overrides", () => {
   it("can flatten the lightweight value shell onto the switch root", () => {
     const markup = renderToStaticMarkup(
       <SwitchInput
+        canvasOwnedTrack={true}
         lightweightActivator={true}
         lightweightRootClassName="section-value justify-self-start self-center"
         value={false}
@@ -67,7 +72,23 @@ describe("SwitchInput theme overrides", () => {
     );
 
     expect(markup).toContain('data-canvas-owned-lightweight-switch="true"');
+    expect(markup).toContain('data-canvas-owned-switch-thumb="true"');
     expect(markup).toContain("section-value");
     expect(markup.match(/<div/g)?.length ?? 0).toBe(1);
+  });
+
+  it("hides the non-flattened lightweight wrapper when the resting switch visual is canvas-owned", () => {
+    const markup = renderToStaticMarkup(
+      <SwitchInput
+        canvasOwnedTrack={true}
+        lightweightActivator={true}
+        outerDivClassName="section-value flex justify-self-start self-center"
+        value={false}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-canvas-owned-lightweight-switch="true"');
+    expect(markup).toContain("section-value flex justify-self-start self-center opacity-0");
   });
 });

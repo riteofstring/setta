@@ -9,6 +9,76 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shared lightweight switch resting-visual slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-switch-resting-visual-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__gui`
+  - additional proof sections:
+    - `settings-section__backend`
+    - `settings-section__callableSectionDefault`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now exposes a shared retained resting-text switch-visual boundary via `isCanvasOwnedSectionLightweightSwitchTrack(...)`, plus a fixed `switchThumbFill` in the retained chrome palette
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx` now routes switch params on that retained boundary through the canvas-owned switch-track/thumb path instead of limiting retained switch chrome to the old shell canaries
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` now marks switch thumbs for retained measurement, keeps the resting switch DOM visuals transparent on the canvas path, and hides the non-flattened backend-style wrapper with `opacity: 0` while preserving the lightweight interaction root
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures and paints retained switch-thumb boxes alongside the existing switch-track boxes, so the resting switch visual is entirely on the shared canvas for retained settings sections
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+      - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightSwitchCount: 156`
+    - `settingsCanvasTrackSwitchCount: 155`
+    - `settingsCanvasThumbCount: 155`
+    - `settings-section__browserSectionDefault` target row `Aspect Ratio` now reports:
+      - `targetCanvasTrack: "true"`
+      - `targetCanvasThumbCount: 1`
+      - `targetRootBackgroundColor: "rgba(0, 0, 0, 0)"`
+      - `targetThumbBackgroundColor: "rgba(0, 0, 0, 0)"`
+      - first-click toggle still changes `aria-checked` and `data-state`
+    - `settings-section__backend` now reports:
+      - `backendCanvasTrack: "true"`
+      - `backendCanvasThumbCount: 1`
+      - `backendSectionLightweightSwitchCount: 9`
+      - `backendValueShellWrapperCount: 1`
+      - `backendValueShellWrapperOpacity: "0"`
+      - `backendThumbBackgroundColor: "rgba(0, 0, 0, 0)"`
+    - `settings-section__callableSectionDefault` still preserves shell-owned switch chrome proof with `callableCanvasTrackSwitchCount: 6`
+    - the only remaining non-canvas-owned lightweight switch on the checked surface is outside the retained resting-text boundary
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 3`
+    - `totalRemainingValueElementCount: 6`
+    - `settings-section__backend` dropped out of the ranking entirely
+    - the only remaining visible value surface is now `settings-section__nestedParamCodeObjDefault` with `6` elements across `3` rows, including the one lightweight switch that stays outside the current retained boundary
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 106.61`
+    - `raf.p95Ms: 249.9`
+    - `longTasks.totalMs: 16865`
+  - compared against the prior color-input rerun:
+    - `totalRemainingValueRowCount: 12 -> 3`
+    - `totalRemainingValueElementCount: 15 -> 6`
+    - `documentNodeCount: 6709 -> 6679`
+    - `raf.meanMs: 94.6 -> 106.61`
+    - `raf.p95Ms: 183.3 -> 249.9`
+    - `longTasks.totalMs: 15114 -> 16865`
+  - interpretation:
+    - this is a real shared resting-switch visual primitive rather than another section-local wrapper cleanup
+    - the retained scene now owns the resting switch track/thumb for `155` lightweight switches on the checked `All Settings` surface, and the backend survivor family is no longer visible in the ranking
+    - however, dense motion regressed on this runtime family even though the visible switch surface moved to canvas, so do not spend another iteration on switch-family follow-ups or small survivor harvests by inertia
+    - per the current sequencing checkpoint, the next default frontier must escalate to a larger inactive-row body/overlay decision centered on the remaining nested-param text/value surface and the broader section-body motion cost
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - one retained canvas was mounted
+    - the backend, browser, gui, and callable sections were present
+    - the relevant switch rows still looked visible and stable with no obvious blank or detached switch artifact
 - The shared lightweight nested-children row-structure generalization is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-children-generalization-rerun.md`.
   - canonical target section: `settings-section__codeSectionDefault`
   - sibling proof sections:

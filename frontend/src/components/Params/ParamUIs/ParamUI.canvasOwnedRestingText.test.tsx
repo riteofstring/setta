@@ -993,13 +993,13 @@ describe("ParamUI canvas-owned resting text", () => {
 
   it.each([
     {
-      expectedCanvasOwnedTrack: false,
+      expectedCanvasOwnedTrack: true,
       expectedLightweightRootClassName: undefined,
       paramInfoId: "settings-codeobj__backend__backend__autosave",
       sectionId: BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
     },
     {
-      expectedCanvasOwnedTrack: false,
+      expectedCanvasOwnedTrack: true,
       expectedLightweightRootClassName:
         "section-value justify-self-start self-center",
       paramInfoId:
@@ -1007,14 +1007,14 @@ describe("ParamUI canvas-owned resting text", () => {
       sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
     },
     {
-      expectedCanvasOwnedTrack: false,
+      expectedCanvasOwnedTrack: true,
       expectedLightweightRootClassName:
         "section-value justify-self-start self-center",
       paramInfoId: "settings-codeobj__gui__gui__leftSidePaneShiftsMap",
       sectionId: GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
     },
     {
-      expectedCanvasOwnedTrack: false,
+      expectedCanvasOwnedTrack: true,
       expectedLightweightRootClassName:
         "section-value justify-self-start self-center",
       paramInfoId:

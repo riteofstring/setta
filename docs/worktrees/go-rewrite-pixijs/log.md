@@ -3293,3 +3293,67 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the shared color-input row-body/value-shell lane closed and escalate the next pass to a stronger inactive-row body/overlay primitive for the remaining backend switch shells plus the nested-param text/value surface
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 069
+
+- Item: Move shared lightweight switch resting visuals onto the retained canvas across the settings/resting-text boundary.
+- Status: `done`
+- Details:
+  - Chose one stronger shared inactive-row primitive instead of reopening another backend-only switch wrapper cleanup after the color-input pass.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so retained resting-text sections now opt into a shared canvas-owned switch-visual boundary via `isCanvasOwnedSectionLightweightSwitchTrack(...)`, and the retained chrome palette now carries a fixed `switchThumbFill`.
+  - Updated `frontend/src/components/Params/ParamUIs/ParamUI.tsx` and `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` so switch params on that retained boundary:
+    - keep using the lightweight activator root for interaction
+    - expose retained measurement markers for both track and thumb
+    - keep the resting DOM switch visuals transparent on the canvas path
+    - hide the non-flattened backend-style wrapper with `opacity: 0` while preserving the interaction target
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` so the retained scene measures and paints switch-thumb boxes alongside switch-track boxes, making the resting switch visual fully canvas-owned for retained settings sections.
+  - Added focused proof in:
+    - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - Live canary result on the worktree runtime:
+    - `settingsLightweightSwitchCount: 156`
+    - `settingsCanvasTrackSwitchCount: 155`
+    - `settingsCanvasThumbCount: 155`
+    - `settings-section__browserSectionDefault` `Aspect Ratio` now reports transparent DOM colors for both root and thumb while keeping `targetCanvasTrack: "true"` and `targetCanvasThumbCount: 1`
+    - `settings-section__backend` now reports `backendCanvasTrack: "true"`, `backendCanvasThumbCount: 1`, and `backendValueShellWrapperOpacity: "0"`
+    - the browser target row still toggles `aria-checked` and `data-state` on first click
+  - Fresh whole-scene ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 3`
+    - `totalRemainingValueElementCount: 6`
+    - `settings-section__backend` dropped out of the ranking completely
+    - the only visible survivor family is now `settings-section__nestedParamCodeObjDefault`
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 106.61`
+    - `raf.p95Ms: 249.9`
+    - `longTasks.totalMs: 16865`
+  - Interpretation:
+    - this is a real shared resting-switch visual primitive and it materially reduced the visible value-surface inventory
+    - however, dense motion regressed versus the prior color-input rerun (`raf.mean 94.6 -> 106.61`, `raf.p95 183.3 -> 249.9`, `longTasks.total 15114 -> 16865`)
+    - do not continue switch-family follow-ups or other small survivor harvests by inertia after this slice
+    - the next frontier must escalate to a larger inactive-row body/overlay decision centered on the remaining nested-param text/value surface and the broader section-body motion cost
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/SwitchInput.tsx src/components/Params/ParamUIs/SwitchInput.test.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-003/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-switches.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (26.5s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-003/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (22.7s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-003/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (53.3s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - one retained canvas was mounted
+  - the backend, browser, gui, and callable sections were present
+  - the relevant switch rows still looked visible and stable with no obvious blank or detached switch artifact
+- Next action:
+  - keep the shared lightweight switch resting-visual lane closed and escalate the next pass to a larger inactive-row body/overlay decision for the remaining nested-param text/value surface and broader section-body motion cost
+LOOP_TERMINAL_MARKER: none

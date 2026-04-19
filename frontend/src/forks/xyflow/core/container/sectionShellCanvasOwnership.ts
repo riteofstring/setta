@@ -178,6 +178,7 @@ export type SectionShellCanvasChrome = {
   stroke: string;
   switchTrackCheckedFill: string;
   switchTrackFill: string;
+  switchThumbFill: string;
 };
 
 const DEFAULT_LIGHT_SECTION_SHELL_CANVAS_CHROME = {
@@ -191,6 +192,7 @@ const DEFAULT_LIGHT_SECTION_SHELL_CANVAS_CHROME = {
   stroke: "#ffffff",
   switchTrackCheckedFill: "#3b82f6",
   switchTrackFill: "hsl(220, 26%, 57%)",
+  switchThumbFill: "#ffffff",
 } satisfies SectionShellCanvasChrome;
 
 const DEFAULT_DARK_SECTION_SHELL_CANVAS_CHROME = {
@@ -204,6 +206,7 @@ const DEFAULT_DARK_SECTION_SHELL_CANVAS_CHROME = {
   stroke: "hsl(219, 26%, 23%)",
   switchTrackCheckedFill: "#1d4ed8",
   switchTrackFill: "hsl(219, 25%, 34%)",
+  switchThumbFill: "hsl(220, 24%, 12%)",
 } satisfies SectionShellCanvasChrome;
 
 function hasNonEmptyStyleColor(
@@ -286,6 +289,10 @@ export function isCanvasOwnedSectionLightweightSwitchValueShell(
     sectionId !== BACKEND_CANVAS_OWNED_RESTING_TEXT_SECTION_ID &&
     isCanvasOwnedSectionRestingTextSection(sectionId)
   );
+}
+
+export function isCanvasOwnedSectionLightweightSwitchTrack(sectionId: string) {
+  return isCanvasOwnedSectionRestingTextSection(sectionId);
 }
 
 export function isCanvasOwnedSectionLightweightParamFilter(sectionId: string) {
@@ -417,6 +424,9 @@ export function resolveCanvasOwnedSectionShellChrome({
         stroke: theme.border,
         switchTrackCheckedFill: theme.outline,
         switchTrackFill: theme.border,
+        switchThumbFill: darkMode
+          ? DEFAULT_DARK_SECTION_SHELL_CANVAS_CHROME.switchThumbFill
+          : DEFAULT_LIGHT_SECTION_SHELL_CANVAS_CHROME.switchThumbFill,
       };
     }
   }
