@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
 	"setta/internal/auth"
 	"setta/internal/chatattachments"
 	"setta/internal/chatmodes"
@@ -18,7 +19,6 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
-	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type stubPreflightChecker struct {

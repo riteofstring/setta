@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"setta/internal/agentruns"
+	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
 	"setta/internal/chatmodes"
-	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 func testExternalAppGenerationModes(t *testing.T) chatmodes.AppGenerationModeResolver {

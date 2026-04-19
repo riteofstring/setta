@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 const defaultAppSpecVersion = "v1"

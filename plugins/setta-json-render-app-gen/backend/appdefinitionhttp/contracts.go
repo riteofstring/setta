@@ -1,8 +1,8 @@
 package appdefinitionhttp
 
 import (
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
+	"setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 )
 
 type GetAppDefinitionRequest struct {
