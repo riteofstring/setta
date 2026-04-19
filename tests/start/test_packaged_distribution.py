@@ -21,6 +21,8 @@ def _write_minimal_distribution_project(
     project_root = tmp_path / "packaged-project"
     package_root = project_root / "backend" / "setta"
     package_root.mkdir(parents=True, exist_ok=True)
+    (package_root / "plugin_runtime").mkdir(parents=True, exist_ok=True)
+    (package_root / "types" / "generated").mkdir(parents=True, exist_ok=True)
 
     (project_root / "pyproject.toml").write_text(
         (_repo_root() / "pyproject.toml").read_text(encoding="utf-8"),
@@ -33,7 +35,15 @@ def _write_minimal_distribution_project(
     (project_root / "README.md").write_text("# temp package\n", encoding="utf-8")
     (project_root / "LICENSE").write_text("Apache-2.0\n", encoding="utf-8")
     if use_repo_packaged_entrypoint_modules:
-        for relative_path in ("__init__.py", "__main__.py", "entrypoint.py"):
+        for relative_path in (
+            "__init__.py",
+            "__main__.py",
+            "entrypoint.py",
+            "plugin_runtime/__init__.py",
+            "plugin_runtime/app_subsystem.py",
+            "plugin_runtime/local_core.py",
+            "types/generated/go_shared_constants.py",
+        ):
             (package_root / relative_path).write_text(
                 (_repo_root() / "backend" / "setta" / relative_path).read_text(
                     encoding="utf-8"
@@ -50,6 +60,37 @@ def _write_minimal_distribution_project(
         )
         (package_root / "entrypoint.py").write_text(
             "def main() -> None:\n    return None\n",
+            encoding="utf-8",
+        )
+        (package_root / "plugin_runtime" / "__init__.py").write_text(
+            "from setta.plugin_runtime.app_subsystem import (\n"
+            "    APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION,\n"
+            "    listener_endpoint_names,\n"
+            "    local_core_command_for_listener_endpoint,\n"
+            ")\n"
+            "from setta.plugin_runtime.local_core import (\n"
+            "    LocalCoreCommandError,\n"
+            "    run_local_core_command,\n"
+            ")\n",
+            encoding="utf-8",
+        )
+        (package_root / "plugin_runtime" / "app_subsystem.py").write_text(
+            "APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = 1\n\n"
+            "def listener_endpoint_names() -> tuple[str, ...]:\n"
+            "    return ()\n\n"
+            "def local_core_command_for_listener_endpoint(endpoint_name: str) -> str:\n"
+            "    raise KeyError(endpoint_name)\n",
+            encoding="utf-8",
+        )
+        (package_root / "plugin_runtime" / "local_core.py").write_text(
+            "class LocalCoreCommandError(RuntimeError):\n"
+            "    pass\n\n"
+            "def run_local_core_command(command_name: str, payload: dict[str, object] | None = None) -> object:\n"
+            "    return None\n",
+            encoding="utf-8",
+        )
+        (package_root / "types" / "generated" / "go_shared_constants.py").write_text(
+            "LOCAL_CORE_PROTOCOL_VERSION = 1\n",
             encoding="utf-8",
         )
     (package_root / "dev_start.py").write_text(
@@ -172,14 +213,13 @@ def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
 
 def _write_minimal_host_sdk_for_plugin_runtime(site_packages: Path) -> None:
     setta_root = site_packages / "setta"
-    types_root = setta_root / "types" / "generated"
-    types_root.mkdir(parents=True, exist_ok=True)
 
     for relative_path in (
         Path("__init__.py"),
         Path("entrypoint.py"),
-        Path("types") / "__init__.py",
-        Path("types") / "generated" / "__init__.py",
+        Path("plugin_runtime") / "__init__.py",
+        Path("plugin_runtime") / "app_subsystem.py",
+        Path("plugin_runtime") / "local_core.py",
         Path("types") / "generated" / "go_shared_constants.py",
     ):
         source_path = _repo_root() / "backend" / "setta" / relative_path
@@ -561,6 +601,10 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/__init__.py",
         "setta/__main__.py",
         "setta/entrypoint.py",
+        "setta/plugin_runtime/__init__.py",
+        "setta/plugin_runtime/app_subsystem.py",
+        "setta/plugin_runtime/local_core.py",
+        "setta/types/generated/go_shared_constants.py",
         "setta/agentic/external_adapters/sidecars/claude_sdk_runner.py",
         "setta/agentic/external_adapters/sidecars/package.json",
         "setta/agentic/external_adapters/sidecars/node_modules/marker.txt",
