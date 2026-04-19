@@ -39,18 +39,41 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - interpretation:
     - this is a real shared-family DOM reduction slice (`documentNodeCount 6962 -> 6879`), not another section-local cleanup
     - motion stayed roughly flat on this runtime family, so treat it as a blocker-reduction prerequisite rather than a new motion win
-    - next default pass: rerun the whole-scene remaining-value ranking from the new `6879` checkpoint and choose the next broad survivor from fresh evidence instead of continuing this lane by inertia
+    - follow-up ranking is now recorded at `perf/reports/frontend/2026-04-19_settings-all-settings-post-param-codeobj-remaining-value-surface-ranking.md`; the next broad survivor is no longer another param-codeobj text/value pass
   - CDP visual check is done:
     - `/settings` loaded with `All Settings` active
     - exactly one `.react-flow__section-shell-backdrop canvas` was mounted and no crash/error overlay was visible
     - both `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault` were present
     - the rotary `Max` row looked intact at rest
     - focusing `settings-section__rotaryParamCodeObjDefault-settings-codeobj__rotaryParamCodeObjDefault__rotaryParamCodeObjDefault__max-ParamInput` surfaced the inline editor in place with no obvious blank or detached jump
-- A fresh post-shared-size/style/tag whole-scene ranking now exists at `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`.
-  - refreshed focused totals: `mountedSectionCount 46`, `totalRowCount 759`, `totalRemainingValueRowCount 220`, `totalRemainingValueElementCount 357`
-  - the old shared `Size` / `Height` / `Width` / `Style Color` / `Tag Color` family is no longer the dominant remaining value surface
-  - `settings-section__languageServer` remains the single-section outlier at `48` remaining value elements across `7` rows, but the broader next frontier is now a shared param-codeobj text/value family led by `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault`
-  - next default lane: prefer a shared param-codeobj resting-text/value primitive with canonical target `settings-section__rotaryParamCodeObjDefault`; only fall back to `settings-section__languageServer` if that broader shared primitive is blocked
+- A fresh post-param-codeobj whole-scene ranking now exists at `perf/reports/frontend/2026-04-19_settings-all-settings-post-param-codeobj-remaining-value-surface-ranking.md`.
+  - refreshed focused totals: `mountedSectionCount 46`, `totalRowCount 759`, `totalRemainingValueRowCount 176`, `totalRemainingValueElementCount 235`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6874`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 96.55`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15347`
+  - compared against the prior whole-scene ranking at `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`, the mounted remaining value surface moved from `220 / 357` down to `176 / 235`
+  - `settings-section__languageServer` remains the single-section outlier at `48` remaining value elements across `7` rows
+  - `settings-section__backend` (`21`) and `settings-section__gui` (`15`) remain visible section-local survivors, but the broader repeated remaining family is now the lightweight-switch value-shell surface led by:
+    - `settings-section__chatSectionDefault`
+    - `settings-section__spreadsheetSectionDefault`
+    - `settings-section__dictSectionDefault`
+    - `settings-section__globalVariablesSectionDefault`
+    - `settings-section__callableSectionDefault`
+    - `settings-section__codeSectionDefault`
+    - `settings-section__textBlockSectionDefault`
+    - `settings-section__stateMachineGateSectionDefault`
+    - `settings-section__groupSectionDefault`
+  - inference from the ranking: those repeated survivors are already `lightweightSwitch` rows whose only remaining visible DOM is `div.section-value`, so the next broad lane should target a shared switch-shell/value-shell primitive rather than another resting-text pass
+  - next default lane: prefer a shared switch-shell/value-shell primitive with canonical target `settings-section__chatSectionDefault` and first sibling proof `settings-section__spreadsheetSectionDefault`; only fall back to `settings-section__languageServer` if that broader shared primitive is blocked
+  - CDP visual check is done:
+    - `/settings` loaded cleanly with `All Settings` active
+    - no crash/error boundary overlay was visible
+    - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+    - the exact section ids were not present in the final headless DOM snapshot, but the nearest trustworthy visible evidence still showed overview entries for `languageServer`, `backend`, `gui`, and `chatSectionDefault`, plus the rendered `backend` editor panel on the main graph surface
 - The tracking model is now explicit:
   - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
   - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
@@ -1950,7 +1973,7 @@ The first product frontier is:
 - with older assumptions about a visible section search field and pinned-params panel now closed as stale for the current `All Settings` canary state
 - with the stale `Config Language` dropdown assumption now closed in favor of a real text-row handoff on the live canary
 - with the broader GlobalVariables kwargs/filter lane now also closed because its remaining visible DOM at normal zoom is only the live interactive core
-- next: keep the callable, dict, and GlobalVariables lanes closed at their current ownership boundaries and use the new dense rerun evidence to land the next graph-surface product slice that materially reduces inactive row/widget DOM cost; only reopen a section-specific ownership lane if a fresh visual defect appears
+- next: keep the callable, dict, and GlobalVariables lanes closed as section-specific lanes, and use the new post-param-codeobj ranking to land one shared switch-shell/value-shell slice led by `settings-section__chatSectionDefault` plus `settings-section__spreadsheetSectionDefault`; only fall back to the `languageServer` outlier if that broader primitive is blocked
 
 ## Hard rules
 

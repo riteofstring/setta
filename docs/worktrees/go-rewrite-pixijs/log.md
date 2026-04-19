@@ -2858,3 +2858,53 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - rerank the remaining non-lightweight value surface from the whole `All Settings` scene and choose the next shared body/value primitive or the single highest-payoff untouched family; keep the new trio closed unless a fresh defect appears
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 066
+
+- Item: Refresh the whole-scene remaining-value ranking after the param-codeobj retained-text slice.
+- Status: `done`
+- Details:
+  - Started from the anti-inertia checkpoint in the current handoff instead of extending the just-closed param-codeobj family by default.
+  - Reused the existing focused ranking probe plus the dense baseline probe on the live worktree runtime and recorded a new durable decision report at `perf/reports/frontend/2026-04-19_settings-all-settings-post-param-codeobj-remaining-value-surface-ranking.md`.
+  - Fresh whole-scene totals on the current runtime:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 176`
+    - `totalRemainingValueElementCount: 235`
+  - Fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6874`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 96.55`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15347`
+  - The new ranking closes the stale "keep extending text/value families" assumption:
+    - `settings-section__languageServer` remains the single-section outlier at `48` remaining value elements across `7` rows
+    - `settings-section__backend` (`21`) and `settings-section__gui` (`15`) remain visible local survivors, but they are not the broadest next shared win
+    - the broader repeated survivor is now a lightweight-switch value-shell family led by:
+      - `settings-section__chatSectionDefault`
+      - `settings-section__spreadsheetSectionDefault`
+      - `settings-section__dictSectionDefault`
+      - `settings-section__globalVariablesSectionDefault`
+      - `settings-section__callableSectionDefault`
+      - `settings-section__codeSectionDefault`
+      - `settings-section__textBlockSectionDefault`
+      - `settings-section__stateMachineGateSectionDefault`
+      - `settings-section__groupSectionDefault`
+    - in the top-12 subset alone, that repeated family accounts for `57` visible remaining value elements, and the dominant remaining kind is the same in each case: rows already marked `lightweightSwitch` with only `div.section-value` still visible
+  - Interpretation:
+    - the param-codeobj lane is now closed and no longer the next default frontier
+    - inference from the ranking: the next broad product lane should be a shared switch-shell/value-shell primitive rather than another retained-text pass
+    - use canonical target `settings-section__chatSectionDefault` with first sibling proof `settings-section__spreadsheetSectionDefault`
+    - only fall back to the `languageServer` outlier if that broader shared primitive is blocked on the current ownership boundary
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-010/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)` on the live worktree runtime with the totals recorded above
+- CDP visual check is done:
+  - `/settings` loaded cleanly with `All Settings` active
+  - no crash/error boundary overlay was visible
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - the exact section ids were not present in the final headless DOM snapshot, but the nearest trustworthy visible evidence still showed overview entries for `languageServer`, `backend`, `gui`, and `chatSectionDefault`, plus the rendered `backend` editor panel on the main graph surface
+- Next action:
+  - keep the param-codeobj lane closed and land one shared switch-shell/value-shell slice led by `settings-section__chatSectionDefault` plus `settings-section__spreadsheetSectionDefault`; only fall back to `settings-section__languageServer` if that broader primitive proves blocked
+LOOP_TERMINAL_MARKER: none
