@@ -20,7 +20,7 @@ but the feature still stays off until the plugin is enabled.
 Rebuild the packaged frontend bundle from the shared repo frontend toolchain:
 
 ```bash
-pnpm -C frontend exec vite build --config ../plugins/setta-json-render-app-gen/frontend/vite.config.mjs
+pnpm -C frontend exec node ./scripts/buildAppSubsystemPluginFrontend.mjs
 ```
 
 ## Build Wheel

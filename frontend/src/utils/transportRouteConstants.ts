@@ -21,6 +21,7 @@ function replaceTransportRoutePathParams(
   return resolved;
 }
 
+/** @lintignore Consumed by the app subsystem frontend SDK build. */
 export function buildBinaryDownloadRoute(contentId: string): string {
   return replaceTransportRoutePathParams(BINARY_TRANSPORT_ROUTES.download, {
     contentId,
