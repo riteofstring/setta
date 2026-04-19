@@ -38,6 +38,7 @@ type AppSubsystemFrontendRegistration = {
   previewSurface?: AppSubsystemPreviewSurfaceRegistration;
   appModeRoute?: AppSubsystemAppModeRouteRegistration;
   slashCommands?: ChatSlashCommandDefinition[];
+  imageRequiredModes?: string[];
   customSlashCommandModes?: AppSubsystemCustomSlashCommandModesRegistration;
   initializeProjectState?: () => void;
   resetProjectState?: () => void;
@@ -162,8 +163,17 @@ function isSlashCommandRegistration(
       typeof entry.command === "string" &&
       typeof entry.action === "string" &&
       typeof entry.summary === "string" &&
+      (entry.requiresImageAttachment === undefined ||
+        typeof entry.requiresImageAttachment === "boolean") &&
       (entry.promptTemplate === undefined ||
         typeof entry.promptTemplate === "string"),
+  );
+}
+
+function isImageRequiredModeRegistration(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => typeof entry === "string" && entry.trim().length > 0)
   );
 }
 
@@ -230,6 +240,11 @@ function isFrontendRegistration(
       value,
       "slashCommands",
       isSlashCommandRegistration,
+    ) &&
+    hasOptionalRegistration(
+      value,
+      "imageRequiredModes",
+      isImageRequiredModeRegistration,
     ) &&
     hasOptionalRegistration(
       value,
@@ -474,6 +489,22 @@ export function useAppSubsystemSlashCommands(): ChatSlashCommandDefinition[] {
       state.registration?.slashCommands ?? EMPTY_APP_SUBSYSTEM_SLASH_COMMANDS
     );
   });
+}
+
+export function appSubsystemModeRequiresImageAttachment(
+  mode: string | null | undefined,
+): boolean {
+  if (typeof mode !== "string" || mode.trim().length === 0) {
+    return false;
+  }
+  const state = useAppSubsystemFrontendStore.getState();
+  if (
+    !state.capabilities?.pluginEnabled ||
+    !state.capabilities.appGenerationChatModes
+  ) {
+    return false;
+  }
+  return state.registration?.imageRequiredModes?.includes(mode) ?? false;
 }
 
 export function useAppSubsystemCustomSlashCommandModeOptions(): AppSubsystemCustomSlashCommandModeOption[] {
