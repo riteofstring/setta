@@ -333,7 +333,7 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 		context.Background(),
 		"project-alpha",
 		"core.app.spec_path",
-		"  "+filepath.Join(root, "app_specs", "ui-settings.json")+"  ",
+		"  "+filepath.Join(root, filepath.FromSlash(appspec.RootPath()), "ui-settings.json")+"  ",
 		appspec.DefaultPath(),
 	)
 	if err != nil {
@@ -342,11 +342,12 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 	if result.OldValue != appspec.DefaultPath() {
 		t.Fatalf("expected old spec path %q, got %#v", appspec.DefaultPath(), result.OldValue)
 	}
-	if result.NewValue != "app_specs/ui-settings.json" {
-		t.Fatalf("expected normalized spec path app_specs/ui-settings.json, got %#v", result.NewValue)
+	expectedPath := appspec.JoinPath("ui-settings.json")
+	if result.NewValue != expectedPath {
+		t.Fatalf("expected normalized spec path %q, got %#v", expectedPath, result.NewValue)
 	}
-	if result.NormalizedValue != "app_specs/ui-settings.json" {
-		t.Fatalf("expected normalized value app_specs/ui-settings.json, got %#v", result.NormalizedValue)
+	if result.NormalizedValue != expectedPath {
+		t.Fatalf("expected normalized value %q, got %#v", expectedPath, result.NormalizedValue)
 	}
 }
 
@@ -699,7 +700,7 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	runtime := openCoreRegistryPersistedRuntime(t, root)
 	registry := mustNewAppScopedRegistry(t, runtime, root)
 
-	const nextSpecPath = "app_specs/ui-settings-test-app.json"
+	nextSpecPath := appspec.JoinPath("ui-settings-test-app.json")
 	result, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
