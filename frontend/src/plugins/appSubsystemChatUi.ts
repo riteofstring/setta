@@ -1,23 +1,30 @@
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import {
-  parseAppGenerationMode,
+  AppGenerationModeEnum,
+  AppSubsystemChatUIConfig,
   type AppGenerationMode,
-} from "state/types/appGenerationMode";
-import { AppSubsystemChatUIConfig } from "utils/generatedTypes";
+} from "utils/generatedTypes";
+
+const APP_SUBSYSTEM_APP_GENERATION_MODE_SET = new Set<AppGenerationMode>(
+  Object.values(AppGenerationModeEnum),
+);
 
 type AppSubsystemCustomSlashCommandModeOption = {
   id: string;
   name: string;
 };
 
+const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set<AppGenerationMode>([
+  AppGenerationModeEnum.json_render_with_image,
+]);
+
 function requireAppGenerationMode(value: string): AppGenerationMode {
-  const mode = parseAppGenerationMode(value);
-  if (!mode) {
+  if (!APP_SUBSYSTEM_APP_GENERATION_MODE_SET.has(value as AppGenerationMode)) {
     throw new Error(
       `App subsystem chat UI config declared unsupported appGenerationMode ${JSON.stringify(value)}.`,
     );
   }
-  return mode;
+  return value as AppGenerationMode;
 }
 
 const APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
@@ -27,6 +34,9 @@ const APP_SUBSYSTEM_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
     summary: entry.summary,
     promptTemplate: entry.promptTemplate,
     appGenerationMode: requireAppGenerationMode(entry.appGenerationMode),
+    requiresImageAttachment: doesAppSubsystemModeRequireImageAttachment(
+      entry.appGenerationMode,
+    ),
   }));
 
 export const APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustomSlashCommandModeOption[] =
@@ -66,4 +76,13 @@ export function resolveAppGenerationModeForSlashAction(
 ): AppGenerationMode | null {
   const mode = getAppGenerationSlashCommandByAction(action)?.appGenerationMode;
   return mode ?? null;
+}
+
+export function doesAppSubsystemModeRequireImageAttachment(
+  mode: string | null | undefined,
+): boolean {
+  return (
+    typeof mode === "string" &&
+    APP_SUBSYSTEM_IMAGE_REQUIRED_MODES.has(mode as AppGenerationMode)
+  );
 }

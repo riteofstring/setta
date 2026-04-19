@@ -13,6 +13,7 @@ import {
   resolveAuthoritativeContextTelemetry,
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
+import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystemRuntime";
 import {
   getRunInputString,
   getRunLastUpdatedMs,
@@ -43,7 +44,6 @@ import {
 } from "utils/conversationSearch";
 import {
   AgentRun,
-  AppGenerationModeEnum,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -910,8 +910,9 @@ export function hasRetainedImageAttachmentFromImageModeThread(
       return false;
     }
     if (
-      appGenerationByMessageId[message.id]?.mode !==
-      AppGenerationModeEnum.json_render_with_image
+      !appSubsystemModeRequiresImageAttachment(
+        appGenerationByMessageId[message.id]?.mode,
+      )
     ) {
       return false;
     }

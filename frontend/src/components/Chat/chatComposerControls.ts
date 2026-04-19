@@ -102,6 +102,7 @@ export type ChatSlashCommandDefinition = {
   summary: string;
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
+  requiresImageAttachment?: boolean;
   unavailableFeedback?: string;
 };
 
@@ -110,6 +111,7 @@ type ChatSlashCommandInput = {
   args: string[];
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
+  requiresImageAttachment?: boolean;
 };
 
 type ChatSlashCommandExecutionResult =
@@ -129,6 +131,7 @@ type ParsedSlashCommand = {
   rawSuffix: string;
   promptTemplate?: string;
   appGenerationMode?: AppGenerationMode | null;
+  requiresImageAttachment?: boolean;
   unavailableFeedback?: string;
 };
 
@@ -459,6 +462,7 @@ export function buildCustomPromptSlashCommandDefinitions(
       appGenerationMode: parseAppGenerationMode(
         customCommand.appGenerationMode,
       ),
+      requiresImageAttachment: false,
     });
   }
   return normalized;
@@ -535,6 +539,12 @@ function buildParsedSlashCommand(
   }
   if (Object.prototype.hasOwnProperty.call(definition, "appGenerationMode")) {
     parsedCommand.appGenerationMode = definition.appGenerationMode ?? null;
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(definition, "requiresImageAttachment")
+  ) {
+    parsedCommand.requiresImageAttachment =
+      definition.requiresImageAttachment === true;
   }
   if (definition.unavailableFeedback) {
     parsedCommand.unavailableFeedback = definition.unavailableFeedback;
