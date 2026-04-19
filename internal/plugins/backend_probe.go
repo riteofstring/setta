@@ -15,7 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	"setta/internal/projectstate"
 	"setta/internal/statefs"
 )
 
@@ -92,25 +91,29 @@ func backendProbeRequired(capabilities []string) bool {
 }
 
 func probeGoBackendRegistrations(pluginRoot string, manifest PluginManifest, buildRoot string) (backendProbeResponse, error) {
-	executablePath, err := BuildGoBackendExecutable(pluginRoot, manifest, buildRoot)
+	launch, err := ResolvePluginBackendLaunch(pluginRoot, manifest, buildRoot)
 	if err != nil {
 		return backendProbeResponse{}, err
 	}
-	return probeGoBackendExecutable(pluginRoot, manifest, executablePath)
+	return probePluginBackendRegistrations(pluginRoot, manifest, launch)
 }
 
-func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, executablePath string) (backendProbeResponse, error) {
+func probePluginBackendRegistrations(pluginRoot string, manifest PluginManifest, launch PluginBackendLaunch) (backendProbeResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), backendProbeTimeout)
 	defer cancel()
 
-	command := exec.CommandContext(ctx, executablePath, backendProbeArg)
+	args := append(append([]string(nil), launch.Args...), backendProbeArg)
+	command := exec.CommandContext(ctx, launch.Command, args...)
 	command.Dir = pluginRoot
+	if len(launch.Environment) != 0 {
+		command.Env = mergePluginBackendCommandEnv(launch.Environment)
+	}
 	output, err := command.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return backendProbeResponse{}, newServiceError(
 				ServiceErrorCodeBackendRuntimeInvalid,
-				"Go backend runtime probe timed out for plugin %s",
+				"Plugin backend runtime probe timed out for plugin %s",
 				manifest.ID,
 			)
 		}
@@ -120,7 +123,7 @@ func probeGoBackendExecutable(pluginRoot string, manifest PluginManifest, execut
 		}
 		return backendProbeResponse{}, newServiceError(
 			ServiceErrorCodeBackendRuntimeInvalid,
-			"Go backend runtime probe failed for plugin %s: %s",
+			"Plugin backend runtime probe failed for plugin %s: %s",
 			manifest.ID,
 			message,
 		)
@@ -248,6 +251,9 @@ func normalizeBackendLanguageServers(pluginRoot string, pluginID string, registr
 	}, func(key string) error {
 		return fmt.Errorf("duplicate language server language %s", key)
 	}); err != nil {
+		return nil, err
+	}
+	if err := ensureSinglePluginLanguageServerImplementation(normalized); err != nil {
 		return nil, err
 	}
 	slices.SortFunc(normalized, compareBackendLanguageServers)
@@ -516,9 +522,6 @@ func normalizeBackendLanguageServerLanguage(raw string) (string, error) {
 	if language == "" {
 		return "", fmt.Errorf("language is required")
 	}
-	if language == string(projectstate.CodeLanguagePython) {
-		return "", fmt.Errorf("language servers cannot target python")
-	}
 	return language, nil
 }
 
@@ -527,14 +530,49 @@ func normalizeBackendLanguageServerCommand(pluginRoot string, raw string) (strin
 	if command == "" {
 		return "", fmt.Errorf("command is required")
 	}
-	if !strings.HasPrefix(command, "./") && !strings.HasPrefix(command, "../") {
+	if !backendLanguageServerCommandLooksPathLike(command) {
 		return command, nil
 	}
-	resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
-	if err != nil {
+
+	resolvedCommand := command
+	if !backendLanguageServerCommandIsAbsolute(command) {
+		var err error
+		resolvedCommand, err = statefs.ResolveWithinRoot(
+			pluginRoot,
+			filepath.FromSlash(backendLanguageServerCommandPath(command)),
+			"plugin language server command",
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+	if err := validateBackendLanguageServerCommandExecutable(resolvedCommand); err != nil {
 		return "", err
 	}
-	return resolved, nil
+	return resolvedCommand, nil
+}
+
+func backendLanguageServerCommandLooksPathLike(command string) bool {
+	return backendLanguageServerCommandIsAbsolute(command) || strings.ContainsAny(command, `/\`)
+}
+
+func backendLanguageServerCommandIsAbsolute(command string) bool {
+	normalized := backendLanguageServerCommandPath(command)
+	return filepath.IsAbs(command) ||
+		path.IsAbs(normalized) ||
+		strings.HasPrefix(normalized, "//") ||
+		windowsDrivePrefixPattern.MatchString(normalized)
+}
+
+func backendLanguageServerCommandPath(command string) string {
+	return strings.ReplaceAll(command, `\`, `/`)
+}
+
+func validateBackendLanguageServerCommandExecutable(command string) error {
+	if _, err := exec.LookPath(command); err != nil {
+		return fmt.Errorf("command %q is not executable: %w", command, err)
+	}
+	return nil
 }
 
 func normalizeBackendLanguageServerArgs(rawArgs []string) ([]string, error) {
@@ -558,6 +596,37 @@ func normalizeBackendLanguageServerSettingsKey(raw *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func ensureSinglePluginLanguageServerImplementation(registrations []PluginRegisteredLanguageServer) error {
+	if len(registrations) <= 1 {
+		return nil
+	}
+
+	baseline := registrations[0]
+	for _, registration := range registrations[1:] {
+		if baseline.Command != registration.Command {
+			return fmt.Errorf("language servers must share one implementation per plugin")
+		}
+		if !slices.Equal(baseline.Args, registration.Args) {
+			return fmt.Errorf("language servers must share one implementation per plugin")
+		}
+		if !optionalStringsEqual(baseline.SettingsKey, registration.SettingsKey) {
+			return fmt.Errorf("language servers must share one implementation per plugin")
+		}
+	}
+	return nil
+}
+
+func optionalStringsEqual(left *string, right *string) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return *left == *right
+	}
 }
 
 func normalizeBackendRouteRegistration(route PluginRegisteredBackendRoute) (PluginRegisteredBackendRoute, error) {

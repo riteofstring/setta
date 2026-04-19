@@ -4,11 +4,12 @@ import {
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
 import {
-  ChatAppGenerationMessageModeEnum,
   ChatRoleEnum,
   type AgentRun,
   type BaseChatMessageUnion,
 } from "utils/generatedTypes";
+
+const PLAIN_CHAT_MESSAGE_MODE = "plain_chat";
 
 export type ChatAppGenerationContext = {
   mode: AppGenerationMode;
@@ -16,7 +17,7 @@ export type ChatAppGenerationContext = {
 
 type SerializedChatAppGenerationMessageMode =
   | AppGenerationMode
-  | typeof ChatAppGenerationMessageModeEnum.plain_chat;
+  | typeof PLAIN_CHAT_MESSAGE_MODE;
 
 export type ChatAppGenerationMessageState = {
   mode: AppGenerationMode | null;
@@ -147,7 +148,7 @@ export function serializeChatAppGenerationByMessageId(
     Object.entries(details.appGenerationByMessageId).map(
       ([messageId, messageState]) => [
         messageId,
-        messageState.mode ?? ChatAppGenerationMessageModeEnum.plain_chat,
+        messageState.mode ?? PLAIN_CHAT_MESSAGE_MODE,
       ],
     ),
   );
@@ -234,7 +235,7 @@ function createChatAppGenerationMessageState(
 function parseChatAppGenerationMessageState(
   rawMode: string,
 ): ChatAppGenerationMessageState | null {
-  if (rawMode === ChatAppGenerationMessageModeEnum.plain_chat) {
+  if (rawMode === PLAIN_CHAT_MESSAGE_MODE) {
     return {
       mode: null,
     };

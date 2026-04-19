@@ -130,29 +130,9 @@
       "schemaRef": "#/$defs/Allocation"
     },
     {
-      "name": "AppCapabilities",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppCapabilities"
-    },
-    {
       "name": "AppDefinition",
       "kind": "model",
       "schemaRef": "#/$defs/AppDefinition"
-    },
-    {
-      "name": "AppDefinitionMutationResult",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionMutationResult"
-    },
-    {
-      "name": "AppDefinitionReadResult",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionReadResult"
-    },
-    {
-      "name": "AppDefinitionValidationResult",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppDefinitionValidationResult"
     },
     {
       "name": "AppGenerationMode",
@@ -183,9 +163,19 @@
       "schemaRef": "#/$defs/AppRoute"
     },
     {
-      "name": "AppValidationIssue",
+      "name": "AppSubsystemChatSlashCommandValue",
       "kind": "model",
-      "schemaRef": "#/$defs/AppValidationIssue"
+      "schemaRef": "#/$defs/AppSubsystemChatSlashCommandValue"
+    },
+    {
+      "name": "AppSubsystemChatUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/AppSubsystemChatUIConfigValue"
+    },
+    {
+      "name": "AppSubsystemCustomSlashCommandModeOptionValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/AppSubsystemCustomSlashCommandModeOptionValue"
     },
     {
       "name": "AppendMessagesRequest",
@@ -248,6 +238,11 @@
       "name": "BackendListenerEndpointRequest",
       "kind": "model",
       "schemaRef": "#/$defs/BackendListenerEndpointRequest"
+    },
+    {
+      "name": "BackendLogEvent",
+      "kind": "model",
+      "schemaRef": "#/$defs/BackendLogEvent"
     },
     {
       "name": "BackendRequestContext",
@@ -445,6 +440,16 @@
       "name": "CanvasPoint",
       "kind": "alias",
       "schemaRef": "#/$defs/CanvasPoint"
+    },
+    {
+      "name": "Capabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/Capabilities"
+    },
+    {
+      "name": "ChangeParamImplUIConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ChangeParamImplUIConfigValue"
     },
     {
       "name": "ChartDataArtifact",
@@ -1680,6 +1685,11 @@
       ]
     },
     {
+      "name": "IFrameSectionImpl",
+      "kind": "model",
+      "schemaRef": "#/$defs/IFrameSectionImpl"
+    },
+    {
       "name": "IdentityContent",
       "kind": "model",
       "schemaRef": "#/$defs/IdentityContent"
@@ -1768,6 +1778,89 @@
       "name": "LSPDiagnosticsPayload",
       "kind": "model",
       "schemaRef": "#/$defs/LSPDiagnosticsPayload"
+    },
+    {
+      "name": "LanguageServerProviderOption",
+      "kind": "model",
+      "schemaRef": "#/$defs/LanguageServerProviderOption"
+    },
+    {
+      "name": "LanguageServerSelectionSeverity",
+      "kind": "enum",
+      "schemaRef": "#/$defs/LanguageServerSelectionSeverity",
+      "enumValues": [
+        {
+          "name": "default",
+          "value": "default"
+        },
+        {
+          "name": "warning",
+          "value": "warning"
+        },
+        {
+          "name": "success",
+          "value": "success"
+        }
+      ]
+    },
+    {
+      "name": "LanguageServerSelectionState",
+      "kind": "enum",
+      "schemaRef": "#/$defs/LanguageServerSelectionState",
+      "enumValues": [
+        {
+          "name": "unset",
+          "value": "unset"
+        },
+        {
+          "name": "disabled",
+          "value": "disabled"
+        },
+        {
+          "name": "selected",
+          "value": "selected"
+        }
+      ]
+    },
+    {
+      "name": "LanguageServerSelectionStatus",
+      "kind": "model",
+      "schemaRef": "#/$defs/LanguageServerSelectionStatus"
+    },
+    {
+      "name": "LanguageServerSelectionStatusKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/LanguageServerSelectionStatusKind",
+      "enumValues": [
+        {
+          "name": "unselected",
+          "value": "unselected"
+        },
+        {
+          "name": "disabled",
+          "value": "disabled"
+        },
+        {
+          "name": "no_available_providers",
+          "value": "no_available_providers"
+        },
+        {
+          "name": "selected_unavailable",
+          "value": "selected_unavailable"
+        },
+        {
+          "name": "selected_incompatible",
+          "value": "selected_incompatible"
+        },
+        {
+          "name": "pending_restart",
+          "value": "pending_restart"
+        },
+        {
+          "name": "active",
+          "value": "active"
+        }
+      ]
     },
     {
       "name": "LauncherManagementTransportRoutes",
@@ -2256,6 +2349,11 @@
       ]
     },
     {
+      "name": "MetaControlSectionImpl",
+      "kind": "model",
+      "schemaRef": "#/$defs/MetaControlSectionImpl"
+    },
+    {
       "name": "MetaControlSizeMode",
       "kind": "enum",
       "schemaRef": "#/$defs/MetaControlSizeMode",
@@ -2336,6 +2434,11 @@
       "name": "MoveSectionsInput",
       "kind": "model",
       "schemaRef": "#/$defs/MoveSectionsInput"
+    },
+    {
+      "name": "MutationResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/MutationResult"
     },
     {
       "name": "NameValidationContract",
@@ -2544,6 +2647,16 @@
       "schemaRef": "#/$defs/PatchPolicy"
     },
     {
+      "name": "PluginAppSubsystemCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginAppSubsystemCapabilities"
+    },
+    {
+      "name": "PluginAppSubsystemFeatureManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginAppSubsystemFeatureManifest"
+    },
+    {
       "name": "PluginBackendManifest",
       "kind": "model",
       "schemaRef": "#/$defs/PluginBackendManifest"
@@ -2629,6 +2742,16 @@
       "name": "PluginErrorInfo",
       "kind": "model",
       "schemaRef": "#/$defs/PluginErrorInfo"
+    },
+    {
+      "name": "PluginFeatureCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginFeatureCapabilities"
+    },
+    {
+      "name": "PluginFeatureCapabilitiesManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginFeatureCapabilitiesManifest"
     },
     {
       "name": "PluginFrontendDescriptor",
@@ -2813,6 +2936,11 @@
       ]
     },
     {
+      "name": "PluginRuntimeUpdateMessage",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginRuntimeUpdateMessage"
+    },
+    {
       "name": "PluginScope",
       "kind": "enum",
       "schemaRef": "#/$defs/PluginScope",
@@ -2944,11 +3072,6 @@
       "name": "ProjectChatAgenticEdgeContextModeOption",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectChatAgenticEdgeContextModeOption"
-    },
-    {
-      "name": "ProjectChatAppGenerationModeOption",
-      "kind": "model",
-      "schemaRef": "#/$defs/ProjectChatAppGenerationModeOption"
     },
     {
       "name": "ProjectChatDictationModeOption",
@@ -3145,6 +3268,11 @@
       "name": "RawMessage",
       "kind": "alias",
       "schemaRef": "#/$defs/RawMessage"
+    },
+    {
+      "name": "ReadResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/ReadResult"
     },
     {
       "name": "RealtimeDependencyEventContent",
@@ -4077,6 +4205,10 @@
         {
           "name": "SET_IMAGE_AREA_IMAGE_PATH",
           "value": "/setImageAreaImagePath"
+        },
+        {
+          "name": "SET_LANGUAGE_SERVER_SELECTION",
+          "value": "/setLanguageServerSelection"
         },
         {
           "name": "SET_LIST_ROOT_VIEW_MODE",
@@ -5228,9 +5360,24 @@
       "schemaRef": "#/$defs/SettingsBackend"
     },
     {
+      "name": "SettingsChatWindowing",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsChatWindowing"
+    },
+    {
+      "name": "SettingsChatWindowingShortcuts",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsChatWindowingShortcuts"
+    },
+    {
       "name": "SettingsGUI",
       "kind": "model",
       "schemaRef": "#/$defs/SettingsGUI"
+    },
+    {
+      "name": "SettingsLanguageServer",
+      "kind": "model",
+      "schemaRef": "#/$defs/SettingsLanguageServer"
     },
     {
       "name": "SettingsManagedBlock",
@@ -5274,6 +5421,29 @@
       "name": "SettingsUpdateMessage",
       "kind": "model",
       "schemaRef": "#/$defs/SettingsUpdateMessage"
+    },
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "schemaRef": "#/$defs/Severity",
+      "enumValues": [
+        {
+          "name": "info",
+          "value": "info"
+        },
+        {
+          "name": "warning",
+          "value": "warning"
+        },
+        {
+          "name": "error",
+          "value": "error"
+        },
+        {
+          "name": "critical",
+          "value": "critical"
+        }
+      ]
     },
     {
       "name": "SharePolicyOverrides",
@@ -6258,6 +6428,16 @@
       "schemaRef": "#/$defs/UserChatMessage"
     },
     {
+      "name": "ValidationIssue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ValidationIssue"
+    },
+    {
+      "name": "ValidationResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/ValidationResult"
+    },
+    {
       "name": "Variant",
       "kind": "model",
       "schemaRef": "#/$defs/Variant"
@@ -6305,6 +6485,11 @@
       "name": "WatchCodeRegistryEntry",
       "kind": "model",
       "schemaRef": "#/$defs/WatchCodeRegistryEntry"
+    },
+    {
+      "name": "WebsocketMessage",
+      "kind": "model",
+      "schemaRef": "#/$defs/WebsocketMessage"
     },
     {
       "name": "WebsocketMessageType",
@@ -6398,6 +6583,10 @@
         {
           "name": "UpdateSettings",
           "value": "UpdateSettings"
+        },
+        {
+          "name": "UpdatePluginRuntime",
+          "value": "UpdatePluginRuntime"
         },
         {
           "name": "ReturnRenameRefactorResults",
@@ -7518,6 +7707,11 @@
       "name": "SET_IMAGE_AREA_IMAGE_PATH",
       "path": "/setImageAreaImagePath",
       "sourceConstant": "RouteSetImageAreaImagePath"
+    },
+    {
+      "name": "SET_LANGUAGE_SERVER_SELECTION",
+      "path": "/setLanguageServerSelection",
+      "sourceConstant": "RouteSetLanguageServerSelection"
     },
     {
       "name": "SET_LIST_ROOT_VIEW_MODE",
@@ -9701,6 +9895,36 @@
     },
     {
       "profile": "frontend",
+      "type": "SettingsChatWindowing",
+      "value": {
+        "autoCreateInitialChat": true,
+        "restorePriorStateOnUnmaximize": true,
+        "shortcuts": {
+          "canvasToggle": "Shift + Esc",
+          "maximizeFocused": "Mod + Shift + Enter",
+          "minimizeFocused": "Mod + Shift + M",
+          "snapBottom": "Mod + Alt + ArrowDown",
+          "snapLeft": "Mod + Alt + ArrowLeft",
+          "snapRight": "Mod + Alt + ArrowRight",
+          "snapTop": "Mod + Alt + ArrowUp"
+        }
+      }
+    },
+    {
+      "profile": "frontend",
+      "type": "SettingsChatWindowingShortcuts",
+      "value": {
+        "canvasToggle": "Shift + Esc",
+        "maximizeFocused": "Mod + Shift + Enter",
+        "minimizeFocused": "Mod + Shift + M",
+        "snapBottom": "Mod + Alt + ArrowDown",
+        "snapLeft": "Mod + Alt + ArrowLeft",
+        "snapRight": "Mod + Alt + ArrowRight",
+        "snapTop": "Mod + Alt + ArrowUp"
+      }
+    },
+    {
+      "profile": "frontend",
       "type": "SettingsGUI",
       "value": {
         "defaultZoomLevel": 1,
@@ -9761,6 +9985,13 @@
         "zoomOnDoubleClick": false,
         "zoomOnPinch": true,
         "zoomOnScroll": true
+      }
+    },
+    {
+      "profile": "frontend",
+      "type": "SettingsLanguageServer",
+      "value": {
+        "selectedByLanguage": {}
       }
     },
     {
@@ -9851,6 +10082,19 @@
           "saveRenderedValues": false,
           "showDefaultConfigOnLoad": true
         },
+        "chatWindowing": {
+          "autoCreateInitialChat": true,
+          "restorePriorStateOnUnmaximize": true,
+          "shortcuts": {
+            "canvasToggle": "Shift + Esc",
+            "maximizeFocused": "Mod + Shift + Enter",
+            "minimizeFocused": "Mod + Shift + M",
+            "snapBottom": "Mod + Alt + ArrowDown",
+            "snapLeft": "Mod + Alt + ArrowLeft",
+            "snapRight": "Mod + Alt + ArrowRight",
+            "snapTop": "Mod + Alt + ArrowUp"
+          }
+        },
         "gui": {
           "defaultZoomLevel": 1,
           "gridColor": "#afbacf",
@@ -9912,16 +10156,7 @@
           "zoomOnScroll": true
         },
         "languageServer": {
-          "basedpyright": {
-            "analysis": {
-              "diagnosticSeverityOverrides": {
-                "reportSelfClsParameterName": "none",
-                "reportUnannotatedClassAttribute": "none",
-                "reportUnknownMemberType": "none",
-                "reportUnknownVariableType": "none"
-              }
-            }
-          }
+          "selectedByLanguage": {}
         },
         "sectionSizingPolicy": {
           "byType": {
@@ -10602,6 +10837,65 @@
       }
     },
     {
+      "name": "AppSubsystemChatUIConfig",
+      "type": "AppSubsystemChatUIConfigValue",
+      "value": {
+        "customSlashCommandModeOptions": [
+          {
+            "label": "Plain chat",
+            "value": "plain_chat"
+          },
+          {
+            "label": "JSON Render",
+            "value": "json_render"
+          },
+          {
+            "label": "Image to JSON Render",
+            "value": "json_render_with_image"
+          },
+          {
+            "label": "Prompt Builder",
+            "value": "prompt_builder"
+          },
+          {
+            "label": "MCP Server",
+            "value": "mcp_server"
+          }
+        ],
+        "defaultCustomSlashCommandMode": "plain_chat",
+        "slashCommands": [
+          {
+            "action": "app_json_render",
+            "appGenerationMode": "json_render",
+            "command": "/app-json",
+            "promptTemplate": "Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.",
+            "summary": "Generate a standalone app spec through JSON render."
+          },
+          {
+            "action": "app_json_render_with_image",
+            "appGenerationMode": "json_render_with_image",
+            "command": "/app-image",
+            "promptTemplate": "Generate a JSON-render app spec that matches the attached reference image as closely as possible. Prioritize layout composition first, then spacing, typography scale, and color intent. Stay within catalog constraints and preserve the closest visual approximation when exact parity is impossible.",
+            "summary": "Generate an app spec using attached image guidance."
+          },
+          {
+            "action": "app_prompt_builder",
+            "appGenerationMode": "prompt_builder",
+            "command": "/app-prompt",
+            "promptTemplate": "Generate a practical, polished JSON-render app spec for this project. Use strong information hierarchy, clear spacing rhythm, and one primary action path. Persist the result into the project via Setta app-definition tools.",
+            "summary": "Generate an app-definition plan for chat-driven iteration."
+          },
+          {
+            "action": "app_mcp_server",
+            "appGenerationMode": "mcp_server",
+            "command": "/app-mcp",
+            "promptTemplate": "Use MCP tools to produce a high-fidelity UI implementation for this project. If design-import tools are available, import an existing design or generate one before mapping it back into Setta's app definition. Preserve clear hierarchy, responsive layout behavior, and practical defaults.",
+            "summary": "Route app generation through MCP-capable tools."
+          }
+        ]
+      }
+    },
+    {
       "name": "BootstrapProtocol",
       "type": "BootstrapHandoffProtocol",
       "value": {
@@ -10696,6 +10990,58 @@
         "SETTA_TERMINAL_READY": "SETTA_TERMINAL_READY",
         "SETTINGS_PROJECT_NAME": "settings",
         "WS_TERMINAL_RESIZE": "terminalResize"
+      }
+    },
+    {
+      "name": "ChangeParamImplUIConfig",
+      "type": "ChangeParamImplUIConfigValue",
+      "value": {
+        "allParamCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ],
+        "controlCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam"
+        ],
+        "sectionParamCodeObjTypes": [
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ]
       }
     },
     {
@@ -11117,29 +11463,6 @@
             "value": "summary"
           }
         ],
-        "customSlashCommandModeOptions": [
-          {
-            "label": "Plain chat",
-            "value": "plain_chat"
-          },
-          {
-            "label": "JSON Render",
-            "value": "json_render"
-          },
-          {
-            "label": "Image to JSON Render",
-            "value": "json_render_with_image"
-          },
-          {
-            "label": "Prompt Builder",
-            "value": "prompt_builder"
-          },
-          {
-            "label": "MCP Server",
-            "value": "mcp_server"
-          }
-        ],
-        "defaultCustomSlashCommandMode": "plain_chat",
         "permissionModeOptions": [
           {
             "label": "minimal",
@@ -12416,6 +12739,10 @@
           "discriminatorValue": "Prompt"
         },
         {
+          "name": "MetaControlSectionImpl",
+          "discriminatorValue": "MetaControl"
+        },
+        {
           "name": "GlobalVariablesSectionImpl",
           "discriminatorValue": "GlobalVariables"
         },
@@ -12434,6 +12761,10 @@
         {
           "name": "TerminalSectionImpl",
           "discriminatorValue": "Terminal"
+        },
+        {
+          "name": "IFrameSectionImpl",
+          "discriminatorValue": "IFrame"
         },
         {
           "name": "ChatSectionImpl",
@@ -12472,7 +12803,8 @@
           "memberTypes": [
             "CallableSectionImpl",
             "DictSectionImpl",
-            "GlobalVariablesSectionImpl"
+            "GlobalVariablesSectionImpl",
+            "MetaControlSectionImpl"
           ]
         }
       ],
@@ -12684,6 +13016,26 @@
           "tagColor": null,
           "type": "Group"
         },
+        "IFrame": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "code": "",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "IFrame"
+        },
         "ListRoot": {
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
@@ -12705,6 +13057,39 @@
           "tagColor": null,
           "type": "ListRoot",
           "viewMode": "default"
+        },
+        "MetaControl": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "codeObjVariantMap": {},
+          "columnWidth": null,
+          "edgeInputParams": [],
+          "edgeOutputPorts": [],
+          "hideUnpinnedParams": false,
+          "id": "",
+          "ignoreTypeErrors": {
+            "callable": false,
+            "params": {}
+          },
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "metaControlParamId": "",
+          "name": "",
+          "paramFilter": "",
+          "pinnedParams": [],
+          "positionAndSizeLocked": false,
+          "selectedParams": [],
+          "showSectionTitle": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "MetaControl"
         },
         "Prompt": {
           "aspectRatio": false,

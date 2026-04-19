@@ -3,6 +3,7 @@ package lspsignature
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -82,6 +83,9 @@ func (s *Service) ResolveCallableSignature(
 		Character:     request.Character,
 	})
 	if err != nil {
+		if errors.Is(err, lsp.ErrLanguageServerNotConfigured) {
+			return projectstate.CallableSignatureResult{}, false, nil
+		}
 		return projectstate.CallableSignatureResult{}, false, err
 	}
 	return parseCallableSignatureResult(signatureHelp), true, nil

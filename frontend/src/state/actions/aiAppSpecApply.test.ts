@@ -1,18 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("utils/generatedTypes", async () => {
+  const actual = await vi.importActual<typeof import("utils/generatedTypes")>(
+    "utils/generatedTypes",
+  );
+  return {
+    ...actual,
+    AppSpecPatchPolicyConfig: actual.AppSpecPatchPolicyConfig ?? {
+      allowedOps: ["set", "add", "replace", "remove"],
+      valueOptionalOps: ["remove"],
+      commentPrefix: "//",
+      rootPath: "/root",
+      elementsPathPrefix: "/elements/",
+      rootResetValue: "",
+    },
+  };
+});
+
 import { receiveLLMResponseChunk } from "./ai";
 
-import {
-  useAppDefinition,
-  useAppPreview,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
   StreamingEventTypeEnum,
   createProjectConfig,
 } from "utils/generatedTypes";
+import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 describe("ai app spec tool results", () => {
   beforeEach(() => {
@@ -45,7 +60,7 @@ describe("ai app spec tool results", () => {
     const nextDefinition = {
       catalogId: "setta.app.default",
       appSpecVersion: "v1",
-      appSpecPath: "app_specs/app.json",
+      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/app.json",
       routes: [],
       dataBindings: {},
       actions: {},
@@ -122,7 +137,8 @@ describe("ai app spec tool results", () => {
               appDefinition: {
                 catalogId: "setta.app.default",
                 appSpecVersion: "v1",
-                appSpecPath: "app_specs/app.json",
+                appSpecPath:
+                  "plugins/setta-json-render-app-gen/app_specs/app.json",
                 routes: [],
                 dataBindings: {},
                 actions: {},

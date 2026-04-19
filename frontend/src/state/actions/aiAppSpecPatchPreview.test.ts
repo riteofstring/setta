@@ -1,26 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
-import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
+import { clearAllAppSpecPatchPreviewStreams } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
+import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
 describe("ai app spec patch preview streaming", () => {
   beforeEach(() => {
     resetProjectStores();
-    clearAllAppSpecPatchStreams();
+    clearAllAppSpecPatchPreviewStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    clearAllAppSpecPatchStreams();
+    clearAllAppSpecPatchPreviewStreams();
     resetProjectStores();
   });
 
