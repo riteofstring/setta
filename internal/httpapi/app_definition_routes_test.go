@@ -50,6 +50,23 @@ func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
 	}
 }
 
+func TestAppDefinitionRoutePublicNamesRemainFrozen(t *testing.T) {
+	t.Parallel()
+
+	if RouteGetAppCatalog != "/getAppCatalog" {
+		t.Fatalf("expected get app catalog route to remain frozen, got %q", RouteGetAppCatalog)
+	}
+	if RouteGetAppDefinition != "/getAppDefinition" {
+		t.Fatalf("expected get app definition route to remain frozen, got %q", RouteGetAppDefinition)
+	}
+	if RouteSetAppDefinition != "/setAppDefinition" {
+		t.Fatalf("expected set app definition route to remain frozen, got %q", RouteSetAppDefinition)
+	}
+	if RouteValidateAppDefinition != "/validateAppDefinition" {
+		t.Fatalf("expected validate app definition route to remain frozen, got %q", RouteValidateAppDefinition)
+	}
+}
+
 func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	t.Parallel()
 
