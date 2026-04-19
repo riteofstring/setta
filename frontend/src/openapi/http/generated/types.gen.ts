@@ -154,6 +154,113 @@ export type AppsubsystemAppdefinitionValidationResult = {
   warnings: Array<AppsubsystemAppdefinitionValidationIssue> | null;
 };
 
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogActionResponse =
+  {
+    name: string;
+  };
+
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogComponentResponse =
+  {
+    children: boolean;
+    props?: {
+      [
+        key: string
+      ]: AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogPropResponse;
+    };
+    type: string;
+  };
+
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogPropResponse =
+  {
+    default?: unknown;
+    enum?: Array<unknown> | null;
+    max?: number;
+    min?: number;
+    required?: boolean;
+    responsive?: boolean;
+    type: string;
+  };
+
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogResponse = {
+  actions: Array<AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogActionResponse> | null;
+  components: Array<AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogComponentResponse> | null;
+  id: string;
+  version: string;
+};
+
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpGetAppDefinitionRequest =
+  {
+    frontendOpId?: string;
+  };
+
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest =
+  {
+    actions?: {
+      [key: string]: unknown;
+    };
+    appSpec: unknown;
+    appSpecPath?: string;
+    appSpecVersion?: string;
+    assets?: Array<unknown>;
+    catalogId?: string;
+    dataBindings?: {
+      [key: string]: unknown;
+    };
+    frontendOpId?: string;
+    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
+    theme?: {
+      [key: string]: unknown;
+    };
+  };
+
+export type AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest =
+  {
+    actions?: {
+      [key: string]: unknown;
+    };
+    appSpec: unknown;
+    appSpecVersion?: string;
+    assets?: Array<unknown>;
+    catalogId?: string;
+    dataBindings?: {
+      [key: string]: unknown;
+    };
+    frontendOpId?: string;
+    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
+    theme?: {
+      [key: string]: unknown;
+    };
+  };
+
+export type AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse =
+  {
+    appPolicy: DeploymentsPolicy;
+    defaultProjectConfigId: string;
+    deploymentName: string;
+    deploymentVersion: string;
+    manifest?: DeploymentsManifest;
+    projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
+    sessionRunCount: number;
+    shareSessionId: string;
+  };
+
+export type AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse =
+  {
+    appDefinition: AppsubsystemAppdefinitionAppDefinition;
+    appPolicy: DeploymentsPolicy;
+    appSpec: unknown;
+    projectState: ProjectviewSingleConfig;
+  };
+
+export type AppsubsystemprovidersBuiltinAppdeploymenthttpPublishAppDeploymentRequest =
+  {
+    appPolicyOverrides: DeploymentsSharePolicyOverrides;
+    deploymentName: string;
+    listenerEnabled: boolean | null;
+    listenerEntrypoint: string;
+    projectConfigId: string;
+  };
+
 export type ArtifactsArtifactSaveResult = {
   backupPath?: string;
   id: string;
@@ -2867,114 +2974,6 @@ export type PluginsPluginUpdateResponse = {
   toVersion: string;
 };
 
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse =
-  {
-    name: string;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogComponentResponse =
-  {
-    children: boolean;
-    props?: {
-      [
-        key: string
-      ]: PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogPropResponse;
-    };
-    type: string;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogPropResponse =
-  {
-    default?: unknown;
-    enum?: Array<unknown> | null;
-    max?: number;
-    min?: number;
-    required?: boolean;
-    responsive?: boolean;
-    type: string;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogResponse =
-  {
-    actions: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogActionResponse> | null;
-    components: Array<PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogComponentResponse> | null;
-    id: string;
-    version: string;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpGetAppDefinitionRequest =
-  {
-    frontendOpId?: string;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinitionRequest =
-  {
-    actions?: {
-      [key: string]: unknown;
-    };
-    appSpec: unknown;
-    appSpecPath?: string;
-    appSpecVersion?: string;
-    assets?: Array<unknown>;
-    catalogId?: string;
-    dataBindings?: {
-      [key: string]: unknown;
-    };
-    frontendOpId?: string;
-    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
-    theme?: {
-      [key: string]: unknown;
-    };
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefinitionRequest =
-  {
-    actions?: {
-      [key: string]: unknown;
-    };
-    appSpec: unknown;
-    appSpecVersion?: string;
-    assets?: Array<unknown>;
-    catalogId?: string;
-    dataBindings?: {
-      [key: string]: unknown;
-    };
-    frontendOpId?: string;
-    routes?: Array<AppsubsystemAppdefinitionAppRoute>;
-    theme?: {
-      [key: string]: unknown;
-    };
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentSessionResponse =
-  {
-    appPolicy: DeploymentsPolicy;
-    defaultProjectConfigId: string;
-    deploymentName: string;
-    deploymentVersion: string;
-    manifest?: DeploymentsManifest;
-    projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
-    sessionRunCount: number;
-    shareSessionId: string;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse =
-  {
-    appDefinition: AppsubsystemAppdefinitionAppDefinition;
-    appPolicy: DeploymentsPolicy;
-    appSpec: unknown;
-    projectState: ProjectviewSingleConfig;
-  };
-
-export type PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpPublishAppDeploymentRequest =
-  {
-    appPolicyOverrides: DeploymentsSharePolicyOverrides;
-    deploymentName: string;
-    listenerEnabled: boolean | null;
-    listenerEntrypoint: string;
-    projectConfigId: string;
-  };
-
 export type ProjectshellAllProjectMetadata = {
   defaultProjectConfigId: string | null;
   projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
@@ -4043,7 +4042,7 @@ export type ListAppDeploymentsResponse =
   ListAppDeploymentsResponses[keyof ListAppDeploymentsResponses];
 
 export type PublishAppDeploymentData = {
-  body: PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpPublishAppDeploymentRequest;
+  body: AppsubsystemprovidersBuiltinAppdeploymenthttpPublishAppDeploymentRequest;
   path?: never;
   query?: never;
   url: "/app/deployments";
@@ -4090,7 +4089,7 @@ export type GetAppDeploymentCurrentSessionResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentSessionResponse;
+  200: AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentSessionResponse;
 };
 
 export type GetAppDeploymentCurrentSessionResponse =
@@ -4178,7 +4177,7 @@ export type GetAppDeploymentProjectConfigResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse;
+  200: AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse;
 };
 
 export type GetAppDeploymentProjectConfigResponse =
@@ -4208,7 +4207,7 @@ export type GetAppDeploymentStateResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdeploymenthttpAppDeploymentStateResponse;
+  200: AppsubsystemprovidersBuiltinAppdeploymenthttpAppDeploymentStateResponse;
 };
 
 export type GetAppDeploymentStateResponse =
@@ -5982,14 +5981,14 @@ export type GetAppCatalogResponses = {
   /**
    * OK
    */
-  200: PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpAppCatalogResponse;
+  200: AppsubsystemprovidersBuiltinAppdefinitionhttpAppCatalogResponse;
 };
 
 export type GetAppCatalogResponse =
   GetAppCatalogResponses[keyof GetAppCatalogResponses];
 
 export type GetAppDefinitionData = {
-  body: PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpGetAppDefinitionRequest;
+  body: AppsubsystemprovidersBuiltinAppdefinitionhttpGetAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/getAppDefinition";
@@ -8630,7 +8629,7 @@ export type SetAgenticEdgesResponse =
   SetAgenticEdgesResponses[keyof SetAgenticEdgesResponses];
 
 export type SetAppDefinitionData = {
-  body: PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpSetAppDefinitionRequest;
+  body: AppsubsystemprovidersBuiltinAppdefinitionhttpSetAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/setAppDefinition";
@@ -11967,7 +11966,7 @@ export type UpsertAppGenCustomSkillResponse =
   UpsertAppGenCustomSkillResponses[keyof UpsertAppGenCustomSkillResponses];
 
 export type ValidateAppDefinitionData = {
-  body: PluginsSettaJsonRenderAppGenBackendAppdefinitionhttpValidateAppDefinitionRequest;
+  body: AppsubsystemprovidersBuiltinAppdefinitionhttpValidateAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/validateAppDefinition";
