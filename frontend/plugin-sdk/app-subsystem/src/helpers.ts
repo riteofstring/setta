@@ -7,4 +7,16 @@ export {
 export { shouldShowPasswordReveal } from "utils/paramValue";
 export { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 export { createRandomName } from "utils/idNameCreation";
-export type { DropzoneStatelessAttachment } from "utils/dropzone";
+export {
+  createDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId,
+  parseDropzoneValue,
+  serializeDropzoneValue,
+  type DropzoneStoredAttachment,
+  type DropzoneStatelessAttachment,
+} from "utils/dropzone";
+export { formatBytes } from "utils/attachments";
+export {
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
