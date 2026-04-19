@@ -23,3 +23,11 @@ type AppDeploymentStateResponse struct {
 	AppSpec       any                         `json:"appSpec"`
 	AppPolicy     deployments.Policy          `json:"appPolicy"`
 }
+
+type PublishAppDeploymentRequest struct {
+	DeploymentName     string                          `json:"deploymentName"`
+	ProjectConfigID    string                          `json:"projectConfigId"`
+	AppPolicyOverrides *deployments.AppPolicyOverrides `json:"appPolicyOverrides"`
+	ListenerEntrypoint string                          `json:"listenerEntrypoint"`
+	ListenerEnabled    *bool                           `json:"listenerEnabled"`
+}
