@@ -74,7 +74,10 @@ export default {
     outDir: resolve(pluginFrontendDir, "dist"),
     emptyOutDir: true,
     target: "es2020",
-    minify: "esbuild",
+    // Vite's esbuild minifier strips the exported register(host) body from the
+    // packaged plugin bundle, which leaves the runtime app subsystem unable to
+    // register any frontend surfaces.
+    minify: false,
     sourcemap: false,
     cssCodeSplit: false,
     lib: {

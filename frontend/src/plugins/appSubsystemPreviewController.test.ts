@@ -10,7 +10,7 @@ import {
   clearAllAppSpecPatchStreams,
 } from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
 import { useAppPreview } from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
-import { appSubsystemFrontendRegistration } from "../../../plugins/setta-json-render-app-gen/frontend/src/index";
+import { appSubsystemFrontendRegistration } from "../../../plugins/setta-json-render-app-gen/frontend/src/registration";
 
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",
