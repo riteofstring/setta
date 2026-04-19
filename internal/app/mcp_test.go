@@ -3607,7 +3607,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    "app_specs/custom.json",
+			"appSpecPath":    appspec.JoinPath("custom.json"),
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"theme":          map[string]any{"mode": "dark"},
@@ -3620,7 +3620,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected set_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, "app_specs/custom.json")
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3628,7 +3628,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected stored app spec %#v, got %#v", mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"]), storedSpec)
 	}
 	storedAppDefinition := mustDecodeStoredAppDefinition(t, app.ProjectStates().Main().Snapshot().Document.AppDefinition)
-	if storedAppDefinition.AppSpecPath != "app_specs/custom.json" {
+	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
 		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", storedAppDefinition)
 	}
 }
@@ -9727,7 +9727,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 					"root":{"key":"root","type":"Stack"},
 					"elements":{}
 				},
-				"appSpecPath":"app_specs/custom.json",
+				"appSpecPath":"`+appspec.JoinPath("custom.json")+`",
 				"appSpecVersion":"v2",
 				"catalogId":"setta.app.default",
 				"theme":{"mode":"dark"}
@@ -9759,7 +9759,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 		t.Fatalf("expected set_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, "app_specs/custom.json")
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}

@@ -22,6 +22,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
 	"setta/plugins/setta-json-render-app-gen/backend/appdeploymenthttp"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppDeploymentRoutePublicNamesRemainFrozen(t *testing.T) {
@@ -228,6 +229,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 	t.Parallel()
 
 	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	appSpecPath := appspec.JoinPath("spec.json")
 	deploymentRuntime := openPluginAppDeploymentRuntimeWithOptions(t, pluginAppDeploymentRuntimeOptions{
 		Now:            &now,
 		GeneratedID:    "generated-app",
@@ -237,7 +239,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 			DefaultProjectID: "project-alpha",
 			AppDefinition: mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 				CatalogID:   "catalog-demo",
-				AppSpecPath: "app_specs/spec.json",
+				AppSpecPath: appSpecPath,
 				Routes: []projectstate.AppRoute{
 					{Path: "/", Name: "Home"},
 				},
@@ -254,7 +256,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 			},
 		},
 		ExtraFiles: map[string]any{
-			filepath.Join("app_specs", "spec.json"): map[string]any{
+			filepath.FromSlash(appSpecPath): map[string]any{
 				"title": "Demo App",
 				"pages": []any{
 					map[string]any{"path": "/"},
@@ -302,6 +304,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 	t.Parallel()
 
 	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+	appSpecPath := appspec.JoinPath("spec.json")
 	deploymentRuntime := openPluginAppDeploymentRuntimeWithOptions(t, pluginAppDeploymentRuntimeOptions{
 		Now:            &now,
 		GeneratedID:    "generated-app",
@@ -310,7 +313,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 			SchemaVersion:    projectstate.CurrentSchemaVersion,
 			DefaultProjectID: "project-alpha",
 			AppDefinition: mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
-				AppSpecPath: "app_specs/spec.json",
+				AppSpecPath: appSpecPath,
 				Routes: []projectstate.AppRoute{
 					{Path: "/"},
 				},
@@ -327,7 +330,7 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 			},
 		},
 		ExtraFiles: map[string]any{
-			filepath.Join("app_specs", "spec.json"): map[string]any{
+			filepath.FromSlash(appSpecPath): map[string]any{
 				"title": "Demo App",
 			},
 		},
