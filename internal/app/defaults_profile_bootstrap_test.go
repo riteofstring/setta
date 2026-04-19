@@ -255,6 +255,30 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRepairsInvalidMarker(t *testing
 	}
 }
 
+func TestBootstrapWorkspaceDefaultsInstallProfileIgnoresIrreparableMarkerWriteFailure(t *testing.T) {
+	runtimeRoot := t.TempDir()
+	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
+	if err := os.MkdirAll(defaultsProfileBootstrapStatePath(runtimeRoot), 0o755); err != nil {
+		t.Fatalf("mkdir defaults profile marker path as directory: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
+	pluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
+
+	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
+		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
+	}
+
+	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+	}
+	if !ok || selection == nil || *selection != "setta-basedpyright" {
+		t.Fatalf("expected python defaults selection despite irreparable marker, got ok=%v selection=%#v", ok, selection)
+	}
+}
+
 func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 	t.Helper()
 

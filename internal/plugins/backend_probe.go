@@ -530,28 +530,42 @@ func normalizeBackendLanguageServerCommand(pluginRoot string, raw string) (strin
 	if command == "" {
 		return "", fmt.Errorf("command is required")
 	}
-	if strings.HasPrefix(command, "./") || strings.HasPrefix(command, "../") {
-		resolved, err := statefs.ResolveWithinRoot(pluginRoot, filepath.FromSlash(command), "plugin language server command")
+	if !backendLanguageServerCommandLooksPathLike(command) {
+		return command, nil
+	}
+
+	resolvedCommand := command
+	if !backendLanguageServerCommandIsAbsolute(command) {
+		var err error
+		resolvedCommand, err = statefs.ResolveWithinRoot(
+			pluginRoot,
+			filepath.FromSlash(backendLanguageServerCommandPath(command)),
+			"plugin language server command",
+		)
 		if err != nil {
 			return "", err
 		}
-		if err := validateBackendLanguageServerCommandExecutable(resolved); err != nil {
-			return "", err
-		}
-		return resolved, nil
 	}
-	if backendLanguageServerCommandLooksPathLike(command) {
-		if err := validateBackendLanguageServerCommandExecutable(command); err != nil {
-			return "", err
-		}
+	if err := validateBackendLanguageServerCommandExecutable(resolvedCommand); err != nil {
+		return "", err
 	}
-	return command, nil
+	return resolvedCommand, nil
 }
 
 func backendLanguageServerCommandLooksPathLike(command string) bool {
+	return backendLanguageServerCommandIsAbsolute(command) || strings.ContainsAny(command, `/\`)
+}
+
+func backendLanguageServerCommandIsAbsolute(command string) bool {
+	normalized := backendLanguageServerCommandPath(command)
 	return filepath.IsAbs(command) ||
-		strings.Contains(command, string(filepath.Separator)) ||
-		(filepath.Separator != '/' && strings.Contains(command, "/"))
+		path.IsAbs(normalized) ||
+		strings.HasPrefix(normalized, "//") ||
+		windowsDrivePrefixPattern.MatchString(normalized)
+}
+
+func backendLanguageServerCommandPath(command string) string {
+	return strings.ReplaceAll(command, `\`, `/`)
 }
 
 func validateBackendLanguageServerCommandExecutable(command string) error {

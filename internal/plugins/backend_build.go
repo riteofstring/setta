@@ -196,7 +196,7 @@ func pythonBackendLaunchEnvironment(pluginRoot string) (map[string]string, error
 }
 
 func pythonBackendImportRoots(pluginRoot string) ([]string, error) {
-	roots := []string{}
+	roots := []string{pluginRoot}
 
 	vendoredSitePackages := filepath.Join(pluginRoot, pythonBackendSitePackagesDirName)
 	if directoryContainsFiles(vendoredSitePackages) {

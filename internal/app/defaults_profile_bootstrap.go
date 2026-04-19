@@ -51,7 +51,10 @@ func bootstrapWorkspaceDefaultsInstallProfile(
 		}
 	}
 
-	return saveDefaultsProfileBootstrapState(runtimeRoot, profile)
+	// The bootstrap marker is advisory one-shot state. Startup must fail open
+	// if the marker cannot be repaired or rewritten in place.
+	_ = saveDefaultsProfileBootstrapState(runtimeRoot, profile)
+	return nil
 }
 
 func defaultsProfileBootstrapApplied(runtimeRoot string, profile plugins.InstallProfile) bool {
