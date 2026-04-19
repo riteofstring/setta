@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { Policy } from "utils/generatedTypes";
+import type { Policy } from "@setta/app-subsystem-frontend-sdk";
 
 import type { AppActionDefinitions, AppDataBindings } from "./appBindings";
 import type { ResolvedAppTheme } from "./appTheme";
