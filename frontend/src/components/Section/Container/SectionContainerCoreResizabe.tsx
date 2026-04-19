@@ -113,6 +113,169 @@ function resolveMotionHiddenCanvasState({
   };
 }
 
+function setBooleanDataAttribute(
+  node: Element | null,
+  name: string,
+  enabled: boolean,
+) {
+  if (!node) {
+    return;
+  }
+  if (enabled) {
+    node.setAttribute(name, "true");
+    return;
+  }
+  node.removeAttribute(name);
+}
+
+function applyMotionHiddenCanvasDomState({
+  motionHidden,
+  motionHiddenRoot,
+  sectionId,
+}: {
+  motionHidden: boolean;
+  motionHiddenRoot: boolean;
+  sectionId: string;
+}) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const sectionRoot = document.getElementById(`${sectionId}-CustomResizable`);
+  if (!(sectionRoot instanceof HTMLElement)) {
+    return;
+  }
+
+  setBooleanDataAttribute(
+    sectionRoot,
+    "data-canvas-owned-motion-shell-hidden",
+    motionHiddenRoot && motionHidden,
+  );
+  setBooleanDataAttribute(
+    sectionRoot,
+    "data-canvas-owned-motion-resize-handles-hidden",
+    motionHiddenRoot && motionHidden,
+  );
+
+  sectionRoot
+    .querySelectorAll('[data-canvas-owned-motion-body-root="true"]')
+    .forEach((node) => {
+      setBooleanDataAttribute(
+        node,
+        "data-canvas-owned-motion-body-hidden",
+        motionHidden,
+      );
+    });
+
+  sectionRoot
+    .querySelectorAll('[data-canvas-owned-motion-header-controls-root="true"]')
+    .forEach((node) => {
+      setBooleanDataAttribute(
+        node,
+        "data-canvas-owned-motion-header-controls-hidden",
+        motionHidden,
+      );
+    });
+
+  sectionRoot
+    .querySelectorAll('[data-canvas-owned-lightweight-menu-trigger="true"]')
+    .forEach((node) => {
+      setBooleanDataAttribute(
+        node,
+        "data-canvas-owned-motion-menu-trigger-hidden",
+        motionHidden,
+      );
+    });
+
+  sectionRoot
+    .querySelectorAll(
+      '.section-resize-handle,[data-setta-motion-hidden-resize-handle="true"]',
+    )
+    .forEach((node) => {
+      if (!(node instanceof HTMLElement)) {
+        return;
+      }
+      if (motionHidden) {
+        if (node.classList.contains("section-resize-handle")) {
+          node.classList.remove("section-resize-handle");
+          node.setAttribute("data-setta-motion-hidden-resize-handle", "true");
+        }
+        return;
+      }
+      if (node.getAttribute("data-setta-motion-hidden-resize-handle") !== "true") {
+        return;
+      }
+      node.classList.add("section-resize-handle");
+      node.removeAttribute("data-setta-motion-hidden-resize-handle");
+    });
+}
+
+function useSyncMotionHiddenCanvasDomState({
+  isSectionUIActive,
+  motionHiddenRoot,
+  sectionId,
+}: {
+  isSectionUIActive: boolean;
+  motionHiddenRoot: boolean;
+  sectionId: string;
+}) {
+  const isSectionUIActiveRef = React.useRef(isSectionUIActive);
+  isSectionUIActiveRef.current = isSectionUIActive;
+
+  React.useLayoutEffect(() => {
+    const applyMotionState = (
+      viewportInteractionActive = useReactFlow.getState().viewportInteractionActive,
+    ) => {
+      applyMotionHiddenCanvasDomState({
+        sectionId,
+        motionHiddenRoot,
+        motionHidden:
+          motionHiddenRoot &&
+          viewportInteractionActive &&
+          !isSectionUIActiveRef.current,
+      });
+    };
+
+    applyMotionState();
+
+    if (!motionHiddenRoot) {
+      return;
+    }
+
+    const unsubscribeViewportInteractionActive = useReactFlow.subscribe(
+      (state) => state.viewportInteractionActive,
+      (
+        nextViewportInteractionActive,
+        previousViewportInteractionActive,
+      ) => {
+        if (nextViewportInteractionActive === previousViewportInteractionActive) {
+          return;
+        }
+        applyMotionState(nextViewportInteractionActive);
+      },
+    );
+
+    return () => {
+      unsubscribeViewportInteractionActive();
+      applyMotionHiddenCanvasDomState({
+        sectionId,
+        motionHiddenRoot,
+        motionHidden: false,
+      });
+    };
+  }, [motionHiddenRoot, sectionId]);
+
+  React.useLayoutEffect(() => {
+    applyMotionHiddenCanvasDomState({
+      sectionId,
+      motionHiddenRoot,
+      motionHidden:
+        motionHiddenRoot &&
+        useReactFlow.getState().viewportInteractionActive &&
+        !isSectionUIActive,
+    });
+  }, [isSectionUIActive, motionHiddenRoot, sectionId]);
+}
+
 function getSectionContainerResizableSnapshot(
   state: ZustandProjectState,
   sectionId: string,
@@ -432,15 +595,17 @@ function _SectionContainerCoreResizable({
   const metaControlLayoutClassName =
     chromeMode === "meta-control" ? "grid-cols-1 grid-rows-1" : undefined;
   const graphSurfaceImplementation = useGraphSurfaceImplementation();
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
   const isSectionUIActive = useIsSectionUIActive(sectionId);
   const { motionHidden, motionHiddenRoot } = resolveMotionHiddenCanvasState({
     graphSurfaceImplementation,
     isSectionUIActive,
     sectionId,
-    viewportInteractionActive,
+    viewportInteractionActive: useReactFlow.getState().viewportInteractionActive,
+  });
+  useSyncMotionHiddenCanvasDomState({
+    sectionId,
+    motionHiddenRoot,
+    isSectionUIActive,
   });
 
   return (

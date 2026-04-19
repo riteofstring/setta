@@ -8,8 +8,9 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Progress review checkpoint
 
-- Decision for the 2026-04-20 checkpoint after run `042`: `section_container_core_viewport_subscription_removed_continue`.
+- Decision for the 2026-04-20 checkpoint after run `043`: `section_container_core_resizable_viewport_subscription_removed_continue`.
 - Recent progress is real:
+  - run `043` landed the next bounded product slice on the traced section-container rerender frontier by removing the `viewportInteractionActive` React subscription from `SectionContainerCoreResizable`; viewport start/stop now mirrors the existing motion-hidden DOM contract through imperative React Flow store subscriptions, hidden resize handles now drop and restore the generic `.section-resize-handle` class so the live chrome inventory still sees the expected handle-count collapse, and the paired rerun on the canonical `settings-section__browserSectionDefault` lane recorded `documentNodeCount 5494`, `raf.meanMs 43.84`, `longTasks.totalMs 2993`, `peakMotion.graphSurfaceMenuTriggerCount 1`, and `peakMotion.graphSurfaceSectionResizeHandleCount 3` while the fresh headless CDP check kept the graph surface visibly nonblank with `browserSectionDefault` present
   - run `042` landed the first bounded product slice on the traced section-container rerender frontier by removing the `viewportInteractionActive` React subscription from `SectionContainerCore`; viewport interaction state now mirrors onto the viewport root and graph-surface camera layer through imperative subscriptions in `useViewportTransformStyle.ts`, the shell compositor hint now comes from one CSS-targetable viewport-root attribute, and the paired dense rerun on the canonical `settings-section__browserSectionDefault` lane recorded `documentNodeCount 5494`, `raf.meanMs 45.38`, and `longTasks.totalMs 3565` while the fresh headless CDP check kept the graph surface visibly nonblank with `browserSectionDefault` present
   - run `041` landed the planned attribution pass on the canonical `settings-section__browserSectionDefault` lane without reopening another closed renderer micro-lane: the fresh dense rerun kept the same stable DOM/canvas shape (`documentNodeCount 5494`, `buttonCount 47`, `canvasCount 1`) while a fresh headless DevTools trace plus local CPU sample aggregation on `perf/artifacts/frontend/settings-all-settings/backdrop-retained-graph-attribution-trace-2026-04-20.json` pointed more strongly at `_SectionContainerCore` / `_SectionContainerCoreResizable` viewport-interaction rerender work than at `SectionShellBackdropCanvas` paint/layout work
   - run `040` landed one more real retained-scene invalidation slice on the canonical `settings-section__browserSectionDefault` lane by teaching `SectionShellBackdropCanvas` to ignore `useNodeInternals` map replacement when scene-relevant geometry is unchanged; the focused canvas test now proves same-scene node-map churn does not trigger another retained-canvas paint while a real width change still does, and the paired dense rerun recorded `documentNodeCount 5494`, `raf.meanMs 47.62`, and `longTasks.totalMs 3902`
@@ -37,18 +38,69 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `040` closes the raw `useNodeInternals` map-identity invalidation sub-lane here; the retained backdrop now ignores same-scene map churn, so do not spend the next pass on more backdrop node-map equality micropolish unless a fresh hotspot isolates another scene-authority miss
   - run `041` closes the current “maybe one more `SectionShellBackdropCanvas` invalidation pass” attribution question here; the fresh trace-backed report points more strongly at section-container rerender fanout under viewport interaction, and the saved trace is contaminated enough by workspace-chat timer activity that it should not be used to justify another backdrop observer / measurement / paint cleanup by inertia
   - run `042` closes the `SectionContainerCore` shell compositor-hint subscription sub-lane here; do not spend the next pass on more viewport-root attribute plumbing, shell-class naming churn, or another attempt to move the same `translateZ(0)` hint around by itself
+  - run `043` closes the `SectionContainerCoreResizable` viewport-interaction motion-hidden DOM-sync lane here; do not spend the next pass on more DOM-attribute mirroring, resize-handle selector churn, or another pass whose only payoff is proving the same viewport start/stop contract again
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - do not spend the next automated pass on another shared row-body/article-chrome cleanup derived from `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`; run `033` revalidated that frontier at zero on the live canary
-  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, another backdrop node-map equality micro-pass, or another generic backdrop invalidation pass on the same measurement families
+  - do not spend the next pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, selector-cache follow-ups, another hotspot refresh, another browser/code/prompt nested-children allowlist widening, another isolated shell-id promotion, another backdrop-observer micro-pass, another motion-hidden body detach/reattach rerun, another header-menu state-hoist micro-pass, another backdrop node-map equality micro-pass, another generic backdrop invalidation pass on the same measurement families, or another pass that only re-proves the `SectionContainerCoreResizable` motion-hidden DOM sync
   - use `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the current clean whole-scene checkpoint (`documentNodeCount 5494`, `raf.meanMs 42.58`, `longTasks.totalMs 5844`)
-  - the next real step should keep removing viewport-interaction rerender fanout in `SectionContainerCoreResizable` now that the `SectionContainerCore` subscription path is gone and motion-hidden subtree churn, the unconditional post-motion measure flush, the repeated motion-hidden header/menu subscription fanout, and the same-scene backdrop node-map repaint path are all gone
+  - the next real step should stay on `SectionContainerCoreResizable`, but it should now target a remaining active-section or non-viewport prop-fanout path now that the direct `viewportInteractionActive` subscriptions in both `SectionContainerCore` and `SectionContainerCoreResizable` are gone and the motion-hidden subtree churn, the unconditional post-motion measure flush, the repeated motion-hidden header/menu subscription fanout, and the same-scene backdrop node-map repaint path are all gone
   - current concrete candidate:
-    - reduce `SectionContainerCoreResizable` viewport-interaction or active-section prop churn on the canonical browser lane without reopening the closed `SectionContainerCore` shell-style lane
+    - reduce `SectionContainerCoreResizable` active-section or remaining prop churn on the canonical browser lane without reopening the closed `SectionContainerCore` shell-style lane or the closed DOM-sync lane
   - treat `SectionShellBackdropCanvas` and `ZoomPane` as secondary suspects from the saved attribution trace, not the default primary target for the next pass
   - treat the repeated run-033 / run-036 transparent headless canvas samples as verification ambiguity unless a more trustworthy visual path reproduces them; do not let the current headless-only evidence force a rollback by itself
 
 ## Current status
+
+- The section-container resizable motion-hidden DOM sync slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-container-resizable-motion-hidden-dom-sync-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` no longer subscribes to `viewportInteractionActive`; it now reads the initial value from `useReactFlow.getState()` and mirrors the motion-hidden body/header/menu/resize-handle DOM state through imperative React Flow store subscriptions
+    - the DOM sync keeps the current `data-canvas-owned-motion-*` contract intact for the live motion probes instead of reworking the probe surface
+    - hidden resize handles now also drop and later restore the generic `.section-resize-handle` class during viewport motion, so the live chrome inventory still observes the expected handle-count collapse without forcing a full section rerender
+    - `frontend/src/forks/xyflow/core/styles/init.css` now applies the motion-hidden body, header-control, menu-trigger, shell, and resize-handle visibility rules from those synced data attributes
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` now includes a jsdom proof that the motion-hidden DOM attrs update after mount without rerendering the section header, although `vitest` remains blocked by the pre-existing repo `html-encoding-sniffer` ESM failure before collection
+  - fresh live rerun on the current runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `canvasCount: 1`
+    - `raf.meanMs: 43.84`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 66.6`
+    - `raf.maxMs: 533.3`
+    - `longTasks.count: 13`
+    - `longTasks.totalMs: 2993`
+    - `longTasks.maxMs: 513`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+    - `motionHiddenSubtreeChurn.childListMutationCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeRemovedElementCount: 0`
+    - `motionHiddenSubtreeChurn.subtreeAddedElementCount: 0`
+    - `peakMotion.graphSurfaceMenuTriggerCount: 1`
+    - `peakMotion.graphSurfaceSectionResizeHandleCount: 3`
+    - `peakMotion.hiddenHeaderControlsCount: 45`
+    - `peakMotion.hiddenMenuTriggerCount: 45`
+    - `peakMotion.hiddenResizeHandleRootCount: 45`
+  - interpretation:
+    - this is a real product slice on the current hotspot: viewport start/stop no longer rerenders every `SectionContainerCoreResizable` just to mirror motion-hidden DOM state
+    - the first attempted pass left hidden resize handles in the DOM with the same selector class, and the trusted live motion inventory caught it immediately; the landed version restores the expected handle-count collapse without reopening the old motion-hidden prop-plumbing lane
+    - keep `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the clean whole-scene checkpoint; this report is proof that the `SectionContainerCoreResizable` viewport-interaction subscription path is removed, not a reason to reopen broader backdrop or shell work
+    - the next pass should stay on section-container rerender fanout, but it should now target a remaining active-section or prop-fanout path instead of revisiting viewport start/stop DOM sync
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection, not by this slice
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (59.7s)`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+    - `/settings` loaded with `All Settings` active, the graph surface was mounted and nonblank, and `browserSectionDefault` was present on the graph surface
+    - no obvious blank graph, detached shell/body, or gross visual regression was observed on this lane
 
 - The section-shell viewport-root attribute slice is now recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-shell-viewport-root-attribute-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`

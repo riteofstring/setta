@@ -40,6 +40,32 @@
   isolation: isolate;
 }
 
+.react-flow__viewport [data-canvas-owned-motion-body-hidden="true"] {
+  display: none;
+}
+
+.react-flow__viewport [data-canvas-owned-motion-header-controls-hidden="true"],
+.react-flow__viewport [data-canvas-owned-motion-menu-trigger-hidden="true"] {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.react-flow__viewport [data-canvas-owned-motion-shell-hidden="true"] {
+  background-color: transparent !important;
+}
+
+.react-flow__viewport [data-canvas-owned-motion-shell-hidden="true"]::before {
+  border-width: 0 !important;
+}
+
+.react-flow__viewport
+  [data-canvas-owned-motion-resize-handles-hidden="true"]
+  :is(.section-resize-handle, [data-setta-motion-hidden-resize-handle="true"]) {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
 .react-flow__renderer {
   z-index: 4;
 }
