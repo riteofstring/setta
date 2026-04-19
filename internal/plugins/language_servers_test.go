@@ -275,6 +275,167 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	}
 }
 
+func TestServiceLanguageServerSpecsIncludesFirstPartyTyRuntimePaths(t *testing.T) {
+	pythonPath := firstpartyplugin.TyPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-ty")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-ty")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-ty"),
+	})
+	if err != nil {
+		t.Fatalf("load first-party ty language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one ty spec, got %#v", specs)
+	}
+
+	spec := specs[0]
+	assertEquivalentLanguageServerCommandPath(t, spec.Command, pythonPath)
+	expectedArgs := []string{"-m", "ty", "server"}
+	if len(spec.Args) != len(expectedArgs) {
+		t.Fatalf("expected ty args %#v, got %#v", expectedArgs, spec.Args)
+	}
+	for index, expected := range expectedArgs {
+		if spec.Args[index] != expected {
+			t.Fatalf("expected ty args %#v, got %#v", expectedArgs, spec.Args)
+		}
+	}
+	if spec.SettingsKey == nil || *spec.SettingsKey != "ty" {
+		t.Fatalf("unexpected ty settings key %#v", spec.SettingsKey)
+	}
+
+	tySettings, ok := spec.Settings["ty"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected plugin-owned ty settings root, got %#v", spec.Settings)
+	}
+	configuration, ok := tySettings["configuration"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ty configuration settings, got %#v", tySettings["configuration"])
+	}
+	environment, ok := configuration["environment"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ty configuration environment settings, got %#v", configuration["environment"])
+	}
+	extraPaths, ok := environment["extra-paths"].([]any)
+	if !ok || len(extraPaths) != 1 || extraPaths[0] != roots.settaFilesRoot {
+		t.Fatalf("expected ty extra-paths %#v, got %#v", []any{roots.settaFilesRoot}, environment["extra-paths"])
+	}
+
+	pythonPathEnv, ok := spec.Environment["PYTHONPATH"]
+	if !ok {
+		t.Fatalf("expected ty spec to carry PYTHONPATH override, got %#v", spec.Environment)
+	}
+	pythonPathEntries := filepath.SplitList(pythonPathEnv)
+	if len(pythonPathEntries) < 1 || pythonPathEntries[0] != targetRoot {
+		t.Fatalf("expected plugin root %q to lead ty PYTHONPATH, got %#v", targetRoot, pythonPathEntries)
+	}
+}
+
+func TestServiceLanguageServerSpecsFallsBackToUsableLowerPrecedenceTyDuplicate(t *testing.T) {
+	pythonPath := firstpartyplugin.TyPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-ty")
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-ty"), workspaceRoot)
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "content", "config", "schema.json"), []byte("{bad-json"), 0o644); err != nil {
+		t.Fatalf("write invalid workspace schema: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installFirstPartyTyPackageManagerPluginInSearchPath(t, sitePackages)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-ty"),
+	})
+	if err != nil {
+		t.Fatalf("load ty specs with invalid workspace duplicate: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one ty spec from the usable duplicate, got %#v", specs)
+	}
+	if specs[0].PluginID != "setta-ty" || specs[0].LanguageID != "python" {
+		t.Fatalf("unexpected ty spec %#v", specs[0])
+	}
+	assertEquivalentLanguageServerCommandPath(t, specs[0].Command, pythonPath)
+	if _, ok := specs[0].Settings["ty"].(map[string]any); !ok {
+		t.Fatalf("expected plugin-owned ty settings root, got %#v", specs[0].Settings)
+	}
+}
+
+func TestServiceLanguageServerSpecsMergesConfiguredTyExtraPathsWithSettaFilesRoot(t *testing.T) {
+	pythonPath := firstpartyplugin.TyPython(t)
+	t.Setenv("SETTA_PYTHON", pythonPath)
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-ty")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-ty")
+	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	if err := service.store.SavePluginsState(PluginsStateFile{
+		PluginConfigByID: map[string]any{
+			pluginConfigKey("setta-ty", PluginScopeWorkspace): map[string]any{
+				"ty": map[string]any{
+					"configuration": map[string]any{
+						"environment": map[string]any{
+							"extra-paths": []any{" /tmp/custom ", roots.settaFilesRoot},
+						},
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save plugin config state: %v", err)
+	}
+
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"python": testStringPointer("setta-ty"),
+	})
+	if err != nil {
+		t.Fatalf("load first-party ty language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one ty spec, got %#v", specs)
+	}
+
+	tySettings, ok := specs[0].Settings["ty"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected plugin-owned ty settings root, got %#v", specs[0].Settings)
+	}
+	configuration, ok := tySettings["configuration"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ty configuration settings, got %#v", tySettings["configuration"])
+	}
+	environment, ok := configuration["environment"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ty configuration environment settings, got %#v", configuration["environment"])
+	}
+	extraPaths, ok := environment["extra-paths"].([]any)
+	if !ok {
+		t.Fatalf("expected extra-paths array, got %#v", environment["extra-paths"])
+	}
+	expected := []any{"/tmp/custom", roots.settaFilesRoot}
+	if len(extraPaths) != len(expected) {
+		t.Fatalf("expected extra-paths %#v, got %#v", expected, extraPaths)
+	}
+	for index, path := range expected {
+		if extraPaths[index] != path {
+			t.Fatalf("expected extra-paths %#v, got %#v", expected, extraPaths)
+		}
+	}
+}
+
 func TestServiceLanguageServerSpecsFallsBackToUsableLowerPrecedenceBasedpyrightDuplicate(t *testing.T) {
 	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)

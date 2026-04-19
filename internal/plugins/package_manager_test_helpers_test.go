@@ -81,19 +81,42 @@ func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string,
 func installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t *testing.T, sitePackages string) string {
 	t.Helper()
 
+	return installFirstPartyPackageManagerPluginInSearchPath(
+		t,
+		sitePackages,
+		"setta-basedpyright",
+		"Setta basedpyright defaults profile plugin",
+	)
+}
+
+func installFirstPartyTyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string) string {
+	t.Helper()
+
+	return installFirstPartyPackageManagerPluginInSearchPath(
+		t,
+		sitePackages,
+		"setta-ty",
+		"Setta ty first-party plugin",
+	)
+}
+
+func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
+	t.Helper()
+
 	repoRoot := workerRPCTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, "setta-basedpyright")
-	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), pluginRoot)
+	pluginRoot := filepath.Join(sitePackages, pluginID)
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
 	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
 		t.Fatalf("remove copied plugin build dir: %v", err)
 	}
 
-	distInfoRoot := filepath.Join(sitePackages, "setta_basedpyright-0.1.0.dist-info")
+	distInfoName := strings.ReplaceAll(pluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoRoot := filepath.Join(sitePackages, distInfoName)
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
 		"Metadata-Version: 2.1",
-		"Name: setta-basedpyright",
+		"Name: " + pluginID,
 		"Version: 0.1.0",
-		"Summary: Setta basedpyright defaults profile plugin",
+		"Summary: " + summary,
 		"",
 	}, "\n"))
 
@@ -117,7 +140,7 @@ func installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t *testing.T,
 			t.Fatalf("walk package-manager plugin fixture: %v", err)
 		}
 	}
-	recordLines = append(recordLines, filepath.ToSlash(filepath.Join("setta_basedpyright-0.1.0.dist-info", "RECORD"))+",,")
+	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
 }

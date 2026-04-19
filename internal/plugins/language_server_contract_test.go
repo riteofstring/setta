@@ -97,6 +97,50 @@ func TestFirstPartyBasedpyrightLanguageServerContract(t *testing.T) {
 	})
 }
 
+func TestFirstPartyTyLanguageServerContract(t *testing.T) {
+	runLanguageServerPluginContractSuite(t, languageServerContractTarget{
+		name:                    "setta-ty",
+		pluginID:                "setta-ty",
+		languageID:              "python",
+		referenceFileName:       "contract_reference.py",
+		diagnosticsDocumentName: "contract_diagnostics.py",
+		diagnosticsBrokenContent: strings.Join([]string{
+			"value = unknown_symbol",
+			"",
+		}, "\n"),
+		diagnosticsClearedContent: strings.Join([]string{
+			"value = 1",
+			"",
+		}, "\n"),
+		completionContent:   "str.",
+		completionCharacter: len("str."),
+		signatureContent:    "value = sorted(",
+		signatureCharacter:  len("value = sorted("),
+		configureValidEnv: func(t *testing.T) {
+			t.Helper()
+			t.Setenv("SETTA_PYTHON", firstpartyplugin.TyPython(t))
+		},
+		configureInvalidEnv: func(t *testing.T) {
+			t.Helper()
+			t.Setenv("SETTA_LSP_COMMAND", filepath.Join(t.TempDir(), "missing-ty-language-server"))
+		},
+		linkSourceRoot: func(t *testing.T) string {
+			t.Helper()
+			return filepath.Join(workerRPCTestRepoRoot(t), "plugins", "setta-ty")
+		},
+		assertCompletion: func(t *testing.T, result lsp.CompletionResult) {
+			t.Helper()
+			if !completionResultContainsLabel(result, "upper") {
+				t.Fatalf("expected ty completion items to include upper, got %#v", result.Items)
+			}
+		},
+		assertSignature: func(t *testing.T, result lsp.SignatureHelpResult) {
+			t.Helper()
+			_ = result
+		},
+	})
+}
+
 func TestFirstPartyBasedpyrightLanguageServerContractUsesVendoredDependencyEnvironment(t *testing.T) {
 	target := languageServerContractTarget{
 		name:                    "setta-basedpyright",

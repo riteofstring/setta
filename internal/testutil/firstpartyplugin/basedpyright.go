@@ -16,7 +16,7 @@ import (
 	"setta/internal/pythonenv"
 )
 
-type basedpyrightPyproject struct {
+type firstPartyPluginPyproject struct {
 	Project struct {
 		Dependencies []string `toml:"dependencies"`
 	} `toml:"project"`
@@ -103,23 +103,27 @@ func prepareBasedpyrightRuntime() (string, string, error) {
 }
 
 func firstPartyBasedpyrightDependency() (string, error) {
-	pyprojectPath := filepath.Join(repoRoot(), "plugins", "setta-basedpyright", "pyproject.toml")
+	return firstPartyPluginDependency("setta-basedpyright")
+}
+
+func firstPartyPluginDependency(pluginID string) (string, error) {
+	pyprojectPath := filepath.Join(repoRoot(), "plugins", pluginID, "pyproject.toml")
 	content, err := os.ReadFile(pyprojectPath)
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", pyprojectPath, err)
 	}
 
-	var payload basedpyrightPyproject
+	var payload firstPartyPluginPyproject
 	if err := toml.Unmarshal(content, &payload); err != nil {
 		return "", fmt.Errorf("decode %s: %w", pyprojectPath, err)
 	}
 	dependencies := payload.Project.Dependencies
 	if len(dependencies) != 1 {
-		return "", fmt.Errorf("expected one first-party basedpyright dependency in %s, got %#v", pyprojectPath, dependencies)
+		return "", fmt.Errorf("expected one first-party plugin dependency in %s, got %#v", pyprojectPath, dependencies)
 	}
 	dependency := strings.TrimSpace(dependencies[0])
 	if dependency == "" {
-		return "", fmt.Errorf("expected non-empty first-party basedpyright dependency in %s", pyprojectPath)
+		return "", fmt.Errorf("expected non-empty first-party plugin dependency in %s", pyprojectPath)
 	}
 	return dependency, nil
 }

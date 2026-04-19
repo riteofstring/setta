@@ -421,7 +421,7 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
         "Requires-Dist: pytest-asyncio==0.23.8; extra == 'dev'",
         "Requires-Dist: python-dotenv==1.1.0; extra == 'dev'",
         "Requires-Dist: twine==6.1.0; extra == 'dev'",
-        "Requires-Dist: ty==0.0.26; extra == 'dev'",
+        "Requires-Dist: ty==0.0.29; extra == 'dev'",
         "Requires-Dist: vulture==2.14; extra == 'dev'",
         "Requires-Dist: watchdog==6.0.0; extra == 'dev'",
     }

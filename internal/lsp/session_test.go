@@ -101,6 +101,39 @@ func TestSessionStartFailsWhenCommandMissing(t *testing.T) {
 	}
 }
 
+func TestSessionBuildInitializeParamsIncludesWorkspaceFolderName(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace-name")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	session, err := NewSession(SessionOptions{
+		WorkspaceRoot: workspaceRoot,
+		Command:       "fixture-language-server",
+	})
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	params, err := session.buildInitializeParams()
+	if err != nil {
+		t.Fatalf("build initialize params: %v", err)
+	}
+
+	folders, ok := params["workspaceFolders"].([]map[string]string)
+	if !ok || len(folders) != 1 {
+		t.Fatalf("expected one workspace folder entry, got %#v", params["workspaceFolders"])
+	}
+	if folders[0]["name"] != "workspace-name" {
+		t.Fatalf("expected workspace folder name workspace-name, got %#v", folders[0]["name"])
+	}
+	if folders[0]["uri"] == "" {
+		t.Fatalf("expected workspace folder uri, got %#v", folders[0])
+	}
+}
+
 func TestSessionStartIncludesProcessStderrWhenInitializeExitsEarly(t *testing.T) {
 	t.Parallel()
 
