@@ -42,16 +42,15 @@ Common commands:
 - `./build.sh`
 - `./verify_install.sh`
 
-Python tooling is opt-in for repo work that touches the Python package surface
-or packaging flows:
+`./dev_install.sh` also creates the repo Python environment used for package
+tooling, tests, and the first-party basedpyright plugin. Activate it when you
+need direct Python/package commands:
 
 ```sh
-. ./dev_install_python.sh
 source activate.sh
 ```
 
-`dev_install.sh` and `dev_install_python.sh` use frozen installs and should not
-rewrite lockfiles.
+`dev_install.sh` uses frozen installs and should not rewrite lockfiles.
 
 ## Packaging boundary
 

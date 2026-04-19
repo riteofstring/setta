@@ -1,17 +1,21 @@
+import type { NotificationsNotification } from "openapi/http";
 import { useNotifications } from "state/definitions";
+import {
+  coerceAppNotification,
+  createAppNotification,
+  type AppNotification,
+} from "state/types/notifications";
 import { C } from "utils/c";
 import {
-  createNotification,
-  Notification,
-  NotificationType,
   NotificationTypeEnum,
+  type NotificationType,
 } from "utils/generatedTypes";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
 
 // Standalone notification actions as separate functions
-const addNotification = (notification: Notification) => {
+const addNotification = (notification: AppNotification) => {
   useNotifications.setState((state) => ({
     notifications: [notification, ...state.notifications],
   }));
@@ -41,18 +45,18 @@ export const removeNotification = (notificationId: string) => {
   }));
 };
 
-export function addNotificationFromWebsocketMsg(notification: Notification) {
+export function addNotificationFromWebsocketMsg(
+  notification: NotificationsNotification,
+) {
+  const normalizedNotification = coerceAppNotification(notification);
   if (
-    !notification ||
-    (notification.projectConfigId !== getCurrProjectConfigId() &&
-      notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
+    normalizedNotification.projectConfigId !== getCurrProjectConfigId() &&
+    normalizedNotification.projectConfigId !==
+      C.NOTIFICATION_IS_FOR_ALL_PROJECTS
   ) {
     return;
   }
-  if (!notification.timestamp) {
-    notification.timestamp = new Date().toISOString();
-  }
-  addNotification(notification);
+  addNotification(createAppNotification(normalizedNotification));
 }
 
 function createClientNotification({
@@ -65,15 +69,12 @@ function createClientNotification({
   message: string;
   type: NotificationType;
   temporary: boolean;
-}): Notification {
-  return createNotification({
+}): AppNotification {
+  return createAppNotification({
     projectConfigId,
-    timestamp: new Date().toISOString(),
     type,
     message,
-    read_status: false,
     temporary,
-    metadata: {},
   });
 }
 

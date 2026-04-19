@@ -8,11 +8,11 @@ import {
   OverviewNotificationsPaneTabEnum,
   OverviewTabNameEnum,
 } from "utils/constants";
-import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { type BackendLogEvent } from "utils/generatedTypes";
 
 const MAX_BACKEND_LOG_EVENTS = 500;
 
-function isHighSeverity(event: SettaBackendLogEvent) {
+function isHighSeverity(event: BackendLogEvent) {
   return event.severity === "error" || event.severity === "critical";
 }
 
@@ -29,7 +29,7 @@ function backendLogsTabIsVisible() {
   );
 }
 
-export function addBackendLogEvent(event: SettaBackendLogEvent) {
+export function addBackendLogEvent(event: BackendLogEvent) {
   const markUnread = isHighSeverity(event) && !backendLogsTabIsVisible();
   useBackendLogEvents.setState((state) => ({
     events: [event, ...state.events].slice(0, MAX_BACKEND_LOG_EVENTS),
