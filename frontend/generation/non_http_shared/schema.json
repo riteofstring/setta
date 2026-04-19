@@ -7498,6 +7498,115 @@
       ],
       "additionalProperties": false
     },
+    "LanguageServerProviderOption": {
+      "type": "object",
+      "properties": {
+        "pluginId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "title": "LanguageServerProviderOption",
+      "required": [
+        "pluginId",
+        "name",
+        "available"
+      ],
+      "additionalProperties": false
+    },
+    "LanguageServerSelectionSeverity": {
+      "type": "string",
+      "title": "LanguageServerSelectionSeverity",
+      "enum": [
+        "default",
+        "warning",
+        "success"
+      ]
+    },
+    "LanguageServerSelectionState": {
+      "type": "string",
+      "title": "LanguageServerSelectionState",
+      "enum": [
+        "unset",
+        "disabled",
+        "selected"
+      ]
+    },
+    "LanguageServerSelectionStatus": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string"
+        },
+        "selectionState": {
+          "$ref": "#/$defs/LanguageServerSelectionState"
+        },
+        "status": {
+          "$ref": "#/$defs/LanguageServerSelectionStatusKind"
+        },
+        "severity": {
+          "$ref": "#/$defs/LanguageServerSelectionSeverity"
+        },
+        "message": {
+          "type": "string"
+        },
+        "selectedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "appliedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "availableProviders": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/LanguageServerProviderOption"
+          }
+        },
+        "restartRequired": {
+          "type": "boolean"
+        }
+      },
+      "title": "LanguageServerSelectionStatus",
+      "required": [
+        "language",
+        "selectionState",
+        "status",
+        "severity",
+        "message",
+        "selectedPluginId",
+        "appliedPluginId",
+        "availableProviders",
+        "restartRequired"
+      ],
+      "additionalProperties": false
+    },
+    "LanguageServerSelectionStatusKind": {
+      "type": "string",
+      "title": "LanguageServerSelectionStatusKind",
+      "enum": [
+        "unselected",
+        "disabled",
+        "no_available_providers",
+        "selected_unavailable",
+        "selected_incompatible",
+        "pending_restart",
+        "active"
+      ]
+    },
     "LauncherManagementTransportRoutes": {
       "type": "object",
       "properties": {
@@ -11729,6 +11838,15 @@
           "items": {
             "$ref": "#/$defs/PluginStatusEntry"
           }
+        },
+        "languageServerSelections": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/LanguageServerSelectionStatus"
+          }
         }
       },
       "title": "PluginStatusResponse",
@@ -11736,7 +11854,8 @@
         "schemaVersion",
         "serverMode",
         "restartCapability",
-        "plugins"
+        "plugins",
+        "languageServerSelections"
       ],
       "additionalProperties": false
     },
@@ -13761,6 +13880,7 @@
         "/setGenCodeSuffix",
         "/setGroupOverflowMode",
         "/setImageAreaImagePath",
+        "/setLanguageServerSelection",
         "/setListRootViewMode",
         "/setMetaControlShowSectionTitle",
         "/setParamEnteredValue",
@@ -14066,6 +14186,7 @@
         "SET_GEN_CODE_SUFFIX",
         "SET_GROUP_OVERFLOW_MODE",
         "SET_IMAGE_AREA_IMAGE_PATH",
+        "SET_LANGUAGE_SERVER_SELECTION",
         "SET_LIST_ROOT_VIEW_MODE",
         "SET_META_CONTROL_SHOW_SECTION_TITLE",
         "SET_PARAM_ENTERED_VALUE",
@@ -14371,6 +14492,7 @@
         "SET_GEN_CODE_SUFFIX",
         "SET_GROUP_OVERFLOW_MODE",
         "SET_IMAGE_AREA_IMAGE_PATH",
+        "SET_LANGUAGE_SERVER_SELECTION",
         "SET_LIST_ROOT_VIEW_MODE",
         "SET_META_CONTROL_SHOW_SECTION_TITLE",
         "SET_PARAM_ENTERED_VALUE",

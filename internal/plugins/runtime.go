@@ -402,10 +402,11 @@ func buildRuntimeStatusResponse(
 		entries = append(entries, buildRuntimeStatusEntry(entry, redactSourceDetails, redactedSourcePathByPath))
 	}
 	return PluginStatusResponse{
-		SchemaVersion:     pluginStatusSchemaVersion,
-		ServerMode:        snapshot.ServerMode,
-		RestartCapability: capability,
-		Plugins:           entries,
+		SchemaVersion:            pluginStatusSchemaVersion,
+		ServerMode:               snapshot.ServerMode,
+		RestartCapability:        capability,
+		Plugins:                  entries,
+		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
 }
 

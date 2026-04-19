@@ -93,6 +93,32 @@ func BootstrapLanguageServerSelections(document Document, selectedByLanguage map
 	return next, true, nil
 }
 
+func SetLanguageServerSelection(document Document, language string, selection *string) (Document, error) {
+	normalized, err := document.Normalized()
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedLanguage := normalizeLanguageServerSelectionLanguage(language)
+	if normalizedLanguage == "" {
+		return nil, fmt.Errorf("%w: language id is required", ErrSettingsValueInvalid)
+	}
+
+	next := normalized.Clone()
+	selectedBranch := ensureLanguageServerSelectedByLanguageBranch(next)
+	if selection == nil {
+		selectedBranch[normalizedLanguage] = nil
+	} else {
+		trimmedPluginID := strings.TrimSpace(*selection)
+		if trimmedPluginID == "" {
+			return nil, fmt.Errorf("%w: languageServer.selectedByLanguage.%s is empty", ErrSettingsValueInvalid, normalizedLanguage)
+		}
+		selectedBranch[normalizedLanguage] = trimmedPluginID
+	}
+
+	return next.Normalized()
+}
+
 func ensureLanguageServerSelectedByLanguageBranch(document Document) map[string]any {
 	languageServerBranch, ok := document["languageServer"].(map[string]any)
 	if !ok || languageServerBranch == nil {

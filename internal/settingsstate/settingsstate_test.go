@@ -467,6 +467,54 @@ func TestBootstrapLanguageServerSelectionsLeavesExplicitPluginSelectionUntouched
 	}
 }
 
+func TestSetLanguageServerSelectionWritesPluginAndExplicitNull(t *testing.T) {
+	t.Parallel()
+
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("DefaultDocument returned error: %v", err)
+	}
+
+	next, err := SetLanguageServerSelection(document, "python", stringPointer("setta-basedpyright"))
+	if err != nil {
+		t.Fatalf("SetLanguageServerSelection plugin returned error: %v", err)
+	}
+
+	pythonSelection, ok, err := LanguageServerSelectionForLanguage(next, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
+	}
+	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
+		t.Fatalf("expected python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
+	}
+
+	disabled, err := SetLanguageServerSelection(next, "python", nil)
+	if err != nil {
+		t.Fatalf("SetLanguageServerSelection nil returned error: %v", err)
+	}
+
+	pythonSelection, ok, err = LanguageServerSelectionForLanguage(disabled, "python")
+	if err != nil {
+		t.Fatalf("LanguageServerSelectionForLanguage python after disable returned error: %v", err)
+	}
+	if !ok || pythonSelection != nil {
+		t.Fatalf("expected explicit python null selection after disable, got ok=%v selection=%#v", ok, pythonSelection)
+	}
+}
+
+func TestSetLanguageServerSelectionRejectsBlankPluginID(t *testing.T) {
+	t.Parallel()
+
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("DefaultDocument returned error: %v", err)
+	}
+
+	if _, err := SetLanguageServerSelection(document, "python", stringPointer("   ")); err == nil {
+		t.Fatal("expected blank plugin id to be rejected")
+	}
+}
+
 func TestValidateDirectSaveDocumentRejectsUnknownTopLevelBranch(t *testing.T) {
 	t.Parallel()
 

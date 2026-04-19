@@ -256,6 +256,124 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusToMatchingDupli
 	}
 }
 
+func TestBuildLanguageServerSelectionStatusesReportsActiveSelection(t *testing.T) {
+	selection := "setta-basedpyright"
+	statuses := buildLanguageServerSelectionStatuses(
+		[]plugins.PluginStatusEntry{
+			{
+				PluginID: "setta-basedpyright",
+				Name:     "basedpyright",
+				State:    plugins.PluginRuntimeStateActive,
+				RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Name:     "basedpyright",
+						Language: "python",
+					},
+				},
+				AppliedLanguageServerLanguages: []string{"python"},
+			},
+		},
+		map[string]*string{"python": &selection},
+	)
+
+	status := requireLanguageServerSelectionStatus(t, statuses, "python")
+	if status.SelectionState != plugins.LanguageServerSelectionStateSelected {
+		t.Fatalf("expected selected state, got %#v", status.SelectionState)
+	}
+	if status.Status != plugins.LanguageServerSelectionStatusActive {
+		t.Fatalf("expected active selection status, got %#v", status.Status)
+	}
+	if status.SelectedPluginID == nil || *status.SelectedPluginID != "setta-basedpyright" {
+		t.Fatalf("expected selected plugin id setta-basedpyright, got %#v", status.SelectedPluginID)
+	}
+	if status.AppliedPluginID == nil || *status.AppliedPluginID != "setta-basedpyright" {
+		t.Fatalf("expected applied plugin id setta-basedpyright, got %#v", status.AppliedPluginID)
+	}
+	if len(status.AvailableProviders) != 1 || !status.AvailableProviders[0].Available {
+		t.Fatalf("expected one available provider, got %#v", status.AvailableProviders)
+	}
+}
+
+func TestBuildLanguageServerSelectionStatusesReportsPendingRestartForUnsetSelectionWithAppliedPlugin(t *testing.T) {
+	statuses := buildLanguageServerSelectionStatuses(
+		[]plugins.PluginStatusEntry{
+			{
+				PluginID:                       "setta-basedpyright",
+				Name:                           "setta-basedpyright",
+				State:                          plugins.PluginRuntimeStateInvalid,
+				AppliedLanguageServerLanguages: []string{"python"},
+			},
+		},
+		map[string]*string{},
+	)
+
+	status := requireLanguageServerSelectionStatus(t, statuses, "python")
+	if status.SelectionState != plugins.LanguageServerSelectionStateUnset {
+		t.Fatalf("expected unset selection state, got %#v", status.SelectionState)
+	}
+	if status.Status != plugins.LanguageServerSelectionStatusPendingRestart {
+		t.Fatalf("expected pending_restart selection status, got %#v", status.Status)
+	}
+	if !status.RestartRequired {
+		t.Fatal("expected pending restart status to require restart")
+	}
+	if status.AppliedPluginID == nil || *status.AppliedPluginID != "setta-basedpyright" {
+		t.Fatalf("expected applied plugin id setta-basedpyright, got %#v", status.AppliedPluginID)
+	}
+}
+
+func TestBuildLanguageServerSelectionStatusesReportsSelectedUnavailableAndIncludesSelectedProvider(t *testing.T) {
+	selection := "setta-basedpyright"
+	statuses := buildLanguageServerSelectionStatuses(
+		[]plugins.PluginStatusEntry{
+			{
+				PluginID: "setta-pylsp",
+				Name:     "pylsp",
+				State:    plugins.PluginRuntimeStateActive,
+				RegisteredLanguageServers: []plugins.PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-pylsp",
+						Name:     "pylsp",
+						Language: "python",
+					},
+				},
+			},
+		},
+		map[string]*string{"python": &selection},
+	)
+
+	status := requireLanguageServerSelectionStatus(t, statuses, "python")
+	if status.Status != plugins.LanguageServerSelectionStatusSelectedUnavailable {
+		t.Fatalf("expected selected_unavailable status, got %#v", status.Status)
+	}
+	if len(status.AvailableProviders) != 2 {
+		t.Fatalf("expected selected unavailable provider to be preserved alongside active providers, got %#v", status.AvailableProviders)
+	}
+	if status.AvailableProviders[0].PluginID != "setta-pylsp" || !status.AvailableProviders[0].Available {
+		t.Fatalf("expected active provider first, got %#v", status.AvailableProviders)
+	}
+	if status.AvailableProviders[1].PluginID != "setta-basedpyright" || status.AvailableProviders[1].Available {
+		t.Fatalf("expected unavailable selected provider to remain in options, got %#v", status.AvailableProviders)
+	}
+}
+
+func requireLanguageServerSelectionStatus(
+	t *testing.T,
+	statuses []plugins.LanguageServerSelectionStatus,
+	language string,
+) plugins.LanguageServerSelectionStatus {
+	t.Helper()
+
+	for _, status := range statuses {
+		if status.Language == language {
+			return status
+		}
+	}
+	t.Fatalf("expected selection status for language %q in %#v", language, statuses)
+	return plugins.LanguageServerSelectionStatus{}
+}
+
 func TestCommitAppliedLanguageServerPluginsDoesNotAdvanceAppliedSpecsOnCommitFailure(t *testing.T) {
 	app := newAppWithFixtureLanguageServer(t)
 

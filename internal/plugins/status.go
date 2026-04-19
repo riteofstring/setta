@@ -25,6 +25,52 @@ type PluginRestartCapability struct {
 	Reason  *string                     `json:"reason"`
 }
 
+type LanguageServerSelectionState string
+
+const (
+	LanguageServerSelectionStateUnset    LanguageServerSelectionState = "unset"
+	LanguageServerSelectionStateDisabled LanguageServerSelectionState = "disabled"
+	LanguageServerSelectionStateSelected LanguageServerSelectionState = "selected"
+)
+
+type LanguageServerSelectionStatusKind string
+
+const (
+	LanguageServerSelectionStatusUnselected           LanguageServerSelectionStatusKind = "unselected"
+	LanguageServerSelectionStatusDisabled             LanguageServerSelectionStatusKind = "disabled"
+	LanguageServerSelectionStatusNoAvailableProviders LanguageServerSelectionStatusKind = "no_available_providers"
+	LanguageServerSelectionStatusSelectedUnavailable  LanguageServerSelectionStatusKind = "selected_unavailable"
+	LanguageServerSelectionStatusSelectedIncompatible LanguageServerSelectionStatusKind = "selected_incompatible"
+	LanguageServerSelectionStatusPendingRestart       LanguageServerSelectionStatusKind = "pending_restart"
+	LanguageServerSelectionStatusActive               LanguageServerSelectionStatusKind = "active"
+)
+
+type LanguageServerSelectionSeverity string
+
+const (
+	LanguageServerSelectionSeverityDefault LanguageServerSelectionSeverity = "default"
+	LanguageServerSelectionSeverityWarning LanguageServerSelectionSeverity = "warning"
+	LanguageServerSelectionSeveritySuccess LanguageServerSelectionSeverity = "success"
+)
+
+type LanguageServerProviderOption struct {
+	PluginID  string `json:"pluginId"`
+	Name      string `json:"name"`
+	Available bool   `json:"available"`
+}
+
+type LanguageServerSelectionStatus struct {
+	Language           string                            `json:"language"`
+	SelectionState     LanguageServerSelectionState      `json:"selectionState"`
+	Status             LanguageServerSelectionStatusKind `json:"status"`
+	Severity           LanguageServerSelectionSeverity   `json:"severity"`
+	Message            string                            `json:"message"`
+	SelectedPluginID   *string                           `json:"selectedPluginId"`
+	AppliedPluginID    *string                           `json:"appliedPluginId"`
+	AvailableProviders []LanguageServerProviderOption    `json:"availableProviders"`
+	RestartRequired    bool                              `json:"restartRequired"`
+}
+
 type PluginStatusEntry struct {
 	PluginID                       string                             `json:"pluginId"`
 	Name                           string                             `json:"name"`
@@ -55,10 +101,11 @@ type PluginStatusEntry struct {
 }
 
 type PluginStatusResponse struct {
-	SchemaVersion     int                     `json:"schemaVersion"`
-	ServerMode        config.Mode             `json:"serverMode"`
-	RestartCapability PluginRestartCapability `json:"restartCapability"`
-	Plugins           []PluginStatusEntry     `json:"plugins"`
+	SchemaVersion            int                             `json:"schemaVersion"`
+	ServerMode               config.Mode                     `json:"serverMode"`
+	RestartCapability        PluginRestartCapability         `json:"restartCapability"`
+	Plugins                  []PluginStatusEntry             `json:"plugins"`
+	LanguageServerSelections []LanguageServerSelectionStatus `json:"languageServerSelections"`
 }
 
 type RestartRequiredResponse struct {
@@ -196,10 +243,11 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRes
 		entries = append(entries, statusEntryFromDiscoveredPlugin(entry))
 	}
 	return PluginStatusResponse{
-		SchemaVersion:     pluginStatusSchemaVersion,
-		ServerMode:        snapshot.ServerMode,
-		RestartCapability: capability,
-		Plugins:           entries,
+		SchemaVersion:            pluginStatusSchemaVersion,
+		ServerMode:               snapshot.ServerMode,
+		RestartCapability:        capability,
+		Plugins:                  entries,
+		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
 }
 

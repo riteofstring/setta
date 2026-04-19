@@ -61,6 +61,9 @@ func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (
 		return response, err
 	}
 	s.refresher.applyAppliedLanguageServerStatus(&response.Status)
+	if err := s.refresher.applyLanguageServerSelectionStatuses(&response.Status); err != nil {
+		return plugins.PluginRuntimeResponse{}, err
+	}
 	return response, nil
 }
 

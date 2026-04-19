@@ -2615,6 +2615,52 @@ export type LSPDiagnosticsPayload = {
 };
 
 /**
+ * LanguageServerProviderOption
+ */
+type LanguageServerProviderOption = {
+  available: boolean;
+  name: string;
+  pluginId: string;
+};
+
+/**
+ * LanguageServerSelectionSeverity
+ */
+type LanguageServerSelectionSeverity = "default" | "warning" | "success";
+
+/**
+ * LanguageServerSelectionState
+ */
+type LanguageServerSelectionState = "unset" | "disabled" | "selected";
+
+/**
+ * LanguageServerSelectionStatus
+ */
+export type LanguageServerSelectionStatus = {
+  appliedPluginId: null | string;
+  availableProviders: null | Array<LanguageServerProviderOption>;
+  language: string;
+  message: string;
+  restartRequired: boolean;
+  selectedPluginId: null | string;
+  selectionState: LanguageServerSelectionState;
+  severity: LanguageServerSelectionSeverity;
+  status: LanguageServerSelectionStatusKind;
+};
+
+/**
+ * LanguageServerSelectionStatusKind
+ */
+type LanguageServerSelectionStatusKind =
+  | "unselected"
+  | "disabled"
+  | "no_available_providers"
+  | "selected_unavailable"
+  | "selected_incompatible"
+  | "pending_restart"
+  | "active";
+
+/**
  * LauncherManagementTransportRoutes
  */
 type LauncherManagementTransportRoutes = {
@@ -4143,6 +4189,7 @@ export type PluginStatusEntry = {
  * PluginStatusResponse
  */
 export type PluginStatusResponse = {
+  languageServerSelections: null | Array<LanguageServerSelectionStatus>;
   plugins: null | Array<PluginStatusEntry>;
   restartCapability: PluginRestartCapability;
   schemaVersion: number;
@@ -4941,6 +4988,7 @@ type Route =
   | "/setGenCodeSuffix"
   | "/setGroupOverflowMode"
   | "/setImageAreaImagePath"
+  | "/setLanguageServerSelection"
   | "/setListRootViewMode"
   | "/setMetaControlShowSectionTitle"
   | "/setParamEnteredValue"

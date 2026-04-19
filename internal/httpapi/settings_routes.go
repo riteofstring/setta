@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	RouteLoadSettings = "/loadSettings"
-	RouteSaveSettings = "/saveSettings"
+	RouteLoadSettings               = "/loadSettings"
+	RouteSaveSettings               = "/saveSettings"
+	RouteSetLanguageServerSelection = "/setLanguageServerSelection"
 )
 
 type SettingsRouteDependencies struct {
@@ -24,6 +25,11 @@ type SettingsRouteDependencies struct {
 
 type SaveSettingsRequest struct {
 	Settings any `json:"settings"`
+}
+
+type SetLanguageServerSelectionRequest struct {
+	Language string  `json:"language"`
+	PluginID *string `json:"pluginId"`
 }
 
 func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) error {
@@ -56,6 +62,15 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 		saveSettingsHandler(deps),
 		withOpenAPITags("Settings"),
 		withOpenAPISummary("Validate and save the frontend settings document."),
+		withOpenAPIModeRequirement("not-deployment-and-not-launcher"),
+	)
+	registerOpenAPIPost[SetLanguageServerSelectionRequest, openAPIJSONNull](
+		router,
+		"setLanguageServerSelection",
+		RouteSetLanguageServerSelection,
+		setLanguageServerSelectionHandler(deps),
+		withOpenAPITags("Settings"),
+		withOpenAPISummary("Select or disable the language-server plugin for a language in workspace settings."),
 		withOpenAPIModeRequirement("not-deployment-and-not-launcher"),
 	)
 	return nil
@@ -112,6 +127,44 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 		}
 
 		snapshot, err := deps.SettingsState.ReplaceAndSave(r.Context(), document)
+		if err != nil {
+			writeSettingsSaveError(w, r, err)
+			return
+		}
+
+		if _, err := deps.WebsocketHub.BroadcastJSON(
+			r.Context(),
+			realtime.NewSettingsUpdateMessage(snapshot.Document),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setLanguageServerSelectionHandler(deps SettingsRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if detail, blocked := settingsSaveModeDetail(deps.ModePolicy); blocked {
+			writeDetail(w, http.StatusForbidden, detail)
+			return
+		}
+		if deps.SettingsState == nil || deps.WebsocketHub == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		payload, err := decodeJSONBody[SetLanguageServerSelectionRequest](r)
+		if err != nil {
+			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+
+		snapshot, err := deps.SettingsState.MutateAndSave(r.Context(), func(document settingsstate.Document) (settingsstate.Document, error) {
+			return settingsstate.SetLanguageServerSelection(document, payload.Language, payload.PluginID)
+		})
 		if err != nil {
 			writeSettingsSaveError(w, r, err)
 			return
