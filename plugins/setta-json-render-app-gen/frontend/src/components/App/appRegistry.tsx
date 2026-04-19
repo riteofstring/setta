@@ -1,15 +1,37 @@
 import type { Action } from "@json-render/core";
 import {
   type AppSubsystemFrontendHost,
+  type BaseChildlessCodeObjImplUnion,
+  type BaseSectionImplUnion,
   callOpenAPI,
+  CodeObjTypeEnum,
+  ConfigLanguageEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
+  type DateParamCodeObjImpl,
+  DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
+  DropzoneModeEnum,
   getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrentEffectiveSectionImpl,
   getCurrentSectionVariantId,
   getPasswordParamValue,
   getParamDisplayNameIfPresent,
-  loadCachedImageArtifacts,
+  isBaseChildlessCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+  type LiteralDependencyValue,
+  type ObjectValues,
   res200,
+  SectionTypeEnum,
   setParamEnteredValue,
+  TextBlockFormatEnum,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
+  type TimeParamCodeObjImpl,
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
@@ -37,10 +59,8 @@ import {
   useAppConfigs,
   type AppConfigState,
 } from "../../appSubsystemProjectState";
-import { useDecodedImages, useImages } from "state/definitions";
-import { decodeExistingRawImages } from "state/hooks/artifacts";
-import { useLocalPendingValue } from "state/hooks/utils";
-import { bumpRemoteRevisions } from "state/utils/revisions";
+import { useDecodedAppImageById } from "../../appSubsystemImageArtifacts";
+import { useLocalPendingValue } from "../../appSubsystemPendingValue";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
@@ -49,34 +69,6 @@ import {
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { ensureAppProjectConfigLoaded } from "../../state/actions/app";
-import type {
-  DateParamCodeObjImpl,
-  ImageArtifact,
-  ObjectValues,
-  TimeParamCodeObjImpl,
-} from "utils/generatedTypes";
-import {
-  BaseChildlessCodeObjImplUnion,
-  BaseSectionImplUnion,
-  CodeObjTypeEnum,
-  ConfigLanguageEnum,
-  DateCalendarWeekStartEnum,
-  DateControlModeEnum,
-  DateDisplayFormatEnum,
-  DateSelectionModeEnum,
-  DependencyKeyTypeEnum,
-  DependencyValueTypeEnum,
-  DropzoneModeEnum,
-  isBaseChildlessCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-  LiteralDependencyValue,
-  SectionTypeEnum,
-  TextBlockFormatEnum,
-  TextParamInputUITypeEnum,
-  TimeControlModeEnum,
-  TimeDisplayFontEnum,
-  TimeDisplayFormatEnum,
-} from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
@@ -136,9 +128,6 @@ const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   surfaceAlt: "var(--app-surface-alt)",
   card: "var(--app-card-bg)",
 };
-type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
-  Array<ImageArtifact>
->;
 type AppSubsystemNotify = AppSubsystemFrontendHost["notify"];
 
 function resolveConfigId(
@@ -2152,59 +2141,6 @@ function TextOutput({ element }: AppComponentProps) {
   }
   return <TextOutputContent {...textData} label={label} />;
 }
-async function loadCachedImagesById(paths: Array<string>) {
-  if (paths.length === 0) {
-    return;
-  }
-  const res = (await callOpenAPI(
-    loadCachedImageArtifacts({
-      body: {
-        paths,
-      },
-    } as Parameters<typeof loadCachedImageArtifacts>[0]),
-  )) as LoadCachedImageArtifactsRouteResponse;
-  if (res200(res)) {
-    useImages.setState((state) => {
-      const next = { ...state.x };
-      const changedIds: Array<string> = [];
-      for (const img of res.data) {
-        if (img) {
-          const existing = state.x[img.id];
-          if (!existing) {
-            next[img.id] = img;
-            changedIds.push(img.id);
-          }
-        }
-      }
-      if (changedIds.length === 0) {
-        return state;
-      }
-      const revisions = bumpRemoteRevisions(
-        {
-          revisionById: state.revisionById,
-          localRevisionById: state.localRevisionById,
-        },
-        changedIds,
-      );
-      return {
-        x: next,
-        ...revisions,
-      };
-    });
-  }
-}
-function useImageArtifactById(artifactId: string | null) {
-  const imageArtifact = useImages((state) =>
-    artifactId ? state.x[artifactId] : null,
-  );
-  React.useEffect(() => {
-    if (!artifactId || imageArtifact) {
-      return;
-    }
-    void loadCachedImagesById([artifactId]);
-  }, [artifactId, imageArtifact]);
-  return imageArtifact;
-}
 function ImageOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -2213,19 +2149,7 @@ function ImageOutput({ element }: AppComponentProps) {
     runtime?.dataBindings,
   );
   const resolvedAlt = alt ?? "App output image";
-  const imageArtifact = useImageArtifactById(artifactId);
-  const decodedImage = useDecodedImages((state) =>
-    imageArtifact ? state.x[imageArtifact.id] : null,
-  );
-  React.useEffect(() => {
-    if (!imageArtifact) {
-      return;
-    }
-    const currentContentId = imageArtifact.value.contentId;
-    if (!decodedImage || decodedImage.dataset.contentId !== currentContentId) {
-      void decodeExistingRawImages([imageArtifact.id]);
-    }
-  }, [imageArtifact, decodedImage]);
+  const decodedImage = useDecodedAppImageById(artifactId);
   if (!artifactId) {
     return (
       <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">

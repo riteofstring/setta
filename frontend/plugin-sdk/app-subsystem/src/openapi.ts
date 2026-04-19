@@ -1,5 +1,6 @@
 export {
   checkIfFileExists,
+  downloadBinary,
   getAppDefinition,
   getAppDeploymentCurrentSession,
   getAppDeploymentProjectConfig,
@@ -23,6 +24,7 @@ export {
   type HttpapiPublishAppDeploymentRequest,
 } from "openapi/http";
 export { callOpenAPI } from "openapi/http/result";
+export { buildBinaryDownloadUrl } from "utils/backendTransport";
 export {
   getErrorDetail,
   getErrorCode,
@@ -38,14 +40,34 @@ export {
   createSingleConfig,
   createPolicy,
   isBaseParamCodeObjImpl,
+  isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  CodeObjTypeEnum,
+  ConfigLanguageEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   type Policy,
   type BaseDependencyKeyUnion,
   type BaseDependencyValueUnion,
   type Core,
+  DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
+  type DateParamCodeObjImpl,
+  DropzoneModeEnum,
+  type ImageArtifact,
+  type LiteralDependencyValue,
+  type ObjectValues,
   type RunSnapshotMode,
   type Variant,
   SectionTypeEnum,
+  TextBlockFormatEnum,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
+  type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 export {
   createDefaultAppPolicy,

@@ -1,22 +1,20 @@
 import {
   type AppSubsystemFrontendHost,
   callOpenAPI,
+  getErrorCode,
   getAppDeploymentCurrentSession,
   getAppDeploymentProjectConfig,
   getAppDeploymentState,
   type GetAppDeploymentCurrentSessionResponses,
   type GetAppDeploymentStateResponses,
+  res200,
+  type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
   type AppProjectStateSnapshot,
   useAppConfigs,
 } from "../../appSubsystemProjectState";
 import { useAppDefinition } from "../../appSubsystemDefinitionState";
-import {
-  getErrorCode,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
 type AppDeploymentState = GetAppDeploymentStateResponses[200];
