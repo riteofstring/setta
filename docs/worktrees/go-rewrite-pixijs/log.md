@@ -4284,6 +4284,67 @@ LOOP_TERMINAL_MARKER: none
   - use the new motion-aware dense probe on the next broader inactive-row body-overlay product slice instead of reopening another at-rest text/value cleanup lane
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 081
+
+- Item: Measure the remaining graph-surface motion chrome after body and trailing-header suppression.
+- Status: `done`
+- Details:
+  - Chose the active motion-lane blocker instead of extending another motion-hidden wrapper slice by inertia.
+  - Added `data-section-incrementer-root="true"` in `frontend/src/components/Section/SectionParts/Incrementer.tsx` so motion-time chrome can be inventoried without brittle DOM guessing.
+  - Added `frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts` to normalize `settings` -> `All Settings`, drive the real renderer wheel path from a shared blank pane point, and capture before/during/after graph-surface chrome inventories on the canonical `settings-section__browserSectionDefault` lane.
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - before motion:
+      - `mountedSectionCount: 46`
+      - `totalMotionBodyRootCount: 45`
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 156`
+      - `graphSurfaceButtonCount: 0`
+      - `graphSurfaceInputCount: 0`
+      - `graphSurfaceIncrementerRootCount: 0`
+      - `graphSurfaceIncrementerButtonCount: 0`
+      - `totalTrackedChromeElementCount: 202`
+    - peak motion-hidden snapshot:
+      - `hiddenBodyCount: 45`
+      - `hiddenHeaderControlsCount: 45`
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 0`
+      - `graphSurfaceButtonCount: 0`
+      - `graphSurfaceInputCount: 0`
+      - `graphSurfaceIncrementerRootCount: 0`
+      - `graphSurfaceIncrementerButtonCount: 0`
+      - `totalTrackedChromeElementCount: 46`
+      - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` all reported `motionBodyHidden: true`, `motionHeaderControlsHidden: true`, and exactly one surviving menu trigger
+    - dense companion rerun:
+      - `documentNodeCount: 5584`
+      - `inputCount: 5`
+      - `textareaCount: 2`
+      - `buttonCount: 60`
+      - `raf.meanMs: 89.07`
+      - `raf.p95Ms: 116.7`
+      - `longTasks.totalMs: 12911`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - the remaining repeated motion survivor on the normalized live surface is the per-section lightweight header menu trigger family, not root incrementers or any live button/input core
+    - if the motion lane continues, the next bounded product slice should target header-leading menu-trigger suspension or canvas ownership on the same canonical `browserSectionDefault` boundary
+    - if a `46`-root menu-trigger reduction still does not materially move the dense probe, stop extending motion chrome and escalate to a broader renderer/perf replan
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/SectionParts/Incrementer.tsx src/components/Section/SectionParts/Incrementer.test.tsx tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-003/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.2m)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/SectionParts/Incrementer.test.tsx`
+    - result: blocked by an unrelated runner startup failure before collection (`html-encoding-sniffer` -> `ERR_REQUIRE_ESM`)
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `All Settings` was active, the graph surface was mounted, and `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were visually present and intact
+  - no obvious blank or detached artifact appeared after one `zoom in` interaction
+- Next action:
+  - either land one bounded motion-header-leading menu-trigger suppression/canvas-ownership slice on `settings-section__browserSectionDefault`, or stop the motion-chrome lane immediately after that if the dense probe still does not move
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 080
 
 - Item: Broaden motion-hidden body suppression to the shared retained resting-text boundary.
