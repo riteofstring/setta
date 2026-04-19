@@ -405,14 +405,16 @@ func TestRegisterAppDeploymentRoutesRejectUnknownFieldsOnProjectConfigLoad(t *te
 }
 
 func buildAppDeploymentRouteRegistrationsForTest(
-	deps httpapi.FrontendAPIRouteDependencies,
+	_ httpapi.FrontendAPIRouteDependencies,
 ) httpapi.FrontendAPIRouteRegistrations {
 	return httpapi.FrontendAPIRouteRegistrations{
 		Deployment: []httpapi.FrontendAPIRouteContribution{
 			{
 				Family: "app deployment",
 				Register: func(router chi.Router) error {
-					return RegisterAppDeploymentRoutes(router, deps.AppDeployment)
+					return RegisterAppDeploymentRoutes(router, httpapi.DeploymentRouteDependencies{
+						ModePolicy: modes.NewPolicy(config.ModeApp),
+					})
 				},
 			},
 		},

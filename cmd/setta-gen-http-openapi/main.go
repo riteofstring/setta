@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"setta/internal/config"
 	"setta/internal/httpapi"
+	"setta/internal/modes"
 	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
@@ -27,6 +29,9 @@ func main() {
 			return appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
 				appsubsystemplugin.FrontendRouteRegistrationOptions{
 					API: deps,
+					AppDeployment: httpapi.DeploymentRouteDependencies{
+						ModePolicy: modes.NewPolicy(config.ModeApp),
+					},
 				},
 			)
 		},
