@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestAppSubsystemPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
@@ -93,6 +95,111 @@ func TestAppSubsystemPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
 	}
 
 	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := appSubsystemPluginTestAuthCookie(t, app)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusOK,
+	)
+	assertAppSubsystemToolPresence(t, app, true)
+}
+
+func TestAppSubsystemPackageManagerPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerPlugin(t, sitePackages, plugins.AppSubsystemPluginID)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := appSubsystemPluginTestAuthCookie(t, app)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusNotFound,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusNotFound,
+	)
+	assertAppSubsystemToolPresence(t, app, false)
+}
+
+func TestAppSubsystemPackageManagerPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerPlugin(t, sitePackages, plugins.AppSubsystemPluginID)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
 	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -211,4 +318,67 @@ func enableAppSubsystemPluginForTest(t *testing.T, cfg config.Config) {
 
 	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
 	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+}
+
+func installAppPackageManagerPlugin(t *testing.T, sitePackages string, pluginID string) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	pluginRoot := filepath.Join(sitePackages, pluginID)
+	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
+	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
+		t.Fatalf("remove copied plugin build dir: %v", err)
+	}
+
+	distInfoName := strings.ReplaceAll(pluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoRoot := filepath.Join(sitePackages, distInfoName)
+	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: " + pluginID,
+		"Version: 0.1.0",
+		"Summary: Setta app subsystem plugin",
+		"",
+	}, "\n"))
+
+	recordLines := make([]string, 0)
+	for _, root := range []string{pluginRoot, distInfoRoot} {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if info.IsDir() || filepath.Base(path) == "RECORD" {
+				return nil
+			}
+			relativePath, err := filepath.Rel(sitePackages, path)
+			if err != nil {
+				return err
+			}
+			recordLines = append(recordLines, filepath.ToSlash(relativePath)+",,")
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk package-manager plugin fixture: %v", err)
+		}
+	}
+	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
+	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
+}
+
+func appendAppPythonPath(path string) string {
+	existing := strings.TrimSpace(os.Getenv("PYTHONPATH"))
+	if existing == "" {
+		return path
+	}
+	return path + string(os.PathListSeparator) + existing
+}
+
+func writeAppPackageManagerFile(t *testing.T, path string, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
 }
