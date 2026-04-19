@@ -9,8 +9,10 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/chatmodes"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
+	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type stubLiveChatStateProvider struct {
@@ -105,6 +107,19 @@ func (s *stubManagedChatStarter) StartRun(profile agentprofiles.Profile, inputs 
 		profileID = stringPtr(profile.ID)
 	}
 	return agentruns.NewRun(profileID, inputs, time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)), nil
+}
+
+func testAppGenerationModes(t *testing.T) chatmodes.AppGenerationModeResolver {
+	t.Helper()
+
+	resolver, err := chatmodes.NewAppGenerationModeRegistry(chatmodes.AppGenerationModeRegistryOptions{
+		Available:     func() bool { return true },
+		Contributions: appsubsystemchatmodes.BuildChatModeContributions(),
+	})
+	if err != nil {
+		t.Fatalf("new app generation mode resolver: %v", err)
+	}
+	return resolver
 }
 
 // Hydration should prefer the latest persisted run and recover the LLM config
@@ -370,7 +385,13 @@ func TestBuildAppGenerationModePromptIncludesPromptBuilderPersistenceGuidance(t 
 	t.Parallel()
 
 	mode := stringPtr(string(agentruns.AppGenerationModePromptBuilder))
-	prompt := buildAppGenerationModePrompt(mode, false, nil, nil)
+	prompt := buildAppGenerationModePromptWithResolver(
+		testAppGenerationModes(t),
+		mode,
+		false,
+		nil,
+		nil,
+	)
 	if !strings.Contains(prompt, "## App spec generation mode") {
 		t.Fatalf("expected app generation heading, got %q", prompt)
 	}
@@ -395,7 +416,8 @@ func TestBuildAppGenerationModePromptIncludesReferenceImageGuidance(t *testing.T
 	t.Parallel()
 
 	mode := stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage))
-	prompt := buildAppGenerationModePrompt(
+	prompt := buildAppGenerationModePromptWithResolver(
+		testAppGenerationModes(t),
 		mode,
 		true,
 		stringPtr(" https://example.com/reference.png "),
@@ -465,6 +487,31 @@ func TestServiceGetChatUsesLiveOverlayWhenRunning(t *testing.T) {
 	}
 	if !hydrated.WaitingForResponse {
 		t.Fatal("expected live overlay waiting state")
+	}
+}
+
+func TestServiceStartChatRejectsUnsupportedAppGenerationModeWhenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	fixture := newManagedChatFixture(t, nil)
+	fixture.service.appGenerationModes = nil
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-unavailable",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Build an app."},
+			},
+		},
+		EngineConfigID:    "engine-managed",
+		ProjectConfigID:   "project-alpha",
+		AllowUnscoped:     true,
+		PermissionMode:    projectstate.ChatPermissionModeMinimal,
+		SearchEnabled:     false,
+		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRender)),
+	})
+	if !errors.Is(err, ErrAppGenerationModeInvalid) {
+		t.Fatalf("expected unavailable app-generation mode error, got %v", err)
 	}
 }
 
@@ -1383,7 +1430,7 @@ func TestNormalizeStartChatRequestRejectsContinueFromWithBranchEdits(t *testing.
 		BranchParentChatID:  stringPtr("chat-parent"),
 		BranchFromMessageID: stringPtr("msg-1"),
 		PermissionMode:      projectstate.ChatPermissionModeMinimal,
-	})
+	}, testAppGenerationModes(t))
 	if !errors.Is(err, ErrContinueFromChatWithBranchEdits) {
 		t.Fatalf("expected ErrContinueFromChatWithBranchEdits, got %v", err)
 	}
@@ -1607,14 +1654,15 @@ func newManagedChatFixture(t *testing.T, live LiveChatStateProvider, starters ..
 		}
 	}
 	service, err := NewService(ServiceOptions{
-		ProjectState: projectRuntime,
-		Runs:         runs,
-		Engines:      engines,
-		LLM:          llmRuntime,
-		Profiles:     profiles,
-		Starter:      starter,
-		Live:         live,
-		Stopper:      runtime,
+		ProjectState:       projectRuntime,
+		Runs:               runs,
+		Engines:            engines,
+		LLM:                llmRuntime,
+		Profiles:           profiles,
+		Starter:            starter,
+		Live:               live,
+		Stopper:            runtime,
+		AppGenerationModes: testAppGenerationModes(t),
 	})
 	if err != nil {
 		t.Fatalf("new managed chat service: %v", err)

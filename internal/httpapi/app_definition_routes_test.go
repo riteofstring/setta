@@ -50,6 +50,23 @@ func TestRegisterAppDefinitionRoutesReturnsCatalog(t *testing.T) {
 	}
 }
 
+func TestAppDefinitionRoutePublicNamesRemainFrozen(t *testing.T) {
+	t.Parallel()
+
+	if RouteGetAppCatalog != "/getAppCatalog" {
+		t.Fatalf("expected get app catalog route to remain frozen, got %q", RouteGetAppCatalog)
+	}
+	if RouteGetAppDefinition != "/getAppDefinition" {
+		t.Fatalf("expected get app definition route to remain frozen, got %q", RouteGetAppDefinition)
+	}
+	if RouteSetAppDefinition != "/setAppDefinition" {
+		t.Fatalf("expected set app definition route to remain frozen, got %q", RouteSetAppDefinition)
+	}
+	if RouteValidateAppDefinition != "/validateAppDefinition" {
+		t.Fatalf("expected validate app definition route to remain frozen, got %q", RouteValidateAppDefinition)
+	}
+}
+
 func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	t.Parallel()
 
@@ -440,9 +457,13 @@ func newAppDefinitionRouteTestHandler(
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
+			var service projectstate.AppDefinitionRuntime
+			if projectRuntime != nil {
+				service = projectRuntime
+			}
 			if err := RegisterAppDefinitionRoutes(r, AppDefinitionRouteDependencies{
-				ModePolicy:   modes.NewPolicy(mode),
-				ProjectState: projectRuntime,
+				ModePolicy: modes.NewPolicy(mode),
+				Service:    service,
 			}); err != nil {
 				t.Fatalf("register app definition routes: %v", err)
 			}
