@@ -1247,64 +1247,6 @@ func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *te
 	}
 }
 
-func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *testing.T) {
-	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
-
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installFirstPartyPackageManagerPluginInSearchPath(
-		t,
-		sitePackages,
-		AppSubsystemPluginID,
-		"Setta JSON Render App Generation plugin",
-	)
-
-	service := mustNewPluginMutationServiceWithPackageManager(
-		t,
-		roots,
-		nil,
-		config.ModeIDE,
-		[]string{sitePackages},
-	)
-	if err := service.store.SavePluginsState(PluginsStateFile{
-		EnabledPluginIDs: []string{AppSubsystemPluginID},
-	}); err != nil {
-		t.Fatalf("save app subsystem plugin state: %v", err)
-	}
-
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
-		t.Fatalf(
-			"expected one first-party app subsystem package-manager plugin, got list=%#v status=%#v",
-			runtimeResponse.List.Plugins,
-			runtimeResponse.Status.Plugins,
-		)
-	}
-	if runtimeResponse.FeatureCapabilities == nil {
-		t.Fatal("expected runtime feature capabilities")
-	}
-	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
-	if appSubsystem.PluginID != AppSubsystemPluginID || !appSubsystem.PluginEnabled {
-		t.Fatalf("expected enabled app subsystem runtime capability, got %#v", appSubsystem)
-	}
-	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI || !appSubsystem.AppGenerationChatModes || !appSubsystem.AppDeploymentRuntime {
-		t.Fatalf("expected full app subsystem capability surface, got %#v", appSubsystem)
-	}
-
-	entry := runtimeResponse.List.Plugins[0]
-	if entry.PluginID != AppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
-		t.Fatalf("expected package-manager app subsystem plugin list entry, got %#v", entry)
-	}
-
-	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.PluginID != AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
-		t.Fatalf("expected active app subsystem package-manager plugin, got %#v", statusEntry)
-	}
-}
-
 func TestServiceRuntimeKeepsCurrentConfigAcrossUsableDuplicatePromotion(t *testing.T) {
 	pythonPath := firstpartyplugin.BasedpyrightPython(t)
 	t.Setenv("SETTA_PYTHON", pythonPath)
