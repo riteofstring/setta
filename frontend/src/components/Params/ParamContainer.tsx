@@ -51,6 +51,7 @@ type ParamContainerProps = {
   dndStyle?: React.CSSProperties;
   dndClassName?: string;
   listKey: ParamListKey;
+  flattenLightweightNestedLeafRow?: boolean;
 };
 
 type ParamArticleProps = {
@@ -58,6 +59,7 @@ type ParamArticleProps = {
   articleStyle: React.CSSProperties;
   canvasOwnedNestedGuideLightweight?: boolean;
   children: React.ReactNode;
+  flattenToContents?: boolean;
   dndAttributes?: Record<string, unknown>;
   dndListeners?: Record<string, unknown>;
   dndRef?: React.Ref<HTMLElement>;
@@ -124,6 +126,7 @@ type ParamRowRenderProps = {
   children: React.ReactNode;
   columnWidth: string;
   errorMessage: string;
+  flattenLightweightNestedLeafRow: boolean;
   hasError: boolean;
   isKwarg: boolean;
   isTopLevelWithPad: boolean;
@@ -274,6 +277,7 @@ function ParamRowArticle({
   dndAttributes,
   dndListeners,
   dndRef,
+  flattenToContents = false,
   floatingBoxHandlers,
   onClick,
   onMouseDown,
@@ -283,8 +287,13 @@ function ParamRowArticle({
   return (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={articleClassName}
+      className={
+        flattenToContents ? `${articleClassName} contents` : articleClassName
+      }
       style={articleStyle}
+      data-canvas-owned-lightweight-row-body={
+        flattenToContents ? "true" : undefined
+      }
       data-canvas-owned-nested-guide={
         canvasOwnedNestedGuideLightweight ? "true" : undefined
       }
@@ -391,6 +400,7 @@ function ParamNestedChildren({
         onResizeStart={onResizeStart}
         listKey={listKey}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        lightweightNestedLeafRows={true}
       />
     );
   }
@@ -507,6 +517,7 @@ function renderParamContainerRow({
   children,
   columnWidth,
   errorMessage,
+  flattenLightweightNestedLeafRow,
   hasError,
   isKwarg,
   isTopLevelWithPad,
@@ -526,6 +537,7 @@ function renderParamContainerRow({
         articleProps={{
           ...articleProps,
           ...buildLeafArticleProps(paramStyleProps),
+          flattenToContents: flattenLightweightNestedLeafRow,
         }}
         children={children}
         columnWidth={columnWidth}
@@ -607,6 +619,7 @@ function _ParamContainer({
   dndStyle,
   dndClassName,
   listKey,
+  flattenLightweightNestedLeafRow = false,
 }: ParamContainerProps) {
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
@@ -694,6 +707,7 @@ function _ParamContainer({
     children,
     columnWidth,
     errorMessage,
+    flattenLightweightNestedLeafRow,
     hasError,
     isKwarg,
     isTopLevelWithPad,

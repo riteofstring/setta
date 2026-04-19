@@ -155,6 +155,66 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 072
+
+- Item: Flatten lightweight nested leaf row bodies on the shared canvas-owned nested-child lane.
+- Status: `done`
+- Details:
+  - Chose the first real article/body primitive after the resize-handle closure instead of reopening another text/value survivor lane.
+  - Updated `frontend/src/components/Params/GetParamSwitch.tsx` to thread a lightweight nested leaf-row flag only through the shared lightweight nested-children path.
+  - Updated `frontend/src/components/Params/ParamSwitch.tsx` to flatten only neutral leaf rows on that path:
+    - no nested children
+    - not kwarg-editable
+    - not drag-enabled
+    - no selected/search/error chrome
+  - Updated `frontend/src/components/Params/ParamContainer.tsx` so those neutral rows render with `data-canvas-owned-lightweight-row-body="true"` and `display: contents`, dropping the extra nested `article` box while keeping the existing lightweight children and first-click editor handoff.
+  - Added focused proof in:
+    - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+    - existing live canary reuse via `frontend/tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts`
+  - Live canary result on the worktree runtime:
+    - canonical target section: `settings-section__sectionSizingPolicy`
+    - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+    - the existing `sectionSizingPolicy` resting-text probe still focused the canonical `Max Height` row inline on first interaction
+  - Fresh row-body ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 10`
+    - `totalRemainingVisibleElementCount: 61`
+    - `totalRemainingVisibleChromeElementCount: 52`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - `settings-section__sectionSizingPolicy`: `remainingRowCount 2`, `remainingVisibleElementCount 40`
+    - repeated nested leaf `article.section-key-value.group/arg-group.section-min-rows`: `74 -> 3`
+    - `settings-section__sectionSizingPolicy__byType`: `25` remaining chrome elements
+    - `settings-section__sectionSizingPolicy__metaControlByType`: `15` remaining chrome elements
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 5653`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 69.46`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10364`
+  - Interpretation:
+    - this is the first post-handle article/body slice that materially improved both the rerank and dense motion on the same runtime family
+    - the remaining row-body blocker is now the parent nested-group wrapper itself, especially `sectionSizingPolicy.byType`, `sectionSizingPolicy.metaControlByType`, and the smaller shared nested `Size` wrappers on callable/dict/GlobalVariables
+    - keep the closed text/value lanes closed; the next pass should stay on that remaining parent group-body primitive
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/GetParamSwitch.tsx src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-008/worktree-ai.log -- tests/e2e/settings/settings-all-settings-section-sizing-policy-resting-text.spec.ts tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `3 passed (1.1m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - exactly one retained canvas was mounted under the graph surface
+  - `settings-section__sectionSizingPolicy` was visible and intact
+  - the canonical `Max Height` row still looked attached/intact after the nested leaf-row flattening
+  - no obvious blank or detached artifact appeared around the `byType` / `metaControlByType` areas
+- Next action:
+  - keep the lightweight nested leaf-row lane closed and target the remaining parent nested-group / shared `Size` wrapper body primitive, starting from `settings-section__sectionSizingPolicy__byType` and `settings-section__sectionSizingPolicy__metaControlByType`
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 070
 
 - Item: Add a whole-scene `ParamContainer` row-body surface ranking probe so the next product slice comes from the moving row/article DOM instead of the nearly-closed value-surface inventory.

@@ -65,7 +65,10 @@ vi.mock("state/definitions", () => ({
 }));
 
 vi.mock("./ParamDndContext", () => ({
-  useParamDndChildrenForParent: () => ["param-child"],
+  useParamDndChildrenForParent: (
+    _parentId: string,
+    fallback: string[],
+  ) => fallback,
 }));
 
 import { ParamContainer } from "./ParamContainer";
@@ -134,5 +137,29 @@ describe("ParamContainer lightweight nested children", () => {
     expect(markup).not.toContain(
       'data-canvas-owned-nested-guide-lightweight="true"',
     );
+  });
+
+  it("marks lightweight nested leaf rows as contents-ready row bodies", () => {
+    const markup = renderToStaticMarkup(
+      <ParamContainer
+        sectionId="settings-section__sectionSizingPolicy"
+        paramInfoId="param-current"
+        requiredParamIdsToPaths={{}}
+        onResizeStart={() => undefined}
+        listKey="unpinned"
+        isKwarg={false}
+        isNestedParam={false}
+        hasSectionStyleTheme={false}
+        paramChildren={[]}
+        border=""
+        bg=""
+        flattenLightweightNestedLeafRow={true}
+      >
+        <span data-testid="param-label">Param</span>
+      </ParamContainer>,
+    );
+
+    expect(markup).toContain('data-canvas-owned-lightweight-row-body="true"');
+    expect(markup).toContain("contents");
   });
 });

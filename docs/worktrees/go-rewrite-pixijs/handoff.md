@@ -9,6 +9,66 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The lightweight nested leaf row-body flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-nested-leaf-row-body-flattening-rerun.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - canonical editor handoff row: `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight`
+  - implementation shape:
+    - `frontend/src/components/Params/GetParamSwitch.tsx` now threads a lightweight nested leaf-row flag only inside the shared lightweight nested-children path
+    - `frontend/src/components/Params/ParamSwitch.tsx` now flattens only neutral leaf rows on that path, keeping the full row box whenever nested children, kwarg editing, drag-enabled structure editing, selection, search highlighting, or error chrome still need it
+    - `frontend/src/components/Params/ParamContainer.tsx` now marks those neutral rows with `data-canvas-owned-lightweight-row-body="true"` and renders the wrapper as `display: contents`, so the existing lightweight children stay interactive without paying another nested `article` box on the moving surface
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamContainer.lightweightNestedChildren.test.tsx`
+  - focused runtime proof on the live worktree surface:
+    - the existing `sectionSizingPolicy` resting-text probe still focused the canonical `Max Height` row inline on the first interaction
+    - `settings-section__sectionSizingPolicy` now reports only `2` remaining rows with moving chrome:
+      - `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType` with `25` remaining chrome elements
+      - `ParamContainer-settings-section__sectionSizingPolicy-settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__metaControlByType` with `15` remaining chrome elements
+    - the repeated nested leaf `article.section-key-value.group/arg-group.section-min-rows` kind dropped from `74` occurrences to `3`
+  - fresh row-body rerank on the same runtime family recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 10`
+    - `totalRemainingVisibleElementCount: 61`
+    - `totalRemainingVisibleChromeElementCount: 52`
+    - `totalRemainingVisibleLabelElementCount: 3`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - strongest common remaining kinds are now:
+      - `article.section-args-nested.section-lg-value.group/arg-group.section-min-rows` (`4`)
+      - `div.section-args-nested.section-key-value` (`3`)
+      - `article.section-key-value.group/arg-group.section-min-rows` (`3`)
+      - `p.section-key` (`3`)
+      - `span.section-value` (`2`)
+  - compared against the prior row-body checkpoint:
+    - `totalRemainingRowCount: 77 -> 10`
+    - `totalRemainingVisibleElementCount: 457 -> 61`
+    - `totalRemainingVisibleChromeElementCount: 448 -> 52`
+    - `settings-section__sectionSizingPolicy.remainingRowCount: 43 -> 2`
+    - `settings-section__sectionSizingPolicy.remainingVisibleElementCount: 370 -> 40`
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5653`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 69.46`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 10364`
+  - compared against the prior dense checkpoint:
+    - `documentNodeCount: 5658 -> 5653`
+    - `buttonCount: 53 -> 52`
+    - `raf.meanMs: 75.6 -> 69.46`
+    - `raf.p95Ms: 133.3 -> 116.7`
+    - `longTasks.totalMs: 11495 -> 10364`
+  - interpretation:
+    - this is the first article/body-structure slice after the resize-handle closure that materially improves both the row-body rerank and the dense motion probe on the same runtime family
+    - the remaining row-body blocker is now the parent nested-group wrapper itself, especially `sectionSizingPolicy.byType`, `sectionSizingPolicy.metaControlByType`, and the smaller shared nested `Size` wrappers in callable/dict/GlobalVariables
+    - the next default frontier should stay on that remaining parent group-body primitive rather than reopening closed text/value lanes
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - exactly one retained canvas was mounted under the graph surface
+    - `settings-section__sectionSizingPolicy` was visible and intact
+    - the canonical `Max Height` row still looked attached/intact after the nested leaf-row flattening
+    - no obvious blank or detached artifact appeared around the `byType` / `metaControlByType` areas
 - The lightweight resize-handle rest-opacity slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-resize-handle-rest-opacity-rerun.md`.
   - canonical target section: `settings-section__chatSectionDefault`
   - sibling proof sections:
