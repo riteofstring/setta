@@ -2,11 +2,13 @@ import { AppRenderer } from "../../App/AppRenderer";
 import { loadProjectConfig as loadProjectConfigRequest } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
-import { useAppConfigs, useAppPreview } from "plugins/appSubsystemProjectState";
+import {
+  useAppConfigs,
+  useAppPreview,
+} from "../../../appSubsystemProjectState";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
-  useAppDefinition,
   useProjectState,
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
@@ -15,6 +17,7 @@ import {
   type AppDefinition,
   type SingleConfig,
 } from "utils/generatedTypes";
+import { useAppDefinition } from "../../../appSubsystemDefinitionState";
 type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);
