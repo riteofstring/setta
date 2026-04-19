@@ -4506,3 +4506,63 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the named `browserSectionDefault` lane and target the remaining hidden-section subtree/layout cost after shell handoff, or stop for replan if no stronger inactive-row/body primitive is viable on the current ownership boundary
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 082
+
+- Item: Capture a fresh post-motion-shell dense rerun plus hotspot trace on the canonical `browserSectionDefault` lane.
+- Status: `done`
+- Details:
+  - Chose the active repeated blocker instead of inventing another motion-hidden wrapper slice after the shell and menu-trigger passes.
+  - Added the new durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`
+  - Fresh dense rerun on the live worktree runtime recorded:
+    - `documentNodeCount: 5579`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 130.39`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4733.1`
+    - `longTasks.count: 89`
+    - `longTasks.totalMs: 17889`
+    - `longTasks.maxMs: 3663`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Focused motion proof on the same runtime still confirms the canonical lane is behaving:
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each start with `display: block` and `childElementCount: 2`
+    - during one checked zoom interaction they flip to `display: none`, `childElementCount: 0`, with global `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+    - after settle they restore to `display: block` with both hidden counts back at `0`
+  - Fresh Chrome DevTools MCP trace artifact is saved at:
+    - `perf/artifacts/frontend/settings-all-settings/motion-shell-canonical-zoom-trace-2026-04-20.json`
+  - Trace summary on the same normalized `All Settings` surface:
+    - insight set: `NO_NAVIGATION`
+    - `CLS: 0.00`
+    - no additional named DevTools insights surfaced
+    - visual preflight passed with `All Settings` active, one retained graph canvas mounted, and the canonical sections present/intact
+    - the CDP pass used blank pane point `x=300`, `y=200` because `x=24`, `y=60` was occupied in that headless session
+  - Local trace parsing on the saved artifact shows:
+    - ignore the trace-start `CpuProfiler::StartProfiling ~460ms` overhead event
+    - the largest checked renderer-main task after that startup artifact is `EventDispatch 67.136ms` with nested `v8.callFunction 66.924ms`
+    - renderer-main GC remains visible in the same short trace window:
+      - `MinorGC`: `18` events, `48.157ms` total, `4.572ms` max
+      - `V8.GCScavenger`: `18` events, `46.684ms` total
+    - compositor-side work stayed secondary:
+      - `VizCompositorThread RunTask`: `28.53ms` total, `26.692ms` max
+    - no meaningful `Layout`, `Paint`, `Layerize`, or forced-reflow hotspot surfaced in the checked zoom window
+  - Interpretation:
+    - this is the current stop signal against another motion-hidden DOM/chrome harvest on `browserSectionDefault`
+    - the checked canary now points at renderer-main JS event work plus GC on the canvas-shell path, not a fresh layout-thrash or another surviving menu/header/body family
+    - the next bounded product pass should target viewport-interaction JS cost on the canvas-shell path or escalate to the broader Pixi-owned graph-surface step instead of extending the current motion-shell wrapper lane
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-006/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.2m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+  - `/settings` loaded with `All Settings` active
+  - exactly one retained graph canvas was mounted
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+- Next action:
+  - stop extending the current motion-shell wrapper lane and choose one bounded pass that attacks viewport-interaction JS cost on the canvas-shell path, or escalate to the broader Pixi-owned graph-surface step if no such bounded JS reduction is viable
+LOOP_TERMINAL_MARKER: none

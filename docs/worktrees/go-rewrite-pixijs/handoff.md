@@ -8,6 +8,52 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- A fresh post-motion-shell hotspot report is now landed in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5579`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 59`
+    - `raf.meanMs: 130.39`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4733.1`
+    - `longTasks.count: 89`
+    - `longTasks.totalMs: 17889`
+    - `longTasks.maxMs: 3663`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion proof still confirms the shell/body lane is behaving on the live worktree surface:
+    - initial `hiddenBodyCount: 0`, `hiddenHeaderControlsCount: 0`
+    - during zoom `hiddenBodyCount: 45`, `hiddenHeaderControlsCount: 45`
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` still flip to `display: none` with `childElementCount: 0`
+    - settled `hiddenBodyCount: 0`, `hiddenHeaderControlsCount: 0`
+  - fresh headless DevTools trace artifact is saved at:
+    - `perf/artifacts/frontend/settings-all-settings/motion-shell-canonical-zoom-trace-2026-04-20.json`
+  - trace summary:
+    - `NO_NAVIGATION`
+    - `CLS: 0.00`
+    - no named DevTools insight beyond that
+    - CDP visual check passed with `All Settings` active, one retained canvas mounted, and the canonical sections visible/intact
+    - CDP had to use blank pane point `x=300`, `y=200` because `x=24`, `y=60` was occupied in that pass
+  - local trace parsing on the saved artifact shows:
+    - ignore the trace-start `CpuProfiler::StartProfiling ~460ms` overhead event
+    - the largest checked renderer-main task after that startup artifact is `EventDispatch 67.136ms` with nested `v8.callFunction 66.924ms`
+    - renderer-main GC remains non-trivial in the same short window:
+      - `MinorGC`: `18` events, `48.157ms` total, `4.572ms` max
+      - `V8.GCScavenger`: `18` events, `46.684ms` total
+    - compositor-side work stayed secondary in that short trace:
+      - `VizCompositorThread RunTask`: `28.53ms` total, `26.692ms` max
+    - no meaningful `Layout`, `Paint`, `Layerize`, or forced-reflow hotspot surfaced in the checked zoom window
+  - interpretation:
+    - this is the current stop signal against another motion-hidden DOM/chrome harvest on `browserSectionDefault`
+    - the checked canary now points at renderer-main JS event work plus GC on the canvas-shell path, not a fresh layout-thrash or menu/header/body survivor family
+    - the next bounded product pass should target viewport-interaction JS cost on the canvas-shell path or escalate to the broader Pixi-owned graph-surface step instead of extending the current motion-shell wrapper lane
 - The motion-shell handoff slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-handoff-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
