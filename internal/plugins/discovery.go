@@ -150,26 +150,57 @@ func (s *DiscoveryService) resolveDiscoveredGroup(
 	globalState PluginsGlobalStateFile,
 ) ([]DiscoveredPlugin, error) {
 	slices.SortFunc(group, compareDiscoveredPlugins)
-	primary := &group[0]
-	markShadowedDiscoveredPlugins(group, primary.SourcePath)
-	resolvePrimaryPluginState(primary, pluginsState, globalState, s.serverMode)
-	if err := s.populateBackendRegistrations(primary); err != nil {
-		primary.Errors = append(primary.Errors, PluginErrorInfo{
-			Code:    string(ServiceErrorCodeBackendRuntimeInvalid),
-			Message: err.Error(),
-		})
-		primary.State = PluginRuntimeStateInvalid
-		primary.RestartRequired = false
+	if len(group) == 0 {
+		return group, nil
 	}
+
+	primaryIndex := -1
+	for index, entry := range group {
+		resolved, err := s.resolveUnshadowedDiscoveredEntry(entry, pluginsState, globalState)
+		if err != nil {
+			return nil, err
+		}
+		group[index] = resolved
+		if discoveredPluginCanShadowLowerEntries(resolved) {
+			primaryIndex = index
+			break
+		}
+	}
+
+	if primaryIndex < 0 {
+		primaryIndex = 0
+	}
+	markShadowedDiscoveredPlugins(group, group[primaryIndex].SourcePath, primaryIndex+1)
 	return group, nil
 }
 
-func markShadowedDiscoveredPlugins(group []DiscoveredPlugin, primarySourcePath string) {
-	for index := 1; index < len(group); index++ {
+func (s *DiscoveryService) resolveUnshadowedDiscoveredEntry(
+	entry DiscoveredPlugin,
+	pluginsState PluginsStateFile,
+	globalState PluginsGlobalStateFile,
+) (DiscoveredPlugin, error) {
+	resolvePrimaryPluginState(&entry, pluginsState, globalState, s.serverMode)
+	if err := s.populateBackendRegistrations(&entry); err != nil {
+		entry.Errors = append(entry.Errors, PluginErrorInfo{
+			Code:    string(ServiceErrorCodeBackendRuntimeInvalid),
+			Message: err.Error(),
+		})
+		entry.State = PluginRuntimeStateInvalid
+		entry.RestartRequired = false
+	}
+	return entry, nil
+}
+
+func markShadowedDiscoveredPlugins(group []DiscoveredPlugin, primarySourcePath string, startIndex int) {
+	for index := startIndex; index < len(group); index++ {
 		group[index].State = PluginRuntimeStateShadowed
 		group[index].ShadowedBySourcePath = primarySourcePath
 		group[index].RestartRequired = false
 	}
+}
+
+func discoveredPluginCanShadowLowerEntries(entry DiscoveredPlugin) bool {
+	return entry.State != PluginRuntimeStateInvalid
 }
 
 func countDiscoverySnapshotEntries(entries []DiscoveredPlugin) (int, int) {
@@ -374,6 +405,14 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 	if err := validatePersistedPluginConfigRoot(entry, pluginsState); err != nil {
 		entry.Errors = append(entry.Errors, PluginErrorInfo{
 			Code:    string(ServiceErrorCodeConfigInvalid),
+			Message: err.Error(),
+		})
+		entry.State = PluginRuntimeStateInvalid
+		return
+	}
+	if err := validateDiscoveredPluginConfigSchema(*entry); err != nil {
+		entry.Errors = append(entry.Errors, PluginErrorInfo{
+			Code:    string(ServiceErrorCodeConfigSchemaInvalid),
 			Message: err.Error(),
 		})
 		entry.State = PluginRuntimeStateInvalid

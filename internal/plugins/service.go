@@ -45,6 +45,7 @@ type Service struct {
 	restartCommand    string
 	restartCallback   RestartCallback
 	settaVersion      string
+	settaFilesRoot    string
 
 	mu                          sync.Mutex
 	installTargetReservations   map[string]struct{}
@@ -119,6 +120,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
 		restartCallback:             options.RestartCallback,
 		settaVersion:                resolvedSettaVersion(options.SettaVersion),
+		settaFilesRoot:              strings.TrimSpace(options.SettaFilesRoot),
 		installTargetReservations:   map[string]struct{}{},
 		pendingRestartRemovedPlugin: map[string]PendingRestartRemovedBackendPlugin{},
 	}, nil
@@ -194,6 +196,49 @@ func (s *Service) CommitBackendRuntimeRefresh() (DiscoverySnapshot, error) {
 	}
 
 	return s.rescanLocked()
+}
+
+func (s *Service) CommitAppliedLanguageServerPlugins(pluginIDs []string) error {
+	if s == nil {
+		return ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return err
+	}
+	if len(state.PendingRestartBackendPluginIDs) == 0 {
+		return nil
+	}
+
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return err
+	}
+	removablePendingIDs := pendingRestartLanguageServerOnlyPluginIDs(snapshot.Plugins, pluginIDs)
+	if len(removablePendingIDs) == 0 {
+		return nil
+	}
+
+	nextPendingIDs := make([]string, 0, len(state.PendingRestartBackendPluginIDs))
+	for _, pluginID := range state.PendingRestartBackendPluginIDs {
+		if _, ok := removablePendingIDs[pluginID]; ok {
+			continue
+		}
+		nextPendingIDs = append(nextPendingIDs, pluginID)
+	}
+
+	state.PendingRestartBackendPluginIDs = nextPendingIDs
+	if err := s.store.SavePluginsState(state); err != nil {
+		return err
+	}
+	for pluginID := range removablePendingIDs {
+		delete(s.pendingRestartRemovedPlugin, pluginID)
+	}
+	return nil
 }
 
 func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResponse, error) {
@@ -341,8 +386,8 @@ func (s *Service) buildEnableDisableResponseLocked(pluginID string, restartRequi
 	if err != nil {
 		return PluginEnableDisableResponse{}, err
 	}
-	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if latestEntry.PluginID == "" {
+	latestEntry, ok := PrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if !ok {
 		return PluginEnableDisableResponse{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return PluginEnableDisableResponse{
@@ -953,8 +998,8 @@ func (s *Service) resolveHighestPrecedenceEntryLocked(pluginID string) (Discover
 	if err != nil {
 		return DiscoveredPlugin{}, err
 	}
-	entry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
-	if entry.PluginID == "" {
+	entry, ok := PrimaryDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if !ok {
 		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
 	}
 	return entry, nil
@@ -981,13 +1026,43 @@ func findDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string, scope Plu
 	return DiscoveredPlugin{}
 }
 
-func findHighestPrecedenceDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) DiscoveredPlugin {
+// PrimaryDiscoveredPlugin returns the primary visible entry for a plugin ID,
+// preferring usable unshadowed entries over invalid or shadowed duplicates.
+func PrimaryDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) (DiscoveredPlugin, bool) {
+	best := DiscoveredPlugin{}
+	found := false
 	for _, entry := range entries {
-		if entry.PluginID == pluginID {
-			return entry
+		if entry.PluginID != pluginID {
+			continue
+		}
+		if !found || discoveredPluginIsPreferredPrimary(best, entry) {
+			best = entry
+			found = true
 		}
 	}
-	return DiscoveredPlugin{}
+	if !found {
+		return DiscoveredPlugin{}, false
+	}
+	return best, true
+}
+
+func discoveredPluginIsPreferredPrimary(current DiscoveredPlugin, candidate DiscoveredPlugin) bool {
+	currentRank := discoveredPluginPrimarySelectionRank(current)
+	candidateRank := discoveredPluginPrimarySelectionRank(candidate)
+	if candidateRank != currentRank {
+		return candidateRank < currentRank
+	}
+	return compareDiscoveredPlugins(candidate, current) < 0
+}
+
+func discoveredPluginPrimarySelectionRank(entry DiscoveredPlugin) int {
+	if entry.ShadowedBySourcePath != "" {
+		return 2
+	}
+	if entry.State == PluginRuntimeStateInvalid {
+		return 1
+	}
+	return 0
 }
 
 func resolveEnablementBeforeMutation(entry DiscoveredPlugin, state PluginsStateFile, globalState PluginsGlobalStateFile) bool {
@@ -1209,6 +1284,59 @@ func (s *Service) discardPendingRestartBackendIDLocked(pluginID string) error {
 
 func pluginConfigKey(pluginID string, scope PluginScope) string {
 	return fmt.Sprintf("%s:%s", scope, pluginID)
+}
+
+func pendingRestartLanguageServerOnlyPluginIDs(entries []DiscoveredPlugin, pluginIDs []string) map[string]struct{} {
+	if len(entries) == 0 || len(pluginIDs) == 0 {
+		return nil
+	}
+
+	selected := map[string]struct{}{}
+	for _, pluginID := range pluginIDs {
+		trimmed := strings.TrimSpace(pluginID)
+		if trimmed == "" {
+			continue
+		}
+		selected[trimmed] = struct{}{}
+	}
+	if len(selected) == 0 {
+		return nil
+	}
+
+	removable := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.State != PluginRuntimeStatePendingRestart {
+			continue
+		}
+		if _, ok := selected[entry.PluginID]; !ok {
+			continue
+		}
+		if !entryHasLanguageServerOnlyBackendRuntime(entry) {
+			continue
+		}
+		removable[entry.PluginID] = struct{}{}
+	}
+	if len(removable) == 0 {
+		return nil
+	}
+	return removable
+}
+
+func entryHasLanguageServerOnlyBackendRuntime(entry DiscoveredPlugin) bool {
+	if !entry.HasBackend() {
+		return false
+	}
+
+	hasLanguageServer := false
+	for _, capability := range entry.EffectiveCapabilities {
+		switch capability {
+		case "registerLanguageServer":
+			hasLanguageServer = true
+		case "registerCodegenTarget", "registerListenerEndpoint", "registerMcpTools", "registerRouter", "registerStaticDir":
+			return false
+		}
+	}
+	return hasLanguageServer
 }
 
 func removeString(values []string, target string) []string {

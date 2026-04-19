@@ -94,6 +94,43 @@ func TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability(t *testin
 	}
 }
 
+func TestServiceStatusIncludesRegisteredLanguageServers(t *testing.T) {
+	pythonPath, scriptPath := preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status: %v", err)
+	}
+
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend", PluginRuntimeStateActive)
+	if len(entry.RegisteredLanguageServers) != 1 {
+		t.Fatalf("expected one registered language server, got %#v", entry.RegisteredLanguageServers)
+	}
+	registration := entry.RegisteredLanguageServers[0]
+	if registration.PluginID != "setta-fixture-backend" {
+		t.Fatalf("unexpected language server plugin id %#v", registration)
+	}
+	if registration.Language != "fixturedsl" {
+		t.Fatalf("unexpected language server language %#v", registration)
+	}
+	if registration.Command != pythonPath {
+		t.Fatalf("unexpected language server command %#v", registration)
+	}
+	if len(registration.Args) != 1 || registration.Args[0] != scriptPath {
+		t.Fatalf("unexpected language server args %#v", registration)
+	}
+	if registration.SettingsKey == nil || *registration.SettingsKey != "fixtureDslLanguageServer" {
+		t.Fatalf("unexpected language server settings key %#v", registration)
+	}
+}
+
 func TestServiceStatusWaitsForServiceLock(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -147,6 +184,76 @@ func TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus(t *testing
 	}
 	if summary.RestartCapability.Mode != PluginRestartCapabilityModeManual {
 		t.Fatalf("expected manual restart capability, got %#v", summary.RestartCapability)
+	}
+}
+
+func TestServiceCommitAppliedLanguageServerPluginsClearsPendingStateForLanguageServerOnlyPlugin(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pendingRestartBackendPluginIds": []string{"setta-fixture-backend"},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	if err := service.CommitAppliedLanguageServerPlugins([]string{"setta-fixture-backend"}); err != nil {
+		t.Fatalf("commit applied language server plugin: %v", err)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status after commit: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend", PluginRuntimeStateActive)
+	if entry.RestartRequired {
+		t.Fatalf("expected language-server-only plugin to stop requiring restart, got %#v", entry)
+	}
+
+	summary, err := service.RestartRequiredSummary()
+	if err != nil {
+		t.Fatalf("load restart-required summary after commit: %v", err)
+	}
+	if len(summary.PendingPluginIDs) != 0 {
+		t.Fatalf("expected no pending plugin ids after LSP commit, got %#v", summary.PendingPluginIDs)
+	}
+}
+
+func TestServiceCommitAppliedLanguageServerPluginsPreservesPendingStateForMixedBackendPlugin(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerLanguageServer", "registerRouter"}
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pendingRestartBackendPluginIds": []string{"setta-fixture-backend"},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	if err := service.CommitAppliedLanguageServerPlugins([]string{"setta-fixture-backend"}); err != nil {
+		t.Fatalf("commit applied language server plugin: %v", err)
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status after mixed-backend commit: %v", err)
+	}
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend", PluginRuntimeStatePendingRestart)
+	if !entry.RestartRequired {
+		t.Fatalf("expected mixed-backend plugin to keep restartRequired, got %#v", entry)
+	}
+
+	summary, err := service.RestartRequiredSummary()
+	if err != nil {
+		t.Fatalf("load restart-required summary after mixed-backend commit: %v", err)
+	}
+	if len(summary.PendingPluginIDs) != 1 || summary.PendingPluginIDs[0] != "setta-fixture-backend" {
+		t.Fatalf("expected mixed-backend plugin to stay pending, got %#v", summary.PendingPluginIDs)
 	}
 }
 
