@@ -16,16 +16,22 @@ const defaultAppSpecVersion = "v1"
 const defaultAppThemeMode = "auto"
 
 type AppDefinitionService struct {
-	runtime *projectstate.Runtime
+	runtime      *projectstate.Runtime
+	storage      DocumentStorage
+	appSpecStore appspec.Store
 }
 
 var _ Runtime = (*AppDefinitionService)(nil)
 
-func NewAppDefinitionService(runtime *projectstate.Runtime) Runtime {
+func NewAppDefinitionService(runtime *projectstate.Runtime, pluginID string) Runtime {
 	if runtime == nil {
 		return nil
 	}
-	return &AppDefinitionService{runtime: runtime}
+	return &AppDefinitionService{
+		runtime:      runtime,
+		storage:      StorageForPlugin(pluginID),
+		appSpecStore: appspec.ForPlugin(pluginID),
+	}
 }
 
 func (s *AppDefinitionService) GetAppDefinition(
@@ -37,7 +43,9 @@ func (s *AppDefinitionService) GetAppDefinition(
 	}
 
 	snapshot := s.runtime.Snapshot()
-	appDefinition, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
+	appDefinition, err := DecodeStoredAppDefinition(
+		s.storage.StoredDocumentAppDefinitionRaw(snapshot.Document),
+	)
 	if err != nil {
 		return ReadResult{}, err
 	}
@@ -50,7 +58,7 @@ func (s *AppDefinitionService) GetAppDefinition(
 	if err != nil {
 		return ReadResult{}, err
 	}
-	appSpec, err := appspec.Read(projectRoot, result.AppDefinition.AppSpecPath)
+	appSpec, err := s.appSpecStore.Read(projectRoot, result.AppDefinition.AppSpecPath)
 	if err != nil {
 		return ReadResult{}, err
 	}
@@ -65,7 +73,7 @@ func (s *AppDefinitionService) GetEffectiveAppDefinition(
 	if s == nil || s.runtime == nil {
 		return AppDefinition{}, projectstate.ErrRuntimeClosed
 	}
-	return effectiveAppDefinition(s.runtime.Snapshot().Document)
+	return effectiveAppDefinitionWithStorage(s.runtime.Snapshot().Document, s.storage)
 }
 
 func (s *AppDefinitionService) GetEffectiveAppSpecPath(
@@ -75,7 +83,11 @@ func (s *AppDefinitionService) GetEffectiveAppSpecPath(
 	if s == nil || s.runtime == nil {
 		return "", projectstate.ErrRuntimeClosed
 	}
-	return effectiveAppSpecPath(s.runtime.Snapshot().Document)
+	return effectiveAppSpecPathWithStore(
+		s.runtime.Snapshot().Document,
+		s.storage,
+		s.appSpecStore,
+	)
 }
 
 func (s *AppDefinitionService) GetEffectiveAppThemeMode(
@@ -85,7 +97,7 @@ func (s *AppDefinitionService) GetEffectiveAppThemeMode(
 	if s == nil || s.runtime == nil {
 		return "", projectstate.ErrRuntimeClosed
 	}
-	return effectiveAppThemeMode(s.runtime.Snapshot().Document)
+	return effectiveAppThemeModeWithStorage(s.runtime.Snapshot().Document, s.storage)
 }
 
 func (s *AppDefinitionService) ValidateAppDefinition(
@@ -97,7 +109,7 @@ func (s *AppDefinitionService) ValidateAppDefinition(
 		return ValidationResult{}, projectstate.ErrRuntimeClosed
 	}
 
-	current, err := effectiveAppDefinition(s.runtime.Snapshot().Document)
+	current, err := effectiveAppDefinitionWithStorage(s.runtime.Snapshot().Document, s.storage)
 	if err != nil {
 		return ValidationResult{}, err
 	}
@@ -140,7 +152,13 @@ func (s *AppDefinitionService) SetAppDefinition(
 
 	var nextAppSpec any
 	snapshot, err := s.runtime.MutatePersistedWithContext(ctx, func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		plan, appSpec, err := buildSetAppDefinitionPlan(document, projectRoot, input)
+		plan, appSpec, err := buildSetAppDefinitionPlan(
+			document,
+			projectRoot,
+			input,
+			s.storage,
+			s.appSpecStore,
+		)
 		nextAppSpec = appSpec
 		return plan, err
 	})
@@ -148,7 +166,9 @@ func (s *AppDefinitionService) SetAppDefinition(
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
-	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
+	appDefinitionResult, err := DecodeStoredAppDefinition(
+		s.storage.StoredDocumentAppDefinitionRaw(snapshot.Document),
+	)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
@@ -178,7 +198,14 @@ func (s *AppDefinitionService) StreamAppDefinition(
 
 	var nextAppSpec any
 	snapshot, err := s.runtime.MutatePersistedWithContext(ctx, func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		plan, appSpec, err := buildStreamAppDefinitionPlan(document, projectRoot, input, ops)
+		plan, appSpec, err := buildStreamAppDefinitionPlan(
+			document,
+			projectRoot,
+			input,
+			ops,
+			s.storage,
+			s.appSpecStore,
+		)
 		nextAppSpec = appSpec
 		return plan, err
 	})
@@ -186,7 +213,9 @@ func (s *AppDefinitionService) StreamAppDefinition(
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
-	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
+	appDefinitionResult, err := DecodeStoredAppDefinition(
+		s.storage.StoredDocumentAppDefinitionRaw(snapshot.Document),
+	)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
@@ -213,30 +242,42 @@ func buildSetAppDefinitionPlan(
 	document projectstate.Document,
 	projectRoot string,
 	input SetInput,
+	storage DocumentStorage,
+	appSpecStore appspec.Store,
 ) (projectstate.PersistedMutationPlan, any, error) {
-	current, err := effectiveAppDefinition(document)
+	current, err := effectiveAppDefinitionWithStorage(document, storage)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
-	normalizedPath, err := resolveSetAppDefinitionTargetPath(projectRoot, current, input.AppSpecPath)
+	normalizedPath, err := resolveAppDefinitionTargetPath(
+		projectRoot,
+		current,
+		input.AppSpecPath,
+		appSpecStore,
+	)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
-	previousAppSpec, err := appspec.Read(projectRoot, normalizedPath)
+	previousAppSpec, err := appSpecStore.Read(projectRoot, normalizedPath)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
-	nextDocument, appSpec, err := setAppDefinitionDocument(document, input, normalizedPath)
+	nextDocument, appSpec, err := setAppDefinitionDocument(
+		document,
+		input,
+		normalizedPath,
+		storage,
+	)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	return projectstate.PersistedMutationPlan{
 		NextDocument: nextDocument,
 		ApplyExternalChanges: func() error {
-			return appspec.Write(projectRoot, normalizedPath, appSpec)
+			return appSpecStore.Write(projectRoot, normalizedPath, appSpec)
 		},
 		RollbackExternalChanges: func() error {
-			return rollbackAppSpecWrite(projectRoot, normalizedPath, previousAppSpec)
+			return rollbackAppSpecWrite(projectRoot, normalizedPath, previousAppSpec, appSpecStore)
 		},
 	}, appSpec, nil
 }
@@ -246,12 +287,19 @@ func buildStreamAppDefinitionPlan(
 	projectRoot string,
 	input StreamInput,
 	ops []appspec.PatchOp,
+	storage DocumentStorage,
+	appSpecStore appspec.Store,
 ) (projectstate.PersistedMutationPlan, any, error) {
-	current, err := effectiveAppDefinition(document)
+	current, err := effectiveAppDefinitionWithStorage(document, storage)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
-	baseSpec, err := resolveStreamAppDefinitionBaseSpec(projectRoot, current, input.BaseAppSpec)
+	baseSpec, err := resolveStreamAppDefinitionBaseSpec(
+		projectRoot,
+		current,
+		input.BaseAppSpec,
+		appSpecStore,
+	)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
@@ -259,28 +307,33 @@ func buildStreamAppDefinitionPlan(
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, newAppSpecPatchInvalidError(err)
 	}
-	targetPath, err := resolveStreamAppDefinitionTargetPath(projectRoot, current, input.AppSpecPath)
+	targetPath, err := resolveAppDefinitionTargetPath(
+		projectRoot,
+		current,
+		input.AppSpecPath,
+		appSpecStore,
+	)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
-	previousAppSpec, err := appspec.Read(projectRoot, targetPath)
+	previousAppSpec, err := appSpecStore.Read(projectRoot, targetPath)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	nextDocument, nextSpec, err := setAppDefinitionDocument(document, SetInput{
 		AppSpec:     appSpec,
 		AppSpecPath: input.AppSpecPath,
-	}, targetPath)
+	}, targetPath, storage)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	return projectstate.PersistedMutationPlan{
 		NextDocument: nextDocument,
 		ApplyExternalChanges: func() error {
-			return appspec.Write(projectRoot, targetPath, nextSpec)
+			return appSpecStore.Write(projectRoot, targetPath, nextSpec)
 		},
 		RollbackExternalChanges: func() error {
-			return rollbackAppSpecWrite(projectRoot, targetPath, previousAppSpec)
+			return rollbackAppSpecWrite(projectRoot, targetPath, previousAppSpec, appSpecStore)
 		},
 	}, nextSpec, nil
 }
@@ -300,7 +353,13 @@ func (s *AppDefinitionService) UpdateAppDefinition(
 
 	var nextAppSpec any
 	snapshot, err := s.runtime.MutatePersistedWithContext(ctx, func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		plan, appSpec, err := buildUpdateAppDefinitionPlan(document, projectRoot, patch)
+		plan, appSpec, err := buildUpdateAppDefinitionPlan(
+			document,
+			projectRoot,
+			patch,
+			s.storage,
+			s.appSpecStore,
+		)
 		nextAppSpec = appSpec
 		return plan, err
 	})
@@ -308,7 +367,9 @@ func (s *AppDefinitionService) UpdateAppDefinition(
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
 
-	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
+	appDefinitionResult, err := DecodeStoredAppDefinition(
+		s.storage.StoredDocumentAppDefinitionRaw(snapshot.Document),
+	)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
@@ -323,8 +384,10 @@ func buildUpdateAppDefinitionPlan(
 	document projectstate.Document,
 	projectRoot string,
 	patch any,
+	storage DocumentStorage,
+	appSpecStore appspec.Store,
 ) (projectstate.PersistedMutationPlan, any, error) {
-	current, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(document))
+	current, err := DecodeStoredAppDefinition(storage.StoredDocumentAppDefinitionRaw(document))
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
@@ -333,7 +396,7 @@ func buildUpdateAppDefinitionPlan(
 	}
 
 	appSpecPath := current.AppSpecPath
-	existing, err := appspec.Read(projectRoot, appSpecPath)
+	existing, err := appSpecStore.Read(projectRoot, appSpecPath)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
@@ -341,7 +404,12 @@ func buildUpdateAppDefinitionPlan(
 		return projectstate.PersistedMutationPlan{}, nil, ErrAppSpecNotFound
 	}
 
-	nextDocument, appSpec, err := updateAppDefinitionDocument(document, patch, existing)
+	nextDocument, appSpec, err := updateAppDefinitionDocument(
+		document,
+		patch,
+		existing,
+		storage,
+	)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
@@ -349,10 +417,10 @@ func buildUpdateAppDefinitionPlan(
 	return projectstate.PersistedMutationPlan{
 		NextDocument: nextDocument,
 		ApplyExternalChanges: func() error {
-			return appspec.Write(projectRoot, appSpecPath, appSpec)
+			return appSpecStore.Write(projectRoot, appSpecPath, appSpec)
 		},
 		RollbackExternalChanges: func() error {
-			return rollbackAppSpecWrite(projectRoot, appSpecPath, existing)
+			return rollbackAppSpecWrite(projectRoot, appSpecPath, existing, appSpecStore)
 		},
 	}, appSpec, nil
 }
@@ -386,8 +454,9 @@ func setAppDefinitionDocument(
 	document projectstate.Document,
 	input SetInput,
 	normalizedAppSpecPath string,
+	storage DocumentStorage,
 ) (projectstate.Document, any, error) {
-	current, err := effectiveAppDefinition(document)
+	current, err := effectiveAppDefinitionWithStorage(document, storage)
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
@@ -409,7 +478,7 @@ func setAppDefinitionDocument(
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
-	nextDocument := WithStoredDocumentAppDefinition(document, encodedDefinition)
+	nextDocument := storage.WithStoredDocumentAppDefinition(document, encodedDefinition)
 	return nextDocument, appSpec, nil
 }
 
@@ -417,8 +486,9 @@ func updateAppDefinitionDocument(
 	document projectstate.Document,
 	patch any,
 	existing any,
+	storage DocumentStorage,
 ) (projectstate.Document, any, error) {
-	current, err := effectiveAppDefinition(document)
+	current, err := effectiveAppDefinitionWithStorage(document, storage)
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
@@ -436,44 +506,31 @@ func updateAppDefinitionDocument(
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
-	nextDocument := WithStoredDocumentAppDefinition(document, encodedDefinition)
+	nextDocument := storage.WithStoredDocumentAppDefinition(document, encodedDefinition)
 	return nextDocument, merged, nil
 }
 
-func resolveSetAppDefinitionTargetPath(
+func resolveAppDefinitionTargetPath(
 	projectRoot string,
 	current AppDefinition,
 	inputAppSpecPath *string,
+	appSpecStore appspec.Store,
 ) (string, error) {
-	targetPath := appspec.DefaultPath()
+	targetPath := appSpecStore.DefaultPath()
 	if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
 		targetPath = trimmed
 	}
 	if inputAppSpecPath != nil && strings.TrimSpace(*inputAppSpecPath) != "" {
 		targetPath = *inputAppSpecPath
 	}
-	return appspec.NormalizePath(projectRoot, targetPath)
-}
-
-func resolveStreamAppDefinitionTargetPath(
-	projectRoot string,
-	current AppDefinition,
-	inputAppSpecPath *string,
-) (string, error) {
-	targetPath := appspec.DefaultPath()
-	if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
-		targetPath = trimmed
-	}
-	if inputAppSpecPath != nil && strings.TrimSpace(*inputAppSpecPath) != "" {
-		targetPath = *inputAppSpecPath
-	}
-	return appspec.NormalizePath(projectRoot, targetPath)
+	return appSpecStore.NormalizePath(projectRoot, targetPath)
 }
 
 func resolveStreamAppDefinitionBaseSpec(
 	projectRoot string,
 	current AppDefinition,
 	baseAppSpec *map[string]any,
+	appSpecStore appspec.Store,
 ) (map[string]any, error) {
 	if baseAppSpec != nil {
 		cloned, ok := cloneJSONValue(*baseAppSpec).(map[string]any)
@@ -486,7 +543,7 @@ func resolveStreamAppDefinitionBaseSpec(
 		return nil, nil
 	}
 
-	stored, err := appspec.Read(projectRoot, current.AppSpecPath)
+	stored, err := appSpecStore.Read(projectRoot, current.AppSpecPath)
 	if err != nil {
 		return nil, err
 	}
@@ -699,12 +756,17 @@ func cloneAppDefinitionPointer(appDefinition *AppDefinition) *AppDefinition {
 	return &cloned
 }
 
-func rollbackAppSpecWrite(projectRoot string, appSpecPath string, previousAppSpec any) error {
+func rollbackAppSpecWrite(
+	projectRoot string,
+	appSpecPath string,
+	previousAppSpec any,
+	appSpecStore appspec.Store,
+) error {
 	if previousAppSpec != nil {
-		return appspec.Write(projectRoot, appSpecPath, previousAppSpec)
+		return appSpecStore.Write(projectRoot, appSpecPath, previousAppSpec)
 	}
 
-	resolvedPath, err := appspec.ResolvePath(projectRoot, appSpecPath)
+	resolvedPath, err := appSpecStore.ResolvePath(projectRoot, appSpecPath)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"setta/internal/mcpx"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
@@ -147,7 +148,10 @@ func newAppDefinitionToolRouteServer(
 	}
 	if len(options.ContributedToolRegistrations) == 0 && projectRuntime != nil {
 		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime),
+			appdefinition.NewAppDefinitionService(
+				projectRuntime,
+				plugins.AppSubsystemPluginID,
+			),
 		)
 	}
 	server, err := mcpx.NewServer(options)

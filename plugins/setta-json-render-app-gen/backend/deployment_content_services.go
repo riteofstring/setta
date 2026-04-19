@@ -13,16 +13,18 @@ import (
 
 type appDeploymentContentService struct {
 	appDefinitionService appdefinition.Runtime
+	appSpecStore         appspec.Store
 }
 
 func LoadPublishedAppSpecFromRuntime(
 	runtime *deployments.Runtime,
 	appDefinition projectstate.RawJSON,
+	pluginID string,
 ) (any, error) {
 	if runtime == nil {
 		return nil, deployments.ErrRuntimeRequired
 	}
-	return appDeploymentContentService{}.LoadPublishedAppSpec(
+	return appDeploymentContentService{appSpecStore: appspec.ForPlugin(pluginID)}.LoadPublishedAppSpec(
 		runtime.Paths().DeploymentRoot,
 		appDefinition,
 	)
@@ -43,7 +45,7 @@ func (s appDeploymentContentService) LoadPublishedAppSpec(
 	if appSpecPath == "" {
 		return nil, nil
 	}
-	return appspec.Read(deploymentRoot, appSpecPath)
+	return s.appSpecStore.Read(deploymentRoot, appSpecPath)
 }
 
 func (s appDeploymentContentService) PreparePublishedAppDefinition(
@@ -67,11 +69,11 @@ func (s appDeploymentContentService) PreparePublishedAppDefinition(
 		return nil, nil, "", deployments.ErrAppPublishAppSpecPathRequired
 	}
 
-	targetAppSpecPath, err := appspec.NormalizePath(projectRoot, current.AppSpecPath)
+	targetAppSpecPath, err := s.appSpecStore.NormalizePath(projectRoot, current.AppSpecPath)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("%w: %v", deployments.ErrAppPublishAppSpecInvalid, err)
 	}
-	appSpec, err := appspec.Read(projectRoot, current.AppSpecPath)
+	appSpec, err := s.appSpecStore.Read(projectRoot, current.AppSpecPath)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("%w: %v", deployments.ErrAppPublishAppSpecInvalid, err)
 	}
@@ -116,10 +118,10 @@ func appPublishValidationError(
 	}
 }
 
-func (appDeploymentContentService) WritePublishedAppSpec(
+func (s appDeploymentContentService) WritePublishedAppSpec(
 	deploymentRoot string,
 	targetAppSpecPath string,
 	appSpec any,
 ) error {
-	return appspec.Write(deploymentRoot, targetAppSpecPath, appSpec)
+	return s.appSpecStore.Write(deploymentRoot, targetAppSpecPath, appSpec)
 }

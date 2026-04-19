@@ -174,6 +174,41 @@ func TestWalkPackagePathsIncludesPluginPackagesForFrontendValueDiscovery(t *test
 	}
 }
 
+func TestPluginAppDefinitionPackagePathsDiscoversPluginProviders(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	writeGeneratorPackageFile(
+		t,
+		filepath.Join(repoRoot, "plugins", "acme-first-provider", "backend", "appdefinition"),
+		"types.go",
+	)
+	writeGeneratorPackageFile(
+		t,
+		filepath.Join(repoRoot, "plugins", "acme-second-provider", "backend", "appdefinition"),
+		"types.go",
+	)
+	writeGeneratorPackageFile(
+		t,
+		filepath.Join(repoRoot, "plugins", "acme-ignored-provider", "backend"),
+		"provider.go",
+	)
+
+	packages, err := pluginAppDefinitionPackagePathsFromRepoRoot(repoRoot)
+	if err != nil {
+		t.Fatalf("discover plugin app definition packages: %v", err)
+	}
+	if !reflect.DeepEqual(
+		packages,
+		[]string{
+			"setta/plugins/acme-first-provider/backend/appdefinition",
+			"setta/plugins/acme-second-provider/backend/appdefinition",
+		},
+	) {
+		t.Fatalf("unexpected plugin app definition packages %#v", packages)
+	}
+}
+
 func writeGeneratorPackageFile(t *testing.T, dir string, name string) {
 	t.Helper()
 

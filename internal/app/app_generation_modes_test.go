@@ -11,6 +11,7 @@ import (
 	"setta/internal/chatmodes"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/testutil/appsubsystemprovider"
@@ -38,7 +39,7 @@ func (p appGenerationModeTestProvider) BuildFrontendAPIRouteRegistrations(
 
 func (p appGenerationModeTestProvider) BuildMCPToolRegistrations(
 	*projectstate.Runtime,
-) []appsubsystem.MCPToolRegistration {
+) []mcpx.ToolRegistration {
 	return nil
 }
 

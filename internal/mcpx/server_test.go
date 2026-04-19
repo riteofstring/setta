@@ -20,6 +20,7 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 	"setta/internal/tools"
@@ -9309,7 +9310,10 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 		projectRuntime != nil &&
 		len(options.ContributedToolRegistrations) == 0 {
 		options.ContributedToolRegistrations = appDefinitionToolRegistrationsForTest(
-			appdefinition.NewAppDefinitionService(projectRuntime),
+			appdefinition.NewAppDefinitionService(
+				projectRuntime,
+				plugins.AppSubsystemPluginID,
+			),
 		)
 	}
 	if options.LSPDiagnostics == nil {

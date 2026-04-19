@@ -8,6 +8,10 @@ import {
   validateAppDefinition,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import {
+  buildDefaultAppSpecPath,
+  useAppSubsystemFrontendStore,
+} from "plugins/appSubsystem";
 import { useAppPreview } from "../../../../appSubsystemProjectState";
 import { useAppDefinition } from "../../../../appSubsystemDefinitionState";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -69,8 +73,6 @@ type ParsedAppDefinitionRequest = {
 };
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
-const DEFAULT_APP_SPEC_PATH =
-  "plugins/setta-json-render-app-gen/app_specs/app.json";
 const DEFAULT_THEME_MODE: AppThemeMode = "auto";
 const ADVANCED_ACCORDION_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.app-config-advanced-chevron]:rotate-180";
@@ -88,6 +90,7 @@ function resolveThemeMode(theme: unknown): AppThemeMode {
   }
   return DEFAULT_THEME_MODE;
 }
+
 function buildDefaultSpec(): AppSpecPayload {
   const root: AppSpecPayload = {
     key: "app-root",
@@ -360,6 +363,7 @@ function buildAppDefinitionRequest({
     },
   };
 }
+
 function buildValidationSuccessMessage(warningCount: number): string {
   if (warningCount === 0) {
     return "Validation passed.";
@@ -619,7 +623,7 @@ function AppConfigAdvancedContent({
           <input
             aria-label="Spec path"
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-            placeholder={DEFAULT_APP_SPEC_PATH}
+            placeholder={appSpecPathPlaceholder}
             value={appSpecPath}
             onChange={(event) => onAppSpecPathChange(event.target.value)}
           />
@@ -703,6 +707,10 @@ function AppConfigAdvancedContent({
 /** @lintignore Consumed by the app subsystem plugin frontend. */
 export function AppConfigPane() {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const appSubsystemPluginID = useAppSubsystemFrontendStore((state) => {
+    const pluginID = state.capabilities?.pluginId?.trim() ?? "";
+    return pluginID.length > 0 ? pluginID : null;
+  });
   const appSpec = useAppDefinition((state) => state.appSpec);
   const isPreviewEnabled = useAppPreview((state) => state.isPreviewEnabled);
   const previewConfigId = useAppPreview((state) => state.previewConfigId);
@@ -723,6 +731,9 @@ export function AppConfigPane() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [validationResult, setValidationResult] =
     useState<AppDefinitionValidationResult | null>(null);
+  const defaultAppSpecPath = buildDefaultAppSpecPath(appSubsystemPluginID);
+  const appSpecPathPlaceholder =
+    defaultAppSpecPath || "plugins/<app-provider>/app_specs/app.json";
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
   const clearDraftErrors = useCallback(() => {
     setDraftSpecError(null);
@@ -931,8 +942,8 @@ export function AppConfigPane() {
   function handleCreateDefault() {
     const spec = buildDefaultSpec();
     setDraftSpec(JSON.stringify(spec, null, 2));
-    if (!appSpecPath) {
-      setAppSpecPath(DEFAULT_APP_SPEC_PATH);
+    if (!appSpecPath && defaultAppSpecPath) {
+      setAppSpecPath(defaultAppSpecPath);
     }
   }
   async function handleSave() {

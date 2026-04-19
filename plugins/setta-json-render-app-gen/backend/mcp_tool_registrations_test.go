@@ -68,7 +68,10 @@ func (stubAppDefinitionRuntime) CompareAndSetAppDefinitionThemeMode(context.Cont
 func TestBuildMCPToolRegistrationsKeepsFrozenToolSet(t *testing.T) {
 	t.Parallel()
 
-	registrations := BuildMCPToolRegistrations(stubAppDefinitionRuntime{})
+	registrations := BuildMCPToolRegistrations(
+		stubAppDefinitionRuntime{},
+		appspec.ForPlugin(ProviderPluginID).DefaultPath(),
+	)
 	names := make([]string, 0, len(registrations))
 	for _, registration := range registrations {
 		names = append(names, registration.Spec.Name)
@@ -101,7 +104,10 @@ func TestBuildMCPToolRegistrationsKeepsFrozenToolSet(t *testing.T) {
 func TestBuildMCPToolRegistrationsWithoutServiceLeavesOnlyCatalogTools(t *testing.T) {
 	t.Parallel()
 
-	registrations := BuildMCPToolRegistrations(nil)
+	registrations := BuildMCPToolRegistrations(
+		nil,
+		appspec.ForPlugin(ProviderPluginID).DefaultPath(),
+	)
 	if len(registrations) != 2 {
 		t.Fatalf("expected only catalog tools without runtime service, got %#v", registrations)
 	}
@@ -118,7 +124,10 @@ func TestBuildMCPToolRegistrationsWorkThroughServerContributions(t *testing.T) {
 		WorkspaceRoot:                t.TempDir(),
 		ProjectState:                 runtime,
 		SkipDefaultAppSubsystemTools: true,
-		ContributedToolRegistrations: BuildMCPToolRegistrations(appDefinitionServiceForTest(runtime)),
+		ContributedToolRegistrations: BuildMCPToolRegistrations(
+			appDefinitionServiceForTest(runtime),
+			appspec.ForPlugin(ProviderPluginID).DefaultPath(),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new server: %v", err)

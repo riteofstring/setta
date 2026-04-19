@@ -11,7 +11,7 @@ import (
 func appDefinitionServiceForTest(
 	runtime *projectstate.Runtime,
 ) appdefinitionpkg.Runtime {
-	return NewAppDefinitionService(runtime)
+	return NewAppDefinitionService(runtime, ProviderPluginID)
 }
 
 func setTestAppDefinition(
