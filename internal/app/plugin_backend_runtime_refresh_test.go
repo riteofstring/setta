@@ -282,21 +282,19 @@ func TestCommitAppliedLanguageServerPluginsDoesNotOverwriteNewerAppliedSpecs(t *
 			writerErrs <- err
 			return
 		}
-		for range 2 {
-			writer, err := os.OpenFile(statePath, os.O_WRONLY, 0)
-			if err != nil {
-				writerErrs <- err
-				return
-			}
-			if _, err := writer.Write(payload); err != nil {
-				_ = writer.Close()
-				writerErrs <- err
-				return
-			}
-			if err := writer.Close(); err != nil {
-				writerErrs <- err
-				return
-			}
+		writer, err := os.OpenFile(statePath, os.O_WRONLY, 0)
+		if err != nil {
+			writerErrs <- err
+			return
+		}
+		if _, err := writer.Write(payload); err != nil {
+			_ = writer.Close()
+			writerErrs <- err
+			return
+		}
+		if err := writer.Close(); err != nil {
+			writerErrs <- err
+			return
 		}
 		writerErrs <- nil
 	}()

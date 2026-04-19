@@ -11865,6 +11865,15 @@
             "type": "string"
           }
         },
+        "pendingRestartLanguageServerOnlyPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
         "pluginConfigById": {
           "type": "object",
           "additionalProperties": true
@@ -11875,6 +11884,7 @@
         "enabledPluginIds",
         "disabledPluginIds",
         "pendingRestartBackendPluginIds",
+        "pendingRestartLanguageServerOnlyPluginIds",
         "pluginConfigById"
       ],
       "additionalProperties": false

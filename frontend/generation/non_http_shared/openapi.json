@@ -9950,6 +9950,12 @@
             },
             "type": ["null", "array"]
           },
+          "pendingRestartLanguageServerOnlyPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
           "pluginConfigById": {
             "additionalProperties": true,
             "type": "object"
@@ -9959,6 +9965,7 @@
           "enabledPluginIds",
           "disabledPluginIds",
           "pendingRestartBackendPluginIds",
+          "pendingRestartLanguageServerOnlyPluginIds",
           "pluginConfigById"
         ],
         "title": "PluginsStateFile",

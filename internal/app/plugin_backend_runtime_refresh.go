@@ -509,6 +509,11 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 		return nil
 	}
 
+	selectedPluginIDs, err := r.selectedLanguageServerPluginIDs()
+	if err != nil {
+		return err
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -518,7 +523,10 @@ func (r *pluginBackendRuntimeRefresher) CommitAppliedLanguageServerPlugins(_ con
 	allAppliedSpecs := make([]lsp.LanguageServerSpec, 0, len(previousLSPSpecs)+len(nextAppliedLSPSpecs))
 	allAppliedSpecs = append(allAppliedSpecs, previousLSPSpecs...)
 	allAppliedSpecs = append(allAppliedSpecs, nextAppliedLSPSpecs...)
-	pluginIDs := appliedLanguageServerPluginIDs(allAppliedSpecs)
+	pluginIDs := mergeUniqueSortedStrings(
+		appliedLanguageServerPluginIDs(allAppliedSpecs),
+		selectedPluginIDs,
+	)
 	if len(pluginIDs) != 0 && service != nil {
 		if err := service.CommitAppliedLanguageServerPlugins(pluginIDs); err != nil {
 			return err
@@ -608,6 +616,21 @@ func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPlugins() (map[str
 		return map[string]*string{}, nil
 	}
 	return settingsstate.LanguageServerSelectedByLanguage(r.settings.Snapshot().Document)
+}
+
+func (r *pluginBackendRuntimeRefresher) selectedLanguageServerPluginIDs() ([]string, error) {
+	selections, err := r.selectedLanguageServerPlugins()
+	if err != nil {
+		return nil, err
+	}
+	selectedPluginIDs := make([]string, 0, len(selections))
+	for _, pluginID := range selections {
+		if pluginID == nil {
+			continue
+		}
+		selectedPluginIDs = append(selectedPluginIDs, *pluginID)
+	}
+	return uniqueSortedStrings(selectedPluginIDs), nil
 }
 
 func (r *pluginBackendRuntimeRefresher) buildRuntimeLocked(ctx context.Context, snapshot plugins.DiscoverySnapshot) (*pluginBackendMCPRuntime, error) {
@@ -821,6 +844,38 @@ func appliedLanguageServerPluginIDs(specs []lsp.LanguageServerSpec) []string {
 	}
 	slices.Sort(pluginIDs)
 	return pluginIDs
+}
+
+func mergeUniqueSortedStrings(values ...[]string) []string {
+	merged := make([]string, 0)
+	for _, entries := range values {
+		merged = append(merged, entries...)
+	}
+	return uniqueSortedStrings(merged)
+}
+
+func uniqueSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := set[trimmed]; ok {
+			continue
+		}
+		set[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	slices.Sort(normalized)
+	return normalized
 }
 
 func refreshedAppliedLanguageServerSpecs(

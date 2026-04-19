@@ -279,7 +279,7 @@ func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable b
 	}
 	defer s.releaseInstallTargetPathReservationLocked(prepared.targetPath)
 
-	hadBackendBefore, err := s.prepareLinkTargetLocked(prepared, force)
+	hadBackendBefore, hadLanguageServerOnlyBefore, err := s.prepareLinkTargetLocked(prepared, force)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
@@ -290,7 +290,12 @@ func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable b
 	if err := s.recordLinkedInstallLocked(prepared, enable); err != nil {
 		return PluginInstallResponse{}, err
 	}
-	restartRequired, err := s.updateLinkRestartStateLocked(prepared.manifest.ID, prepared.manifest.Backend != nil || hadBackendBefore)
+	restartRequired, err := s.updateLinkRestartStateLocked(
+		prepared.manifest,
+		prepared.manifest.ID,
+		prepared.manifest.Backend != nil || hadBackendBefore,
+		hadLanguageServerOnlyBefore,
+	)
 	if err != nil {
 		return PluginInstallResponse{}, err
 	}
@@ -316,30 +321,31 @@ func (s *Service) linkPreparedSourceLocked(prepared preparedLinkSource, enable b
 	}, nil
 }
 
-func (s *Service) prepareLinkTargetLocked(prepared preparedLinkSource, force bool) (bool, error) {
+func (s *Service) prepareLinkTargetLocked(prepared preparedLinkSource, force bool) (bool, bool, error) {
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	existingEntry := findDiscoveredPlugin(snapshot.Plugins, prepared.manifest.ID, prepared.scope)
 	hadBackendBefore := existingEntry.PluginID != "" && existingEntry.HasBackend()
+	hadLanguageServerOnlyBefore := entryHasLanguageServerOnlyBackendRuntime(existingEntry)
 
 	if err := os.MkdirAll(filepath.Dir(prepared.targetPath), 0o755); err != nil {
-		return false, fmt.Errorf("create plugin target parent %s: %w", prepared.targetPath, err)
+		return false, false, fmt.Errorf("create plugin target parent %s: %w", prepared.targetPath, err)
 	}
 	if err := s.ensureTargetPathAvailableLocked(prepared.targetPath, force); err != nil {
-		return false, err
+		return false, false, err
 	}
 	if !targetExists(prepared.targetPath) {
-		return hadBackendBefore, nil
+		return hadBackendBefore, hadLanguageServerOnlyBefore, nil
 	}
 	if err := s.backupExistingPluginLocked(prepared.manifest.ID, prepared.scope, prepared.targetPath); err != nil {
-		return false, err
+		return false, false, err
 	}
 	if err := removePluginTarget(prepared.targetPath); err != nil {
-		return false, err
+		return false, false, err
 	}
-	return hadBackendBefore, nil
+	return hadBackendBefore, hadLanguageServerOnlyBefore, nil
 }
 
 func (s *Service) recordLinkedInstallLocked(prepared preparedLinkSource, enable bool) error {
@@ -361,9 +367,15 @@ func (s *Service) recordLinkedInstallLocked(prepared preparedLinkSource, enable 
 	return nil
 }
 
-func (s *Service) updateLinkRestartStateLocked(pluginID string, restartRequired bool) (bool, error) {
+func (s *Service) updateLinkRestartStateLocked(
+	manifest PluginManifest,
+	pluginID string,
+	restartRequired bool,
+	hadLanguageServerOnlyBefore bool,
+) (bool, error) {
 	if restartRequired {
-		if err := s.addPendingRestartBackendIDLocked(pluginID); err != nil {
+		languageServerOnly := s.pendingRestartLanguageServerOnlyForManifest(&manifest, hadLanguageServerOnlyBefore)
+		if err := s.addPendingRestartBackendIDLocked(pluginID, languageServerOnly); err != nil {
 			return false, err
 		}
 		return true, nil

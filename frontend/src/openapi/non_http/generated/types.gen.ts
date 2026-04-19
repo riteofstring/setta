@@ -4191,6 +4191,7 @@ type PluginsStateFile = {
   disabledPluginIds: null | Array<string>;
   enabledPluginIds: null | Array<string>;
   pendingRestartBackendPluginIds: null | Array<string>;
+  pendingRestartLanguageServerOnlyPluginIds: null | Array<string>;
   pluginConfigById: {
     [key: string]: unknown;
   };

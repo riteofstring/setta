@@ -10926,7 +10926,7 @@ func TestAppPluginRescanKeepsMixedBackendPluginPendingUntilPluginRestart(t *test
 		}
 	})
 	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
-	writeAppPendingRestartPluginState(t, cfg, "setta-fixture-backend")
+	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(t, cfg, []string{"setta-fixture-backend"}, nil)
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
 
 	server := httptest.NewServer(app.Handler())
@@ -10972,7 +10972,7 @@ func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestar
 	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
 		payload["capabilities"] = []string{"registerLanguageServer", "registerRouter"}
 	})
-	writeAppPendingRestartPluginState(t, cfg, "setta-fixture-backend")
+	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(t, cfg, []string{"setta-fixture-backend"}, nil)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -11182,6 +11182,62 @@ func TestAppRestartLanguageServerReturnsUnconfiguredWhenDefaultInterpreterLacksB
 	}
 	if restartPayload.Error.Code != "language_server_not_configured" {
 		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+	}
+}
+
+func TestAppRestartLanguageServerClearsPendingStateForInvalidSelectedLanguageServerOnlyPlugin(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	installAppRepoPlugin(t, cfg, "setta-basedpyright")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "python", "setta-basedpyright")
+	writeAppPendingRestartPluginState(t, cfg, "setta-basedpyright")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart conflict for invalid selected plugin, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	var restartPayload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+		t.Fatalf("decode restart response: %v", err)
+	}
+	if restartPayload.Error.Code != "language_server_not_configured" {
+		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+	}
+
+	persistedState := readAppPluginsState(t, cfg)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 0 {
+		t.Fatalf("expected pending restart ids to clear after invalid selected-plugin restart, got %#v", persistedState.PendingRestartBackendPluginIDs)
+	}
+	if len(persistedState.PendingRestartLanguageServerOnlyPluginIDs) != 0 {
+		t.Fatalf("expected pending LSP-only restart ids to clear after invalid selected-plugin restart, got %#v", persistedState.PendingRestartLanguageServerOnlyPluginIDs)
+	}
+
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4); len(completions) != 0 {
+		t.Fatalf("expected no Python completions after invalid selected-plugin restart, got %#v", completions)
 	}
 }
 
@@ -12267,8 +12323,20 @@ func cloneAppRuntimeLanguageServerSpecs(t *testing.T, app *App) ([]lsp.LanguageS
 func writeAppPendingRestartPluginState(t *testing.T, cfg config.Config, pluginIDs ...string) {
 	t.Helper()
 
+	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(t, cfg, pluginIDs, pluginIDs)
+}
+
+func writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(
+	t *testing.T,
+	cfg config.Config,
+	pluginIDs []string,
+	languageServerOnlyPluginIDs []string,
+) {
+	t.Helper()
+
 	pluginsStatePayload, err := json.Marshal(map[string]any{
-		"pendingRestartBackendPluginIds": pluginIDs,
+		"pendingRestartBackendPluginIds":            pluginIDs,
+		"pendingRestartLanguageServerOnlyPluginIds": languageServerOnlyPluginIDs,
 	})
 	if err != nil {
 		t.Fatalf("marshal plugin state: %v", err)
