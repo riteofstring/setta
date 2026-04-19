@@ -176,7 +176,7 @@ func emitAppStartupOutput(cfg config.Config, listener net.Listener, noOpen bool,
 }
 
 func emitRegisteredDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps deploymentStartupDependencies, modeName string) error {
-	typeRegistry, err := app.NewDeploymentTypeRegistry()
+	typeRegistry, err := app.NewDeploymentTypeRegistry(cfg)
 	if err != nil {
 		return err
 	}
