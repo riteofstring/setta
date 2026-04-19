@@ -10649,6 +10649,91 @@ func TestAppWritingConfigForSelectedUnappliedLanguageServerDoesNotApplyUntilRest
 	}
 }
 
+func TestAppWritingConfigForAppliedLanguageServerDoesNotApplyOtherSelectedLanguageServerUntilRestart(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	replaceAppLanguageServerSelectionsWithoutRefresh(t, app, map[string]string{})
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
+	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguagePython, "str.")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
+	defer restartResponse.Body.Close()
+	if restartResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(restartResponse.Body)
+		t.Fatalf("expected restart 200, got %d with body %q", restartResponse.StatusCode, string(body))
+	}
+
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "python", "setta-basedpyright")
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4); len(completions) != 0 {
+		t.Fatalf("expected no Python completions before restart, got %#v", completions)
+	}
+
+	requestBody := mustAppJSON(t, map[string]any{
+		"pluginId": "setta-fixture-backend",
+		"config": map[string]any{
+			"enabled": true,
+		},
+	})
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RoutePluginsConfig, bytes.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("new plugins config request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugins config: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugins config 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+
+	app.pluginRuntime.mu.Lock()
+	currentSpecs := cloneLanguageServerSpecs(app.pluginRuntime.lspSpecs)
+	appliedSpecs := cloneLanguageServerSpecs(app.pluginRuntime.appliedLSPSpecs)
+	app.pluginRuntime.mu.Unlock()
+	if len(currentSpecs) != 1 || currentSpecs[0].LanguageID != "fixturedsl" {
+		t.Fatalf("expected current specs to keep only fixturedsl applied after config write, got %#v", currentSpecs)
+	}
+	if len(appliedSpecs) != 1 || appliedSpecs[0].LanguageID != "fixturedsl" {
+		t.Fatalf("expected applied specs to keep only fixturedsl after config write, got %#v", appliedSpecs)
+	}
+
+	statusAfterConfig := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	fixtureEntry := mustFindAppPluginStatusEntry(t, statusAfterConfig, "setta-fixture-backend")
+	if len(fixtureEntry.AppliedLanguageServerLanguages) != 1 || fixtureEntry.AppliedLanguageServerLanguages[0] != "fixturedsl" {
+		t.Fatalf("expected fixturedsl to remain the only applied language server after config write, got %#v", fixtureEntry.AppliedLanguageServerLanguages)
+	}
+	basedpyrightEntry := mustFindAppPluginStatusEntry(t, statusAfterConfig, "setta-basedpyright")
+	if len(basedpyrightEntry.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected basedpyright to remain unapplied after config write, got %#v", basedpyrightEntry.AppliedLanguageServerLanguages)
+	}
+	if completions := requestAppCodeAreaCompletion(t, server.URL, authCookie, "project-alpha", "runner", "str.", 4); len(completions) != 0 {
+		t.Fatalf("expected config write not to apply Python before restart, got %#v", completions)
+	}
+}
+
 func TestAppPluginRuntimeStatusTracksAppliedLanguageServerSelection(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -10811,6 +10896,78 @@ func TestAppRestartLanguageServerReturnsUnconfiguredWhenDefaultInterpreterLacksB
 	}
 	if restartPayload.Error.Code != "language_server_not_configured" {
 		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+	}
+}
+
+func TestWorkspaceLSPAdminRestartRollsBackAppliedLanguageServerStateOnProjectRestartFailure(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginLanguageServerFixture(t)
+	installAppLanguageServerOnlyFixturePlugin(t, cfg)
+	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	replaceAppLanguageServerSelectionsWithoutRefresh(t, app, map[string]string{})
+	selectAppLanguageServer(t, app, "fixturedsl", "setta-fixture-backend")
+	setAppLanguageServerSelectionWithoutRefresh(t, app, "python", "setta-basedpyright")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+
+	app.pluginRuntime.mu.Lock()
+	beforeCurrentSpecs := cloneLanguageServerSpecs(app.pluginRuntime.lspSpecs)
+	beforeAppliedSpecs := cloneLanguageServerSpecs(app.pluginRuntime.appliedLSPSpecs)
+	app.pluginRuntime.mu.Unlock()
+
+	recordingSyncer := &recordingProjectSyncer{syncErr: errors.New("sync failed")}
+	projectSync, err := lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		Service:        recordingSyncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectSync.Close(context.Background()); err != nil {
+			t.Fatalf("close project synchronizer: %v", err)
+		}
+	})
+
+	admin := newWorkspaceLSPAdmin(projectSync, app.pluginRuntime)
+	restartErr := admin.Restart(context.Background(), app.ProjectStates().Main().Snapshot().Document)
+	if restartErr == nil || !strings.Contains(restartErr.Error(), "sync failed") {
+		t.Fatalf("expected restart sync failure, got %v", restartErr)
+	}
+
+	app.pluginRuntime.mu.Lock()
+	afterCurrentSpecs := cloneLanguageServerSpecs(app.pluginRuntime.lspSpecs)
+	afterAppliedSpecs := cloneLanguageServerSpecs(app.pluginRuntime.appliedLSPSpecs)
+	app.pluginRuntime.mu.Unlock()
+	if !languageServerSpecSlicesEqual(beforeCurrentSpecs, afterCurrentSpecs) {
+		t.Fatalf("expected current specs to roll back after restart failure, got before=%#v after=%#v", beforeCurrentSpecs, afterCurrentSpecs)
+	}
+	if !languageServerSpecSlicesEqual(beforeAppliedSpecs, afterAppliedSpecs) {
+		t.Fatalf("expected applied specs to remain unchanged after restart failure, got before=%#v after=%#v", beforeAppliedSpecs, afterAppliedSpecs)
+	}
+
+	status := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	fixtureEntry := mustFindAppPluginStatusEntry(t, status, "setta-fixture-backend")
+	if len(fixtureEntry.AppliedLanguageServerLanguages) != 1 || fixtureEntry.AppliedLanguageServerLanguages[0] != "fixturedsl" {
+		t.Fatalf("expected fixture language server to remain applied after failed restart, got %#v", fixtureEntry.AppliedLanguageServerLanguages)
+	}
+	basedpyrightEntry := mustFindAppPluginStatusEntry(t, status, "setta-basedpyright")
+	if len(basedpyrightEntry.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected basedpyright to remain unapplied after failed restart, got %#v", basedpyrightEntry.AppliedLanguageServerLanguages)
 	}
 }
 
@@ -12497,11 +12654,29 @@ func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID s
 func setAppLanguageServerSelectionWithoutRefresh(t *testing.T, app *App, language string, pluginID string) {
 	t.Helper()
 
+	selections := map[string]string{}
+	if current, err := settingsstate.LanguageServerSelectedByLanguage(app.SettingsState().Snapshot().Document); err == nil {
+		for currentLanguage, currentPluginID := range current {
+			if currentPluginID == nil {
+				continue
+			}
+			selections[currentLanguage] = *currentPluginID
+		}
+	}
+	selections[language] = pluginID
+	replaceAppLanguageServerSelectionsWithoutRefresh(t, app, selections)
+}
+
+func replaceAppLanguageServerSelectionsWithoutRefresh(t *testing.T, app *App, selections map[string]string) {
+	t.Helper()
+
 	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
 		languageServerSettings := document["languageServer"].(map[string]any)
-		languageServerSettings["selectedByLanguage"] = map[string]any{
-			language: pluginID,
+		selectedByLanguage := make(map[string]any, len(selections))
+		for language, pluginID := range selections {
+			selectedByLanguage[language] = pluginID
 		}
+		languageServerSettings["selectedByLanguage"] = selectedByLanguage
 		return document, nil
 	}); err != nil {
 		t.Fatalf("save language server selection: %v", err)

@@ -16,6 +16,7 @@ type projectLSPAdmin interface {
 
 type runtimeLSPRefresher interface {
 	RefreshLanguageServers(context.Context) error
+	RollbackLanguageServers(context.Context) error
 	HasConfiguredLanguageServers() bool
 	CommitAppliedLanguageServerPlugins(context.Context) error
 }
@@ -43,22 +44,29 @@ func (a *workspaceLSPAdmin) Restart(ctx context.Context, document projectstate.D
 		if err := a.runtime.RefreshLanguageServers(ctx); err != nil {
 			return err
 		}
-		if !a.runtime.HasConfiguredLanguageServers() {
-			if err := a.projectAdmin.Restart(ctx, document); err != nil {
-				return err
-			}
-			return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
-		}
 	}
 	if err := a.projectAdmin.Restart(ctx, document); err != nil {
-		return err
+		return a.rollbackLanguageServers(ctx, err)
 	}
 	if a.runtime != nil {
 		if err := a.runtime.CommitAppliedLanguageServerPlugins(ctx); err != nil {
 			return err
 		}
+		if !a.runtime.HasConfiguredLanguageServers() {
+			return fmt.Errorf("%w: no selected language servers are available", lsp.ErrLanguageServerNotConfigured)
+		}
 	}
 	return nil
+}
+
+func (a *workspaceLSPAdmin) rollbackLanguageServers(ctx context.Context, cause error) error {
+	if cause == nil || a == nil || a.runtime == nil {
+		return cause
+	}
+	if rollbackErr := a.runtime.RollbackLanguageServers(ctx); rollbackErr != nil {
+		return errors.Join(cause, rollbackErr)
+	}
+	return cause
 }
 
 func (a *workspaceLSPAdmin) TypeCheckProject(ctx context.Context, document projectstate.Document, projectID string) error {

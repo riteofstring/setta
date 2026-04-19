@@ -69,7 +69,8 @@ func TestRollbackRefreshTransitionRestoresLanguageServerSettings(t *testing.T) {
 	}
 
 	refresher := &pluginBackendRuntimeRefresher{
-		lspSpecs: cloneLanguageServerSpecs(next),
+		lspSpecs:        cloneLanguageServerSpecs(next),
+		appliedLSPSpecs: cloneLanguageServerSpecs(next),
 	}
 	refresher.rollbackRefreshTransitionLocked(&pluginBackendRefreshTransition{
 		nextLSPSpecs:     cloneLanguageServerSpecs(next),
@@ -98,7 +99,7 @@ func TestRollbackRefreshTransitionRestoresLanguageServerSettings(t *testing.T) {
 
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) {
 	refresher := &pluginBackendRuntimeRefresher{
-		lspSpecs: []lsp.LanguageServerSpec{
+		appliedLSPSpecs: []lsp.LanguageServerSpec{
 			{
 				PluginID:   "setta-basedpyright",
 				LanguageID: "python",
@@ -123,5 +124,41 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 
 	if len(status.Plugins[0].AppliedLanguageServerLanguages) != 1 || status.Plugins[0].AppliedLanguageServerLanguages[0] != "python" {
 		t.Fatalf("expected applied python status, got %#v", status.Plugins[0].AppliedLanguageServerLanguages)
+	}
+}
+
+func TestRefreshedAppliedLanguageServerSpecsKeepsOnlyPreviouslyAppliedSelections(t *testing.T) {
+	applied := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp.py"},
+		},
+	}
+	selected := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-fixture-backend",
+			LanguageID: "fixturedsl",
+			Command:    "python",
+			Args:       []string{"fixture-lsp-updated.py"},
+		},
+		{
+			PluginID:   "setta-basedpyright",
+			LanguageID: "python",
+			Command:    "python",
+			Args:       []string{"basedpyright.py"},
+		},
+	}
+
+	refreshed := refreshedAppliedLanguageServerSpecs(applied, selected, "setta-fixture-backend")
+	if len(refreshed) != 1 {
+		t.Fatalf("expected only previously applied spec to remain, got %#v", refreshed)
+	}
+	if refreshed[0].PluginID != "setta-fixture-backend" || refreshed[0].LanguageID != "fixturedsl" {
+		t.Fatalf("unexpected refreshed spec identity %#v", refreshed[0])
+	}
+	if len(refreshed[0].Args) != 1 || refreshed[0].Args[0] != "fixture-lsp-updated.py" {
+		t.Fatalf("expected refreshed spec to pick updated applied-plugin args, got %#v", refreshed[0].Args)
 	}
 }

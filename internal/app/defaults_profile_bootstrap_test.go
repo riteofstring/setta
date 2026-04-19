@@ -12,6 +12,7 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/pythonenv"
 	"setta/internal/settingsstate"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestBootstrapWorkspaceDefaultsInstallProfileWritesMissingPythonSelection(t *testing.T) {
@@ -195,8 +196,7 @@ func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugins.Service {
 	t.Helper()
 
-	repoRoot := appTestRepoRoot(t)
-	t.Setenv("SETTA_PYTHON", appTestWorkerPython(t, repoRoot))
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
 
 	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
 	settaHome := filepath.Join(t.TempDir(), ".setta")

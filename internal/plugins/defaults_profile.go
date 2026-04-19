@@ -39,8 +39,7 @@ func (p InstallProfile) AvailableLanguageServerSelections(snapshot DiscoverySnap
 		if language == "" || pluginID == "" {
 			continue
 		}
-		entry, ok := findHighestPrecedenceProfilePlugin(snapshot.Plugins, pluginID)
-		if !ok || !profileEntryProvidesLanguageServer(entry, language) {
+		if !hasAvailableProfilePlugin(snapshot.Plugins, pluginID, language) {
 			continue
 		}
 		selected[language] = pluginID
@@ -55,13 +54,17 @@ func normalizeProfileLanguage(language string) string {
 	return strings.ToLower(strings.TrimSpace(language))
 }
 
-func findHighestPrecedenceProfilePlugin(entries []DiscoveredPlugin, pluginID string) (DiscoveredPlugin, bool) {
+func hasAvailableProfilePlugin(entries []DiscoveredPlugin, pluginID string, language string) bool {
 	for _, entry := range entries {
-		if strings.TrimSpace(entry.PluginID) == pluginID {
-			return entry, true
+		if strings.TrimSpace(entry.PluginID) != pluginID {
+			continue
 		}
+		if !profileEntryProvidesLanguageServer(entry, language) {
+			continue
+		}
+		return true
 	}
-	return DiscoveredPlugin{}, false
+	return false
 }
 
 func profileEntryProvidesLanguageServer(entry DiscoveredPlugin, language string) bool {

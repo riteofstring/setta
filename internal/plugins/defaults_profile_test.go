@@ -33,6 +33,27 @@ func TestDefaultsInstallProfileAvailableLanguageServerSelectionsRequireActiveReg
 		Plugins: []DiscoveredPlugin{
 			{
 				PluginID:      "setta-basedpyright",
+				State:         PluginRuntimeStateDisabled,
+				SourceManager: PluginSourceManagerSetta,
+				Manifest: &PluginManifest{
+					ID:                "setta-basedpyright",
+					Name:              "Setta Basedpyright",
+					Version:           "0.1.0",
+					SchemaVersion:     1,
+					SettaVersionRange: ">=0.0.0",
+					EnabledByDefault:  true,
+					Capabilities:      []string{"registerLanguageServer"},
+				},
+				EffectiveCapabilities: []string{"registerLanguageServer"},
+				RegisteredLanguageServers: []PluginRegisteredLanguageServer{
+					{
+						PluginID: "setta-basedpyright",
+						Language: "python",
+					},
+				},
+			},
+			{
+				PluginID:      "setta-basedpyright",
 				State:         PluginRuntimeStateActive,
 				SourceManager: PluginSourceManagerPackageManager,
 				Manifest: &PluginManifest{
@@ -52,27 +73,6 @@ func TestDefaultsInstallProfileAvailableLanguageServerSelectionsRequireActiveReg
 					},
 				},
 			},
-			{
-				PluginID:      "setta-basedpyright-shadowed",
-				State:         PluginRuntimeStateDisabled,
-				SourceManager: PluginSourceManagerPackageManager,
-				Manifest: &PluginManifest{
-					ID:                "setta-basedpyright-shadowed",
-					Name:              "Shadowed Basedpyright",
-					Version:           "0.1.0",
-					SchemaVersion:     1,
-					SettaVersionRange: ">=0.0.0",
-					EnabledByDefault:  true,
-					Capabilities:      []string{"registerLanguageServer"},
-				},
-				EffectiveCapabilities: []string{"registerLanguageServer"},
-				RegisteredLanguageServers: []PluginRegisteredLanguageServer{
-					{
-						PluginID: "setta-basedpyright-shadowed",
-						Language: "python",
-					},
-				},
-			},
 		},
 	}
 
@@ -82,7 +82,7 @@ func TestDefaultsInstallProfileAvailableLanguageServerSelectionsRequireActiveReg
 		t.Fatalf("unexpected defaults profile selections %#v", got)
 	}
 
-	snapshot.Plugins[0].State = PluginRuntimeStateDisabled
+	snapshot.Plugins[1].State = PluginRuntimeStateDisabled
 	if got := profile.AvailableLanguageServerSelections(snapshot); len(got) != 0 {
 		t.Fatalf("expected disabled defaults plugin to stay unselected, got %#v", got)
 	}
