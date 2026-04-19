@@ -25,6 +25,8 @@ type MotionBodyState = {
     display: string;
     headerControlsHidden: boolean;
     headerControlsRoot: boolean;
+    headerTitleOpacity: string;
+    headerTitleRoot: boolean;
     hidden: boolean;
     root: boolean;
     sectionId: string;
@@ -75,6 +77,8 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
   for (const section of initialState.sections) {
     expect(section.headerControlsRoot).toBe(true);
     expect(section.headerControlsHidden).toBe(false);
+    expect(section.headerTitleRoot).toBe(true);
+    expect(section.headerTitleOpacity).toBe("0");
     expect(section.root).toBe(true);
     expect(section.hidden).toBe(false);
     expect(section.childElementCount).toBeGreaterThan(0);
@@ -111,6 +115,8 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
   );
   for (const section of motionState.sections) {
     expect(section.headerControlsHidden).toBe(true);
+    expect(section.headerTitleRoot).toBe(true);
+    expect(section.headerTitleOpacity).toBe("0");
     expect(section.hidden).toBe(true);
     expect(section.display).toBe("none");
     expect(section.childElementCount).toBe(0);
@@ -121,6 +127,8 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
   expect(restoredState.hiddenHeaderControlsCount).toBe(0);
   for (const section of restoredState.sections) {
     expect(section.headerControlsHidden).toBe(false);
+    expect(section.headerTitleRoot).toBe(true);
+    expect(section.headerTitleOpacity).toBe("0");
     expect(section.hidden).toBe(false);
     expect(section.childElementCount).toBeGreaterThan(0);
   }
@@ -205,6 +213,12 @@ async function readMotionBodyState(
       if (!(headerControls instanceof HTMLElement)) {
         throw new Error(`Missing motion header controls root for ${sectionId}`);
       }
+      const headerTitle = document.querySelector<HTMLElement>(
+        `section[data-section-id="${sectionId}"] [data-canvas-owned-header-title="true"]`,
+      );
+      if (!(headerTitle instanceof HTMLElement)) {
+        throw new Error(`Missing motion header title root for ${sectionId}`);
+      }
       return {
         childElementCount: body.childElementCount,
         display: window.getComputedStyle(body).display,
@@ -213,6 +227,9 @@ async function readMotionBodyState(
           "true",
         headerControlsRoot:
           headerControls.dataset.canvasOwnedMotionHeaderControlsRoot === "true",
+        headerTitleOpacity: window.getComputedStyle(headerTitle).opacity,
+        headerTitleRoot:
+          headerTitle.dataset.canvasOwnedHeaderTitle === "true",
         hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
         root: body.dataset.canvasOwnedMotionBodyRoot === "true",
         sectionId,
@@ -270,6 +287,12 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
               `Missing motion header controls root for ${sectionId}`,
             );
           }
+          const headerTitle = document.querySelector<HTMLElement>(
+            `section[data-section-id="${sectionId}"] [data-canvas-owned-header-title="true"]`,
+          );
+          if (!(headerTitle instanceof HTMLElement)) {
+            throw new Error(`Missing motion header title root for ${sectionId}`);
+          }
           return {
             childElementCount: body.childElementCount,
             display: window.getComputedStyle(body).display,
@@ -279,6 +302,9 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
             headerControlsRoot:
               headerControls.dataset.canvasOwnedMotionHeaderControlsRoot ===
               "true",
+            headerTitleOpacity: window.getComputedStyle(headerTitle).opacity,
+            headerTitleRoot:
+              headerTitle.dataset.canvasOwnedHeaderTitle === "true",
             hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
             root: body.dataset.canvasOwnedMotionBodyRoot === "true",
             sectionId,

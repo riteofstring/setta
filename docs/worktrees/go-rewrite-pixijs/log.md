@@ -4198,6 +4198,57 @@ LOOP_TERMINAL_MARKER: none
   - choose a stronger motion-state row-body/body-paint reduction primitive instead of another low-count overlay family add
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 081
+
+- Item: Move motion-hidden section titles onto the retained canvas on the canonical settings lane.
+- Status: `done`
+- Details:
+  - Chose the remaining hidden-section header chrome on `settings-section__browserSectionDefault` instead of reopening another motion-body wrapper hop.
+  - Updated `frontend/src/components/Section/Header/SectionHeader.tsx` so the header title on the motion-hidden settings boundary now opts into the retained-canvas resting-text path.
+  - Updated `frontend/src/components/Section/Header/SectionTitle.tsx` and `frontend/src/components/Utils/Editable.tsx` so fixed and non-editing titles can expose `data-canvas-owned-resting-text="true"` / `data-canvas-owned-header-title="true"` while keeping inline title editing DOM-visible.
+  - Added focused proof in:
+    - `frontend/src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - resting-text motion-body overlay probe:
+      - initial `hiddenBodyCount: 0`
+      - initial `hiddenHeaderControlsCount: 0`
+      - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `data-canvas-owned-header-title="true"` with computed `opacity: 0`
+      - during one renderer wheel interaction, all three sections still kept the title roots while the body flipped to `display: none` and the trailing controls flipped to hidden
+      - settled `hiddenBodyCount: 0`
+      - settled `hiddenHeaderControlsCount: 0`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5584`
+      - `inputCount: 5`
+      - `textareaCount: 2`
+      - `buttonCount: 60`
+      - `raf.meanMs: 86.83`
+      - `raf.p95Ms: 116.7`
+      - `longTasks.totalMs: 12670`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this is a real retained-canvas header-title ownership move on the current motion-hidden settings boundary, not another forwarding-only boundary lift
+    - the dense DOM counts stayed flat, so the value here is motion-time header paint ownership and visual continuity rather than more subtree-count reduction
+    - the dense rerun improved on the same runtime family (`raf.mean 124.5 -> 86.83`, `longTasks.totalMs 18329 -> 12670`), but keep it as smoke-level evidence rather than a new clean benchmark floor
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/Editable.tsx src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionTitle.tsx src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - normalized to `http://127.0.0.1:3070/settings` with `All Settings` active, `fit view`, and one `zoom in`
+  - exactly one retained graph canvas was mounted
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+  - no obvious blank or detached title/header artifact appeared around the canonical targets
+- Next action:
+  - test one more bounded motion-time header-chrome reduction on the same canonical lane only if it still plausibly moves the dense runtime; otherwise close this lane and escalate to the broader inactive-row overlay decision
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 078
 
 - Item: Add a motion-aware dense `All Settings` probe that exercises the real viewport wheel path.

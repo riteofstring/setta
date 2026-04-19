@@ -8,6 +8,62 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The motion-header title canvas slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-header-title-canvas-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Header/SectionHeader.tsx` now marks header titles as canvas-owned resting text on the same motion-hidden settings boundary used by the existing body lane
+    - `frontend/src/components/Section/Header/SectionTitle.tsx` now supports canvas-owned fixed/non-editing titles so the retained canvas owns visible title text while inline title editing stays DOM-visible
+    - `frontend/src/components/Utils/Editable.tsx` now forwards non-editing attributes so the actual DOM title root can be measured by the retained canvas
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - the canonical sections exposed `data-canvas-owned-motion-body-root="true"`, `data-canvas-owned-motion-header-controls-root="true"`, and `data-canvas-owned-header-title="true"`
+      - all three title roots reported `opacity: 0`
+      - `hiddenBodyCount: 0`
+      - `hiddenHeaderControlsCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three section bodies flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - all three trailing header wrappers flipped to `data-canvas-owned-motion-header-controls-hidden="true"`
+      - all three title roots stayed present with `opacity: 0`
+      - both global hidden counts rose to `45`
+    - after the interaction settled:
+      - both hidden counts returned to `0`
+      - all three title roots remained present with `opacity: 0`
+      - the canonical sections restored normal body and header-control state
+  - dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5584`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 86.83`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 12670`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a real retained-canvas header-title ownership change on the existing canonical motion-hidden lane, not another wrapper-only forwarding hop
+    - the whole-scene DOM counts stayed flat, so the value of this slice is header paint ownership and visual continuity rather than another node-count drop
+    - the dense rerun improved meaningfully on the same runtime family, but keep it as smoke-level evidence rather than a new clean benchmark floor
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target the remaining motion-time header leading chrome and root incrementer only if that still plausibly moves the dense runtime, otherwise stop extending this lane and escalate to the broader inactive-row overlay decision
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Utils/Editable.tsx src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionTitle.tsx src/components/Section/Header/SectionHeader.canvasOwnedTitle.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-002/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - normalized to `http://127.0.0.1:3070/settings` with `All Settings` active, `fit view`, and one `zoom in`
+    - exactly one retained graph canvas was mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+    - no obvious blank or detached title/header artifact appeared around the canonical targets
 - The motion-header-controls suspension slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-header-controls-suspension-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:

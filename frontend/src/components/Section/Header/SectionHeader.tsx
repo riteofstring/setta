@@ -81,6 +81,7 @@ type SectionHeaderLeadingProps = Pick<
   | "sectionTypeName"
   | "hasSectionStyleTheme"
 > & {
+  canvasOwnedHeaderTitle: boolean;
   tagColor: string | null;
 };
 
@@ -135,6 +136,10 @@ function _SectionHeader({
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const tagColor = useSectionHeaderTagColor(sectionId);
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedHeaderTitle =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionMotionHiddenBody(sectionId);
 
   return (
     <SectionHeaderFrame
@@ -147,6 +152,7 @@ function _SectionHeader({
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        canvasOwnedHeaderTitle={canvasOwnedHeaderTitle}
         tagColor={tagColor}
       />
       <SectionHeaderTrailing
@@ -218,6 +224,7 @@ function getSectionHeaderStyle({
 }
 
 function SectionHeaderLeading({
+  canvasOwnedHeaderTitle,
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,
@@ -234,6 +241,7 @@ function SectionHeaderLeading({
       />
       <SectionTagColorIndicator tagColor={tagColor} />
       <MaybeCardTitle
+        canvasOwnedRestingText={canvasOwnedHeaderTitle}
         sectionId={sectionId}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
@@ -875,14 +883,22 @@ function getSeverityMeta(severity: number | null | undefined) {
 }
 
 function MaybeCardTitle({
+  canvasOwnedRestingText = false,
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
+}: {
+  canvasOwnedRestingText?: boolean;
+  sectionId: string;
+  isInOtherProjectConfigs: boolean;
+  sectionTypeName: SectionType;
+  hasSectionStyleTheme: boolean;
 }) {
   const isActiveSection = useIsSectionUIActive(sectionId);
   return sectionTypeName === SectionTypeEnum.TextBlock ? (
     <TextBlockCardTitle
+      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       isActiveSection={isActiveSection}
       isInOtherProjectConfigs={isInOtherProjectConfigs}
@@ -891,6 +907,7 @@ function MaybeCardTitle({
     />
   ) : (
     <SectionTitle
+      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       titleProps={getTitleStyles({
         isActiveSection,
@@ -903,11 +920,19 @@ function MaybeCardTitle({
 }
 
 function TextBlockCardTitle({
+  canvasOwnedRestingText = false,
   sectionId,
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
+}: {
+  canvasOwnedRestingText?: boolean;
+  sectionId: string;
+  isActiveSection: boolean;
+  isInOtherProjectConfigs: boolean;
+  sectionTypeName: SectionType;
+  hasSectionStyleTheme: boolean;
 }) {
   const { headingAsSectionName, format } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -963,6 +988,7 @@ function TextBlockCardTitle({
   return (
     !useHeadingAsSectionName && (
       <SectionTitle
+        canvasOwnedRestingText={canvasOwnedRestingText}
         sectionId={sectionId}
         titleProps={getTitleStyles({
           isActiveSection,
