@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 var (

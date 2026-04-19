@@ -1,6 +1,6 @@
 package projectstate
 
-import "setta/internal/appspec"
+import "setta/plugins/setta-json-render-app-gen/backend/appspec"
 
 type AppDefinitionReadResult struct {
 	AppSpec       any            `json:"appSpec"`

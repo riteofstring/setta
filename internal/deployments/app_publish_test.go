@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/appspec"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppPublisherRequiresAppDefinition(t *testing.T) {
