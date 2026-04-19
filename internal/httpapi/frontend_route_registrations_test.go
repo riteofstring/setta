@@ -20,6 +20,16 @@ func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContribution
 	}
 
 	for _, routePath := range []string{
+		RouteShareDeployments,
+		RouteShareDeploymentVersions,
+		RouteShareDeploymentLatest,
+	} {
+		if document.Paths[routePath] == nil {
+			t.Fatalf("expected %s to stay present without app subsystem contributions", routePath)
+		}
+	}
+
+	for _, routePath := range []string{
 		RouteGetAppDefinition,
 		RouteSetAppDefinition,
 		RouteValidateAppDefinition,
@@ -58,11 +68,21 @@ func TestBuildAppSubsystemFrontendAPIRouteRegistrationsRestoresFrozenRoutes(t *t
 	if registrations.Project[0].Family != "app definition" || registrations.Project[1].Family != "app generation skill" {
 		t.Fatalf("unexpected project contribution family %#v", registrations.Project)
 	}
-	if registrations.Deployment[0].Family != "app deployment" || registrations.Deployment[1].Family != "deployment ide" {
+	if registrations.Deployment[0].Family != "app deployment" || registrations.Deployment[1].Family != "app deployment ide" {
 		t.Fatalf("unexpected deployment contribution families %#v", registrations.Deployment)
 	}
 	if err := RegisterFrontendAPIRoutes(router, deps, registrations); err != nil {
 		t.Fatalf("register frontend api routes with app subsystem contributions: %v", err)
+	}
+
+	for _, routePath := range []string{
+		RouteShareDeployments,
+		RouteShareDeploymentVersions,
+		RouteShareDeploymentLatest,
+	} {
+		if document.Paths[routePath] == nil {
+			t.Fatalf("expected %s to remain available alongside app subsystem contributions", routePath)
+		}
 	}
 
 	for _, routePath := range []string{
