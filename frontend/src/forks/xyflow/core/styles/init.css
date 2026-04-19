@@ -32,6 +32,14 @@
   pointer-events: none;
 }
 
+.react-flow__viewport[data-viewport-interaction-active="true"]
+  .setta-viewport-interaction-shell {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  isolation: isolate;
+}
+
 .react-flow__renderer {
   z-index: 4;
 }

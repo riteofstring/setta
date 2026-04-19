@@ -6,9 +6,18 @@ function formatViewportTransform(state: Pick<ReactFlowState, "transform">) {
   return `translate(${state.transform[0]}px,${state.transform[1]}px) scale(${state.transform[2]})`;
 }
 
+function formatViewportInteractionActive(
+  state: Pick<ReactFlowState, "viewportInteractionActive">,
+) {
+  return state.viewportInteractionActive ? "true" : "false";
+}
+
 export function useViewportTransformStyleRef<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const initialTransform = formatViewportTransform(useReactFlow.getState());
+  const initialState = useReactFlow.getState();
+  const initialTransform = formatViewportTransform(initialState);
+  const initialViewportInteractionActive =
+    formatViewportInteractionActive(initialState);
 
   useLayoutEffect(() => {
     const applyTransform = (
@@ -21,9 +30,25 @@ export function useViewportTransformStyleRef<T extends HTMLElement>() {
       node.style.transform = nextTransform;
     };
 
-    applyTransform();
+    const applyViewportInteractionActive = (
+      nextViewportInteractionActive = formatViewportInteractionActive(
+        useReactFlow.getState(),
+      ),
+    ) => {
+      const node = ref.current;
+      if (
+        !node ||
+        node.dataset.viewportInteractionActive === nextViewportInteractionActive
+      ) {
+        return;
+      }
+      node.dataset.viewportInteractionActive = nextViewportInteractionActive;
+    };
 
-    return useReactFlow.subscribe(
+    applyTransform();
+    applyViewportInteractionActive();
+
+    const unsubscribeTransform = useReactFlow.subscribe(
       (state) => formatViewportTransform(state),
       (nextTransform, previousTransform) => {
         if (nextTransform === previousTransform) {
@@ -32,7 +57,25 @@ export function useViewportTransformStyleRef<T extends HTMLElement>() {
         applyTransform(nextTransform);
       },
     );
+
+    const unsubscribeViewportInteractionActive = useReactFlow.subscribe(
+      (state) => formatViewportInteractionActive(state),
+      (
+        nextViewportInteractionActive,
+        previousViewportInteractionActive,
+      ) => {
+        if (nextViewportInteractionActive === previousViewportInteractionActive) {
+          return;
+        }
+        applyViewportInteractionActive(nextViewportInteractionActive);
+      },
+    );
+
+    return () => {
+      unsubscribeTransform();
+      unsubscribeViewportInteractionActive();
+    };
   }, []);
 
-  return { initialTransform, ref };
+  return { initialTransform, initialViewportInteractionActive, ref };
 }

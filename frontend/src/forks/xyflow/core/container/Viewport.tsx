@@ -10,12 +10,13 @@ type ViewportProps = {
 };
 
 function Viewport({ children }: ViewportProps) {
-  const { initialTransform, ref } =
+  const { initialTransform, initialViewportInteractionActive, ref } =
     useViewportTransformStyleRef<HTMLDivElement>();
 
   return (
     <div
       className="react-flow__viewport react-flow__container"
+      data-viewport-interaction-active={initialViewportInteractionActive}
       ref={ref}
       style={{ transform: initialTransform }}
     >

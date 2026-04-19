@@ -9,12 +9,13 @@ type GraphSurfaceCameraLayerProps = {
 function GraphSurfaceCameraLayer({
   children,
 }: GraphSurfaceCameraLayerProps) {
-  const { initialTransform, ref } =
+  const { initialTransform, initialViewportInteractionActive, ref } =
     useViewportTransformStyleRef<HTMLDivElement>();
 
   return (
     <div
       className="react-flow__graph-surface-camera react-flow__container"
+      data-viewport-interaction-active={initialViewportInteractionActive}
       ref={ref}
       style={{
         ...containerStyle,

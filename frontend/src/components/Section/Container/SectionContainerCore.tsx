@@ -1,6 +1,5 @@
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import { isCanvasOwnedSectionShell } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
-import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -163,27 +162,15 @@ function resolveSectionStyleVars(
 
 function getSectionShellStyle(
   sectionStyleVars: React.CSSProperties | undefined,
-  viewportInteractionActive: boolean,
   canvasOwnedShell: boolean,
 ) {
-  const baseStyle = canvasOwnedShell
+  return canvasOwnedShell
     ? {
         ...sectionStyleVars,
         backgroundColor: "transparent",
         borderColor: "transparent",
       }
     : sectionStyleVars;
-
-  if (!viewportInteractionActive) {
-    return baseStyle;
-  }
-  return {
-    ...baseStyle,
-    willChange: "transform",
-    transform: "translateZ(0)",
-    backfaceVisibility: "hidden",
-    isolation: "isolate",
-  } satisfies React.CSSProperties;
 }
 
 function getSectionEdgeHandleMode({
@@ -278,9 +265,6 @@ function _SectionContainerCore({
     useMetaControlStyle,
   });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
   const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const canvasOwnedShell =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
@@ -302,7 +286,6 @@ function _SectionContainerCore({
   });
   const sectionShellStyle = getSectionShellStyle(
     sectionStyleVars,
-    viewportInteractionActive,
     canvasOwnedShell,
   );
   const edgeHandleMode = getSectionEdgeHandleMode({
@@ -313,7 +296,7 @@ function _SectionContainerCore({
 
   return (
     <section
-      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      className={`${sectionShellClassName} setta-viewport-interaction-shell ${isActiveSection ? "z-[150]" : "z-10"}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}

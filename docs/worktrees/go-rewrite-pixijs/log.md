@@ -155,6 +155,30 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 042
+
+- Landed the first product slice on the traced section-container rerender frontier by removing the `viewportInteractionActive` React subscription from `SectionContainerCore`.
+- `frontend/src/components/Section/Container/SectionContainerCore.tsx` now renders a stable `setta-viewport-interaction-shell` marker and keeps only section-theme / canvas-shell inline styles, while `frontend/src/forks/xyflow/core/container/useViewportTransformStyle.ts` mirrors the live viewport transform plus `viewportInteractionActive` flag onto the viewport root and graph-surface camera layer through imperative subscriptions.
+- `frontend/src/forks/xyflow/core/styles/init.css` now applies the shell compositor hint from `.react-flow__viewport[data-viewport-interaction-active="true"] .setta-viewport-interaction-shell`, so section shells keep the same motion styling without rerendering every `SectionContainerCore`.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-section-shell-viewport-root-attribute-rerun.md` with the current evidence: `documentNodeCount 5494`, `buttonCount 47`, `raf.meanMs 45.38`, `raf.p95Ms 50`, `longTasks.totalMs 3565`, `motionHiddenBodies.peakHiddenBodyCount 45`, and `motionHiddenSubtreeChurn.subtreeRemovedElementCount 0`.
+- Interpretation:
+  - this closes the `SectionContainerCore` shell compositor-hint subscription sub-lane on the canonical `settings-section__browserSectionDefault` path
+  - the live canary stayed healthy and visually nonblank, so the next pass should stay on section-container rerender fanout but move to `SectionContainerCoreResizable` / active-section churn instead of reopening backdrop invalidation or shell-style plumbing
+  - keep `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-interaction-pending-snapshot-fast-path-rerun.md` as the clean whole-scene checkpoint; this run is evidence for the removed subscription path, not a replacement baseline
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/useViewportTransformStyle.ts src/forks/xyflow/core/container/Viewport.tsx src/forks/xyflow/core/container/GraphSurfaceCameraLayer.tsx src/components/Section/Container/SectionContainerCore.tsx src/forks/xyflow/core/container/GraphSurface.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/GraphSurface.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.Tkw5gG/loop-001/run-009/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (41.3s)` with dense metrics `documentNodeCount 5494`, `raf.meanMs 45.38`, `raf.p95Ms 50`, `longTasks.totalMs 3565`, and `motionHiddenBodies.peakHiddenBodyCount 45`
+  - CDP visual check:
+    - done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - `/settings` loaded with `All Settings` active, the graph surface was mounted and nonblank, and `browserSectionDefault` was present
+    - no notable visual problems were observed
+- Next frontier: stay on the canonical browser lane and remove the remaining `SectionContainerCoreResizable` viewport-interaction / active-section rerender fanout without reopening the closed `SectionContainerCore` shell-style lane.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 041
 
 - Landed the retained-graph attribution pass on the canonical `settings-section__browserSectionDefault` lane.

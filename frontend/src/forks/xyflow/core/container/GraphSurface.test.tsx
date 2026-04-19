@@ -73,10 +73,13 @@ describe("GraphSurface", () => {
     expect(viewport.style.transform).toBe(
       "translate(120px,80px) scale(1.5)",
     );
+    expect(cameraLayer.dataset.viewportInteractionActive).toBe("false");
+    expect(viewport.dataset.viewportInteractionActive).toBe("false");
 
     await act(async () => {
       useReactFlow.setState({
         transform: [-40, 25, 0.75],
+        viewportInteractionActive: true,
       });
     });
 
@@ -86,6 +89,8 @@ describe("GraphSurface", () => {
     expect(viewport.style.transform).toBe(
       "translate(-40px,25px) scale(0.75)",
     );
+    expect(cameraLayer.dataset.viewportInteractionActive).toBe("true");
+    expect(viewport.dataset.viewportInteractionActive).toBe("true");
     expect(cameraLayer.nextElementSibling).toBe(viewport);
     expect(
       cameraLayer.querySelector('[data-testid="section-shell-backdrop-canvas"]'),
