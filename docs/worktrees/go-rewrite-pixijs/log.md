@@ -6328,3 +6328,31 @@ LOOP_TERMINAL_MARKER: none
   - `/settings` loaded with `All Settings` active, the graph surface was mounted and nonblank, and no obvious detached shell/body regression was observed on the restored baseline
 - Next frontier: keep `settings-section__chatSectionDefault` only as the blocker reproduction target and land a deeper scene-level / renderer-authoritative text activator or hit-test primitive instead of reopening the closed row, hidden-input, shell, DOM-row, or pane-level `Pane.tsx` attempts.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 057
+
+- Closed the first deeper scene-level text activator publication attempt itself and recorded the result in `perf/reports/frontend/2026-04-20_settings-all-settings-scene-level-text-activator-publication-blocker-report.md`.
+- This was a bounded local product attempt, not a landed renderer change:
+  - scene-measured lightweight text hit boxes plus pane capture forwarding were tried in source
+  - the speculative source and test edits were all reverted before finishing the iteration after the live runtime still failed to route visible retained-text clicks into inline editors
+- One fresh headless Playwright rerun on the live `3068/8068` runtime clarified two different control-lane outcomes:
+  - `chat.permissionMode` still failed under a real visible-text click oracle
+  - the temporary `shortcuts.advancedSearchShortcut` visible-click oracle timed out because the retained-text point sat above the viewport after normalized `fit view`, so close that same-path control as untrustworthy for this pass
+- One-off `@playwright/test` node probes against fresh bootstrap URLs then narrowed the next blocker:
+  - `browser.columnWidth` produced an on-screen retained-text point (`x≈709.56`, `y≈39.00`) that landed on `.react-flow__pane`
+  - that same point geometrically matched the intended lightweight root `settings-section__browserSectionDefault-settings-codeobj__browserSectionDefault__browserSectionDefault__columnWidth-ParamInput`
+  - the pane received the live `mousedown`, but no inline CodeMirror editor mounted and no forwarded target `mousedown` was observed
+  - a page-side dynamic import of `/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts` returned empty arrays for `browser`, `chat`, and `shortcuts`; treat that as strong evidence, with a small Vite module-instance caveat, that the live publication / consumption path is still untrusted
+- Interpretation:
+  - close the first scene-level publication attempt itself as not ready to land
+  - do not spend the next automated pass on another `shortcuts` visible-click retry under the current normalized `fit view`, another pane capture timing tweak on the same path, or another registry-only pass without proving app-visible hit-box publication first
+  - the next frontier is now explicitly to instrument or simplify the live hit-box publication / consumption path itself, with `browser.columnWidth` as the best current on-screen control and `chat.permissionMode` kept as the canonical blocker reproduction target
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-009/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts --reporter=line --workers=1`
+    - result during the speculative try: `chat` failed under the real visible-click oracle; `shortcuts` same-path visible-click timed out because the target point was offscreen after normalized `fit view`
+  - one-off `@playwright/test` node probes against fresh bootstrap URLs
+    - result: `browser.columnWidth` stayed on-screen, matched the intended lightweight root geometrically, hit `.react-flow__pane`, and still mounted no editor; `shortcuts.advancedSearchShortcut` stayed offscreen at the retained-text point after normalized `fit view`
+- CDP visual check:
+  - not run because no product source changes from this attempt were kept
+- Next frontier: keep `settings-section__chatSectionDefault` as the blocker reproduction target, use `settings-section__browserSectionDefault` / `columnWidth` as the current on-screen control lane, and instrument or simplify the live hit-box publication / consumption path itself instead of reopening another pane-level timing tweak.
+LOOP_TERMINAL_MARKER: none
