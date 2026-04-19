@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildAppGenerationSlashCommandDefinitions } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
 import {
   buildChatSlashCommands,
   executeManagedChatSlashCommand,
@@ -13,7 +14,7 @@ import {
 import { ChatInput } from "./ChatInput";
 
 const APP_GENERATION_COMMANDS = buildChatSlashCommands({
-  appGenerationModes: true,
+  appGenerationCommands: buildAppGenerationSlashCommandDefinitions(),
 });
 
 function getAppGenerationPrompt(command: string): string {
@@ -174,7 +175,7 @@ describe("ChatInput queued slash-command replay", () => {
     );
   });
 
-  it("replays queued /app-json drafts from the original snapshot even if the command list changes", async () => {
+  it("keeps queued /app-json drafts blocked with a plugin-required message once app commands disappear", async () => {
     const onSubmit = vi.fn(async () => true);
     const onStartNewChat = vi.fn();
     const onResumeLatestChat = vi.fn(async () => false);
@@ -254,15 +255,13 @@ describe("ChatInput queued slash-command replay", () => {
       await Promise.resolve();
     });
 
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith(
-      `${getAppGenerationPrompt("/app-json")}\n\ndashboard for support ops`,
-      [],
-      {
-        appGeneration: {
-          mode: "json_render",
-        },
-      },
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(host.textContent).toContain(
+      '/app-json requires the first-party plugin "setta-json-render-app-gen" to be enabled.',
+    );
+    const queuedDraft = host.querySelector('[data-chat-queued-draft="true"]');
+    expect(queuedDraft?.textContent).toContain(
+      "/app-json dashboard for support ops",
     );
   });
 
@@ -669,6 +668,7 @@ describe("ChatInput queued slash-command replay", () => {
               summary: "Generate from an attached reference image.",
               promptTemplate: "Match the attached design.",
               appGenerationMode: "json_render_with_image",
+              requiresImageAttachment: true,
             },
           ]}
           recognizedSlashCommands={[
@@ -678,6 +678,7 @@ describe("ChatInput queued slash-command replay", () => {
               summary: "Generate from an attached reference image.",
               promptTemplate: "Match the attached design.",
               appGenerationMode: "json_render_with_image",
+              requiresImageAttachment: true,
             },
           ]}
           onSubmit={onSubmit}
@@ -727,6 +728,7 @@ describe("ChatInput queued slash-command replay", () => {
       summary: "Generate from an attached reference image.",
       promptTemplate: "Match the attached design.",
       appGenerationMode: "json_render_with_image",
+      requiresImageAttachment: true,
     };
 
     const App = () => {
@@ -842,7 +844,7 @@ describe("ChatInput queued slash-command replay", () => {
     );
   });
 
-  it("keeps queued custom slash commands queued when the command is removed before replay", async () => {
+  it("keeps queued custom app-generation slash commands queued when the command is removed before replay", async () => {
     const onSubmit = vi.fn(async () => true);
     let setWaitingForResponse:
       | ((next: boolean | ((current: boolean) => boolean)) => void)
@@ -910,7 +912,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      "/wireframe is unavailable in the current context. Use /help.",
+      '/wireframe requires the first-party plugin "setta-json-render-app-gen" to be enabled.',
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,

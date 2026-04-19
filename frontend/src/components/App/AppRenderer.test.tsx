@@ -5,18 +5,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
-import { useAppConfigs, useShareSession } from "state/definitions";
+import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type { Policy } from "utils/generatedTypes";
 import {
-  createAppDefinition,
   createPolicy,
   createProjectConfig,
   createSectionCapabilities,
   createSingletonSections,
 } from "utils/generatedTypes";
+import { createAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
-import { AppRenderer } from "./AppRenderer";
+import { AppRenderer } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer";
 
 const addTemporaryNotificationMock = vi.hoisted(() => vi.fn());
 let latestHandlers: Record<
@@ -30,7 +31,9 @@ vi.mock("state/actions/notifications", () => ({
 
 vi.mock("@json-render/react", async () => {
   const React = await import("react");
-  const { useAppActionState } = await import("./appContext");
+  const { useAppActionState } = await import(
+    "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext"
+  );
 
   const Passthrough = ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
@@ -217,10 +220,14 @@ describe("AppRenderer", () => {
 
     expect(runSpy).toHaveBeenCalledWith({
       body: {
+        cliId: "",
+        drawSnapshotsBySectionId: {},
+        paramOverrides: { [`${sectionId}:param-1`]: "override" },
         projectConfigId: configId,
+        runSnapshotMode: "ephemeral",
         sectionId,
         sectionVariantOverrides: { [sectionId]: "variant-2" },
-        paramOverrides: { [`${sectionId}:param-1`]: "override" },
+        terminalSectionId: "",
       },
     });
   });

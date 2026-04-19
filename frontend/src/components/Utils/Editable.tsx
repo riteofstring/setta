@@ -10,7 +10,6 @@ export function Editable({
   onMouseLeave,
   doubleClickToEdit = false,
   blurTriggeredByEscapeKey,
-  nonEditingAttributes,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const paragraphRef = useRef(null);
@@ -54,7 +53,6 @@ export function Editable({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       paragraphRef={paragraphRef}
-      nonEditingAttributes={nonEditingAttributes}
     />
   );
 }
@@ -88,7 +86,6 @@ function InNonEditMode({
   onMouseEnter,
   onMouseLeave,
   paragraphRef,
-  nonEditingAttributes,
 }) {
   function onKeyDown(e) {
     if (e.code === "Space") {
@@ -99,7 +96,6 @@ function InNonEditMode({
 
   return (
     <p
-      {...nonEditingAttributes}
       onClick={onClick}
       className={titleProps}
       tabIndex={0}

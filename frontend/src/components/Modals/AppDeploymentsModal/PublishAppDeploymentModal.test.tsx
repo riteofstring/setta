@@ -6,10 +6,12 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useAppDefinition, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { createAppDefinition, createProjectConfig } from "utils/generatedTypes";
+import { createProjectConfig } from "utils/generatedTypes";
+import { createAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
+import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
 
 const openAPI = vi.hoisted(() => ({
   checkIfFileExists: vi.fn(),
@@ -38,7 +40,7 @@ vi.mock("openapi/http/result", () => ({
   },
 }));
 
-import { PublishAppDeploymentModal } from "./PublishAppDeploymentModal";
+import { PublishAppDeploymentModal } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
 
 type RenderedModal = {
   host: HTMLDivElement;

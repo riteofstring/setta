@@ -14,8 +14,10 @@ import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/uisettings"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type routeRevealService struct {
@@ -29,21 +31,31 @@ func (s *routeRevealService) Reveal(_ context.Context, input uisettings.RevealIn
 	return s.result, s.err
 }
 
+func newUISettingsRouteTestServer(t *testing.T, projectRuntime *projectstate.Runtime, options mcpx.ServerOptions) *mcpx.Server {
+	t.Helper()
+
+	if options.AppDefinitionService == nil && projectRuntime != nil {
+		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
+	}
+	server, err := mcpx.NewServer(options)
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+	return server
+}
+
 func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -82,7 +94,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 
 	getResponse := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"projectConfigId":"project-alpha","settingId":"core.app.spec_path"},
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.name"},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if getResponse.Code != http.StatusOK {
@@ -93,8 +105,8 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getPayload.StructuredContent)
 	}
 	getResult := mustStructuredMapForRoute(t, getPayload.StructuredContent)
-	if getResult["value"] != "app_specs/app.json" {
-		t.Fatalf("expected default app spec path, got %#v", getResult["value"])
+	if getResult["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", getResult["value"])
 	}
 
 	setResponse := postMCPToolRoute(t, handler, `{
@@ -130,15 +142,12 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -203,15 +212,12 @@ func TestMCPToolCallRouteUISettingReadRejectsShareScopeWithoutProjectContext(t *
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -232,7 +238,7 @@ func TestMCPToolCallRouteUISettingReadRejectsShareScopeWithoutProjectContext(t *
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"settingId":"core.app.spec_path"},
+		"arguments":{"settingId":"core.project.name"},
 		"agenticContext":{"shareSessionId":"share-session-1","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
@@ -265,16 +271,13 @@ func TestMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.T) {
 		"chat-section":  "13",
 	})
 
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      workspaceRoot,
 		ProjectState:       projectRuntime,
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -348,16 +351,13 @@ func TestMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -421,16 +421,13 @@ func TestMCPToolCallRouteRevealUISettingTrimsFrontendAffinityToken(t *testing.T)
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -485,16 +482,13 @@ func TestMCPToolCallRouteRevealUISettingIgnoresBlankFrontendAffinityToken(t *tes
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -537,15 +531,12 @@ func TestMCPToolCallRouteGetUISettingRejectsProjectArgumentMismatch(t *testing.T
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -611,16 +602,13 @@ func TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult(t *
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -707,7 +695,7 @@ func TestMCPToolCallRouteRevealUISettingAcceptsTemporaryIDs(t *testing.T) {
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      workspaceRoot,
 		ProjectState:       projectRuntime,
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
@@ -715,9 +703,6 @@ func TestMCPToolCallRouteRevealUISettingAcceptsTemporaryIDs(t *testing.T) {
 		TemporaryIDMapPath: temporaryIDMapPath,
 		UISettingReveals:   revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
