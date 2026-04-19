@@ -20,6 +20,7 @@ Defaults:
 - Retry sleep after retryable Codex failures: 60 seconds
 - Stop only when Codex explicitly reports the app-subsystem extraction plan is fully executed
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the checklist/review state
+- If an iteration leaves the repo in an invalid state, reset back to the last clean HEAD and continue
 - Before every non-stop commit, run focused verification, `./gcf.sh`, and `./check_quality.sh`, then fix any failures before committing
 
 Options:
@@ -263,6 +264,7 @@ phase_review_file="${state_dir}/phase-review.md"
 prompt_file="${state_dir}/prompt.md"
 status_file="${state_dir}/status.txt"
 head_file="${state_dir}/last-observed-head.txt"
+recovery_state_file="${state_dir}/recovery-state.txt"
 plugin_required_error='App mode requires the first-party plugin "setta-json-render-app-gen" to be enabled.'
 
 if [[ ! -f "${phase_review_file}" ]]; then
@@ -455,7 +457,7 @@ fi
 
 pre_iteration_command="$(
   shell_join \
-    "${ROOT_DIR}/scripts/codex-authority-cleanup-loop-check.sh" \
+    "${ROOT_DIR}/scripts/codex-app-subsystem-extraction-loop-pre-iteration.sh" \
     --root-dir "${ROOT_DIR}" \
     --output-dir "${output_dir}" \
     --state-dir "${state_dir}" \
@@ -463,13 +465,15 @@ pre_iteration_command="$(
     --sentinel "${stop_sentinel}" \
     --progress-file "${checklist_file}" \
     --progress-file "${phase_review_file}" \
+    --recovery-file "${recovery_state_file}" \
     --allow-clean-failures "${iterations}"
 )"
 
 post_iteration_command="$(
   shell_join \
-    "${ROOT_DIR}/scripts/codex-authority-post-iteration-clean-check.sh" \
+    "${ROOT_DIR}/scripts/codex-app-subsystem-extraction-loop-post-iteration.sh" \
     --root-dir "${ROOT_DIR}" \
+    --state-dir "${state_dir}" \
     --settle-seconds "${post_commit_settle_seconds}"
 )"
 
@@ -514,6 +518,7 @@ fi
 echo "Plan: ${plan_file}"
 echo "Checklist: ${checklist_file}"
 echo "Phase review file: ${phase_review_file}"
+echo "Recovery state file: ${recovery_state_file}"
 echo "Loop output directory: ${output_dir}"
 echo "Loop state directory: ${state_dir}"
 echo "Iterations: ${iterations}"
