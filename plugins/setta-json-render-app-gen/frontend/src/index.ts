@@ -7,7 +7,7 @@ import {
   DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
   doesAppSubsystemModeRequireImageAttachment,
 } from "./appSubsystemChatUi";
-import { useAppConfigs, useAppPreview } from "state/definitions";
+import { useAppConfigs, useAppPreview } from "plugins/appSubsystemProjectState";
 
 export const appSubsystemFrontendRegistration = {
   overviewTab: {
