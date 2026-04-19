@@ -4,10 +4,8 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import {
-  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
-  useAppSubsystemOverviewTab,
-} from "plugins/appSubsystem";
+import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
+import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
 import {
   AppSubsystemRendererHost,
   EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,

@@ -1,4 +1,5 @@
 import {
+  createAppSubsystemFrontendHost,
   isAppSubsystemFrontendRegistration,
   registerAppSubsystemPlugin,
 } from "@setta/app-subsystem-frontend-sdk";
@@ -46,6 +47,25 @@ describe("appSubsystemFrontendSdk", () => {
     ).toThrow(
       "Plugin host does not support registerAppSubsystem for app-subsystem providers.",
     );
+  });
+
+  it("provides default typed frontend-host services for plugin renderers", () => {
+    const frontendHost = createAppSubsystemFrontendHost();
+
+    expect(frontendHost.apiVersion).toBe(1);
+    expect(frontendHost.getProjectContext()).toEqual({
+      defaultProjectConfigId: null,
+      projectMetadata: [],
+      projectConfig: {
+        id: null,
+        name: "",
+        entryCodeBlockId: null,
+      },
+    });
+    expect(frontendHost.subscribeProjectContext(() => undefined)).toBeTypeOf(
+      "function",
+    );
+    expect(() => frontendHost.notify({ message: "hello" })).not.toThrow();
   });
 
   it("validates the renderer-based app subsystem registration contract", () => {

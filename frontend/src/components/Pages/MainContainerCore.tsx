@@ -7,10 +7,10 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import {
-  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
   useAppSubsystemPreviewEnabled,
   useAppSubsystemPreviewSurface,
 } from "plugins/appSubsystem";
+import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
 import {
   AppSubsystemRendererHost,
   EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
