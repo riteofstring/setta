@@ -15,8 +15,8 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/deployments"
-	"setta/internal/plugins"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestRenderLocalStartupMessageRemoteSession(t *testing.T) {
@@ -283,7 +283,7 @@ func TestEmitAppStartupOutputWarnsForPublicHostAndPrintsURL(t *testing.T) {
 	enableAppDeploymentRuntimePlugin(
 		t,
 		deploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"Setta JSON Render App Generation",
 	)
 	var stdout bytes.Buffer
@@ -333,7 +333,7 @@ func TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
 	enableAppDeploymentRuntimePlugin(
 		t,
 		deploymentRoot,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"Setta JSON Render App Generation",
 	)
 	var stdout bytes.Buffer

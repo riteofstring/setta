@@ -100,7 +100,7 @@ func scanHostGoImports(
 		if filepath.Ext(path) != ".go" {
 			return nil
 		}
-		if strings.HasSuffix(path, "_test.go") || strings.HasSuffix(path, "_gen.go") {
+		if strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 

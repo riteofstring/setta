@@ -42,7 +42,7 @@ func TestAppSubsystemPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 
-	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -97,8 +97,8 @@ func TestAppSubsystemPluginEnabledRestoresBackendRoutesAndTools(t *testing.T) {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 
-	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
-	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -147,7 +147,7 @@ func TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools(t *testin
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 
-	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -242,7 +242,7 @@ func TestAppSubsystemPackageManagerPluginDisabledHidesBackendRoutesAndTools(t *t
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installAppPackageManagerPlugin(t, sitePackages, plugins.AppSubsystemPluginID)
+	installAppPackageManagerPlugin(t, sitePackages, firstpartyplugin.AppSubsystemPluginID)
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
 	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
 
@@ -294,10 +294,10 @@ func TestAppSubsystemPackageManagerPluginEnabledRestoresBackendRoutesAndTools(t 
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installAppPackageManagerPlugin(t, sitePackages, plugins.AppSubsystemPluginID)
+	installAppPackageManagerPlugin(t, sitePackages, firstpartyplugin.AppSubsystemPluginID)
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
 	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
-	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -350,7 +350,7 @@ func TestAppSubsystemUnknownIDPackageManagerPluginEnabledRestoresBackendRoutesAn
 	installAppPackageManagerPluginAsID(
 		t,
 		sitePackages,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		unknownAppSubsystemPluginID,
 	)
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
@@ -407,7 +407,7 @@ func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *test
 	installAppRepoPluginAsID(
 		t,
 		cfg,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		unknownAppSubsystemPluginID,
 	)
 	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
@@ -462,7 +462,7 @@ func TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup(t *test
 	installAppRepoPluginAsID(
 		t,
 		cfg,
-		plugins.AppSubsystemPluginID,
+		firstpartyplugin.AppSubsystemPluginID,
 		"setta-fixture-unregistered-app-provider",
 	)
 	writeEnabledAppPluginState(t, cfg, "setta-fixture-unregistered-app-provider")
@@ -581,8 +581,8 @@ func writeEnabledAppPluginState(t *testing.T, cfg config.Config, pluginIDs ...st
 func enableAppSubsystemPluginForTest(t *testing.T, cfg config.Config) {
 	t.Helper()
 
-	installAppRepoPlugin(t, cfg, plugins.AppSubsystemPluginID)
-	writeEnabledAppPluginState(t, cfg, plugins.AppSubsystemPluginID)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 }
 
 func installAppRepoPluginAsID(
