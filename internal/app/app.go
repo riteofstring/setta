@@ -77,7 +77,6 @@ import (
 	"setta/internal/watchcode"
 	"setta/internal/workspacelaunch"
 	"setta/internal/wsapi"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 type App struct {
@@ -2549,8 +2548,18 @@ func initializeAppMCPServer(
 		Registry:                     base.mcpToolRegistry,
 		WorkspaceRoot:                cfg.Paths.WorkspaceRoot,
 		ProjectState:                 projectServices.projectRuntime,
-		AppDefinitionService:         appsubsystemplugin.NewAppDefinitionService(projectServices.projectRuntime),
 		SkipDefaultAppSubsystemTools: true,
+		ContributedUISettingBuilders: []uisettings.RuntimeEntryBuilder{
+			func(runtime plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
+				if runtime.FeatureCapabilities == nil {
+					return nil, nil
+				}
+				return appsubsystem.BuildScopedUISettingEntries(
+					runtime.FeatureCapabilities.AppSubsystem,
+					projectServices.projectRuntime,
+				)
+			},
+		},
 		AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
 			return broadcastFrontendProjectStateUpdate(
 				ctx,

@@ -17,7 +17,6 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/uisettings"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type routeRevealService struct {
@@ -34,9 +33,6 @@ func (s *routeRevealService) Reveal(_ context.Context, input uisettings.RevealIn
 func newUISettingsRouteTestServer(t *testing.T, projectRuntime *projectstate.Runtime, options mcpx.ServerOptions) *mcpx.Server {
 	t.Helper()
 
-	if options.AppDefinitionService == nil && projectRuntime != nil {
-		options.AppDefinitionService = appdefinition.NewAppDefinitionService(projectRuntime)
-	}
 	server, err := mcpx.NewServer(options)
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
