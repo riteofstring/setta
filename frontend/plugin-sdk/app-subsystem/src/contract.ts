@@ -2,10 +2,53 @@ import type { GetLatestProjectStateResponse } from "openapi/http";
 
 export const APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION = 1;
 
+export type AppSubsystemNotificationType =
+  | "error"
+  | "warning"
+  | "info"
+  | "save";
+
+export type AppSubsystemNotification = {
+  message: string;
+  type?: AppSubsystemNotificationType;
+};
+
+export type AppSubsystemProjectMetadataEntry = {
+  id: string;
+  name: string;
+};
+
+export type AppSubsystemProjectConfigSnapshot = {
+  id: string | null;
+  name: string;
+  entryCodeBlockId: string | null;
+};
+
+export type AppSubsystemProjectContext = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: AppSubsystemProjectMetadataEntry[];
+  projectConfig: AppSubsystemProjectConfigSnapshot;
+};
+
 export type AppSubsystemFrontendHost = {
   apiVersion: typeof APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION;
   closeModal: () => void;
+  notify: (notification: AppSubsystemNotification) => void;
+  getProjectContext: () => AppSubsystemProjectContext;
+  subscribeProjectContext: (
+    listener: (context: AppSubsystemProjectContext) => void,
+  ) => () => void;
 };
+
+const EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT = Object.freeze({
+  defaultProjectConfigId: null,
+  projectMetadata: [],
+  projectConfig: {
+    id: null,
+    name: "",
+    entryCodeBlockId: null,
+  },
+}) satisfies AppSubsystemProjectContext;
 
 export function createAppSubsystemFrontendHost(
   overrides: Partial<AppSubsystemFrontendHost> = {},
@@ -13,6 +56,9 @@ export function createAppSubsystemFrontendHost(
   return {
     apiVersion: APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION,
     closeModal: () => undefined,
+    notify: () => undefined,
+    getProjectContext: () => EMPTY_APP_SUBSYSTEM_PROJECT_CONTEXT,
+    subscribeProjectContext: () => () => undefined,
     ...overrides,
   };
 }

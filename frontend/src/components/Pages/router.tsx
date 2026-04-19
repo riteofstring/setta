@@ -9,12 +9,12 @@ import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import {
-  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
   useAppSubsystemAppModeRoute,
   useAppSubsystemFrontendStatus,
   useAppSubsystemFrontendStatusMessage,
 } from "plugins/appSubsystem";
+import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
 import {
   AppSubsystemRendererHost,
   EMPTY_APP_SUBSYSTEM_RENDERER_PROPS,
