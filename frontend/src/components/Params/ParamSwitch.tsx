@@ -11,12 +11,9 @@ import {
 } from "forks/dnd-kit/paramDndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import React, { useCallback } from "react";
-import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
-  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
-  toggleParamSelected,
-} from "state/actions/sectionInfos";
+import React, { useCallback, useMemo } from "react";
+import { toggleParamSelected } from "state/actions/sectionInfos";
+import { createParamSwitchProjectStateSelector } from "state/actions/params/paramSwitchSelectors";
 import {
   useMisc,
   useProjectSearch,
@@ -24,11 +21,6 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
-import {
-  isBaseParamCodeObjImpl,
-  isBaseParentCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-} from "utils/generatedTypes";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
@@ -42,6 +34,7 @@ type ParamSwitchProps = {
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  lightweightNestedLeafRows?: boolean;
 };
 
 type RealParamSwitchState = {
@@ -58,6 +51,11 @@ type RealParamSwitchState = {
 type ParamSelectionHandlers = {
   handleParamClick: React.MouseEventHandler;
   handleParamMouseDown: React.MouseEventHandler;
+};
+
+type RealParamSearchState = {
+  isFocusedSearchResult: boolean;
+  isSearchResult: boolean;
 };
 
 const PARAM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
@@ -182,53 +180,47 @@ function useRealParamSwitchState(
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
-  const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
-    return {
+  const { isFocusedSearchResult, isSearchResult } = useProjectSearch(
+    (x): RealParamSearchState => ({
       isFocusedSearchResult:
         x.focused?.sectionId === sectionId &&
         x.focused?.paramInfoId === paramInfoId,
       isSearchResult: x.lookup.has(
         createProjectSearchLookupKey(sectionId, paramInfoId),
       ),
-    };
-  }, _.isEqual);
+    }),
+    areRealParamSearchStatesEqual,
+  );
+  const selectParamState = useMemo(
+    () => createParamSwitchProjectStateSelector(sectionId, paramInfoId),
+    [paramInfoId, sectionId],
+  );
+  const paramState = useProjectState(selectParamState);
 
-  const paramState = useProjectState((x) => {
-    const paramsImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
-      x,
-      sectionId,
-      paramInfoId,
-      isBaseParamCodeObjImpl,
-    );
-    if (!paramsImpl || !codeObjImpl) {
-      return null;
-    }
-    return { paramsImpl, codeObjImpl };
-  }, _.isEqual);
-
-  if (!paramState) {
+  if (paramState === null) {
     return null;
   }
 
-  const { paramsImpl, codeObjImpl } = paramState;
-  const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
-  const paramChildren = isNestedParam ? codeObjImpl.children : [];
-
   return {
-    hasChildren: paramChildren.length > 0,
+    hasChildren: paramState.hasChildren,
     isFocusedSearchResult,
-    isKwarg: Boolean(codeObjImpl.coreNameEditable),
-    isNestedParam,
+    isKwarg: paramState.isKwarg,
+    isNestedParam: paramState.isNestedParam,
     isSearchResult,
     maybeErrorMessage: typeErrors?.join("\n") ?? "",
-    paramChildren,
-    paramIsSelected: paramsImpl.selectedParams.includes(paramInfoId),
+    paramChildren: paramState.paramChildren,
+    paramIsSelected: paramState.paramIsSelected,
   };
+}
+
+function areRealParamSearchStatesEqual(
+  left: RealParamSearchState,
+  right: RealParamSearchState,
+) {
+  return (
+    left.isFocusedSearchResult === right.isFocusedSearchResult &&
+    left.isSearchResult === right.isSearchResult
+  );
 }
 
 function useParamSelectionHandlers(
@@ -280,6 +272,76 @@ function resolveParamBackgroundClass({
   }
 
   return resolveParamSelectionClass(hasSectionStyleTheme);
+}
+
+function shouldFlattenLightweightNestedLeafRow({
+  bg,
+  border,
+  dndEnabled,
+  hasChildren,
+  isKwarg,
+  lightweightNestedLeafRows,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  hasChildren: boolean;
+  isKwarg: boolean;
+  lightweightNestedLeafRows: boolean;
+}) {
+  return (
+    lightweightNestedLeafRows &&
+    !hasChildren &&
+    shouldFlattenLightweightRowBody({
+      bg,
+      border,
+      dndEnabled,
+      isKwarg,
+    })
+  );
+}
+
+function shouldFlattenLightweightNestedGroupRow({
+  bg,
+  border,
+  dndEnabled,
+  hasChildren,
+  isKwarg,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  hasChildren: boolean;
+  isKwarg: boolean;
+}) {
+  return (
+    hasChildren &&
+    shouldFlattenLightweightRowBody({
+      bg,
+      border,
+      dndEnabled,
+      isKwarg,
+    })
+  );
+}
+
+function shouldFlattenLightweightRowBody({
+  bg,
+  border,
+  dndEnabled,
+  isKwarg,
+}: {
+  bg: string;
+  border: string;
+  dndEnabled: boolean;
+  isKwarg: boolean;
+}) {
+  return (
+    !isKwarg &&
+    !dndEnabled &&
+    bg === "transition-colors rounded-sm" &&
+    border === ""
+  );
 }
 
 function resolveParamBorderClass({
@@ -398,6 +460,7 @@ function SortableRealParamSwitchRow({
   listKey,
   paramChildren,
   label,
+  lightweightNestedLeafRows = false,
   ...props
 }: ParamSwitchProps & {
   bg: string;
@@ -444,6 +507,21 @@ function SortableRealParamSwitchRow({
   return (
     <ParamContainer
       {...props}
+      flattenLightweightNestedLeafRow={shouldFlattenLightweightNestedLeafRow({
+        bg: props.bg,
+        border: props.border,
+        dndEnabled,
+        hasChildren: hasNested,
+        isKwarg: props.isKwarg,
+        lightweightNestedLeafRows,
+      })}
+      flattenLightweightNestedGroupRow={shouldFlattenLightweightNestedGroupRow({
+        bg: props.bg,
+        border: props.border,
+        dndEnabled,
+        hasChildren: hasNested,
+        isKwarg: props.isKwarg,
+      })}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       listKey={listKey}

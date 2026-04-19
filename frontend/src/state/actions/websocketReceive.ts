@@ -8,7 +8,7 @@ import {
   type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { receivePluginRuntimeUpdate } from "plugins/runtime";
+import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
   buildFrontendAffinityCurrentAddress,
@@ -65,11 +65,6 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
-  initializeAppSessionFromCurrentDeployment,
-  resetAppSessionState,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
-import { processAppProjectStateUpdateFromBackend } from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/appProjectState";
-import {
   loadAgentRuns,
   receiveAgentProfilesUpdate,
   receiveAgentRunUpdate,
@@ -86,6 +81,10 @@ import {
   receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  resetAppSessionState,
+} from "./app";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -677,11 +676,6 @@ const websocketMessageHandlers = {
     Parameters<typeof updateSettings>[0]
   >((content) => {
     updateSettings(content);
-  }),
-  [WebsocketMessageTypeEnum.UpdatePluginRuntime]: createWebsocketMessageHandler<
-    Parameters<typeof receivePluginRuntimeUpdate>[0]
-  >((content) => {
-    void receivePluginRuntimeUpdate(content);
   }),
   [WebsocketMessageTypeEnum.AllProjectMetadata]: createWebsocketMessageHandler<
     Parameters<typeof updateAllProjectMetadata>[0]
