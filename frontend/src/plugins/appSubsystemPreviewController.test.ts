@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   applyAppSpecPatchPreviewDelta,
   clearAllAppSpecPatchStreams,
-} from "./appSubsystemPreviewController";
+} from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
 
 describe("appSubsystemPreviewController", () => {
   afterEach(() => {

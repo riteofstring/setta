@@ -55,10 +55,13 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   },
 };
 
-vi.mock("plugins/appSubsystemHostAdapter", () => ({
-  default: MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
-  appSubsystemFrontendRegistration: MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
-}));
+vi.mock(
+  "../../../plugins/setta-json-render-app-gen/frontend/src/index",
+  () => ({
+    default: MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+    appSubsystemFrontendRegistration: MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+  }),
+);
 
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",

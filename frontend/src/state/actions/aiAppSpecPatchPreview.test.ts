@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { clearAllAppSpecPatchPreviewStreams } from "plugins/appSubsystemPreviewController";
-import { useAppPreview } from "plugins/appSubsystemProjectState";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -9,6 +7,8 @@ import {
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
+import { clearAllAppSpecPatchPreviewStreams } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
+import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
 describe("ai app spec patch preview streaming", () => {

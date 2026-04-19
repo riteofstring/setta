@@ -1,8 +1,6 @@
 import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import {
   useAllProjectMetadata,
-  useAppDefinition,
   useServerMode,
   useShareSession,
 } from "state/definitions";
@@ -23,6 +21,8 @@ import {
   it,
   vi,
 } from "vitest";
+import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 const routeCreateAppSessionCurrentMock = vi.fn();
 const routeGetAppDeploymentStateMock = vi.fn();
@@ -58,7 +58,7 @@ import {
   ensureAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
   resetAppSessionState,
-} from "./app";
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
 
