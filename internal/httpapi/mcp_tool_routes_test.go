@@ -2654,7 +2654,6 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 		ProjectState:                 projectRuntime,
 		SectionNames:                 routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:               diagnostics,
-		AppDefinitionService:         appDefinitionService,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(appDefinitionService),
 	})
 	if err != nil {
@@ -3029,7 +3028,6 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:                 routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:               diagnostics,
 		TemporaryIDMapPath:           temporaryIDMapPath,
-		AppDefinitionService:         appDefinitionService,
 		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(appDefinitionService),
 	})
 	if err != nil {

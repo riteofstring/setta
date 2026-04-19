@@ -13,6 +13,7 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/tools"
+	"setta/internal/uisettings"
 )
 
 var ErrBackendProviderUnregistered = errors.New(
@@ -46,6 +47,9 @@ type BackendProvider interface {
 	BuildMCPToolRegistrations(
 		projectRuntime *projectstate.Runtime,
 	) []MCPToolRegistration
+	BuildScopedUISettingEntries(
+		projectRuntime *projectstate.Runtime,
+	) ([]uisettings.RuntimeEntry, error)
 	AppGenerationModeContributions() []chatmodes.AppGenerationModeContribution
 	NewAppPublishService(
 		options deployments.AppPublisherOptions,
@@ -119,6 +123,23 @@ func BuildMCPToolRegistrations(
 		return nil, nil
 	}
 	return provider.BuildMCPToolRegistrations(projectRuntime), nil
+}
+
+func BuildScopedUISettingEntries(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+	projectRuntime *projectstate.Runtime,
+) ([]uisettings.RuntimeEntry, error) {
+	if projectRuntime == nil {
+		return nil, nil
+	}
+	provider, err := BackendProviderForCapabilities(capabilities)
+	if err != nil {
+		return nil, err
+	}
+	if provider == nil {
+		return nil, nil
+	}
+	return provider.BuildScopedUISettingEntries(projectRuntime)
 }
 
 func AppGenerationModeContributions(
