@@ -155,6 +155,62 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 070
+
+- Item: Add a whole-scene `ParamContainer` row-body surface ranking probe so the next product slice comes from the moving row/article DOM instead of the nearly-closed value-surface inventory.
+- Status: `done`
+- Details:
+  - Added `frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts`.
+  - The new probe normalizes to `settings` -> `All Settings`, clicks shared `fit view`, then ranks visible `article[id^="ParamContainer-"]` descendants that remain outside the current lightweight/canvas-owned value primitives.
+  - This support slice was necessary because the latest switch-visual rerun had already pushed the remaining visible value surface down to `6` elements across `3` rows while dense motion stayed bad, so the old value-surface ranking no longer identified the real hotspot.
+  - New whole-scene row-body totals on the live worktree surface:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 2934`
+    - `totalRemainingVisibleChromeElementCount: 2713`
+    - `totalRemainingVisibleLabelElementCount: 215`
+    - `totalRemainingVisibleValueElementCount: 6`
+  - New top row-body sections:
+    - `settings-section__sectionSizingPolicy`: `211` rows, `868` remaining visible descendants
+    - `settings-section__shortcuts`: `62` rows, `186` remaining visible descendants
+    - `settings-section__chatSectionDefault`: `24` rows, `71` remaining visible descendants
+    - `settings-section__spreadsheetSectionDefault`: `15` rows, `67` remaining visible descendants
+    - `settings-section__gui`: `22` rows, `66` remaining visible descendants
+  - Strongest common remaining kinds:
+    - `div.section-center.group-hover/arg-group:bg-setta-500/15` (`544`)
+    - `div.group/resize` (`544`)
+    - `div` (`543`)
+    - `div.section-center.group-hover/arg-group:before...after...` (`211`)
+    - `p.section-key` (`203`)
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 101.3`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16263`
+  - Interpretation:
+    - the branch is no longer blocked on the last few visible value roots
+    - the remaining moving cost is now overwhelmingly broad row chrome / resize / article scaffolding
+    - do not reopen `settings-section__nestedParamCodeObjDefault` or another value-leaf cleanup by inertia
+    - the next production slice should target a shared row-body / row-chrome primitive or a stronger inactive-row overlay/body primitive, with `settings-section__sectionSizingPolicy` as the clearest canonical outlier
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts`
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-004/worktree-ai.log -- tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.8s)`
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-004/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (41.4s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - no visible crash/error overlay was present
+  - the graph surface was mounted with one retained canvas
+  - `settings-section__sectionSizingPolicy`, `settings-section__chatSectionDefault`, and `settings-section__spreadsheetSectionDefault` were visible and looked healthy on the live surface
+- Next action:
+  - keep the value-surface ranking lane closed as a default selector and land the first shared row-body / row-chrome reduction or inactive-row overlay pass, starting from the `sectionSizingPolicy` outlier but targeting repeated row chrome rather than another local value leaf
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 069
 
 - Item: Generalize lightweight nested-children ownership across the shared canvas-owned resting-text settings boundary.

@@ -9,6 +9,53 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The whole-scene row-body surface ranking is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-row-body-surface-ranking.md`.
+  - canonical target section: `settings-section__sectionSizingPolicy`
+  - sibling proof sections:
+    - `settings-section__chatSectionDefault`
+    - `settings-section__spreadsheetSectionDefault`
+  - implementation shape:
+    - new focused probe now exists at `frontend/tests/e2e/settings/settings-all-settings-row-body-surface-ranking.spec.ts`
+    - the probe intentionally ranks visible `ParamContainer` row/article descendants that still move under `All Settings` pan/zoom after excluding the current lightweight/canvas-owned value primitives
+    - this is support work chosen because the latest value-surface ranking had already fallen to `6` visible value elements across `3` rows while dense motion stayed poor, so the old ranking no longer identified the hotspot
+  - focused runtime proof on the live worktree surface:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingRowCount: 755`
+    - `totalRemainingVisibleElementCount: 2934`
+    - `totalRemainingVisibleChromeElementCount: 2713`
+    - `totalRemainingVisibleLabelElementCount: 215`
+    - `totalRemainingVisibleValueElementCount: 6`
+    - the new top row-body sections are:
+      - `settings-section__sectionSizingPolicy` with `211` rows and `868` remaining visible descendants
+      - `settings-section__shortcuts` with `62` rows and `186` remaining visible descendants
+      - `settings-section__chatSectionDefault` with `24` rows and `71` remaining visible descendants
+      - `settings-section__spreadsheetSectionDefault` with `15` rows and `67` remaining visible descendants
+      - `settings-section__gui` with `22` rows and `66` remaining visible descendants
+    - the strongest common remaining kinds are now broad row chrome rather than value leaves:
+      - `div.section-center.group-hover/arg-group:bg-setta-500/15` (`544`)
+      - `div.group/resize` (`544`)
+      - `div` (`543`)
+      - `div.section-center.group-hover/arg-group:before...after...` (`211`)
+      - `p.section-key` (`203`)
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6679`
+    - `inputCount: 4`
+    - `buttonCount: 52`
+    - `raf.meanMs: 101.3`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16263`
+  - interpretation:
+    - the latest value-surface ranking is no longer enough to choose the next product slice
+    - the branch is still paying for broad row chrome / resize / article scaffolding even after the visible value surface is almost gone
+    - do not reopen `settings-section__nestedParamCodeObjDefault` or another tiny value-surface cleanup by inertia
+    - the next default frontier must target a shared row-body / row-chrome primitive or a stronger inactive-row overlay/body primitive, with `settings-section__sectionSizingPolicy` now the clearest canonical outlier
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - no visible crash/error overlay was present
+    - the graph surface was mounted with one retained canvas
+    - `settings-section__sectionSizingPolicy`, `settings-section__chatSectionDefault`, and `settings-section__spreadsheetSectionDefault` were visible and looked healthy on the live surface
 - The shared lightweight switch resting-visual slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-switch-resting-visual-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:
