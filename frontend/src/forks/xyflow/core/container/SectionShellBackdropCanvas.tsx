@@ -1526,6 +1526,48 @@ function useCanvasOwnedRestingTextLines(
   return restingTextLines;
 }
 
+export function useBackdropMeasurementViewportScale(
+  viewportInteractionActive: boolean,
+) {
+  const [measurementViewportScale, setMeasurementViewportScale] = useState(() =>
+    normalizeViewportScale(useReactFlow.getState().transform[2]),
+  );
+
+  useLayoutEffect(() => {
+    const syncMeasurementViewportScale = () => {
+      const nextViewportScale = normalizeViewportScale(
+        useReactFlow.getState().transform[2],
+      );
+      setMeasurementViewportScale((previousViewportScale) =>
+        previousViewportScale === nextViewportScale
+          ? previousViewportScale
+          : nextViewportScale,
+      );
+    };
+
+    syncMeasurementViewportScale();
+    if (viewportInteractionActive) {
+      return;
+    }
+
+    return useReactFlow.subscribe(
+      (state) => normalizeViewportScale(state.transform[2]),
+      (nextViewportScale, previousViewportScale) => {
+        if (nextViewportScale === previousViewportScale) {
+          return;
+        }
+        setMeasurementViewportScale((previousMeasuredViewportScale) =>
+          previousMeasuredViewportScale === nextViewportScale
+            ? previousMeasuredViewportScale
+            : nextViewportScale,
+        );
+      },
+    );
+  }, [viewportInteractionActive]);
+
+  return measurementViewportScale;
+}
+
 function useCanvasOwnedSectionBackdropMeasurements({
   nodeHeight,
   nodeWidth,
@@ -1646,9 +1688,11 @@ function useCanvasOwnedSectionBackdropMeasurements({
 export default function SectionShellBackdropCanvas() {
   const nodes = useNodeInternals((state: ZustandNodeInternalsState) => state.x);
   const darkMode = useLocalStorage((state) => state.darkMode);
-  const viewportScale = useReactFlow((state) => state.transform[2]);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
+  );
+  const viewportScale = useBackdropMeasurementViewportScale(
+    viewportInteractionActive,
   );
   const callableNode = nodes.get(CANVAS_OWNED_SECTION_SHELL_ID);
   const dictNode = nodes.get(DICT_CANVAS_OWNED_SECTION_SHELL_ID);

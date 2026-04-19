@@ -6,11 +6,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { useLocalStorage, useNodeInternals } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import SectionShellBackdropCanvas from "./SectionShellBackdropCanvas";
+import SectionShellBackdropCanvas, {
+  useBackdropMeasurementViewportScale,
+} from "./SectionShellBackdropCanvas";
 import {
   buildSectionShellBackdropScene,
   expandSectionShellBackdropBounds,
 } from "./sectionShellBackdrop";
+import { useReactFlow } from "../store";
 
 type MockCanvasContext = CanvasRenderingContext2D & {
   beginPath: ReturnType<typeof vi.fn>;
@@ -115,6 +118,69 @@ describe("buildSectionShellBackdropScene", () => {
 });
 
 describe("SectionShellBackdropCanvas", () => {
+  it("freezes backdrop measurement scale while viewport interaction is active", async () => {
+    let renderCount = 0;
+
+    function MeasurementScaleProbe() {
+      const viewportInteractionActive = useReactFlow(
+        (state) => state.viewportInteractionActive,
+      );
+      const measurementViewportScale = useBackdropMeasurementViewportScale(
+        viewportInteractionActive,
+      );
+      renderCount += 1;
+
+      return (
+        <div
+          data-testid="measurement-scale-probe"
+          data-scale={measurementViewportScale}
+        />
+      );
+    }
+
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      viewportInteractionActive: false,
+    });
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(createElement(MeasurementScaleProbe));
+    });
+
+    const probe = host.querySelector('[data-testid="measurement-scale-probe"]');
+    if (!(probe instanceof HTMLDivElement)) {
+      throw new Error("Expected the measurement scale probe to render.");
+    }
+
+    expect(probe.dataset.scale).toBe("1");
+    expect(renderCount).toBe(1);
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: true });
+    });
+
+    expect(probe.dataset.scale).toBe("1");
+    expect(renderCount).toBe(2);
+
+    await act(async () => {
+      useReactFlow.setState({ transform: [0, 0, 2] });
+    });
+
+    expect(probe.dataset.scale).toBe("1");
+    expect(renderCount).toBe(2);
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: false });
+    });
+
+    expect(probe.dataset.scale).toBe("2");
+    expect(renderCount).toBe(4);
+  });
+
   it("sizes and paints one retained canvas around the current node bounds", async () => {
     useNodeInternals.setState({
       x: new Map([

@@ -8,6 +8,51 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The backdrop measurement-scale freeze slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-measurement-scale-freeze-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now uses `useBackdropMeasurementViewportScale(...)` to snapshot the current React Flow zoom and stop feeding live `transform[2]` churn into the backdrop measurement hook tree while `viewportInteractionActive` is true
+    - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` now contains a focused probe that proves measurement scale freezes during active viewport interaction and catches up after interaction ends
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5575`
+    - `inputCount: 5`
+    - `textareaCount: 2`
+    - `buttonCount: 60`
+    - `raf.meanMs: 122.4`
+    - `raf.p50Ms: 83.3`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4333.1`
+    - `longTasks.count: 72`
+    - `longTasks.totalMs: 16216`
+    - `longTasks.maxMs: 3461`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - focused motion proof on the live worktree surface stayed intact:
+    - before motion, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `display: block`, `childElementCount: 2`, with global `hiddenBodyCount: 0` and `hiddenHeaderControlsCount: 0`
+    - during one checked zoom interaction, those same sections flipped to `display: none`, `childElementCount: 0`, with global `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+    - after settle, all three sections restored to `display: block`, `childElementCount: 2`, and both hidden counters returned to `0`
+  - interpretation:
+    - this is a bounded renderer-main hotspot reduction on the canvas-shell path, not another motion-shell wrapper or survivor-family harvest
+    - the dense rerun improved against the latest hotspot report (`raf.meanMs 130.39 -> 122.4`, `longTasks.totalMs 17889 -> 16216`) without reopening the canonical motion-hidden-body regression
+    - the branch is still far above budget, so treat this as evidence that the renderer-main JS/GC lane is real, not as a success claim for dense `All Settings`
+    - keep the named `browserSectionDefault` motion-shell micro-lane closed; the next real frontier remains a larger viewport-interaction JS/GC reduction on the canvas-shell path or the broader Pixi-owned graph-surface step
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.2m)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+      - result: blocked by the pre-existing repo jsdom dependency/runtime issue before test collection: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - `fit view` plus one bounded `zoom in` kept exactly one retained `react-flow__section-shell-backdrop` canvas mounted
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell artifact
 - The backend switch value-shell flattening slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-backend-switch-value-shell-flattening-rerun.md`.
   - canonical target section: `settings-section__backend`
   - focused proof row:

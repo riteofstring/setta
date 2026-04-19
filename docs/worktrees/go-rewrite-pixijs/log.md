@@ -4624,3 +4624,55 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - stop extending the current motion-shell wrapper lane and choose one bounded pass that attacks viewport-interaction JS cost on the canvas-shell path, or escalate to the broader Pixi-owned graph-surface step if no such bounded JS reduction is viable
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 083
+
+- Item: Freeze retained-backdrop measurement scale during active viewport interaction on the canonical `browserSectionDefault` motion lane.
+- Status: `done`
+- Details:
+  - Chose the current renderer-main hotspot lane instead of reopening another motion-shell/body/chrome ownership micro-pass.
+  - Updated `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` to add `useBackdropMeasurementViewportScale(...)`, which snapshots the current React Flow zoom and stops the retained backdrop measurement tree from following live `transform[2]` churn while `viewportInteractionActive` is true.
+  - Added focused proof in `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx` that the measurement scale freezes during active viewport interaction and only catches up after interaction ends.
+  - Added the durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-backdrop-measurement-scale-freeze-rerun.md`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5575`
+      - `inputCount: 5`
+      - `textareaCount: 2`
+      - `buttonCount: 60`
+      - `raf.meanMs: 122.4`
+      - `raf.p50Ms: 83.3`
+      - `raf.p95Ms: 116.7`
+      - `raf.maxMs: 4333.1`
+      - `longTasks.count: 72`
+      - `longTasks.totalMs: 16216`
+      - `longTasks.maxMs: 3461`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+    - focused motion-body overlay proof stayed intact:
+      - before motion, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `display: block`, `childElementCount: 2`, with global `hiddenBodyCount: 0` and `hiddenHeaderControlsCount: 0`
+      - during one checked zoom interaction they flipped to `display: none`, `childElementCount: 0`, with global `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+      - after settle they restored to `display: block`, `childElementCount: 2`, and both hidden counters returned to `0`
+  - Interpretation:
+    - this is a bounded renderer-main JS reduction on the canvas-shell path rather than another ownership-seam forwarding hop
+    - the dense rerun improved versus the latest hotspot report (`raf.meanMs 130.39 -> 122.4`, `longTasks.totalMs 17889 -> 16216`) while the canonical motion-hidden-body behavior stayed clean
+    - the branch is still far above budget, so keep this lane framed as hotspot reduction only; do not reopen motion-shell micro-harvests by inertia
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.2m)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: blocked by the pre-existing repo jsdom dependency/runtime issue before test collection: `Error: require() of ES Module ... @exodus/bytes/encoding-lite.js ... from html-encoding-sniffer`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - `fit view` plus one bounded `zoom in` kept exactly one retained `react-flow__section-shell-backdrop` canvas mounted
+  - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained present with no obvious blank or detached shell artifact
+- Next action:
+  - keep the named `browserSectionDefault` motion-shell micro-lane closed and choose the next bounded pass on renderer-main JS/GC cost, or escalate to the broader Pixi-owned graph-surface step if no larger JS reduction is viable
+LOOP_TERMINAL_MARKER: none
