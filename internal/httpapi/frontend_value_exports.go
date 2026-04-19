@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/externalagents"
 	"setta/internal/hostnames"
@@ -9,6 +8,7 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/scriptablechat"
 	"setta/internal/wsapi"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type FrontendEndpointOrigin string

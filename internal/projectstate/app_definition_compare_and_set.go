@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/appspec"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 const defaultAppThemeMode = "auto"

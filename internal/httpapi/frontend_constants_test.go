@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/appspec"
 	"setta/internal/artifacts"
 	"setta/internal/auth"
 	"setta/internal/config"
@@ -18,6 +17,7 @@ import (
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
 	"setta/internal/wsapi"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestFrontendValueCUsesAuthoritativeRuntimeValues(t *testing.T) {
