@@ -91,6 +91,111 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if appSubsystem.PluginID != appSubsystemPluginID {
+		t.Fatalf("expected app subsystem plugin id %q, got %q", appSubsystemPluginID, appSubsystem.PluginID)
+	}
+	if appSubsystem.PluginEnabled {
+		t.Fatalf("expected app subsystem plugin disabled without fixture plugin, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected app subsystem surfaces unavailable without plugin, got %#v", appSubsystem)
+	}
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	installRuntimeAppSubsystemFixture(t, roots, false, map[string]any{
+		"appAuthoringUi":         true,
+		"appPreviewUi":           true,
+		"appGenerationChatModes": true,
+		"appDeploymentRuntime":   true,
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if appSubsystem.PluginEnabled {
+		t.Fatalf("expected disabled app subsystem plugin to stay unavailable, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected disabled app subsystem surfaces unavailable, got %#v", appSubsystem)
+	}
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	installRuntimeAppSubsystemFixture(t, roots, true, map[string]any{
+		"appAuthoringUi":         true,
+		"appPreviewUi":           true,
+		"appGenerationChatModes": false,
+		"appDeploymentRuntime":   false,
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	if !appSubsystem.PluginEnabled {
+		t.Fatalf("expected enabled app subsystem plugin, got %#v", appSubsystem)
+	}
+	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI {
+		t.Fatalf("expected enabled app authoring and preview surfaces, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected disabled chat-mode/runtime surfaces to stay false, got %#v", appSubsystem)
+	}
+}
+
+func installRuntimeAppSubsystemFixture(
+	t *testing.T,
+	roots filesystemResolverTestRoots,
+	enabledByDefault bool,
+	appSubsystem map[string]any,
+) string {
+	t.Helper()
+
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), appSubsystemPluginID)
+	if err := os.Rename(pluginRoot, targetRoot); err != nil {
+		t.Fatalf("rename plugin root %s -> %s: %v", pluginRoot, targetRoot, err)
+	}
+	rewritePluginManifest(t, targetRoot, func(payload map[string]any) {
+		payload["id"] = appSubsystemPluginID
+		payload["name"] = "Setta JSON Render App Gen"
+		payload["enabledByDefault"] = enabledByDefault
+		payload["featureCapabilities"] = map[string]any{
+			"appSubsystem": appSubsystem,
+		}
+	})
+	return targetRoot
+}
+
 // Content descriptor scans should ignore symlinked directory loops until a real file appears.
 func TestRuntimeDirectoryHasFilesIgnoresSymlinkDirectoryCycles(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

@@ -2692,6 +2692,15 @@ export type PluginsLanguageServerSelectionStatus = {
   status: string;
 };
 
+export type PluginsPluginAppSubsystemCapabilities = {
+  appAuthoringUi: boolean;
+  appDeploymentRuntime: boolean;
+  appGenerationChatModes: boolean;
+  appPreviewUi: boolean;
+  pluginEnabled: boolean;
+  pluginId: string;
+};
+
 export type PluginsPluginBlockedCapability = {
   capability: string;
   reason: string;
@@ -2736,6 +2745,10 @@ export type PluginsPluginEnableDisableResponse = {
 export type PluginsPluginErrorInfo = {
   code: string;
   message: string;
+};
+
+export type PluginsPluginFeatureCapabilities = {
+  appSubsystem: PluginsPluginAppSubsystemCapabilities;
 };
 
 export type PluginsPluginFrontendDescriptor = {
@@ -2848,6 +2861,7 @@ export type PluginsPluginRollbackResponse = {
 };
 
 export type PluginsPluginRuntimeResponse = {
+  featureCapabilities?: PluginsPluginFeatureCapabilities;
   list: PluginsPluginListResponse;
   schemaVersion: number;
   status: PluginsPluginStatusResponse;
