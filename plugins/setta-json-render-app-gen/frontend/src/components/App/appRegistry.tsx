@@ -41,16 +41,6 @@ import {
   type DropzoneStatelessAttachment,
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
-import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
-import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
-import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
-import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
-import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
-import { SliderInput } from "components/Params/ParamUIs/SliderInput";
-import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { TextParamDateTimeInput } from "components/Params/ParamUIs/TextParamInput";
-import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
 import _ from "lodash";
 import React from "react";
@@ -83,6 +73,18 @@ import {
   useAppRuntime,
 } from "./appContext";
 import { resolveResponsiveValue, useAppBreakpoint } from "./appResponsive";
+import {
+  CodeBlock,
+  ColorPickerInput,
+  DropdownInput,
+  DropzoneInput,
+  PasswordInput,
+  RotaryInput,
+  SliderInput,
+  TextInputCodeMirror,
+  TextParamDateTimeInput,
+} from "../ui/AppRuntimeControls";
+import { SwitchInput } from "../ui/SwitchInput";
 type RawElementProps = {
   key?: unknown;
   type?: unknown;
@@ -1377,6 +1379,7 @@ function AppParamInput({
   }
   return (
     <AppParamUI
+      configId={configId}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -1391,6 +1394,7 @@ function AppParamInput({
   );
 }
 type AppParamUIProps = {
+  configId: string;
   sectionId: string;
   paramInfoId: string;
   value: string | number | boolean | null;
@@ -1415,6 +1419,7 @@ const APP_PARAM_TEXT_INPUT_ACTIVE_CLASS = "cursor-text select-text";
 type AppParamRenderContext = {
   codeObjImpl: BaseChildlessCodeObjImplUnion;
   configLanguage: ConfigLanguageValue;
+  configId: string;
   defaultVal: string | number | boolean | null;
   isDisabled: boolean;
   isPasswordRevealPending: boolean;
@@ -1503,6 +1508,7 @@ function resolveParamRenderContext(
   const {
     canEditParams,
     codeObjImpl,
+    configId,
     isPasswordRevealPending,
     onChange,
     onDropzoneStateless,
@@ -1522,6 +1528,7 @@ function resolveParamRenderContext(
   return {
     codeObjImpl,
     configLanguage: resolveParamConfigLanguage(sectionImpl),
+    configId,
     defaultVal: resolveParamDefaultValue(codeObjImpl),
     isDisabled: !canEditParams || isParamSectionFrozen(sectionImpl),
     isPasswordRevealPending: Boolean(isPasswordRevealPending),
@@ -1807,6 +1814,7 @@ function renderDropzoneParam(context: AppParamRenderContext) {
   );
   return (
     <DropzoneInput
+      configId={context.configId}
       sectionId={context.sectionId}
       paramInfoId={context.paramInfoId}
       value={context.stringValue}
