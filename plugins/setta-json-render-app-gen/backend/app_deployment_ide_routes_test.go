@@ -20,6 +20,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -114,7 +115,7 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 		},
 		"elements": map[string]any{},
 	}
-	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
 	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
@@ -299,7 +300,7 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 		},
 		"elements": map[string]any{},
 	}
-	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
 	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
@@ -307,7 +308,7 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 	}
 	absoluteAppSpecPath := filepath.Join(fixture.SettaFilesRoot, filepath.FromSlash(appSpecPath))
 	if _, err := fixture.ProjectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document = withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+		document = withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
 			AppSpecPath: absoluteAppSpecPath,
 		}))
 		return document, nil
@@ -375,7 +376,7 @@ func TestRegisterAppDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *tes
 		},
 		"elements": map[string]any{},
 	}
-	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appSpecPath,
 	}))
 	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
@@ -506,7 +507,7 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 	})
 
 	t.Run("app spec path required", func(t *testing.T) {
-		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{}))
+		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{}))
 		handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
 
 		response := httptest.NewRecorder()
@@ -524,7 +525,7 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 	})
 
 	t.Run("app spec not found", func(t *testing.T) {
-		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 			AppSpecPath: appspec.DefaultPath(),
 		}))
 		handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
@@ -544,7 +545,7 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 	})
 
 	t.Run("invalid app spec", func(t *testing.T) {
-		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+		fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 			AppSpecPath: appspec.DefaultPath(),
 		}))
 		handler := newAppDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
@@ -578,7 +579,7 @@ func TestRegisterAppDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.
 func TestRegisterAppDeploymentIDERoutesRejectInvalidAppPublishPolicy(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&projectstate.AppDefinition{
+	fixture := newAppDeploymentIDERouteFixture(t, appDeploymentIDERouteDocument(&appdefinition.AppDefinition{
 		AppSpecPath: appspec.DefaultPath(),
 	}))
 	if err := appspec.Write(fixture.SettaFilesRoot, appspec.DefaultPath(), map[string]any{
@@ -847,7 +848,7 @@ func appDeploymentIDERouteErrorCodeAndMessage(
 	}
 }
 
-func appDeploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
+func appDeploymentIDERouteDocument(appDefinition *appdefinition.AppDefinition) projectstate.Document {
 	return withStoredDocumentAppDefinition(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -861,7 +862,7 @@ func appDeploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) pr
 }
 
 func encodeAppDeploymentIDERouteAppDefinition(
-	appDefinition *projectstate.AppDefinition,
+	appDefinition *appdefinition.AppDefinition,
 ) projectstate.RawJSON {
 	if appDefinition == nil {
 		return nil

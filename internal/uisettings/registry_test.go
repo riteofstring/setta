@@ -872,7 +872,7 @@ func newActiveAppSubsystemPluginRuntimeResponse() plugins.PluginRuntimeResponse 
 	}
 }
 
-func buildTestAppUISettingEntries(service projectstate.AppDefinitionRuntime) []RuntimeEntry {
+func buildTestAppUISettingEntries(service appdefinition.Runtime) []RuntimeEntry {
 	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: testIntPointer(1)}
 	themeModeSchema := ValueSchema{Type: ValueTypeString, EnumValues: []any{"auto", "dark", "light"}}
 
@@ -1026,7 +1026,7 @@ func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.R
 func effectiveAppMetadata(
 	t *testing.T,
 	runtime *projectstate.Runtime,
-) (projectstate.AppDefinition, string, string) {
+) (appdefinition.AppDefinition, string, string) {
 	t.Helper()
 
 	service := appdefinition.NewAppDefinitionService(runtime)

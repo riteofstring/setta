@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
@@ -82,11 +83,11 @@ func TestAppDefinitionServiceGetAppDefinitionNormalizesPersistedMetadata(t *test
 		t.Fatalf("write app spec: %v", err)
 	}
 	if _, err := runtime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+		next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
 			AppSpecVersion: " v2 ",
 			CatalogID:      " " + appspec.DefaultCatalogID + " ",
 			AppSpecPath:    " " + customPath + " ",
-			Routes: []projectstate.AppRoute{
+			Routes: []appdefinition.AppRoute{
 				{Path: " / ", Name: " Home ", RootKey: " root "},
 			},
 			DataBindings: projectstate.RawJSON(` {"title":"hello"} `),
@@ -160,7 +161,7 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 	catalogID := " " + appspec.DefaultCatalogID + " "
 	customPath := appspec.JoinPath("custom.json")
 	absoluteAppSpecPath := "  " + filepath.Join(root, filepath.FromSlash(customPath)) + "  "
-	routes := []projectstate.AppRoute{{Path: " / ", Name: " Home ", RootKey: " root "}}
+	routes := []appdefinition.AppRoute{{Path: " / ", Name: " Home ", RootKey: " root "}}
 	dataBindings := map[string]any{"title": map[string]any{"text": "hello"}}
 	actions := map[string]any{"customRun": map[string]any{"type": "run"}}
 	theme := map[string]any{"mode": "dark"}
@@ -173,7 +174,7 @@ func TestAppDefinitionServiceSetAndGetPersistSpecAndMetadata(t *testing.T) {
 		"elements": map[string]any{},
 	}
 
-	snapshot, result, err := service.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	snapshot, result, err := service.SetAppDefinition(context.Background(), appdefinition.SetInput{
 		AppSpec:        appSpec,
 		AppSpecPath:    &absoluteAppSpecPath,
 		AppSpecVersion: &appSpecVersion,
@@ -237,7 +238,7 @@ func TestAppDefinitionServiceGetReturnsNilSpecWhenStoredFileMissing(t *testing.T
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	service := appDefinitionServiceForTest(runtime)
 
-	setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, runtime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -270,7 +271,7 @@ func TestAppDefinitionServiceValidateReturnsCapabilitiesAndIssues(t *testing.T) 
 	_, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	service := appDefinitionServiceForTest(runtime)
 
-	result, err := service.ValidateAppDefinition(context.Background(), projectstate.ValidateAppDefinitionInput{
+	result, err := service.ValidateAppDefinition(context.Background(), appdefinition.ValidateInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -354,7 +355,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		}
-		setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{AppSpec: initial})
+		setTestAppDefinition(t, runtime, appdefinition.SetInput{AppSpec: initial})
 
 		snapshot, result, err := service.UpdateAppDefinition(context.Background(), map[string]any{
 			"root": map[string]any{
@@ -405,7 +406,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		}
-		setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{AppSpec: initial})
+		setTestAppDefinition(t, runtime, appdefinition.SetInput{AppSpec: initial})
 
 		_, _, err := service.UpdateAppDefinition(context.Background(), map[string]any{
 			"root": map[string]any{
@@ -434,7 +435,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 		_, _, err := service.UpdateAppDefinition(context.Background(), map[string]any{
 			"root": map[string]any{"type": "Stack"},
 		})
-		if !errors.Is(err, projectstate.ErrAppSpecPathUnconfigured) {
+		if !errors.Is(err, appdefinition.ErrAppSpecPathUnconfigured) {
 			t.Fatalf("expected app spec path unconfigured error, got %v", err)
 		}
 	})
@@ -445,7 +446,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 		_, runtime := openPersistedPluginAppDefinitionRuntime(t)
 		service := appDefinitionServiceForTest(runtime)
 		_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-			next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+			next := withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &appdefinition.AppDefinition{
 				AppSpecPath:    appspec.DefaultPath(),
 				AppSpecVersion: "v1",
 				CatalogID:      appspec.DefaultCatalogID,
@@ -459,7 +460,7 @@ func TestAppDefinitionServiceUpdateHandlesMergeAndRequiredState(t *testing.T) {
 		_, _, err = service.UpdateAppDefinition(context.Background(), map[string]any{
 			"root": map[string]any{"type": "Stack"},
 		})
-		if !errors.Is(err, projectstate.ErrAppSpecNotFound) {
+		if !errors.Is(err, appdefinition.ErrAppSpecNotFound) {
 			t.Fatalf("expected app spec not found error, got %v", err)
 		}
 	})
@@ -486,7 +487,7 @@ func TestAppDefinitionServiceStreamHandlesBaseSpecAndInvalidPatch(t *testing.T) 
 			},
 		}
 
-		snapshot, result, err := service.StreamAppDefinition(context.Background(), projectstate.StreamAppDefinitionInput{
+		snapshot, result, err := service.StreamAppDefinition(context.Background(), appdefinition.StreamInput{
 			Patches:     "{\"op\":\"set\",\"path\":\"/elements/root/props/gap\",\"value\":12}\n{\"op\":\"set\",\"path\":\"/elements/root/children/0\",\"value\":\"headline\"}\n{\"op\":\"set\",\"path\":\"/elements/headline\",\"value\":{\"key\":\"headline\",\"type\":\"Heading\",\"props\":{\"text\":\"Hi\"}}}",
 			AppSpecPath: &appSpecPath,
 			BaseAppSpec: &baseAppSpec,
@@ -529,10 +530,10 @@ func TestAppDefinitionServiceStreamHandlesBaseSpecAndInvalidPatch(t *testing.T) 
 		_, runtime := openPersistedPluginAppDefinitionRuntime(t)
 		service := appDefinitionServiceForTest(runtime)
 
-		_, _, err := service.StreamAppDefinition(context.Background(), projectstate.StreamAppDefinitionInput{
+		_, _, err := service.StreamAppDefinition(context.Background(), appdefinition.StreamInput{
 			Patches: "{\"op\":\"set\",\"path\":\"/elements/missing/props/title\",\"value\":\"Hello\"}",
 		})
-		if !errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+		if !errors.Is(err, appdefinition.ErrAppSpecPatchInvalid) {
 			t.Fatalf("expected invalid app spec patch error, got %v", err)
 		}
 		if err == nil || err.Error() != "Element \"missing\" must exist before patching nested fields." {

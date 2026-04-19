@@ -122,7 +122,7 @@ func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
 
 		httpapi.WriteJSON(w, http.StatusOK, appdeploymenthttp.AppDeploymentStateResponse{
 			ProjectState:  projectState,
-			AppDefinition: appdefinition.DefinitionPointerFromProjectState(appDefinitionPayload),
+			AppDefinition: appDefinitionPayload,
 			AppSpec:       appSpec,
 			AppPolicy:     runtime.Policy(),
 		})
@@ -177,7 +177,7 @@ func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Handle
 
 		httpapi.WriteJSON(w, http.StatusOK, appdeploymenthttp.AppDeploymentStateResponse{
 			ProjectState:  projectState,
-			AppDefinition: appdefinition.DefinitionPointerFromProjectState(appDefinitionPayload),
+			AppDefinition: appDefinitionPayload,
 			AppSpec:       appSpec,
 			AppPolicy:     runtime.Policy(),
 		})

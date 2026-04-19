@@ -44,8 +44,14 @@ type AppPublishResult struct {
 	Snapshot projectstate.Document
 }
 
+type ValidationIssue struct {
+	Message     string
+	ElementKey  string
+	ElementType string
+}
+
 type AppPublishValidationError struct {
-	Issues []projectstate.AppDefinitionValidationIssue
+	Issues []ValidationIssue
 }
 
 func (e *AppPublishValidationError) Error() string {

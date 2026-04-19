@@ -15,7 +15,7 @@ var errAppRoutePathRequired = errors.New("app route path is required")
 
 func DecodeStoredAppDefinition(
 	raw projectstate.RawJSON,
-) (*projectstate.AppDefinition, error) {
+) (*AppDefinition, error) {
 	normalizedRaw, err := normalizeStoredAppDefinitionRawJSON(raw)
 	if err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func DecodeStoredAppDefinition(
 		return nil, nil
 	}
 
-	var definition projectstate.AppDefinition
+	var definition AppDefinition
 	if err := json.Unmarshal(normalizedRaw, &definition); err != nil {
 		return nil, fmt.Errorf("%w: appDefinition", projectstate.ErrFrontendPayloadInvalid)
 	}
@@ -37,7 +37,7 @@ func DecodeStoredAppDefinition(
 }
 
 func EncodeStoredAppDefinition(
-	definition *projectstate.AppDefinition,
+	definition *AppDefinition,
 ) (projectstate.RawJSON, error) {
 	if definition == nil {
 		return nil, nil
@@ -53,13 +53,13 @@ func EncodeStoredAppDefinition(
 	return cloneAppDefinitionRawJSON(encoded), nil
 }
 
-func effectiveAppDefinition(document projectstate.Document) (projectstate.AppDefinition, error) {
+func effectiveAppDefinition(document projectstate.Document) (AppDefinition, error) {
 	current, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(document))
 	if err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	if current == nil {
-		return projectstate.AppDefinition{
+		return AppDefinition{
 			AppSpecVersion: defaultAppSpecVersion,
 			CatalogID:      appspec.DefaultCatalogID,
 		}, nil
@@ -100,7 +100,7 @@ func effectiveAppThemeMode(document projectstate.Document) (string, error) {
 	return defaultAppThemeMode, nil
 }
 
-func normalizeAppDefinition(definition projectstate.AppDefinition) (projectstate.AppDefinition, error) {
+func normalizeAppDefinition(definition AppDefinition) (AppDefinition, error) {
 	normalized := definition.Clone()
 	normalized.AppSpecVersion = strings.TrimSpace(normalized.AppSpecVersion)
 	normalized.CatalogID = strings.TrimSpace(normalized.CatalogID)
@@ -112,28 +112,28 @@ func normalizeAppDefinition(definition projectstate.AppDefinition) (projectstate
 		"appDefinition.dataBindings",
 	)
 	if err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	normalized.Actions, err = normalizeAppDefinitionJSONObject(
 		normalized.Actions,
 		"appDefinition.actions",
 	)
 	if err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	normalized.Theme, err = normalizeAppDefinitionRawJSON(normalized.Theme, "appDefinition.theme")
 	if err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 	normalized.Assets, err = normalizeAppDefinitionRawJSON(normalized.Assets, "appDefinition.assets")
 	if err != nil {
-		return projectstate.AppDefinition{}, err
+		return AppDefinition{}, err
 	}
 
 	for index, route := range normalized.Routes {
 		normalizedRoute, err := normalizeAppRoute(route)
 		if err != nil {
-			return projectstate.AppDefinition{}, fmt.Errorf("normalize app route %d: %w", index, err)
+			return AppDefinition{}, fmt.Errorf("normalize app route %d: %w", index, err)
 		}
 		normalized.Routes[index] = normalizedRoute
 	}
@@ -141,14 +141,14 @@ func normalizeAppDefinition(definition projectstate.AppDefinition) (projectstate
 	return normalized, nil
 }
 
-func normalizeAppRoute(route projectstate.AppRoute) (projectstate.AppRoute, error) {
-	normalized := projectstate.AppRoute{
+func normalizeAppRoute(route AppRoute) (AppRoute, error) {
+	normalized := AppRoute{
 		Path:    strings.TrimSpace(route.Path),
 		Name:    strings.TrimSpace(route.Name),
 		RootKey: strings.TrimSpace(route.RootKey),
 	}
 	if normalized.Path == "" {
-		return projectstate.AppRoute{}, errAppRoutePathRequired
+		return AppRoute{}, errAppRoutePathRequired
 	}
 	return normalized, nil
 }

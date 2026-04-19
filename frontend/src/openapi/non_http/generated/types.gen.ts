@@ -208,7 +208,7 @@ type Allocation = {
 /**
  * AppDefinition
  */
-export type AppDefinition = {
+type AppDefinition = {
   actions?: {
     [key: string]: RawMessage;
   } | null;

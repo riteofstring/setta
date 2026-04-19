@@ -80,7 +80,7 @@ func TestRegisterAppDefinitionRoutesGetsStoredDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
-	setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, runtime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -125,7 +125,7 @@ func TestRegisterAppDefinitionRoutesReturnsNilSpecWhenStoredFileMissing(t *testi
 	t.Parallel()
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
-	setTestAppDefinition(t, runtime, projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, runtime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -455,7 +455,7 @@ func newAppDefinitionRouteTestHandler(
 		Info:       httpapi.NewConfigInfoService(config.Config{Server: config.Server{Mode: mode}}, ""),
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			var service projectstate.AppDefinitionRuntime
+			var service appdefinition.Runtime
 			if projectRuntime != nil {
 				service = appDefinitionServiceForTest(projectRuntime)
 			}
