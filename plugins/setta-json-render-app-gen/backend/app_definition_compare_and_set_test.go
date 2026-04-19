@@ -154,7 +154,8 @@ func TestAppDefinitionServiceCompareAndSetSpecPathNormalizesAndPersistsMinimalSp
 
 	root, runtime := openPersistedPluginAppDefinitionRuntime(t)
 	service := appDefinitionServiceForTest(runtime)
-	targetPath := filepath.Join(root, "app_specs", "custom.json")
+	customPath := appspec.JoinPath("custom.json")
+	targetPath := filepath.Join(root, filepath.FromSlash(customPath))
 	expectedOldValue := appspec.DefaultPath()
 
 	_, result, err := service.CompareAndSetAppDefinitionSpecPath(
@@ -168,11 +169,11 @@ func TestAppDefinitionServiceCompareAndSetSpecPathNormalizesAndPersistsMinimalSp
 	if result.OldValue != appspec.DefaultPath() {
 		t.Fatalf("expected old app spec path %q, got %q", appspec.DefaultPath(), result.OldValue)
 	}
-	if result.NewValue != "app_specs/custom.json" {
-		t.Fatalf("expected normalized app spec path app_specs/custom.json, got %q", result.NewValue)
+	if result.NewValue != customPath {
+		t.Fatalf("expected normalized app spec path %q, got %q", customPath, result.NewValue)
 	}
 
-	if _, err := os.Stat(filepath.Join(root, "app_specs", "custom.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(customPath))); err != nil {
 		t.Fatalf("expected normalized app spec file to exist: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(root, appspec.DefaultPath())); !os.IsNotExist(err) {

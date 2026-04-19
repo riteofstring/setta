@@ -18,6 +18,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/realtime"
 	"setta/internal/wsapi"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {
@@ -193,7 +194,7 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenAppPluginEnabled(t *testing.T) {
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
 	}
 	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
-	if getPayload["value"] != "app_specs/app.json" {
+	if getPayload["value"] != appspec.DefaultPath() {
 		t.Fatalf("expected default app spec path, got %#v", getPayload["value"])
 	}
 }
