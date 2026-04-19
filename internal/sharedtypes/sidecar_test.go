@@ -144,11 +144,11 @@ func TestNormalizeSemanticSidecarForJSONIncludesDiscriminatorContextInErrors(t *
 	}
 }
 
-func TestExportedValueDeclarationNameSanitizesNamespacedRuntimeKeys(t *testing.T) {
+func TestExportedValueDeclarationNameSanitizesRuntimeKeys(t *testing.T) {
 	t.Parallel()
 
-	got := exportedValueDeclarationName("setta-json-render-app-gen/AppSpecPatchPolicyConfig")
-	want := "setta_dash_json_dash_render_dash_app_dash_gen_slash_AppSpecPatchPolicyConfig"
+	got := exportedValueDeclarationName("AppSpecPatchPolicyConfig")
+	want := "AppSpecPatchPolicyConfig"
 	if got != want {
 		t.Fatalf("exportedValueDeclarationName() = %q, want %q", got, want)
 	}

@@ -7,6 +7,9 @@ import (
 	agenticsummarycache "setta/internal/agenticsummarycache"
 	agentprofiles "setta/internal/agentprofiles"
 	agentruns "setta/internal/agentruns"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	appspec "setta/internal/appsubsystem/appspec"
+	frontendvalues "setta/internal/appsubsystem/frontendvalues"
 	artifacts "setta/internal/artifacts"
 	backendlogs "setta/internal/backendlogs"
 	binary "setta/internal/binary"
@@ -30,9 +33,6 @@ import (
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 	uisettings "setta/internal/uisettings"
 	wsapi "setta/internal/wsapi"
-	backend "setta/plugins/setta-json-render-app-gen/backend"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	appspec "setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
@@ -59,9 +59,9 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(appdefinition.AppDefinition{}):                                       "AppDefinition",
 	reflect.TypeOf(agentruns.AppGenerationMode("")):                                     "AppGenerationMode",
 	reflect.TypeOf(appdefinition.AppRoute{}):                                            "AppRoute",
-	reflect.TypeOf(backend.AppSubsystemChatSlashCommandValue{}):                         "AppSubsystemChatSlashCommandValue",
-	reflect.TypeOf(backend.AppSubsystemChatUIConfigValue{}):                             "AppSubsystemChatUIConfigValue",
-	reflect.TypeOf(backend.AppSubsystemCustomSlashCommandModeOptionValue{}):             "AppSubsystemCustomSlashCommandModeOptionValue",
+	reflect.TypeOf(frontendvalues.AppSubsystemChatSlashCommandValue{}):                  "AppSubsystemChatSlashCommandValue",
+	reflect.TypeOf(frontendvalues.AppSubsystemChatUIConfigValue{}):                      "AppSubsystemChatUIConfigValue",
+	reflect.TypeOf(frontendvalues.AppSubsystemCustomSlashCommandModeOptionValue{}):      "AppSubsystemCustomSlashCommandModeOptionValue",
 	reflect.TypeOf(scriptablechat.AppendMessagesRequest{}):                              "AppendMessagesRequest",
 	reflect.TypeOf(artifacts.ArtifactSaveResult{}):                                      "ArtifactSaveResult",
 	reflect.TypeOf(artifacts.ArtifactType("")):                                          "ArtifactType",

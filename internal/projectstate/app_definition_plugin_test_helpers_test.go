@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
+	"setta/internal/appsubsystem/appspec"
 )
 
 const appSubsystemPluginDataKey = "setta-json-render-app-gen"

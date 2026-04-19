@@ -6,11 +6,11 @@ import (
 	"slices"
 	"testing"
 
+	"setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/tools"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type stubAppDefinitionRuntime struct{}

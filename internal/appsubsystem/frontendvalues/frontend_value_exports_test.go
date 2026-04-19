@@ -1,11 +1,11 @@
-package settajsonrenderappgenbackend
+package frontendvalues
 
 import (
 	"slices"
 	"testing"
 
 	"setta/internal/agentruns"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
+	"setta/internal/appsubsystem/appspec"
 )
 
 func TestFrontendValueAppSpecPatchPolicyConfigUsesAuthoritativeAppSpecPatchPolicy(t *testing.T) {

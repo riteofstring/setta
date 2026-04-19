@@ -9,10 +9,10 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
 	"setta/internal/chatmodes"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
-	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type stubLiveChatStateProvider struct {

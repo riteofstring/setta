@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type appDeploymentContentService struct {

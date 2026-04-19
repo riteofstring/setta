@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type deploymentIDERouteFixture struct {

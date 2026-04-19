@@ -1,10 +1,10 @@
 package appdeploymenthttp
 
 import (
+	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
-	"setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type AppDeploymentSessionResponse struct {

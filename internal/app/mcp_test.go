@@ -22,6 +22,8 @@ import (
 	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
@@ -30,8 +32,6 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
-	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func assertInstalledPythonPackages(t *testing.T, packages []string) {
