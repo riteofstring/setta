@@ -31,11 +31,18 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionCatalogID(
 		"core.app.catalog_id",
 		expectedOldValue,
 		catalogID,
-		func(document projectstate.Document) string {
-			return effectiveAppDefinition(document).CatalogID
+		func(document projectstate.Document) (string, error) {
+			current, err := effectiveAppDefinition(document)
+			if err != nil {
+				return "", err
+			}
+			return current.CatalogID, nil
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinition(document)
+			if err != nil {
+				return projectstate.Document{}, nil, "", err
+			}
 			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
@@ -69,11 +76,18 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecVersion(
 		"core.app.spec_version",
 		expectedOldValue,
 		appSpecVersion,
-		func(document projectstate.Document) string {
-			return effectiveAppDefinition(document).AppSpecVersion
+		func(document projectstate.Document) (string, error) {
+			current, err := effectiveAppDefinition(document)
+			if err != nil {
+				return "", err
+			}
+			return current.AppSpecVersion, nil
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinition(document)
+			if err != nil {
+				return projectstate.Document{}, nil, "", err
+			}
 			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
@@ -111,11 +125,14 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 		"core.app.spec_path",
 		expectedOldValue,
 		normalizedPath,
-		func(document projectstate.Document) string {
+		func(document projectstate.Document) (string, error) {
 			return effectiveAppSpecPath(document)
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinition(document)
+			if err != nil {
+				return projectstate.Document{}, nil, "", err
+			}
 			normalizedPath, err := appspec.NormalizePath(projectRoot, appSpecPath)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
@@ -152,11 +169,14 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 		"core.app.theme_mode",
 		expectedOldValue,
 		themeMode,
-		func(document projectstate.Document) string {
+		func(document projectstate.Document) (string, error) {
 			return effectiveAppThemeMode(document)
 		},
 		func(document projectstate.Document, projectRoot string) (projectstate.Document, any, string, error) {
-			current := effectiveAppDefinition(document)
+			current, err := effectiveAppDefinition(document)
+			if err != nil {
+				return projectstate.Document{}, nil, "", err
+			}
 			normalizedPath, currentAppSpec, err := resolveCurrentAppSpecForMetadataUpdate(projectRoot, current)
 			if err != nil {
 				return projectstate.Document{}, nil, "", err
@@ -192,7 +212,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 	settingID string,
 	expectedOldValue *string,
 	requestedNewValue string,
-	readValue func(projectstate.Document) string,
+	readValue func(projectstate.Document) (string, error),
 	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	if s == nil || s.runtime == nil {
@@ -203,8 +223,13 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 	}
 
 	currentSnapshot := s.runtime.Snapshot()
-	currentOldValue := readValue(currentSnapshot.Document)
-	if err := assertAppDefinitionExpectedOldValueMatches(settingID, optionalStringAny(expectedOldValue), currentOldValue); err != nil {
+	currentOldValue, err := readValidatedAppDefinitionSetting(
+		currentSnapshot.Document,
+		readValue,
+		settingID,
+		expectedOldValue,
+	)
+	if err != nil {
 		return currentSnapshot, projectstate.CompareAndSetResult[string]{}, err
 	}
 	if currentOldValue == requestedNewValue {
@@ -216,34 +241,75 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 
 	var result projectstate.CompareAndSetResult[string]
 	snapshot, err := s.runtime.MutatePersistedWithContext(ctx, func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		oldValue := readValue(document)
-		if err := assertAppDefinitionExpectedOldValueMatches(settingID, optionalStringAny(expectedOldValue), oldValue); err != nil {
-			return projectstate.PersistedMutationPlan{}, err
-		}
-
-		nextDocument, nextAppSpec, appSpecPath, err := mutate(document.Clone(), projectRoot)
-		if err != nil {
-			return projectstate.PersistedMutationPlan{}, err
-		}
-		previousAppSpec, err := appspec.Read(projectRoot, appSpecPath)
-		if err != nil {
-			return projectstate.PersistedMutationPlan{}, err
-		}
-		result = projectstate.CompareAndSetResult[string]{
-			OldValue: oldValue,
-			NewValue: readValue(nextDocument),
-		}
-		return projectstate.PersistedMutationPlan{
-			NextDocument: nextDocument,
-			ApplyExternalChanges: func() error {
-				return appspec.Write(projectRoot, appSpecPath, nextAppSpec)
-			},
-			RollbackExternalChanges: func() error {
-				return rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec)
-			},
-		}, nil
+		return buildCompareAndSetAppDefinitionPlan(
+			document,
+			projectRoot,
+			settingID,
+			expectedOldValue,
+			readValue,
+			mutate,
+			&result,
+		)
 	})
 	return snapshot, result, err
+}
+
+func readValidatedAppDefinitionSetting(
+	document projectstate.Document,
+	readValue func(projectstate.Document) (string, error),
+	settingID string,
+	expectedOldValue *string,
+) (string, error) {
+	value, err := readValue(document)
+	if err != nil {
+		return "", err
+	}
+	if err := assertAppDefinitionExpectedOldValueMatches(settingID, optionalStringAny(expectedOldValue), value); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+func buildCompareAndSetAppDefinitionPlan(
+	document projectstate.Document,
+	projectRoot string,
+	settingID string,
+	expectedOldValue *string,
+	readValue func(projectstate.Document) (string, error),
+	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
+	result *projectstate.CompareAndSetResult[string],
+) (projectstate.PersistedMutationPlan, error) {
+	oldValue, err := readValidatedAppDefinitionSetting(document, readValue, settingID, expectedOldValue)
+	if err != nil {
+		return projectstate.PersistedMutationPlan{}, err
+	}
+	nextDocument, nextAppSpec, appSpecPath, err := mutate(document.Clone(), projectRoot)
+	if err != nil {
+		return projectstate.PersistedMutationPlan{}, err
+	}
+	previousAppSpec, err := appspec.Read(projectRoot, appSpecPath)
+	if err != nil {
+		return projectstate.PersistedMutationPlan{}, err
+	}
+	newValue, err := readValue(nextDocument)
+	if err != nil {
+		return projectstate.PersistedMutationPlan{}, err
+	}
+	if result != nil {
+		*result = projectstate.CompareAndSetResult[string]{
+			OldValue: oldValue,
+			NewValue: newValue,
+		}
+	}
+	return projectstate.PersistedMutationPlan{
+		NextDocument: nextDocument,
+		ApplyExternalChanges: func() error {
+			return appspec.Write(projectRoot, appSpecPath, nextAppSpec)
+		},
+		RollbackExternalChanges: func() error {
+			return rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec)
+		},
+	}, nil
 }
 
 func assertAppDefinitionExpectedOldValueMatches(settingID string, expectedOldValue any, observedOldValue any) error {
