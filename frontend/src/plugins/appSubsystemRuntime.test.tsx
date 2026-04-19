@@ -5,6 +5,7 @@ import {
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
   syncAppSubsystemFrontendRegistration,
+  useAppSubsystemAppDeploymentModal,
   useAppSubsystemCustomSlashCommandModeOptions,
   useAppSubsystemDefaultCustomSlashCommandMode,
   useAppSubsystemFrontendStore,
@@ -27,6 +28,9 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
     component: () => null,
   },
   appModeRoute: {
+    component: () => null,
+  },
+  appDeploymentModal: {
     component: () => null,
   },
   slashCommands: [
@@ -73,6 +77,11 @@ function AppSubsystemOverviewProbe() {
 function AppSubsystemSlashCommandProbe() {
   const slashCommands = useAppSubsystemSlashCommands();
   return <span>{slashCommands.map((entry) => entry.command).join(",")}</span>;
+}
+
+function AppSubsystemAppDeploymentModalProbe() {
+  const appDeploymentModal = useAppSubsystemAppDeploymentModal();
+  return <span>{appDeploymentModal ? "available" : "missing"}</span>;
 }
 
 function AppSubsystemCustomSlashModeProbe() {
@@ -157,6 +166,17 @@ describe("appSubsystemRuntime", () => {
     expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
       "/app-json",
     );
+  });
+
+  it("exposes the app deployment modal through capability-gated hooks", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+    syncStoreInitialState(useAppSubsystemFrontendStore);
+
+    expect(
+      renderToStaticMarkup(<AppSubsystemAppDeploymentModalProbe />),
+    ).toContain("available");
   });
 
   it("hides app slash commands when the subsystem is unavailable", async () => {
