@@ -5,6 +5,7 @@
     "jsx": "react-jsx",
     "baseUrl": "src",
     "paths": {
+      "@setta/app-subsystem-frontend-sdk": ["../plugin-sdk/app-subsystem/src"],
       "components/*": ["components/*"],
       "forks/*": ["forks/*"],
       "openapi/*": ["openapi/*"],

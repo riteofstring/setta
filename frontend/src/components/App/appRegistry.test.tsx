@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { loadCachedImageArtifacts } from "openapi/http";
+import { loadCachedImageArtifacts } from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,20 +20,18 @@ const openAPIMocks = vi.hoisted(() => ({
 
 const decodeExistingRawImagesMock = vi.hoisted(() => vi.fn());
 
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
+  const actual = await vi.importActual<
+    typeof import("@setta/app-subsystem-frontend-sdk")
+  >("@setta/app-subsystem-frontend-sdk");
   return {
     ...actual,
     loadCachedImageArtifacts: openAPIMocks.loadCachedImageArtifacts,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
   };
 });
-
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
 
 vi.mock("state/hooks/artifacts", async () => {
   const actual = await vi.importActual<typeof import("state/hooks/artifacts")>(
