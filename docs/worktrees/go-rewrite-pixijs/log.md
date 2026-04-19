@@ -6168,3 +6168,41 @@ LOOP_TERMINAL_MARKER: none
     - extra workspace/chat chrome remained visible during the headless check
 - Next frontier: stay on the canonical `settings-section__browserSectionDefault` lane and choose either one stronger shared scene-authority / graph-surface ownership primitive beyond this simple settings shell cluster, or the next credible non-shell-owned dense family with `chatSectionDefault` as the fallback if no broader shared family is ready.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 052
+
+- Closed one more bounded fallback on the repeated `settings-section__chatSectionDefault` activator blocker without leaving speculative source behind.
+- Added `perf/reports/frontend/2026-04-20_settings-all-settings-chat-row-activator-fallback-blocker-report.md` as the durable record for the attempted row-surface activator fallback.
+- Tried a local `ParamContainer` row-activator experiment, then reverted it before finishing the iteration after the live checks stayed negative.
+- Fresh dense rerun on the current `3068/8068` runtime stayed healthy:
+  - `projectChatChromeCount: 0`
+  - `documentNodeCount: 5497`
+  - `inputCount: 3`
+  - `textareaCount: 1`
+  - `buttonCount: 47`
+  - `canvasCount: 1`
+  - `raf.meanMs: 45.38`
+  - `raf.p95Ms: 50`
+  - `longTasks.totalMs: 3206`
+- Live hit-test sampling across the tiny fit-view chat row rect showed the transformed row box is not a trustworthy pointer target on this lane:
+  - row rect was about `7.8px x 11.7px`
+  - `document.elementFromPoint(...)` samples landed on:
+    - `.section-resize-handle`
+    - `SECTION#settings-section__drawSectionDefault-CustomResizable`
+    - `.react-flow__pane`
+- Synthetic DOM fallback checks on `#ParamContainer-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode` also stayed negative:
+  - `row.click()` left `document.activeElement` empty and did not create `#CodeMirror-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode`
+  - `mousedown` dispatch on the same row also left `document.activeElement` empty and did not create the inline editor
+- Interpretation:
+  - close the attempted row-surface activator fallback as unsupported on the current runtime
+  - do not spend the next automated pass on another row `click` / `mousedown` proxy, another synthetic row-event retry, or another article-level activator micropolish on this lane
+  - the shared canvas-owned resting-text activator / hit-test blocker remains open beyond both the chat shell and row fallbacks
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamContainer.test.tsx src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+    - result: `DummyCodeMirror` passed, but the run still hit the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before `ParamContainer.test.tsx` could be collected
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: dense probe passed; the chat proof still failed to surface inline CodeMirror on the current runtime
+  - CDP visual check:
+    - not rerun because no source changes from this experiment were kept
+- Next frontier: keep `settings-section__chatSectionDefault` only as the blocker reproduction target and choose a deeper shared activator / hit-test fix or a different stronger shared scene-authority move instead of reopening this row fallback.
+LOOP_TERMINAL_MARKER: none
