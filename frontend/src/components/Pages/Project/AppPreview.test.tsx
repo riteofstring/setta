@@ -20,7 +20,7 @@ import {
   createSingleConfig,
 } from "utils/generatedTypes";
 
-import { AppPreview } from "./AppPreview";
+import { AppPreview } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/Project/AppPreview";
 
 let latestProps: Record<string, unknown> | null = null;
 const routeLoadProjectConfigMock = vi.fn();
@@ -67,7 +67,6 @@ async function mockAppRendererModule() {
   };
 }
 
-vi.mock("components/App/AppRenderer", mockAppRendererModule);
 vi.mock(
   "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer",
   mockAppRendererModule,
