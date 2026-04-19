@@ -251,6 +251,7 @@ function appendUniqueSlashCommands({
 
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
+  appGenerationSlashCommands = [],
   discoveredAgentNativeSlashCommands,
   executableAgentNativeSlashCommands = discoveredAgentNativeSlashCommands,
   customCommandsExecutable = true,
@@ -259,6 +260,7 @@ export function resolveProjectChatComposerSlashCommandSets({
   showSearchExecutionControl,
 }: {
   customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
+  appGenerationSlashCommands?: ChatSlashCommandDefinition[];
   discoveredAgentNativeSlashCommands: string[];
   executableAgentNativeSlashCommands?: string[];
   customCommandsExecutable?: boolean;
@@ -273,13 +275,13 @@ export function resolveProjectChatComposerSlashCommandSets({
     model: true,
     permissions: showPermissionExecutionControl,
     search: showSearchExecutionControl,
-    appGenerationModes: true,
+    appGenerationCommands: appGenerationSlashCommands,
   });
   const globallyReservedManagedCommands = buildChatSlashCommands({
     model: true,
     permissions: true,
     search: true,
-    appGenerationModes: true,
+    appGenerationCommands: appGenerationSlashCommands,
   });
   const customCommandDefinitions = buildCustomPromptSlashCommandDefinitions(
     customProjectChatSlashCommands,
@@ -842,7 +844,9 @@ function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
   return [];
 }
 
-function extractUserPromptText(message: BaseChatMessageUnion): string | null {
+export function extractUserPromptText(
+  message: BaseChatMessageUnion,
+): string | null {
   if (message.role !== ChatRoleEnum.user) {
     return null;
   }
@@ -873,7 +877,7 @@ function extractUserPromptText(message: BaseChatMessageUnion): string | null {
   return textParts.join("\n");
 }
 
-function getMessageAttachments(
+export function getMessageAttachments(
   message: BaseChatMessageUnion,
 ): Array<ChatFileAttachment> {
   if ("attachments" in message && Array.isArray(message.attachments)) {

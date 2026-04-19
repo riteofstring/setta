@@ -21,6 +21,13 @@ var frontendOpenAPIDocumentModeOverrides = map[string]config.Mode{
 }
 
 func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
+	return registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(router, nil)
+}
+
+func registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(
+	router chi.Router,
+	registrationBuilder FrontendAPIRouteRegistrationBuilder,
+) error {
 	rootDeps, err := newOpenAPIDocumentRouteDependencies[FrontendRootRouteDependencies](nil)
 	if err != nil {
 		return err
@@ -37,7 +44,15 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	if err := RegisterFrontendRootRoutes(router, rootDeps); err != nil {
 		return err
 	}
-	return RegisterFrontendAPIRoutes(router, apiDeps)
+	registrations := FrontendAPIRouteRegistrations{}
+	if registrationBuilder != nil {
+		registrations = registrationBuilder(apiDeps)
+	}
+	return RegisterFrontendAPIRoutes(
+		router,
+		apiDeps,
+		registrations,
+	)
 }
 
 func newOpenAPIDocumentRouteDependencies[T any](modeOverrides map[string]config.Mode) (T, error) {
@@ -79,9 +94,15 @@ func setOpenAPIDocumentRouteDependencyModePolicy(field reflect.Value, policy mod
 }
 
 func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
+	return BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(nil)
+}
+
+func BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
+	registrationBuilder FrontendAPIRouteRegistrationBuilder,
+) (*huma.OpenAPI, error) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
-	if err := registerFrontendHTTPOpenAPIDocumentRoutes(router); err != nil {
+	if err := registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(router, registrationBuilder); err != nil {
 		return nil, err
 	}
 	return document, nil

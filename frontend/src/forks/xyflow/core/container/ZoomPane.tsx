@@ -3,13 +3,7 @@ import { pointer, select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useAIFollow, useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
@@ -76,15 +70,6 @@ type ViewportInteractionCleanupRefs = ViewportInteractionRefs & {
   wheelZoomTimeout: { current: ReturnType<typeof setTimeout> | undefined };
 };
 
-type ViewportTransform = ReactFlowState["transform"];
-
-type ViewportTransformFrameHandle = ReturnType<typeof setTimeout> | number;
-
-type QueuedViewportTransformUpdateRefs = {
-  frameId: { current: ViewportTransformFrameHandle | null };
-  pendingTransform: { current: ViewportTransform | null };
-};
-
 type PanOnScrollDelta = {
   deltaX: number;
   deltaY: number;
@@ -108,12 +93,9 @@ type PanOnScrollWheelHandlerParams = {
 };
 
 type DefaultWheelHandlerParams = {
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
   d3ZoomHandler: ReactFlowState["d3ZoomHandler"];
   interactionRefs: ViewportInteractionCleanupRefs;
   preventScrolling: boolean;
-  viewportTransformRefs: QueuedViewportTransformUpdateRefs;
   zoomActivationKeyPressed?: boolean;
   zoomOnPinch: boolean;
 };
@@ -127,13 +109,6 @@ type ZoomFilterParams = {
   zoomOnDoubleClick: boolean;
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
-};
-
-type ViewportEventMetadata = {
-  button: number;
-  classNameMatches: Record<string, boolean | undefined>;
-  isMacOS: boolean;
-  targetElement: Element | null;
 };
 
 const defaultZoomPaneProps = {
@@ -159,41 +134,19 @@ const defaultZoomPaneProps = {
   | "preventScrolling"
 >;
 
-const viewportEventMetadataCache = new WeakMap<Event, ViewportEventMetadata>();
-
-function getViewportEventMetadata(event: Event): ViewportEventMetadata {
-  const cachedMetadata = viewportEventMetadataCache.get(event);
-  if (cachedMetadata) {
-    return cachedMetadata;
-  }
-
-  const target = event.target;
-  const metadata: ViewportEventMetadata = {
-    button: "button" in event ? event.button : 0,
-    classNameMatches: Object.create(null) as Record<string, boolean | undefined>,
-    isMacOS: isMacOs(),
-    targetElement: target instanceof Element ? target : null,
-  };
-  viewportEventMetadataCache.set(event, metadata);
-  return metadata;
-}
-
 const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
   }
-  const metadata = getViewportEventMetadata(event);
-  const cachedMatch = metadata.classNameMatches[className];
-  if (typeof cachedMatch === "boolean") {
-    return cachedMatch;
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return false;
   }
-  const nextMatch = metadata.targetElement?.closest(`.${className}`) !== null;
-  metadata.classNameMatches[className] = nextMatch;
-  return nextMatch;
+  return target.closest(`.${className}`) !== null;
 };
 
 const getEventButton = (event: ZoomFilterEvent): number =>
-  getViewportEventMetadata(event).button;
+  "button" in event ? event.button : 0;
 
 const isPointerStartEvent = (eventType: string): boolean =>
   eventType === "mousedown" || eventType === "touchstart";
@@ -222,187 +175,6 @@ function syncViewportInteractionActive({
   });
 }
 
-function areViewportTransformsEqual(
-  left: ViewportTransform,
-  right: ViewportTransform,
-): boolean {
-  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
-}
-
-function commitViewportTransform(nextTransform: ViewportTransform) {
-  const currentTransform = useReactFlow.getState().transform;
-  if (areViewportTransformsEqual(currentTransform, nextTransform)) {
-    return;
-  }
-
-  useReactFlow.setState({
-    transform: nextTransform,
-  });
-}
-
-function requestViewportTransformFrame(callback: FrameRequestCallback) {
-  if (
-    typeof window !== "undefined" &&
-    typeof window.requestAnimationFrame === "function"
-  ) {
-    return window.requestAnimationFrame(callback);
-  }
-
-  return setTimeout(() => callback(Date.now()), 16);
-}
-
-function cancelViewportTransformFrame(
-  frameId: ViewportTransformFrameHandle | null,
-) {
-  if (frameId === null) {
-    return;
-  }
-
-  if (
-    typeof window !== "undefined" &&
-    typeof window.cancelAnimationFrame === "function"
-  ) {
-    window.cancelAnimationFrame(frameId as number);
-    return;
-  }
-
-  clearTimeout(frameId);
-}
-
-function queueViewportTransformUpdate(
-  transformRefs: QueuedViewportTransformUpdateRefs,
-  nextTransform: ViewportTransform,
-) {
-  transformRefs.pendingTransform.current = nextTransform;
-  if (transformRefs.frameId.current !== null) {
-    return;
-  }
-
-  transformRefs.frameId.current = requestViewportTransformFrame(() => {
-    transformRefs.frameId.current = null;
-    const pendingTransform = transformRefs.pendingTransform.current;
-    transformRefs.pendingTransform.current = null;
-    if (!pendingTransform) {
-      return;
-    }
-
-    commitViewportTransform(pendingTransform);
-  });
-}
-
-function flushViewportTransformUpdate(
-  transformRefs: QueuedViewportTransformUpdateRefs,
-  nextTransform?: ViewportTransform,
-) {
-  if (nextTransform) {
-    transformRefs.pendingTransform.current = nextTransform;
-  }
-
-  cancelViewportTransformFrame(transformRefs.frameId.current);
-  transformRefs.frameId.current = null;
-
-  const pendingTransform = transformRefs.pendingTransform.current;
-  transformRefs.pendingTransform.current = null;
-  if (!pendingTransform) {
-    return;
-  }
-
-  commitViewportTransform(pendingTransform);
-}
-
-function clearViewportTransformUpdate(
-  transformRefs: QueuedViewportTransformUpdateRefs,
-) {
-  cancelViewportTransformFrame(transformRefs.frameId.current);
-  transformRefs.frameId.current = null;
-  transformRefs.pendingTransform.current = null;
-}
-
-function readCurrentViewportTransform(
-  d3Selection: ReactFlowState["d3Selection"],
-): ViewportTransform {
-  const currentZoomTransform = d3Selection?.property("__zoom") as
-    | { x: number; y: number; k: number }
-    | undefined;
-  if (
-    currentZoomTransform &&
-    Number.isFinite(currentZoomTransform.x) &&
-    Number.isFinite(currentZoomTransform.y) &&
-    Number.isFinite(currentZoomTransform.k)
-  ) {
-    return [
-      currentZoomTransform.x,
-      currentZoomTransform.y,
-      currentZoomTransform.k,
-    ];
-  }
-
-  return useReactFlow.getState().transform;
-}
-
-function syncSelectionViewportTransform(
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>,
-  nextTransform: ViewportTransform,
-) {
-  d3Selection.property(
-    "__zoom",
-    zoomIdentity.translate(nextTransform[0], nextTransform[1]).scale(
-      nextTransform[2],
-    ),
-  );
-}
-
-export function resolveDirectWheelViewportTransform({
-  currentTransform,
-  d3Zoom,
-  event,
-  target,
-  translateExtent,
-  viewportExtent,
-}: {
-  currentTransform: ViewportTransform;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
-  event: WheelEvent;
-  target: Element;
-  translateExtent: CoordinateExtent;
-  viewportExtent: CoordinateExtent;
-}): ViewportTransform | null {
-  const viewportWidth = viewportExtent[1][0] - viewportExtent[0][0];
-  const viewportHeight = viewportExtent[1][1] - viewportExtent[0][1];
-  if (viewportWidth <= 0 || viewportHeight <= 0) {
-    return null;
-  }
-
-  const currentZoom = currentTransform[2] || 1;
-  const nextZoom = clamp(
-    currentZoom * Math.pow(2, wheelDelta(event, getViewportEventMetadata(event).isMacOS)),
-    ...d3Zoom.scaleExtent(),
-  );
-  const zoomRatio = nextZoom / currentZoom;
-  const [pointerX, pointerY] = pointer(event, target);
-  if (!Number.isFinite(pointerX) || !Number.isFinite(pointerY)) {
-    return null;
-  }
-
-  const unconstrainedTransform = zoomIdentity
-    .translate(
-      pointerX - (pointerX - currentTransform[0]) * zoomRatio,
-      pointerY - (pointerY - currentTransform[1]) * zoomRatio,
-    )
-    .scale(nextZoom);
-  const constrainedTransform = d3Zoom.constrain()(
-    unconstrainedTransform,
-    viewportExtent,
-    translateExtent,
-  );
-
-  return [
-    constrainedTransform.x,
-    constrainedTransform.y,
-    constrainedTransform.k,
-  ];
-}
-
 export function resetViewportInteractionState({
   isPanScrolling,
   isWheelZooming,
@@ -422,19 +194,8 @@ export function resetViewportInteractionState({
   });
 }
 
-function shouldQueueViewportTransformEvent(
-  sourceEvent: ZoomSourceEvent | null | undefined,
-): boolean {
-  return (
-    sourceEvent?.type === "mousemove" ||
-    sourceEvent?.type === "pointermove" ||
-    sourceEvent?.type === "touchmove" ||
-    sourceEvent?.type === "wheel"
-  );
-}
-
-const wheelDelta = (event: WheelEvent, isMacOS: boolean) => {
-  const factor = event.ctrlKey && isMacOS ? 10 : 1;
+const wheelDelta = (event: WheelEvent) => {
+  const factor = event.ctrlKey && isMacOs() ? 10 : 1;
 
   return getWheelDelta(event, factor);
 };
@@ -572,7 +333,7 @@ function handlePinchZoomWheelEvent({
 
   startWheelZoomBurst(interactionRefs);
   const point = pointer(event);
-  const pinchDelta = wheelDelta(event, isMacOS);
+  const pinchDelta = wheelDelta(event);
   const zoom = currentZoom * Math.pow(2, pinchDelta);
   scaleTo(d3Selection, zoom, point, event);
   scheduleWheelZoomBurstEnd(interactionRefs);
@@ -660,17 +421,14 @@ function shouldSkipDefaultWheelHandler({
   return !isPinchZoomWheelEvent({
     event,
     zoomOnPinch,
-    isMacOS: getViewportEventMetadata(event).isMacOS,
+    isMacOS: isMacOs(),
   });
 }
 
 function createDefaultWheelHandler({
-  d3Selection,
-  d3Zoom,
   d3ZoomHandler,
   interactionRefs,
   preventScrolling,
-  viewportTransformRefs,
   zoomActivationKeyPressed,
   zoomOnPinch,
 }: DefaultWheelHandlerParams) {
@@ -691,33 +449,8 @@ function createDefaultWheelHandler({
     }
 
     event.preventDefault();
-    const wasWheelZooming = interactionRefs.isWheelZooming.current;
     startWheelZoomBurst(interactionRefs);
-    if (!wasWheelZooming) {
-      closeAllContextMenus();
-    }
-
-    const { height, translateExtent, width } = useReactFlow.getState();
-    const nextTransform = resolveDirectWheelViewportTransform({
-      currentTransform: readCurrentViewportTransform(d3Selection),
-      d3Zoom,
-      event,
-      target: this,
-      translateExtent,
-      viewportExtent: [
-        [0, 0],
-        [width, height],
-      ],
-    });
-
-    if (nextTransform && d3Selection) {
-      clearViewportTransformUpdate(viewportTransformRefs);
-      syncSelectionViewportTransform(d3Selection, nextTransform);
-      commitViewportTransform(nextTransform);
-    } else if (d3ZoomHandler) {
-      d3ZoomHandler.call(this, event, data);
-    }
-
+    d3ZoomHandler.call(this, event, data);
     scheduleWheelZoomBurstEnd(interactionRefs);
   };
 }
@@ -785,7 +518,7 @@ function blocksNoWheelTarget({
   return !isPinchZoomWheelEvent({
     event,
     zoomOnPinch,
-    isMacOS: getViewportEventMetadata(event).isMacOS,
+    isMacOS: isMacOs(),
   });
 }
 
@@ -1017,16 +750,6 @@ function useViewportInteractionCleanup({
   ]);
 }
 
-function useViewportTransformCleanup(
-  viewportTransformRefs: QueuedViewportTransformUpdateRefs,
-) {
-  useEffect(() => {
-    return () => {
-      clearViewportTransformUpdate(viewportTransformRefs);
-    };
-  }, [viewportTransformRefs]);
-}
-
 function useZoomWheelBehavior({
   d3Selection,
   d3Zoom,
@@ -1037,7 +760,6 @@ function useZoomWheelBehavior({
   panOnScrollSpeed,
   preventScrolling,
   userSelectionActive,
-  viewportTransformRefs,
   zoomActivationKeyPressed,
   zoomOnPinch,
 }: {
@@ -1050,7 +772,6 @@ function useZoomWheelBehavior({
   panOnScrollSpeed: number;
   preventScrolling: boolean;
   userSelectionActive: boolean;
-  viewportTransformRefs: QueuedViewportTransformUpdateRefs;
   zoomActivationKeyPressed?: boolean;
   zoomOnPinch: boolean;
 }) {
@@ -1102,12 +823,9 @@ function useZoomWheelBehavior({
     d3Selection.on(
       "wheel.zoom",
       createDefaultWheelHandler({
-        d3Selection,
-        d3Zoom,
         d3ZoomHandler,
         interactionRefs: wheelInteractionRefs,
         preventScrolling,
-        viewportTransformRefs,
         zoomActivationKeyPressed,
         zoomOnPinch,
       }),
@@ -1127,7 +845,6 @@ function useZoomWheelBehavior({
     panOnScrollSpeed,
     preventScrolling,
     userSelectionActive,
-    viewportTransformRefs,
     zoomActivationKeyPressed,
     zoomOnPinch,
   ]);
@@ -1139,14 +856,12 @@ function useZoomLifecycleHandlers({
   isWheelZooming,
   isZoomingOrPanning,
   userSelectionActive,
-  viewportTransformRefs,
 }: {
   d3Zoom: ReactFlowState["d3Zoom"];
   isPanScrolling: ViewportInteractionRefs["isPanScrolling"];
   isWheelZooming: ViewportInteractionRefs["isWheelZooming"];
   isZoomingOrPanning: ViewportInteractionRefs["isZoomingOrPanning"];
   userSelectionActive: boolean;
-  viewportTransformRefs: QueuedViewportTransformUpdateRefs;
 }) {
   useEffect(() => {
     if (!d3Zoom) {
@@ -1189,21 +904,11 @@ function useZoomLifecycleHandlers({
       if (useAIFollow.getState().isFollowTransitioning && event.sourceEvent) {
         return;
       }
-      const nextTransform: ViewportTransform = [
-        event.transform.x,
-        event.transform.y,
-        event.transform.k,
-      ];
-      const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
-
-      if (shouldQueueViewportTransformEvent(sourceEvent)) {
-        queueViewportTransformUpdate(viewportTransformRefs, nextTransform);
-        return;
-      }
-
-      flushViewportTransformUpdate(viewportTransformRefs, nextTransform);
+      useReactFlow.setState({
+        transform: [event.transform.x, event.transform.y, event.transform.k],
+      });
     });
-  }, [d3Zoom, isZoomingOrPanning, userSelectionActive, viewportTransformRefs]);
+  }, [d3Zoom, isZoomingOrPanning, userSelectionActive]);
 
   useEffect(() => {
     if (!d3Zoom) {
@@ -1211,12 +916,6 @@ function useZoomLifecycleHandlers({
     }
 
     d3Zoom.on("end", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
-      flushViewportTransformUpdate(viewportTransformRefs, [
-        event.transform.x,
-        event.transform.y,
-        event.transform.k,
-      ]);
-
       const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
       if (!sourceEvent || sourceEvent.internal) {
         return;
@@ -1237,13 +936,7 @@ function useZoomLifecycleHandlers({
         isZoomingOrPanning,
       });
     });
-  }, [
-    d3Zoom,
-    isPanScrolling,
-    isWheelZooming,
-    isZoomingOrPanning,
-    viewportTransformRefs,
-  ]);
+  }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
 }
 
 function useZoomFilterBinding({
@@ -1363,10 +1056,6 @@ const ZoomPane = (props: ZoomPaneProps) => {
   const isWheelZooming = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
   const wheelZoomTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const viewportTransformFrame = useRef<ViewportTransformFrameHandle | null>(
-    null,
-  );
-  const pendingViewportTransform = useRef<ViewportTransform | null>(null);
   const interactionRefs: ViewportInteractionCleanupRefs = {
     isPanScrolling,
     isWheelZooming,
@@ -1374,16 +1063,8 @@ const ZoomPane = (props: ZoomPaneProps) => {
     panScrollTimeout,
     wheelZoomTimeout,
   };
-  const viewportTransformRefs = useMemo<QueuedViewportTransformUpdateRefs>(
-    () => ({
-      frameId: viewportTransformFrame,
-      pendingTransform: pendingViewportTransform,
-    }),
-    [],
-  );
   useZoomPaneInit(zoomPane, translateExtent);
   useViewportInteractionCleanup(interactionRefs);
-  useViewportTransformCleanup(viewportTransformRefs);
   useZoomWheelBehavior({
     d3Selection,
     d3Zoom,
@@ -1394,7 +1075,6 @@ const ZoomPane = (props: ZoomPaneProps) => {
     panOnScrollSpeed,
     preventScrolling,
     userSelectionActive,
-    viewportTransformRefs,
     zoomActivationKeyPressed,
     zoomOnPinch,
   });
@@ -1404,7 +1084,6 @@ const ZoomPane = (props: ZoomPaneProps) => {
     isWheelZooming,
     isZoomingOrPanning,
     userSelectionActive,
-    viewportTransformRefs,
   });
   useZoomFilterBinding({
     d3Zoom,

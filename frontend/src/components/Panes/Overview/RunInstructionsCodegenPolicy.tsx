@@ -4,6 +4,7 @@ import React from "react";
 import {
   PythonCodegenPolicyUIConfig,
   SectionTypeEnum,
+  createSectionCodegenPolicy,
   type CodeObjType,
   type CodeObjValueRepresentationMode,
   type ProjectCodegenPythonTarget,
@@ -21,6 +22,27 @@ type CodeObjValueOverride = CodeObjValuePolicy["codeObjOverrides"][string];
 
 type SectionCodegenMode = SectionCodegenOverride["mode"];
 type SectionRepresentationMode = SectionCodegenOverride["representation"];
+
+const DEFAULT_SECTION_TYPE_POLICIES = createSectionCodegenPolicy().typePolicies;
+
+const SECTION_CODEGEN_MODE_OPTIONS =
+  PythonCodegenPolicyUIConfig.sectionModeOptions.map((value) => ({
+    value,
+    label: value.charAt(0).toUpperCase() + value.slice(1),
+  }));
+
+function resolveSectionTypePolicy(
+  sectionPolicy: SectionPolicy,
+  sectionType: SectionType,
+) {
+  const typePolicy =
+    sectionPolicy.typePolicies[sectionType] ??
+    DEFAULT_SECTION_TYPE_POLICIES[sectionType];
+  if (!typePolicy) {
+    throw new Error(`Missing section codegen policy for ${sectionType}`);
+  }
+  return typePolicy;
+}
 
 export type RunInstructionsSectionOption = {
   id: string;
@@ -382,7 +404,10 @@ function SectionTypeDefaultsCard({
       </div>
       <div className="mt-1 space-y-1">
         {PythonCodegenPolicyUIConfig.sectionTypes.map((sectionType) => {
-          const typePolicy = sectionPolicy.typePolicies[sectionType];
+          const typePolicy = resolveSectionTypePolicy(
+            sectionPolicy,
+            sectionType,
+          );
           const isMetaControl = sectionType === SectionTypeEnum.MetaControl;
           const representationOptions = isMetaControl
             ? []
@@ -523,7 +548,10 @@ function SectionOverridesCard({
               if (!selected) {
                 return;
               }
-              const basePolicy = sectionPolicy.typePolicies[selected.type];
+              const basePolicy = resolveSectionTypePolicy(
+                sectionPolicy,
+                selected.type,
+              );
               updateSectionPolicy({
                 ...sectionPolicy,
                 sectionOverrides: {

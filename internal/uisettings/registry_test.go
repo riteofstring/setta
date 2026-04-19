@@ -8,18 +8,16 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/appspec"
 	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry, err := NewCoreRegistry(runtime, t.TempDir())
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
 
 	entries := registry.ListEntries(SourceFilterCore)
 	ids := make([]string, 0, len(entries))
@@ -47,10 +45,7 @@ func TestRegistrySearchRanksCoreSettingBySynonym(t *testing.T) {
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry, err := NewCoreRegistry(runtime, t.TempDir())
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
 
 	results, err := registry.Search("watch toggle", 3, SourceFilterCore)
 	if err != nil {
@@ -68,13 +63,10 @@ func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginM
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
 		Runtime:       runtime,
 		WorkspaceRoot: t.TempDir(),
 	})
-	if err != nil {
-		t.Fatalf("new scoped registry without plugin service: %v", err)
-	}
 
 	if len(registry.knownPluginIDs) != 0 {
 		t.Fatalf("expected no known plugin ids, got %#v", registry.knownPluginIDs)
@@ -105,13 +97,10 @@ func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
 		Runtime:       runtime,
 		WorkspaceRoot: t.TempDir(),
 	})
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
 
 	expectedSteps := map[string]RevealActivationStep{
 		"core.project_ai_settings.llm_api_keys": {
@@ -262,13 +251,8 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry, err := NewCoreRegistry(runtime, t.TempDir())
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
-	expectedAppDefinition := projectstate.EffectiveAppDefinition(runtime.Snapshot().Document)
-	expectedAppSpecPath := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document)
-	expectedThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
+	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
+	expectedAppDefinition, expectedAppSpecPath, expectedThemeMode := effectiveAppMetadata(t, runtime)
 
 	catalogID, err := registry.ReadValue(context.Background(), "project-alpha", "core.app.catalog_id")
 	if err != nil {
@@ -320,10 +304,7 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -351,12 +332,9 @@ func TestRegistryWriteValueRejectsInvalidWatchCodeFolderShape(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
-	_, err = registry.WriteValue(
+	_, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
 		"core.watch_code.folders",
@@ -382,12 +360,9 @@ func TestRegistryWriteValueRejectsUnsupportedWatchCodeFolderProperties(t *testin
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
-	_, err = registry.WriteValue(
+	_, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
 		"core.watch_code.folders",
@@ -417,12 +392,9 @@ func TestRegistryWriteValueMapsStaleCompareAndSetToMutationFailed(t *testing.T) 
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
-	_, _, err = runtime.CompareAndSetShowParamDisplayNames(context.Background(), "project-alpha", true, nil)
+	_, _, err := runtime.CompareAndSetShowParamDisplayNames(context.Background(), "project-alpha", true, nil)
 	if err != nil {
 		t.Fatalf("seed show param display names: %v", err)
 	}
@@ -448,10 +420,7 @@ func TestRegistryWriteValueRoundTripsProjectNameAndPythonCodegenEnabled(t *testi
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
 	projectNameResult, err := registry.WriteValue(
 		context.Background(),
@@ -508,7 +477,7 @@ func TestRegistryWriteValueRoundTripsProjectNameAndPythonCodegenEnabled(t *testi
 func TestScopedRegistryProjectAISettingsExposeReadOnlyCountEntries(t *testing.T) {
 	t.Parallel()
 
-	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
 		Runtime:       openCoreRegistryRuntime(t),
 		WorkspaceRoot: t.TempDir(),
 		ProjectAISettings: ProjectAISettingProviders{
@@ -526,9 +495,6 @@ func TestScopedRegistryProjectAISettingsExposeReadOnlyCountEntries(t *testing.T)
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
 
 	expected := map[string]struct {
 		query          string
@@ -623,10 +589,7 @@ func TestRegistryWriteValueProjectNameSameValueIsNoOp(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -672,10 +635,7 @@ func TestRegistryWriteValuePythonCodegenEnabledSameValueIsNoOpAndPreservesTarget
 		t.Fatalf("seed codegen targets: %v", err)
 	}
 
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -714,10 +674,7 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
 	const nextSpecPath = "app_specs/ui-settings-test-app.json"
 	result, err := registry.WriteValue(
@@ -741,7 +698,7 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	if value != nextSpecPath {
 		t.Fatalf("expected app spec path %q after write, got %#v", nextSpecPath, value)
 	}
-	if got := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document); got != nextSpecPath {
+	if _, got, _ := effectiveAppMetadata(t, runtime); got != nextSpecPath {
 		t.Fatalf("expected effective app spec path %q, got %q", nextSpecPath, got)
 	}
 }
@@ -751,10 +708,7 @@ func TestRegistryWriteValueWatchCodeFilesRoundTrips(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
+	registry := mustNewCoreRegistry(t, runtime, root)
 
 	nextFiles := []string{"backend/setta/api/listener.py", "frontend/src/components/App/appTheme.ts"}
 	expectedFiles := []any{nextFiles[0], nextFiles[1]}
@@ -792,11 +746,8 @@ func TestRegistryWriteValueAppThemeModeRoundTripsOnFreshProject(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewCoreRegistry(runtime, root)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
-	expectedOldThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
+	registry := mustNewCoreRegistry(t, runtime, root)
+	_, _, expectedOldThemeMode := effectiveAppMetadata(t, runtime)
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -829,6 +780,32 @@ func openCoreRegistryRuntime(t *testing.T) *projectstate.Runtime {
 	return openCoreRegistryPersistedRuntime(t, t.TempDir())
 }
 
+func mustNewCoreRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceRoot string) *Registry {
+	t.Helper()
+
+	registry, err := NewCoreRegistry(runtime, appdefinition.NewAppDefinitionService(runtime), workspaceRoot)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+	return registry
+}
+
+func mustNewScopedRegistry(t *testing.T, options ScopedRegistryOptions) *Registry {
+	t.Helper()
+
+	runtime, ok := options.Runtime.(*projectstate.Runtime)
+	if !ok || runtime == nil {
+		t.Fatalf("expected *projectstate.Runtime in scoped registry options, got %T", options.Runtime)
+	}
+	options.AppDefinition = appdefinition.NewAppDefinitionService(runtime)
+
+	registry, err := NewScopedRegistry(options)
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
+	return registry
+}
+
 func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.Runtime {
 	t.Helper()
 
@@ -859,4 +836,26 @@ func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.R
 		}
 	})
 	return runtime
+}
+
+func effectiveAppMetadata(
+	t *testing.T,
+	runtime *projectstate.Runtime,
+) (projectstate.AppDefinition, string, string) {
+	t.Helper()
+
+	service := appdefinition.NewAppDefinitionService(runtime)
+	definition, err := service.GetEffectiveAppDefinition(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app definition: %v", err)
+	}
+	specPath, err := service.GetEffectiveAppSpecPath(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app spec path: %v", err)
+	}
+	themeMode, err := service.GetEffectiveAppThemeMode(context.Background())
+	if err != nil {
+		t.Fatalf("get effective app theme mode: %v", err)
+	}
+	return definition, specPath, themeMode
 }

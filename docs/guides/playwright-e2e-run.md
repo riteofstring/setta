@@ -23,7 +23,7 @@ What this does:
 
 - `activate.sh: no such file or directory: .venv/bin/activate`
   - The repo venv is missing. Create it with:
+    - `./dev_install.sh`
     - `./init_env.sh`
-    - `./dev_install_python.sh`
 - `Missing <repo>/.venv/bin/python after sourcing activate.sh.`
-  - The repo venv is incomplete or broken. Recreate it with `./init_env.sh` or `./dev_install_python.sh`.
+  - The repo venv is incomplete or broken. Recreate it with `./dev_install.sh` or `./init_env.sh`.

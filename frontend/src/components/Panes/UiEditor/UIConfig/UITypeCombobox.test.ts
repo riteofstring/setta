@@ -14,12 +14,10 @@ vi.mock("utils/generatedTypes", async () => {
   );
   return {
     ...actual,
-    PythonCodegenPolicyUIConfig: {
-      ...actual.PythonCodegenPolicyUIConfig,
-      codeObjTypes: [actual.CodeObjTypeEnum.DateParam],
-      metaControlCodeObjTypes: [
-        { label: "Date Input", type: actual.CodeObjTypeEnum.DateParam },
-      ],
+    ChangeParamImplUIConfig: {
+      allParamCodeObjTypes: [actual.CodeObjTypeEnum.DateParam],
+      controlCodeObjTypes: [actual.CodeObjTypeEnum.DateParam],
+      sectionParamCodeObjTypes: [],
     },
   };
 });

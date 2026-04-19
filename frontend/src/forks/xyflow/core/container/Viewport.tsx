@@ -1,23 +1,25 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import { type ReactNode } from "react";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
-import { useViewportTransformStyleRef } from "./useViewportTransformStyle";
+import type { ReactFlowState } from "../types";
+
+const selector = (s: ReactFlowState) =>
+  `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`;
 
 type ViewportProps = {
   children: ReactNode;
 };
 
 function Viewport({ children }: ViewportProps) {
-  const { initialTransform, ref } =
-    useViewportTransformStyleRef<HTMLDivElement>();
+  const transform = useReactFlow(selector);
 
   return (
     <div
       className="react-flow__viewport react-flow__container"
-      ref={ref}
-      style={{ transform: initialTransform }}
+      style={{ transform }}
     >
       {children}
       <div
