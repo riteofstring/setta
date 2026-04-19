@@ -9,6 +9,7 @@ import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import {
+  getAppSubsystemDeploymentRuntimeUnavailableMessage,
   useAppSubsystemAppModeRoute,
   useAppSubsystemFrontendStatus,
   useAppSubsystemFrontendStatusMessage,
@@ -267,6 +268,9 @@ function AppModeRouteElement() {
   const runtimeStatusMessage = usePluginRuntimeStore(
     (state) => state.statusMessage,
   );
+  const appSubsystemCapabilities = usePluginRuntimeStore(
+    (state) => state.appSubsystemCapabilities,
+  );
   const appSubsystemStatus = useAppSubsystemFrontendStatus();
   const appSubsystemStatusMessage = useAppSubsystemFrontendStatusMessage();
   const appModeRoute = useAppSubsystemAppModeRoute();
@@ -291,7 +295,9 @@ function AppModeRouteElement() {
       : appSubsystemStatus === "error"
         ? appSubsystemStatusMessage ??
           "Failed to load the app subsystem frontend registration."
-        : 'App mode is unavailable because the first-party plugin "setta-json-render-app-gen" is not enabled.';
+        : getAppSubsystemDeploymentRuntimeUnavailableMessage(
+            appSubsystemCapabilities,
+          );
 
   return <AppModeUnavailableRoute message={message} />;
 }

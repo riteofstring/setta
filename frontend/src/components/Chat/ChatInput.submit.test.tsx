@@ -175,7 +175,7 @@ describe("ChatInput queued slash-command replay", () => {
     );
   });
 
-  it("keeps queued /app-json drafts blocked with a plugin-required message once app commands disappear", async () => {
+  it("keeps queued /app-json drafts blocked with a provider-required message once app commands disappear", async () => {
     const onSubmit = vi.fn(async () => true);
     const onStartNewChat = vi.fn();
     const onResumeLatestChat = vi.fn(async () => false);
@@ -257,7 +257,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      '/app-json requires the first-party plugin "setta-json-render-app-gen" to be enabled.',
+      "/app-json requires an active app subsystem provider with app-generation chat-mode support.",
     );
     const queuedDraft = host.querySelector('[data-chat-queued-draft="true"]');
     expect(queuedDraft?.textContent).toContain(
@@ -912,7 +912,7 @@ describe("ChatInput queued slash-command replay", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(host.textContent).toContain(
-      '/wireframe requires the first-party plugin "setta-json-render-app-gen" to be enabled.',
+      "/wireframe requires an active app subsystem provider with app-generation chat-mode support.",
     );
     expect(
       host.querySelector('[data-chat-queued-draft="true"]')?.textContent,

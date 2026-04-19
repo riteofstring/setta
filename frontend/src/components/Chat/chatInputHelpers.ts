@@ -94,8 +94,8 @@ type QueuedDraftReplaySnapshot =
       command: ChatSlashCommand;
     };
 
-const APP_SUBSYSTEM_PLUGIN_REQUIRED_FEEDBACK =
-  'requires the first-party plugin "setta-json-render-app-gen" to be enabled.';
+const APP_SUBSYSTEM_PROVIDER_REQUIRED_FEEDBACK =
+  "requires an active app subsystem provider with app-generation chat-mode support.";
 
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
@@ -222,7 +222,7 @@ export function buildUnavailableSlashCommandFeedback(
   command: ChatSlashCommand,
 ): string {
   if (command.appGenerationMode) {
-    return `${command.command} ${APP_SUBSYSTEM_PLUGIN_REQUIRED_FEEDBACK}`;
+    return `${command.command} ${APP_SUBSYSTEM_PROVIDER_REQUIRED_FEEDBACK}`;
   }
   return (
     command.unavailableFeedback ??
