@@ -20,6 +20,7 @@ const RESTING_TEXT_TARGETS = [
 type MotionBodyState = {
   hiddenBodyCount: number;
   sections: Array<{
+    childElementCount: number;
     display: string;
     hidden: boolean;
     root: boolean;
@@ -70,6 +71,7 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
   for (const section of initialState.sections) {
     expect(section.root).toBe(true);
     expect(section.hidden).toBe(false);
+    expect(section.childElementCount).toBeGreaterThan(0);
   }
 
   const blankPoint = await findBlankPanePoint(page);
@@ -101,12 +103,14 @@ test("shared resting-text section bodies hide during viewport zoom and restore a
   for (const section of motionState.sections) {
     expect(section.hidden).toBe(true);
     expect(section.display).toBe("none");
+    expect(section.childElementCount).toBe(0);
   }
 
   const restoredState = zoomStates.after;
   expect(restoredState.hiddenBodyCount).toBe(0);
   for (const section of restoredState.sections) {
     expect(section.hidden).toBe(false);
+    expect(section.childElementCount).toBeGreaterThan(0);
   }
 
   const attachment = {
@@ -184,6 +188,7 @@ async function readMotionBodyState(
         throw new Error(`Missing motion body root for ${sectionId}`);
       }
       return {
+        childElementCount: body.childElementCount,
         display: window.getComputedStyle(body).display,
         hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
         root: body.dataset.canvasOwnedMotionBodyRoot === "true",
@@ -232,6 +237,7 @@ async function dispatchPaneWheelZoomAndReadMotionBodyState(
             throw new Error(`Missing motion body root for ${sectionId}`);
           }
           return {
+            childElementCount: body.childElementCount,
             display: window.getComputedStyle(body).display,
             hidden: body.dataset.canvasOwnedMotionBodyHidden === "true",
             root: body.dataset.canvasOwnedMotionBodyRoot === "true",

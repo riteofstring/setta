@@ -532,13 +532,15 @@ function CanvasSectionBody({
       }
       style={motionHiddenBody ? { display: "none" } : undefined}
     >
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {motionHiddenBody ? null : (
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+          isUserView={isUserView}
+        />
+      )}
     </div>
   );
 }

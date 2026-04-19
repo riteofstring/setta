@@ -8,6 +8,67 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The motion-body subtree-suspension slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-body-subtree-suspension-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` now keeps the motion-hidden wrapper root but stops rendering `AreaSwitch` while `viewportInteractionActive` is true and the section is not the active UI section
+    - focused proof now exists in:
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three resting-text sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - each wrapper computed `display: block`
+      - each wrapper had `childElementCount: 2`
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `display` switched to `none`
+      - each wrapper dropped to `childElementCount: 0`
+      - the global hidden-body count rose to `45`
+    - after the interaction settled:
+      - all three wrappers returned to `display: block`
+      - each wrapper restored `childElementCount: 2`
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 116.52`
+    - `raf.p95Ms: 116.7`
+    - `longTasks.totalMs: 15372`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior motion-body display-none checkpoint:
+    - `documentNodeCount: 5515 -> 5515`
+    - `buttonCount: 47 -> 47`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45 -> 45`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45 -> 45`
+    - `raf.meanMs: 114.28 -> 116.52`
+    - `raf.p95Ms: 133.4 -> 116.7`
+    - `longTasks.totalMs: 15303 -> 15372`
+  - interpretation:
+    - this closes the pure wrapper-only follow-up on the canonical `browserSectionDefault` lane by actually removing hidden descendants from the DOM during motion
+    - the dense-scene result is still mixed: p95 tightened materially, but mean frame time regressed slightly and long-task totals remained effectively flat-to-worse
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target whatever hidden-section subtree work still dominates motion after subtree suspension, not another section-ID expansion or another wrapper-only hop
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (1.1m)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `All Settings` was already active; the sub-agent used `fit view`, `reset zoom`, one pane full-width toggle, and one `zoom in` click to normalize the viewport
+    - exactly one visible retained graph canvas was mounted
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+    - no obvious blank or detached artifact appeared around the canonical targets after the interaction
 - The motion-body display-none slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-motion-body-display-none-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - sibling proof sections:

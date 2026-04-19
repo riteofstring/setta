@@ -157,6 +157,57 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-20 081
 
+- Item: Suspend hidden motion-body subtrees on the canonical `browserSectionDefault` lane.
+- Status: `done`
+- Details:
+  - Chose the active hidden-subtree blocker from the latest handoff instead of another family broadening pass.
+  - Updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` so motion-hidden canvas-owned section bodies keep their wrapper root but stop rendering `AreaSwitch` while `viewportInteractionActive` is true and the section is not active.
+  - Tightened focused proof in:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - Wrote the append-only report `perf/reports/frontend/2026-04-20_settings-all-settings-motion-body-subtree-suspension-rerun.md`.
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - resting-text motion-body overlay probe:
+      - initial `hiddenBodyCount: 0`
+      - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `childElementCount: 2`
+      - during one renderer wheel interaction, `hiddenBodyCount: 45`
+      - all three target wrappers reported `data-canvas-owned-motion-body-hidden="true"`, computed `display: none`, and `childElementCount: 0`
+      - settled `hiddenBodyCount: 0`
+      - all three target wrappers restored `childElementCount: 2`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5515`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 116.52`
+      - `raf.p95Ms: 116.7`
+      - `longTasks.totalMs: 15372`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this closes the wrapper-only follow-up on the canonical `browserSectionDefault` lane because the hidden descendants actually leave the DOM during motion
+    - the dense-scene result is mixed rather than clearly better: `raf.p95 133.4 -> 116.7`, but `raf.mean 114.28 -> 116.52` and `longTasks.total 15303 -> 15372`
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should target whichever hidden-section subtree work still dominates motion after subtree suspension rather than another wrapper-only hop
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-010/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `All Settings` was already active; the sub-agent used `fit view`, `reset zoom`, one pane full-width toggle, and one `zoom in` click to normalize the viewport
+  - exactly one visible retained graph canvas was mounted
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+  - no obvious blank or detached artifact appeared around the canonical targets after the interaction
+- Next action:
+  - inspect which hidden-section subtree work still dominates motion after subtree suspension and land one stronger product reduction there instead of reopening family broadening
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 081
+
 - Item: Strengthen the canonical resting-text motion lane from `visibility: hidden` to `display: none`.
 - Status: `done`
 - Details:
