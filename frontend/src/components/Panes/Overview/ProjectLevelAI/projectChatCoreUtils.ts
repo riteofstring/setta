@@ -32,6 +32,7 @@ import {
   type ChatRunType,
 } from "state/actions/chatHistory";
 import { type ProjectChatCustomSlashCommand } from "state/definitions";
+import { parseAppGenerationMode } from "state/types/appGenerationMode";
 import {
   type ChatAppGenerationContext,
   type ChatAppGenerationMessageState,
@@ -112,16 +113,29 @@ export function getProjectChatBlockedReasonMessage(
 }
 
 export function getHistoricalAppGenerationEditReplayBlockedReason({
-  messageState,
+  mode,
   replaySupported,
+  modeRegistryResolved,
+  supportedAppGenerationModes,
 }: {
-  messageState: ChatAppGenerationMessageState | null | undefined;
+  mode: string | null | undefined;
   replaySupported: boolean;
+  modeRegistryResolved: boolean;
+  supportedAppGenerationModes: string[];
 }): string | null {
-  if (messageState?.mode == null || replaySupported) {
+  const normalizedMode = parseAppGenerationMode(mode);
+  if (normalizedMode == null) {
     return null;
   }
-  return HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
+  if (!replaySupported) {
+    return HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
+  }
+  if (!modeRegistryResolved) {
+    return null;
+  }
+  return supportedAppGenerationModes.includes(normalizedMode)
+    ? null
+    : HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
 }
 
 export function buildProjectChatHydrationCacheKey({

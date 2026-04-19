@@ -24,6 +24,7 @@ import { callOpenAPI } from "openapi/http/result";
 import {
   useAppSubsystemFrontendStatus,
   useAppSubsystemSlashCommands,
+  useAppSubsystemSupportedAppGenerationModes,
 } from "plugins/appSubsystem";
 import {
   Dispatch,
@@ -589,6 +590,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const customCommandsExecutable =
     !isExternalEngine || isAgentRunsAuthorityReady(agentRunsAuthorityState);
   const appGenerationSlashCommands = useAppSubsystemSlashCommands();
+  const supportedAppGenerationModes =
+    useAppSubsystemSupportedAppGenerationModes();
   const appSubsystemFrontendStatus = useAppSubsystemFrontendStatus();
   const { slashCommands, recognizedSlashCommands } = useMemo(() => {
     const discoveredAgentNativeSlashCommands =
@@ -1011,35 +1014,57 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
 
-  const handleSubmit = useCallback(
-    async (
-      message: string,
-      attachments: ChatFileAttachment[],
-      options?: ChatSubmitOptions,
-    ) => {
-      const preflightResult = resolveProjectChatSubmitPreflightResult({
-        message,
-        attachments,
-        requiresNewThreadContinuation,
-        engineConfigId,
-        isExternalEngine,
-        hasLLMConfig,
-        externalEngineAvailable,
-      });
-      if (preflightResult) {
-        return preflightResult;
+  const historicalAppGenerationRegistryPending =
+    appSubsystemFrontendStatus === "idle" ||
+    appSubsystemFrontendStatus === "loading";
+  const getHistoricalAppGenerationBlockedReason = useCallback(
+    (mode: string | null | undefined): string | null =>
+      getHistoricalAppGenerationEditReplayBlockedReason({
+        mode,
+        replaySupported:
+          appGenerationSlashCommands.length > 0 ||
+          historicalAppGenerationRegistryPending,
+        modeRegistryResolved: !historicalAppGenerationRegistryPending,
+        supportedAppGenerationModes,
+      }),
+    [
+      appGenerationSlashCommands.length,
+      historicalAppGenerationRegistryPending,
+      supportedAppGenerationModes,
+    ],
+  );
+  const notifyHistoricalAppGenerationBlocked = useCallback(
+    (mode: string | null | undefined): boolean => {
+      const blockedReason = getHistoricalAppGenerationBlockedReason(mode);
+      if (!blockedReason) {
+        return false;
       }
-      const isFirstDraftSubmit = chatId === undefined || chatId === null;
+      addTemporaryNotification(blockedReason, NotificationTypeEnum.warning);
+      return true;
+    },
+    [getHistoricalAppGenerationBlockedReason],
+  );
+
+  const submitProjectChatMessage = useCallback(
+    async ({
+      attachments,
+      isFirstDraftSubmit,
+      message,
+      resolvedAppGeneration,
+    }: {
+      attachments: ChatFileAttachment[];
+      isFirstDraftSubmit: boolean;
+      message: string;
+      resolvedAppGeneration: ReturnType<
+        typeof resolveProjectChatSubmitAppGeneration
+      >;
+    }) => {
       if (isFirstDraftSubmit) {
         handleNewChatStart();
       }
 
       let submittedChatId: string | null = null;
       let succeeded = false;
-      const resolvedAppGeneration = resolveProjectChatSubmitAppGeneration({
-        activeAppGeneration,
-        options,
-      });
       try {
         submittedChatId = await submitMessage(
           chatId ?? null,
@@ -1071,36 +1096,65 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [
       chatId,
       engineConfigId,
-      handleNewChatSettled,
-      handleNewChatStart,
-      isExternalEngine,
-      externalEngineAvailable,
-      hasLLMConfig,
-      newThreadSeedChatId,
-      requiresNewThreadContinuation,
-      activeAppGeneration,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
       effectiveThinking,
+      handleNewChatSettled,
+      handleNewChatStart,
+      isExternalEngine,
+      newThreadSeedChatId,
+      surfaceId,
+    ],
+  );
+
+  const handleSubmit = useCallback(
+    async (
+      message: string,
+      attachments: ChatFileAttachment[],
+      options?: ChatSubmitOptions,
+    ) => {
+      const preflightResult = resolveProjectChatSubmitPreflightResult({
+        message,
+        attachments,
+        requiresNewThreadContinuation,
+        engineConfigId,
+        isExternalEngine,
+        hasLLMConfig,
+        externalEngineAvailable,
+      });
+      if (preflightResult) {
+        return preflightResult;
+      }
+      const isFirstDraftSubmit = chatId === undefined || chatId === null;
+      const resolvedAppGeneration = resolveProjectChatSubmitAppGeneration({
+        activeAppGeneration,
+        options,
+      });
+      if (notifyHistoricalAppGenerationBlocked(resolvedAppGeneration?.mode)) {
+        return "retry_later";
+      }
+      return submitProjectChatMessage({
+        attachments,
+        isFirstDraftSubmit,
+        message,
+        resolvedAppGeneration,
+      });
+    },
+    [
+      chatId,
+      engineConfigId,
+      externalEngineAvailable,
+      hasLLMConfig,
+      notifyHistoricalAppGenerationBlocked,
+      requiresNewThreadContinuation,
+      activeAppGeneration,
+      submitProjectChatMessage,
     ],
   );
 
   const handleStop = useCallback(async () => {
     await stopProjectChatResponse(chatId, isExternalEngine, surfaceId);
   }, [chatId, isExternalEngine, surfaceId]);
-
-  const historicalAppGenerationReplaySupported =
-    appGenerationSlashCommands.length > 0 ||
-    appSubsystemFrontendStatus === "idle" ||
-    appSubsystemFrontendStatus === "loading";
-  const getHistoricalAppGenerationBlockedReason = useCallback(
-    (messageId: string): string | null =>
-      getHistoricalAppGenerationEditReplayBlockedReason({
-        messageState: appGenerationByMessageId[messageId],
-        replaySupported: historicalAppGenerationReplaySupported,
-      }),
-    [appGenerationByMessageId, historicalAppGenerationReplaySupported],
-  );
 
   const handleEditMessage = useCallback(
     async (
@@ -1119,9 +1173,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (isExternalEngine && !externalEngineAvailable) {
         return false;
       }
-      const blockedReason = getHistoricalAppGenerationBlockedReason(messageId);
-      if (blockedReason) {
-        addTemporaryNotification(blockedReason, NotificationTypeEnum.warning);
+      if (
+        notifyHistoricalAppGenerationBlocked(
+          appGenerationByMessageId[messageId]?.mode,
+        )
+      ) {
         return false;
       }
       const nextChatId = await submitEditedMessage({
@@ -1153,10 +1209,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       chatId,
       engineConfigId,
       externalEngineAvailable,
-      getHistoricalAppGenerationBlockedReason,
       isExternalEngine,
       appGenerationByMessageId,
       messages,
+      notifyHistoricalAppGenerationBlocked,
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
@@ -1198,11 +1254,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (!sourceUserMessage) {
         return false;
       }
-      const blockedReason = getHistoricalAppGenerationBlockedReason(
-        sourceUserMessage.id,
-      );
-      if (blockedReason) {
-        addTemporaryNotification(blockedReason, NotificationTypeEnum.warning);
+      if (
+        notifyHistoricalAppGenerationBlocked(
+          appGenerationByMessageId[sourceUserMessage.id]?.mode,
+        )
+      ) {
         return false;
       }
       const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
@@ -1238,11 +1294,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
       externalEngineAvailable,
-      getHistoricalAppGenerationBlockedReason,
       hasLLMConfig,
       isExternalEngine,
       appGenerationByMessageId,
       messages,
+      notifyHistoricalAppGenerationBlocked,
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,

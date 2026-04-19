@@ -8,10 +8,16 @@
 - Still unverified: No browser verification needed for this backend-only invariant; no live plugin-backed replay was run outside package tests.
 
 ### App-Subsystem Live Capability Dispatch
-- Invariant: compiled-in app-subsystem providers must register on production boot, CLI, and generator paths through discovered provider imports; app-generation mode resolution, app HTTP routes, MCP tools, app publish wiring, and queued frontend app-subsystem operations must follow the current active registered provider without restart; unregistered provider ids and `pending_restart` entries must fail closed, and non-chat providers must not publish app-subsystem MCP tools.
-- Last finding commit: 4da45919cd990e996cb5beab49219067844937b2
-- Proof tests: `TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities`, `TestEmitAppStartupOutputRequiresAppSubsystemProvider`, `TestRunAppRequiresEnabledAppSubsystemPlugin`, `TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools`, `TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider`, `TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes`, `TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders`
-- Still unverified: No Playwright or CDP run covered provider switching, app authoring, or published deployment startup after these fixes; browser verification was not rerun in this iteration because no frontend code changed.
+- Invariant: compiled-in app-subsystem providers must register on production boot, CLI, and generator paths through discovered provider imports; app-generation mode resolution, app HTTP routes, MCP tools, app publish wiring, and queued frontend app-subsystem operations must follow the current active registered provider without restart; any active unregistered advertiser, `pending_restart` entry, or provider conflict must fail closed, same-provider frontend refreshes must re-enter `loading` and buffer updates until the replacement registration loads, and non-chat providers must not publish app-subsystem MCP tools.
+- Last finding commit: 2f6ab41b98183d8d6eb917916deb2afeb6d8a30d
+- Proof tests: `TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities`, `TestEmitAppStartupOutputRequiresAppSubsystemProvider`, `TestRunAppRequiresEnabledAppSubsystemPlugin`, `TestAppSubsystemPluginEnableWithoutRestartRefreshesRoutesAndTools`, `TestNewPluginBackendMCPRuntimeSkipsUnregisteredProvider`, `TestNewPluginBackendMCPRuntimeSkipsMixedRegisteredAndUnregisteredProviders`, `TestNewPluginBackendMCPRuntimeSkipsAppSubsystemToolsWithoutChatModes`, `TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatMixedRegisteredAndUnregisteredActiveProvidersAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders`, `TestNewDeploymentTypeRegistryRejectsMixedRegisteredAndUnregisteredActiveProviders`, `buffers app-subsystem updates during same-provider frontend reloads keyed by refresh signature`, `exposes supported app-generation modes through a capability-gated hook`
+- Still unverified: No Playwright or CDP run covered provider switching, app authoring, or published deployment startup after these fixes. Same-provider frontend reload buffering remains proven through owner tests only; the full project-shell route was still blocked by the unrelated local `loadProjectConfig` / file-browser proxy issue.
+
+### Frontend App-Generation Replay Validation
+- Invariant: historical app-generation continue/edit/redo and queued `current_registry` slash-command replay must revalidate against the live provider slash-command and app-generation-mode registry before submit; missing commands, missing modes, or tightened image requirements must block locally instead of replaying stale mode or command state.
+- Last finding commit: 2f6ab41b98183d8d6eb917916deb2afeb6d8a30d
+- Proof tests: `blocks continue, edit, and redo when the historical mode is missing from the current provider registry`, `replays queued custom slash commands against the refreshed registry definition`, `replays queued custom slash commands with refreshed image requirements`, `project-ai-chat-queued-current-registry-replay.spec.ts`
+- Still unverified: Historical replay was covered by integration tests plus a browser harness run of `ChatInput`, but not by the full project-shell route because the unrelated local `loadProjectConfig` / file-browser proxy issue still blocked that shell.
 
 ### App Deployment Packaging Self-Containment
 - Invariant: published app deployments must package the selected app-subsystem provider plus deployment-normalized enabled/config state so app mode can boot from the deployment without manual provider seeding or missing provider config.
@@ -112,3 +118,22 @@ Residual risks / verification gaps:
 - No successful Playwright or CDP run covered provider switching, app authoring, or published deployment startup after these fixes.
 - Discovery and generation coverage still exercised only against in-repo providers.
 - A broader `./scripts/go.sh test ./internal/projectstate` run still hit unrelated pre-existing failures outside the touched invariant scope.
+
+## 2026-04-21 05:33:20 PDT
+Fixes applied:
+- Made app-subsystem capability selection fail closed when a registered provider is active alongside any unregistered active advertiser.
+- Revalidated historical app-generation replay and queued `current_registry` slash-command replay against the live provider registry before submit, including refreshed image requirements.
+- Keyed same-provider app-subsystem frontend reloads by refresh signature so the subsystem re-enters `loading` and buffers backend updates until the replacement registration finishes loading.
+Tests added or upgraded:
+- Added `TestServiceRuntimeAppSubsystemCapabilitiesTreatMixedRegisteredAndUnregisteredActiveProvidersAsInvalid`, `TestNewPluginBackendMCPRuntimeSkipsMixedRegisteredAndUnregisteredProviders`, and `TestNewDeploymentTypeRegistryRejectsMixedRegisteredAndUnregisteredActiveProviders`.
+- Added `blocks continue, edit, and redo when the historical mode is missing from the current provider registry`, `replays queued custom slash commands against the refreshed registry definition`, `replays queued custom slash commands with refreshed image requirements`, `buffers app-subsystem updates during same-provider frontend reloads keyed by refresh signature`, and `project-ai-chat-queued-current-registry-replay.spec.ts`.
+Verification run:
+- `./scripts/go.sh test ./internal/plugins ./internal/app -run 'Test(ServiceRuntimeAppSubsystemCapabilitiesTreatMixedRegisteredAndUnregisteredActiveProvidersAsInvalid|NewPluginBackendMCPRuntimeSkipsMixedRegisteredAndUnregisteredProviders|NewDeploymentTypeRegistryRejectsMixedRegisteredAndUnregisteredActiveProviders)'`
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.appGenerationCompatibility.integration.test.tsx src/components/Chat/ChatInput.submit.test.tsx src/plugins/appSubsystem.test.tsx src/plugins/runtime.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-chat-queued-current-registry-replay.spec.ts`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- Browser verification: successful Playwright replay run plus CDP harness verification in the prior `./aireset.sh` session; `./kill.sh` then confirmed that session was stopped.
+Residual risks / verification gaps:
+- The full project-shell route still hit an unrelated local `loadProjectConfig` / file-browser proxy issue, so browser verification covered the `ChatInput` owner surface rather than the full project page.
+- No end-to-end browser run in this iteration covered provider switching, app authoring, or published deployment startup.

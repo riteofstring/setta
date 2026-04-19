@@ -226,6 +226,11 @@ export async function receivePluginRuntimeUpdate(
 ): Promise<void> {
   beginAppSubsystemFrontendRegistrationLoad(
     runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+    buildSelectedAppSubsystemFrontendRefreshSignature(
+      runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+      runtimeResponse.list.plugins,
+      runtimeResponse.status.plugins,
+    ),
   );
   queuedPluginRuntimeResponse = runtimeResponse;
   if (pluginRuntimeLoadPromise) {
@@ -324,7 +329,16 @@ async function applyPluginRuntimeResponse(
     runPluginCleanup(pluginId);
   }
 
-  beginAppSubsystemFrontendRegistrationLoad(appSubsystemCapabilities);
+  const selectedAppSubsystemFrontendRefreshSignature =
+    buildSelectedAppSubsystemFrontendRefreshSignature(
+      appSubsystemCapabilities,
+      listData.plugins,
+      statusData.plugins,
+    );
+  beginAppSubsystemFrontendRegistrationLoad(
+    appSubsystemCapabilities,
+    selectedAppSubsystemFrontendRefreshSignature,
+  );
 
   await runWithConcurrencyLimit(
     frontendLoadCandidates,
@@ -413,6 +427,7 @@ async function applyPluginRuntimeResponse(
   await syncAppSubsystemFrontendRegistration(
     appSubsystemCapabilities,
     appSubsystemRegistrationsByPluginId,
+    selectedAppSubsystemFrontendRefreshSignature,
   );
 }
 
@@ -473,6 +488,28 @@ function buildPluginFrontendRefreshSignature(
     statusEntry,
   );
   return `${plugin.pluginId}\u0000${sourceDigest}\u0000${entrypointUrl}\u0000${styleUrl}\u0000${effectiveCapabilityDigest}`;
+}
+
+function buildSelectedAppSubsystemFrontendRefreshSignature(
+  appSubsystemCapabilities:
+    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
+    | null,
+  plugins: PluginListEntry[],
+  statuses: PluginStatusEntry[],
+): string | null {
+  if (!appSubsystemCapabilities?.pluginEnabled) {
+    return null;
+  }
+  const pluginId = appSubsystemCapabilities.pluginId?.trim() ?? "";
+  if (!pluginId) {
+    return null;
+  }
+  const plugin = plugins.find((entry) => entry.pluginId === pluginId);
+  if (!plugin) {
+    return null;
+  }
+  const statusEntry = statuses.find((entry) => entry.pluginId === pluginId);
+  return buildPluginFrontendRefreshSignature(plugin, statusEntry);
 }
 
 function getFrontendEffectiveCapabilityDigest(
