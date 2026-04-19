@@ -37,7 +37,6 @@ import {
   AgentRun,
   AllConfigs,
   AllProjectMetadata,
-  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   ChatDictationModeEnum,
@@ -184,19 +183,7 @@ export const useProjectState = withProjectState(
   ),
 );
 
-type AppDefinitionState = {
-  appDefinition: AppDefinition | null;
-  appSpec: unknown | null;
-};
-
-export const useAppDefinition = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppDefinitionState>(() => ({
-      appDefinition: null,
-      appSpec: null,
-    })),
-  ),
-);
+export { useAppDefinition } from "plugins/appSubsystemDefinitionState";
 
 type ShareSessionState = {
   isDeploymentMode: boolean;
