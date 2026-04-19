@@ -19,6 +19,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
@@ -32,7 +33,7 @@ func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -101,7 +102,7 @@ func TestRegisterDeploymentRoutesReusesExistingShareSessionFromHeader(t *testing
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -149,7 +150,7 @@ func TestRegisterDeploymentRoutesReplacesUnknownShareSessionID(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -179,178 +180,6 @@ func TestRegisterDeploymentRoutesReplacesUnknownShareSessionID(t *testing.T) {
 	if payload.ShareSessionID == "missing-session" {
 		t.Fatal("did not expect unknown incoming session id to be reused")
 	}
-}
-
-func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:           config.ModeApp,
-		Now:            &now,
-		GeneratedID:    "generated-app",
-		DeploymentName: "demo-app",
-	})
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "app", info: RuntimeInfo{Mode: "app"}},
-		ModePolicy: modes.NewPolicy(config.ModeApp),
-		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeApp),
-				Deployment: deploymentRuntime,
-			}); err != nil {
-				t.Fatalf("register deployment routes: %v", err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	var payload AppDeploymentSessionResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app session response: %v", err)
-	}
-	if payload.ShareSessionID != "generated-app" {
-		t.Fatalf("expected generated app session id, got %q", payload.ShareSessionID)
-	}
-	if payload.DeploymentName != "demo-app" || payload.DeploymentVersion != "v1" {
-		t.Fatalf("unexpected app deployment identity %#v", payload)
-	}
-	if payload.DefaultProjectConfigID != "project-alpha" {
-		t.Fatalf("expected default app project id project-alpha, got %q", payload.DefaultProjectConfigID)
-	}
-	if len(payload.ProjectMetadata) != 2 {
-		t.Fatalf("expected two app project metadata entries, got %#v", payload.ProjectMetadata)
-	}
-	if payload.ProjectMetadata[0].ID != "project-alpha" || payload.ProjectMetadata[1].ID != "project-beta" {
-		t.Fatalf("unexpected app project metadata order %#v", payload.ProjectMetadata)
-	}
-	if !payload.AppPolicy.AllowRun {
-		t.Fatal("expected app policy to allow runs")
-	}
-	if payload.Manifest == nil {
-		t.Fatal("expected app bootstrap manifest")
-	}
-	if payload.Manifest.DeploymentType != deployments.TypeApp {
-		t.Fatalf("expected app bootstrap manifest type %q, got %#v", deployments.TypeApp, payload.Manifest)
-	}
-}
-
-func TestRegisterDeploymentRoutesReusesExistingAppSessionFromHeader(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:           config.ModeApp,
-		Now:            &now,
-		GeneratedID:    "generated-app",
-		DeploymentName: "demo-app",
-	})
-
-	session, err := deploymentRuntime.CreateSessionWithID("app-a")
-	if err != nil {
-		t.Fatalf("create initial app session: %v", err)
-	}
-	now = now.Add(2 * time.Minute)
-
-	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
-	request.Header.Set(modes.ShareSessionHeaderName, "app-a")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	var payload AppDeploymentSessionResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app session response: %v", err)
-	}
-	if payload.ShareSessionID != "app-a" {
-		t.Fatalf("expected reused session id app-a, got %q", payload.ShareSessionID)
-	}
-
-	touched, ok := deploymentRuntime.Session("app-a")
-	if !ok {
-		t.Fatal("expected app session to remain in deployment runtime")
-	}
-	if !touched.LastSeenAt.After(session.LastSeenAt) {
-		t.Fatalf("expected reused session last-seen after %v, got %v", session.LastSeenAt, touched.LastSeenAt)
-	}
-}
-
-func TestRegisterDeploymentRoutesReplacesUnknownAppSessionID(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:           config.ModeApp,
-		Now:            &now,
-		GeneratedID:    "generated-app",
-		DeploymentName: "demo-app",
-	})
-
-	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
-	request.Header.Set(modes.ShareSessionHeaderName, "missing-session")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	var payload AppDeploymentSessionResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app session response: %v", err)
-	}
-	if payload.ShareSessionID != "generated-app" {
-		t.Fatalf("expected unknown session to be replaced with generated-app, got %q", payload.ShareSessionID)
-	}
-	if payload.ShareSessionID == "missing-session" {
-		t.Fatal("did not expect unknown incoming session id to be reused")
-	}
-}
-
-func TestRegisterDeploymentRoutesCurrentSessionStartsDefaultDeploymentListener(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:        config.ModeApp,
-		Now:         &now,
-		GeneratedID: "generated-app",
-		ListenerEntrypoint: `def build_listener(listener):
-    return None
-`,
-	})
-	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppDeploymentCurrentSession, nil)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	var payload AppDeploymentSessionResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app current-session response: %v", err)
-	}
-
-	waitForHTTPDeploymentListenerHandleCount(t, deploymentRuntime, 1)
-	assertHTTPDeploymentListenerHandle(t, deploymentRuntime, payload.ShareSessionID, "project-alpha")
 }
 
 func TestRegisterDeploymentRoutesLoadsShareDeploymentStateFromOverlaySession(t *testing.T) {
@@ -549,14 +378,6 @@ func TestRegisterDeploymentRoutesRejectUnknownFieldsOnProjectConfigLoad(t *testi
 			deploymentName: "demo-share",
 			body:           `{"projectConfigId":"project-alpha","unexpected":true}`,
 		},
-		{
-			name:           "app project config",
-			mode:           config.ModeApp,
-			sessionID:      "app-a",
-			path:           "/api/app/deployments/demo-app/v1/project_config",
-			deploymentName: "demo-app",
-			body:           `{"projectConfigId":"project-alpha","unexpected":true}`,
-		},
 	}
 
 	for _, testCase := range tests {
@@ -597,149 +418,6 @@ func TestRegisterDeploymentRoutesRejectUnknownFieldsOnProjectConfigLoad(t *testi
 	}
 }
 
-func TestRegisterDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:           config.ModeApp,
-		Now:            &now,
-		GeneratedID:    "generated-app",
-		DeploymentName: "demo-app",
-		Document: projectstate.Document{
-			SchemaVersion:    projectstate.CurrentSchemaVersion,
-			DefaultProjectID: "project-alpha",
-			AppDefinition: &projectstate.AppDefinition{
-				CatalogID:   "catalog-demo",
-				AppSpecPath: "app_specs/spec.json",
-				Routes: []projectstate.AppRoute{
-					{Path: "/", Name: "Home"},
-				},
-			},
-			Projects: map[string]projectstate.Project{
-				"project-alpha": {
-					ID:   "project-alpha",
-					Name: "Alpha",
-				},
-				"project-beta": {
-					ID:   "project-beta",
-					Name: "Beta",
-				},
-			},
-		},
-		ExtraFiles: map[string]any{
-			filepath.Join("app_specs", "spec.json"): map[string]any{
-				"title": "Demo App",
-				"pages": []any{
-					map[string]any{"path": "/"},
-				},
-			},
-		},
-	})
-	if _, err := deploymentRuntime.CreateSessionWithID("app-a"); err != nil {
-		t.Fatalf("create app session: %v", err)
-	}
-
-	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
-
-	request := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/v1/state", nil)
-	request.Header.Set(modes.ShareSessionHeaderName, "app-a")
-	request = setDeploymentRouteParams(request, "demo-app", "v1")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	var payload AppDeploymentStateResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app state response: %v", err)
-	}
-	if payload.ProjectState.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected default app project id project-alpha, got %q", payload.ProjectState.ProjectConfig.ID)
-	}
-	if payload.AppDefinition == nil || payload.AppDefinition.CatalogID != "catalog-demo" {
-		t.Fatalf("expected app definition with catalog-demo, got %#v", payload.AppDefinition)
-	}
-	specObject, ok := payload.AppSpec.(map[string]any)
-	if !ok {
-		t.Fatalf("expected app spec object, got %#v", payload.AppSpec)
-	}
-	if specObject["title"] != "Demo App" {
-		t.Fatalf("expected app spec title Demo App, got %#v", payload.AppSpec)
-	}
-	if !payload.AppPolicy.AllowRun {
-		t.Fatal("expected app policy to allow runs")
-	}
-}
-
-func TestRegisterDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
-	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-		Mode:           config.ModeApp,
-		Now:            &now,
-		GeneratedID:    "generated-app",
-		DeploymentName: "demo-app",
-		Document: projectstate.Document{
-			SchemaVersion:    projectstate.CurrentSchemaVersion,
-			DefaultProjectID: "project-alpha",
-			AppDefinition: &projectstate.AppDefinition{
-				AppSpecPath: "app_specs/spec.json",
-				Routes: []projectstate.AppRoute{
-					{Path: "/"},
-				},
-			},
-			Projects: map[string]projectstate.Project{
-				"project-alpha": {
-					ID:   "project-alpha",
-					Name: "Alpha",
-				},
-				"project-beta": {
-					ID:   "project-beta",
-					Name: "Beta",
-				},
-			},
-		},
-		ExtraFiles: map[string]any{
-			filepath.Join("app_specs", "spec.json"): map[string]any{
-				"title": "Demo App",
-			},
-		},
-	})
-	if _, err := deploymentRuntime.CreateSessionWithID("app-a"); err != nil {
-		t.Fatalf("create app session: %v", err)
-	}
-
-	handler := newDeploymentRouteTestHandler(t, config.ModeApp, deploymentRuntime)
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/app/deployments/demo-app/v1/project_config",
-		strings.NewReader(`{"projectConfigId":"project-beta"}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(modes.ShareSessionHeaderName, "app-a")
-	request = setDeploymentRouteParams(request, "demo-app", "v1")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	var payload AppDeploymentStateResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app project config response: %v", err)
-	}
-	if payload.ProjectState.ProjectConfig.ID != "project-beta" {
-		t.Fatalf("expected project-beta config, got %q", payload.ProjectState.ProjectConfig.ID)
-	}
-	if payload.AppDefinition == nil {
-		t.Fatal("expected app definition on app project config response")
-	}
-}
-
 type httpTestDeploymentRuntimeOptions struct {
 	Mode               config.Mode
 	Now                *time.Time
@@ -760,10 +438,18 @@ func newDeploymentRouteTestHandler(t *testing.T, mode config.Mode, deploymentRun
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			deps := DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
 				Deployment: deploymentRuntime,
-			}); err != nil {
+			}
+			var err error
+			switch mode {
+			case config.ModeShare:
+				err = RegisterShareDeploymentRoutes(r, deps)
+			default:
+				err = RegisterDeploymentRoutes(r, deps)
+			}
+			if err != nil {
 				t.Fatalf("register deployment routes: %v", err)
 			}
 		},
@@ -877,6 +563,9 @@ func newHTTPTestDeploymentRuntimeWithOptions(t *testing.T, opts httpTestDeployme
 	if err != nil {
 		t.Fatalf("open deployment runtime: %v", err)
 	}
+	if opts.Mode == config.ModeApp {
+		deploymentRuntime.SetAppDeploymentRuntimeContent(httpTestAppDeploymentRuntimeContent{})
+	}
 	t.Cleanup(func() {
 		if err := deploymentRuntime.Close(); err != nil {
 			t.Fatalf("close deployment runtime: %v", err)
@@ -927,6 +616,18 @@ func writeHTTPDeploymentFile(t *testing.T, path string, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write deployment file: %v", err)
 	}
+}
+
+type httpTestAppDeploymentRuntimeContent struct{}
+
+func (httpTestAppDeploymentRuntimeContent) LoadPublishedAppSpec(
+	deploymentRoot string,
+	appDefinition *projectstate.AppDefinition,
+) (any, error) {
+	if appDefinition == nil {
+		return nil, nil
+	}
+	return appspec.Read(deploymentRoot, appDefinition.AppSpecPath)
 }
 
 func waitForHTTPDeploymentListenerHandleCount(t *testing.T, runtime *deployments.Runtime, expected int) {

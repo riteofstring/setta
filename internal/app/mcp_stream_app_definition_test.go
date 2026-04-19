@@ -12,11 +12,11 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
@@ -35,7 +35,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -48,9 +48,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testi
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -111,7 +109,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -124,9 +122,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -184,7 +180,7 @@ func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, app.ProjectStates().Main(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -197,9 +193,7 @@ func TestAppIDEMCPToolCallRouteSupportsStreamAppDefinition(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
