@@ -1,6 +1,20 @@
 import { Completion, CompletionSource } from "@codemirror/autocomplete";
 import { useReactFlow } from "forks/xyflow/core/store";
 
+function resolveInitialSelectionAnchor(view, initialEvent) {
+  if (initialEvent === "tab") {
+    return null;
+  }
+
+  const { clientX, clientY } = initialEvent ?? {};
+  if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+    return null;
+  }
+
+  const pos = view.posAtCoords({ x: clientX, y: clientY });
+  return typeof pos === "number" ? pos : null;
+}
+
 function fixPlaceholderCursor(divId, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
   // This is a hacky solution to that problem.
@@ -25,10 +39,9 @@ export function getOnCreateEditor({
     } else {
       view.focus();
     }
-    if (initialEvent !== "tab") {
-      const { clientX, clientY } = initialEvent;
-      const pos = view.posAtCoords({ x: clientX, y: clientY });
-      view.dispatch({ selection: { anchor: pos, head: pos } });
+    const pointerAnchor = resolveInitialSelectionAnchor(view, initialEvent);
+    if (pointerAnchor !== null) {
+      view.dispatch({ selection: { anchor: pointerAnchor, head: pointerAnchor } });
     }
 
     fixPlaceholderCursor(divId, value, defaultVal);
@@ -59,7 +72,7 @@ export function wrappedCompletionsFn(
     //   },
     //   { onDocChange: true },
     // );
-    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+    const before = context.matchBefore(/([^.=\\(+-/ ]*)$/);
     const res = await completionFn(fullText, context.pos);
     if (res) {
       return {
