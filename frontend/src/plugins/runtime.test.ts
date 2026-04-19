@@ -1,6 +1,7 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
+import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystemRuntime";
 import {
   invokePluginSettingRevealHandler,
   receivePluginRuntimeUpdate,
@@ -64,11 +65,13 @@ import { type StateCreator, type StoreApi } from "zustand/vanilla";
 
 function resetPluginRuntimeStateForTests(): void {
   clearPluginRuntimeSideEffects();
+  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState({
     status: "idle",
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -1164,6 +1167,26 @@ describe("plugin runtime helpers", () => {
             },
           ],
         }),
+        {
+          featureCapabilities: {
+            appSubsystem: {
+              providerSelection: {
+                status: "active",
+                selectedPluginId: "setta-json-render-app-gen",
+                activePluginIds: ["setta-json-render-app-gen"],
+                disabledPluginIds: [],
+                invalidPluginIds: [],
+                conflictingPluginIds: [],
+              },
+              pluginId: "setta-json-render-app-gen",
+              pluginEnabled: true,
+              appAuthoringUi: true,
+              appPreviewUi: true,
+              appGenerationChatModes: false,
+              appDeploymentRuntime: false,
+            },
+          },
+        },
       ),
     );
 
@@ -1178,6 +1201,22 @@ describe("plugin runtime helpers", () => {
     expect(
       state.languageServerSelectionsByLanguage.python?.appliedPluginId,
     ).toBe("setta-basedpyright");
+    expect(state.appSubsystemCapabilities).toMatchObject({
+      pluginId: "setta-json-render-app-gen",
+      pluginEnabled: true,
+      appAuthoringUi: true,
+      appPreviewUi: true,
+      appGenerationChatModes: false,
+      appDeploymentRuntime: false,
+      providerSelection: {
+        status: "active",
+        selectedPluginId: "setta-json-render-app-gen",
+        activePluginIds: ["setta-json-render-app-gen"],
+        disabledPluginIds: [],
+        invalidPluginIds: [],
+        conflictingPluginIds: [],
+      },
+    });
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {

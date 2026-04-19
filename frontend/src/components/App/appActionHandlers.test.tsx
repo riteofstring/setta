@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
 import {
-  useAppConfigs,
   useLocalStorage,
   useProjectState,
   useSettings,
@@ -17,11 +16,12 @@ import {
   createSectionCapabilities,
   createSettingsState,
 } from "utils/generatedTypes";
+import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import {
   useAppActionHandlers,
   type AppActionHandler,
-} from "./appActionHandlers";
+} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appActionHandlers";
 
 const addTemporaryNotificationMock = vi.hoisted(() => vi.fn());
 const setIsRunning: Dispatch<SetStateAction<boolean>> = () => {};

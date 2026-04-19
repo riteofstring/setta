@@ -8,8 +8,12 @@ import {
   type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  processAppProjectStateUpdateFromBackend,
+  resetAppSessionState,
+} from "plugins/appSubsystemRuntime";
 import { receivePluginRuntimeUpdate } from "plugins/runtime";
-import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
   buildFrontendAffinityCurrentAddress,
@@ -82,10 +86,6 @@ import {
   receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
-import {
-  initializeAppSessionFromCurrentDeployment,
-  resetAppSessionState,
-} from "./app";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,

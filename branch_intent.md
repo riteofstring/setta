@@ -1,1 +1,0 @@
-Replace the visible xyflow graph surface with a Pixi-owned scene that preserves the existing section layout, delivers premium pan/zoom, and keeps DOM only for active editors, menus, chat, and other explicit exceptions.

@@ -12,6 +12,10 @@ import {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
+import {
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "./appSubsystemRuntime";
 import { type PluginPaneIconName } from "./paneIcons";
 import type {
   PluginFrontendError,
@@ -73,6 +77,9 @@ type PluginRuntimeStore = {
   statusMessage: string | null;
   schemaVersion: number | null;
   serverMode: PluginServerMode | null;
+  appSubsystemCapabilities:
+    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
+    | null;
   restartCapability: PluginRestartCapability | null;
   pluginListById: Record<string, PluginListEntry>;
   sortedPluginListEntries: PluginListEntry[];
@@ -99,6 +106,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusMessage: null,
   schemaVersion: null,
   serverMode: null,
+  appSubsystemCapabilities: null,
   restartCapability: null,
   pluginListById: {},
   sortedPluginListEntries: [],
@@ -365,6 +373,8 @@ async function applyPluginRuntimeResponse(
     statusMessage: null,
     schemaVersion: listData.schemaVersion,
     serverMode: listData.serverMode,
+    appSubsystemCapabilities:
+      runtimeResponse.featureCapabilities?.appSubsystem ?? null,
     restartCapability: listData.restartCapability,
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
@@ -382,10 +392,15 @@ async function applyPluginRuntimeResponse(
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
     frontendErrorsByPluginId,
   }));
+
+  await syncAppSubsystemFrontendRegistration(
+    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+  );
 }
 
 function setPluginRuntimeLoadError(message: string): void {
   clearPluginRuntimeSideEffects();
+  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState((state) =>
     buildClearedRuntimeState(state, {
       status: "error",
@@ -407,6 +422,7 @@ function buildClearedRuntimeState(
     statusMessage: options.statusMessage,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
