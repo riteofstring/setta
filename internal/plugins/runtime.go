@@ -250,7 +250,7 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 		if feature == nil {
 			continue
 		}
-		if !appSubsystemProviderRegistered(entry.PluginID) {
+		if !appSubsystemBackendRegistered(entry) {
 			resolution.selection.InvalidPluginIDs = append(
 				resolution.selection.InvalidPluginIDs,
 				entry.PluginID,
@@ -302,6 +302,10 @@ func runtimeAppSubsystemFeatureManifest(
 		return nil
 	}
 	return entry.Manifest.FeatureCapabilities.AppSubsystem
+}
+
+func appSubsystemBackendRegistered(entry DiscoveredPlugin) bool {
+	return entry.appSubsystemBackend != nil
 }
 
 func mergeRuntimeAppSubsystemCapabilities(
