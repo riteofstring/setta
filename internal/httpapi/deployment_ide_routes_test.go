@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,11 +14,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
-	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 type deploymentIDERouteFixture struct {
@@ -27,8 +26,8 @@ type deploymentIDERouteFixture struct {
 	WorkspaceRoot    string
 	ProjectRuntime   *projectstate.Runtime
 	Catalog          *deployments.Catalog
-	SharePublisher   deployments.SharePublishService
-	AppPublisher     deployments.AppPublishService
+	SharePublisher   *deployments.SharePublisher
+	AppPublisher     *deployments.AppPublisher
 	setPublishedAtFn func(time.Time)
 }
 
@@ -869,21 +868,14 @@ func newDeploymentIDERouteTestHandler(t *testing.T, mode config.Mode, fixture de
 		},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterShareDeploymentIDERoutes(r, ShareDeploymentIDERouteDependencies{
+			if err := RegisterDeploymentIDERoutes(r, DeploymentIDERouteDependencies{
 				ModePolicy:     modes.NewPolicy(mode),
 				ProjectState:   fixture.ProjectRuntime,
 				Catalog:        fixture.Catalog,
 				SharePublisher: fixture.SharePublisher,
+				AppPublisher:   fixture.AppPublisher,
 			}); err != nil {
-				t.Fatalf("register share deployment ide routes: %v", err)
-			}
-			if err := RegisterAppDeploymentIDERoutes(r, AppDeploymentIDERouteDependencies{
-				ModePolicy:   modes.NewPolicy(mode),
-				ProjectState: fixture.ProjectRuntime,
-				Catalog:      fixture.Catalog,
-				AppPublisher: fixture.AppPublisher,
-			}); err != nil {
-				t.Fatalf("register app deployment ide routes: %v", err)
+				t.Fatalf("register deployment ide routes: %v", err)
 			}
 		},
 	})
@@ -937,7 +929,6 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 		Catalog:        catalog,
 		SettaFilesRoot: settaFilesRoot,
 		WorkspaceRoot:  workspaceRoot,
-		ContentService: deploymentIDETestAppPublishContent{runtime: projectRuntime},
 		Now: func() time.Time {
 			return publishedAt
 		},
@@ -957,187 +948,6 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 			publishedAt = next
 		},
 	}
-}
-
-type deploymentIDETestAppPublishContent struct {
-	runtime *projectstate.Runtime
-}
-
-func (s deploymentIDETestAppPublishContent) PreparePublishedAppDefinition(
-	ctx context.Context,
-	projectRoot string,
-	appDefinition *projectstate.AppDefinition,
-) (*projectstate.AppDefinition, any, string, error) {
-	if appDefinition == nil {
-		return nil, nil, "", deployments.ErrAppPublishAppDefinitionMissing
-	}
-
-	current := appDefinition.Clone()
-	if strings.TrimSpace(current.AppSpecPath) == "" {
-		return nil, nil, "", deployments.ErrAppPublishAppSpecPathRequired
-	}
-
-	targetAppSpecPath, err := appspec.NormalizePath(projectRoot, current.AppSpecPath)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("%w: %v", deployments.ErrAppPublishAppSpecInvalid, err)
-	}
-	appSpec, err := appspec.Read(projectRoot, current.AppSpecPath)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("%w: %v", deployments.ErrAppPublishAppSpecInvalid, err)
-	}
-	if appSpec == nil {
-		return nil, nil, "", deployments.ErrAppPublishAppSpecNotFound
-	}
-
-	validationResult, err := s.validateAppDefinition(ctx, appSpec)
-	if err != nil {
-		return nil, nil, "", err
-	}
-	if len(validationResult.Errors) != 0 {
-		return nil, nil, "", &deployments.AppPublishValidationError{
-			Issues: append([]projectstate.AppDefinitionValidationIssue(nil), validationResult.Errors...),
-		}
-	}
-
-	current.AppSpecPath = targetAppSpecPath
-	return &current, appSpec, targetAppSpecPath, nil
-}
-
-func (deploymentIDETestAppPublishContent) WritePublishedAppSpec(
-	deploymentRoot string,
-	targetAppSpecPath string,
-	appSpec any,
-) error {
-	return appspec.Write(deploymentRoot, targetAppSpecPath, appSpec)
-}
-
-func (s deploymentIDETestAppPublishContent) validateAppDefinition(
-	_ context.Context,
-	appSpec any,
-) (projectstate.AppDefinitionValidationResult, error) {
-	current := projectstate.AppDefinition{}
-	if s.runtime != nil && s.runtime.Snapshot().Document.AppDefinition != nil {
-		current = s.runtime.Snapshot().Document.AppDefinition.Clone()
-	}
-	if strings.TrimSpace(current.AppSpecVersion) == "" {
-		current.AppSpecVersion = "v1"
-	}
-	if strings.TrimSpace(current.CatalogID) == "" {
-		current.CatalogID = appspec.DefaultCatalogID
-	}
-
-	definition, err := deploymentIDETestAppspecDefinition(current)
-	if err != nil {
-		return projectstate.AppDefinitionValidationResult{}, err
-	}
-	validationErrors, warnings := appspec.ValidateDefinitionPayload(appSpec, definition)
-	if validationErrors == nil {
-		validationErrors = []appspec.AppValidationIssue{}
-	}
-	if warnings == nil {
-		warnings = []appspec.AppValidationIssue{}
-	}
-	return projectstate.AppDefinitionValidationResult{
-		Errors:       deploymentIDETestValidationIssues(validationErrors),
-		Warnings:     deploymentIDETestValidationIssues(warnings),
-		Capabilities: deploymentIDETestValidationCapabilities(appspec.BuildCapabilities(definition)),
-	}, nil
-}
-
-func deploymentIDETestValidationIssues(
-	issues []appspec.AppValidationIssue,
-) []projectstate.AppDefinitionValidationIssue {
-	if len(issues) == 0 {
-		return []projectstate.AppDefinitionValidationIssue{}
-	}
-	converted := make([]projectstate.AppDefinitionValidationIssue, 0, len(issues))
-	for _, issue := range issues {
-		converted = append(converted, projectstate.AppDefinitionValidationIssue{
-			Message:     issue.Message,
-			ElementKey:  issue.ElementKey,
-			ElementType: issue.ElementType,
-		})
-	}
-	return converted
-}
-
-func deploymentIDETestValidationCapabilities(
-	capabilities appspec.AppCapabilities,
-) projectstate.AppDefinitionCapabilities {
-	features := make(map[string]bool, len(capabilities.Features))
-	for key, enabled := range capabilities.Features {
-		features[key] = enabled
-	}
-	return projectstate.AppDefinitionCapabilities{
-		CatalogID:          capabilities.CatalogID,
-		CatalogVersion:     capabilities.CatalogVersion,
-		AppSpecVersion:     capabilities.AppSpecVersion,
-		ThemeSchemaVersion: capabilities.ThemeSchemaVersion,
-		Features:           features,
-	}
-}
-
-func deploymentIDETestAppspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {
-	dataBindings, err := deploymentIDETestDecodeJSONObject(definition.DataBindings, "appDefinition.dataBindings")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	actions, err := deploymentIDETestDecodeJSONObject(definition.Actions, "appDefinition.actions")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	theme, err := deploymentIDETestDecodeJSONObject(definition.Theme, "appDefinition.theme")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	assets, err := deploymentIDETestDecodeJSONArray(definition.Assets, "appDefinition.assets")
-	if err != nil {
-		return appspec.Definition{}, err
-	}
-	return appspec.Definition{
-		AppSpecVersion: definition.AppSpecVersion,
-		CatalogID:      definition.CatalogID,
-		ActionMap:      actions,
-		DataBindings:   dataBindings,
-		Theme:          theme,
-		Assets:         assets,
-	}, nil
-}
-
-func deploymentIDETestDecodeJSONObject(raw projectstate.RawJSON, field string) (map[string]any, error) {
-	if len(strings.TrimSpace(string(raw))) == 0 {
-		return nil, nil
-	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-	if value == nil {
-		return nil, nil
-	}
-	object, ok := value.(map[string]any)
-	if !ok {
-		return nil, nil
-	}
-	return object, nil
-}
-
-func deploymentIDETestDecodeJSONArray(raw projectstate.RawJSON, field string) ([]any, error) {
-	if len(strings.TrimSpace(string(raw))) == 0 {
-		return nil, nil
-	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-	if value == nil {
-		return nil, nil
-	}
-	array, ok := value.([]any)
-	if !ok {
-		return nil, nil
-	}
-	return array, nil
 }
 
 func (f deploymentIDERouteFixture) setPublishedAt(next time.Time) {
