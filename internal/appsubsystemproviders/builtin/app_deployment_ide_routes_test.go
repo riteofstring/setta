@@ -865,7 +865,16 @@ func appDeploymentIDEProviderSourcePath(t *testing.T) string {
 	if !ok {
 		t.Fatal("resolve app deployment IDE test path")
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), ".."))
+	return filepath.Clean(
+		filepath.Join(
+			filepath.Dir(currentFile),
+			"..",
+			"..",
+			"..",
+			"plugins",
+			ProviderPluginID,
+		),
+	)
 }
 
 func appDeploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecorder, code string) {

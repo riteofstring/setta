@@ -2,10 +2,7 @@
 
 package appsubsystemproviders
 
-import (
-	plugins "setta/internal/plugins"
-	_ "setta/plugins/setta-json-render-app-gen/backend"
-)
+import plugins "setta/internal/plugins"
 
 var discoveredProviders = []DiscoveredProvider{
 	{
