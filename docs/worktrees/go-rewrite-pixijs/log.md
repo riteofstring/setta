@@ -6206,3 +6206,24 @@ LOOP_TERMINAL_MARKER: none
     - not rerun because no source changes from this experiment were kept
 - Next frontier: keep `settings-section__chatSectionDefault` only as the blocker reproduction target and choose a deeper shared activator / hit-test fix or a different stronger shared scene-authority move instead of reopening this row fallback.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 053
+
+- Closed the hidden-input direct-click oracle itself on the repeated `settings-section__chatSectionDefault` blocker and recorded the result in `perf/reports/frontend/2026-04-20_settings-all-settings-hidden-input-hit-test-oracle-closure-report.md`.
+- Fresh headless DevTools inspection showed the hidden `ParamInput` anchor stayed `width=0` not just on chat `permissionMode` but also on the already-green shortcuts `advancedSearchShortcut` lane.
+- Tried one bounded transparent activator experiment in `TextInputCodeMirror.tsx`, then reverted it before finishing the iteration after real pointer replay still failed to surface inline CodeMirror on chat.
+- Interpretation:
+  - close hidden-input direct-click / fit-view hidden-anchor hit testing as untrustworthy on this lane
+  - do not spend the next automated pass on another hidden-input width/style tweak, another fit-view hidden-input retry, or another transparent overlay retry at the same boundary without a deeper scene-level activator plan
+  - the next frontier is a deeper shared scene-level activator / hit-test primitive, with `chatSectionDefault` kept only as the blocker reproduction target
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Utils/CodeMirror/DummyCodeMirror.test.tsx`
+    - result: `1 passed (3 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.S2eJtf/loop-001/run-005/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts frontend/tests/e2e/settings/settings-all-settings-shortcuts-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (40.1s)` after reverting the temporary activator experiment
+- CDP visual check:
+  - done in a fresh headless DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+  - the hidden `ParamInput` anchor measured `width=0` on both chat and shortcuts
+  - this was used only to close the hidden-input oracle; no product source changes from the local activator experiment were kept
+- Next frontier: stay on the canonical `settings-section__browserSectionDefault` lane and choose either one stronger shared scene-authority / graph-surface ownership primitive or a deeper scene-level activator / hit-test primitive instead of reopening hidden-input, shell, or row fallback retries on chat.
+LOOP_TERMINAL_MARKER: none
