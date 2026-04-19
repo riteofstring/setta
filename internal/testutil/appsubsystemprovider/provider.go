@@ -1,6 +1,6 @@
 package appsubsystemprovider
 
-import settajsonrenderappgenbackend "setta/plugins/setta-json-render-app-gen/backend"
+import settajsonrenderappgenbackend "setta/internal/appsubsystemproviders/builtin"
 
 const PluginID = "setta-fixture-app-subsystem-provider"
 

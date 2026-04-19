@@ -322,16 +322,14 @@ func TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders(t *te
 		entries,
 		[]appSubsystemProviderEntry{
 			{
-				PluginID:           "acme-first-provider",
-				BackendPackagePath: "setta/plugins/acme-first-provider/backend",
+				PluginID: "acme-first-provider",
 				Capabilities: plugins.PluginAppSubsystemFeatureManifest{
 					AppAuthoringUI:       true,
 					AppDeploymentRuntime: true,
 				},
 			},
 			{
-				PluginID:           "acme-second-provider",
-				BackendPackagePath: "setta/plugins/acme-second-provider/backend",
+				PluginID: "acme-second-provider",
 				Capabilities: plugins.PluginAppSubsystemFeatureManifest{
 					AppGenerationChatModes: true,
 				},
@@ -342,12 +340,11 @@ func TestAppSubsystemProvidersFromRepoRootDiscoversManifestBackedProviders(t *te
 	}
 }
 
-func TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities(t *testing.T) {
+func TestRenderAppSubsystemProviderRegistryOmitsProviderImportsAndIncludesCapabilities(t *testing.T) {
 	t.Parallel()
 
 	rendered := renderAppSubsystemProviderRegistry([]appSubsystemProviderEntry{{
-		PluginID:           "acme.test-provider",
-		BackendPackagePath: "setta/plugins/acme-test-provider/backend",
+		PluginID: "acme.test-provider",
 		Capabilities: plugins.PluginAppSubsystemFeatureManifest{
 			AppPreviewUI: true,
 		},
@@ -356,8 +353,8 @@ func TestRenderAppSubsystemProviderRegistryIncludesBlankImportsAndCapabilities(t
 	if !strings.Contains(rendered, "package appsubsystemproviders") {
 		t.Fatalf("rendered provider registry missing package:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, `_ "setta/plugins/acme-test-provider/backend"`) {
-		t.Fatalf("rendered provider registry missing backend blank import:\n%s", rendered)
+	if strings.Contains(rendered, `setta/plugins/acme-test-provider/backend`) {
+		t.Fatalf("rendered provider registry should not import provider backends:\n%s", rendered)
 	}
 	if !strings.Contains(rendered, `PluginID: "acme.test-provider"`) {
 		t.Fatalf("rendered provider registry missing provider id:\n%s", rendered)
