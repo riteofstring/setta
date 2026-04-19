@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 )
 
 const (
@@ -55,6 +56,7 @@ type pluginUISettingRequiredFields struct {
 
 type ScopedRegistryOptions struct {
 	Runtime           CoreProjectState
+	AppDefinition     projectstate.AppDefinitionRuntime
 	WorkspaceRoot     string
 	PluginService     PluginRuntimeService
 	ProjectAISettings ProjectAISettingProviders
@@ -105,7 +107,7 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 }
 
 func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEntry, error) {
-	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
+	coreRegistry, err := NewCoreRegistry(options.Runtime, options.AppDefinition, options.WorkspaceRoot)
 	if err != nil {
 		return nil, err
 	}

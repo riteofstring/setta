@@ -372,6 +372,22 @@ func (s testAppDefinitionService) UpdateAppDefinition(_ context.Context, _ any) 
 	return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, errors.New("not implemented")
 }
 
+func (s testAppDefinitionService) CompareAndSetAppDefinitionCatalogID(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
+}
+
+func (s testAppDefinitionService) CompareAndSetAppDefinitionSpecVersion(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
+}
+
+func (s testAppDefinitionService) CompareAndSetAppDefinitionSpecPath(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
+}
+
+func (s testAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, errors.New("not implemented")
+}
+
 func testAppspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {
 	dataBindings, err := testDecodeAppDefinitionJSONObject(definition.DataBindings, "appDefinition.dataBindings")
 	if err != nil {
