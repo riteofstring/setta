@@ -5597,3 +5597,14 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL, minimizing the extra chat pane, and applying `fit view`; `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible with no obvious blank graph or detached shell/body artifact.
 - Next frontier: move to the next trace-backed shared reducer or to the broader graph-surface ownership step instead of reopening another selector-cache micro-lane.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 029
+
+- Landed a trace-backed `ParamSwitch` selector cache on the canonical `settings-section__browserSectionDefault` lane.
+- Added `frontend/src/state/actions/params/paramSwitchSelectors.ts` so each param row reuses cached `ParamSwitch` project-state derived data keyed to the effective param impl plus the selected-param array ref that actually affect row rendering.
+- Updated `frontend/src/components/Params/ParamSwitch.tsx` so each row instantiates that selector once with `useMemo(...)` and stops rebuilding `{ paramsImpl, codeObjImpl }` objects behind `_.isEqual(...)`; the search-state selector now also uses cheap primitive boolean equality.
+- Added focused cache coverage in `frontend/src/state/actions/params/paramSwitchSelectors.test.ts` for reuse across unrelated viewport and sibling-param churn plus invalidation on real selection and impl changes.
+- Verification: eslint passed; `vitest run src/state/actions/params/paramSwitchSelectors.test.ts` passed with `4` tests; Playwright `settings-all-settings-motion-aware-dense.spec.ts` passed on the run-029 runtime with dense metrics `raf.meanMs 42.86`, `longTasks.totalMs 5791`, and `documentNodeCount 5498`.
+- CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL, normalizing to `/settings` with `All Settings` active, applying `fit view`, and closing the extra chat window chrome; `browserSectionDefault` was visible with no obvious blank graph or detached shell/body artifact.
+- Next frontier: move to the next trace-backed shared reducer or a broader graph-surface ownership step instead of reopening another row-selector cache follow-up.
+LOOP_TERMINAL_MARKER: none

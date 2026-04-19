@@ -18,20 +18,66 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `026` cut retained-canvas measurement fanout by gating callable-only temporary height keys and section detail observers behind a per-section measurement plan instead of wiring every measurement family into every canvas-owned section
   - run `027` removed one trace-backed param-tree / lodash fanout by memoizing the `ParamDndList` duplicate-index selector per section while keeping the dense canary in the same `~42-43ms` band
   - run `028` removed another shared `GroupContainer` selector / label rebuild path by memoizing pinned, unpinned, and edge-strip derived state per section while the dense canary stayed in the same `~43ms` / `~5.8-5.9s` band after one bounded rerun
+  - run `029` removed another shared param-row project-state rebuild path by memoizing `ParamSwitch` row state per section/param while the dense canary stayed in the same `~42-43ms` / `~5.8s` band
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
   - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
   - run `027` also stayed in the same dense band, so close the duplicate-index selector micro-lane here instead of spending another pass on narrow selector-cache follow-ups
   - run `028` stayed in the same dense band too, so close the `GroupContainer` selector micro-lane here instead of iterating on another similar cache-only follow-up
+  - run `029` stayed in the same dense band too, so close the `ParamSwitch` selector micro-lane here instead of chaining another row-selector follow-up by inertia
   - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
   - choose exactly one bounded frontier for the next default pass:
-    - a trace-backed whole-scene reducer tied to the remaining renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`, preferably one shared param-family, transform subscriber, or measurement fanout beyond the now-closed `ParamDndList` and `GroupContainer` selector micro-lanes
+    - a trace-backed whole-scene reducer tied to the remaining renderer-main `EventDispatch` / `v8.callFunction` / GC hotspot from `perf/reports/frontend/2026-04-20_settings-all-settings-motion-shell-canonical-zoom-hotspot-report.md`, preferably one shared param-family, transform subscriber, or measurement fanout beyond the now-closed `ParamDndList`, `GroupContainer`, and `ParamSwitch` selector micro-lanes
     - or a stronger graph-surface ownership step that changes a whole dense family or shared primitive rather than another single section-shell id
-  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, `GroupContainer` selector-cache follow-ups, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
+  - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, duplicate-index selector follow-ups, `GroupContainer` selector-cache follow-ups, `ParamSwitch` selector follow-ups, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
 
 ## Current status
+
+- The ParamSwitch selector cache slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-param-switch-selector-cache-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/params/paramSwitchSelectors.ts` now exports `createParamSwitchProjectStateSelector(sectionId, paramInfoId)` keyed to the effective param impl plus the selected-param array ref that actually affect one row
+    - `frontend/src/components/Params/ParamSwitch.tsx` now instantiates that selector once with `useMemo(...)` and stops rebuilding `{ paramsImpl, codeObjImpl }` objects behind `_.isEqual(...)` on unrelated project-state churn
+    - the same component now keeps its search-state selector on cheap primitive boolean equality instead of generic deep equality
+    - `frontend/src/state/actions/params/paramSwitchSelectors.test.ts` now locks cache reuse across unrelated viewport and sibling-param churn plus invalidation on real selection and impl changes
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 42.86`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1116.62`
+    - `longTasks.count: 9`
+    - `longTasks.totalMs: 5791`
+    - `longTasks.maxMs: 3401`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a safe shared param-family reducer on the active renderer-main JS / GC lane, not a new dense-scene breakthrough
+    - the dense canary stayed in the current `~42-43ms` / `~5.8s` band while long-task total landed slightly below the last authoritative rerun, so keep the selector cache but close this micro-lane here
+    - the next default pass should move to the next trace-backed shared reducer or to a broader graph-surface ownership step instead of reopening another row-selector cache follow-up
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamSwitch.tsx src/state/actions/params/paramSwitchSelectors.ts src/state/actions/params/paramSwitchSelectors.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/actions/params/paramSwitchSelectors.test.ts`
+      - result: `1 passed`, `4` tests
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-029/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.4s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - normalized to `/settings` with `All Settings` active and one `fit view`
+    - minimized the extra chat window chrome during the check
+    - `browserSectionDefault` was visible on the graph surface
+    - no obvious blank graph or detached shell/body artifact was visible
 
 - The GroupContainer selector cache slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-group-container-selector-cache-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
