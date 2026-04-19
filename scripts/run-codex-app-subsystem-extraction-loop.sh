@@ -15,6 +15,8 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
+- Quiet status-log mode: on
+- Quiet progress log interval: 60 seconds
 - Retry sleep after retryable Codex failures: 60 seconds
 - Stop only when Codex explicitly reports the app-subsystem extraction plan is fully executed
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the checklist/review state
@@ -38,6 +40,10 @@ Options:
   --retry-sleep-seconds N
                          Sleep N seconds before retrying after inactivity
                          timeouts or Codex command failures. Default: 60
+  --progress-log-interval-seconds N
+                         When the loop is in quiet terminal mode, print a
+                         progress log at most once every N seconds while
+                         Codex is still running. Default: 60
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
@@ -59,6 +65,7 @@ yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 retry_sleep_seconds="60"
+progress_log_interval_seconds="60"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: APP_SUBSYSTEM_EXTRACTION_COMPLETE"
 codex_extra_args=()
@@ -159,6 +166,11 @@ while [[ $# -gt 0 ]]; do
       retry_sleep_seconds="$2"
       shift 2
       ;;
+    --progress-log-interval-seconds)
+      require_value "$1" "${2:-}"
+      progress_log_interval_seconds="$2"
+      shift 2
+      ;;
     --no-yolo)
       yolo_mode="0"
       shift
@@ -197,6 +209,11 @@ fi
 
 if [[ ! "${retry_sleep_seconds}" =~ ^[0-9]+$ ]]; then
   echo "--retry-sleep-seconds must be a non-negative integer" >&2
+  exit 1
+fi
+
+if [[ ! "${progress_log_interval_seconds}" =~ ^[0-9]+$ ]]; then
+  echo "--progress-log-interval-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -464,6 +481,8 @@ loop_args=(
   --new-session-every "1"
   --output-dir "${output_dir}"
   --workdir "${ROOT_DIR}"
+  --quiet
+  --progress-log-interval-seconds "${progress_log_interval_seconds}"
   --inactivity-timeout-seconds "${inactivity_timeout_seconds}"
   --watchdog-interval-seconds "30"
   --continue-on-inactivity-timeout
@@ -501,6 +520,8 @@ echo "Iterations: ${iterations}"
 echo "New session every: 1"
 echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
+echo "Terminal output mode: quiet status logs"
+echo "Quiet progress log interval: ${progress_log_interval_seconds}s"
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Retry sleep: ${retry_sleep_seconds}s"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
