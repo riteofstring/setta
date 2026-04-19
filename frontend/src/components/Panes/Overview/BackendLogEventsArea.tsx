@@ -18,7 +18,7 @@ import {
   setBackendLogEventsFilter,
 } from "state/actions/backendLogEvents";
 import { useAllProjectMetadata, useBackendLogEvents } from "state/definitions";
-import { type BackendLogEvent } from "utils/generatedTypes";
+import { SettaBackendLogEvent } from "utils/generatedTypes";
 import {
   addBackendLogResizeListeners,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
@@ -112,7 +112,7 @@ export function BackendLogEventsArea() {
   }, [clearActiveColumnResizeListeners]);
 
   const projectMetadata = useAllProjectMetadata(
-    (state) => state.projectMetadata ?? [],
+    (state) => state.projectMetadata,
     _.isEqual,
   );
   const projectNameById = useMemo(
@@ -296,7 +296,7 @@ function SelectedLogMessagePanel({
   onCopyMessage,
   onClose,
 }: {
-  event: BackendLogEvent;
+  event: SettaBackendLogEvent;
   projectName: string;
   copyFeedback: CopyFeedback | null;
   onCopyMessage: (eventId: string, message: string) => void;
@@ -439,7 +439,7 @@ function LogLines({
   onCopyMessage,
   onSelectEvent,
 }: {
-  events: Array<BackendLogEvent>;
+  events: Array<SettaBackendLogEvent>;
   projectNameById: Record<string, string>;
   gridTemplateColumns: string;
   gridMinWidth: number;
@@ -664,7 +664,7 @@ function BackendLogRow({
 }: {
   index: number;
   style: CSSProperties;
-  events: Array<BackendLogEvent>;
+  events: Array<SettaBackendLogEvent>;
   projectNameById: Record<string, string>;
   gridTemplateColumns: string;
   copyFeedback: CopyFeedback | null;

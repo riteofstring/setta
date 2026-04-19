@@ -163,34 +163,6 @@ func TestCatalogListReturnsNewestFirstByCreatedAt(t *testing.T) {
 	}
 }
 
-func TestCatalogListSupportsPluginOwnedDeploymentTypes(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	catalog, err := NewCatalog(CatalogOptions{Root: root})
-	if err != nil {
-		t.Fatalf("new catalog: %v", err)
-	}
-
-	writeCatalogDeployment(t, root, "alpha-share", "v1", TypeShare, "project-alpha", "Alpha", time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC))
-	writeCatalogDeployment(t, root, "plugin-demo", "v1", Type("plugin-app"), "project-plugin", "Plugin", time.Date(2026, 3, 8, 11, 0, 0, 0, time.UTC))
-
-	entries, err := catalog.List(context.Background(), Type(" plugin-app "))
-	if err != nil {
-		t.Fatalf("list plugin deployments: %v", err)
-	}
-
-	if len(entries) != 1 {
-		t.Fatalf("expected 1 plugin deployment, got %d", len(entries))
-	}
-	if entries[0].DeploymentType != Type("plugin-app") {
-		t.Fatalf("expected plugin deployment type, got %#v", entries[0])
-	}
-	if entries[0].DeploymentName != "plugin-demo" {
-		t.Fatalf("expected plugin deployment entry, got %#v", entries[0])
-	}
-}
-
 func TestCatalogListVersionsReturnsNewestFirstAndFiltersInvalidEntries(t *testing.T) {
 	t.Parallel()
 

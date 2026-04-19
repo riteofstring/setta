@@ -1,4 +1,8 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
+import {
+  isCanvasOwnedSectionLightweightMenuTrigger,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import type { ComponentType } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -68,14 +72,17 @@ function MenuButton({
   sectionTypeName,
   isInOtherProjectConfigs,
   hasSectionStyleTheme,
+  motionHiddenInteractionActive,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
   hasSectionStyleTheme: boolean;
+  motionHiddenInteractionActive: boolean;
 }) {
   const menuItems = getMenuItems(sectionTypeName);
   const isListElement = useIsListElement(sectionId);
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const textBlockMetaControlStyle = useProjectState((x) => {
     if (sectionTypeName !== SectionTypeEnum.TextBlock) {
       return false;
@@ -98,6 +105,11 @@ function MenuButton({
   const unClickableIconWrapperClassName = hasSectionStyleTheme
     ? `nodrag flex select-none items-center justify-center rounded-full ${!isListElement ? "p-0.5" : "ml-1 p-0.5"} mr-1 aspect-square font-semibold leading-none text-[color:var(--setta-section-style-muted-text)] outline-none transition-colors duration-150 ${metaControlIconVisibilityClassName}`
     : `nodrag flex select-none items-center justify-center rounded-full ${!isListElement ? "p-0.5" : "ml-1 p-0.5"} mr-1 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200 ${metaControlIconVisibilityClassName}`;
+  const lightweightMenuTrigger =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionLightweightMenuTrigger(sectionId);
+  const motionHiddenMenuTrigger =
+    lightweightMenuTrigger && motionHiddenInteractionActive;
 
   if (menuItems.length === 0) {
     return (
@@ -116,6 +128,8 @@ function MenuButton({
   return (
     <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
       <CardHeaderMenuButton
+        lightweightMenuTrigger={lightweightMenuTrigger}
+        motionHiddenMenuTrigger={motionHiddenMenuTrigger}
         triggerClassName={iconWrapperClassName}
         trigger={
           <HeaderIcon
@@ -137,10 +151,26 @@ function MenuButton({
 
 export default MenuButton;
 
-function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
+function CardHeaderMenuButton({
+  children,
+  lightweightMenuTrigger,
+  motionHiddenMenuTrigger,
+  trigger,
+  triggerClassName,
+}) {
   return (
     <MenuDropdown
-      triggerClassName={triggerClassName}
+      triggerClassName={`${triggerClassName}${motionHiddenMenuTrigger ? " invisible pointer-events-none" : ""}`}
+      triggerAsChild={lightweightMenuTrigger}
+      triggerWrapperProps={
+        lightweightMenuTrigger
+          ? {
+              "data-canvas-owned-lightweight-menu-trigger": "true",
+              "data-canvas-owned-motion-menu-trigger-hidden":
+                motionHiddenMenuTrigger ? "true" : undefined,
+            }
+          : undefined
+      }
       contentClassName="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
       contentAlign="start"
       contentSideOffset={5}

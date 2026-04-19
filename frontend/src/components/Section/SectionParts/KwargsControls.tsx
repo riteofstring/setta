@@ -1,15 +1,15 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import _ from "lodash";
+import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
 import {
-  addKwarg,
-  deleteKwarg,
-  deleteSelectedParams,
-  setSectionEdgeInputs,
-  setSectionParamFilter,
-  setSectionPinnedParams,
-} from "openapi/http";
+  isCanvasOwnedSectionArgsLabelRestingText,
+  isCanvasOwnedSectionLightweightParamFilter,
+  isCanvasOwnedSectionParamFilterIcon,
+  isCanvasOwnedSectionParamFilterUnderline,
+  isCanvasOwnedSectionShell,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
+import _ from "lodash";
+import { addKwarg, deleteKwarg, deleteSelectedParams, setSectionEdgeInputs, setSectionParamFilter, setSectionPinnedParams } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -38,6 +38,8 @@ import {
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
+import { CanvasOwnedParamFilterActivator } from "./CanvasOwnedParamFilterActivator";
+import { KwargsActionIconButton } from "./KwargsActionIconButton";
 import {
   getKwargsControlsActionState,
   getKwargsControlsThemeState,
@@ -45,6 +47,21 @@ import {
 type KwargsControlsProps = {
   sectionId: string;
 };
+
+function getCanvasOwnedCallableToolbarStyle(
+  canvasOwnedCallableToolbar: boolean,
+): CSSProperties | undefined {
+  if (!canvasOwnedCallableToolbar) {
+    return undefined;
+  }
+
+  return {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    boxShadow: "none",
+  };
+}
+
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
   sectionId: string,
@@ -66,6 +83,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
   useKwargsControlsHeightMeasurement(controlsRef, heightKey);
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -102,8 +120,18 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     darkMode,
     isCallableSection,
   });
+  const canvasOwnedCallableToolbar =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionShell(sectionId);
+  const canvasOwnedArgsLabel =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionArgsLabelRestingText(sectionId);
+  const canvasOwnedLightweightActionButtons =
+    graphSurfaceImplementation === "canvas-shell-underlay";
   const argsIconGlyphColorClassName =
     "text-current before:text-current after:text-current";
+  const argsIconButtonClassName =
+    `nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`.trim();
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
   const paramsImpl = useProjectState((x) =>
@@ -352,19 +380,33 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   }
   return (
     <>
-      <section className={controlsContainerClassName} ref={controlsRef}>
+      <section
+        className={controlsContainerClassName}
+        data-canvas-owned-callable-toolbar={
+          canvasOwnedCallableToolbar ? "true" : undefined
+        }
+        ref={controlsRef}
+        style={getCanvasOwnedCallableToolbarStyle(canvasOwnedCallableToolbar)}
+      >
         <article
           className={`flex flex-wrap items-center ${isCallableSection ? "py-1" : ""}`}
         >
           <section className="ml-1 flex items-center gap-1">
             <h3
-              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
+              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName} ${canvasOwnedArgsLabel ? "opacity-0" : ""}`}
+              data-canvas-owned-resting-text={
+                canvasOwnedArgsLabel ? "true" : undefined
+              }
             >
               Args
             </h3>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={() => {
+            <KwargsActionIconButton
+              ariaLabel="Remove arg"
+              className={argsIconButtonClassName}
+              disabled={kwargButtonsDisabled}
+              iconClassName={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={() => {
                 const payload = {
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
@@ -375,18 +417,15 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
                   >[0]),
                 );
               }}
-              tabIndex={0}
+              tooltipContent="Remove arg"
+            />
+            <KwargsActionIconButton
+              ariaLabel="Add arg"
+              className={argsIconButtonClassName}
               disabled={kwargButtonsDisabled}
-              aria-label="Remove arg"
-              {...getFloatingBoxHandlers({ content: "Remove arg" })}
-            >
-              <i
-                className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={() => {
+              iconClassName={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={() => {
                 const payload = {
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
@@ -395,54 +434,36 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
                   addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
                 );
               }}
-              tabIndex={0}
-              disabled={kwargButtonsDisabled}
-              aria-label="Add arg"
-              {...getFloatingBoxHandlers({ content: "Add arg" })}
-            >
-              <i
-                className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
+              tooltipContent="Add arg"
+            />
 
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickPinParam}
-              tabIndex={0}
+            <KwargsActionIconButton
+              ariaLabel={pinButtonLabel}
+              className={argsIconButtonClassName}
               disabled={pinParamsDisabled}
-              aria-label={pinButtonLabel}
-              {...getFloatingBoxHandlers({ content: pinButtonLabel })}
-            >
-              <i
-                className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickConvertToEdgeInputs}
-              tabIndex={0}
+              iconClassName={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={onClickPinParam}
+              tooltipContent={pinButtonLabel}
+            />
+            <KwargsActionIconButton
+              ariaLabel={convertToEdgeAriaLabel}
+              className={argsIconButtonClassName}
               disabled={convertToEdgeDisabled}
-              aria-disabled={convertToEdgeDisabled}
-              aria-label={convertToEdgeAriaLabel}
-              {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
-            >
-              <i
-                className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
-            <button
-              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
-              onClick={onClickDeleteSelectedKwargs}
-              tabIndex={0}
+              iconClassName={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={onClickConvertToEdgeInputs}
+              tooltipContent={convertToEdgeTooltip}
+            />
+            <KwargsActionIconButton
+              ariaLabel="Delete selected args"
+              className={argsIconButtonClassName}
               disabled={deleteSelectedDisabled}
-              aria-disabled={deleteSelectedDisabled}
-              aria-label="Delete selected args"
-              {...getFloatingBoxHandlers({ content: "Delete selected args" })}
-            >
-              <i
-                className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
-              />
-            </button>
+              iconClassName={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
+              lightweightActivator={canvasOwnedLightweightActionButtons}
+              onActivate={onClickDeleteSelectedKwargs}
+              tooltipContent="Delete selected args"
+            />
           </section>
         </article>
 
@@ -479,9 +500,31 @@ function ParamFilter({
   const sortIconColorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-300 dark:text-setta-600";
-  const inputColorClassName = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
-    : "text-setta-700 placeholder-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
+  const inputTextColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-700 placeholder-setta-400 dark:text-setta-300";
+  const inputFocusUnderlineClassName = hasSectionStyleTheme
+    ? "focus-visible:border-[color:var(--setta-section-style-outline)]"
+    : "focus-visible:border-blue-300 dark:focus-visible:border-blue-400/50";
+  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const canvasOwnedFilterIcon =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionParamFilterIcon(sectionId);
+  const canvasOwnedFilterUnderline =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionParamFilterUnderline(sectionId);
+  const canvasOwnedLightweightFilter =
+    graphSurfaceImplementation === "canvas-shell-underlay" &&
+    isCanvasOwnedSectionLightweightParamFilter(sectionId);
+  const filterBaseClassName =
+    `peer/dictfilter min-w-0 w-full truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputTextColorClassName}`.trim();
+  const filterInputClassName =
+    `${filterBaseClassName} cursor-auto ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`.trim();
+  const filterActivatorClassName =
+    `${filterBaseClassName} flex items-center cursor-text ${canvasOwnedFilterUnderline ? "border-b-transparent" : inputFocusUnderlineClassName}`.trim();
+  const filterPlaceholderClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-400 dark:text-setta-600";
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -498,21 +541,46 @@ function ParamFilter({
     <search
       className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${includeCallablePadding ? "py-1" : ""}`}
     >
-      <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
-      <input
-        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-        value={paramFilterValue}
-        className={`min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputColorClassName}`}
-        placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-        tabIndex={0}
-        onChange={onSearchChange}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            e.currentTarget.blur();
-            // focusOnSection(null, sectionId, false);
-          }
-        }}
+      <i
+        className={`gg-sort-az -mr-2 ${sortIconColorClassName} ${canvasOwnedFilterIcon ? "opacity-0" : ""}`}
+        data-canvas-owned-filter-icon={
+          canvasOwnedFilterIcon ? "true" : undefined
+        }
       />
+      <span className="relative min-w-0 flex-1">
+        {canvasOwnedLightweightFilter ? (
+          <CanvasOwnedParamFilterActivator
+            activatorClassName={filterActivatorClassName}
+            id={`${sectionId}-args-filter`}
+            inputClassName={filterInputClassName}
+            onChange={onSearchChange}
+            placeholder={sectionIsActive ? searchShortcut : "Filter"}
+            placeholderClassName={filterPlaceholderClassName}
+            value={paramFilterValue}
+          />
+        ) : (
+          <input
+            id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+            value={paramFilterValue}
+            className={filterInputClassName}
+            placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
+            tabIndex={0}
+            onChange={onSearchChange}
+            onKeyDown={(e) => {
+              if (e.code === "Escape") {
+                e.currentTarget.blur();
+                // focusOnSection(null, sectionId, false);
+              }
+            }}
+          />
+        )}
+        {canvasOwnedFilterUnderline ? (
+          <span
+            className={`pointer-events-none absolute bottom-0 left-0 right-0 border-b border-setta-200/50 opacity-0 dark:border-setta-600/30 ${hasSectionStyleTheme ? "peer-focus-visible/dictfilter:border-[color:var(--setta-section-style-outline)]" : "peer-focus-visible/dictfilter:border-blue-300 dark:peer-focus-visible/dictfilter:border-blue-400/50"} peer-focus-visible/dictfilter:opacity-100`}
+            data-canvas-owned-underline="true"
+          />
+        ) : null}
+      </span>
     </search>
   );
 }

@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
+  useAppPreview,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -17,13 +20,8 @@ import {
   createProjectConfig,
   createSingleConfig,
 } from "utils/generatedTypes";
-import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import {
-  useAppConfigs,
-  useAppPreview,
-} from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
-import { AppPreview } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/Project/AppPreview";
+import { AppPreview } from "./AppPreview";
 
 let latestProps: Record<string, unknown> | null = null;
 const routeLoadProjectConfigMock = vi.fn();
@@ -60,7 +58,7 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-async function mockAppRendererModule() {
+vi.mock("components/App/AppRenderer", async () => {
   const React = await import("react");
   return {
     AppRenderer: (props: Record<string, unknown>) => {
@@ -68,12 +66,7 @@ async function mockAppRendererModule() {
       return React.createElement("div", { "data-testid": "mock-app-renderer" });
     },
   };
-}
-
-vi.mock(
-  "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer",
-  mockAppRendererModule,
-);
+});
 
 vi.mock("openapi/http", async () => {
   const actual =

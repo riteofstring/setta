@@ -1,6 +1,8 @@
 import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
 import {
   useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
   useServerMode,
   useShareSession,
 } from "state/definitions";
@@ -21,8 +23,6 @@ import {
   it,
   vi,
 } from "vitest";
-import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 const routeCreateAppSessionCurrentMock = vi.fn();
 const routeGetAppDeploymentStateMock = vi.fn();
@@ -58,7 +58,7 @@ import {
   ensureAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
   resetAppSessionState,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
+} from "./app";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
 
@@ -241,7 +241,7 @@ describe("app deployment actions", () => {
     const projectState = buildProjectState("project-alpha", "Alpha");
     const appDefinition = createAppDefinition({
       catalogId: "catalog-demo",
-      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/spec.json",
+      appSpecPath: "app_specs/spec.json",
     });
     const appSpec = { root: { key: "root", type: "Stack" } };
     setDeploymentAppState();
