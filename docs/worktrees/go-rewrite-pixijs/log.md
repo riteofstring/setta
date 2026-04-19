@@ -157,6 +157,64 @@ LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-20 082
 
+- Item: Suspend lightweight header menu triggers during viewport interaction on the motion-hidden settings lane.
+- Status: `done`
+- Details:
+  - Chose the exact product slice identified by the prior motion live chrome inventory instead of extending another probe-only pass.
+  - Updated `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx` so lightweight menu-trigger wrappers go `invisible pointer-events-none` while `viewportInteractionActive` is true for inactive sections that already opt into `isCanvasOwnedSectionMotionHiddenBody(...)`.
+  - Added `data-canvas-owned-motion-menu-trigger-hidden="true"` on that hidden wrapper state so the existing motion inventory can measure the suspension directly.
+  - Extended focused proof in:
+    - `frontend/src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - before motion:
+      - `graphSurfaceMenuTriggerCount: 46`
+      - `graphSurfaceRoleSwitchCount: 156`
+      - `totalTrackedChromeElementCount: 202`
+      - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` each reported `menuTriggerCount: 1` and `motionMenuTriggerHidden: false`
+    - peak motion-hidden snapshot:
+      - `hiddenBodyCount: 45`
+      - `hiddenHeaderControlsCount: 45`
+      - `hiddenMenuTriggerCount: 45`
+      - `graphSurfaceMenuTriggerCount: 1`
+      - `graphSurfaceRoleSwitchCount: 0`
+      - `totalTrackedChromeElementCount: 1`
+      - the canonical sections all reported `menuTriggerCount: 0`, `motionMenuTriggerHidden: true`, `motionBodyHidden: true`, and `motionHeaderControlsHidden: true`
+    - dense companion rerun:
+      - `documentNodeCount: 5579`
+      - `inputCount: 5`
+      - `textareaCount: 2`
+      - `buttonCount: 59`
+      - `raf.meanMs: 89.91`
+      - `raf.p95Ms: 116.7`
+      - `longTasks.totalMs: 13181`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - the menu-trigger harvest succeeded at the intended ownership boundary and collapses the repeated motion chrome down to one residual non-motion-hidden survivor
+    - dense motion stayed effectively flat-to-worse after that removal (`raf.meanMs 89.07 -> 89.91`, `longTasks.totalMs 12911 -> 13181`), so this closes the motion-chrome lane instead of justifying another tiny header follow-up
+    - the next default pass should pivot to a broader inactive-row/body overlay or stronger renderer-side structural reduction, not another motion-header micro-slice
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx`
+    - result: `1 passed (4.13s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Section/Header/MenuButton/MenuButton.tsx src/components/Section/Header/SectionHeader.motionHiddenControls.test.tsx tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-004/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-live-chrome-inventory.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.4m)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `All Settings` was active on `http://127.0.0.1:3068/settings`
+  - `fit view` was applied and exactly one retained graph canvas stayed mounted before and after one `zoom in`
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` remained visually intact with no obvious blank or detached artifact
+- Next action:
+  - keep the motion-header menu-trigger lane closed and pivot the next product pass to a broader inactive-row/body overlay or renderer-side structural reduction that can still plausibly move dense `All Settings` motion
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 082
+
 - Item: Suspend trailing header controls on the canonical resting-text motion lane.
 - Status: `done`
 - Details:

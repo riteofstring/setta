@@ -169,6 +169,23 @@ describe("SectionHeader motion-hidden trailing controls", () => {
     expect(markup).toContain("invisible");
   });
 
+  it("hides the lightweight menu trigger for inactive motion-hidden sections during viewport interaction", () => {
+    useReactFlow.setState({
+      ...useReactFlow.getState(),
+      viewportInteractionActive: true,
+    });
+    syncStoreInitialState(useReactFlow);
+
+    const markup = renderHeader();
+
+    expect(markup).toContain(
+      'data-canvas-owned-lightweight-menu-trigger="true"',
+    );
+    expect(markup).toContain(
+      'data-canvas-owned-motion-menu-trigger-hidden="true"',
+    );
+  });
+
   it("keeps trailing controls visible for the active section during viewport interaction", () => {
     useActiveSectionUI.setState({
       ...useActiveSectionUI.getState(),
@@ -191,5 +208,27 @@ describe("SectionHeader motion-hidden trailing controls", () => {
     );
     expect(markup).not.toContain("pointer-events-none");
     expect(markup).not.toContain(" invisible");
+  });
+
+  it("keeps the lightweight menu trigger visible for the active section during viewport interaction", () => {
+    useActiveSectionUI.setState({
+      ...useActiveSectionUI.getState(),
+      activeIds: [sectionId],
+    });
+    syncStoreInitialState(useActiveSectionUI);
+    useReactFlow.setState({
+      ...useReactFlow.getState(),
+      viewportInteractionActive: true,
+    });
+    syncStoreInitialState(useReactFlow);
+
+    const markup = renderHeader();
+
+    expect(markup).toContain(
+      'data-canvas-owned-lightweight-menu-trigger="true"',
+    );
+    expect(markup).not.toContain(
+      'data-canvas-owned-motion-menu-trigger-hidden="true"',
+    );
   });
 });

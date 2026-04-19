@@ -23,6 +23,7 @@ type SectionChromeSummary = {
   menuTriggerCount: number;
   motionBodyHidden: boolean;
   motionHeaderControlsHidden: boolean;
+  motionMenuTriggerHidden: boolean;
   roleSwitchCount: number;
   sectionId: string;
   textareaCount: number;
@@ -40,6 +41,7 @@ type MotionChromeSnapshot = {
   graphSurfaceTextareaCount: number;
   hiddenBodyCount: number;
   hiddenHeaderControlsCount: number;
+  hiddenMenuTriggerCount: number;
   topSectionsByTrackedChrome: SectionChromeSummary[];
   totalTrackedChromeElementCount: number;
 };
@@ -128,8 +130,18 @@ test("settings All Settings motion live chrome inventory isolates the remaining 
     inventory.peakMotion.canonicalSections.find(
       (section) =>
         section.sectionId === "settings-section__browserSectionDefault",
+    )?.motionMenuTriggerHidden,
+  ).toBe(true);
+  expect(
+    inventory.peakMotion.canonicalSections.find(
+      (section) =>
+        section.sectionId === "settings-section__browserSectionDefault",
     )?.motionBodyHidden,
   ).toBe(true);
+  expect(inventory.peakMotion.graphSurfaceMenuTriggerCount).toBeLessThan(
+    inventory.beforeMotion.graphSurfaceMenuTriggerCount,
+  );
+  expect(inventory.settledMotion.hiddenMenuTriggerCount).toBe(0);
   expect(inventory.settledMotion.hiddenBodyCount).toBe(0);
 });
 
@@ -222,6 +234,9 @@ async function measureMotionLiveChromeInventory(
             null ||
           element.closest(
             '[data-canvas-owned-motion-header-controls-hidden="true"]',
+          ) !== null ||
+          element.closest(
+            '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
           ) !== null
         ) {
           return false;
@@ -277,6 +292,10 @@ async function measureMotionLiveChromeInventory(
           motionHeaderControlsHidden:
             section.querySelector(
               '[data-canvas-owned-motion-header-controls-hidden="true"]',
+            ) !== null,
+          motionMenuTriggerHidden:
+            section.querySelector(
+              '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
             ) !== null,
           roleSwitchCount: roleSwitches.length,
           sectionId,
@@ -363,6 +382,9 @@ async function measureMotionLiveChromeInventory(
           ).length,
           hiddenHeaderControlsCount: document.querySelectorAll(
             '[data-canvas-owned-motion-header-controls-hidden="true"]',
+          ).length,
+          hiddenMenuTriggerCount: document.querySelectorAll(
+            '[data-canvas-owned-motion-menu-trigger-hidden="true"]',
           ).length,
           topSectionsByTrackedChrome,
           totalTrackedChromeElementCount: trackedChromeElements.size,

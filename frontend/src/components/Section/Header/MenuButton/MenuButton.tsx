@@ -1,9 +1,14 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionLightweightMenuTrigger } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
+import {
+  isCanvasOwnedSectionLightweightMenuTrigger,
+  isCanvasOwnedSectionMotionHiddenBody,
+} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import type { ComponentType } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
@@ -79,6 +84,10 @@ function MenuButton({
   const menuItems = getMenuItems(sectionTypeName);
   const isListElement = useIsListElement(sectionId);
   const graphSurfaceImplementation = useGraphSurfaceImplementation();
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const isSectionUIActive = useIsSectionUIActive(sectionId);
   const textBlockMetaControlStyle = useProjectState((x) => {
     if (sectionTypeName !== SectionTypeEnum.TextBlock) {
       return false;
@@ -104,6 +113,11 @@ function MenuButton({
   const lightweightMenuTrigger =
     graphSurfaceImplementation === "canvas-shell-underlay" &&
     isCanvasOwnedSectionLightweightMenuTrigger(sectionId);
+  const motionHiddenMenuTrigger =
+    lightweightMenuTrigger &&
+    viewportInteractionActive &&
+    !isSectionUIActive &&
+    isCanvasOwnedSectionMotionHiddenBody(sectionId);
 
   if (menuItems.length === 0) {
     return (
@@ -123,6 +137,7 @@ function MenuButton({
     <Menubar.Root className={SETTA_PREVENT_SECTION_ACTIVE_CSS}>
       <CardHeaderMenuButton
         lightweightMenuTrigger={lightweightMenuTrigger}
+        motionHiddenMenuTrigger={motionHiddenMenuTrigger}
         triggerClassName={iconWrapperClassName}
         trigger={
           <HeaderIcon
@@ -147,17 +162,20 @@ export default MenuButton;
 function CardHeaderMenuButton({
   children,
   lightweightMenuTrigger,
+  motionHiddenMenuTrigger,
   trigger,
   triggerClassName,
 }) {
   return (
     <MenuDropdown
-      triggerClassName={triggerClassName}
+      triggerClassName={`${triggerClassName}${motionHiddenMenuTrigger ? " invisible pointer-events-none" : ""}`}
       triggerAsChild={lightweightMenuTrigger}
       triggerWrapperProps={
         lightweightMenuTrigger
           ? {
               "data-canvas-owned-lightweight-menu-trigger": "true",
+              "data-canvas-owned-motion-menu-trigger-hidden":
+                motionHiddenMenuTrigger ? "true" : undefined,
             }
           : undefined
       }
