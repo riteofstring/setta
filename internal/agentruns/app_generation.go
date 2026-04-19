@@ -20,34 +20,6 @@ const (
 	ChatAppGenerationMessageModeMCPServer           ChatAppGenerationMessageMode = ChatAppGenerationMessageMode(AppGenerationModeMCPServer)
 )
 
-func ParseAppGenerationMode(raw string) (string, bool) {
-	trimmed := strings.TrimSpace(raw)
-	switch trimmed {
-	case string(AppGenerationModeJSONRender),
-		string(AppGenerationModeJSONRenderWithImage),
-		string(AppGenerationModePromptBuilder),
-		string(AppGenerationModeMCPServer):
-		return trimmed, true
-	default:
-		return "", false
-	}
-}
-
-func NormalizeOptionalAppGenerationMode(value *string) (*string, bool) {
-	if value == nil {
-		return nil, true
-	}
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return nil, true
-	}
-	normalized, ok := ParseAppGenerationMode(trimmed)
-	if !ok {
-		return nil, false
-	}
-	return &normalized, true
-}
-
 func ExtractAppGenerationByMessageID(inputs map[string]any) map[string]string {
 	if len(inputs) == 0 {
 		return map[string]string{}
@@ -60,7 +32,8 @@ func NormalizeAppGenerationByMessageID(raw any) map[string]string {
 	switch typed := raw.(type) {
 	case map[string]string:
 		for messageID, mode := range typed {
-			if isAllowedChatAppGenerationMessageMode(mode) && messageID != "" {
+			mode = strings.TrimSpace(mode)
+			if messageID != "" && mode != "" {
 				normalized[messageID] = mode
 			}
 		}
@@ -70,7 +43,7 @@ func NormalizeAppGenerationByMessageID(raw any) map[string]string {
 			if !ok {
 				continue
 			}
-			if isAllowedChatAppGenerationMessageMode(mode) && messageID != "" {
+			if messageID != "" && mode != "" {
 				normalized[messageID] = mode
 			}
 		}
@@ -88,19 +61,6 @@ func normalizeAppGenerationModeValue(raw any) (string, bool) {
 		return strings.TrimSpace(string(typed)), true
 	default:
 		return "", false
-	}
-}
-
-func isAllowedChatAppGenerationMessageMode(mode string) bool {
-	switch mode {
-	case string(ChatAppGenerationMessageModePlainChat),
-		string(AppGenerationModeJSONRender),
-		string(AppGenerationModeJSONRenderWithImage),
-		string(AppGenerationModePromptBuilder),
-		string(AppGenerationModeMCPServer):
-		return true
-	default:
-		return false
 	}
 }
 

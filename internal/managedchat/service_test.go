@@ -220,10 +220,10 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 		},
 	)
 	run.Inputs["appGenerationByMessageId"] = map[string]any{
-		"user-plain": agentruns.ChatAppGenerationMessageModePlainChat,
-		"user-app":   agentruns.ChatAppGenerationMessageModeMCPServer,
-		"user-bad":   "invalid_mode",
-		"":           agentruns.ChatAppGenerationMessageModeJSONRender,
+		"user-plain":  agentruns.ChatAppGenerationMessageModePlainChat,
+		"user-app":    agentruns.ChatAppGenerationMessageModeMCPServer,
+		"user-vendor": "vendor_mode",
+		"":            agentruns.ChatAppGenerationMessageModeJSONRender,
 	}
 	saveManagedChatRun(t, fixture.runs, run)
 
@@ -231,14 +231,17 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 	if err != nil {
 		t.Fatalf("get chat: %v", err)
 	}
-	if len(hydrated.AppGenerationByMessageID) != 2 {
-		t.Fatalf("expected two hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
+	if len(hydrated.AppGenerationByMessageID) != 3 {
+		t.Fatalf("expected three hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
 	}
 	if hydrated.AppGenerationByMessageID["user-plain"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain chat provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 	if hydrated.AppGenerationByMessageID["user-app"] != string(agentruns.ChatAppGenerationMessageModeMCPServer) {
 		t.Fatalf("expected app-generation provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-vendor"] != "vendor_mode" {
+		t.Fatalf("expected provider-defined provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 }
 
@@ -1183,6 +1186,44 @@ func TestServiceStartChatAllowsImageModeWithCurrentImageAttachment(t *testing.T)
 	}
 	if starter.lastInputs == nil {
 		t.Fatal("expected starter to receive image-mode inputs")
+	}
+}
+
+func TestServiceStartChatPreservesProviderDefinedAppGenerationHistory(t *testing.T) {
+	t.Parallel()
+
+	starter := &stubManagedChatStarter{}
+	fixture := newManagedChatFixture(t, nil, starter)
+
+	_, err := fixture.service.StartChat(StartChatRequest{
+		Message:         userMessage("user-follow-up", "Continue the provider-defined app flow."),
+		EngineConfigID:  "engine-managed",
+		Thinking:        false,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-seed": "vendor_mode",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("start managed provider-mode chat: %v", err)
+	}
+	if starter.lastInputs == nil {
+		t.Fatal("expected starter to receive app-generation inputs")
+	}
+	appGenerationByMessageID, ok := starter.lastInputs["appGenerationByMessageId"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected normalized app-generation provenance map, got %#v", starter.lastInputs["appGenerationByMessageId"])
+	}
+	if appGenerationByMessageID["user-seed"] != "vendor_mode" {
+		t.Fatalf("expected retained provider-defined provenance, got %#v", appGenerationByMessageID)
+	}
+	if appGenerationByMessageID["user-follow-up"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
+		t.Fatalf("expected submitted message to default to plain chat, got %#v", appGenerationByMessageID)
 	}
 }
 
