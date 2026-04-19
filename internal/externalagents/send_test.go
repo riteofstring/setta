@@ -1243,6 +1243,46 @@ func TestSendServiceAllowsImageModeWithRetainedImageModeHistory(t *testing.T) {
 	}
 }
 
+func TestSendServicePreservesProviderDefinedAppGenerationHistory(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":      "user-follow-up",
+			"role":    "user",
+			"content": []any{map[string]any{"type": "text", "text": "Continue the provider-defined app flow."}},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  projectstate.ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+		AdditionalInputs: map[string]any{
+			"appGenerationByMessageId": map[string]any{
+				"user-seed": "vendor_mode",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("start external provider-mode chat: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	appGenerationByMessageID, ok := fixture.executor.last.Inputs["appGenerationByMessageId"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected normalized app-generation provenance map, got %#v", fixture.executor.last.Inputs["appGenerationByMessageId"])
+	}
+	if appGenerationByMessageID["user-seed"] != "vendor_mode" {
+		t.Fatalf("expected retained provider-defined provenance, got %#v", appGenerationByMessageID)
+	}
+	if appGenerationByMessageID["user-follow-up"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
+		t.Fatalf("expected submitted message to default to plain chat, got %#v", appGenerationByMessageID)
+	}
+}
+
 func TestSendServiceRejectsMissingContinuationSource(t *testing.T) {
 	t.Parallel()
 
