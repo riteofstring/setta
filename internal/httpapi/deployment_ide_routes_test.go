@@ -18,6 +18,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 type deploymentIDERouteFixture struct {
@@ -542,17 +543,16 @@ func deploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecord
 }
 
 func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
-	return projectstate.Document{
+	return appdefinition.WithStoredDocumentAppDefinition(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		AppDefinition:    encodeDeploymentIDERouteAppDefinition(appDefinition),
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
 			},
 		},
-	}
+	}, encodeDeploymentIDERouteAppDefinition(appDefinition))
 }
 
 func encodeDeploymentIDERouteAppDefinition(

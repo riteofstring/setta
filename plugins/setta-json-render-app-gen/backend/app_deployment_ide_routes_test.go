@@ -189,7 +189,7 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load published app document: %v", err)
 	}
-	storedDefinition := mustDecodeStoredAppDefinition(t, document.AppDefinition)
+	storedDefinition := storedDocumentAppDefinition(t, document)
 	if storedDefinition == nil {
 		t.Fatal("expected published app definition")
 	}
@@ -307,9 +307,9 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 	}
 	absoluteAppSpecPath := filepath.Join(fixture.SettaFilesRoot, filepath.FromSlash(appSpecPath))
 	if _, err := fixture.ProjectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.AppDefinition = mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+		document = withStoredDocumentAppDefinition(document, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
 			AppSpecPath: absoluteAppSpecPath,
-		})
+		}))
 		return document, nil
 	}); err != nil {
 		t.Fatalf("set absolute app spec path: %v", err)
@@ -355,7 +355,7 @@ func TestRegisterAppDeploymentIDERoutesRebasesAbsoluteAppSpecPathAndKeepsDefault
 	if err != nil {
 		t.Fatalf("load published app document: %v", err)
 	}
-	storedDefinition := mustDecodeStoredAppDefinition(t, document.AppDefinition)
+	storedDefinition := storedDocumentAppDefinition(t, document)
 	if storedDefinition == nil {
 		t.Fatal("expected published app definition")
 	}
@@ -848,17 +848,16 @@ func appDeploymentIDERouteErrorCodeAndMessage(
 }
 
 func appDeploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
-	return projectstate.Document{
+	return withStoredDocumentAppDefinition(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		AppDefinition:    encodeAppDeploymentIDERouteAppDefinition(appDefinition),
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
 			},
 		},
-	}
+	}, encodeAppDeploymentIDERouteAppDefinition(appDefinition))
 }
 
 func encodeAppDeploymentIDERouteAppDefinition(

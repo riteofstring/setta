@@ -2713,7 +2713,10 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	if !reflect.DeepEqual(storedSpec, result["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", result["appSpec"], storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(t, projectRuntime.Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(
+		t,
+		appdefinition.StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
+	)
 	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
 		t.Fatalf("expected persisted app definition after route mutation, got %#v", storedAppDefinition)
 	}

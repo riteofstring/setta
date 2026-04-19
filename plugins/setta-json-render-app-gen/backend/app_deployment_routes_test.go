@@ -234,16 +234,9 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 		Now:            &now,
 		GeneratedID:    "generated-app",
 		DeploymentName: "demo-app",
-		Document: projectstate.Document{
+		Document: withStoredDocumentAppDefinition(projectstate.Document{
 			SchemaVersion:    projectstate.CurrentSchemaVersion,
 			DefaultProjectID: "project-alpha",
-			AppDefinition: mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
-				CatalogID:   "catalog-demo",
-				AppSpecPath: appSpecPath,
-				Routes: []projectstate.AppRoute{
-					{Path: "/", Name: "Home"},
-				},
-			}),
 			Projects: map[string]projectstate.Project{
 				"project-alpha": {
 					ID:   "project-alpha",
@@ -254,7 +247,13 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentStateWithDefinitionAndSpec
 					Name: "Beta",
 				},
 			},
-		},
+		}, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+			CatalogID:   "catalog-demo",
+			AppSpecPath: appSpecPath,
+			Routes: []projectstate.AppRoute{
+				{Path: "/", Name: "Home"},
+			},
+		})),
 		ExtraFiles: map[string]any{
 			filepath.FromSlash(appSpecPath): map[string]any{
 				"title": "Demo App",
@@ -309,15 +308,9 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 		Now:            &now,
 		GeneratedID:    "generated-app",
 		DeploymentName: "demo-app",
-		Document: projectstate.Document{
+		Document: withStoredDocumentAppDefinition(projectstate.Document{
 			SchemaVersion:    projectstate.CurrentSchemaVersion,
 			DefaultProjectID: "project-alpha",
-			AppDefinition: mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
-				AppSpecPath: appSpecPath,
-				Routes: []projectstate.AppRoute{
-					{Path: "/"},
-				},
-			}),
 			Projects: map[string]projectstate.Project{
 				"project-alpha": {
 					ID:   "project-alpha",
@@ -328,7 +321,12 @@ func TestRegisterAppDeploymentRoutesLoadsAppDeploymentProjectConfig(t *testing.T
 					Name: "Beta",
 				},
 			},
-		},
+		}, mustEncodeStoredAppDefinition(t, &projectstate.AppDefinition{
+			AppSpecPath: appSpecPath,
+			Routes: []projectstate.AppRoute{
+				{Path: "/"},
+			},
+		})),
 		ExtraFiles: map[string]any{
 			filepath.FromSlash(appSpecPath): map[string]any{
 				"title": "Demo App",

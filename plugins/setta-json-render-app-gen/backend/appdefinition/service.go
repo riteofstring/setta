@@ -37,7 +37,7 @@ func (s *AppDefinitionService) GetAppDefinition(
 	}
 
 	snapshot := s.runtime.Snapshot()
-	appDefinition, err := DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+	appDefinition, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
 		return projectstate.AppDefinitionReadResult{}, err
 	}
@@ -148,7 +148,7 @@ func (s *AppDefinitionService) SetAppDefinition(
 		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
 	}
 
-	appDefinitionResult, err := DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
 	}
@@ -186,7 +186,7 @@ func (s *AppDefinitionService) StreamAppDefinition(
 		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
 	}
 
-	appDefinitionResult, err := DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
 	}
@@ -308,7 +308,7 @@ func (s *AppDefinitionService) UpdateAppDefinition(
 		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
 	}
 
-	appDefinitionResult, err := DecodeStoredAppDefinition(snapshot.Document.AppDefinition)
+	appDefinitionResult, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(snapshot.Document))
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.AppDefinitionMutationResult{}, err
 	}
@@ -324,7 +324,7 @@ func buildUpdateAppDefinitionPlan(
 	projectRoot string,
 	patch any,
 ) (projectstate.PersistedMutationPlan, any, error) {
-	current, err := DecodeStoredAppDefinition(document.AppDefinition)
+	current, err := DecodeStoredAppDefinition(StoredDocumentAppDefinitionRaw(document))
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, nil, err
 	}
@@ -405,12 +405,11 @@ func setAppDefinitionDocument(
 		return projectstate.Document{}, nil, err
 	}
 
-	nextDocument := document.Clone()
 	encodedDefinition, err := EncodeStoredAppDefinition(&updated)
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
-	nextDocument.AppDefinition = encodedDefinition
+	nextDocument := WithStoredDocumentAppDefinition(document, encodedDefinition)
 	return nextDocument, appSpec, nil
 }
 
@@ -433,12 +432,11 @@ func updateAppDefinitionDocument(
 		return projectstate.Document{}, nil, err
 	}
 
-	nextDocument := document.Clone()
 	encodedDefinition, err := EncodeStoredAppDefinition(&current)
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
-	nextDocument.AppDefinition = encodedDefinition
+	nextDocument := WithStoredDocumentAppDefinition(document, encodedDefinition)
 	return nextDocument, merged, nil
 }
 
