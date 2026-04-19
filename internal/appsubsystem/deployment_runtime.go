@@ -6,7 +6,6 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/plugins"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 var ErrAppModePluginRequired = errors.New(`App mode requires the first-party plugin "setta-json-render-app-gen" to be enabled.`)
@@ -26,10 +25,18 @@ func NewDeploymentTypeRegistry(
 	if options.Mode != config.ModeApp {
 		return deployments.NewTypeRegistry(registrations)
 	}
-	if err := RequireAppModeRuntime(options); err != nil {
+	capabilities, err := LoadAppSubsystemCapabilities(options)
+	if err != nil {
 		return nil, err
 	}
-	registrations = append(registrations, appsubsystemplugin.AppDeploymentTypeRegistration())
+	if err := requireAppModeRuntimeCapabilities(capabilities); err != nil {
+		return nil, err
+	}
+	registration, err := DeploymentTypeRegistration(capabilities)
+	if err != nil {
+		return nil, err
+	}
+	registrations = append(registrations, registration)
 	return deployments.NewTypeRegistry(registrations)
 }
 
@@ -41,6 +48,12 @@ func RequireAppModeRuntime(options DeploymentRuntimeOptions) error {
 	if err != nil {
 		return err
 	}
+	return requireAppModeRuntimeCapabilities(capabilities)
+}
+
+func requireAppModeRuntimeCapabilities(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+) error {
 	if capabilities.PluginEnabled && capabilities.AppDeploymentRuntime {
 		return nil
 	}
