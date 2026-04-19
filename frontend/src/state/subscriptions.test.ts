@@ -102,7 +102,7 @@ describe("subscriptions viewport persistence", () => {
       });
     });
   });
-  it("keeps the local viewport when a backend update arrives before the debounced write flushes", () => {
+  it("replays the local viewport from the pending op when a backend update arrives before the debounced write flushes", () => {
     const localViewport = { x: 160, y: 120, zoom: 0.6 };
     const staleBackendViewport = { x: 0, y: 0, zoom: 1 };
     useProjectState.setState({
@@ -139,7 +139,7 @@ describe("subscriptions viewport persistence", () => {
       fitViewOnInitDone: true,
     });
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
-      localViewport,
+      staleBackendViewport,
     );
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(routeSetViewportMock).not.toHaveBeenCalled();
@@ -176,7 +176,7 @@ describe("subscriptions viewport persistence", () => {
     );
   });
 
-  it("defers mirroring viewport into project state until interaction settles", () => {
+  it("keeps project-state viewport persistence stale until backend reconciliation after interaction settles", () => {
     const settledViewport = { x: 220, y: -140, zoom: 0.8 };
 
     useReactFlow.setState({
@@ -208,9 +208,7 @@ describe("subscriptions viewport persistence", () => {
       viewportInteractionActive: false,
     });
 
-    expect(useProjectState.getState().projectConfig.viewport).toEqual(
-      settledViewport,
-    );
+    expect(useProjectState.getState().projectConfig.viewport).toBeNull();
   });
 
   it("does not queue a pending viewport op when interaction starts without moving the camera", () => {
@@ -306,9 +304,7 @@ describe("subscriptions viewport persistence", () => {
       viewportInteractionActive: false,
     });
 
-    expect(useProjectState.getState().projectConfig.viewport).toEqual(
-      settledViewport,
-    );
+    expect(useProjectState.getState().projectConfig.viewport).toBeNull();
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(usePendingOperations.getState().pending[0]?.opId).toBe(
       firstPendingOpId,

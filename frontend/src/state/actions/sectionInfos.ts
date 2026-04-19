@@ -1836,6 +1836,26 @@ function buildTopLevelSectionLayout(
   return nextLayout;
 }
 type PendingViewportState = Viewport | null;
+function areViewportsEqual(
+  left: PendingViewportState,
+  right: PendingViewportState,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
+}
+
+export function areViewportTransformsEqual(
+  left: [number, number, number],
+  right: [number, number, number],
+) {
+  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
+}
+
 const pendingViewportRef: {
   opId: string | null;
   snapshot: PendingViewportState;
@@ -2385,9 +2405,12 @@ function shouldSkipViewportDispatch(
   viewport: PendingViewportState,
   currentProjectState: ZustandProjectState,
 ): boolean {
-  const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
+  const snapshotUnchanged = areViewportsEqual(
+    pendingViewportRef.snapshot,
+    viewport,
+  );
   const currentMatches =
-    _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
+    areViewportsEqual(currentProjectState.projectConfig.viewport, viewport) &&
     currentProjectState.projectConfig.viewportInitialized ===
       (viewport !== null);
   return (
@@ -2399,7 +2422,6 @@ function shouldSkipViewportDispatch(
 }
 type DispatchViewportUpdateOptions = {
   immediate?: boolean;
-  mirrorToProjectState?: boolean;
   scheduleSend?: boolean;
 };
 
@@ -2407,7 +2429,6 @@ function dispatchViewportUpdate(
   viewport: Viewport | null,
   {
     immediate = false,
-    mirrorToProjectState = true,
     scheduleSend = true,
   }: DispatchViewportUpdateOptions = {},
 ) {
@@ -2422,11 +2443,6 @@ function dispatchViewportUpdate(
   }
   pendingViewportRef.snapshot = viewport;
   pendingViewportRef.hasQueuedSend = true;
-  if (mirrorToProjectState) {
-    useProjectState.setState((state) => {
-      applyViewportSnapshotToProjectState(state, viewport);
-    });
-  }
   if (!pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
   }
@@ -2468,7 +2484,10 @@ export function dispatchViewportUpdateWhileInteracting() {
   }
 
   const viewport = getCurrProjectConfigViewport();
-  const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
+  const snapshotUnchanged = areViewportsEqual(
+    pendingViewportRef.snapshot,
+    viewport,
+  );
 
   if (pendingViewportRef.hasQueuedSend || pendingViewportRef.opId) {
     if (snapshotUnchanged) {
@@ -2484,7 +2503,7 @@ export function dispatchViewportUpdateWhileInteracting() {
 
   const currentProjectState = useProjectState.getState();
   if (
-    _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
+    areViewportsEqual(currentProjectState.projectConfig.viewport, viewport) &&
     currentProjectState.projectConfig.viewportInitialized ===
       (viewport !== null)
   ) {

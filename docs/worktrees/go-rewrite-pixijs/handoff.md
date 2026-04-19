@@ -25,6 +25,49 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The viewport-persistence project-store fanout slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-project-store-fanout-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/sectionInfos.ts` now keeps local viewport persistence authoritative in `pendingViewportRef` plus the existing pending-op replay path instead of eagerly mirroring the viewport into `useProjectState`
+    - the viewport persistence path now compares viewports with fixed-field tuple/object checks instead of `_.isEqual(...)`
+    - `frontend/src/state/subscriptions.ts` now uses a fixed-field React Flow transform equality function for the viewport persistence subscription instead of lodash deep equality
+    - `frontend/src/state/subscriptions.test.ts` now locks the updated authority rule: local camera motion stays in React Flow, and project-store viewport state only catches up through backend reconciliation of the pending viewport op
+  - fresh dense rerun on the current runtime recorded:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.28`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1199.9`
+    - `longTasks.count: 8`
+    - `longTasks.totalMs: 5980`
+    - `longTasks.maxMs: 3472`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded renderer-main JS / GC reducer on the active whole-scene lane, not a new dense-scene breakthrough
+    - the dense canary stayed in the same improved runtime band, so keep the narrower viewport-authority path
+    - close this viewport-persistence sub-lane here; the next default pass should re-measure the remaining renderer-main JS / GC work on the canonical lane or escalate to the stronger Pixi-owned graph-surface step instead of reopening viewport persistence again
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/subscriptions.ts src/state/actions/sectionInfos.ts src/state/subscriptions.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-023/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (40.6s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - normalized to `All Settings`, used `Full screen pane`, and applied `fit view`
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on the graph surface
+    - no blank graph or obvious detached shell/body artifact was visible on the checked lane
+
 - The CodeMirror init null-pos fallback slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-codemirror-create-editor-null-pos-fallback-rerun.md`.
   - canonical target section: `settings-section__browserSectionDefault`
   - attempted but reverted family lane during the same iteration:
