@@ -61,12 +61,10 @@ var (
 	ErrAppGenerationReferenceImageNotesTooLarge = errors.New(
 		"appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
 	)
-	ErrAppGenerationImageAttachmentRequired = errors.New(
-		"json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.",
-	)
-	ErrChatEngineMismatch             = errors.New("Chat engine mismatch; start a new chat.")
-	ErrChatProjectConfigMismatch      = errors.New("Chat project config mismatch; start a new chat.")
-	ErrContinueFromChatSourceNotFound = errors.New("continuation source chat not found")
+	ErrAppGenerationImageAttachmentRequired = chatmodes.ErrAppGenerationImageAttachmentRequired
+	ErrChatEngineMismatch                   = errors.New("Chat engine mismatch; start a new chat.")
+	ErrChatProjectConfigMismatch            = errors.New("Chat project config mismatch; start a new chat.")
+	ErrContinueFromChatSourceNotFound       = errors.New("continuation source chat not found")
 )
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
@@ -1096,6 +1094,16 @@ func normalizeAppGenerationModeWithResolver(
 		return nil, ErrAppGenerationModeInvalid
 	}
 	return normalized, nil
+}
+
+func chatmodesAllowsReferenceImage(
+	resolver chatmodes.AppGenerationModeResolver,
+	mode *string,
+) bool {
+	if resolver == nil {
+		return false
+	}
+	return resolver.AllowsReferenceImage(mode)
 }
 
 func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
