@@ -139,6 +139,7 @@ func TestServiceRuntimeAppSubsystemCapabilitiesDefaultToUnavailableWithoutPlugin
 func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-disabled-app-provider"
+	registerRuntimeAppSubsystemProvider(t, pluginID)
 	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
 		PluginID:         pluginID,
 		FixtureName:      "frontend",
@@ -194,6 +195,7 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatDisabledPluginAsUnavailable(
 func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-active-app-provider"
+	registerRuntimeAppSubsystemProvider(t, pluginID)
 	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
 		PluginID:         pluginID,
 		FixtureName:      "frontend",
@@ -250,12 +252,59 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *tes
 	)
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAsInvalid(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-unregistered-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected unregistered provider to fail closed, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected unregistered provider surfaces unavailable, got %#v", appSubsystem)
+	}
+}
+
 func TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders(
 	t *testing.T,
 ) {
 	roots := newFilesystemResolverTestRoots(t)
 	activePluginID := "acme-active-app-provider"
 	pendingRestartPluginID := "acme-pending-restart-app-provider"
+	registerRuntimeAppSubsystemProvider(t, activePluginID)
+	registerRuntimeAppSubsystemProvider(t, pendingRestartPluginID)
 	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
 		PluginID:         activePluginID,
 		FixtureName:      "frontend",
@@ -309,6 +358,7 @@ func TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders(
 func TestServiceRuntimeAppSubsystemCapabilitiesTreatInvalidProviderAsUnavailable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-invalid-app-provider"
+	registerRuntimeAppSubsystemProvider(t, pluginID)
 	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
 		PluginID:         pluginID,
 		FixtureName:      "full",
@@ -368,6 +418,8 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFailClosedOnProviderConflict(t *t
 	roots := newFilesystemResolverTestRoots(t)
 	firstPluginID := "acme-primary-app-provider"
 	secondPluginID := "contoso-secondary-app-provider"
+	registerRuntimeAppSubsystemProvider(t, firstPluginID)
+	registerRuntimeAppSubsystemProvider(t, secondPluginID)
 	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
 		PluginID:         firstPluginID,
 		FixtureName:      "frontend",
@@ -425,6 +477,61 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFailClosedOnProviderConflict(t *t
 	)
 }
 
+func TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScope(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-deployment-app-provider"
+	registerRuntimeAppSubsystemProvider(t, pluginID)
+	pluginRoot := copyPluginFixtureToScope(
+		t,
+		roots,
+		filesystemPluginScopeGlobal,
+		"frontend",
+	)
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeGlobal), pluginID)
+	if err := os.Rename(pluginRoot, targetRoot); err != nil {
+		t.Fatalf("rename plugin root %s -> %s: %v", pluginRoot, targetRoot, err)
+	}
+	rewritePluginManifest(t, targetRoot, func(payload map[string]any) {
+		payload["id"] = pluginID
+		payload["name"] = "Deployment Snapshot App Provider"
+		payload["enabledByDefault"] = true
+		payload["featureCapabilities"] = map[string]any{
+			"appSubsystem": map[string]any{
+				"appDeploymentRuntime": true,
+			},
+		}
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"pluginConfigById": map[string]any{
+			string(PluginScopeGlobal) + ":" + pluginID: map[string]any{
+				"theme": "ocean",
+			},
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	snapshot, err := service.DeploymentSnapshotForActivePlugin(pluginID)
+	if err != nil {
+		t.Fatalf("build deployment snapshot: %v", err)
+	}
+
+	if snapshot.SourcePath != targetRoot {
+		t.Fatalf("expected deployment snapshot source path %q, got %q", targetRoot, snapshot.SourcePath)
+	}
+	if len(snapshot.State.EnabledPluginIDs) != 1 || snapshot.State.EnabledPluginIDs[0] != pluginID {
+		t.Fatalf("expected deployment snapshot to enable %q, got %#v", pluginID, snapshot.State.EnabledPluginIDs)
+	}
+	workspaceKey := string(PluginScopeWorkspace) + ":" + pluginID
+	if got := snapshot.State.PluginConfigByID[workspaceKey]; got == nil {
+		t.Fatalf("expected workspace-scoped deployment config, got %#v", snapshot.State.PluginConfigByID)
+	}
+	if _, ok := snapshot.State.PluginConfigByID[string(PluginScopeGlobal)+":"+pluginID]; ok {
+		t.Fatalf("expected global-scoped config to be remapped for deployment, got %#v", snapshot.State.PluginConfigByID)
+	}
+}
+
 type runtimeAppSubsystemFixtureOptions struct {
 	PluginID         string
 	FixtureName      string
@@ -453,6 +560,11 @@ func installRuntimeAppSubsystemFixture(
 		}
 	})
 	return targetRoot
+}
+
+func registerRuntimeAppSubsystemProvider(t *testing.T, pluginID string) {
+	t.Helper()
+	RegisterAppSubsystemProvider(pluginID)
 }
 
 func assertRuntimeAppSubsystemSelection(
@@ -1556,6 +1668,7 @@ func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *te
 
 func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *testing.T) {
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	registerRuntimeAppSubsystemProvider(t, AppSubsystemPluginID)
 
 	roots := newFilesystemResolverTestRoots(t)
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")

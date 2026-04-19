@@ -19,6 +19,8 @@ type appPublisher struct {
 	contentService   appDeploymentContentService
 	pluginID         string
 	pluginSourcePath string
+	enabledPluginIDs []string
+	pluginConfigByID map[string]any
 	storage          appdefinition.DocumentStorage
 }
 
@@ -51,6 +53,8 @@ func NewAppPublishService(
 		},
 		pluginID:         strings.TrimSpace(pluginID),
 		pluginSourcePath: strings.TrimSpace(options.PluginSourcePath),
+		enabledPluginIDs: append([]string(nil), options.EnabledPluginIDs...),
+		pluginConfigByID: options.PluginConfigByID,
 		storage:          appdefinition.StorageForPlugin(pluginID),
 	}, nil
 }
@@ -198,9 +202,17 @@ func (p *appPublisher) packageProviderPlugin(deploymentRoot string) error {
 	if err := plugins.CopyDirectoryTree(p.pluginSourcePath, targetRoot); err != nil {
 		return fmt.Errorf("package app deployment provider %q: %w", p.pluginID, err)
 	}
-	pluginsStatePayload, err := json.MarshalIndent(plugins.PluginsStateFile{
-		EnabledPluginIDs: []string{p.pluginID},
-	}, "", "  ")
+	pluginState := plugins.PluginsStateFile{
+		EnabledPluginIDs: append([]string(nil), p.enabledPluginIDs...),
+		PluginConfigByID: p.pluginConfigByID,
+	}
+	if len(pluginState.EnabledPluginIDs) == 0 {
+		pluginState.EnabledPluginIDs = []string{p.pluginID}
+	}
+	if pluginState.PluginConfigByID == nil {
+		pluginState.PluginConfigByID = map[string]any{}
+	}
+	pluginsStatePayload, err := json.MarshalIndent(pluginState, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal deployment plugins state: %w", err)
 	}

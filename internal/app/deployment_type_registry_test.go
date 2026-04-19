@@ -81,8 +81,12 @@ func TestNewDeploymentTypeRegistryRejectsUnregisteredProvider(t *testing.T) {
 	)
 
 	_, err := NewDeploymentTypeRegistry(cfg)
-	if !errors.Is(err, appsubsystem.ErrBackendProviderUnregistered) {
-		t.Fatalf("expected unregistered app subsystem provider error, got %v", err)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected app mode provider-required error, got %v", err)
+	}
+	expectedErr := `app mode requires a single active app subsystem provider with app deployment runtime support: installed app subsystem providers are invalid ("setta-fixture-unregistered-app-provider")`
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("expected exact invalid-provider error %q, got %v", expectedErr, err)
 	}
 }
 

@@ -383,6 +383,61 @@ func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *test
 	assertAppSubsystemToolPresence(t, app, true)
 }
 
+func TestAppSubsystemUnregisteredPluginFailsClosedWithoutCrashingStartup(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	installAppRepoPluginAsID(
+		t,
+		cfg,
+		plugins.AppSubsystemPluginID,
+		"setta-fixture-unregistered-app-provider",
+	)
+	writeEnabledAppPluginState(t, cfg, "setta-fixture-unregistered-app-provider")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := appSubsystemPluginTestAuthCookie(t, app)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteGetAppCatalog,
+		authCookie,
+		http.StatusNotFound,
+	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteAppDeployments,
+		authCookie,
+		http.StatusNotFound,
+	)
+	assertAppSubsystemToolPresence(t, app, false)
+}
+
 func appSubsystemPluginTestAuthCookie(t *testing.T, app *App) *http.Cookie {
 	t.Helper()
 
