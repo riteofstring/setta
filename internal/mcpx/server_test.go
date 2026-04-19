@@ -3999,10 +3999,10 @@ func TestServerGetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	appDefinition := mustStructuredMap(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
 	}
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4119,7 +4119,7 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    appspec.JoinPath("custom.json"),
+			"appSpecPath":    appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"),
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"routes": []any{
@@ -4137,14 +4137,14 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	appDefinition := mustStructuredMap(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.JoinPath("custom.json") {
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
 		t.Fatalf("expected normalized app spec path, got %#v", appDefinition["appSpecPath"])
 	}
 	if appDefinition["appSpecVersion"] != "v2" {
 		t.Fatalf("expected app spec version v2, got %#v", appDefinition["appSpecVersion"])
 	}
 
-	storedSpec, err := appspec.Read(root, appspec.JoinPath("custom.json"))
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4153,9 +4153,9 @@ func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTempora
 	}
 	storedAppDefinition := mustDecodeStoredAppDefinition(
 		t,
-		appdefinition.StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
+		appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
 	)
-	if storedAppDefinition.AppSpecPath != appspec.JoinPath("custom.json") {
+	if storedAppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
 		t.Fatalf("expected runtime app definition after mutation, got %#v", storedAppDefinition)
 	}
 }
@@ -4226,7 +4226,7 @@ func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 		t.Fatalf("expected preserved direction column, got %#v", props["direction"])
 	}
 
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -4240,8 +4240,8 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document = appdefinition.WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, appdefinition.AppDefinition{
-			AppSpecPath:    appspec.DefaultPath(),
+		document = appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, appdefinition.AppDefinition{
+			AppSpecPath:    appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,
 		}))

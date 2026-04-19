@@ -16,20 +16,6 @@ import (
 func DiscoveredValueExports() []ValueExport {
 	return []ValueExport{
 		{
-			Name: "AppSpecPatchPolicyConfig",
-			Type: reflect.TypeOf(backend.FrontendValueAppSpecPatchPolicyConfig()),
-			Value: func() any {
-				return backend.FrontendValueAppSpecPatchPolicyConfig()
-			},
-		},
-		{
-			Name: "AppSubsystemChatUIConfig",
-			Type: reflect.TypeOf(backend.FrontendValueAppSubsystemChatUIConfig()),
-			Value: func() any {
-				return backend.FrontendValueAppSubsystemChatUIConfig()
-			},
-		},
-		{
 			Name: "BootstrapProtocol",
 			Type: reflect.TypeOf(httpapi.FrontendValueBootstrapProtocol()),
 			Value: func() any {
@@ -216,6 +202,20 @@ func DiscoveredValueExports() []ValueExport {
 			Type: reflect.TypeOf(uisettings.FrontendValueUIEditorTabUIConfig()),
 			Value: func() any {
 				return uisettings.FrontendValueUIEditorTabUIConfig()
+			},
+		},
+		{
+			Name: "setta-json-render-app-gen/AppSpecPatchPolicyConfig",
+			Type: reflect.TypeOf(backend.FrontendValueAppSpecPatchPolicyConfig()),
+			Value: func() any {
+				return backend.FrontendValueAppSpecPatchPolicyConfig()
+			},
+		},
+		{
+			Name: "setta-json-render-app-gen/AppSubsystemChatUIConfig",
+			Type: reflect.TypeOf(backend.FrontendValueAppSubsystemChatUIConfig()),
+			Value: func() any {
+				return backend.FrontendValueAppSubsystemChatUIConfig()
 			},
 		},
 	}

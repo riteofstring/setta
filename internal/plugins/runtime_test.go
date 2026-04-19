@@ -34,7 +34,9 @@ func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -209,7 +211,9 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFollowActivePluginManifest(t *tes
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -270,7 +274,9 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatUnregisteredActiveProviderAs
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -1740,11 +1746,10 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 
 	roots := newFilesystemResolverTestRoots(t)
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installFirstPartyPackageManagerPluginInSearchPath(
+	installBuiltFirstPartyPackageManagerPluginInSearchPath(
 		t,
 		sitePackages,
 		AppSubsystemPluginID,
-		"Setta JSON Render App Generation plugin",
 	)
 
 	service := mustNewPluginMutationServiceWithPackageManager(
@@ -1760,7 +1765,9 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 		t.Fatalf("save app subsystem plugin state: %v", err)
 	}
 
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
 	if err != nil {
 		t.Fatalf("load runtime payload: %v", err)
 	}
@@ -1788,6 +1795,9 @@ func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *te
 	}
 	if len(entry.Components) != 2 || entry.Components[0] != "backend" || entry.Components[1] != "frontend" {
 		t.Fatalf("expected backend/frontend app subsystem components, got %#v", entry.Components)
+	}
+	if entry.Frontend.EntrypointURL == nil || entry.Frontend.StyleURL == nil {
+		t.Fatalf("expected package-manager app subsystem frontend URLs, got %#v", entry.Frontend)
 	}
 
 	statusEntry := runtimeResponse.Status.Plugins[0]

@@ -14,9 +14,11 @@ type AppSubsystemCustomSlashCommandModeOption = {
   name: string;
 };
 
-const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set<AppGenerationMode>([
-  AppGenerationModeEnum.json_render_with_image,
-]);
+const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set<AppGenerationMode>(
+  AppSubsystemChatUIConfig.customSlashCommandModeOptions
+    .filter((option) => option.requiresImageAttachment)
+    .map((option) => requireAppGenerationMode(option.value)),
+);
 
 function requireAppGenerationMode(value: string): AppGenerationMode {
   if (!APP_SUBSYSTEM_APP_GENERATION_MODE_SET.has(value as AppGenerationMode)) {

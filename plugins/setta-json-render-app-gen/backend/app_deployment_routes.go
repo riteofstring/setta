@@ -33,6 +33,10 @@ func RegisterAppDeploymentRoutes(
 	if deps.Deployment == nil && !httpapi.OpenAPIDocumentOnlyFromRouter(router) {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
+	storage, err := appdefinition.StorageForPlugin(pluginID)
+	if err != nil {
+		return err
+	}
 
 	httpapi.RegisterOpenAPIPostNoRequest[appdeploymenthttp.AppDeploymentSessionResponse](
 		router,
@@ -51,7 +55,7 @@ func RegisterAppDeploymentRoutes(
 		appSessionRouter,
 		"getAppDeploymentState",
 		httpapi.RouteAppDeploymentState,
-		appDeploymentStateHandler(deps.Deployment, pluginID),
+		appDeploymentStateHandler(deps.Deployment, storage, pluginID),
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("Load the default project state and app definition for an app deployment session."),
 		httpapi.WithOpenAPIPathParams[appDeploymentVersionRouteParams](),
@@ -61,7 +65,7 @@ func RegisterAppDeploymentRoutes(
 		appSessionRouter,
 		"getAppDeploymentProjectConfig",
 		httpapi.RouteAppDeploymentProjectConfig,
-		appDeploymentProjectConfigHandler(deps.Deployment, pluginID),
+		appDeploymentProjectConfigHandler(deps.Deployment, storage, pluginID),
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("Load a specific project config and app definition from an app deployment session."),
 		httpapi.WithOpenAPIPathParams[appDeploymentVersionRouteParams](),
@@ -94,6 +98,7 @@ func currentAppDeploymentSessionHandler(runtime *deployments.Runtime) http.Handl
 
 func appDeploymentStateHandler(
 	runtime *deployments.Runtime,
+	storage appdefinition.DocumentStorage,
 	pluginID string,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -111,8 +116,7 @@ func appDeploymentStateHandler(
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		storedAppDefinition := appdefinition.StorageForPlugin(pluginID).
-			StoredDocumentAppDefinitionRaw(snapshot.Document)
+		storedAppDefinition := storage.StoredDocumentAppDefinitionRaw(snapshot.Document)
 		appSpec, err := LoadPublishedAppSpecFromRuntime(
 			runtime,
 			storedAppDefinition,
@@ -139,6 +143,7 @@ func appDeploymentStateHandler(
 
 func appDeploymentProjectConfigHandler(
 	runtime *deployments.Runtime,
+	storage appdefinition.DocumentStorage,
 	pluginID string,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -174,8 +179,7 @@ func appDeploymentProjectConfigHandler(
 			httpapi.HandleDeploymentProjectStateError(w, r, err)
 			return
 		}
-		storedAppDefinition := appdefinition.StorageForPlugin(pluginID).
-			StoredDocumentAppDefinitionRaw(snapshot.Document)
+		storedAppDefinition := storage.StoredDocumentAppDefinitionRaw(snapshot.Document)
 		appSpec, err := LoadPublishedAppSpecFromRuntime(
 			runtime,
 			storedAppDefinition,
