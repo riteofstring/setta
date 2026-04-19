@@ -6,6 +6,11 @@ import (
 	"strings"
 	"sync"
 
+	"setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
+	neutralappuisettings "setta/internal/appsubsystem/appuisettings"
+	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
+	neutralmcptools "setta/internal/appsubsystem/mcptools"
 	"setta/internal/chatmodes"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
@@ -109,14 +114,14 @@ func BuildMCPToolRegistrations(
 	if projectRuntime == nil {
 		return nil, nil
 	}
-	provider, err := BackendProviderForCapabilities(capabilities)
-	if err != nil {
-		return nil, err
-	}
-	if provider == nil {
+	service, defaultAppSpecPath, ok := appDefinitionToolRuntime(
+		capabilities,
+		projectRuntime,
+	)
+	if !ok {
 		return nil, nil
 	}
-	return provider.BuildMCPToolRegistrations(projectRuntime), nil
+	return neutralmcptools.BuildMCPToolRegistrations(service, defaultAppSpecPath), nil
 }
 
 func BuildScopedUISettingEntries(
@@ -126,14 +131,11 @@ func BuildScopedUISettingEntries(
 	if projectRuntime == nil {
 		return nil, nil
 	}
-	provider, err := BackendProviderForCapabilities(capabilities)
-	if err != nil {
-		return nil, err
-	}
-	if provider == nil {
+	service, ok := appDefinitionRuntimeForCapabilities(capabilities, projectRuntime)
+	if !ok {
 		return nil, nil
 	}
-	return provider.BuildScopedUISettingEntries(projectRuntime)
+	return neutralappuisettings.BuildEntries(service, strings.TrimSpace(capabilities.PluginID))
 }
 
 func AppGenerationModeContributions(
@@ -142,14 +144,7 @@ func AppGenerationModeContributions(
 	if !capabilities.PluginEnabled || !capabilities.AppGenerationChatModes {
 		return nil, nil
 	}
-	provider, err := BackendProviderForCapabilities(capabilities)
-	if err != nil {
-		return nil, err
-	}
-	if provider == nil {
-		return nil, nil
-	}
-	return provider.AppGenerationModeContributions(), nil
+	return appsubsystemchatmodes.BuildChatModeContributions(), nil
 }
 
 func NewAppPublishService(
@@ -196,4 +191,30 @@ func backendProviderByPluginID(pluginID string) (BackendProvider, error) {
 		return nil, fmt.Errorf("%w: %s", ErrBackendProviderUnregistered, trimmedPluginID)
 	}
 	return provider, nil
+}
+
+func appDefinitionRuntimeForCapabilities(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+	projectRuntime *projectstate.Runtime,
+) (appdefinition.Runtime, bool) {
+	if projectRuntime == nil || !capabilities.PluginEnabled {
+		return nil, false
+	}
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	if pluginID == "" {
+		return nil, false
+	}
+	return appdefinition.NewAppDefinitionService(projectRuntime, pluginID), true
+}
+
+func appDefinitionToolRuntime(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+	projectRuntime *projectstate.Runtime,
+) (appdefinition.Runtime, string, bool) {
+	service, ok := appDefinitionRuntimeForCapabilities(capabilities, projectRuntime)
+	if !ok {
+		return nil, "", false
+	}
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	return service, appspec.MustForPlugin(pluginID).DefaultPath(), true
 }
