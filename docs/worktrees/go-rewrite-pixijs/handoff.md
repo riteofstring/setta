@@ -14,8 +14,10 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - run `015` usefully falsified and closed the mounted-hidden motion-body idea after a clear dense-motion regression
   - runs `016`, `017`, and `021` advanced Phase 2 retained-canvas shell ownership while keeping first-click editor handoff intact
   - run `024` promoted the measured `sectionSizingPolicy` outlier into full canvas-owned shell ownership while preserving its lightweight nested-child tree and first-click size-mode dropdown handoff
+  - run `025` replaced the default d3 wheel-zoom dispatch with a direct constrained transform fast path while keeping the checked wheel-motion and visual canaries intact
 - Diminishing returns are now visible:
   - runs `019` and `020` were flat `ZoomPane` micro-passes
+  - run `025` stayed in the same dense band, so close the direct wheel fast-path micro-lane here instead of spending another default pass on wheel-handler polish
   - another one-off shell-sibling promotion would also be churn unless it changes ownership for a whole dense family or shared primitive
 - Default next action from here:
   - stay on the canonical `settings-section__browserSectionDefault` lane
@@ -25,6 +27,57 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
   - do not spend the next default pass on viewport-persistence follow-ups, standalone `ZoomPane` event polish, resize-handle polish, mounted-hidden-body variants, or another isolated shell-sibling canary now that the `sectionSizingPolicy` outlier shell step is closed
 
 ## Current status
+
+- The direct wheel-zoom transform fast-path slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-direct-wheel-zoom-transform-fast-path-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` now resolves the default wheel zoom transform directly from the current d3 `__zoom` state, pointer location, scale extent, and translate extent instead of routing the default wheel path back through the saved d3 wheel handler and its extra event-dispatch hop
+    - the same handler clears any stale queued transform frame before committing the direct wheel transform back into both the d3 selection and the React Flow store, while keeping the old d3 wheel path as a narrow fallback when the direct transform cannot be resolved
+    - `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts` now proves the default wheel path updates immediately without queuing an extra transform frame
+  - same-runtime before / after dense rerun recorded:
+    - baseline before change:
+      - `documentNodeCount: 5498`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 43.14`
+      - `raf.p95Ms: 50`
+      - `longTasks.totalMs: 6261`
+      - `longTasks.maxMs: 3800`
+    - after change:
+      - `documentNodeCount: 5498`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 44.26`
+      - `raf.p95Ms: 50`
+      - `longTasks.totalMs: 6120`
+      - `longTasks.maxMs: 3586`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a bounded shared wheel-path reducer on the renderer-main JS / GC lane, not a new dense-scene checkpoint
+    - the dense probe stayed in the same `~43-44ms` band, so keep the change as safe wheel-path cleanup but close this micro-lane here instead of iterating on more wheel-handler polish
+    - the next default pass should return to a stronger trace-backed renderer-main JS / GC reducer or a broader Pixi-owned graph-surface ownership step
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/ZoomPane.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-025/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (35.8s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-025/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (30.4s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL
+    - normalized to `/settings` with `All Settings` active and `fit view` applied
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on the graph surface
+    - no obvious blank graph or detached shell/body artifact was visible
 
 - The section-sizing-policy shell-ownership slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-section-sizing-policy-shell-ownership-rerun.md`.
   - canonical target section: `settings-section__sectionSizingPolicy`

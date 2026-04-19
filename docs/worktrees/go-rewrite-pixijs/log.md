@@ -155,6 +155,57 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 - direct wheel zoom transform fast path
+
+- Summary:
+  - Chose one bounded renderer-main JS / GC reducer on the canonical `settings-section__browserSectionDefault` lane instead of reopening another shell-sibling or store-authority pass.
+  - Replaced the default d3 wheel-zoom dispatch with a direct constrained transform path in `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`, synchronized the computed transform back into both the d3 `__zoom` state and the React Flow store, and kept the old d3 path only as a narrow fallback.
+  - Added focused regression coverage in `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts` proving default wheel zoom now commits immediately without waiting for an extra queued transform frame.
+- Same-runtime dense before / after:
+  - baseline before change:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.14`
+    - `raf.p95Ms: 50`
+    - `longTasks.totalMs: 6261`
+    - `longTasks.maxMs: 3800`
+  - after change:
+    - `documentNodeCount: 5498`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 44.26`
+    - `raf.p95Ms: 50`
+    - `longTasks.totalMs: 6120`
+    - `longTasks.maxMs: 3586`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+- Interpretation:
+  - this is a bounded shared wheel-path cleanup, not a new dense-scene checkpoint
+  - the dense probe stayed in the same `~43-44ms` band, so keep the change as safe reducer/hardening work but close this wheel micro-lane here instead of spending another default pass on wheel-handler polish
+  - the next default frontier should return to a stronger trace-backed renderer-main JS / GC reducer or a broader Pixi-owned graph-surface ownership step
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/ZoomPane.tsx src/forks/xyflow/core/container/ZoomPane.test.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/ZoomPane.test.ts`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-025/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (35.8s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-025/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (30.4s)`
+  - CDP visual check:
+    - fresh headless DevTools sub-agent consumed a fresh bootstrap URL
+    - normalized to `/settings` with `All Settings` active and `fit view` applied
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible on the graph surface
+    - no obvious blank graph or detached shell/body artifact was visible
+- Next action:
+  - stay on the canonical `settings-section__browserSectionDefault` lane and choose either one stronger trace-backed renderer-main JS / GC reducer or one broader graph-surface ownership move; do not reopen default wheel-path polish
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 - progress review after run 021
 
 - Summary:

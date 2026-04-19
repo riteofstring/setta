@@ -360,6 +360,55 @@ describe("getViewportInteractionActiveValue", () => {
     }
   });
 
+  it("applies default wheel zoom immediately without queuing a transform frame", async () => {
+    const queuedFrames: Array<{
+      callback: FrameRequestCallback;
+      id: number;
+    }> = [];
+    let nextFrameId = 1;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(
+      (callback: FrameRequestCallback) => {
+        const id = nextFrameId++;
+        queuedFrames.push({ callback, id });
+        return id;
+      },
+    );
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frameId) => {
+      const frameIndex = queuedFrames.findIndex((frame) => frame.id === frameId);
+      if (frameIndex >= 0) {
+        queuedFrames.splice(frameIndex, 1);
+      }
+    });
+
+    const { host, renderer, root } = await renderZoomPane();
+    queuedFrames.splice(0);
+
+    try {
+      expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
+
+      await act(async () => {
+        renderer.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaY: -120,
+            clientX: 240,
+            clientY: 180,
+          }),
+        );
+      });
+
+      expect(useReactFlow.getState().transform[2]).toBeGreaterThan(1);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(queuedFrames).toHaveLength(0);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("completes a pending initial fit after the zoom pane initializes d3 state", async () => {
     useNodeInternals.setState({
       x: new Map([
