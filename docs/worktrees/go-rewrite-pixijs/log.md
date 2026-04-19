@@ -197,6 +197,43 @@ LOOP_TERMINAL_MARKER: none
   - start the next iteration from a fresh dense rerun or hotspot capture on the post-`Gate Type` surface so the next product lane comes from current evidence now that graph-surface live `input` / `button` survivors are gone at rest
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 057
+
+- Item: Capture a fresh post-`Gate Type` dense rerun plus hotspot trace so the next product lane comes from current evidence instead of another activator micro-slice.
+- Status: `done`
+- Details:
+  - Recorded the new durable report at `perf/reports/frontend/2026-04-19_settings-all-settings-post-gate-type-dense-hotspot-report.md`.
+  - Fresh dense rerun on the live worktree runtime now records:
+    - `documentNodeCount`: `8163`
+    - `inputCount`: `2`
+    - `buttonCount`: `39`
+    - `raf.meanMs`: `100.83`
+    - `raf.p95Ms`: `183.4`
+    - `longTasks.totalMs`: `16261`
+  - The focused Chrome DevTools MCP trace is saved at:
+    - `perf/artifacts/frontend/settings-all-settings/post-gate-type-dense-pan-trace-2026-04-19.json`
+  - Trace summary on the same normalized `All Settings` surface:
+    - insight set: `NO_NAVIGATION`
+    - `CLS`: `0.00`
+    - `DocumentLatency`: estimated savings `none`
+    - `Forced reflow`: no problem surfaced in this trace window
+  - Interpretation:
+    - the graph-surface live `input` / `button` survivor lane remains closed after the `Gate Type` dropdown slice
+    - the trace no longer points at another live editor/search/control family or a layout-thrash hotspot
+    - the remaining dense-scene cost is now the mounted section-body / row-value surface itself moving under viewport transforms
+    - the next product slice must therefore target broader resting body/value DOM removal or transfer into the retained scene instead of reopening another activator cleanup lane
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-003/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (48.0s)` on the live worktree runtime with the metrics recorded above
+- CDP visual check is done:
+  - fresh bootstrap URL authenticated the page
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - the graph surface was mounted with more than `20` visible nodes
+  - the same pass recorded the local trace artifact above
+- Next action:
+  - target one bounded product slice that removes or transfers dense resting section-body / row-value DOM cost on the moving `All Settings` surface instead of reopening another lightweight activator family
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 055
 
 - Item: Refresh the post-color graph-surface inventory to close the stale last-input assumption before opening another product lane.

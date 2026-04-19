@@ -1205,6 +1205,24 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 - The at-rest graph-surface input/button survivor lane is now closed at its useful ownership boundary:
   - do not reopen the `settings-section__stateMachineGateSectionDefault` `Gate Type` lane unless a fresh inventory or visible defect says it regressed
   - do not continue the dead-end `StateMachineSectionSettings.tsx` inspector path for this lane unless a fresh inventory proves the generic owner boundary changed
+- A fresh post-`Gate Type` dense rerun plus hotspot report is now landed:
+  - new durable report: `perf/reports/frontend/2026-04-19_settings-all-settings-post-gate-type-dense-hotspot-report.md`
+  - local trace artifact: `perf/artifacts/frontend/settings-all-settings/post-gate-type-dense-pan-trace-2026-04-19.json`
+  - fresh dense rerun on 2026-04-19 recorded:
+    - `documentNodeCount: 8163`
+    - `inputCount: 2`
+    - `buttonCount: 39`
+    - `raf.meanMs: 100.83`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 16261`
+  - the focused `NO_NAVIGATION` trace on the same normalized surface recorded:
+    - `CLS: 0.00`
+    - `DocumentLatency`: estimated savings `none`
+    - `Forced reflow`: no problem surfaced in that trace window
+  - interpretation:
+    - the graph-surface live `input` / `button` survivor lane remains closed
+    - the next dense frontier is no longer another lightweight activator family
+    - the remaining cost is the dense mounted section-body / row-value surface moving under viewport transforms, so the next product slice must target broader resting body/value DOM removal or transfer into the retained scene
 
 ## Preservation rule
 
@@ -1245,11 +1263,11 @@ That leaves one primary architectural move:
 11. Treat the new `settings-section__backend` ordinary-dropdown lane as closed at its current ownership boundary; do not reopen it for another dropdown micro-slice unless a fresh visible defect appears there.
 12. Treat the new `settings-section__backend` switch-family lane as closed at its current ownership boundary; do not reopen it for another backend-only switch micro-slice unless a fresh visible defect appears there.
 13. Treat the shared kwargs action-button lane, the shared section-menu-trigger lane, the shared lightweight param-filter lane, and the shared lightweight color-input lane as closed at their current ownership boundaries; do not reopen another kwargs/menu-trigger/filter/color-input micro-slice unless a fresh visible defect appears there.
-14. Treat the current best checkpoint as proof of direction, not proof of success: `settings` -> `All Settings` still performs poorly in absolute terms even after the shared lightweight color-input slice at `raf.meanMs 102.88`, `raf.p95Ms 200`, and `longTasks.totalMs 16522`, so the branch still owes a major pan/zoom win.
-15. The next automated pass must target the next real dense frontier from the fresh post-`Gate Type` surface, not another `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, or state-machine-gate dropdown cleanup hop.
+14. Treat the current best checkpoint as proof of direction, not proof of success: `settings` -> `All Settings` still performs poorly in absolute terms even after the post-`Gate Type` dense report at `raf.meanMs 100.83`, `raf.p95Ms 183.4`, and `longTasks.totalMs 16261`, so the branch still owes a major pan/zoom win.
+15. The next automated pass must target the next real dense frontier from the fresh post-`Gate Type` evidence, not another `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, or state-machine-gate dropdown cleanup hop.
 16. Current priority order is:
-    - capture a fresh dense rerun or hotspot report on the post-`Gate Type` surface so the next product slice is chosen from current evidence instead of stale plateau assumptions
-    - use that rerun to identify the next highest-payoff shared interactive-core primitive or dense family now that graph-surface live `input` / `button` survivors are gone at rest
+    - use `perf/reports/frontend/2026-04-19_settings-all-settings-post-gate-type-dense-hotspot-report.md` as the current evidence checkpoint for the post-`Gate Type` surface
+    - target the next product slice at the remaining dense mounted section-body / row-value surface instead of reopening another lightweight activator family now that graph-surface live `input` / `button` survivors are gone at rest
     - keep the `StateMachineSectionSettings.tsx` inspector path and the `settings-section__stateMachineGateSectionDefault` dropdown lane closed unless fresh evidence proves a regression or ownership move
 17. If the next candidate slice does not plausibly move the global dense-scene numbers before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
 
