@@ -1,10 +1,14 @@
 import type { Spec } from "@json-render/core";
 
+import type { AppDefinition } from "utils/generatedTypes";
+
+import { useAppDefinition } from "state/definitions";
 import {
   applyPatchOp,
   createEmptySpec,
   parsePatchLine,
 } from "utils/appSpecPatchStream";
+import { useAppPreview } from "./appSubsystemProjectState";
 
 type StreamState = {
   remainder: string;
@@ -77,7 +81,53 @@ export function applyAppSpecPatchPreviewDelta({
   return { ...existing.spec, elements: { ...existing.spec.elements } };
 }
 
-export function clearAppSpecPatchStream(toolCallId: string): void {
+function clearAppPreviewOverrides(): void {
+  useAppPreview.setState({
+    previewSpecOverride: undefined,
+    aiPreviewSpecOverride: undefined,
+    previewThemeOverride: undefined,
+    previewAssetsOverride: undefined,
+  });
+}
+
+export function applyAppSpecPatchPreviewDeltaToStore(args: {
+  toolCallId: string;
+  previewValueDelta: string;
+}): void {
+  const nextSpec = applyAppSpecPatchPreviewDelta(args);
+  if (!nextSpec) {
+    return;
+  }
+  useAppPreview.setState({ aiPreviewSpecOverride: nextSpec });
+}
+
+export function applyAppDefinitionStructuredContentToStore(
+  structured: Record<string, unknown>,
+): boolean {
+  const hasSpec = Object.prototype.hasOwnProperty.call(structured, "appSpec");
+  const hasDefinition = Object.prototype.hasOwnProperty.call(
+    structured,
+    "appDefinition",
+  );
+  if (!hasSpec && !hasDefinition) {
+    return false;
+  }
+  const nextSpec = hasSpec ? (structured.appSpec as unknown) : undefined;
+  const nextDefinition = hasDefinition
+    ? (structured.appDefinition as unknown)
+    : undefined;
+  useAppDefinition.setState((state) => ({
+    appSpec: nextSpec === undefined ? state.appSpec : nextSpec ?? null,
+    appDefinition:
+      nextDefinition === undefined
+        ? state.appDefinition
+        : ((nextDefinition ?? null) as AppDefinition | null),
+  }));
+  clearAppPreviewOverrides();
+  return true;
+}
+
+function clearAppSpecPatchStream(toolCallId: string): void {
   if (!toolCallId) {
     return;
   }
@@ -87,3 +137,6 @@ export function clearAppSpecPatchStream(toolCallId: string): void {
 export function clearAllAppSpecPatchStreams(): void {
   streamByToolCallId.clear();
 }
+
+export const clearAppSpecPatchPreviewStream = clearAppSpecPatchStream;
+export const clearAllAppSpecPatchPreviewStreams = clearAllAppSpecPatchStreams;

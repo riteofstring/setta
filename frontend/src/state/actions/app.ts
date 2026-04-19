@@ -6,9 +6,9 @@ import {
   type GetAppDeploymentStateResponses,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
+import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import {
   useAllProjectMetadata,
-  useAppConfigs,
   useAppDefinition,
   useProjectLoading,
   useServerMode,
