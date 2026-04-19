@@ -25,7 +25,7 @@ var (
 type Document struct {
 	SchemaVersion    int                `json:"schemaVersion"`
 	DefaultProjectID string             `json:"defaultProjectId,omitempty"`
-	AppDefinition    *AppDefinition     `json:"appDefinition,omitempty"`
+	AppDefinition    RawJSON            `json:"appDefinition,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
 	passwordSecrets       PasswordSecretStore
@@ -83,10 +83,7 @@ func (d Document) Clone() Document {
 	cloned := d
 	cloned.passwordSecrets = d.passwordSecrets
 	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
-	if d.AppDefinition != nil {
-		appDefinition := d.AppDefinition.Clone()
-		cloned.AppDefinition = &appDefinition
-	}
+	cloned.AppDefinition = cloneRawJSON(d.AppDefinition)
 	if d.Projects == nil {
 		return cloned
 	}
@@ -153,16 +150,14 @@ func normalizeDocumentProjectMap(projects map[string]Project) map[string]Project
 	return projects
 }
 
-func normalizeDocumentAppDefinition(appDefinition *AppDefinition) (*AppDefinition, error) {
-	if appDefinition == nil {
-		return nil, nil
-	}
+func normalizeDocumentAppDefinition(appDefinition RawJSON) (RawJSON, error) {
+	// Core preserves the legacy app payload for compatibility only. The app
+	// plugin owns validation and interpretation of this data.
+	return NormalizeOpaqueAppDefinitionPayload(appDefinition)
+}
 
-	normalized, err := appDefinition.Normalized()
-	if err != nil {
-		return nil, fmt.Errorf("normalize app definition: %w", err)
-	}
-	return &normalized, nil
+func NormalizeOpaqueAppDefinitionPayload(appDefinition RawJSON) (RawJSON, error) {
+	return normalizeRawJSON(appDefinition, "appDefinition")
 }
 
 func normalizeDocumentProjects(projects map[string]Project) error {

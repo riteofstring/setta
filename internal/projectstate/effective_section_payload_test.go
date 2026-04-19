@@ -127,6 +127,108 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	}
 }
 
+func TestEffectiveSectionPayloadNormalizesDrawCollectionsAfterModifierMerge(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		modifier  map[string]any
+		assertion func(t *testing.T, payload map[string]any)
+	}{
+		{
+			name: "nil layers modifier",
+			modifier: map[string]any{
+				"layers": nil,
+			},
+			assertion: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				layers, ok := payload["layers"].([]any)
+				if !ok || layers == nil || len(layers) != 0 {
+					t.Fatalf("expected normalized draw layers array, got %#v", payload["layers"])
+				}
+			},
+		},
+		{
+			name: "nil layer elements modifier",
+			modifier: map[string]any{
+				"layers": []any{
+					map[string]any{
+						"name":         "Layer 1",
+						"visible":      true,
+						"layerOpacity": 1.0,
+						"elements":     nil,
+					},
+				},
+			},
+			assertion: func(t *testing.T, payload map[string]any) {
+				t.Helper()
+				layers, ok := payload["layers"].([]any)
+				if !ok || len(layers) != 1 {
+					t.Fatalf("expected one normalized draw layer, got %#v", payload["layers"])
+				}
+				layer, ok := layers[0].(map[string]any)
+				if !ok {
+					t.Fatalf("expected draw layer object, got %#v", layers[0])
+				}
+				elements, ok := layer["elements"].([]any)
+				if !ok || elements == nil || len(elements) != 0 {
+					t.Fatalf("expected normalized draw layer elements array, got %#v", layer["elements"])
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			project, err := Project{
+				ID:   "project-alpha",
+				Name: "Alpha",
+				SectionVariantMap: map[string]string{
+					"draw-section": "draw-variant",
+				},
+				Sections: map[string]Section{
+					"draw-section": {
+						ID:               "draw-section",
+						Name:             "Draw Section",
+						VariantIDs:       []string{"draw-variant"},
+						DefaultVariantID: "draw-variant",
+					},
+				},
+				SectionVariants: map[string]SectionVariant{
+					"draw-variant": {
+						ID:       "draw-variant",
+						ImplID:   "draw-impl",
+						Modifier: mustMarshalProjectObject(tc.modifier),
+					},
+				},
+				SectionImpls: map[string]SectionImpl{
+					"draw-impl": {
+						ID:   "draw-impl",
+						Kind: SectionKindDraw,
+						Draw: &DrawSectionImpl{},
+						Payload: mustMarshalProjectObject(map[string]any{
+							"id":     "draw-impl",
+							"type":   "Draw",
+							"layers": []any{},
+						}),
+					},
+				},
+			}.Normalized()
+			if err != nil {
+				t.Fatalf("normalize draw project: %v", err)
+			}
+
+			payload, err := effectiveSectionPayload(project, "draw-section", "draw-variant")
+			if err != nil {
+				t.Fatalf("build effective draw payload: %v", err)
+			}
+			tc.assertion(t, payload)
+		})
+	}
+}
+
 func TestEffectiveSectionPayloadIncludesImplBackedDrawAndBindingFields(t *testing.T) {
 	t.Parallel()
 
@@ -222,6 +324,7 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 			"dict-section":      "dict-variant",
 			"generated-section": "generated-variant",
 			"group-section":     "group-variant",
+			"iframe-section":    "iframe-variant",
 		},
 		Sections: map[string]Section{
 			"callable-section": {
@@ -248,6 +351,12 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 				VariantIDs:       []string{"group-variant"},
 				DefaultVariantID: "group-variant",
 			},
+			"iframe-section": {
+				ID:               "iframe-section",
+				Name:             "IFrame",
+				VariantIDs:       []string{"iframe-variant"},
+				DefaultVariantID: "iframe-variant",
+			},
 		},
 		SectionVariants: map[string]SectionVariant{
 			"callable-variant": {
@@ -265,6 +374,10 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 			"group-variant": {
 				ID:     "group-variant",
 				ImplID: "group-impl",
+			},
+			"iframe-variant": {
+				ID:     "iframe-variant",
+				ImplID: "iframe-impl",
 			},
 		},
 		SectionImpls: map[string]SectionImpl{
@@ -287,6 +400,11 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 				ID:      "group-impl",
 				Kind:    SectionKind("frontend"),
 				Payload: mustMarshalProjectObject(map[string]any{"id": "group-impl", "type": "Group"}),
+			},
+			"iframe-impl": {
+				ID:      "iframe-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "iframe-impl", "type": "IFrame"}),
 			},
 		},
 	}.Normalized()
@@ -391,6 +509,14 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	}
 	if children, ok := groupPayload["children"].([]any); !ok || len(children) != 0 {
 		t.Fatalf("expected group children empty array, got %#v", groupPayload["children"])
+	}
+
+	iframePayload, err := effectiveSectionPayload(project, "iframe-section", "iframe-variant")
+	if err != nil {
+		t.Fatalf("effective iframe payload: %v", err)
+	}
+	if got := payloadStringField(iframePayload, "code"); got != "" {
+		t.Fatalf("expected iframe code empty string, got %q", got)
 	}
 }
 

@@ -61,6 +61,20 @@ type SharePublishResult struct {
 	Snapshot projectstate.Document
 }
 
+type ProjectPublishPreparationOptions struct {
+	ProjectState       *projectstate.Runtime
+	ProjectID          string
+	ListenerEntrypoint string
+	ListenerEnabled    bool
+}
+
+type PreparedProjectPublish struct {
+	Project                projectstate.Project
+	ListenerConfig         *ListenerConfig
+	PublishedDocument      projectstate.Document
+	StructuredDataPayloads map[string]map[string]any
+}
+
 type SharePublisherOptions struct {
 	Catalog        *Catalog
 	SettaFilesRoot string
@@ -82,14 +96,6 @@ type publishPathMaps struct {
 	artifact map[string]string
 	code     map[string]string
 	json     map[string]string
-}
-
-type preparedSharePublish struct {
-	project                projectstate.Project
-	policy                 Policy
-	listenerConfig         *ListenerConfig
-	publishedDocument      projectstate.Document
-	structuredDataPayloads map[string]map[string]any
 }
 
 func NewSharePublisher(options SharePublisherOptions) (*SharePublisher, error) {
@@ -130,7 +136,7 @@ func (p *SharePublisher) Publish(ctx context.Context, request SharePublishReques
 		return SharePublishResult{}, ErrSharePublishProjectStateRequired
 	}
 
-	allocation, err := p.catalog.Allocate(request.DeploymentName)
+	allocation, err := p.Allocate(request.DeploymentName)
 	if err != nil {
 		return SharePublishResult{}, err
 	}
@@ -141,7 +147,16 @@ func (p *SharePublisher) Publish(ctx context.Context, request SharePublishReques
 		}
 	}()
 
-	prepared, err := p.prepareSharePublish(request, allocation.DeploymentRoot)
+	prepared, err := p.PrepareProjectPublish(ProjectPublishPreparationOptions{
+		ProjectState:       request.ProjectState,
+		ProjectID:          request.ProjectID,
+		ListenerEntrypoint: request.ListenerEntrypoint,
+		ListenerEnabled:    request.ListenerEnabled,
+	}, allocation.DeploymentRoot)
+	if err != nil {
+		return SharePublishResult{}, err
+	}
+	policy, err := applySharePolicyOverrides(request.PolicyOverrides)
 	if err != nil {
 		return SharePublishResult{}, err
 	}
@@ -150,81 +165,131 @@ func (p *SharePublisher) Publish(ctx context.Context, request SharePublishReques
 		Version:           1,
 		DeploymentName:    allocation.DeploymentName,
 		DeploymentType:    TypeShare,
-		DefaultProjectID:  prepared.project.ID,
+		DefaultProjectID:  prepared.Project.ID,
 		DeploymentVersion: allocation.DeploymentVersion,
-		CreatedAt:         p.now().UTC(),
-		Listener:          prepared.listenerConfig,
+		CreatedAt:         p.Now(),
+		Listener:          prepared.ListenerConfig,
 	}.Normalized()
 	if err != nil {
 		return SharePublishResult{}, err
 	}
-	if err := p.writeSharePublishOutput(
-		ctx,
-		allocation.DeploymentRoot,
-		prepared.publishedDocument,
-		prepared.structuredDataPayloads,
-		manifest,
-		prepared.policy,
-	); err != nil {
+	if err := p.WriteProjectPublishOutput(ctx, allocation.DeploymentRoot, prepared, manifest, policy); err != nil {
 		return SharePublishResult{}, err
 	}
 
 	success = true
 	return SharePublishResult{
-		Metadata: Metadata{
-			DeploymentName:      allocation.DeploymentName,
-			DeploymentVersion:   allocation.DeploymentVersion,
-			DeploymentType:      TypeShare,
-			DefaultProjectID:    prepared.project.ID,
-			DefaultProjectName:  prepared.project.Name,
-			CreatedAt:           manifest.CreatedAt,
-			DeploymentRoot:      allocation.DeploymentRoot,
-			PolicyPath:          filepath.Join(allocation.DeploymentRoot, "policy.json"),
-			DeploymentVersionNo: mustParseDeploymentVersion(allocation.DeploymentVersion),
-		},
+		Metadata: MetadataFromAllocation(
+			allocation,
+			TypeShare,
+			prepared.Project,
+			manifest.CreatedAt,
+		),
 		Manifest: manifest,
-		Policy:   prepared.policy,
-		Snapshot: prepared.publishedDocument,
+		Policy:   policy,
+		Snapshot: prepared.PublishedDocument,
 	}, nil
 }
 
-func (p *SharePublisher) prepareSharePublish(
-	request SharePublishRequest,
+func (p *SharePublisher) Allocate(deploymentName string) (Allocation, error) {
+	if p == nil || p.catalog == nil {
+		return Allocation{}, ErrSharePublisherCatalogRequired
+	}
+	return p.catalog.Allocate(deploymentName)
+}
+
+func (p *SharePublisher) SettaFilesRoot() string {
+	if p == nil {
+		return ""
+	}
+	return p.settaFilesRoot
+}
+
+func (p *SharePublisher) Now() time.Time {
+	if p == nil || p.now == nil {
+		return time.Time{}
+	}
+	return p.now().UTC()
+}
+
+func MetadataFromAllocation(
+	allocation Allocation,
+	deploymentType Type,
+	project projectstate.Project,
+	createdAt time.Time,
+) Metadata {
+	return Metadata{
+		DeploymentName:      allocation.DeploymentName,
+		DeploymentVersion:   allocation.DeploymentVersion,
+		DeploymentType:      deploymentType,
+		DefaultProjectID:    project.ID,
+		DefaultProjectName:  project.Name,
+		CreatedAt:           createdAt,
+		DeploymentRoot:      allocation.DeploymentRoot,
+		PolicyPath:          filepath.Join(allocation.DeploymentRoot, "policy.json"),
+		DeploymentVersionNo: mustParseDeploymentVersion(allocation.DeploymentVersion),
+	}
+}
+
+func (p *SharePublisher) PrepareProjectPublish(
+	options ProjectPublishPreparationOptions,
 	deploymentRoot string,
-) (preparedSharePublish, error) {
-	snapshot := request.ProjectState.Snapshot()
+) (PreparedProjectPublish, error) {
+	if p == nil {
+		return PreparedProjectPublish{}, ErrSharePublisherCatalogRequired
+	}
+	if options.ProjectState == nil {
+		return PreparedProjectPublish{}, ErrSharePublishProjectStateRequired
+	}
+
+	snapshot := options.ProjectState.Snapshot()
 	document := snapshot.Document.Clone()
-	project, err := document.ProjectByID(request.ProjectID)
+	project, err := document.ProjectByID(options.ProjectID)
 	if err != nil {
-		return preparedSharePublish{}, err
+		return PreparedProjectPublish{}, err
 	}
 	document.DefaultProjectID = project.ID
 
-	policy, err := applySharePolicyOverrides(request.PolicyOverrides)
+	listenerConfig, err := p.copyListenerEntrypoint(strings.TrimSpace(options.ListenerEntrypoint), deploymentRoot, options.ListenerEnabled)
 	if err != nil {
-		return preparedSharePublish{}, err
-	}
-	listenerConfig, err := p.copyListenerEntrypoint(strings.TrimSpace(request.ListenerEntrypoint), deploymentRoot, request.ListenerEnabled)
-	if err != nil {
-		return preparedSharePublish{}, err
+		return PreparedProjectPublish{}, err
 	}
 
 	publishedDocument := document.Clone()
 	structuredDataPayloads, err := p.rewriteDocumentForDeployment(&publishedDocument, deploymentRoot)
 	if err != nil {
-		return preparedSharePublish{}, err
+		return PreparedProjectPublish{}, err
 	}
 	if err := stripPasswordValues(&publishedDocument); err != nil {
-		return preparedSharePublish{}, err
+		return PreparedProjectPublish{}, err
 	}
 
-	return preparedSharePublish{
-		project:                project,
-		policy:                 policy,
-		listenerConfig:         listenerConfig,
-		publishedDocument:      publishedDocument,
-		structuredDataPayloads: structuredDataPayloads,
+	return PreparedProjectPublish{
+		Project:                project,
+		ListenerConfig:         listenerConfig,
+		PublishedDocument:      publishedDocument,
+		StructuredDataPayloads: structuredDataPayloads,
 	}, nil
+}
+
+func (p *SharePublisher) WriteProjectPublishOutput(
+	ctx context.Context,
+	deploymentRoot string,
+	prepared PreparedProjectPublish,
+	manifest Manifest,
+	policy Policy,
+) error {
+	if p == nil {
+		return ErrSharePublisherCatalogRequired
+	}
+	return p.writeSharePublishOutput(
+		ctx,
+		deploymentRoot,
+		prepared.PublishedDocument,
+		prepared.StructuredDataPayloads,
+		manifest,
+		policy,
+	)
 }
 
 func (p *SharePublisher) writeSharePublishOutput(
