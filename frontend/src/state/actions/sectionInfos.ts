@@ -2400,6 +2400,7 @@ function shouldSkipViewportDispatch(
 type DispatchViewportUpdateOptions = {
   immediate?: boolean;
   mirrorToProjectState?: boolean;
+  scheduleSend?: boolean;
 };
 
 function dispatchViewportUpdate(
@@ -2407,6 +2408,7 @@ function dispatchViewportUpdate(
   {
     immediate = false,
     mirrorToProjectState = true,
+    scheduleSend = true,
   }: DispatchViewportUpdateOptions = {},
 ) {
   const projectConfigId = getCurrProjectConfigId();
@@ -2427,6 +2429,9 @@ function dispatchViewportUpdate(
   }
   if (!pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
+  }
+  if (!scheduleSend) {
+    return;
   }
   sendViewportToBackend();
   if (immediate) {
@@ -2452,5 +2457,6 @@ export function dispatchViewportUpdateImmediately() {
 export function dispatchViewportUpdateWhileInteracting() {
   dispatchViewportUpdate(getCurrProjectConfigViewport(), {
     mirrorToProjectState: false,
+    scheduleSend: false,
   });
 }

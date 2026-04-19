@@ -155,6 +155,77 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 086
+
+- Item: Defer backend viewport-send scheduling until active interaction settles on the canonical `browserSectionDefault` motion lane.
+- Status: `done`
+- Details:
+  - Started by testing one broader `ZoomPane` transform-batching candidate on the same lane; the dense probe regressed to `raf.meanMs 81.79` and `longTasks.totalMs 10358`, so that experiment was reverted in the same iteration instead of being left as churn.
+  - Landed the narrower per-event reducer in `frontend/src/state/actions/sectionInfos.ts`: active interaction still refreshes `pendingViewportRef.snapshot` and keeps the optimistic pending op authoritative, but it no longer rearms the backend viewport-send debounce on every motion tick.
+  - Added focused coverage in `frontend/src/state/subscriptions.test.ts` proving the backend send stays deferred until the settled transition while the optimistic pending op remains queued.
+  - Added the durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-send-deferral-rerun.md`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5494`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 43.7`
+      - `raf.p50Ms: 33.3`
+      - `raf.p95Ms: 50`
+      - `raf.maxMs: 1116.6`
+      - `longTasks.count: 9`
+      - `longTasks.totalMs: 6378`
+      - `longTasks.maxMs: 3903`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - this is a safe whole-scene viewport-persistence cleanup, not a new dense-motion breakthrough
+    - the checked canary stayed in the same improved band, so the send-deferral semantics do not reopen the earlier viewport-persistence regression
+    - it did not materially beat the current best checkpoint (`raf.meanMs 43.28`, `longTasks.totalMs 6076`), so this viewport-send sub-lane should close here instead of absorbing more default iterations
+    - the next default frontier should escalate to the broader Pixi-owned graph-surface step unless a fresh trace identifies a stronger renderer-main JS / GC source than the now-closed viewport-persistence send path
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.test.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-012/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (36.9s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+  - `All Settings` stayed active
+  - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell/body artifact on the canvas path
+  - bottom project-chat chrome remained visible after close/minimize attempts in that pass; treated as workspace chrome noise rather than renderer drift
+- Next action:
+  - escalate to the broader Pixi-owned graph-surface step unless a fresh hotspot trace reveals a stronger renderer-main JS / GC reducer with clear whole-scene payoff
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 085
+
+- Item: Progress review checkpoint after loop iteration `11`.
+- Status: `done`
+- Details:
+  - Reviewed `RALPH.md`, the durable plan/handoff, recent loop history, and runs `002` through `011`.
+  - Decision: `replan_and_continue`.
+  - The recent stretch still shows meaningful forward progress because the viewport-persistence interaction-deferral slice materially improved the chat-normalized dense canary without a corresponding DOM-count or visual-regression escape hatch:
+    - `raf.meanMs: 126.46 -> 43.28`
+    - `raf.p95Ms: 116.7 -> 33.4`
+    - `longTasks.totalMs: 17245 -> 6076`
+    - dense scene counts stayed aligned at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`
+  - The spreadsheet `flowZoom` freeze in run `011` held the canary in the same improved band (`raf.meanMs 44.12`, `longTasks.totalMs 6044`) but did not create a new whole-scene step change, so it should be treated as a closed support lane rather than the next default frontier.
+  - Real red herrings / diminishing-return lanes from the recent stretch:
+    - motion-shell/header/menu harvesting after the hotspot report had already shifted the blocker to renderer-main JS / GC
+    - backend-only switch-family cleanup after the loop had already been told to prefer broader renderer-side work
+    - more chat-window normalization, probe-only cleanup, or spreadsheet-only freezes as a default next step
+  - Updated `docs/worktrees/go-rewrite-pixijs/plan.md` and `docs/worktrees/go-rewrite-pixijs/handoff.md` so the next autonomous pass must either land one broader viewport-interaction JS / GC reducer with whole-scene reach on `settings-section__browserSectionDefault` or escalate to the next Pixi-owned graph-surface step.
+- Next action:
+  - start from the chat-normalized dense `settings` -> `All Settings` probe and pick only a broader transform/subscription/invalidation reducer with whole-scene reach, otherwise stop for the graph-surface replan
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 084
 
 - Item: Defer project-state viewport mirroring during active viewport interaction on the canonical `browserSectionDefault` motion lane.

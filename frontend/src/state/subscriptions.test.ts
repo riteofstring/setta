@@ -212,4 +212,52 @@ describe("subscriptions viewport persistence", () => {
       settledViewport,
     );
   });
+
+  it("does not start the backend viewport debounce until interaction settles", async () => {
+    vi.useFakeTimers();
+    const settledViewport = { x: 320, y: -210, zoom: 0.7 };
+
+    try {
+      useReactFlow.setState({
+        ...initialState,
+        transform: [0, 0, 1],
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+        viewportInteractionActive: false,
+      });
+      debouncedDispatchViewportUpdate.cancel();
+      routeSetViewportMock.mockClear();
+      usePendingOperations.setState({ pending: [] });
+
+      useReactFlow.setState({
+        transform: [settledViewport.x, settledViewport.y, settledViewport.zoom],
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+        viewportInteractionActive: true,
+      });
+
+      await vi.advanceTimersByTimeAsync(1500);
+
+      expect(routeSetViewportMock).not.toHaveBeenCalled();
+      expect(usePendingOperations.getState().pending).toHaveLength(1);
+
+      useReactFlow.setState({
+        transform: [settledViewport.x, settledViewport.y, settledViewport.zoom],
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+        viewportInteractionActive: false,
+      });
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(routeSetViewportMock).toHaveBeenCalledWith({
+        projectConfigId: "project-1",
+        viewport: settledViewport,
+        frontendOpId: expect.any(String),
+      });
+    } finally {
+      debouncedDispatchViewportUpdate.cancel();
+      vi.useRealTimers();
+    }
+  });
 });

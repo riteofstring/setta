@@ -256,37 +256,27 @@ Use this order unless a fresh measurement disproves it:
 
 ## Current sequencing checkpoint
 
-As of the 2026-04-19 resting-body replan checkpoint:
+As of the 2026-04-20 progress review after run `011`:
 
-- The retained-canvas direction is real, not speculative: the normalized dense chain moved the branch from the durable baseline of `9553` / `92` / `521` (`documentNodeCount` / `inputs` / `buttons`) and `raf.meanMs 204.93` / `raf.p95Ms 216.7` / `longTasks.totalMs 36337` to the current best clean checkpoint of `7670` / `2` / `39` and `raf.meanMs 102.6` / `raf.p95Ms 183.4` / `longTasks.totalMs 16510`.
-- The later recovered-runtime `7701` / `4` / `53` report remains useful only as section-scoped ownership proof for the chat-windowing/dropzone/plugin slice; do not treat it as the new apples-to-apples benchmark because extra non-target workspace chrome reopened during recovery.
-- Those gains are still not good enough for the branch goal: `settings` -> `All Settings` pan/zoom remains poor in absolute terms, and the branch still misses the `33.3ms` budget on far too many frames.
-- The callable, dict, GlobalVariables, `sectionSizingPolicy`, `gui`, backend ordinary-dropdown, backend switch-family, shared activator, and generic resting-text family micro-lanes should all be treated as closed at their current ownership boundaries unless a fresh visible defect appears.
-- The remaining problem is no longer the old interactive-core plateau. The dominant remaining cost is the dense resting section-body / row-value DOM that still moves under viewport transforms across `All Settings`.
-- The recent frontier chain proved where the next win is not:
-  - the retained switch value-shell boundary moved the remaining value surface to `87` elements across `28` rows at `documentNodeCount 6728`
-  - the `languageServer` slice moved that remaining surface again to `39` / `21` at `documentNodeCount 6713`
-  - the backend plain-text slice moved it again to `27` / `18` at `documentNodeCount 6704`
-  - but dense motion stayed flat-to-worse across the last two frontier passes (`raf.mean 94.13 -> 94.22`, `raf.p95 166.8 -> 183.4`, `longTasks.total 14856 -> 15021`)
-- Therefore the branch has exhausted survivor-family harvesting as the default strategy. The next step must remove row-body/layout cost from motion, not just another text/value leaf from the DOM tree.
+- The recent stretch is still worthwhile. The strongest proof is the viewport-persistence interaction-deferral slice, which kept the chat-normalized dense scene shape flat at `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, and `buttonCount 47` while moving `raf.meanMs 126.46 -> 43.28`, `raf.p95Ms 116.7 -> 33.4`, and `longTasks.totalMs 17245 -> 6076`.
+- The follow-on spreadsheet `flowZoom` freeze confirmed that the branch can hold that improved range (`raf.meanMs 44.12`, `longTasks.totalMs 6044`) without a visible spreadsheet defect, but it did not create another whole-scene step change. Treat it as a bounded support slice, not as the new default frontier.
+- The later viewport-send deferral cleanup also stayed in that improved band (`raf.meanMs 43.7`, `longTasks.totalMs 6378`) without reopening visual regressions, but it likewise did not materially beat the checkpoint. Treat it as a safe whole-scene cleanup, not as a reason to keep iterating laterally on the same viewport-persistence seam.
+- The motion-shell/header/menu harvest, backend switch-family cleanup, chat-window normalization, and spreadsheet-only freeze lanes are all closed unless a fresh visible defect or trace explicitly reopens them.
+- The older 2026-04-19 row-body / value-shell-only checkpoint is no longer the best description of the active blocker. After the hotspot trace and the viewport-persistence win, the default frontier is broader viewport-interaction renderer-main JS / GC on the retained canvas-shell path.
+- The branch is not done. Even after the large improvement, dense `settings` -> `All Settings` motion still misses the real `33.3ms` bar on mean frame time and still carries non-trivial long-task debt.
 
 Required order from here:
 
-1. Start each new default pass from the whole `settings` -> `All Settings` dense scene, not from a previously closed micro-lane.
-2. Pick only one of these two frontier classes by default:
-   - a stronger shared resting row-body / value-shell primitive or ownership seam that can remove remaining `div.section-value`, `single-cell-container`, switch shell, or similar row-body DOM across multiple sections at once
-   - a stronger inactive-row overlay primitive only if that is the smallest viable way to stop paying row-body layout/paint during motion
-3. Prefer a broader shared row-body/value-shell primitive over another section-specific resting-text, date/time, dropdown, switch, or wrapper cleanup whenever both are available.
-4. First candidate order for the next restart:
-   - shared lightweight-switch row-body / value-shell ownership, where rows are already `lightweightSwitch` and the remaining cost is the visible `div.section-value` shell
-   - shared lightweight color-input row-body / value-shell ownership, where the remaining cost is the `div.section-value.single-cell-container` plus icon shell
-   - if neither of those is viable on the current boundary, a stronger inactive-row-body overlay primitive for the highest remaining non-lightweight family
-5. Land a new code slice only if the inventory suggests it can materially move the dense probe, the remaining section-body/value DOM, or both. Convenience cleanups and local polish are not enough.
-6. Do not reopen closed survivor-family lanes by default just because they still appear in the ranking. They now count only as evidence for the stronger primitive choice, not as the product slice themselves.
-7. After every such slice, rerun the normalized dense `settings` -> `All Settings` probe against `perf/reports/frontend/2026-04-18_settings-all-settings-go-rewrite-baseline.md` and compare against the current best clean checkpoint `7670` / `2` / `39` with `raf.meanMs 102.6`, `raf.p95Ms 183.4`, and `longTasks.totalMs 16510`.
-8. If a proposed slice does not plausibly move those global numbers or the dense section-body/value surface before the code is written, stop and replan instead of letting the loop continue by inertia.
-9. If one stronger row-body/value-shell pass still fails to materially improve absolute dense-scene motion, escalate immediately to a larger inactive-row overlay decision instead of continuing family-by-family harvesting.
-10. Do not take another generic shared resting-text harvest, and do not open a date/time-specific lane by default, unless a fresh whole-scene inventory proves that move is now the highest-payoff dense frontier.
+1. Start each default pass from the chat-normalized dense `settings` -> `All Settings` probe on the named `settings-section__browserSectionDefault` lane, not from a previously closed section-local cleanup lane.
+2. Compare new work against `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-persistence-interaction-deferral-rerun.md` as the current whole-scene checkpoint. Treat the spreadsheet and viewport-send follow-up reports only as stability evidence, not as the new default targets.
+3. Pick only one of these two frontier classes by default:
+   - a broader transform/subscription/invalidation reduction with whole-scene reach on the active viewport-interaction JS lane
+   - the next explicit Pixi-owned graph-surface step if no credible bounded JS-side reducer is available
+4. Good candidates are shared transform subscribers, per-frame scene measurement hooks, scene invalidation paths, or other cross-section event-dispatch / GC sources that the trace can tie back to the dense scene. The slice must plausibly move whole-scene metrics before code is written.
+5. Do not spend another default iteration on motion-shell/header/menu survivors, backend-only family cleanup, chat-window normalization, spreadsheet-only freezes, or other section-local rerender suppressions unless a fresh trace shows that exact path is dominant again or the live canary is visibly broken.
+6. Do not spend another default iteration on the same viewport-persistence send/mirror seam unless a fresh trace specifically points back to it. If no stronger JS-side reducer is trace-backed, escalate to the broader graph-surface step instead of continuing laterally.
+7. Keep the current best whole-scene checkpoint explicit when judging progress: `documentNodeCount 5494`, `inputCount 3`, `textareaCount 1`, `buttonCount 47`, `raf.meanMs 43.28`, `raf.p95Ms 33.4`, `longTasks.totalMs 6076`.
+8. If the next proposed slice cannot explain how it should reduce renderer-main `EventDispatch`, `v8.callFunction`, or GC work across the dense scene, stop and replan instead of letting the loop continue by inertia.
 
 Do not reopen closed section-specific chrome ownership lanes for routine follow-up, and do not let Ralph treat the current triple-digit frame times as success just because the branch is better than baseline.
 

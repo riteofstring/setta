@@ -8,6 +8,59 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The viewport-send deferral slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-viewport-send-deferral-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/state/actions/sectionInfos.ts` now lets the active viewport-interaction path refresh the optimistic pending viewport snapshot without rearming the backend send debounce on every motion tick
+    - `frontend/src/state/subscriptions.test.ts` now contains focused coverage proving the backend viewport send remains deferred until interaction settles while the optimistic pending op stays alive
+  - fresh dense rerun on the current chat-normalized runtime recorded:
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 43.7`
+    - `raf.p50Ms: 33.3`
+    - `raf.p95Ms: 50`
+    - `raf.maxMs: 1116.6`
+    - `longTasks.count: 9`
+    - `longTasks.totalMs: 6378`
+    - `longTasks.maxMs: 3903`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 119 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - interpretation:
+    - this is a safe whole-scene viewport-persistence cleanup, not a new dense-motion breakthrough
+    - the checked canary stayed in the same improved band, so deferring backend send scheduling during active interaction does not reopen the earlier viewport-persistence regression
+    - it did not materially beat the current whole-scene checkpoint (`raf.meanMs 43.28`, `longTasks.totalMs 6076`), so close this viewport-send sub-lane here instead of spending more default iterations on it
+    - the next default frontier should escalate to the broader Pixi-owned graph-surface step unless a fresh trace identifies a stronger renderer-main JS / GC source than the now-closed viewport-persistence send path
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/state/actions/sectionInfos.ts src/state/subscriptions.test.ts`
+      - result: passed
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-012/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `1 passed (36.9s)`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/state/subscriptions.test.ts`
+      - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before test collection, not by this slice
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent using a fresh one-shot bootstrap URL from `./scripts/dev-runtime-info.sh`
+    - `All Settings` stayed active
+    - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` remained visually intact with no obvious blank or detached shell/body artifact on the canvas path
+    - bottom project-chat chrome remained visible after close/minimize attempts in that pass; treated as workspace chrome noise rather than renderer drift
+
+- Progress review checkpoint, 2026-04-20, loop iteration `11`:
+  - decision: keep the loop running, but only on the sharper post-run-010 frontier
+  - strongest evidence: the viewport-persistence interaction-deferral slice moved the chat-normalized dense canary from `raf.meanMs 126.46`, `raf.p95Ms 116.7`, `longTasks.totalMs 17245` to `43.28`, `33.4`, and `6076` without reopening DOM counts or visual regressions
+  - bounded follow-up: the spreadsheet `flowZoom` freeze stayed in the same range (`raf.meanMs 44.12`, `longTasks.totalMs 6044`) and is now closed as a support lane rather than a default next action
+  - real red herrings / closed defaults:
+    - motion-shell/header/menu micro-harvests
+    - backend-only switch-family cleanup
+    - more chat-window normalization or other probe-only cleanup as the default next step
+    - more spreadsheet-only or section-local zoom freezes unless a fresh trace makes them dominant again
+  - next default pass: broader `settings-section__browserSectionDefault` viewport-interaction JS / GC reduction with whole-scene reach, or escalate to the next Pixi-owned graph-surface step if no such bounded reducer is credible
+
 - The spreadsheet `flowZoom` interaction-freeze slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-spreadsheet-flowzoom-freeze-rerun.md`.
   - canonical target section: `settings-section__spreadsheetSectionDefault`
   - implementation shape:
