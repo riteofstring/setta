@@ -85,6 +85,12 @@ func BuildAppSubsystemFrontendAPIRouteRegistrations(
 					return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
 				},
 			},
+			{
+				Family: "app generation skill",
+				Register: func(router chi.Router) error {
+					return RegisterAppGenSkillRoutes(router, deps.AppGenSkill)
+				},
+			},
 		},
 		Deployment: []FrontendAPIRouteContribution{
 			{
@@ -245,9 +251,7 @@ func registerFrontendProjectRoutes(
 	if err := registerFrontendHTTPOpenAPIRouteFamily("prompt template", RegisterPromptTemplateRoutes(router, deps.PromptTemplate)); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("app gen skill", RegisterAppGenSkillRoutes(router, deps.AppGenSkill)); err != nil {
-		return err
-	}
+	// App-generation skill routes are plugin-gated app-subsystem contributions.
 	return nil
 }
 
