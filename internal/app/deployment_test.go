@@ -102,16 +102,17 @@ func TestAppOpensDeploymentRuntimeForAppMode(t *testing.T) {
 	}
 }
 
-func TestAppRejectsAppModeWithoutAppSubsystemPlugin(t *testing.T) {
+func TestAppRejectsAppModeWithoutAppSubsystemProvider(t *testing.T) {
 	t.Parallel()
 
 	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
 	_, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if !errors.Is(err, appsubsystem.ErrAppModePluginRequired) {
-		t.Fatalf("expected app mode plugin-required error, got %v", err)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected app mode provider-required error, got %v", err)
 	}
-	if err == nil || err.Error() != appsubsystem.ErrAppModePluginRequired.Error() {
-		t.Fatalf("expected exact app mode plugin-required error %q, got %v", appsubsystem.ErrAppModePluginRequired.Error(), err)
+	expectedErr := "app mode requires a single active app subsystem provider with app deployment runtime support: no app subsystem provider is active"
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("expected exact app mode provider-required error %q, got %v", expectedErr, err)
 	}
 }
 
