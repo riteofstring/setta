@@ -13,7 +13,6 @@ Start with the full visibility pass:
 Normal install scripts must stay frozen:
 
 - `./dev_install.sh`
-- `./dev_install_python.sh`
 
 Refresh lockfiles only on purpose:
 
