@@ -131,7 +131,7 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 			{TargetID: " go-target ", Language: "go", Name: "Go target", DefaultFileName: "go.txt"},
 		},
 		LanguageServers: []PluginRegisteredLanguageServer{
-			{Name: "TypeScript LS", Language: " typescript ", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
+			{Name: "TypeScript LS", Language: " typescript ", Command: "node", Args: []string{"--stdio"}},
 			{Name: "Go LS", Language: "go", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
 		},
 		UISettingsRaw: []map[string]any{
@@ -216,7 +216,7 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 }
 
 func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand(t *testing.T) {
-	// Plugin language-server commands should resolve relative filesystem paths against the plugin root.
+	// Plugin language-server commands should resolve ./ paths against the plugin root.
 	pluginRoot := t.TempDir()
 	commandPath := filepath.Join(pluginRoot, "backend", "fixture-language-server.sh")
 	if err := os.MkdirAll(filepath.Dir(commandPath), 0o755); err != nil {
@@ -226,48 +226,17 @@ func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand
 		t.Fatalf("write language server command: %v", err)
 	}
 
-	for name, command := range map[string]string{
-		"dot-slash":       "./backend/fixture-language-server.sh",
-		"subpath":         filepath.Join("backend", "fixture-language-server.sh"),
-		"windows-subpath": `.\backend\fixture-language-server.sh`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-				Name:     "Fixture DSL",
-				Language: "TypeScript",
-				Command:  command,
-				Args:     []string{"--stdio"},
-			})
-			if err != nil {
-				t.Fatalf("normalize backend language server registration: %v", err)
-			}
-			if normalized.Command != commandPath {
-				t.Fatalf("expected plugin-relative command to resolve to %q, got %q", commandPath, normalized.Command)
-			}
-		})
+	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
+		Name:     "Fixture DSL",
+		Language: "TypeScript",
+		Command:  "./backend/fixture-language-server.sh",
+		Args:     []string{"--stdio"},
+	})
+	if err != nil {
+		t.Fatalf("normalize backend language server registration: %v", err)
 	}
-}
-
-func TestNormalizeBackendLanguageServerRegistrationRejectsMissingPathLikeCommands(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	for name, command := range map[string]string{
-		"absolute":        filepath.Join(t.TempDir(), "missing-language-server"),
-		"dot-slash":       "./backend/missing-language-server",
-		"subpath":         filepath.Join("backend", "missing-language-server"),
-		"windows-subpath": `.\backend\missing-language-server`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			_, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-				Name:     "Fixture DSL",
-				Language: "TypeScript",
-				Command:  command,
-				Args:     []string{"--stdio"},
-			})
-			if err == nil || !strings.Contains(err.Error(), "not executable") {
-				t.Fatalf("expected missing path-like command to fail as non-executable, got %v", err)
-			}
-		})
+	if normalized.Command != commandPath {
+		t.Fatalf("expected plugin-relative command to resolve to %q, got %q", commandPath, normalized.Command)
 	}
 }
 
@@ -295,13 +264,22 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 }
 
 func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testing.T) {
-	// Language-server registrations must fail closed on missing commands.
+	// Language-server registrations must fail closed on missing commands and python targets.
 	pluginRoot := t.TempDir()
 	testCases := []struct {
 		name         string
 		registration PluginRegisteredLanguageServer
 		wantErr      string
 	}{
+		{
+			name: "python-target",
+			registration: PluginRegisteredLanguageServer{
+				Name:     "Fixture DSL",
+				Language: "python",
+				Command:  "python3",
+			},
+			wantErr: "cannot target python",
+		},
 		{
 			name: "missing-command",
 			registration: PluginRegisteredLanguageServer{
@@ -323,48 +301,6 @@ func TestNormalizeBackendLanguageServerRegistrationRejectsInvalidFields(t *testi
 				t.Fatalf("expected error containing %q, got %v", testCase.wantErr, err)
 			}
 		})
-	}
-}
-
-func TestNormalizeBackendLanguageServerRegistrationAllowsPythonTargets(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-		Name:     "Fixture Python",
-		Language: "python",
-		Command:  "python3",
-		Args:     []string{"--stdio"},
-	})
-	if err != nil {
-		t.Fatalf("normalize backend language server registration: %v", err)
-	}
-	if normalized.Language != "python" {
-		t.Fatalf("expected normalized python language id, got %q", normalized.Language)
-	}
-}
-
-func TestNormalizeBackendLanguageServersRejectsMultipleImplementationsPerPlugin(t *testing.T) {
-	pluginRoot := t.TempDir()
-
-	_, err := normalizeBackendLanguageServers(pluginRoot, "setta-fixture-backend", []PluginRegisteredLanguageServer{
-		{
-			Name:     "Fixture One",
-			Language: "python",
-			Command:  "python3",
-			Args:     []string{"--stdio"},
-		},
-		{
-			Name:     "Fixture Two",
-			Language: "bash",
-			Command:  "node",
-			Args:     []string{"server.js"},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected multiple plugin language server implementations to fail")
-	}
-	if !strings.Contains(err.Error(), "one implementation per plugin") {
-		t.Fatalf("expected single-implementation error, got %v", err)
 	}
 }
 

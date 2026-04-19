@@ -153,7 +153,11 @@ def build_ai_sandbox(tmp_path: Path) -> Path:
         scripts_dir,
         "setta_path_flags.sh",
         "setta_port_selection.sh",
+        "node_tooling.sh",
     )
+    venv_bin_dir = sandbox_root / ".venv" / "bin"
+    venv_bin_dir.mkdir(parents=True, exist_ok=True)
+    (venv_bin_dir / "activate").write_text("", encoding="utf-8")
     (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
     write_stub_executable(
         scripts_dir / "go.sh",

@@ -16,6 +16,44 @@ fi
 
 PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
 
+if [[ -f "${ROOT_DIR}/scripts/lib/node_tooling.sh" ]]; then
+  # shellcheck disable=SC1090
+  . "${ROOT_DIR}/scripts/lib/node_tooling.sh"
+fi
+
+run_pnpm() {
+  export COREPACK_ENABLE_AUTO_PIN=0
+
+  if declare -F setta_run_pnpm >/dev/null 2>&1; then
+    setta_run_pnpm "${ROOT_DIR}" "$@"
+    return
+  fi
+
+  if command -v pnpm >/dev/null 2>&1; then
+    pnpm "$@"
+    return
+  fi
+
+  if command -v corepack >/dev/null 2>&1; then
+    corepack pnpm "$@"
+    return
+  fi
+
+  echo "pnpm or corepack is required on PATH." >&2
+  return 1
+}
+
+resolve_playwright_cli_bin() {
+  local playwright_cli_bin="${ROOT_DIR}/frontend/node_modules/.bin/playwright"
+  if [[ -x "${playwright_cli_bin}" ]]; then
+    printf '%s\n' "${playwright_cli_bin}"
+    return 0
+  fi
+
+  echo "Playwright CLI not found at ${playwright_cli_bin}. Install frontend deps first." >&2
+  return 1
+}
+
 # Tests rely on the workspace switcher SSH flow without requiring a real SSH
 # server. Prepend a lightweight `ssh` stub (scripts/test/ssh) to PATH so the
 # backend can spawn it when needed.
@@ -716,7 +754,7 @@ start_frontend() {
         VITE_BACKEND_ORIGIN=\"${SETTA_BACKEND_ORIGIN}\" \
         SETTA_DEV_FRONTEND_PORT=\"${SETTA_DEV_FRONTEND_PORT}\" \
         SETTA_DEV_FRONTEND_HOST=\"${SETTA_DEV_FRONTEND_HOST}\" \
-        pnpm exec vite
+        bash -lc 'source \"${ROOT_DIR}/activate.sh\" && cd \"${ROOT_DIR}/frontend\" && if [[ -f \"${ROOT_DIR}/scripts/lib/node_tooling.sh\" ]]; then . \"${ROOT_DIR}/scripts/lib/node_tooling.sh\"; fi && if declare -F setta_run_pnpm >/dev/null 2>&1; then setta_run_pnpm \"${ROOT_DIR}\" exec vite; elif command -v pnpm >/dev/null 2>&1; then pnpm exec vite; elif command -v corepack >/dev/null 2>&1; then corepack pnpm exec vite; else echo \"pnpm or corepack is required on PATH.\" >&2; exit 1; fi'
     " >"${LOG_DIR}/frontend.log" 2>&1 &
   else
     (
@@ -725,7 +763,7 @@ start_frontend() {
         VITE_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
         SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT}" \
         SETTA_DEV_FRONTEND_HOST="${SETTA_DEV_FRONTEND_HOST}" \
-        pnpm exec vite >"${LOG_DIR}/frontend.log" 2>&1
+        bash -lc "source \"${ROOT_DIR}/activate.sh\" && cd \"${ROOT_DIR}/frontend\" && if [[ -f \"${ROOT_DIR}/scripts/lib/node_tooling.sh\" ]]; then . \"${ROOT_DIR}/scripts/lib/node_tooling.sh\"; fi && if declare -F setta_run_pnpm >/dev/null 2>&1; then setta_run_pnpm \"${ROOT_DIR}\" exec vite; elif command -v pnpm >/dev/null 2>&1; then pnpm exec vite; elif command -v corepack >/dev/null 2>&1; then corepack pnpm exec vite; else echo \"pnpm or corepack is required on PATH.\" >&2; exit 1; fi" >"${LOG_DIR}/frontend.log" 2>&1
     ) &
   fi
   FRONTEND_PID=$!
@@ -770,13 +808,23 @@ from pathlib import Path
 log_path = Path(sys.argv[1])
 timeout = float(sys.argv[2])
 deadline = time.monotonic() + timeout
-token_pattern = re.compile(r"^\s*Token:\s+(\S+)\s*$")
+legacy_token_pattern = re.compile(r"^\s*Token:\s+(\S+)\s*$")
+manual_token_pattern = re.compile(r"^\s*and paste:\s+(\S+)\s*$")
+bootstrap_url_pattern = re.compile(r"/__setta__/bootstrap#token=(\S+)")
 
 while time.monotonic() < deadline:
     if log_path.exists():
         content = log_path.read_text(encoding="utf-8", errors="replace")
         for line in content.splitlines():
-            match = token_pattern.match(line)
+            match = legacy_token_pattern.match(line)
+            if match:
+                print(match.group(1))
+                raise SystemExit(0)
+            match = manual_token_pattern.match(line)
+            if match:
+                print(match.group(1))
+                raise SystemExit(0)
+            match = bootstrap_url_pattern.search(line)
             if match:
                 print(match.group(1))
                 raise SystemExit(0)
@@ -815,7 +863,7 @@ prepare_recording_auth_storage_state() {
       SETTA_RECORD_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
       SETTA_RECORD_PROJECT_URL="${target_project_url}" \
       SETTA_RECORD_STORAGE_STATE_FILE="${output_file}" \
-      pnpm exec node --input-type=module <<'JS'
+      bash -lc 'source "'"${ROOT_DIR}"'/activate.sh" && cd "'"${ROOT_DIR}"'/frontend" && if [[ -f "'"${ROOT_DIR}"'/scripts/lib/node_tooling.sh" ]]; then . "'"${ROOT_DIR}"'/scripts/lib/node_tooling.sh"; fi && if declare -F setta_run_pnpm >/dev/null 2>&1; then setta_run_pnpm "'"${ROOT_DIR}"'" exec node --input-type=module; elif command -v pnpm >/dev/null 2>&1; then pnpm exec node --input-type=module; elif command -v corepack >/dev/null 2>&1; then corepack pnpm exec node --input-type=module; else echo "pnpm or corepack is required on PATH." >&2; exit 1; fi' <<'JS'
 import { chromium } from "@playwright/test";
 
 const backendOrigin = process.env.SETTA_RECORD_BACKEND_ORIGIN ?? "";
@@ -1006,7 +1054,7 @@ PY
 
   log "Running Playwright tests."
   cd "${ROOT_DIR}/frontend"
-  local -a PLAYWRIGHT_CMD=(pnpm exec playwright test --reporter=line)
+  local -a PLAYWRIGHT_CMD=(exec playwright test --reporter=line)
   if (( ${#PLAYWRIGHT_EXTRA_ARGS[@]} )); then
     PLAYWRIGHT_CMD+=("${PLAYWRIGHT_EXTRA_ARGS[@]}")
   fi
@@ -1014,7 +1062,7 @@ PY
   PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
   SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
   SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-  "${PLAYWRIGHT_CMD[@]}"
+  run_pnpm "${PLAYWRIGHT_CMD[@]}"
 }
 
 resolve_default_recording_bundle_dir() {
@@ -1045,6 +1093,7 @@ run_playwright_codegen() {
   local output_file="${SETTA_E2E_RECORD_OUTPUT_FILE:-${recording_bundle_dir}/recording.spec.ts}"
   local har_file="${SETTA_E2E_RECORD_HAR_FILE:-${recording_bundle_dir}/network.har}"
   local metadata_file="${SETTA_E2E_RECORD_METADATA_FILE:-${recording_bundle_dir}/session.json}"
+  local playwright_cli_bin=""
   local record_url
   record_url="$(with_backend_origin_override "${SETTA_E2E_RECORD_URL:-${PROJECT_URL}}")"
 
@@ -1058,7 +1107,7 @@ run_playwright_codegen() {
   prepare_recording_auth_storage_state "${auth_storage_state_file}"
 
   local -a PLAYWRIGHT_CMD=(
-    pnpm exec playwright codegen
+    codegen
     --target "${SETTA_E2E_RECORD_TARGET:-playwright-test}"
     --test-id-attribute "${SETTA_E2E_RECORD_TEST_ID_ATTRIBUTE:-data-testid}"
     --viewport-size "${SETTA_E2E_RECORD_VIEWPORT_SIZE:-1400,900}"
@@ -1083,11 +1132,14 @@ run_playwright_codegen() {
   log "Starting Playwright recorder."
   log "Artifacts will be written to ${recording_bundle_dir}."
   log "Close the recorder browser when you are finished capturing the repro."
-  cd "${ROOT_DIR}/frontend"
+  playwright_cli_bin="$(resolve_playwright_cli_bin)"
+  # Run codegen from the repo root so it does not auto-load frontend/playwright.config.ts
+  # and re-consume the single-use bootstrap token via globalSetup.
+  cd "${ROOT_DIR}"
   PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
   SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
   SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
-  "${PLAYWRIGHT_CMD[@]}"
+  "${playwright_cli_bin}" "${PLAYWRIGHT_CMD[@]}"
 
   write_recording_session_metadata \
     "${metadata_file}" \
