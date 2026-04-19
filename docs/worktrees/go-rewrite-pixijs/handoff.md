@@ -9,6 +9,11 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- A fresh post-shared-size/style/tag whole-scene ranking now exists at `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`.
+  - refreshed focused totals: `mountedSectionCount 46`, `totalRowCount 759`, `totalRemainingValueRowCount 220`, `totalRemainingValueElementCount 357`
+  - the old shared `Size` / `Height` / `Width` / `Style Color` / `Tag Color` family is no longer the dominant remaining value surface
+  - `settings-section__languageServer` remains the single-section outlier at `48` remaining value elements across `7` rows, but the broader next frontier is now a shared param-codeobj text/value family led by `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault`
+  - next default lane: prefer a shared param-codeobj resting-text/value primitive with canonical target `settings-section__rotaryParamCodeObjDefault`; only fall back to `settings-section__languageServer` if that broader shared primitive is blocked
 - The tracking model is now explicit:
   - `docs/worktrees/go-rewrite-pixijs/log.md` is the canonical append-only execution history
   - `docs/worktrees/go-rewrite-pixijs/handoff.md` is the current-state summary
@@ -1851,6 +1856,38 @@ That leaves one primary architectural move:
     - next default pass:
       - keep this shared size/style/tag lane closed unless a fresh visible defect appears
       - rerun the whole-scene remaining-value ranking from the new `6962` checkpoint, then choose between the `languageServer` outlier and the next remaining shared family only from that refreshed evidence
+22. A fresh post-shared-size/style/tag whole-scene ranking is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`:
+    - focused inventory totals on the current runtime:
+      - `mountedSectionCount: 46`
+      - `totalRowCount: 759`
+      - `totalRemainingValueRowCount: 220`
+      - `totalRemainingValueElementCount: 357`
+    - fresh dense rerun on the same runtime recorded:
+      - `documentNodeCount: 6962`
+      - `inputCount: 4`
+      - `buttonCount: 52`
+      - `raf.meanMs: 95.62`
+      - `raf.p95Ms: 183.4`
+      - `longTasks.totalMs: 15281`
+    - compared against the prior whole-scene ranking at `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`, the shared size/style/tag slice moved the mounted remaining value surface from `273 / 570` down to `220 / 357`
+    - the refreshed ranking closes the stale “keep following the size/style/tag family” assumption:
+      - `settings-section__languageServer` remains the only single-section outlier (`remainingValueElementCount 48` across `7` rows)
+      - the broader repeated survivor is now the param-codeobj text/value family led by `settings-section__rotaryParamCodeObjDefault` and `settings-section__sliderParamCodeObjDefault`
+      - that shared family also includes `colorPickerParamCodeObjDefault`, `dropdownParamCodeObjDefault`, `textParamCodeObjDefault`, `switchParamCodeObjDefault`, `passwordParamCodeObjDefault`, `codeParamCodeObjDefault`, and `textAreaParamCodeObjDefault`
+      - those sections now account for `134` visible remaining value elements across `54` rows on the current live surface, with dominant surviving row kinds still matching the retained-text ownership seam (`div.section-value.peer/textinput`, `div.cm-line`, `span.section-value`)
+    - next default pass:
+      - keep the shared size/style/tag lane closed unless a fresh visible defect appears
+      - prefer a shared param-codeobj resting-text/value primitive or ownership seam with canonical target `settings-section__rotaryParamCodeObjDefault` and first sibling proof `settings-section__sliderParamCodeObjDefault`
+      - only fall back to the `languageServer` outlier if that broader shared primitive is not viable on the current ownership boundary
+    - focused verification passed:
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-008/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+        - result: `2 passed (1.0m)` on the live worktree runtime
+    - CDP visual check is done:
+      - `http://127.0.0.1:3068/settings` loaded cleanly with `All Settings` active
+      - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+      - no crash/error overlay was visible
+      - the settings surface still visibly contained the `languageServer`, `rotary`, and `slider` areas at the current fit-view state, although the exact section selectors were not all present in the live DOM during that headless pass
 
 ## First product frontier
 

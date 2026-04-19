@@ -155,6 +155,49 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 066
+
+- Item: Refresh the whole-scene remaining-value ranking after the shared size/style/tag slice.
+- Status: `done`
+- Details:
+  - Followed the anti-inertia guardrail before coding and chose the handoff's explicit reranking step instead of starting another closed section-local family by habit.
+  - Reused the existing focused ranking probe plus the dense baseline probe on the live worktree runtime and recorded a new durable decision report at `perf/reports/frontend/2026-04-19_settings-all-settings-post-size-style-tag-remaining-value-surface-ranking.md`.
+  - The refreshed whole-scene totals show the shared size/style/tag slice materially changed the remaining mounted value surface:
+    - prior ranking: `totalRemainingValueRowCount 273`, `totalRemainingValueElementCount 570`
+    - refreshed ranking: `totalRemainingValueRowCount 220`, `totalRemainingValueElementCount 357`
+  - The rerank closes the stale "keep following the old size/style/tag family" assumption:
+    - `settings-section__languageServer` remains the only single-section outlier at `48` remaining value elements across `7` rows
+    - the broader repeated remaining survivor is now a shared param-codeobj value family, led by:
+      - `settings-section__rotaryParamCodeObjDefault`: `24` remaining value elements across `8` rows
+      - `settings-section__sliderParamCodeObjDefault`: `24` remaining value elements across `8` rows
+      - plus `colorPickerParamCodeObjDefault`, `dropdownParamCodeObjDefault`, `textParamCodeObjDefault`, `switchParamCodeObjDefault`, `passwordParamCodeObjDefault`, `codeParamCodeObjDefault`, and `textAreaParamCodeObjDefault`
+    - that shared param-codeobj family now accounts for `134` visible remaining value elements across `54` rows on the current live surface
+    - the dominant surviving row kinds still match the existing retained-text/value ownership seam (`div.section-value.peer/textinput`, `div.cm-line`, `span.section-value`), so the next product pass should stay broad and shared instead of pivoting straight to the `languageServer` outlier
+  - Dense baseline metrics on the same runtime recorded:
+    - `documentNodeCount: 6962`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 52`
+    - `raf.meanMs: 95.62`
+    - `raf.p95Ms: 183.4`
+    - `longTasks.totalMs: 15281`
+  - Interpretation:
+    - this iteration did not claim a new product win; it refreshed the whole-scene evidence so the next production slice comes from the current mounted value surface instead of an older closed family
+    - the next default product lane should be a shared param-codeobj resting-text/value primitive with canonical target `settings-section__rotaryParamCodeObjDefault` and first sibling proof `settings-section__sliderParamCodeObjDefault`
+    - only fall back to the `settings-section__languageServer` outlier if that broader shared primitive is blocked on the current ownership boundary
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-008/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)` on the live worktree runtime
+- CDP visual check is done:
+  - `http://127.0.0.1:3068/settings` loaded cleanly with `All Settings` active
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - no crash/error overlay was visible
+  - the settings surface still visibly contained the `languageServer`, `rotary`, and `slider` areas at the current fit-view state, although the exact section selectors were not all present in the live DOM during that headless pass
+- Next action:
+  - land one shared param-codeobj resting-text/value lane with canonical target `settings-section__rotaryParamCodeObjDefault`, first sibling proof `settings-section__sliderParamCodeObjDefault`, and only use the `languageServer` outlier if that broader ownership seam is blocked
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 065
 
 - Item: Move the shared size/style/tag settings value family onto the retained resting-text lane.
