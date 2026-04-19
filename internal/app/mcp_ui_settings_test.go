@@ -201,7 +201,7 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *tes
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
 	}
 	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
-	if getPayload["value"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+	if getPayload["value"] != appspec.MustForPlugin(appsubsystemprovider.PluginID).DefaultPath() {
 		t.Fatalf("expected default app spec path, got %#v", getPayload["value"])
 	}
 }
