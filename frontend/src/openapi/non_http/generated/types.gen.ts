@@ -224,51 +224,6 @@ export type AppDefinition = {
 };
 
 /**
- * AppDefinitionCapabilities
- */
-type AppDefinitionCapabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-/**
- * AppDefinitionMutationResult
- */
-type AppDefinitionMutationResult = {
-  appDefinition?: AppDefinition | null;
-};
-
-/**
- * AppDefinitionReadResult
- */
-type AppDefinitionReadResult = {
-  appDefinition?: AppDefinition | null;
-};
-
-/**
- * AppDefinitionValidationIssue
- */
-type AppDefinitionValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
-};
-
-/**
- * AppDefinitionValidationResult
- */
-type AppDefinitionValidationResult = {
-  capabilities: AppDefinitionCapabilities;
-  errors: null | Array<AppDefinitionValidationIssue>;
-  warnings: null | Array<AppDefinitionValidationIssue>;
-};
-
-/**
  * AppGenerationMode
  */
 type AppGenerationMode =
@@ -861,6 +816,19 @@ export type CallableSectionImpl = {
  * CanvasPoint
  */
 export type CanvasPoint = [number, number];
+
+/**
+ * Capabilities
+ */
+type Capabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
 
 /**
  * ChangeParamImplUIConfigValue
@@ -3567,6 +3535,13 @@ type MoveSectionsInput = {
 };
 
 /**
+ * MutationResult
+ */
+type MutationResult = {
+  appDefinition?: AppDefinition | null;
+};
+
+/**
  * NameValidationContract
  */
 export type NameValidationContract = {
@@ -4702,6 +4677,13 @@ type RawMessage =
   | {
       [key: string]: RawMessage;
     };
+
+/**
+ * ReadResult
+ */
+type ReadResult = {
+  appDefinition?: AppDefinition | null;
+};
 
 /**
  * RealtimeDependencyEventContent
@@ -7285,6 +7267,24 @@ export type UserChatMessage = {
   createdAt: number;
   id: string;
   role: ChatRole;
+};
+
+/**
+ * ValidationIssue
+ */
+type ValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+/**
+ * ValidationResult
+ */
+type ValidationResult = {
+  capabilities: Capabilities;
+  errors: null | Array<ValidationIssue>;
+  warnings: null | Array<ValidationIssue>;
 };
 
 /**

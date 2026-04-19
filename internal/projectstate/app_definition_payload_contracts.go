@@ -20,6 +20,7 @@ type SetAppDefinitionInput struct {
 	Assets         *[]any
 }
 
+// setta-go-type-discovery: skip
 type AppDefinitionMutationResult struct {
 	AppSpec       any            `json:"appSpec"`
 	AppDefinition *AppDefinition `json:"appDefinition,omitempty"`

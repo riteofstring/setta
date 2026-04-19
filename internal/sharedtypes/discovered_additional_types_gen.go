@@ -13,6 +13,7 @@ import (
 	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
 	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func discoveredAdditionalTypes() []reflect.Type {
@@ -22,11 +23,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(backendlogs.BackendLogEvent{}),
 		reflect.TypeOf(backendlogs.WebsocketMessage{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationIssue{}),
-		reflect.TypeOf(projectstate.AppDefinitionCapabilities{}),
-		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
 		reflect.TypeOf(projectstate.BrowserAreaViewMode("")),
 		reflect.TypeOf(projectstate.BrowserSearchScope("")),
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
@@ -150,8 +146,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.CodeObject{}),
 		reflect.TypeOf(projectstate.CodeObjectVariant{}),
 		reflect.TypeOf(projectstate.CodeObjectImpl{}),
-		reflect.TypeOf(projectstate.AppRoute{}),
-		reflect.TypeOf(projectstate.AppDefinition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticPosition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticRange{}),
 		reflect.TypeOf(projectstate.LSPDiagnostic{}),
@@ -474,6 +468,13 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreListenerRealtimeDelta{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{}),
+		reflect.TypeOf(appdefinition.AppRoute{}),
+		reflect.TypeOf(appdefinition.AppDefinition{}),
+		reflect.TypeOf(appdefinition.ReadResult{}),
+		reflect.TypeOf(appdefinition.ValidationIssue{}),
+		reflect.TypeOf(appdefinition.Capabilities{}),
+		reflect.TypeOf(appdefinition.ValidationResult{}),
+		reflect.TypeOf(appdefinition.MutationResult{}),
 		reflect.TypeOf(artifacts.BaseArtifactUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyKeyUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyValueUnion{}),
