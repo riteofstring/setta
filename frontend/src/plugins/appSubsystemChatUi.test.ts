@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
+  DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
   getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
-} from "./appGenerationSlashCommands";
+} from "./appSubsystemChatUi";
 
-describe("appGenerationSlashCommands", () => {
+describe("appSubsystemChatUi", () => {
   it("defines fixed built-in app generation slash commands with unique tokens", () => {
     const definitions = buildAppGenerationSlashCommandDefinitions();
 
@@ -42,7 +44,7 @@ describe("appGenerationSlashCommands", () => {
       definitions.length,
     );
     for (const entry of definitions) {
-      expect(entry.promptTemplate.trim().length).toBeGreaterThan(0);
+      expect(entry.promptTemplate?.trim().length).toBeGreaterThan(0);
       expect(entry.summary.trim().length).toBeGreaterThan(0);
     }
   });
@@ -85,5 +87,16 @@ describe("appGenerationSlashCommands", () => {
       "mcp_server",
     );
     expect(resolveAppGenerationModeForSlashAction("help")).toBeNull();
+  });
+
+  it("keeps plain chat as the default custom slash mode while exposing plugin-owned app modes", () => {
+    expect(DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE).toBe("plain_chat");
+    expect(APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS).toEqual([
+      { id: "plain_chat", name: "Plain chat" },
+      { id: "json_render", name: "JSON Render" },
+      { id: "json_render_with_image", name: "Image to JSON Render" },
+      { id: "prompt_builder", name: "Prompt Builder" },
+      { id: "mcp_server", name: "MCP Server" },
+    ]);
   });
 });

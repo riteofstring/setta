@@ -657,6 +657,76 @@
         "title": "AppRoute",
         "type": "object"
       },
+      "AppSubsystemChatSlashCommandValue": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "appGenerationMode": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          },
+          "promptTemplate": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "action",
+          "summary",
+          "promptTemplate",
+          "appGenerationMode"
+        ],
+        "title": "AppSubsystemChatSlashCommandValue",
+        "type": "object"
+      },
+      "AppSubsystemChatUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "customSlashCommandModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/AppSubsystemCustomSlashCommandModeOptionValue"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultCustomSlashCommandMode": {
+            "type": "string"
+          },
+          "slashCommands": {
+            "items": {
+              "$ref": "#/components/schemas/AppSubsystemChatSlashCommandValue"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "slashCommands",
+          "customSlashCommandModeOptions",
+          "defaultCustomSlashCommandMode"
+        ],
+        "title": "AppSubsystemChatUIConfigValue",
+        "type": "object"
+      },
+      "AppSubsystemCustomSlashCommandModeOptionValue": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value", "label"],
+        "title": "AppSubsystemCustomSlashCommandModeOptionValue",
+        "type": "object"
+      },
       "AppendMessagesRequest": {
         "additionalProperties": false,
         "properties": {
@@ -10264,20 +10334,6 @@
         "title": "ProjectChatAgenticEdgeContextModeOption",
         "type": "object"
       },
-      "ProjectChatAppGenerationModeOption": {
-        "additionalProperties": false,
-        "properties": {
-          "label": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        },
-        "required": ["value", "label"],
-        "title": "ProjectChatAppGenerationModeOption",
-        "type": "object"
-      },
       "ProjectChatDictationModeOption": {
         "additionalProperties": false,
         "properties": {
@@ -10315,15 +10371,6 @@
             },
             "type": ["null", "array"]
           },
-          "customSlashCommandModeOptions": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectChatAppGenerationModeOption"
-            },
-            "type": ["null", "array"]
-          },
-          "defaultCustomSlashCommandMode": {
-            "type": "string"
-          },
           "permissionModeOptions": {
             "items": {
               "$ref": "#/components/schemas/ProjectChatPermissionModeOption"
@@ -10354,9 +10401,7 @@
           "agenticEdgeContextModeOptions",
           "sectionDictationModeOptions",
           "projectDictationModeOptions",
-          "permissionModeOptions",
-          "customSlashCommandModeOptions",
-          "defaultCustomSlashCommandMode"
+          "permissionModeOptions"
         ],
         "title": "ProjectChatUIConfigValue",
         "type": "object"

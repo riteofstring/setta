@@ -397,7 +397,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatDictationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatPermissionModeOption{}),
-		reflect.TypeOf(projectview.ProjectChatAppGenerationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatUIConfigValue{}),
 		reflect.TypeOf(projectview.SingleConfig{}),
 		reflect.TypeOf(projectview.ProjectConfig{}),

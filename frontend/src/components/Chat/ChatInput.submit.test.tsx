@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildAppGenerationSlashCommandDefinitions } from "./appGenerationSlashCommands";
+import { buildAppGenerationSlashCommandDefinitions } from "plugins/appSubsystemChatUi";
 import {
   buildChatSlashCommands,
   executeManagedChatSlashCommand,
