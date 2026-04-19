@@ -5586,3 +5586,14 @@ LOOP_TERMINAL_MARKER: none
 - CDP visual check: done in a fresh headless DevTools sub-agent after `fit view`; `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible with no obvious blank graph or detached shell/body artifact.
 - Next frontier: move to the next shared param-family / selector hotspot still named by the wheel profile, or escalate to the broader graph-surface ownership step instead of reopening another narrow selector-cache micro-pass.
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 run 028
+
+- Landed a trace-backed `GroupContainer` selector cache on the canonical `settings-section__browserSectionDefault` lane.
+- Added `frontend/src/state/actions/params/paramGroupSelectors.ts` so pinned params, unpinned params, and edge-strip derived state each reuse a section-scoped cached selector keyed to the effective section impl plus the shown-param / code-object refs that actually affect the result.
+- Updated `frontend/src/components/Params/GroupContainer.tsx` so `EdgesStrip`, `GetPinnedParams`, and `GetUnpinnedParams` instantiate those selectors once with `useMemo(...)` and stop rebuilding filtered shown-param objects and edge-strip labels behind `_.isEqual(...)` on unrelated project-state updates.
+- Added focused cache coverage in `frontend/src/state/actions/params/paramGroupSelectors.test.ts` for cache reuse across unrelated viewport/project-config churn plus invalidation on real edge-input and edge-label changes.
+- Verification: eslint passed; `vitest run src/state/actions/params/paramGroupSelectors.test.ts` passed with `5` tests; the first Playwright dense rerun on the run-028 runtime was noisy (`raf.meanMs 44.82`, `raf.p95Ms 83.3`, `longTasks.totalMs 5825`, `documentNodeCount 5498`), so one bounded rerun was used as the authoritative check and landed back in the current band (`raf.meanMs 43.28`, `raf.p95Ms 50`, `longTasks.totalMs 5861`, `documentNodeCount 5498`).
+- CDP visual check: done in a fresh headless DevTools sub-agent after consuming a fresh bootstrap URL, minimizing the extra chat pane, and applying `fit view`; `browserSectionDefault`, `promptSectionDefault`, and `languageServer` were visible with no obvious blank graph or detached shell/body artifact.
+- Next frontier: move to the next trace-backed shared reducer or to the broader graph-surface ownership step instead of reopening another selector-cache micro-lane.
+LOOP_TERMINAL_MARKER: none
