@@ -130,14 +130,14 @@
       "schemaRef": "#/$defs/Allocation"
     },
     {
-      "name": "AppCapabilities",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppCapabilities"
-    },
-    {
       "name": "AppDefinition",
       "kind": "model",
       "schemaRef": "#/$defs/AppDefinition"
+    },
+    {
+      "name": "AppDefinitionCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/AppDefinitionCapabilities"
     },
     {
       "name": "AppDefinitionMutationResult",
@@ -148,6 +148,11 @@
       "name": "AppDefinitionReadResult",
       "kind": "model",
       "schemaRef": "#/$defs/AppDefinitionReadResult"
+    },
+    {
+      "name": "AppDefinitionValidationIssue",
+      "kind": "model",
+      "schemaRef": "#/$defs/AppDefinitionValidationIssue"
     },
     {
       "name": "AppDefinitionValidationResult",
@@ -181,11 +186,6 @@
       "name": "AppRoute",
       "kind": "model",
       "schemaRef": "#/$defs/AppRoute"
-    },
-    {
-      "name": "AppValidationIssue",
-      "kind": "model",
-      "schemaRef": "#/$defs/AppValidationIssue"
     },
     {
       "name": "AppendMessagesRequest",
