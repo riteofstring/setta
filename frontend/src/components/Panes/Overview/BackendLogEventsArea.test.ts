@@ -1,4 +1,4 @@
-import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { type BackendLogEvent } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import {
   addBackendLogResizeListeners,
@@ -160,7 +160,7 @@ describe("BackendLogEventsArea resize teardown", () => {
 
 describe("filterEvents", () => {
   it("filters by project, severity, and message query", () => {
-    const events: Array<SettaBackendLogEvent> = [
+    const events: Array<BackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: "a",
@@ -200,7 +200,7 @@ describe("filterEvents", () => {
 
 describe("getBackendLogEventById", () => {
   it("returns the matching event when selected id exists", () => {
-    const events: Array<SettaBackendLogEvent> = [
+    const events: Array<BackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: null,
@@ -223,7 +223,7 @@ describe("getBackendLogEventById", () => {
   });
 
   it("returns null for missing ids and null selections", () => {
-    const events: Array<SettaBackendLogEvent> = [
+    const events: Array<BackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: null,

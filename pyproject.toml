@@ -15,7 +15,6 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "claude-agent-sdk==0.1.52",
-    "basedpyright==1.25.0",  # later versions were slower, so stick with this version
     "ruff==0.12.12",
 ]
 
@@ -27,6 +26,9 @@ GitHub = "https://github.com/settadev/setta"
 setta = "setta.entrypoint:main"
 
 [project.optional-dependencies]
+defaults = [
+    "setta-basedpyright==0.1.0",
+]
 source = [
     # Python SDK/source-only modules that still have live callers.
     "requests==2.32.4",
@@ -47,7 +49,7 @@ dev = [
     "pytest-asyncio==0.23.8",
     "python-dotenv==1.1.0",
     "twine==6.1.0",
-    "ty==0.0.26",
+    "ty==0.0.29",
     "vulture==2.14",
     "watchdog==6.0.0",
 ]
@@ -93,3 +95,6 @@ artifacts = [
     "backend/setta/launcher_artifacts/assets/**",
     "backend/setta/go_bin/**",
 ]
+
+[tool.uv.sources]
+setta-basedpyright = { path = "plugins/setta-basedpyright" }

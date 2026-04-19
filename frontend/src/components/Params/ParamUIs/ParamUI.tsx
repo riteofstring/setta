@@ -1,14 +1,4 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import {
-  isCanvasOwnedSectionLightweightColorInput,
-  isCanvasOwnedSectionLightweightSwitch,
-  isCanvasOwnedSectionLightweightSwitchTrack,
-  isCanvasOwnedSectionLightweightSwitchValueShell,
-  isCanvasOwnedSectionLightweightTextUnderline,
-  isCanvasOwnedSectionRestingDropdown,
-  isCanvasOwnedSectionRestingText,
-} from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -101,12 +91,6 @@ type ParamUIState = {
 };
 
 type ParamUIRenderContext = ParamUIProps & {
-  canvasOwnedLightweightColorInput: boolean;
-  canvasOwnedLightweightSwitch: boolean;
-  canvasOwnedLightweightSwitchTrack: boolean;
-  canvasOwnedLightweightSwitchValueShell: boolean;
-  canvasOwnedRestingDropdown: boolean;
-  canvasOwnedRestingText: boolean;
   isDisabled: boolean;
   isSelectingParams: boolean;
   onEscape: () => void;
@@ -267,7 +251,6 @@ function resolvePasswordRevealState({
 }
 
 function renderTextLikeParam({
-  canvasOwnedRestingText,
   sectionId,
   paramInfoId,
   value,
@@ -285,7 +268,6 @@ function renderTextLikeParam({
 
   return (
     <TextParamConfigured
-      canvasOwnedRestingText={canvasOwnedRestingText}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -396,9 +378,6 @@ function renderRotaryParam({
 }
 
 function renderSwitchParam({
-  canvasOwnedLightweightSwitch,
-  canvasOwnedLightweightSwitchTrack,
-  canvasOwnedLightweightSwitchValueShell,
   value,
   onChange,
   onEscape,
@@ -407,9 +386,6 @@ function renderSwitchParam({
 }: ParamUIRenderContext) {
   return (
     <SwitchParamConfigured
-      lightweightActivator={canvasOwnedLightweightSwitch}
-      canvasOwnedValueShell={canvasOwnedLightweightSwitchValueShell}
-      canvasOwnedTrack={canvasOwnedLightweightSwitchTrack}
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
@@ -420,7 +396,6 @@ function renderSwitchParam({
 }
 
 function renderColorPickerParam({
-  canvasOwnedLightweightColorInput,
   sectionId,
   paramInfoId,
   value,
@@ -430,7 +405,6 @@ function renderColorPickerParam({
 }: ParamUIRenderContext) {
   return (
     <ColorPickerParamConfigured
-      lightweightActivator={canvasOwnedLightweightColorInput}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -442,7 +416,6 @@ function renderColorPickerParam({
 }
 
 function renderDropdownParam({
-  canvasOwnedRestingDropdown,
   sectionId,
   paramInfoId,
   value,
@@ -451,7 +424,6 @@ function renderDropdownParam({
 }: ParamUIRenderContext) {
   return (
     <DropdownParamConfigured
-      canvasOwnedRestingDropdown={canvasOwnedRestingDropdown}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -611,7 +583,6 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
   const paramUiState = useParamUIState(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -641,36 +612,6 @@ export function ParamUI({
   }
 
   const renderContext = {
-    canvasOwnedLightweightColorInput:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      paramUiState.codeObjType === CodeObjTypeEnum.ColorPickerParam &&
-      isCanvasOwnedSectionLightweightColorInput(sectionId),
-    canvasOwnedLightweightSwitch:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionLightweightSwitch({
-        codeObjType: paramUiState.codeObjType,
-        sectionId,
-      }),
-    canvasOwnedLightweightSwitchTrack:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      paramUiState.codeObjType === CodeObjTypeEnum.SwitchParam &&
-      isCanvasOwnedSectionLightweightSwitchTrack(sectionId),
-    canvasOwnedLightweightSwitchValueShell:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionLightweightSwitchValueShell(sectionId),
-    canvasOwnedRestingDropdown:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionRestingDropdown({
-        codeObjType: paramUiState.codeObjType,
-        paramInfoId,
-        sectionId,
-      }),
-    canvasOwnedRestingText:
-      graphSurfaceImplementation === "canvas-shell-underlay" &&
-      isCanvasOwnedSectionRestingText({
-        codeObjType: paramUiState.codeObjType,
-        sectionId,
-      }),
     sectionId,
     paramInfoId,
     value,
@@ -702,7 +643,6 @@ export function ParamUI({
 }
 
 function TextParamConfigured({
-  canvasOwnedRestingText,
   sectionId,
   paramInfoId,
   value,
@@ -715,7 +655,6 @@ function TextParamConfigured({
   waitingForResult,
   isSelectingParams,
 }: {
-  canvasOwnedRestingText: boolean;
   sectionId: string;
   paramInfoId: string;
   value: string;
@@ -728,19 +667,9 @@ function TextParamConfigured({
   waitingForResult: boolean;
   isSelectingParams: boolean;
 }) {
-  const canvasOwnedUnderline = canvasOwnedRestingText;
-  const lightweightCanvasOwnedUnderline =
-    canvasOwnedUnderline &&
-    isCanvasOwnedSectionLightweightTextUnderline(sectionId);
-  const underlineClassName = lightweightCanvasOwnedUnderline
-    ? `border-box border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "focus-within:border-blue-400" : ""}`
-    : "";
-
   return (
     <>
       <TextInputCodeMirror
-        canvasOwnedRestingText={canvasOwnedRestingText}
-        canvasOwnedUnderline={lightweightCanvasOwnedUnderline}
         dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -752,8 +681,8 @@ function TextParamConfigured({
             onEscape();
           }
         }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem] ${canvasOwnedRestingText ? "opacity-0" : ""} ${underlineClassName}`.trim()}
-        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem] ${underlineClassName}`.trim()}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
@@ -761,14 +690,9 @@ function TextParamConfigured({
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
-      {!lightweightCanvasOwnedUnderline && (
-        <span
-          className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${canvasOwnedUnderline ? "opacity-0" : ""} ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""} ${canvasOwnedUnderline && !isSelectingParams ? "peer-focus-within/textinput:opacity-100" : ""}`}
-          data-canvas-owned-underline={
-            canvasOwnedUnderline ? "true" : undefined
-          }
-        />
-      )}
+      <span
+        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
+      />
     </>
   );
 }
@@ -918,72 +842,34 @@ function DropzoneParamConfigured({
 }
 
 function SwitchParamConfigured({
-  lightweightActivator,
-  canvasOwnedValueShell,
-  canvasOwnedTrack,
   value,
   defaultVal,
   onChange,
   onEscape,
   isDisabled,
-}: {
-  lightweightActivator: boolean;
-  canvasOwnedValueShell: boolean;
-  canvasOwnedTrack: boolean;
-  value: boolean | string;
-  defaultVal?: boolean | string;
-  onChange: ParamValueChange;
-  onEscape?: () => void;
-  isDisabled: boolean;
 }) {
-  const rootThemeClassName = canvasOwnedTrack
-    ? "bg-transparent data-[state='checked']:bg-transparent dark:bg-transparent dark:data-[state='checked']:bg-transparent"
-    : undefined;
-
   return (
     <SwitchInput
-      lightweightActivator={lightweightActivator}
-      canvasOwnedTrack={canvasOwnedTrack}
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
-      lightweightRootClassName={
-        canvasOwnedValueShell
-          ? "section-value justify-self-start self-center"
-          : undefined
-      }
-      outerDivClassName={
-        canvasOwnedValueShell
-          ? undefined
-          : "section-value flex justify-self-start self-center"
-      }
-      rootThemeClassName={rootThemeClassName}
+      outerDivClassName="section-value flex justify-self-start self-center"
     />
   );
 }
 
 function ColorPickerParamConfigured({
-  lightweightActivator,
   sectionId,
   paramInfoId,
   value,
   onChange,
   onEscape,
   isDisabled,
-}: {
-  lightweightActivator: boolean;
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-  onChange: ParamValueChange;
-  onEscape?: () => void;
-  isDisabled: boolean;
 }) {
   return (
     <ConfiguredColorPickerInput
-      lightweightActivator={lightweightActivator}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -996,26 +882,15 @@ function ColorPickerParamConfigured({
   );
 }
 
-type DropdownParamConfiguredProps = {
-  canvasOwnedRestingDropdown: boolean;
-  isDisabled: boolean;
-  onChange: ParamValueChange;
-  paramInfoId: string;
-  sectionId: string;
-  value: string;
-};
-
 function DropdownParamConfigured({
-  canvasOwnedRestingDropdown,
   sectionId,
   paramInfoId,
   value,
   onChange,
   isDisabled,
-}: DropdownParamConfiguredProps) {
+}) {
   return (
     <ConfiguredDropdownInput
-      canvasOwnedRestingInput={canvasOwnedRestingDropdown}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}

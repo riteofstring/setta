@@ -1,35 +1,10 @@
-import type { CSSProperties, MouseEventHandler } from "react";
-import { useGraphSurfaceImplementation } from "forks/xyflow/core/container/graphSurfaceImplementation";
-import { isCanvasOwnedSectionParamLabelRestingText } from "forks/xyflow/core/container/sectionShellCanvasOwnership";
 import { getParamDisplayNameIfPresent } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 
-type ParamTextLabelProps = {
-  bg: string;
-  className?: string;
-  lightweightCanvasRoot?: boolean;
-  onMouseDown?: MouseEventHandler;
-  paramInfoId: string;
-  sectionId: string;
-  style?: CSSProperties;
-};
-
-export function ParamTextLabel({
-  sectionId,
-  paramInfoId,
-  onMouseDown,
-  bg,
-  className,
-  lightweightCanvasRoot = false,
-  style,
-}: ParamTextLabelProps) {
-  const graphSurfaceImplementation = useGraphSurfaceImplementation();
+export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
   const name = useProjectState((x) =>
     getParamDisplayNameIfPresent(x, sectionId, paramInfoId),
   );
-  const canvasOwnedRestingText =
-    graphSurfaceImplementation === "canvas-shell-underlay" &&
-    isCanvasOwnedSectionParamLabelRestingText(sectionId);
   if (!name) {
     return null;
   }
@@ -48,16 +23,9 @@ export function ParamTextLabel({
 
   return (
     <p
-      className={`${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200 ${canvasOwnedRestingText ? "opacity-0" : ""} ${className ?? ""}`}
-      data-canvas-owned-resting-text={
-        canvasOwnedRestingText ? "true" : undefined
-      }
-      data-canvas-owned-param-label-lightweight={
-        lightweightCanvasRoot ? "true" : undefined
-      }
+      className={`${bg} cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200`}
       onClick={onClick}
       onMouseDownCapture={onMouseDown} // has to be on capture for selection to work
-      style={style}
     >
       {name}
     </p>
