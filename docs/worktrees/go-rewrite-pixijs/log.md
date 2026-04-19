@@ -155,6 +155,61 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 058
+
+- Item: Move `settings-section__chatSectionDefault` onto the shared canvas-owned resting-text lane.
+- Status: `done`
+- Details:
+  - Started from the fresh post-draw inventory instead of reopening any closed `gui`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, shortcuts, or draw lane.
+  - The live `All Settings` inventory still made the next dense family clear:
+    - `settings-section__chatSectionDefault`: `13` untouched `ParamInput` roots
+    - trailing cluster: `settings-section__browserSectionDefault`, `settings-section__buttonParamCodeObjDefault`, `settings-section__codeSectionDefault`, and `settings-section__promptSectionDefault` at `9` each
+  - That kept the next bounded slice on the highest-payoff remaining text/value family, not another activator hop.
+  - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now includes `settings-section__chatSectionDefault` in the shared resting-text lane and gives it lightweight underline ownership.
+  - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `settings-section__chatSectionDefault` directly so the retained scene can paint its resting text and underline primitives.
+  - Added focused coverage at:
+    - updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - updated `frontend/src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+    - new `frontend/tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts`
+  - Canonical lane target:
+    - section: `settings-section__chatSectionDefault`
+    - row: `ParamContainer-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode`
+    - input: `settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode-ParamInput`
+  - Fresh section inventory now confirms the chat family moved onto the lightweight path:
+    - `sectionPresent: true`
+    - `totalParamInputs: 13`
+    - `canvasOwnedRestingTextCount: 14`
+    - `lightweightRestingTextCount: 13`
+    - `lightweightUnderlineCount: 13`
+    - `highlightSpanCount: 0`
+    - note: the extra non-lightweight resting-text root is the pre-existing `#settings-section__chatSectionDefault-args-filter` activator
+  - Recorded the dense rerun at `perf/reports/frontend/2026-04-19_settings-all-settings-chat-resting-text-rerun.md`.
+  - Dense rerun outcome versus the prior draw resting-text report:
+    - `documentNodeCount`: `7937 -> 7899`
+    - `inputCount`: `2 -> 2`
+    - `buttonCount`: `39 -> 39`
+    - `raf.meanMs`: `101.02 -> 101.3`
+    - `raf.p95Ms`: `183.4 -> 216.7`
+    - `longTasks.totalMs`: `16270 -> 16190`
+  - Interpretation:
+    - this was another real dense mounted row-value reduction, not a reopened activator lane
+    - the chat lane is now closed at its useful ownership boundary
+    - the fresh post-chat untouched ranking now leaves the next dense frontier at `settings-section__browserSectionDefault` (`9`), followed by `buttonParamCodeObjDefault`, `codeSectionDefault`, and `promptSectionDefault` (`9` each)
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Params/ParamUIs/ParamUI.canvasOwnedRestingText.test.tsx tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.3nsxvK/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-chat-resting-text.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)` on the live worktree runtime with `documentNodeCount: 7899`, `inputCount: 2`, and `buttonCount: 39`
+- CDP visual check is done:
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - `section[data-section-id="settings-section__chatSectionDefault"]` was present on the live surface
+  - the `Permission Mode` row looked intact at rest on the canvas path
+  - focusing `#settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode-ParamInput` surfaced `#CodeMirror-settings-section__chatSectionDefault-settings-codeobj__chatSectionDefault__chatSectionDefault__permissionMode` in place with no blank/detached jump
+- Next action:
+  - start the next iteration from the fresh post-chat ranking and target `settings-section__browserSectionDefault` as the next dense resting-text/body slice unless a broader shared resting-value primitive now shows a stronger payoff
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 054
 
 - Item: Move `settings-section__drawSectionDefault` onto the shared retained-canvas resting-text lane.
