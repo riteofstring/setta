@@ -206,20 +206,34 @@ export function ColorPickerInput({
   isDisabled?: boolean;
   theme?: ColorPickerInputTheme;
 }) {
+  const resolvedColorChoices = colorChoices ?? [];
   const _value = tryParseJSON(value);
+  const shouldFlattenLightweightWrapper =
+    lightweightActivator && resolvedColorChoices.length === 0;
+  const colorPicker = (
+    <ColorPicker
+      colorChoices={resolvedColorChoices}
+      lightweightActivator={lightweightActivator}
+      lightweightWrapperClassName={
+        shouldFlattenLightweightWrapper ? wrapperClassName : undefined
+      }
+      value={_value}
+      onChange={onChange}
+      onCommit={onCommit}
+      onEscape={onEscape}
+      colorPickerChoicesClasses={colorPickerChoicesClasses}
+      isDisabled={isDisabled}
+      theme={theme}
+    />
+  );
+
+  if (shouldFlattenLightweightWrapper) {
+    return colorPicker;
+  }
+
   return (
     <div className={wrapperClassName}>
-      <ColorPicker
-        colorChoices={colorChoices}
-        lightweightActivator={lightweightActivator}
-        value={_value}
-        onChange={onChange}
-        onCommit={onCommit}
-        onEscape={onEscape}
-        colorPickerChoicesClasses={colorPickerChoicesClasses}
-        isDisabled={isDisabled}
-        theme={theme}
-      />
+      {colorPicker}
     </div>
   );
 }
@@ -244,6 +258,7 @@ const DEFAULT_COLOR_PICKER_THEME: ResolvedColorPickerInputTheme = {
 type ColorPickerProps = {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   lightweightActivator: boolean;
+  lightweightWrapperClassName?: string;
   value: string;
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
@@ -354,6 +369,7 @@ type CanvasOwnedColorInputActivatorProps = {
   onCommit?: (newColor: string) => void;
   onEscape?: () => void;
   value: string;
+  wrapperClassName?: string;
 };
 
 function tryOpenNativeColorInput(input: HTMLInputElement | null) {
@@ -387,8 +403,15 @@ function CanvasOwnedColorInputActivator({
   onCommit,
   onEscape,
   value,
+  wrapperClassName,
 }: CanvasOwnedColorInputActivatorProps) {
   const [editing, setEditing] = useState(false);
+  const iconStyle = {
+    "--bg": value,
+    background: "var(--bg)",
+    color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
+  };
+  const surfaceClassName = `single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`;
 
   const activateInput = (openPicker: boolean) => {
     if (isDisabled) {
@@ -404,23 +427,75 @@ function CanvasOwnedColorInputActivator({
     inputRef.current?.focus({ preventScroll: true });
   };
 
+  const nativeInput = (
+    <NativeColorInput
+      inputBorderClassName={inputBorderClassName}
+      inputRef={inputRef}
+      isDisabled={isDisabled}
+      onBlur={() => {
+        setEditing(false);
+      }}
+      onChange={onChange}
+      onCommit={onCommit}
+      onEscape={() => {
+        inputRef.current?.blur();
+        onEscape?.();
+      }}
+      value={value}
+    />
+  );
+
   if (editing) {
+    if (wrapperClassName) {
+      return <div className={wrapperClassName}>{nativeInput}</div>;
+    }
+
+    return nativeInput;
+  }
+
+  if (wrapperClassName) {
     return (
-      <NativeColorInput
-        inputBorderClassName={inputBorderClassName}
-        inputRef={inputRef}
-        isDisabled={isDisabled}
-        onBlur={() => {
-          setEditing(false);
+      <div
+        aria-disabled={isDisabled}
+        aria-label="Edit color"
+        className={wrapperClassName}
+        data-canvas-owned-lightweight-color-input="true"
+        role="button"
+        tabIndex={isDisabled ? -1 : 0}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          activateInput(true);
         }}
-        onChange={onChange}
-        onCommit={onCommit}
-        onEscape={() => {
-          inputRef.current?.blur();
-          onEscape?.();
+        onKeyDown={(event) => {
+          if (event.code === "Escape") {
+            event.stopPropagation();
+            onEscape?.();
+            return;
+          }
+          if (event.code !== "Enter" && event.code !== "Space") {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          activateInput(true);
         }}
-        value={value}
-      />
+        onMouseDown={(event) => {
+          if (event.button === 0) {
+            event.stopPropagation();
+          }
+        }}
+      >
+        <i
+          className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
+          style={iconStyle}
+        />
+        <div
+          aria-hidden="true"
+          className={`${surfaceClassName} pointer-events-none`}
+          style={{ backgroundColor: value }}
+        />
+      </div>
     );
   }
 
@@ -428,7 +503,7 @@ function CanvasOwnedColorInputActivator({
     <div
       aria-disabled={isDisabled}
       aria-label="Edit color"
-      className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
+      className={surfaceClassName}
       data-canvas-owned-lightweight-color-input="true"
       role="button"
       style={{ backgroundColor: value }}
@@ -493,6 +568,7 @@ function ColorPickerChoiceOption({
 function ColorPicker({
   colorChoices,
   lightweightActivator,
+  lightweightWrapperClassName,
   value,
   onChange,
   onCommit,
@@ -523,10 +599,12 @@ function ColorPicker({
     />
   ) : (
     <>
-      <i
-        className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
-        style={style}
-      />
+      {!lightweightWrapperClassName ? (
+        <i
+          className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
+          style={style}
+        />
+      ) : null}
       {/*
             Keep layout/interaction classes stable and make only the styling pieces overridable.
             App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
@@ -540,6 +618,7 @@ function ColorPicker({
           onCommit={onCommit}
           onEscape={onEscape}
           value={value}
+          wrapperClassName={lightweightWrapperClassName}
         />
       ) : (
         <NativeColorInput

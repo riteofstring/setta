@@ -9,6 +9,56 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 ## Current status
 
 - The new worktree exists at `/home/ubuntu/dev/setta.go-rewrite-pixijs`.
+- The shared lightweight color-input row-body/value-shell slice is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-color-input-value-shell-rerun.md`.
+  - canonical target section: `settings-section__gui`
+  - sibling proof sections:
+    - `settings-section__colorPickerParamCodeObjDefault`
+    - `settings-section__drawSectionDefault`
+  - implementation shape:
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx` now reuses the no-choice lightweight color activator as the wrapper/value-shell root on the canvas path instead of mounting a separate wrapper plus sibling icon shell at rest
+    - the shared settings color-input path still swaps to the live inline `input[type="color"]` on first activation with no new section-specific branching
+    - focused proof now exists in:
+      - `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - `settingsLightweightColorCount: 6`
+    - `settingsNativeColorInputCount: 0`
+    - `settings-section__gui`: `lightweightColorCount 4`, `rootsUsingValueShellCount 4`, `rootsWithSeparateValueShellCount 0`, `strayColorIconCount 0`
+    - `settings-section__colorPickerParamCodeObjDefault`: `lightweightColorCount 1`, `rootsUsingValueShellCount 1`, `rootsWithSeparateValueShellCount 0`, `strayColorIconCount 0`
+    - `settings-section__drawSectionDefault`: `lightweightColorCount 1`, `rootsUsingValueShellCount 1`, `rootsWithSeparateValueShellCount 0`, `strayColorIconCount 0`
+    - activating the GUI color control still mounted one inline `input[type="color"]` in place and blur restored the lightweight root
+  - fresh whole-scene rerank after the product slice recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 12`
+    - `totalRemainingValueElementCount: 15`
+    - `settings-section__backend` now holds the only larger remaining local survivor with `9` elements across `9` already-lightweight switch rows
+    - `settings-section__nestedParamCodeObjDefault` is now the highest non-lightweight text/value survivor with `6` elements across `3` rows
+    - `settings-section__gui` and `settings-section__drawSectionDefault` both fell to `0` remaining value elements
+  - fresh dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 6709`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 94.6`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15114`
+  - compared against the prior backend rerun:
+    - `totalRemainingValueRowCount: 18 -> 12`
+    - `totalRemainingValueElementCount: 27 -> 15`
+    - `documentNodeCount: 6704 -> 6709`
+    - `raf.meanMs: 94.22 -> 94.6`
+    - `raf.p95Ms: 183.4 -> 183.3`
+    - `longTasks.totalMs: 15021 -> 15114`
+  - interpretation:
+    - this completes the shared lightweight color-input row-body/value-shell candidate from the current replan checkpoint instead of reopening another family-specific text/value lane
+    - the remaining whole-scene value surface is now concentrated in backend switch shells plus the nested-param text/value family
+    - dense motion still did not materially improve, so the next default frontier must escalate to a stronger inactive-row body/overlay primitive rather than another survivor-family cleanup
+  - CDP visual check is done:
+    - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+    - one `.react-flow__section-shell-backdrop` wrapper was present with exactly one retained canvas inside it
+    - `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault` were present on the live surface/DOM
+    - activating the GUI `gridColor` lightweight color control mounted one inline `input[type="color"]` in place with no obvious blank or detached jump
+    - caveat: the retained canvas is identified in this build via `data-testid="react-flow__section-shell-backdrop-canvas"` under the backdrop wrapper rather than a dedicated canvas class selector
 - The `backend` plain text-value lane is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-backend-resting-text-rerun.md`.
   - canonical target section: `settings-section__backend`
   - focused proof rows:
@@ -2033,15 +2083,16 @@ That leaves one primary architectural move:
 11. Treat the new `settings-section__backend` ordinary-dropdown lane as closed at its current ownership boundary; do not reopen it for another dropdown micro-slice unless a fresh visible defect appears there.
 12. Treat the new `settings-section__backend` switch-family lane as closed at its current ownership boundary; do not reopen it for another backend-only switch micro-slice unless a fresh visible defect appears there.
 13. Treat the shared kwargs action-button lane, the shared section-menu-trigger lane, the shared lightweight param-filter lane, and the shared lightweight color-input lane as closed at their current ownership boundaries; do not reopen another kwargs/menu-trigger/filter/color-input micro-slice unless a fresh visible defect appears there.
-14. Treat the current evidence as proof of direction, not proof of success: use `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md` as the current best clean dense checkpoint at `7670 / 2 / 39` with `raf.meanMs 102.6`, `raf.p95Ms 183.4`, and `longTasks.totalMs 16510`, and treat the later `7701 / 4 / 53` chat-windowing/dropzone/plugin rerun, the `7663 / 4 / 52` date/time rerun, the `7350 / 4 / 53` lightweight-param-label rerun, and the `7155 / 4 / 53` lightweight-param-label-generalization rerun as smoke-only for global DOM/button counts because all four still carry non-target workspace-chrome noise.
-15. The next automated pass must target broad structural reduction of the dense resting section-body/value DOM from a whole-scene `All Settings` inventory, not another `gui`, `textBlock`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, `chatWindowing`, `dropzoneParamCodeObjDefault`, `pluginSectionDefault`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, state-machine-gate dropdown, shortcuts, draw, chat, browser, code-like-cluster, date/time, or label-wrapper cleanup hop by inertia.
-16. Current priority order is:
-    - use `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md` as the current best clean checkpoint and use `perf/reports/frontend/2026-04-19_settings-all-settings-chat-windowing-dropzone-plugin-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-date-time-resting-text-cluster-rerun.md`, `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-cluster-rerun.md`, and `perf/reports/frontend/2026-04-19_settings-all-settings-lightweight-param-label-generalization-rerun.md` only as section-scoped/shared-primitive ownership proof plus smoke-level dense checkpoints
-    - keep the date/time pair lane, the shared lightweight param-label primitive, the chat-windowing/dropzone/plugin triple lane, and the older callable/dict/GlobalVariables/sectionSizingPolicy/backend/gui/shared-activator/resting-text lanes closed unless fresh evidence proves a regression
-    - start the next product pass from a fresh whole-scene ranking of the remaining mounted section-body/value cost, not from untouched-row counts alone
-    - prefer a shared resting-body/value primitive or ownership seam that can lower the dense mounted surface across multiple sections at once
-    - do not spend the next default pass on another tidy section-local resting-text/date/time/body cleanup hop unless a fresh whole-scene ranking makes that the only defensible highest-payoff move
-17. If the next candidate slice does not plausibly move the global dense-scene numbers or the mounted section-body/value surface before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
+14. Treat the current evidence as proof of direction, not proof of success: use `perf/reports/frontend/2026-04-19_settings-all-settings-gen-python-resting-text-cluster-rerun.md` as the current best clean dense checkpoint at `7670 / 2 / 39` with `raf.meanMs 102.6`, `raf.p95Ms 183.4`, and `longTasks.totalMs 16510`, and treat the later `7701 / 4 / 53` chat-windowing/dropzone/plugin rerun, the `7663 / 4 / 52` date/time rerun, the `7350 / 4 / 53` lightweight-param-label rerun, the `7155 / 4 / 53` lightweight-param-label-generalization rerun, and the later `6713 / 4 / 52` languageServer and `6704 / 4 / 52` backend reruns as ownership proof plus decision evidence rather than final success claims.
+15. The recent stop signal is real: the languageServer and backend passes cut the remaining value surface from `87 / 28` to `39 / 21` to `27 / 18`, but dense motion did not materially improve, so default family-by-family survivor harvesting is now closed as a strategy.
+16. The next automated pass must target broad structural reduction of the dense resting section-body/value DOM from a whole-scene `All Settings` inventory, not another `gui`, `textBlock`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`, `chatWindowing`, `dropzoneParamCodeObjDefault`, `pluginSectionDefault`, `backend`, `sectionSizingPolicy`, kwargs, switch, menu-trigger, param-filter, color-input, state-machine-gate dropdown, shortcuts, draw, chat, browser, code-like-cluster, date/time, label-wrapper, or other survivor-family cleanup hop by inertia.
+17. Current priority order is:
+    - keep the date/time pair lane, the shared lightweight param-label primitive, the chat-windowing/dropzone/plugin triple lane, the size/style/tag lane, the param-codeobj lane, the languageServer lane, the backend plain-text lane, the shared switch value-shell lane, and the older callable/dict/GlobalVariables/sectionSizingPolicy/backend/gui/shared-activator/resting-text lanes closed unless fresh evidence proves a regression
+    - start the next product pass from the remaining row-body/value-shell survivors, not from another text-value leaf
+    - first candidate: shared lightweight-switch row-body/value-shell ownership where rows are already `lightweightSwitch` and the only remaining motion cost is `div.section-value`
+    - second candidate: shared lightweight color-input row-body/value-shell ownership where the remaining motion cost is `div.section-value.single-cell-container` plus icon shell
+    - if neither candidate is viable on the current ownership boundary, escalate directly to a stronger inactive-row overlay/body primitive instead of reopening another family lane
+18. If the next candidate slice does not plausibly remove row-body/layout cost from motion before implementation, stop for replan instead of letting Ralph take another tidy local reduction.
 18. The ranking-backed untouched resting-text trio is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-untouched-resting-text-trio-rerun.md`:
     - canonical target section: `settings-section__stateMachineStartSectionDefault`
     - sibling sections landed in the same slice: `settings-section__spreadsheetSectionDefault` and `settings-section__taskBoardSectionDefault`

@@ -3158,3 +3158,85 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - keep the param-codeobj lane closed and land one shared switch-shell/value-shell slice led by `settings-section__chatSectionDefault` plus `settings-section__spreadsheetSectionDefault`; only fall back to `settings-section__languageServer` if that broader primitive proves blocked
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 067
+
+- Item: Replan the active worktree docs around a stronger resting row-body/value-shell primitive after the loop hit `REPLAN_REQUIRED`.
+- Status: `done`
+- Details:
+  - Reviewed the latest stop condition from `run-014` together with the recent retained switch boundary, `languageServer`, and backend reports before changing direction.
+  - Reconfirmed the useful negative evidence:
+    - the retained switch value-shell boundary had already moved the remaining value surface to `87` elements across `28` rows
+    - the `languageServer` slice moved that surface to `39 / 21`
+    - the backend plain-text slice moved it again to `27 / 18`
+    - but dense motion stayed flat-to-worse across the last two frontier passes, so survivor-family harvesting is now spent as the default strategy
+  - Updated `plan.md`, `handoff.md`, and `checklist.md` so the next Ralph restart is explicit:
+    - keep all current survivor-family lanes closed by default
+    - target a stronger resting row-body/value-shell primitive instead of another text/value leaf slice
+    - first candidate is shared lightweight-switch row-body/value-shell ownership
+    - second candidate is shared lightweight color-input row-body/value-shell ownership
+    - if neither candidate is viable, escalate directly to a stronger inactive-row overlay/body primitive
+  - The replan intentionally raises the threshold for restart:
+    - if the next proposal does not plausibly remove row-body/layout cost from motion before code is written, Ralph should stop again instead of taking another tidy survivor-family reduction
+- Focused verification:
+  - docs-only change; no code tests run
+- Next action:
+  - restart Ralph from the updated docs and require the next pass to choose a row-body/value-shell or inactive-row overlay primitive, not another survivor-family cleanup slice
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-19 068
+
+- Item: Flatten the shared lightweight color-input row-body/value-shell wrapper on the canvas path.
+- Status: `done`
+- Details:
+  - Chose the second explicit replan candidate from the current handoff after confirming the switch value-shell lane was already closed at its retained boundary.
+  - Updated `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx` so the no-choice lightweight color activator reuses the wrapper/value-shell root at rest instead of mounting a separate wrapper plus sibling `gg-color-picker` shell, while still swapping to the live inline `input[type="color"]` on first activation.
+  - Added focused proof in `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx` and strengthened `frontend/tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts` to prove:
+    - the lightweight roots remain present across `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault`
+    - those roots no longer sit inside a separate value-shell wrapper
+    - no stray `gg-color-picker` icon shell remains outside the lightweight root
+    - first-click activation still mounts the live inline color input in place
+  - Live canary result on the worktree runtime:
+    - `settingsLightweightColorCount: 6`
+    - `settingsNativeColorInputCount: 0`
+    - `settings-section__gui`: `4` lightweight roots, `0` separate value-shell wrappers, `0` stray icon shells
+    - `settings-section__colorPickerParamCodeObjDefault`: `1` lightweight root, `0` separate value-shell wrappers, `0` stray icon shells
+    - `settings-section__drawSectionDefault`: `1` lightweight root, `0` separate value-shell wrappers, `0` stray icon shells
+  - Fresh whole-scene ranking after the slice:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 12`
+    - `totalRemainingValueElementCount: 15`
+    - `settings-section__backend` is now the top remaining local survivor with `9` elements across `9` already-lightweight switch rows
+    - `settings-section__nestedParamCodeObjDefault` is next with `6` elements across `3` rows
+    - `settings-section__gui` and `settings-section__drawSectionDefault` both dropped to `0` remaining value elements
+  - Fresh dense rerun on the same runtime family:
+    - `documentNodeCount: 6709`
+    - `inputCount: 4`
+    - `buttonCount: 53`
+    - `raf.meanMs: 94.6`
+    - `raf.p95Ms: 183.3`
+    - `longTasks.totalMs: 15114`
+  - Interpretation:
+    - this completed the shared color-input row-body/value-shell pass from the current replan checkpoint instead of reopening another family-specific text/value lane
+    - the remaining whole-scene value surface is now concentrated in backend switch shells plus the nested-param text/value family
+    - dense motion stayed effectively flat, so the next default frontier must escalate to a stronger inactive-row body/overlay primitive rather than another survivor-family cleanup
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/components/Params/ParamUIs/ColorPickerInput.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-lightweight-color-inputs.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (22.5s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.1s)`
+  - `./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-001/run-001/worktree-ai.log -- tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (40.5s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active and no visible crash/error overlay
+  - one `.react-flow__section-shell-backdrop` wrapper contained exactly one retained canvas
+  - `settings-section__gui`, `settings-section__colorPickerParamCodeObjDefault`, and `settings-section__drawSectionDefault` were present on the live surface/DOM
+  - activating the GUI `gridColor` control mounted one inline `input[type="color"]` in place with no obvious blank or detached jump
+  - caveat: the retained canvas is identified in this build via `data-testid="react-flow__section-shell-backdrop-canvas"` rather than a dedicated canvas class selector
+- Next action:
+  - keep the shared color-input row-body/value-shell lane closed and escalate the next pass to a stronger inactive-row body/overlay primitive for the remaining backend switch shells plus the nested-param text/value surface
+LOOP_TERMINAL_MARKER: none

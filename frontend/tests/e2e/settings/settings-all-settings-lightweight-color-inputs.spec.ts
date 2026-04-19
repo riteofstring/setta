@@ -52,6 +52,35 @@ test("canvas shell path uses lightweight color-input activators across settings 
         }
         return section;
       };
+      const summarizeSection = (section: HTMLElement) => {
+        const lightweightRoots = Array.from(
+          section.querySelectorAll<HTMLElement>(
+            '[data-canvas-owned-lightweight-color-input="true"]',
+          ),
+        );
+
+        return {
+          lightweightColorCount: lightweightRoots.length,
+          rootsUsingValueShellCount: lightweightRoots.filter((root) =>
+            root.matches(".section-value.single-cell-container"),
+          ).length,
+          rootsWithSeparateValueShellCount: lightweightRoots.filter((root) => {
+            const closestValueShell = root.closest(
+              ".section-value.single-cell-container",
+            );
+            return (
+              closestValueShell instanceof HTMLElement && closestValueShell !== root
+            );
+          }).length,
+          strayColorIconCount: Array.from(
+            section.querySelectorAll<HTMLElement>(".gg-color-picker"),
+          ).filter(
+            (icon) =>
+              icon.closest('[data-canvas-owned-lightweight-color-input="true"]') ===
+              null,
+          ).length,
+        };
+      };
 
       const settingsSections = Array.from(
         document.querySelectorAll<HTMLElement>(
@@ -61,6 +90,9 @@ test("canvas shell path uses lightweight color-input activators across settings 
       const targetSection = getSection(targetSectionId);
       const metaControlSection = getSection(metaControlSectionId);
       const drawSection = getSection(drawSectionId);
+      const targetSummary = summarizeSection(targetSection);
+      const metaControlSummary = summarizeSection(metaControlSection);
+      const drawSummary = summarizeSection(drawSection);
       const targetActivator = targetSection.querySelector<HTMLElement>(
         '[data-canvas-owned-lightweight-color-input="true"]',
       );
@@ -69,13 +101,20 @@ test("canvas shell path uses lightweight color-input activators across settings 
       }
 
       return {
-        drawSectionLightweightColorCount: drawSection.querySelectorAll(
-          '[data-canvas-owned-lightweight-color-input="true"]',
-        ).length,
+        drawSectionLightweightColorCount: drawSummary.lightweightColorCount,
+        drawSectionRootsUsingValueShellCount:
+          drawSummary.rootsUsingValueShellCount,
+        drawSectionRootsWithSeparateValueShellCount:
+          drawSummary.rootsWithSeparateValueShellCount,
+        drawSectionStrayColorIconCount: drawSummary.strayColorIconCount,
         metaControlSectionLightweightColorCount:
-          metaControlSection.querySelectorAll(
-            '[data-canvas-owned-lightweight-color-input="true"]',
-          ).length,
+          metaControlSummary.lightweightColorCount,
+        metaControlSectionRootsUsingValueShellCount:
+          metaControlSummary.rootsUsingValueShellCount,
+        metaControlSectionRootsWithSeparateValueShellCount:
+          metaControlSummary.rootsWithSeparateValueShellCount,
+        metaControlSectionStrayColorIconCount:
+          metaControlSummary.strayColorIconCount,
         settingsLightweightColorCount: settingsSections.reduce(
           (count, section) =>
             count +
@@ -91,9 +130,12 @@ test("canvas shell path uses lightweight color-input activators across settings 
         ),
         targetActivatorRole: targetActivator.getAttribute("role"),
         targetActivatorTagName: targetActivator.tagName,
-        targetSectionLightweightColorCount: targetSection.querySelectorAll(
-          '[data-canvas-owned-lightweight-color-input="true"]',
-        ).length,
+        targetSectionLightweightColorCount: targetSummary.lightweightColorCount,
+        targetSectionRootsUsingValueShellCount:
+          targetSummary.rootsUsingValueShellCount,
+        targetSectionRootsWithSeparateValueShellCount:
+          targetSummary.rootsWithSeparateValueShellCount,
+        targetSectionStrayColorIconCount: targetSummary.strayColorIconCount,
       };
     },
     {
@@ -108,6 +150,17 @@ test("canvas shell path uses lightweight color-input activators across settings 
   expect(restingState.targetSectionLightweightColorCount).toBe(4);
   expect(restingState.metaControlSectionLightweightColorCount).toBe(1);
   expect(restingState.drawSectionLightweightColorCount).toBe(1);
+  expect(restingState.targetSectionRootsUsingValueShellCount).toBe(4);
+  expect(restingState.metaControlSectionRootsUsingValueShellCount).toBe(1);
+  expect(restingState.drawSectionRootsUsingValueShellCount).toBe(1);
+  expect(restingState.targetSectionRootsWithSeparateValueShellCount).toBe(0);
+  expect(restingState.metaControlSectionRootsWithSeparateValueShellCount).toBe(
+    0,
+  );
+  expect(restingState.drawSectionRootsWithSeparateValueShellCount).toBe(0);
+  expect(restingState.targetSectionStrayColorIconCount).toBe(0);
+  expect(restingState.metaControlSectionStrayColorIconCount).toBe(0);
+  expect(restingState.drawSectionStrayColorIconCount).toBe(0);
   expect(restingState.targetActivatorTagName).toBe("DIV");
   expect(restingState.targetActivatorRole).toBe("button");
 
