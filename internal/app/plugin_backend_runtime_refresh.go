@@ -38,7 +38,6 @@ type pluginBackendRuntimeRefresher struct {
 }
 
 type pluginBackendRefreshTransition struct {
-	previewSnapshot  plugins.DiscoverySnapshot
 	nextRuntime      *pluginBackendMCPRuntime
 	nextLSPSpecs     []lsp.LanguageServerSpec
 	previousRuntime  *pluginBackendMCPRuntime
@@ -109,8 +108,8 @@ func (s *pluginMutationRuntimeService) rescanRuntimeToolsWithoutRestart(
 	if err != nil {
 		return plugins.DiscoverySnapshot{}, err
 	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
 	if s.refresher == nil {
+		s.syncCapabilitiesFromSnapshot(snapshot)
 		return snapshot, nil
 	}
 	if err := s.refresher.RescanRuntimeTools(ctx, snapshot); err != nil {
@@ -166,8 +165,8 @@ func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, erro
 	if err != nil {
 		return snapshot, err
 	}
-	s.syncCapabilitiesFromSnapshot(snapshot)
 	if s.refresher == nil {
+		s.syncCapabilitiesFromSnapshot(snapshot)
 		return snapshot, nil
 	}
 	if err := s.refresher.RescanRuntimeTools(context.Background(), snapshot); err != nil {
@@ -499,8 +498,10 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		return plugins.DiscoverySnapshot{}, err
 	}
 	if err := r.reconcileProjectDocumentLocked(ctx, transition.previousLSPSpecs, transition.nextLSPSpecs); err != nil {
-		r.rollbackRefreshTransitionLocked(transition)
-		return plugins.DiscoverySnapshot{}, err
+		return plugins.DiscoverySnapshot{}, errors.Join(
+			err,
+			r.rollbackRefreshTransitionLocked(transition),
+		)
 	}
 	return r.commitRefreshTransitionLocked(transition)
 }
@@ -516,8 +517,11 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	previousCapabilities := plugins.PluginAppSubsystemCapabilities{}
+	nextCapabilities := plugins.PluginAppSubsystemCapabilities{}
 	if r.appSubsystemCapabilities != nil {
-		r.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+		previousCapabilities = r.appSubsystemCapabilities.AppSubsystemCapabilities()
+		nextCapabilities = plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
 	}
 	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
 	if err != nil {
@@ -529,8 +533,17 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 		return err
 	}
 	r.runtime = nextRuntime
+	if r.appSubsystemCapabilities != nil {
+		r.appSubsystemCapabilities.Set(nextCapabilities)
+	}
 	if err := r.refreshAppHandlerLocked(); err != nil {
-		return err
+		if r.appSubsystemCapabilities != nil {
+			r.appSubsystemCapabilities.Set(previousCapabilities)
+		}
+		r.runtime = previousRuntime
+		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
+		closePluginBackendRuntime(nextRuntime)
+		return errors.Join(err, rollbackErr)
 	}
 	closePluginBackendRuntime(previousRuntime)
 	return nil
@@ -640,7 +653,6 @@ func (r *pluginBackendRuntimeRefresher) prepareRefreshTransitionLocked(ctx conte
 		return nil, err
 	}
 	return &pluginBackendRefreshTransition{
-		previewSnapshot:  previewSnapshot,
 		nextRuntime:      nextRuntime,
 		nextLSPSpecs:     nextLSPSpecs,
 		previousRuntime:  r.runtime,
@@ -671,16 +683,34 @@ func (r *pluginBackendRuntimeRefresher) applyRefreshTransitionLocked(
 func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 	transition *pluginBackendRefreshTransition,
 ) (plugins.DiscoverySnapshot, error) {
+	previousRefreshState, err := r.service.BackendRuntimeRefreshState()
+	if err != nil {
+		return plugins.DiscoverySnapshot{}, errors.Join(
+			err,
+			r.rollbackRefreshTransitionLocked(transition),
+		)
+	}
 	committedSnapshot, commitErr := r.service.CommitBackendRuntimeRefresh()
 	if commitErr != nil {
-		r.rollbackRefreshTransitionLocked(transition)
-		return committedSnapshot, commitErr
+		return committedSnapshot, errors.Join(
+			commitErr,
+			r.rollbackRefreshTransitionLocked(transition),
+		)
 	}
+	previousCapabilities := plugins.PluginAppSubsystemCapabilities{}
 	if r.appSubsystemCapabilities != nil {
+		previousCapabilities = r.appSubsystemCapabilities.AppSubsystemCapabilities()
 		r.appSubsystemCapabilities.SetFromSnapshot(committedSnapshot)
 	}
 	if err := r.refreshAppHandlerLocked(); err != nil {
-		return committedSnapshot, err
+		if r.appSubsystemCapabilities != nil {
+			r.appSubsystemCapabilities.Set(previousCapabilities)
+		}
+		rollbackErr := r.rollbackRefreshTransitionLocked(transition)
+		restoreErr := r.service.RestoreBackendRuntimeRefreshState(
+			previousRefreshState,
+		)
+		return committedSnapshot, errors.Join(err, rollbackErr, restoreErr)
 	}
 
 	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
@@ -692,14 +722,23 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 
 func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	transition *pluginBackendRefreshTransition,
-) {
+) error {
+	var rollbackErr error
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend MCP tools failed",
-		r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime),
+		func() error {
+			err := r.replaceRuntimeToolsLocked(transition.nextRuntime, transition.previousRuntime)
+			rollbackErr = errors.Join(rollbackErr, err)
+			return err
+		}(),
 	)
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend language servers failed",
-		r.replaceLSPSpecsLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
+		func() error {
+			err := r.replaceLSPSpecsLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs)
+			rollbackErr = errors.Join(rollbackErr, err)
+			return err
+		}(),
 	)
 	r.runtime = transition.previousRuntime
 	r.lspSpecs = transition.previousLSPSpecs
@@ -707,9 +746,14 @@ func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
 	r.pendingLanguageServerSelectionPluginIDs = nil
 	r.logPluginBackendRuntimeError(
 		"rollback plugin backend project reconciliation failed",
-		r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs),
+		func() error {
+			err := r.reconcileProjectDocumentLocked(context.Background(), transition.nextLSPSpecs, transition.previousLSPSpecs)
+			rollbackErr = errors.Join(rollbackErr, err)
+			return err
+		}(),
 	)
 	closePluginBackendRuntime(transition.nextRuntime)
+	return rollbackErr
 }
 
 func (r *pluginBackendRuntimeRefresher) Close(ctx context.Context) error {
