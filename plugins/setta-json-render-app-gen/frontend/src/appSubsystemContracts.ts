@@ -1,7 +1,5 @@
 import sidecar from "../../../../frontend/generation/non_http_shared/sidecar.json";
-import type {
-  PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition as GeneratedAppDefinition,
-} from "openapi/http/generated/types.gen";
+import type { PluginsSettaJsonRenderAppGenBackendAppdefinitionAppDefinition as GeneratedAppDefinition } from "openapi/http/generated/types.gen";
 
 type SidecarExportedValueEntry = {
   name: string;

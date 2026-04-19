@@ -8,7 +8,18 @@ import {
   DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
   doesAppSubsystemModeRequireImageAttachment,
 } from "./appSubsystemChatUi";
+import {
+  applyAppDefinitionStructuredContentToStore,
+  applyAppSpecPatchPreviewDeltaToStore,
+  clearAllAppSpecPatchPreviewStreams,
+  clearAppSpecPatchPreviewStream,
+} from "./appSubsystemPreviewController";
 import { useAppConfigs, useAppPreview } from "./appSubsystemProjectState";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  resetAppSessionState,
+} from "./state/actions/app";
+import { processAppProjectStateUpdateFromBackend } from "./state/actions/appProjectState";
 
 export const appSubsystemFrontendRegistration = {
   overviewTab: {
@@ -34,6 +45,24 @@ export const appSubsystemFrontendRegistration = {
     options: APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
     defaultMode: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
   },
+  getPreviewEnabled: () => useAppPreview.getState().isPreviewEnabled,
+  subscribePreviewEnabled: (listener: (previewEnabled: boolean) => void) => {
+    let previousPreviewEnabled = useAppPreview.getState().isPreviewEnabled;
+    return useAppPreview.subscribe((state) => {
+      if (state.isPreviewEnabled === previousPreviewEnabled) {
+        return;
+      }
+      previousPreviewEnabled = state.isPreviewEnabled;
+      listener(state.isPreviewEnabled);
+    });
+  },
+  applyAppDefinitionStructuredContentToStore,
+  applyAppSpecPatchPreviewDeltaToStore,
+  clearAppSpecPatchPreviewStream,
+  clearAllAppSpecPatchPreviewStreams,
+  initializeAppSessionFromCurrentDeployment,
+  resetAppSessionState,
+  processAppProjectStateUpdateFromBackend,
   resetProjectState: () => {
     useAppConfigs.getState().reset?.();
     useAppPreview.getState().reset?.();

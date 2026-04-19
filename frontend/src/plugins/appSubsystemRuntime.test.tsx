@@ -1,6 +1,7 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
   appSubsystemModeRequiresImageAttachment,
+  applyAppDefinitionStructuredContentToStore,
   getAppSubsystemFrontendRuntimeState,
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
@@ -16,6 +17,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const resetProjectStateMock = vi.fn();
+const applyStructuredContentMock = vi.fn();
+let mockPreviewEnabled = false;
+let previewEnabledListener: ((previewEnabled: boolean) => void) | null = null;
 
 const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   overviewTab: {
@@ -50,6 +54,16 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
     ],
     defaultMode: "plain_chat",
   },
+  getPreviewEnabled: () => mockPreviewEnabled,
+  subscribePreviewEnabled: (listener: (previewEnabled: boolean) => void) => {
+    previewEnabledListener = listener;
+    return () => {
+      if (previewEnabledListener === listener) {
+        previewEnabledListener = null;
+      }
+    };
+  },
+  applyAppDefinitionStructuredContentToStore: applyStructuredContentMock,
   resetProjectState: () => {
     resetProjectStateMock();
   },
@@ -101,11 +115,18 @@ function AppSubsystemCustomSlashModeProbe() {
 describe("appSubsystemRuntime", () => {
   beforeEach(() => {
     resetProjectStateMock.mockReset();
+    applyStructuredContentMock.mockReset();
+    applyStructuredContentMock.mockReturnValue(true);
+    mockPreviewEnabled = false;
+    previewEnabledListener = null;
     resetAppSubsystemFrontendRuntimeState();
   });
 
   afterEach(() => {
     resetProjectStateMock.mockReset();
+    applyStructuredContentMock.mockReset();
+    mockPreviewEnabled = false;
+    previewEnabledListener = null;
     resetAppSubsystemFrontendRuntimeState();
   });
 
@@ -147,6 +168,13 @@ describe("appSubsystemRuntime", () => {
     runAppSubsystemProjectResetHooks();
 
     expect(resetProjectStateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes preview-enabled state through the runtime hook", () => {
+    mockPreviewEnabled = true;
+    useAppSubsystemFrontendStore.setState({ previewEnabled: true });
+
+    expect(getAppSubsystemFrontendRuntimeState().previewEnabled).toBe(true);
   });
 
   it("exposes the loaded authoring registration through hooks", async () => {
@@ -224,5 +252,33 @@ describe("appSubsystemRuntime", () => {
     expect(
       renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
     ).toContain("plain_chat:plain_chat=Plain chat,json_render=JSON Render");
+  });
+
+  it("routes structured app-definition updates through the runtime adapter", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+    const applied = applyAppDefinitionStructuredContentToStore({
+      appDefinition: { id: "app-1" },
+      appSpec: { title: "Runtime adapter" },
+    });
+
+    expect(applied).toBe(true);
+    expect(applyStructuredContentMock).toHaveBeenCalledWith({
+      appDefinition: { id: "app-1" },
+      appSpec: { title: "Runtime adapter" },
+    });
+  });
+
+  it("updates preview-enabled runtime state from the loaded registration subscription", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+    expect(getAppSubsystemFrontendRuntimeState().previewEnabled).toBe(false);
+
+    mockPreviewEnabled = true;
+    previewEnabledListener?.(true);
+
+    expect(getAppSubsystemFrontendRuntimeState().previewEnabled).toBe(true);
   });
 });
