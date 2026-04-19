@@ -19,6 +19,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
+	"setta/internal/chatmodes"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
@@ -33,6 +34,7 @@ import (
 	"setta/internal/tools"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
+	appsubsystemchatmodes "setta/plugins/setta-json-render-app-gen/backend/chatmodes"
 )
 
 type aiRouteStubController struct {
@@ -1414,6 +1416,46 @@ func TestRegisterAIRoutesRejectsInvalidAppGenerationModeForExternalSend(t *testi
 			"permissionMode":"minimal",
 			"searchEnabled":false,
 			"appGenerationMode":"unknown_mode"
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "app_generation_mode_invalid" {
+		t.Fatalf("expected invalid app-generation mode error, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRejectsUnavailableAppGenerationModeForExternalSend(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{
+		appGenerationModesAvailable: boolPtr(false),
+	})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new app."}]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false,
+			"appGenerationMode":"json_render"
 		}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
@@ -6878,9 +6920,26 @@ type aiRouteFixture struct {
 }
 
 type aiRouteFixtureOptions struct {
-	executorErr     error
-	preflightStatus *externalagentconfigs.Status
-	managedStarter  *aiRouteStubManagedStarter
+	executorErr                 error
+	preflightStatus             *externalagentconfigs.Status
+	managedStarter              *aiRouteStubManagedStarter
+	appGenerationModesAvailable *bool
+}
+
+func testAIRouteAppGenerationModes(
+	t *testing.T,
+	available bool,
+) chatmodes.AppGenerationModeResolver {
+	t.Helper()
+
+	resolver, err := chatmodes.NewAppGenerationModeRegistry(chatmodes.AppGenerationModeRegistryOptions{
+		Available:     func() bool { return available },
+		Contributions: appsubsystemchatmodes.BuildChatModeContributions(),
+	})
+	if err != nil {
+		t.Fatalf("new app generation mode resolver: %v", err)
+	}
+	return resolver
 }
 
 func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixture {
@@ -7029,6 +7088,10 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		Starter:      managedStarter,
 		Live:         managedLiveRuntime,
 		Stopper:      managedRunRuntime,
+		AppGenerationModes: testAIRouteAppGenerationModes(
+			t,
+			options.appGenerationModesAvailable == nil || *options.appGenerationModesAvailable,
+		),
 	})
 	if err != nil {
 		t.Fatalf("new managed chat service: %v", err)
@@ -7076,6 +7139,10 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 			response: externalagents.StartResponse{Controller: &aiRouteStubController{}},
 			err:      options.executorErr,
 		},
+		AppGenerationModes: testAIRouteAppGenerationModes(
+			t,
+			options.appGenerationModesAvailable == nil || *options.appGenerationModesAvailable,
+		),
 		TimeNow: func() time.Time {
 			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
 		},
@@ -7365,5 +7432,9 @@ func cloneAIRouteProfile(profile *agentprofiles.Profile) *agentprofiles.Profile 
 }
 
 func stringPtr(value string) *string {
+	return &value
+}
+
+func boolPtr(value bool) *bool {
 	return &value
 }

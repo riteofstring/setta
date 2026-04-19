@@ -144,6 +144,8 @@ export function createAssistantChatMessage(
   };
 }
 
+export type BackendLogEvent = gt.BackendLogEvent;
+
 export type BaseChartSettingsUnion = gt.BaseChartSettingsUnion;
 
 export type BaseChatMessageUnion = gt.BaseChatMessageUnion;
@@ -153,6 +155,14 @@ type BaseCodeObjImpl = gt.BaseCodeObjImpl;
 export type BaseDependencyKeyUnion = gt.BaseDependencyKeyUnion;
 
 export type BaseDependencyValueUnion = gt.BaseDependencyValueUnion;
+
+type BaseSectionImpl = gt.BaseSectionImpl;
+
+export function createBaseSectionImpl(
+  options: Partial<BaseSectionImpl> = {},
+): BaseSectionImpl {
+  return options as BaseSectionImpl;
+}
 
 export type BinaryDependencyValue = gt.BinaryDependencyValue;
 
@@ -659,7 +669,7 @@ export type DateParamCodeObjImpl = gt.DateParamCodeObjImpl;
 
 export type DependencyEvent = gt.DependencyEvent;
 
-type DictSectionImpl = gt.DictSectionImpl;
+export type DictSectionImpl = gt.DictSectionImpl;
 
 export function createDictSectionImpl(
   options: Partial<DictSectionImpl> = {},
@@ -894,6 +904,37 @@ export function createGroupSectionImpl(
   };
 }
 
+export type IFrameSectionImpl = gt.IFrameSectionImpl;
+
+export function createIFrameSectionImpl(
+  options: Partial<IFrameSectionImpl> = {},
+): IFrameSectionImpl {
+  const defaults: IFrameSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    code: "",
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 150,
+      width: 250,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "IFrame",
+  };
+  return {
+    ...mergeGeneratedOptions<IFrameSectionImpl>(defaults, options),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
+  };
+}
+
 export type ImageArtifact = gt.ImageArtifact;
 
 export function createImageArtifact(
@@ -934,6 +975,14 @@ export function createLSPDiagnosticsPayload(
   options: Partial<LSPDiagnosticsPayload> = {},
 ): LSPDiagnosticsPayload {
   return options as LSPDiagnosticsPayload;
+}
+
+export type LanguageServerSelectionStatus = gt.LanguageServerSelectionStatus;
+
+export function createLanguageServerSelectionStatus(
+  options: Partial<LanguageServerSelectionStatus> = {},
+): LanguageServerSelectionStatus {
+  return options as LanguageServerSelectionStatus;
 }
 
 export type LineChartSettings = gt.LineChartSettings;
@@ -1034,6 +1083,8 @@ export function createMessageThinkingContent(
     ...mergeGeneratedOptions<MessageThinkingContent>(defaults, options),
   };
 }
+
+type MetaControlSectionImpl = gt.MetaControlSectionImpl;
 
 type MetaControlSizingPolicyByType = gt.MetaControlSizingPolicyByType;
 
@@ -1193,6 +1244,12 @@ function createMetaControlSizingPolicyTypeEntry(
 
 type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
 
+export function createNestedParamCodeObjImpl(
+  options: Partial<NestedParamCodeObjImpl> = {},
+): NestedParamCodeObjImpl {
+  return options as NestedParamCodeObjImpl;
+}
+
 export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;
 
 function createNormalizedFloatingWindowBounds(
@@ -1211,6 +1268,12 @@ function createNormalizedFloatingWindowBounds(
 
 type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
 
+export function createPasswordParamCodeObjImpl(
+  options: Partial<PasswordParamCodeObjImpl> = {},
+): PasswordParamCodeObjImpl {
+  return options as PasswordParamCodeObjImpl;
+}
+
 export type PluginBlockedCapability = gt.PluginBlockedCapability;
 
 export type PluginInstallResponse = gt.PluginInstallResponse;
@@ -1225,11 +1288,23 @@ export function createPluginListEntry(
 
 export type PluginListResponse = gt.PluginListResponse;
 
+export function createPluginListResponse(
+  options: Partial<PluginListResponse> = {},
+): PluginListResponse {
+  return options as PluginListResponse;
+}
+
 export type PluginRestartCapability = gt.PluginRestartCapability;
 
 export type PluginRestartResponse = gt.PluginRestartResponse;
 
 export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
+
+export function createPluginRuntimeResponse(
+  options: Partial<PluginRuntimeResponse> = {},
+): PluginRuntimeResponse {
+  return options as PluginRuntimeResponse;
+}
 
 export type PluginStatusEntry = gt.PluginStatusEntry;
 
@@ -1240,6 +1315,12 @@ export function createPluginStatusEntry(
 }
 
 export type PluginStatusResponse = gt.PluginStatusResponse;
+
+export function createPluginStatusResponse(
+  options: Partial<PluginStatusResponse> = {},
+): PluginStatusResponse {
+  return options as PluginStatusResponse;
+}
 
 export type Policy = gt.Policy;
 
@@ -2466,6 +2547,51 @@ function createSettingsBackend(
   };
 }
 
+type SettingsChatWindowing = gt.SettingsChatWindowing;
+
+function createSettingsChatWindowing(
+  options: Partial<SettingsChatWindowing> = {},
+): SettingsChatWindowing {
+  const defaults: SettingsChatWindowing = {
+    autoCreateInitialChat: true,
+    restorePriorStateOnUnmaximize: true,
+    shortcuts: {
+      canvasToggle: "Shift + Esc",
+      maximizeFocused: "Mod + Shift + Enter",
+      minimizeFocused: "Mod + Shift + M",
+      snapBottom: "Mod + Alt + ArrowDown",
+      snapLeft: "Mod + Alt + ArrowLeft",
+      snapRight: "Mod + Alt + ArrowRight",
+      snapTop: "Mod + Alt + ArrowUp",
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsChatWindowing>(defaults, options),
+    shortcuts: createSettingsChatWindowingShortcuts(
+      options["shortcuts"] ?? defaults["shortcuts"],
+    ),
+  };
+}
+
+type SettingsChatWindowingShortcuts = gt.SettingsChatWindowingShortcuts;
+
+function createSettingsChatWindowingShortcuts(
+  options: Partial<SettingsChatWindowingShortcuts> = {},
+): SettingsChatWindowingShortcuts {
+  const defaults: SettingsChatWindowingShortcuts = {
+    canvasToggle: "Shift + Esc",
+    maximizeFocused: "Mod + Shift + Enter",
+    minimizeFocused: "Mod + Shift + M",
+    snapBottom: "Mod + Alt + ArrowDown",
+    snapLeft: "Mod + Alt + ArrowLeft",
+    snapRight: "Mod + Alt + ArrowRight",
+    snapTop: "Mod + Alt + ArrowUp",
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsChatWindowingShortcuts>(defaults, options),
+  };
+}
+
 type SettingsGUI = gt.SettingsGUI;
 
 function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
@@ -2528,6 +2654,19 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
   };
   return {
     ...mergeGeneratedOptions<SettingsGUI>(defaults, options),
+  };
+}
+
+type SettingsLanguageServer = gt.SettingsLanguageServer;
+
+function createSettingsLanguageServer(
+  options: Partial<SettingsLanguageServer> = {},
+): SettingsLanguageServer {
+  const defaults: SettingsLanguageServer = {
+    selectedByLanguage: {},
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsLanguageServer>(defaults, options),
   };
 }
 
@@ -2627,6 +2766,19 @@ export function createSettingsState(
       saveRenderedValues: false,
       showDefaultConfigOnLoad: true,
     },
+    chatWindowing: {
+      autoCreateInitialChat: true,
+      restorePriorStateOnUnmaximize: true,
+      shortcuts: {
+        canvasToggle: "Shift + Esc",
+        maximizeFocused: "Mod + Shift + Enter",
+        minimizeFocused: "Mod + Shift + M",
+        snapBottom: "Mod + Alt + ArrowDown",
+        snapLeft: "Mod + Alt + ArrowLeft",
+        snapRight: "Mod + Alt + ArrowRight",
+        snapTop: "Mod + Alt + ArrowUp",
+      },
+    },
     gui: {
       defaultZoomLevel: 1,
       gridColor: "#afbacf",
@@ -2685,16 +2837,7 @@ export function createSettingsState(
       zoomOnScroll: true,
     },
     languageServer: {
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportSelfClsParameterName: "none",
-            reportUnannotatedClassAttribute: "none",
-            reportUnknownMemberType: "none",
-            reportUnknownVariableType: "none",
-          },
-        },
-      },
+      selectedByLanguage: {},
     },
     sectionSizingPolicy: {
       byType: {
@@ -3024,8 +3167,14 @@ export function createSettingsState(
     ),
     gui: createSettingsGUI(options["gui"] ?? defaults["gui"]),
     backend: createSettingsBackend(options["backend"] ?? defaults["backend"]),
+    chatWindowing: createSettingsChatWindowing(
+      options["chatWindowing"] ?? defaults["chatWindowing"],
+    ),
     sectionSizingPolicy: createSectionSizingPolicy(
       options["sectionSizingPolicy"] ?? defaults["sectionSizingPolicy"],
+    ),
+    languageServer: createSettingsLanguageServer(
+      options["languageServer"] ?? defaults["languageServer"],
     ),
   };
 }
@@ -3353,6 +3502,12 @@ export function createTextBlockSectionImpl(
 }
 
 type TextParamCodeObjImpl = gt.TextParamCodeObjImpl;
+
+export function createTextParamCodeObjImpl(
+  options: Partial<TextParamCodeObjImpl> = {},
+): TextParamCodeObjImpl {
+  return options as TextParamCodeObjImpl;
+}
 
 export type TimeParamCodeObjImpl = gt.TimeParamCodeObjImpl;
 
@@ -3857,6 +4012,28 @@ export const HTTPRequestMethodEnum = {
 } as const;
 export type HTTPRequestMethod = gt.HTTPRequestMethod;
 
+export const LanguageServerSelectionSeverityEnum = {
+  default: "default",
+  warning: "warning",
+  success: "success",
+} as const;
+
+export const LanguageServerSelectionStateEnum = {
+  unset: "unset",
+  disabled: "disabled",
+  selected: "selected",
+} as const;
+
+export const LanguageServerSelectionStatusKindEnum = {
+  unselected: "unselected",
+  disabled: "disabled",
+  no_available_providers: "no_available_providers",
+  selected_unavailable: "selected_unavailable",
+  selected_incompatible: "selected_incompatible",
+  pending_restart: "pending_restart",
+  active: "active",
+} as const;
+
 export const ListRootViewModeEnum = {
   default: "default",
   task_list: "task_list",
@@ -4108,6 +4285,7 @@ export const WebsocketMessageTypeEnum = {
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   UpdateSettings: "UpdateSettings",
+  UpdatePluginRuntime: "UpdatePluginRuntime",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   BackendLogEvent: "BackendLogEvent",
 } as const;
@@ -4229,12 +4407,17 @@ export function isBaseParentSectionImpl(
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   "Callable",
   "Dict",
+  "MetaControl",
   "GlobalVariables",
 ]);
 
 export function isBaseSectionWithParamsImpl(
   x: BaseSectionImplUnion,
-): x is CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl {
+): x is
+  | CallableSectionImpl
+  | DictSectionImpl
+  | MetaControlSectionImpl
+  | GlobalVariablesSectionImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
@@ -4246,6 +4429,51 @@ export const AppSpecPatchPolicyConfig = {
   rootResetValue: "",
   valueOptionalOps: ["remove"],
 } satisfies gt.PatchPolicy;
+
+export const AppSubsystemChatUIConfig = {
+  customSlashCommandModeOptions: [
+    { label: "Plain chat", value: "plain_chat" },
+    { label: "JSON Render", value: "json_render" },
+    { label: "Image to JSON Render", value: "json_render_with_image" },
+    { label: "Prompt Builder", value: "prompt_builder" },
+    { label: "MCP Server", value: "mcp_server" },
+  ],
+  defaultCustomSlashCommandMode: "plain_chat",
+  slashCommands: [
+    {
+      action: "app_json_render",
+      appGenerationMode: "json_render",
+      command: "/app-json",
+      promptTemplate:
+        "Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.",
+      summary: "Generate a standalone app spec through JSON render.",
+    },
+    {
+      action: "app_json_render_with_image",
+      appGenerationMode: "json_render_with_image",
+      command: "/app-image",
+      promptTemplate:
+        "Generate a JSON-render app spec that matches the attached reference image as closely as possible. Prioritize layout composition first, then spacing, typography scale, and color intent. Stay within catalog constraints and preserve the closest visual approximation when exact parity is impossible.",
+      summary: "Generate an app spec using attached image guidance.",
+    },
+    {
+      action: "app_prompt_builder",
+      appGenerationMode: "prompt_builder",
+      command: "/app-prompt",
+      promptTemplate:
+        "Generate a practical, polished JSON-render app spec for this project. Use strong information hierarchy, clear spacing rhythm, and one primary action path. Persist the result into the project via Setta app-definition tools.",
+      summary: "Generate an app-definition plan for chat-driven iteration.",
+    },
+    {
+      action: "app_mcp_server",
+      appGenerationMode: "mcp_server",
+      command: "/app-mcp",
+      promptTemplate:
+        "Use MCP tools to produce a high-fidelity UI implementation for this project. If design-import tools are available, import an existing design or generate one before mapping it back into Setta's app definition. Preserve clear hierarchy, responsive layout behavior, and practical defaults.",
+      summary: "Route app generation through MCP-capable tools.",
+    },
+  ],
+} satisfies gt.AppSubsystemChatUIConfigValue;
 
 export const BootstrapProtocol = {
   backendOriginOverrideQueryParam: "__setta_backend_origin",
@@ -4304,6 +4532,55 @@ export const C = {
   SETTINGS_PROJECT_NAME: "settings",
   WS_TERMINAL_RESIZE: "terminalResize",
 } satisfies gt.Constants;
+
+export const ChangeParamImplUIConfig = {
+  allParamCodeObjTypes: [
+    "CodeParam",
+    "TextParam",
+    "DateParam",
+    "TimeParam",
+    "ButtonParam",
+    "SliderParam",
+    "RotaryParam",
+    "SwitchParam",
+    "ColorPickerParam",
+    "DropdownParam",
+    "PasswordParam",
+    "TextAreaParam",
+    "DropzoneParam",
+    "NestedParam",
+  ],
+  controlCodeObjTypes: [
+    "CodeParam",
+    "TextParam",
+    "DateParam",
+    "TimeParam",
+    "ButtonParam",
+    "SliderParam",
+    "RotaryParam",
+    "SwitchParam",
+    "ColorPickerParam",
+    "DropdownParam",
+    "PasswordParam",
+    "TextAreaParam",
+    "DropzoneParam",
+  ],
+  sectionParamCodeObjTypes: [
+    "CodeParam",
+    "TextParam",
+    "DateParam",
+    "TimeParam",
+    "SliderParam",
+    "RotaryParam",
+    "SwitchParam",
+    "ColorPickerParam",
+    "DropdownParam",
+    "PasswordParam",
+    "TextAreaParam",
+    "DropzoneParam",
+    "NestedParam",
+  ],
+} satisfies gt.ChangeParamImplUIConfigValue;
 
 export const ChatRunTypesByName = {
   external_agent: true,
@@ -4645,14 +4922,6 @@ export const ProjectChatUIConfig = {
     { label: "Inline text", value: "inline_text" },
     { label: "Summary", value: "summary" },
   ],
-  customSlashCommandModeOptions: [
-    { label: "Plain chat", value: "plain_chat" },
-    { label: "JSON Render", value: "json_render" },
-    { label: "Image to JSON Render", value: "json_render_with_image" },
-    { label: "Prompt Builder", value: "prompt_builder" },
-    { label: "MCP Server", value: "mcp_server" },
-  ],
-  defaultCustomSlashCommandMode: "plain_chat",
   permissionModeOptions: [
     { label: "minimal", value: "minimal" },
     { label: "yolo", value: "yolo" },

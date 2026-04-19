@@ -2,6 +2,7 @@ package uisettings
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"setta/internal/projectstate"
@@ -28,9 +29,14 @@ var (
 	}
 )
 
-func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
+var errAppDefinitionRuntimeRequired = errors.New("uisettings: app definition runtime is required")
+
+func NewCoreRegistry(runtime CoreProjectState, appDefinition projectstate.AppDefinitionRuntime, workspaceRoot string) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
+	}
+	if appDefinition == nil {
+		return nil, errAppDefinitionRuntimeRequired
 	}
 	boolSchema := ValueSchema{Type: ValueTypeBoolean}
 	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: intPointer(1)}
@@ -198,12 +204,16 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 				Mutability:  MutabilityWritable,
 				ValueSchema: nonEmptyStringSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppDefinition(document).CatalogID
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				definition, err := runtime.GetEffectiveAppDefinition(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return definition.CatalogID, nil
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -220,12 +230,16 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 				Mutability:  MutabilityWritable,
 				ValueSchema: nonEmptyStringSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppDefinition(document).AppSpecVersion
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				definition, err := runtime.GetEffectiveAppDefinition(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return definition.AppSpecVersion, nil
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -242,12 +256,12 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 				Mutability:  MutabilityWritable,
 				ValueSchema: nonEmptyStringSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppSpecPath(document)
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				return runtime.GetEffectiveAppSpecPath(ctx)
 			}),
 			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -264,12 +278,12 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 				Mutability:  MutabilityWritable,
 				ValueSchema: themeModeSchema,
 			},
-			readDocumentValue(runtime, func(document projectstate.Document) any {
-				return projectstate.EffectiveAppThemeMode(document)
+			readAppDefinitionValue(appDefinition, func(ctx context.Context, runtime projectstate.AppDefinitionRuntime) (any, error) {
+				return runtime.GetEffectiveAppThemeMode(ctx)
 			}),
 			normalizeOptionalThemeModeWrite,
 			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := runtime.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
+				_, result, err := appDefinition.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
 				return result, err
 			},
 			comparableMutationResult[string],
@@ -315,9 +329,12 @@ func readProjectValue(runtime CoreProjectState, selectValue func(*projectstate.P
 	}
 }
 
-func readDocumentValue(runtime CoreProjectState, selectValue func(projectstate.Document) any) ReadFunc {
-	return func(_ context.Context, _ string) (any, error) {
-		return selectValue(runtime.Snapshot().Document), nil
+func readAppDefinitionValue(
+	runtime projectstate.AppDefinitionRuntime,
+	read func(context.Context, projectstate.AppDefinitionRuntime) (any, error),
+) ReadFunc {
+	return func(ctx context.Context, _ string) (any, error) {
+		return read(ctx, runtime)
 	}
 }
 
