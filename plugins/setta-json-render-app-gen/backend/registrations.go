@@ -6,9 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
-	"setta/internal/mcpx"
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
 )
 
 type AppSubsystemCapabilityProvider interface {
@@ -36,12 +34,6 @@ func BuildFrontendAPIRouteRegistrations(
 			appSubsystemDeploymentRoutesAvailable,
 		),
 	}
-}
-
-func BuildMCPToolRegistrations(
-	service projectstate.AppDefinitionRuntime,
-) []mcpx.ToolRegistration {
-	return mcpx.BuildAppSubsystemToolRegistrations(service)
 }
 
 func buildProjectFrontendRouteContributions(
