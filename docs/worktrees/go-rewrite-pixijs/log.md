@@ -4079,3 +4079,53 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - use the new motion-aware dense probe on the next broader inactive-row body-overlay product slice instead of reopening another at-rest text/value cleanup lane
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-20 080
+
+- Item: Broaden motion-hidden body suppression to the shared retained resting-text boundary.
+- Status: `done`
+- Details:
+  - Chose the first stronger shared motion-state primitive after the triple named-family overlay broadening chain instead of repeating another low-count family add.
+  - Updated `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` so `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` now follows the full `CANVAS_OWNED_RESTING_TEXT_SECTION_IDS` boundary.
+  - Added focused proof in:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - Live canary result on the worktree runtime:
+    - blank pane point: `x=24`, `y=60`
+    - resting-text motion-body overlay probe:
+      - initial `hiddenBodyCount: 0`
+      - during one renderer wheel interaction, `hiddenBodyCount: 45`
+      - `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `data-canvas-owned-motion-body-hidden="true"` with computed `visibility: hidden`
+      - settled `hiddenBodyCount: 0`
+    - motion-aware dense rerun:
+      - `documentNodeCount: 5515`
+      - `inputCount: 3`
+      - `textareaCount: 1`
+      - `buttonCount: 47`
+      - `raf.meanMs: 121.7`
+      - `raf.p95Ms: 150.0`
+      - `longTasks.totalMs: 14818`
+      - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+      - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+      - `motionHiddenBodies.peakHiddenBodyCount: 45`
+      - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Interpretation:
+    - the shared resting-text boundary now participates in the real `viewportInteractionActive` suppression lane rather than just the older named shell/dropdown/param-codeobj subset
+    - this is the first broader motion-state pass that clearly widens the lane and improves the immediate dense rerun (`motionHiddenBodies.totalMotionBodyRootCount 17 -> 45`, `raf.mean 124.22 -> 121.7`, `raf.p95 166.7 -> 150.0`, `longTasks 15383 -> 14818`)
+    - keep the canonical lane on `settings-section__browserSectionDefault`; do not spend the next pass on another low-count motion-body family add
+    - the next real frontier should strengthen the suppression mode beyond `visibility: hidden` or remove more per-section row-body paint while this broader boundary is active
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (56.6s)`
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded cleanly with `All Settings` active
+  - exactly one retained graph canvas was mounted before and after a simple `zoom in` followed by `fit view`
+  - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were present and visually intact
+  - no obvious blank or detached artifact appeared around the resting-text targets after the interaction
+- Next action:
+  - keep the named `browserSectionDefault` lane and choose a stronger motion-state primitive than `visibility: hidden`, or another per-section paint reduction that rides this broadened boundary, instead of reopening named-family broadening
+LOOP_TERMINAL_MARKER: none

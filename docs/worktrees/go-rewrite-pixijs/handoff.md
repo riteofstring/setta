@@ -8,6 +8,64 @@ Related guardrails and gates: `docs/worktrees/go-rewrite-pixijs/checklist.md`
 
 ## Current status
 
+- The shared resting-text motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-resting-text-motion-body-overlay-rerun.md`.
+  - canonical target section: `settings-section__browserSectionDefault`
+  - sibling proof sections:
+    - `settings-section__promptSectionDefault`
+    - `settings-section__languageServer`
+  - implementation shape:
+    - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts` now widens `CANVAS_OWNED_MOTION_HIDDEN_BODY_SECTION_IDS` to the full `CANVAS_OWNED_RESTING_TEXT_SECTION_IDS` boundary instead of a hand-maintained shell/dropdown/param-codeobj subset
+    - focused proof now exists in:
+      - `frontend/src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+  - focused runtime proof on the live worktree surface:
+    - the motion probe used a blank pane point at `x=24`, `y=60`
+    - before motion:
+      - all three resting-text sections exposed `data-canvas-owned-motion-body-root="true"` wrappers
+      - `hiddenBodyCount: 0`
+    - during one renderer wheel-zoom interaction:
+      - all three wrappers flipped to `data-canvas-owned-motion-body-hidden="true"`
+      - computed `visibility` switched to `hidden`
+      - the global hidden-body count rose to `45`
+    - after the interaction settled:
+      - all three wrappers returned to visible
+      - `hiddenBodyCount: 0`
+  - fresh motion-aware dense rerun on the same runtime family recorded:
+    - `documentNodeCount: 5515`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 121.7`
+    - `raf.p95Ms: 150.0`
+    - `longTasks.totalMs: 14818`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - compared against the prior shared-shell motion-body checkpoint:
+    - `documentNodeCount: 5515 -> 5515`
+    - `buttonCount: 47 -> 47`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 17 -> 45`
+    - `motionHiddenBodies.peakHiddenBodyCount: 17 -> 45`
+    - `raf.meanMs: 124.22 -> 121.7`
+    - `raf.p95Ms: 166.7 -> 150.0`
+    - `longTasks.totalMs: 15383 -> 14818`
+  - interpretation:
+    - this is the first stronger shared motion-state primitive after the small family broadening passes, and it finally moves the checked motion lane with a broad boundary instead of another named-family add
+    - the branch is still far above the final dense-scene motion bar, so do not reopen another low-count motion-body family lane from here
+    - keep the canonical lane on `settings-section__browserSectionDefault`; the next real frontier should strengthen the suppression mode beyond `visibility: hidden` or remove more per-section row-body paint while this broader boundary is active
+  - focused verification passed:
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/sectionShellCanvasOwnership.ts src/forks/xyflow/core/container/sectionShellCanvasOwnership.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.I7AA2M/loop-002/run-008/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+      - result: `2 passed (56.6s)`
+  - CDP visual check is done:
+    - verified in a fresh headless DevTools sub-agent
+    - `/settings` loaded with `All Settings` active
+    - exactly one retained graph canvas was mounted before and after a simple `zoom in` followed by `fit view`
+    - `settings-section__browserSectionDefault`, `settings-section__promptSectionDefault`, and `settings-section__languageServer` were visually intact at rest
+    - no obvious blank or detached artifact appeared around the resting-text targets after the interaction
 - The shared shell motion-body overlay slice is now landed and recorded in `perf/reports/frontend/2026-04-20_settings-all-settings-shell-motion-body-overlay-rerun.md`.
   - canonical target section: `settings-section__callableSectionDefault`
   - sibling proof sections:

@@ -493,19 +493,22 @@ describe("sectionShellCanvasOwnership", () => {
     }
   });
 
-  it("targets the current motion-hidden body overlay sections", () => {
+  it("targets the shared settings resting-text boundary for motion-hidden bodies", () => {
     for (const sectionId of [
       CANVAS_OWNED_SECTION_SHELL_ID,
       DICT_CANVAS_OWNED_SECTION_SHELL_ID,
       GLOBAL_VARIABLES_CANVAS_OWNED_SECTION_SHELL_ID,
+      SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      SPREADSHEET_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      LANGUAGE_SERVER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      PROMPT_SECTION_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      GUI_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      BACKEND_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
+      STATE_MACHINE_GATE_CANVAS_OWNED_RESTING_DROPDOWN_SECTION_ID,
     ]) {
       expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
     }
-    expect(
-      isCanvasOwnedSectionMotionHiddenBody(
-        SECTION_SIZING_POLICY_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
-      ),
-    ).toBe(true);
     for (const sectionId of SHARED_SETTINGS_DROPDOWN_CANVAS_OWNED_SECTION_IDS) {
       expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
     }
@@ -513,7 +516,7 @@ describe("sectionShellCanvasOwnership", () => {
       expect(isCanvasOwnedSectionMotionHiddenBody(sectionId)).toBe(true);
     }
     expect(
-      isCanvasOwnedSectionMotionHiddenBody("settings-section__spreadsheetSectionDefault"),
+      isCanvasOwnedSectionMotionHiddenBody("round_lime__callableSectionDefault"),
     ).toBe(false);
   });
 
