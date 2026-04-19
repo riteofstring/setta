@@ -22,10 +22,6 @@ import {
 import { getFileBrowserRoot } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
-  useAppSubsystemFrontendStatus,
-  useAppSubsystemSlashCommands,
-} from "plugins/appSubsystemRuntime";
-import {
   Dispatch,
   memo,
   SetStateAction,
@@ -48,7 +44,6 @@ import {
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
-import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
   useLocalStorage,
@@ -69,7 +64,6 @@ import {
   ChatRoleEnum,
   EngineConfig,
   EngineTypeEnum,
-  NotificationTypeEnum,
   type ChatDictationMode,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -83,7 +77,6 @@ import {
   filterProjectConversationMessagesBySearch,
   findBranchSourceUserMessage,
   getDefaultProjectChatPermissionMode,
-  getHistoricalAppGenerationEditReplayBlockedReason,
   getMessageAttachments,
   getProjectChatBlockedReasonMessage,
   hasRetainedImageAttachmentFromImageModeThread,
@@ -588,8 +581,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const customCommandsExecutable =
     !isExternalEngine || isAgentRunsAuthorityReady(agentRunsAuthorityState);
-  const appGenerationSlashCommands = useAppSubsystemSlashCommands();
-  const appSubsystemFrontendStatus = useAppSubsystemFrontendStatus();
   const { slashCommands, recognizedSlashCommands } = useMemo(() => {
     const discoveredAgentNativeSlashCommands =
       resolveProjectChatComposerNativeSlashCommandTokens({
@@ -603,7 +594,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       });
     return resolveProjectChatComposerSlashCommandSets({
       customProjectChatSlashCommands,
-      appGenerationSlashCommands,
       discoveredAgentNativeSlashCommands,
       executableAgentNativeSlashCommands,
       customCommandsExecutable,
@@ -617,7 +607,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     agentRunsAuthorityState,
     customCommandsExecutable,
     customProjectChatSlashCommands,
-    appGenerationSlashCommands,
     runtimeAgentNativeSlashCommandTokens,
     showPermissionExecutionControl,
     showSearchExecutionControl,
@@ -917,7 +906,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState);
       return resolveProjectChatComposerSlashCommandSets({
         customProjectChatSlashCommands,
-        appGenerationSlashCommands,
         discoveredAgentNativeSlashCommands:
           refreshedDiscoveredAgentNativeSlashCommands,
         executableAgentNativeSlashCommands:
@@ -932,7 +920,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       customProjectChatSlashCommands,
-      appGenerationSlashCommands,
       engineConfigId,
       engineType,
       isExternalEngine,
@@ -1089,19 +1076,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     await stopProjectChatResponse(chatId, isExternalEngine, surfaceId);
   }, [chatId, isExternalEngine, surfaceId]);
 
-  const historicalAppGenerationReplaySupported =
-    appGenerationSlashCommands.length > 0 ||
-    appSubsystemFrontendStatus === "idle" ||
-    appSubsystemFrontendStatus === "loading";
-  const getHistoricalAppGenerationBlockedReason = useCallback(
-    (messageId: string): string | null =>
-      getHistoricalAppGenerationEditReplayBlockedReason({
-        messageState: appGenerationByMessageId[messageId],
-        replaySupported: historicalAppGenerationReplaySupported,
-      }),
-    [appGenerationByMessageId, historicalAppGenerationReplaySupported],
-  );
-
   const handleEditMessage = useCallback(
     async (
       messageId: string,
@@ -1117,11 +1091,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const blockedReason = getHistoricalAppGenerationBlockedReason(messageId);
-      if (blockedReason) {
-        addTemporaryNotification(blockedReason, NotificationTypeEnum.warning);
         return false;
       }
       const nextChatId = await submitEditedMessage({
@@ -1153,7 +1122,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       chatId,
       engineConfigId,
       externalEngineAvailable,
-      getHistoricalAppGenerationBlockedReason,
       isExternalEngine,
       appGenerationByMessageId,
       messages,
@@ -1198,13 +1166,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (!sourceUserMessage) {
         return false;
       }
-      const blockedReason = getHistoricalAppGenerationBlockedReason(
-        sourceUserMessage.id,
-      );
-      if (blockedReason) {
-        addTemporaryNotification(blockedReason, NotificationTypeEnum.warning);
-        return false;
-      }
       const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
       const sourceAttachments = getMessageAttachments(sourceUserMessage);
       const nextChatId = await submitEditedMessage({
@@ -1238,7 +1199,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
       externalEngineAvailable,
-      getHistoricalAppGenerationBlockedReason,
       hasLLMConfig,
       isExternalEngine,
       appGenerationByMessageId,

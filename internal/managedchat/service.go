@@ -14,7 +14,6 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
-	"setta/internal/chatmodes"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
@@ -61,10 +60,12 @@ var (
 	ErrAppGenerationReferenceImageNotesTooLarge = errors.New(
 		"appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
 	)
-	ErrAppGenerationImageAttachmentRequired = chatmodes.ErrAppGenerationImageAttachmentRequired
-	ErrChatEngineMismatch                   = errors.New("Chat engine mismatch; start a new chat.")
-	ErrChatProjectConfigMismatch            = errors.New("Chat project config mismatch; start a new chat.")
-	ErrContinueFromChatSourceNotFound       = errors.New("continuation source chat not found")
+	ErrAppGenerationImageAttachmentRequired = errors.New(
+		"json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.",
+	)
+	ErrChatEngineMismatch             = errors.New("Chat engine mismatch; start a new chat.")
+	ErrChatProjectConfigMismatch      = errors.New("Chat project config mismatch; start a new chat.")
+	ErrContinueFromChatSourceNotFound = errors.New("continuation source chat not found")
 )
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
@@ -91,29 +92,27 @@ type runWaiter interface {
 }
 
 type ServiceOptions struct {
-	ProjectState       *projectstate.Runtime
-	Runs               *agentruns.RunStore
-	Engines            *agentruns.EngineStore
-	LLM                *llmconfig.Runtime
-	Profiles           *agentprofiles.Store
-	Starter            ChatStarter
-	Live               LiveChatStateProvider
-	Stopper            RunStopper
-	AppGenerationModes chatmodes.AppGenerationModeResolver
-	TimeNow            func() time.Time
+	ProjectState *projectstate.Runtime
+	Runs         *agentruns.RunStore
+	Engines      *agentruns.EngineStore
+	LLM          *llmconfig.Runtime
+	Profiles     *agentprofiles.Store
+	Starter      ChatStarter
+	Live         LiveChatStateProvider
+	Stopper      RunStopper
+	TimeNow      func() time.Time
 }
 
 type Service struct {
-	projectState       *projectstate.Runtime
-	runs               *agentruns.RunStore
-	engines            *agentruns.EngineStore
-	llm                *llmconfig.Runtime
-	profiles           *agentprofiles.Store
-	starter            ChatStarter
-	live               LiveChatStateProvider
-	stopper            RunStopper
-	appGenerationModes chatmodes.AppGenerationModeResolver
-	timeNow            func() time.Time
+	projectState *projectstate.Runtime
+	runs         *agentruns.RunStore
+	engines      *agentruns.EngineStore
+	llm          *llmconfig.Runtime
+	profiles     *agentprofiles.Store
+	starter      ChatStarter
+	live         LiveChatStateProvider
+	stopper      RunStopper
+	timeNow      func() time.Time
 }
 
 type ChatState struct {
@@ -213,16 +212,15 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 	}
 	return &Service{
-		projectState:       options.ProjectState,
-		runs:               options.Runs,
-		engines:            options.Engines,
-		llm:                options.LLM,
-		profiles:           options.Profiles,
-		starter:            options.Starter,
-		live:               options.Live,
-		stopper:            options.Stopper,
-		appGenerationModes: options.AppGenerationModes,
-		timeNow:            timeNow,
+		projectState: options.ProjectState,
+		runs:         options.Runs,
+		engines:      options.Engines,
+		llm:          options.LLM,
+		profiles:     options.Profiles,
+		starter:      options.Starter,
+		live:         options.Live,
+		stopper:      options.Stopper,
+		timeNow:      timeNow,
 	}, nil
 }
 
@@ -1082,28 +1080,12 @@ func normalizeOptionalString(value *string) *string {
 	return &trimmed
 }
 
-func normalizeAppGenerationModeWithResolver(
-	resolver chatmodes.AppGenerationModeResolver,
-	value *string,
-) (*string, error) {
-	if resolver == nil {
-		resolver = (*chatmodes.AppGenerationModeRegistry)(nil)
-	}
-	normalized, ok := resolver.NormalizeOptionalMode(value)
+func normalizeAppGenerationMode(value *string) (*string, error) {
+	normalized, ok := agentruns.NormalizeOptionalAppGenerationMode(value)
 	if !ok {
 		return nil, ErrAppGenerationModeInvalid
 	}
 	return normalized, nil
-}
-
-func chatmodesAllowsReferenceImage(
-	resolver chatmodes.AppGenerationModeResolver,
-	mode *string,
-) bool {
-	if resolver == nil {
-		return false
-	}
-	return resolver.AllowsReferenceImage(mode)
 }
 
 func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
@@ -1126,21 +1108,113 @@ func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNote
 	return resolvedURL, resolvedNotes, nil
 }
 
-func buildAppGenerationModePromptWithResolver(
-	resolver chatmodes.AppGenerationModeResolver,
-	mode *string,
+func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, referenceImageURL *string, referenceImageNotes *string) string {
+	resolvedMode := derefOptionalString(mode)
+	if resolvedMode == "" {
+		return ""
+	}
+	lines := []string{
+		"## App spec generation mode",
+		fmt.Sprintf("- mode: %s", resolvedMode),
+		resolveStreamingPreviewPromptLine(appSpecStreamingEnabled),
+	}
+	lines = append(
+		lines,
+		resolveAppGenerationModePromptLines(
+			resolvedMode,
+			appSpecStreamingEnabled,
+			referenceImageURL,
+			referenceImageNotes,
+		)...,
+	)
+	return strings.Join(lines, "\n")
+}
+
+func resolveStreamingPreviewPromptLine(appSpecStreamingEnabled bool) string {
+	if appSpecStreamingEnabled {
+		return "- streamingPreview: enabled"
+	}
+	return "- streamingPreview: disabled"
+}
+
+func resolveAppGenerationModePromptLines(
+	resolvedMode string,
 	appSpecStreamingEnabled bool,
 	referenceImageURL *string,
 	referenceImageNotes *string,
-) string {
-	if resolver == nil {
-		return ""
+) []string {
+	switch resolvedMode {
+	case string(agentruns.AppGenerationModeJSONRender):
+		return buildJSONRenderPromptLines(appSpecStreamingEnabled)
+	case string(agentruns.AppGenerationModeJSONRenderWithImage):
+		return append(
+			buildJSONRenderPromptLines(appSpecStreamingEnabled),
+			buildReferenceImagePromptLines(referenceImageURL, referenceImageNotes)...,
+		)
+	case string(agentruns.AppGenerationModePromptBuilder):
+		return append(
+			buildJSONRenderPromptLines(appSpecStreamingEnabled),
+			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+		)
+	case string(agentruns.AppGenerationModeMCPServer):
+		return buildMCPServerPromptLines(appSpecStreamingEnabled)
+	default:
+		return nil
 	}
-	return resolver.BuildPrompt(mode, chatmodes.AppGenerationPromptOptions{
-		AppSpecStreamingEnabled: appSpecStreamingEnabled,
-		ReferenceImageURL:       referenceImageURL,
-		ReferenceImageNotes:     referenceImageNotes,
-	})
+}
+
+func buildJSONRenderPromptLines(appSpecStreamingEnabled bool) []string {
+	lines := []string{
+		"- If you are generating/updating the App spec (json-render):",
+		"  - Use catalog-compatible components only.",
+		"  - Persist via Setta app tools.",
+	}
+	return append(lines, buildAppDefinitionPersistencePromptLines(appSpecStreamingEnabled)...)
+}
+
+func buildAppDefinitionPersistencePromptLines(appSpecStreamingEnabled bool) []string {
+	if appSpecStreamingEnabled {
+		return []string{
+			"  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
+			"  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
+		}
+	}
+	return []string{
+		"  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
+		"  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
+	}
+}
+
+func buildReferenceImagePromptLines(referenceImageURL *string, referenceImageNotes *string) []string {
+	lines := []string{
+		"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
+		"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
+	}
+	normalizedURL := derefOptionalString(referenceImageURL)
+	if normalizedURL == "" {
+		return lines
+	}
+	lines = append(lines,
+		fmt.Sprintf("- Reference image URL: %s", normalizedURL),
+		"- Use this image as layout/style guidance when composing the app spec.",
+	)
+	if normalizedNotes := derefOptionalString(referenceImageNotes); normalizedNotes != "" {
+		lines = append(lines, fmt.Sprintf("- Reference image notes: %s", normalizedNotes))
+	}
+	return lines
+}
+
+func buildMCPServerPromptLines(appSpecStreamingEnabled bool) []string {
+	lines := []string{
+		"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
+		"- For Figma-oriented requests, support both paths:",
+		"  - Pull an existing Figma design into a JSON-render appSpec.",
+		"  - Generate/update in Figma first, then pull the resulting design back into Setta.",
+	}
+	if appSpecStreamingEnabled {
+		return append(lines, "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`.")
+	}
+	return append(lines, "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.")
 }
 
 func buildExecutionPolicyPrompt(permissionMode ChatPermissionMode, searchEnabled bool) string {

@@ -8,11 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"setta/internal/appsubsystem"
-	"setta/internal/config"
 	"setta/internal/httpapi"
-	"setta/internal/modes"
-	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 func main() {
@@ -25,21 +21,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
-		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			return appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
-				appsubsystem.FrontendRouteRegistrationOptions{
-					ModePolicy:         deps.Project.ModePolicy,
-					ProjectState:       deps.Project.ProjectState,
-					AppGenSkill:        deps.AppGenSkill,
-					ShareDeploymentIDE: deps.ShareDeploymentIDE,
-					AppDeployment: httpapi.DeploymentRouteDependencies{
-						ModePolicy: modes.NewPolicy(config.ModeApp),
-					},
-				},
-			)
-		},
-	)
+	document, err := httpapi.BuildFrontendHTTPOpenAPIDocument()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-http-openapi: %v\n", err)
 		os.Exit(1)
