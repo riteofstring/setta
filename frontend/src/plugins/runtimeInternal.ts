@@ -319,7 +319,6 @@ export async function loadPluginFrontendModule(
   }
 
   try {
-    await preparePluginFrontendHostBridge(plugin.pluginId);
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     const importedModule = (await import(
       /* @vite-ignore */ entrypointUrl
@@ -341,18 +340,6 @@ export async function loadPluginFrontendModule(
       registryDelta: null,
     };
   }
-}
-
-export async function preparePluginFrontendHostBridge(
-  pluginId: string,
-): Promise<void> {
-  if (pluginId !== "setta-json-render-app-gen") {
-    return;
-  }
-  const { installFirstPartyPluginFrontendBridge } = await import(
-    "./firstPartyAppSubsystemBridge"
-  );
-  installFirstPartyPluginFrontendBridge(pluginId);
 }
 
 function registerPluginCleanup(
