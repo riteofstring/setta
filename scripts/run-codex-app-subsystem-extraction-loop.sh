@@ -285,7 +285,7 @@ Source plan:
 
 ## Remaining blockers and coupling
 
-## Disabled-state and compatibility gaps
+## Disabled-state and shim-cleanup gaps
 
 ## Verification gaps
 EOF
@@ -300,6 +300,7 @@ Keep this file accurate while the loop runs.
 Rules:
 - The source plan is ${plan_file}
 - Treat the plan plus this checklist as the source of truth.
+- When this checklist is first seeded, audit the current repo immediately and mark already-satisfied items \`[x]\` before choosing new work.
 - The active phase is the earliest phase with any unchecked item.
 - Work only on the active phase. Do not start a later phase early.
 - If a later-phase change reopens an earlier-phase guarantee, change that earlier item back to \`[ ]\` and return to it immediately.
@@ -327,13 +328,13 @@ Rules:
 - [ ] Move AppSpec/AppDefinition backend ownership behind \`plugins/setta-json-render-app-gen/backend/...\`.
 - [ ] Move app-definition HTTP route registration out of generic \`internal/httpapi\` bootstrapping into the feature registration path.
 - [ ] Move app-definition MCP tool registration out of generic \`internal/mcpx\` bootstrapping into the feature registration path.
-- [ ] Move app-definition validation, write, and stream helpers behind subsystem-owned services while keeping core storage compatibility only as opaque legacy payload.
+- [ ] Move app-definition validation, write, and stream helpers behind subsystem-owned services without leaving host-owned legacy storage seams in core.
 - [ ] Mark Phase 2 complete only after core no longer imports app-specific validators, tool definitions, or route handlers directly.
 
 ## Phase 3: Isolate App-Generation Integration
 - [ ] Replace hard-coded app-generation mode branching in generic chat services with plugin-owned chat mode contributions.
 - [ ] Move prompt building, image-mode validation, tool guidance, and slash-command ownership into the plugin.
-- [ ] Gate chat hydration and replay so missing plugin support does not crash on historical app-generation provenance.
+- [ ] Remove or simplify chat hydration/replay branches that only exist for historical app-generation compatibility.
 - [ ] Restrict app-generation generated surface imports to plugin-owned code.
 - [ ] Mark Phase 3 complete only after generic chat code no longer needs to know what \`json_render\` means and disabling the plugin removes app-generation behavior without breaking plain chat.
 
@@ -348,22 +349,30 @@ Rules:
 - [ ] Introduce a deployment type registry and feature-owned publish/load/runtime registration.
 - [ ] Move app deployment session bootstrap, state routes, publish/load/runtime behavior, and related runtime wiring behind the plugin.
 - [ ] Remove unconditional core assumptions that app deployments exist.
-- [ ] Keep \`setta app\` as a reserved host command that fails with this exact plugin-required error when unavailable: ${plugin_required_error}
-- [ ] Mark Phase 5 complete only after core deployment/runtime code works without app deployment support and enabling the plugin restores app deployment behavior.
+- [ ] Remove compatibility-only host command stubs and expose app entrypoints through the cleanest ownership model.
+- [ ] Mark Phase 5 complete only after core deployment/runtime code works without app deployment support and enabling the plugin restores app deployment behavior without compatibility-only stubs.
 
-## Phase 6: Clean Up Persistence And Generated Contracts
-- [ ] Preserve or migrate persistence intentionally while keeping core storage compatibility only as opaque legacy payload unless a controlled migration is required.
+## Phase 6: Remove Compatibility Shims And Legacy Support
+- [ ] Remove host-side re-export shims and bridge files that only preserve old import or module paths.
+- [ ] Remove compatibility-only generated/OpenAPI aliases, package-path remaps, and host export anchors.
+- [ ] Remove compatibility-only command stubs, dual-path logic, and legacy-support branches added during extraction.
+- [ ] Re-audit current code for already-landed compatibility glue and delete it before proceeding.
+- [ ] Mark Phase 6 complete only after compatibility-only bridges are gone unless a remaining one is explicitly justified by the final architecture.
+
+## Phase 7: Clean Up Persistence And Generated Contracts
+- [ ] Move persisted app data to the simplest plugin-owned shape practical during extraction.
+- [ ] Remove host-owned legacy \`appDefinition\` + \`app_specs/\` handling if it only exists for backward compatibility.
 - [ ] Prevent host-owned code from importing app-only generated or shared contract surfaces.
 - [ ] Keep new app-only generated surfaces out of generic host-owned code.
 - [ ] Document the ownership model for app-specific persisted state and generated surfaces in ${phase_review_file}.
-- [ ] Mark Phase 6 complete only after the subsystem boundary is explicit in persistence/generation ownership and host code no longer grows new app-only contract dependencies.
+- [ ] Mark Phase 7 complete only after the subsystem boundary is explicit in persistence/generation ownership and host code no longer grows new app-only contract dependencies.
 
-## Phase 7: Package The Subsystem
+## Phase 8: Package The Subsystem
 - [ ] Materialize the final package structure under \`plugins/setta-json-render-app-gen/\`.
-- [ ] Ensure packaging includes backend registrars, frontend bundle/assets, generated contract surfaces, and compatibility metadata.
+- [ ] Ensure packaging includes backend registrars, frontend bundle/assets, generated contract surfaces, and plugin discovery metadata.
 - [ ] Add startup wiring that loads the plugin when enabled and reports disabled capabilities when absent.
 - [ ] Ensure developer install/build flows cover enabled vs disabled distributions.
-- [ ] Mark Phase 7 complete only after a distribution can run without the plugin and a distribution with the plugin enabled preserves current behavior.
+- [ ] Mark Phase 8 complete only after a distribution can run without the plugin and a distribution with the plugin enabled preserves current behavior.
 
 ## Completion
 - [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./check_quality.sh\`, and fix any failures before committing.
@@ -389,19 +398,22 @@ Read first, in this order:
 - ${checklist_file}
 - ${phase_review_file}
 - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
+- The repo may already contain partially completed extraction work from prior loop runs. Audit current HEAD before assuming any phase is incomplete.
 
 Fixed plan decisions you must preserve:
 - The extracted subsystem lives in \`plugins/setta-json-render-app-gen/\`.
 - The plugin id is \`setta-json-render-app-gen\`.
 - The plugin manifest must keep \`enabledByDefault: false\`.
 - At the product surface, disabled and absent mean the same thing: no app routes, no app MCP tools, no app-generation commands, no app UI, and no app deployment runtime.
-- Core may keep legacy \`project.json.appDefinition\` and \`app_specs/\` only as opaque compatibility payload. Only the plugin may parse, validate, mutate, publish, or interpret that app data.
+- There are currently no external users depending on the pre-extraction app-specific storage, command, import-path, or generated-contract shape.
+- Do not add backward-compatibility shims, legacy read/write paths, migrations, reserved command stubs, import-path bridges, or generated-name aliases unless a current in-repo constraint truly requires one and you document the reason.
+- Prefer deleting or rewriting in-repo callsites over keeping old paths alive.
 - The host frontend must not statically import app plugin UI. Capability discovery must drive lazy loading and registration.
-- \`setta app\` remains a reserved host command. If the plugin is unavailable, it must fail immediately with this exact error: ${plugin_required_error}
-- Historical chat data containing app-generation provenance must hydrate safely without the plugin; editing or replaying unsupported app-generation turns must fail clearly rather than silently degrading.
+- Obsolete app-specific persisted data or historical app-generation metadata do not need compatibility handling beyond what is needed to keep the current codebase coherent.
 
 Phase-order rules:
 - Treat ${checklist_file} as the source of truth for active work.
+- If this checklist starts mostly unchecked, that is only a seed template. Reconcile it against the current repo before picking a slice.
 - The active phase is the earliest phase with any unchecked item.
 - Work only on the active phase. Do not do later-phase work early.
 - If a later edit reopens an earlier-phase guarantee, set that earlier item back to \`[ ]\` and return to it immediately.
@@ -409,9 +421,10 @@ Phase-order rules:
 - Treat this session as standalone. Do not rely on follow-up prompts.
 
 Execution rules for every iteration:
-- Start with a fresh audit against the active phase in ${checklist_file} and refresh ${phase_review_file} so it reflects the current repo state.
+- Start with a fresh audit against the current repo and ${checklist_file}, mark already-satisfied items complete, then refresh ${phase_review_file} so it reflects the current repo state.
 - Pick one actionable phase-owned slice or tightly-related cluster that you can land completely in this session.
 - Favor changes that materially advance the ownership boundary, capability gating, disabled-state behavior, or plugin registration path over helper churn.
+- If earlier iterations added compatibility shims, legacy-support paths, bridge files, or reserved stubs that are no longer needed under the updated plan, prioritize removing them.
 - Keep Go as the source of truth for canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive runtime behavior unless the repo explicitly says otherwise.
 - If you touch frontend generation inputs, backend endpoints, or Go-owned types used by frontend or Python surfaces, regenerate affected outputs before cleanup and before finishing the iteration.
 - When runtime behavior changes, add or tighten focused tests beside the owner package. When Python/package boundaries change, add focused pytest coverage. When frontend behavior changes, add focused frontend tests.
@@ -430,16 +443,17 @@ Execution rules for every iteration:
 Phase guidance:
 - Phase 0 is about freezing behavior, documenting the cut line, and closing missing test coverage for the current behavior and disabled-state expectations before structural extraction work expands.
 - Phase 1 is about registries, capability manifest flow, plugin skeleton, and host gating. Finish the host extension points before large subsystem moves.
-- Phase 2 is about backend AppSpec/AppDefinition ownership, route/tool registration, and keeping core storage compatibility opaque.
-- Phase 3 is about moving app-generation mode, prompt, validation, slash commands, and historical provenance handling behind plugin-owned chat contributions.
+- Phase 2 is about backend AppSpec/AppDefinition ownership, route/tool registration, and removing host-owned app storage seams from core.
+- Phase 3 is about moving app-generation mode, prompt, validation, slash commands, and any remaining chat compatibility branches behind plugin-owned chat contributions or deleting them.
 - Phase 4 is about moving App Config, App Preview, App mode, renderer/runtime components, and patch-preview state behind the plugin frontend entry.
-- Phase 5 is about deployment-type registration, app publish/load/runtime ownership, app deployment routes, and the reserved \`setta app\` command behavior.
-- Phase 6 is about persistence ownership and generated-contract boundaries. Keep compatibility first; avoid growing new host-owned app-specific contracts.
-- Phase 7 is about packaging, startup wiring, capability reporting, and enabled-vs-disabled distribution behavior.
+- Phase 5 is about deployment-type registration, app publish/load/runtime ownership, app deployment routes, and removing compatibility-only app entrypoint stubs.
+- Phase 6 is about deleting compatibility shims, bridge files, legacy-support branches, and other cleanup debt already added during extraction.
+- Phase 7 is about persistence ownership and generated-contract boundaries with no migration or backward-compatibility requirement unless current in-repo code forces it.
+- Phase 8 is about packaging, startup wiring, capability reporting, and enabled-vs-disabled distribution behavior.
 
 Definition of done:
 - Do not emit the stop sentinel until every phase in ${checklist_file} is complete and the Definition Of Done in ${plan_file} is satisfied in the current codebase.
-- The plan is complete only when core backend and frontend run without the app subsystem enabled, the plugin exists and is disabled by default, the app subsystem registers its own routes/tools/chat modes/pages, generic chat/deployment/shell code no longer hard-code app concepts, enabled behavior is preserved, disabled-state behavior is tested/documented, and the subsystem is enabled through the plugin system rather than compiled in as a mandatory default feature.
+- The plan is complete only when core backend and frontend run without the app subsystem enabled, the plugin exists and is disabled by default, the app subsystem registers its own routes/tools/chat modes/pages, generic chat/deployment/shell code no longer hard-code app concepts, enabled behavior is preserved, disabled-state behavior is tested/documented, the subsystem is enabled through the plugin system rather than compiled in as a mandatory default feature, and compatibility-only shims/legacy support added during extraction have been removed unless explicitly justified.
 
 If a fresh audit shows the full plan is complete under those rules, make no repo changes, leave the worktree clean, state that the stop reason is complete, and end your final response with this exact line:
   ${stop_sentinel}
