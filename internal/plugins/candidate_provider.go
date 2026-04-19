@@ -1,17 +1,12 @@
 package plugins
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -151,19 +146,19 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 		return CandidatePlugin{}, err
 	}
 
-	extractRoot := filepath.Join(tempRoot, "extract")
-	if err := p.populatePyPIExtractRoot(ctx, packageSpec, tempRoot, extractRoot, spec.Raw, requestedInstaller, resolvedInstaller); err != nil {
+	installRoot := filepath.Join(tempRoot, "install")
+	if err := p.populatePyPIInstallRoot(ctx, packageSpec, installRoot, spec.Raw, requestedInstaller, resolvedInstaller); err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
 
-	manifestPath, err := findSinglePluginManifestPath(extractRoot)
+	manifestPath, err := findSinglePluginManifestPath(installRoot)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
 	pluginRoot := filepath.Dir(manifestPath)
-	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, extractRoot, pluginRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
+	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, installRoot, pluginRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
@@ -193,6 +188,9 @@ func (p *ProductionCandidateProvider) finalizeCandidateFromManifestPath(tempRoot
 	if err := validateMetadataIdentityFromRoots(packageMetadataRoot, pluginRoot, manifest); err != nil {
 		return CandidatePlugin{}, err
 	}
+	if err := preservePythonBackendInstallPayload(packageMetadataRoot, pluginRoot, manifest); err != nil {
+		return CandidatePlugin{}, err
+	}
 	return buildCandidatePlugin(tempRoot, pluginRoot, manifest, canonicalSourceKey, cleanup)
 }
 
@@ -214,36 +212,31 @@ func (p *ProductionCandidateProvider) resolveInstallerBackend(installer PluginIn
 	}
 }
 
-func (p *ProductionCandidateProvider) populatePyPIExtractRoot(ctx context.Context, packageSpec string, tempRoot string, extractRoot string, sourceSpec string, requestedInstaller PluginInstallerBackend, resolvedInstaller PluginInstallerBackend) error {
+func (p *ProductionCandidateProvider) populatePyPIInstallRoot(ctx context.Context, packageSpec string, installRoot string, sourceSpec string, requestedInstaller PluginInstallerBackend, resolvedInstaller PluginInstallerBackend) error {
 	if resolvedInstaller == PluginInstallerBackendPip {
-		return p.downloadAndExtractPyPIArtifact(ctx, packageSpec, tempRoot, extractRoot, sourceSpec)
+		return p.installWithPip(ctx, packageSpec, installRoot, sourceSpec)
 	}
-	if err := p.installWithUV(ctx, packageSpec, extractRoot, sourceSpec); err == nil {
+	if err := p.installWithUV(ctx, packageSpec, installRoot, sourceSpec); err == nil {
 		return nil
 	} else if requestedInstaller != PluginInstallerBackendAuto {
 		return err
 	}
-	if err := resetCandidateExtractRoot(extractRoot); err != nil {
+	if err := resetCandidateInstallRoot(installRoot); err != nil {
 		return err
 	}
-	return p.downloadAndExtractPyPIArtifact(ctx, packageSpec, tempRoot, extractRoot, sourceSpec)
+	return p.installWithPip(ctx, packageSpec, installRoot, sourceSpec)
 }
 
-func (p *ProductionCandidateProvider) downloadAndExtractPyPIArtifact(ctx context.Context, packageSpec string, tempRoot string, extractRoot string, sourceSpec string) error {
-	if err := p.downloadWithPip(ctx, packageSpec, tempRoot, sourceSpec); err != nil {
-		return err
+func (p *ProductionCandidateProvider) installWithPip(ctx context.Context, packageSpec string, installRoot string, sourceSpec string) error {
+	if err := os.MkdirAll(installRoot, 0o755); err != nil {
+		return fmt.Errorf("create pip install root: %w", err)
 	}
-	return extractFirstDownloadedArtifact(tempRoot, extractRoot)
-}
-
-func (p *ProductionCandidateProvider) downloadWithPip(ctx context.Context, packageSpec string, tempRoot string, sourceSpec string) error {
 	args := []string{
 		"-m",
 		"pip",
-		"download",
-		"--no-deps",
-		"--dest",
-		tempRoot,
+		"install",
+		"--target",
+		installRoot,
 		packageSpec,
 	}
 	result, err := p.commandRunner()(ctx, p.packageManagerRuntime.InterpreterPath(), args, p.baseEnv())
@@ -252,27 +245,26 @@ func (p *ProductionCandidateProvider) downloadWithPip(ctx context.Context, packa
 	}
 	return newServiceError(
 		ServiceErrorCodeSourceFetchFailed,
-		"Failed to download PyPI plugin source: %s\n%s",
+		"Failed to install PyPI plugin source: %s\n%s",
 		sourceSpec,
 		strings.TrimSpace(firstNonEmpty(result.Stderr, result.Stdout, err.Error())),
 	)
 }
 
-func (p *ProductionCandidateProvider) installWithUV(ctx context.Context, packageSpec string, extractRoot string, sourceSpec string) error {
+func (p *ProductionCandidateProvider) installWithUV(ctx context.Context, packageSpec string, installRoot string, sourceSpec string) error {
 	lookPath := p.binaryLookup()
 	uvBinary, err := lookPath("uv")
 	if err != nil {
 		return newServiceError(ServiceErrorCodeInstallerUnavailable, "Requested installer backend is unavailable: uv")
 	}
-	if err := os.MkdirAll(extractRoot, 0o755); err != nil {
-		return fmt.Errorf("create uv extract root: %w", err)
+	if err := os.MkdirAll(installRoot, 0o755); err != nil {
+		return fmt.Errorf("create uv install root: %w", err)
 	}
 	args := []string{
 		"pip",
 		"install",
-		"--no-deps",
 		"--target",
-		extractRoot,
+		installRoot,
 		packageSpec,
 	}
 	result, err := p.commandRunner()(ctx, uvBinary, args, buildUVInstallEnv(p.baseEnv(), p.settaFilesRoot))
@@ -355,9 +347,9 @@ func requireCandidateManifestPath(pluginRoot string, notFoundMessage string) (st
 	return manifestPath, nil
 }
 
-func resetCandidateExtractRoot(extractRoot string) error {
-	if err := os.RemoveAll(extractRoot); err != nil {
-		return fmt.Errorf("reset failed uv extract root: %w", err)
+func resetCandidateInstallRoot(installRoot string) error {
+	if err := os.RemoveAll(installRoot); err != nil {
+		return fmt.Errorf("reset failed uv install root: %w", err)
 	}
 	return nil
 }
@@ -434,220 +426,6 @@ func stripGitMetadata(root string) error {
 	return os.Remove(gitPath)
 }
 
-func extractFirstDownloadedArtifact(tempRoot string, extractRoot string) error {
-	entries, err := os.ReadDir(tempRoot)
-	if err != nil {
-		return fmt.Errorf("read downloaded artifacts root %s: %w", tempRoot, err)
-	}
-	artifacts := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		artifacts = append(artifacts, filepath.Join(tempRoot, entry.Name()))
-	}
-	if len(artifacts) == 0 {
-		return newServiceError(ServiceErrorCodeSourceFetchFailed, "No artifacts were downloaded for source extraction.")
-	}
-	slices.Sort(artifacts)
-	if err := os.MkdirAll(extractRoot, 0o755); err != nil {
-		return fmt.Errorf("create extract root %s: %w", extractRoot, err)
-	}
-	return extractPluginArtifact(artifacts[0], extractRoot)
-}
-
-func extractPluginArtifact(artifactPath string, extractRoot string) error {
-	lowerName := strings.ToLower(filepath.Base(artifactPath))
-	switch {
-	case strings.HasSuffix(lowerName, ".whl"), strings.HasSuffix(lowerName, ".zip"):
-		return extractZipArtifact(artifactPath, extractRoot)
-	case strings.HasSuffix(lowerName, ".tar.gz"), strings.HasSuffix(lowerName, ".tgz"):
-		return extractTarGzArtifact(artifactPath, extractRoot)
-	default:
-		return newServiceError(ServiceErrorCodeSourceFetchFailed, "Unsupported artifact type for plugin source: %s", filepath.Base(artifactPath))
-	}
-}
-
-func extractZipArtifact(artifactPath string, extractRoot string) error {
-	archive, err := zip.OpenReader(artifactPath)
-	if err != nil {
-		return fmt.Errorf("open zip artifact %s: %w", artifactPath, err)
-	}
-	defer archive.Close()
-
-	artifactName := filepath.Base(artifactPath)
-	for _, file := range archive.File {
-		if err := extractZipArchiveMember(file, extractRoot, artifactName); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func extractZipArchiveMember(file *zip.File, extractRoot string, artifactName string) error {
-	if file.Mode()&os.ModeSymlink != 0 {
-		return newServiceError(
-			ServiceErrorCodeSourceArchiveTraversal,
-			"Plugin archive contains symbolic link entries which are not allowed: %q",
-			file.Name,
-		)
-	}
-	targetPath, skip, err := resolveArchiveMemberPath(extractRoot, file.Name, artifactName)
-	if err != nil || skip {
-		return err
-	}
-	if file.FileInfo().IsDir() {
-		if err := os.MkdirAll(targetPath, 0o755); err != nil {
-			return fmt.Errorf("create extracted directory %s: %w", targetPath, err)
-		}
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return fmt.Errorf("create extracted parent directory %s: %w", filepath.Dir(targetPath), err)
-	}
-	return writeZipArchiveFile(targetPath, file)
-}
-
-func writeZipArchiveFile(targetPath string, file *zip.File) error {
-	reader, err := file.Open()
-	if err != nil {
-		return fmt.Errorf("open zip member %s: %w", file.Name, err)
-	}
-	if err := writeArchiveRegularFile(targetPath, reader); err != nil {
-		_ = reader.Close()
-		return err
-	}
-	if err := reader.Close(); err != nil {
-		return fmt.Errorf("close zip member %s: %w", file.Name, err)
-	}
-	return nil
-}
-
-func extractTarGzArtifact(artifactPath string, extractRoot string) error {
-	reader, cleanup, err := openTarGzArtifactReader(artifactPath)
-	if err != nil {
-		return err
-	}
-	defer cleanup()
-
-	for {
-		header, done, err := nextTarGzHeader(reader, artifactPath)
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-		if err := extractTarArchiveEntry(header, reader, extractRoot, filepath.Base(artifactPath)); err != nil {
-			return err
-		}
-	}
-}
-
-func openTarGzArtifactReader(artifactPath string) (*tar.Reader, func(), error) {
-	file, err := os.Open(artifactPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("open tar artifact %s: %w", artifactPath, err)
-	}
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		_ = file.Close()
-		return nil, nil, fmt.Errorf("open gzip reader for %s: %w", artifactPath, err)
-	}
-	return tar.NewReader(gzipReader), func() {
-		_ = gzipReader.Close()
-		_ = file.Close()
-	}, nil
-}
-
-func nextTarGzHeader(reader *tar.Reader, artifactPath string) (*tar.Header, bool, error) {
-	header, err := reader.Next()
-	if errors.Is(err, io.EOF) {
-		return nil, true, nil
-	}
-	if err != nil {
-		return nil, false, fmt.Errorf("read tar entry from %s: %w", artifactPath, err)
-	}
-	return header, false, nil
-}
-
-func extractTarArchiveEntry(header *tar.Header, reader *tar.Reader, extractRoot string, sourceName string) error {
-	switch header.Typeflag {
-	case tar.TypeSymlink, tar.TypeLink:
-		return newServiceError(
-			ServiceErrorCodeSourceArchiveTraversal,
-			"Plugin archive contains symbolic/hard link entries which are not allowed: %q",
-			header.Name,
-		)
-	}
-	targetPath, skip, err := resolveArchiveMemberPath(extractRoot, header.Name, sourceName)
-	if err != nil {
-		return err
-	}
-	if skip {
-		return nil
-	}
-	return writeTarArchiveEntryTarget(header, reader, targetPath)
-}
-
-func writeTarArchiveEntryTarget(header *tar.Header, reader io.Reader, targetPath string) error {
-	switch header.Typeflag {
-	case tar.TypeDir:
-		if err := os.MkdirAll(targetPath, 0o755); err != nil {
-			return fmt.Errorf("create extracted directory %s: %w", targetPath, err)
-		}
-	case tar.TypeReg, tar.TypeRegA:
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return fmt.Errorf("create extracted parent directory %s: %w", filepath.Dir(targetPath), err)
-		}
-		if err := writeArchiveRegularFile(targetPath, reader); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func writeArchiveRegularFile(targetPath string, reader io.Reader) error {
-	file, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
-	if err != nil {
-		return fmt.Errorf("create extracted file %s: %w", targetPath, err)
-	}
-	defer file.Close()
-	if _, err := io.Copy(file, reader); err != nil {
-		return fmt.Errorf("write extracted file %s: %w", targetPath, err)
-	}
-	return nil
-}
-
-func resolveArchiveMemberPath(extractRoot string, memberPath string, sourceName string) (string, bool, error) {
-	normalized := strings.TrimSpace(memberPath)
-	if normalized == "" {
-		return "", true, nil
-	}
-	if strings.HasPrefix(normalized, "/") || strings.HasPrefix(normalized, "\\") || filepath.IsAbs(normalized) {
-		return "", false, newServiceError(
-			ServiceErrorCodeSourceArchiveTraversal,
-			"Plugin archive extraction refused absolute member path %q in %s.",
-			memberPath,
-			sourceName,
-		)
-	}
-	targetPath := filepath.Join(extractRoot, filepath.Clean(normalized))
-	relative, err := filepath.Rel(extractRoot, targetPath)
-	if err != nil {
-		return "", false, fmt.Errorf("resolve archive member path %s: %w", memberPath, err)
-	}
-	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", false, newServiceError(
-			ServiceErrorCodeSourceArchiveTraversal,
-			"Plugin archive extraction refused out-of-root member path %q in %s.",
-			memberPath,
-			sourceName,
-		)
-	}
-	return targetPath, false, nil
-}
-
 func findSinglePluginManifestPath(root string) (string, error) {
 	manifestPaths := make([]string, 0, 1)
 	walkErr := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
@@ -680,7 +458,7 @@ func validateSettaVersionRangeForHost(manifest PluginManifest, settaVersion stri
 }
 
 func validateMetadataIdentityFromRoots(packageMetadataRoot string, pyprojectRoot string, manifest PluginManifest) error {
-	packageName, packageVersion := readPackageMetadataOptional(packageMetadataRoot)
+	packageName, packageVersion := readPackageMetadataOptional(packageMetadataRoot, manifest.ID)
 	if packageName == "" || packageVersion == "" {
 		pyprojectName, pyprojectVersion := readPyprojectMetadataOptional(pyprojectRoot)
 		if packageName == "" {
@@ -700,6 +478,52 @@ func validateMetadataIdentityFromRoots(packageMetadataRoot string, pyprojectRoot
 		return newServiceError(ServiceErrorCodeSourceVersionMismatch, "Package version %q does not match manifest version %q in %s", packageVersion, manifest.Version, packageMetadataRoot)
 	}
 	return nil
+}
+
+func preservePythonBackendInstallPayload(packageMetadataRoot string, pluginRoot string, manifest PluginManifest) error {
+	if !manifestUsesPythonBackend(manifest) {
+		return nil
+	}
+	if sameDirectoryPath(packageMetadataRoot, pluginRoot) {
+		return nil
+	}
+
+	entries, err := os.ReadDir(packageMetadataRoot)
+	if err != nil {
+		return fmt.Errorf("read python backend install root %s: %w", packageMetadataRoot, err)
+	}
+
+	vendorRoot := filepath.Join(pluginRoot, pythonBackendSitePackagesDirName)
+	movedAny := false
+	for _, entry := range entries {
+		if entry.Name() == filepath.Base(pluginRoot) {
+			continue
+		}
+		sourcePath := filepath.Join(packageMetadataRoot, entry.Name())
+		targetPath := filepath.Join(vendorRoot, entry.Name())
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			return fmt.Errorf("create python backend vendor root %s: %w", filepath.Dir(targetPath), err)
+		}
+		if err := os.Rename(sourcePath, targetPath); err != nil {
+			return fmt.Errorf("move python backend dependency payload %s to %s: %w", sourcePath, targetPath, err)
+		}
+		movedAny = true
+	}
+	if !movedAny {
+		_ = os.Remove(vendorRoot)
+	}
+	return nil
+}
+
+func manifestUsesPythonBackend(manifest PluginManifest) bool {
+	if manifest.Backend == nil {
+		return false
+	}
+	return strings.EqualFold(filepath.Ext(strings.TrimSpace(manifest.Backend.Entrypoint)), ".py")
+}
+
+func sameDirectoryPath(left string, right string) bool {
+	return filepath.Clean(strings.TrimSpace(left)) == filepath.Clean(strings.TrimSpace(right))
 }
 
 func wrapManifestValidationError(err error) error {

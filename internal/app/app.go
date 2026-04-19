@@ -26,6 +26,7 @@ import (
 	binarypayload "setta/internal/binary"
 	"setta/internal/boundcode"
 	"setta/internal/chatattachments"
+	"setta/internal/chatmodes"
 	"setta/internal/chatsections"
 	"setta/internal/codegen"
 	"setta/internal/config"
@@ -75,6 +76,7 @@ import (
 	"setta/internal/watchcode"
 	"setta/internal/workspacelaunch"
 	"setta/internal/wsapi"
+	appsubsystemplugin "setta/plugins/setta-json-render-app-gen/backend"
 )
 
 type App struct {
@@ -359,11 +361,26 @@ func initializeProjectServices(
 
 func initializeDeploymentProjectServices(cfg config.Config) (projectServices, error) {
 	services := projectServices{}
+	typeRegistry, err := NewDeploymentTypeRegistry()
+	if err != nil {
+		return projectServices{}, err
+	}
+	manifest, err := deployments.LoadManifest(cfg.Paths.DeploymentRoot)
+	if err != nil {
+		return projectServices{}, err
+	}
+	registration, err := typeRegistry.ResolveStartupRegistration(
+		string(cfg.Server.Mode),
+		manifest,
+	)
+	if err != nil {
+		return projectServices{}, err
+	}
 	listenerPython, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
 	if err != nil {
 		listenerPython = ""
 	}
-	services.deploymentRuntime, err = deployments.Open(
+	services.deploymentRuntime, err = registration.OpenRuntime(
 		context.Background(),
 		deployments.RuntimeOptions{
 			DeploymentRoot: cfg.Paths.DeploymentRoot,
@@ -516,16 +533,7 @@ func initializeWorkspaceLSPServices(
 	)
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		LookupEnv:     os.LookupEnv,
 		Environ:       os.Environ,
-		Settings: func() map[string]any {
-			var document map[string]any
-			if services.settingsStateRuntime != nil {
-				cloned := services.settingsStateRuntime.Snapshot().Document.Clone()
-				document = map[string]any(cloned)
-			}
-			return lsp.CurrentProcessPythonSettings(document, []string{cfg.Paths.SettaFilesRoot})
-		},
 	})
 	if err != nil {
 		return err
@@ -630,6 +638,15 @@ func openWorkspaceProjectServices(
 	}
 	services.settingsStateRuntime, err = settingsstate.OpenRuntime(context.Background(), settingsStateStore)
 	if err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	if err := bootstrapWorkspaceDefaultsInstallProfile(
+		context.Background(),
+		cfg.Paths.RuntimeRoot,
+		services.settingsStateRuntime,
+		services.pluginMutationService,
+	); err != nil {
 		_ = closeInitializedProjectServices(*services)
 		return err
 	}
@@ -1010,6 +1027,7 @@ func initializeIDEAgentServices(
 	cfg config.Config,
 	logger *slog.Logger,
 	modePolicy modes.Policy,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 	settaServerURL string,
 	currentSession *auth.CurrentSession,
 	authService *auth.Service,
@@ -1030,6 +1048,10 @@ func initializeIDEAgentServices(
 	if !modePolicy.IsIDE() || projectRuntime == nil {
 		return services, nil
 	}
+	appGenerationModes, err := newAppGenerationModeResolver(appSubsystemCapabilities)
+	if err != nil {
+		return ideAgentServices{}, err
+	}
 	if err := initializeIDEAgentStoresAndConfigs(cfg, settaServerURL, websocketHub, &services); err != nil {
 		return ideAgentServices{}, err
 	}
@@ -1045,6 +1067,7 @@ func initializeIDEAgentServices(
 		terminalService,
 		mcpClient,
 		attachmentService,
+		appGenerationModes,
 		&services,
 	); err != nil {
 		return ideAgentServices{}, err
@@ -1064,6 +1087,7 @@ func initializeIDEAgentServices(
 		backendLogService,
 		promptTemplateStore,
 		agentProfileStore,
+		appGenerationModes,
 		&services,
 	); err != nil {
 		return ideAgentServices{}, err
@@ -1201,6 +1225,7 @@ func initializeIDEManagedAgentServices(
 	terminalService *terminals.Service,
 	mcpClient *mcpx.Client,
 	attachmentService *chatattachments.Service,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
 	managedLiveRuntime := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
@@ -1240,13 +1265,14 @@ func initializeIDEManagedAgentServices(
 		return err
 	}
 	services.managedChatService, err = managedchat.NewService(managedchat.ServiceOptions{
-		ProjectState: projectRuntime,
-		Runs:         services.agentRunStore,
-		Engines:      services.engineStore,
-		LLM:          services.llmRuntime,
-		Starter:      services.agentRunRuntime,
-		Live:         managedLiveRuntime,
-		Stopper:      services.agentRunRuntime,
+		ProjectState:       projectRuntime,
+		Runs:               services.agentRunStore,
+		Engines:            services.engineStore,
+		LLM:                services.llmRuntime,
+		Starter:            services.agentRunRuntime,
+		Live:               managedLiveRuntime,
+		Stopper:            services.agentRunRuntime,
+		AppGenerationModes: appGenerationModes,
 	})
 	if err != nil {
 		return err
@@ -1414,6 +1440,7 @@ func initializeIDEExternalAgentServices(
 	backendLogService *backendlogs.Service,
 	promptTemplateStore *prompttemplates.Store,
 	agentProfileStore *agentprofiles.Store,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
 	if err := initializeIDEExternalRuntimeServices(
@@ -1429,6 +1456,7 @@ func initializeIDEExternalAgentServices(
 		attachmentService,
 		backendLogService,
 		agentProfileStore,
+		appGenerationModes,
 		services,
 	); err != nil {
 		return err
@@ -1457,6 +1485,7 @@ func initializeIDEExternalRuntimeServices(
 	attachmentService *chatattachments.Service,
 	backendLogService *backendlogs.Service,
 	agentProfileStore *agentprofiles.Store,
+	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
 	followService, err := externalagents.NewFollowService(externalagents.FollowServiceOptions{
@@ -1518,16 +1547,17 @@ func initializeIDEExternalRuntimeServices(
 	})
 	services.externalAgentExecutor = externalAgentExecutor
 	services.externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
-		ProjectState:   projectRuntime,
-		Engines:        services.engineStore,
-		Runs:           services.agentRunStore,
-		Profiles:       agentProfileStore,
-		Configs:        services.externalConfigStore,
-		Runtime:        services.externalAgentRuntime,
-		Preflight:      services.externalPreflight,
-		Attachments:    attachmentService,
-		Executor:       externalAgentExecutor,
-		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		ProjectState:       projectRuntime,
+		Engines:            services.engineStore,
+		Runs:               services.agentRunStore,
+		Profiles:           agentProfileStore,
+		Configs:            services.externalConfigStore,
+		Runtime:            services.externalAgentRuntime,
+		Preflight:          services.externalPreflight,
+		Attachments:        attachmentService,
+		Executor:           externalAgentExecutor,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		AppGenerationModes: appGenerationModes,
 	})
 	return err
 }
@@ -1677,6 +1707,7 @@ type appHandlerDeps struct {
 	shareSessions            modes.ShareSessionStore
 	attachmentService        *chatattachments.Service
 	pluginRouteService       httpapi.PluginRouteService
+	appSubsystemCapabilities *appSubsystemCapabilityState
 	websocketHub             *realtime.WebsocketHub
 	uiSettingRevealResults   *realtime.UISettingRevealResultHub
 	listenerBroadcaster      *realtime.ListenerBroadcaster
@@ -1690,8 +1721,8 @@ type appHandlerDeps struct {
 	worktreeName             string
 	statusReadyAt            time.Time
 	deploymentCatalog        *deployments.Catalog
-	sharePublisher           *deployments.SharePublisher
-	appPublisher             *deployments.AppPublisher
+	sharePublisher           deployments.SharePublishService
+	appPublisher             deployments.AppPublishService
 	launcherHome             *launcher.HomeService
 	launcherManagement       *launcher.ManagementService
 	launcherOpenWorkspace    *launcher.OpenWorkspaceService
@@ -1738,6 +1769,7 @@ type appHandlerDeps struct {
 	lspDiagnostics           *projectstate.LSPDiagnosticsRegistry
 	lspCompletion            *lspcompletion.Service
 	projectLSPSyncer         *lsp.ProjectSynchronizer
+	pluginRuntime            *pluginBackendRuntimeRefresher
 }
 
 func registerRootRoutes(r chi.Router, deps appHandlerDeps) error {
@@ -1821,6 +1853,7 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ModePolicy:    deps.modePolicy,
 		SettingsState: deps.settingsStateRuntime,
 		WebsocketHub:  deps.websocketHub,
+		PluginRuntime: deps.pluginRouteService,
 	}
 	apiDeps.Listener = httpapi.ListenerRouteDependencies{
 		ModePolicy:          deps.modePolicy,
@@ -1829,12 +1862,11 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		Deployment:          deps.deploymentRuntime,
 		ListenerBroadcaster: deps.listenerBroadcaster,
 	}
-	apiDeps.DeploymentIDE = httpapi.DeploymentIDERouteDependencies{
+	apiDeps.ShareDeploymentIDE = httpapi.ShareDeploymentIDERouteDependencies{
 		ModePolicy:     deps.modePolicy,
 		ProjectState:   deps.projectRuntime,
 		Catalog:        deps.deploymentCatalog,
 		SharePublisher: deps.sharePublisher,
-		AppPublisher:   deps.appPublisher,
 	}
 	if deps.modePolicy.IsShare() {
 		apiDeps.ShareDeployment = httpapi.DeploymentRouteDependencies{
@@ -1938,9 +1970,10 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		apiDeps.Project.AcceptRenameRefactor = deps.renameRefactors.AcceptRenameRefactor
 		apiDeps.Project.DeclineRenameRefactor = deps.renameRefactors.DeclineRenameRefactor
 	}
+	appDefinitionService := appsubsystemplugin.NewAppDefinitionService(deps.projectRuntime)
 	apiDeps.AppDefinition = httpapi.AppDefinitionRouteDependencies{
-		ModePolicy:   deps.modePolicy,
-		ProjectState: deps.projectRuntime,
+		ModePolicy: deps.modePolicy,
+		Service:    appDefinitionService,
 	}
 	apiDeps.AI = httpapi.AIRouteDependencies{
 		ModePolicy:            deps.modePolicy,
@@ -2025,13 +2058,25 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		},
 	}
 	apiDeps.LSP = httpapi.LSPRouteDependencies{
-		ModePolicy:   deps.modePolicy,
-		ProjectState: deps.projectRuntime,
-		Diagnostics:  deps.lspDiagnostics,
-		Completions:  deps.lspCompletion,
-		Admin:        deps.projectLSPSyncer,
+		ModePolicy:    deps.modePolicy,
+		ProjectState:  deps.projectRuntime,
+		Diagnostics:   deps.lspDiagnostics,
+		Completions:   deps.lspCompletion,
+		Admin:         newWorkspaceLSPAdmin(deps.projectLSPSyncer, deps.pluginRuntime),
+		WebsocketHub:  deps.websocketHub,
+		PluginRuntime: deps.pluginRouteService,
 	}
-	return httpapi.RegisterFrontendAPIRoutes(r, apiDeps)
+	return httpapi.RegisterFrontendAPIRoutes(
+		r,
+		apiDeps,
+		appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
+			appsubsystemplugin.FrontendRouteRegistrationOptions{
+				Capabilities:              deps.appSubsystemCapabilities,
+				API:                       apiDeps,
+				AppDeploymentIDEPublisher: deps.appPublisher,
+			},
+		),
+	)
 }
 
 func newAppHandler(deps appHandlerDeps) (http.Handler, error) {
@@ -2097,12 +2142,13 @@ type appRuntimeServices struct {
 }
 
 type appPlatformServices struct {
-	deploymentCatalog  *deployments.Catalog
-	sharePublisher     *deployments.SharePublisher
-	appPublisher       *deployments.AppPublisher
-	pluginRuntime      *pluginBackendRuntimeRefresher
-	pluginRouteService httpapi.PluginRouteService
-	mcpServer          *mcpx.Server
+	deploymentCatalog        *deployments.Catalog
+	sharePublisher           deployments.SharePublishService
+	appPublisher             deployments.AppPublishService
+	pluginRuntime            *pluginBackendRuntimeRefresher
+	pluginRouteService       httpapi.PluginRouteService
+	appSubsystemCapabilities *appSubsystemCapabilityState
+	mcpServer                *mcpx.Server
 }
 
 type appHandlerServices struct {
@@ -2305,6 +2351,7 @@ func initializeAppRuntimeServices(
 	base appBaseServices,
 	projectServices projectServices,
 	workspaceServices appWorkspaceServices,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 ) (appRuntimeServices, error) {
 	services := appRuntimeServices{
 		uiSettingRevealResults: realtime.NewUISettingRevealResultHub(),
@@ -2314,6 +2361,7 @@ func initializeAppRuntimeServices(
 		cfg,
 		logger,
 		modePolicy,
+		appSubsystemCapabilities,
 		base.settaServerURL,
 		base.currentSession,
 		base.authService,
@@ -2404,6 +2452,7 @@ func initializeAppRuntimeServices(
 func initializeAppDeploymentPublishers(
 	cfg config.Config,
 	modePolicy modes.Policy,
+	projectRuntime *projectstate.Runtime,
 	services *appPlatformServices,
 ) error {
 	if !modePolicy.IsIDE() {
@@ -2427,11 +2476,11 @@ func initializeAppDeploymentPublishers(
 	if err != nil {
 		return err
 	}
-	services.appPublisher, err = deployments.NewAppPublisher(deployments.AppPublisherOptions{
+	services.appPublisher, err = appsubsystemplugin.NewAppPublishService(deployments.AppPublisherOptions{
 		Catalog:        services.deploymentCatalog,
 		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-	})
+	}, appsubsystemplugin.NewAppDefinitionService(projectRuntime))
 	return err
 }
 
@@ -2446,10 +2495,14 @@ func configureAppPluginRuntime(
 		return
 	}
 	services.pluginRuntime = &pluginBackendRuntimeRefresher{
-		service:     projectServices.pluginMutationService,
-		logger:      logger,
-		runtimeRoot: cfg.Paths.RuntimeRoot,
-		lspRouter:   projectServices.lspRouter,
+		service:                  projectServices.pluginMutationService,
+		logger:                   logger,
+		runtimeRoot:              cfg.Paths.RuntimeRoot,
+		settings:                 projectServices.settingsStateRuntime,
+		lspRouter:                projectServices.lspRouter,
+		projectState:             projectServices.projectRuntime,
+		projectSync:              projectServices.projectLSPSyncer,
+		appSubsystemCapabilities: services.appSubsystemCapabilities,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {
@@ -2463,6 +2516,7 @@ func configureAppPluginRuntime(
 	services.pluginRouteService = newPluginMutationRuntimeService(
 		projectServices.pluginMutationService,
 		services.pluginRuntime,
+		services.appSubsystemCapabilities,
 	)
 }
 
@@ -2480,10 +2534,11 @@ func initializeAppMCPServer(
 		return nil
 	}
 	mcpServer, err := mcpx.NewServer(mcpx.ServerOptions{
-		Logger:        logger,
-		Registry:      base.mcpToolRegistry,
-		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		ProjectState:  projectServices.projectRuntime,
+		Logger:                       logger,
+		Registry:                     base.mcpToolRegistry,
+		WorkspaceRoot:                cfg.Paths.WorkspaceRoot,
+		ProjectState:                 projectServices.projectRuntime,
+		SkipDefaultAppSubsystemTools: true,
 		AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
 			return broadcastFrontendProjectStateUpdate(
 				ctx,
@@ -2542,11 +2597,13 @@ func initializeAppPlatformServices(
 	projectServices projectServices,
 	workspaceServices appWorkspaceServices,
 	runtimeServices appRuntimeServices,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 ) (appPlatformServices, error) {
 	services := appPlatformServices{
-		pluginRouteService: projectServices.pluginRouteService,
+		pluginRouteService:       projectServices.pluginRouteService,
+		appSubsystemCapabilities: appSubsystemCapabilities,
 	}
-	if err := initializeAppDeploymentPublishers(cfg, modePolicy, &services); err != nil {
+	if err := initializeAppDeploymentPublishers(cfg, modePolicy, projectServices.projectRuntime, &services); err != nil {
 		return appPlatformServices{}, err
 	}
 	configureAppPluginRuntime(cfg, logger, modePolicy, projectServices, &services)
@@ -2604,6 +2661,7 @@ func initializeAppHandlerAndWatchServices(
 		shareSessions:            projectServices.shareSessions,
 		attachmentService:        workspaceServices.attachmentService,
 		pluginRouteService:       platformServices.pluginRouteService,
+		appSubsystemCapabilities: platformServices.appSubsystemCapabilities,
 		websocketHub:             base.websocketHub,
 		uiSettingRevealResults:   runtimeServices.uiSettingRevealResults,
 		listenerBroadcaster:      runtimeServices.listenerBroadcaster,
@@ -2665,6 +2723,7 @@ func initializeAppHandlerAndWatchServices(
 		lspDiagnostics:           projectServices.lspDiagnostics,
 		lspCompletion:            projectServices.lspCompletion,
 		projectLSPSyncer:         projectServices.projectLSPSyncer,
+		pluginRuntime:            platformServices.pluginRuntime,
 	})
 	if err != nil {
 		return appHandlerServices{}, err
@@ -2791,6 +2850,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	appSubsystemCapabilities, err := initializeAppSubsystemCapabilities(projectServices)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
+		return nil, err
+	}
 	runtimeServices, err := initializeAppRuntimeServices(
 		cfg,
 		logger,
@@ -2798,6 +2862,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		baseServices,
 		projectServices,
 		workspaceServices,
+		appSubsystemCapabilities,
 	)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
@@ -2811,6 +2876,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectServices,
 		workspaceServices,
 		runtimeServices,
+		appSubsystemCapabilities,
 	)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)

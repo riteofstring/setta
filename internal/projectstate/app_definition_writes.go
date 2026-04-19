@@ -1,16 +1,13 @@
 package projectstate
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"reflect"
 	"strings"
 
-	"setta/internal/appspec"
+	"setta/plugins/setta-json-render-app-gen/backend/appspec"
 )
 
 const defaultAppSpecVersion = "v1"
@@ -88,144 +85,6 @@ func (d *Document) UpdateAppDefinition(patch any, appSpec any) (AppDefinitionMut
 		AppSpec:       cloneJSONValue(merged),
 		AppDefinition: cloneAppDefinitionPointer(d.AppDefinition),
 	}, nil
-}
-
-func (r *Runtime) SetAppDefinition(ctx context.Context, input SetAppDefinitionInput) (Snapshot, AppDefinitionMutationResult, error) {
-	if r == nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, ErrRuntimeClosed
-	}
-
-	projectRoot, err := r.projectRoot()
-	if err != nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, err
-	}
-
-	return mutateAppDefinitionAndSave(
-		r,
-		ctx,
-		projectRoot,
-		func(document Document) (Document, AppDefinitionMutationResult, string, error) {
-			current := effectiveAppDefinition(document)
-			targetPath := appspec.DefaultPath()
-			if trimmed := strings.TrimSpace(current.AppSpecPath); trimmed != "" {
-				targetPath = current.AppSpecPath
-			}
-			if input.AppSpecPath != nil && strings.TrimSpace(*input.AppSpecPath) != "" {
-				targetPath = *input.AppSpecPath
-			}
-
-			normalizedPath, err := appspec.NormalizePath(projectRoot, targetPath)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-
-			result, err := document.SetAppDefinition(input, normalizedPath)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-			return document, result, normalizedPath, nil
-		},
-	)
-}
-
-func (r *Runtime) UpdateAppDefinition(ctx context.Context, patch any) (Snapshot, AppDefinitionMutationResult, error) {
-	if r == nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, ErrRuntimeClosed
-	}
-
-	projectRoot, err := r.projectRoot()
-	if err != nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, err
-	}
-
-	return mutateAppDefinitionAndSave(
-		r,
-		ctx,
-		projectRoot,
-		func(document Document) (Document, AppDefinitionMutationResult, string, error) {
-			if document.AppDefinition == nil || strings.TrimSpace(document.AppDefinition.AppSpecPath) == "" {
-				return Document{}, AppDefinitionMutationResult{}, "", ErrAppSpecPathUnconfigured
-			}
-
-			appSpecPath := document.AppDefinition.AppSpecPath
-			existing, err := appspec.Read(projectRoot, appSpecPath)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-			if existing == nil {
-				return Document{}, AppDefinitionMutationResult{}, "", ErrAppSpecNotFound
-			}
-
-			result, err := document.UpdateAppDefinition(patch, existing)
-			if err != nil {
-				return Document{}, AppDefinitionMutationResult{}, "", err
-			}
-			return document, result, appSpecPath, nil
-		},
-	)
-}
-
-func mutateAppDefinitionAndSave(
-	r *Runtime,
-	ctx context.Context,
-	projectRoot string,
-	mutate func(Document) (Document, AppDefinitionMutationResult, string, error),
-) (Snapshot, AppDefinitionMutationResult, error) {
-	if mutate == nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, ErrMutationMissing
-	}
-
-	var result AppDefinitionMutationResult
-	snapshot, err := r.submit(operation{
-		frontendOpID: frontendOpIDFromContext(ctx),
-		run: func(state *runtimeState) (Snapshot, error) {
-			nextDocument, mutationResult, appSpecPath, err := mutate(state.current.Clone())
-			if err != nil {
-				return snapshotFromState(*state), err
-			}
-
-			normalized, err := nextDocument.Normalized()
-			if err != nil {
-				return snapshotFromState(*state), err
-			}
-
-			nextState := runtimeState{
-				current:  state.current.Clone(),
-				revision: state.revision,
-			}
-			if !reflect.DeepEqual(state.current, normalized) {
-				nextState.current = normalized.Clone()
-				nextState.revision++
-			}
-			nextSnapshot := snapshotFromState(nextState)
-
-			previousAppSpec, err := appspec.Read(projectRoot, appSpecPath)
-			if err != nil {
-				return snapshotFromState(*state), err
-			}
-			if err := appspec.Write(projectRoot, appSpecPath, mutationResult.AppSpec); err != nil {
-				return snapshotFromState(*state), err
-			}
-			if err := r.persistSnapshot(ctx, nextSnapshot); err != nil {
-				rollbackErr := rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec)
-				if rollbackErr != nil {
-					return snapshotFromState(*state), errors.Join(err, fmt.Errorf("rollback app spec write: %w", rollbackErr))
-				}
-				return snapshotFromState(*state), err
-			}
-
-			*state = nextState
-			result = AppDefinitionMutationResult{
-				AppSpec:       cloneJSONValue(mutationResult.AppSpec),
-				AppDefinition: cloneAppDefinitionPointer(nextSnapshot.Document.AppDefinition),
-			}
-			return nextSnapshot, nil
-		},
-	})
-	if err != nil {
-		return Snapshot{}, AppDefinitionMutationResult{}, err
-	}
-	return snapshot, result, nil
 }
 
 func rollbackAppSpecWrite(projectRoot string, appSpecPath string, previousAppSpec any) error {
@@ -324,7 +183,7 @@ func marshalAppDefinitionRawJSON(value any, field string) (RawJSON, error) {
 	return normalizeRawJSON(encoded, field)
 }
 
-func decodeAppDefinitionJSONObject(raw RawJSON, field string) (map[string]any, error) {
+func decodeRawJSONObject(raw RawJSON, field string) (map[string]any, error) {
 	if len(strings.TrimSpace(string(raw))) == 0 {
 		return nil, nil
 	}
@@ -341,6 +200,10 @@ func decodeAppDefinitionJSONObject(raw RawJSON, field string) (map[string]any, e
 		return nil, fmt.Errorf("%s must be a JSON object", field)
 	}
 	return object, nil
+}
+
+func decodeAppDefinitionJSONObject(raw RawJSON, field string) (map[string]any, error) {
+	return decodeRawJSONObject(raw, field)
 }
 
 func decodeAppDefinitionJSONArray(raw RawJSON, field string) ([]any, error) {
@@ -422,14 +285,4 @@ func applyJSONMergePatch(target any, patch any) any {
 		cloned[key] = applyJSONMergePatch(cloned[key], patchValue)
 	}
 	return cloned
-}
-
-func (r *Runtime) projectRoot() (string, error) {
-	if r == nil {
-		return "", ErrRuntimeClosed
-	}
-	if r.store == nil {
-		return "", ErrAppSpecStoreUnsupported
-	}
-	return filepath.Dir(r.store.Path()), nil
 }

@@ -17,7 +17,7 @@ Defaults:
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
-- Phase 3 hotspot thresholds: Python `9`, frontend `9`, Go `9`
+- Phase 3 hotspot thresholds: Python `10`, frontend `10`, Go `12`
 - Phase 3 escalates to broader backlog-burn refactors in dominant hotspot files before declaring plateau
 - Stop when Codex explicitly reports either true audited completion or a documented sustained plateau
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
@@ -57,10 +57,9 @@ model="gpt-5.4"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
-hotspot_python_min="9"
-hotspot_frontend_min="9"
-hotspot_go_min="9"
-hotspot_shell_min="10"
+hotspot_python_min="10"
+hotspot_frontend_min="10"
+hotspot_go_min="12"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: AUTHORITY_SEQUENCE_AUDITED_STOP"
 codex_extra_args=()
@@ -237,8 +236,7 @@ hotspot_report_command="$(
     "./report_quality_hotspots.sh" \
     --python-min "${hotspot_python_min}" \
     --frontend-min "${hotspot_frontend_min}" \
-    --go-min "${hotspot_go_min}" \
-    --shell-min "${hotspot_shell_min}"
+    --go-min "${hotspot_go_min}"
 )"
 
 checklist_file="${state_dir}/checklist.md"
@@ -341,7 +339,7 @@ Rules:
 - [ ] Mark Phase 3 complete only after ${hotspot_review_file} and a fresh hotspot report show no remaining actionable hotspot cleanup worth landing without churn. Do not mark it complete when the real result is plateau.
 
 ## Completion
-- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./scripts/check_quality_for_git_changes.sh\`.
+- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./check_quality.sh\`.
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 EOF
 fi
@@ -384,9 +382,9 @@ Execution rules for every iteration:
 - Do not use Chrome DevTools, browser MCP, or other browser-driven verification unless the active change genuinely modifies frontend runtime behavior and non-browser verification is insufficient.
 - For duplication, polling, and hotspot cleanup, prefer code inspection, generation checks, focused tests, and scriptable verification over browser workflows.
 - If browser verification is genuinely required, use an already-running developer-started session only. Do not spend this loop iteration starting, waiting on, or debugging browser MCP processes.
-- Before every non-stop commit, run \`./gcf.sh\` and then \`./scripts/check_quality_for_git_changes.sh\`. If either fails, fix the failure or stop without committing.
+- Before every non-stop commit, run \`./gcf.sh\` and then \`./check_quality.sh\`. If either fails, fix the failure or stop without committing.
 - When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
-- Treat \`No supported files to check.\` from \`./scripts/check_quality_for_git_changes.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
+- Treat \`No supported files to check.\` from \`./check_quality.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 - Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.
@@ -418,7 +416,7 @@ Phase 3 rules:
 - Use the report to pick the highest-leverage actionable hotspot or tight cluster of related hotspots, then simplify it without regressing behavior.
 - Start with contained top-10 hotspots only while that still produces real reductions. If the current top hotspots are concentrated in a few backlog-dense files or \`./check_quality.sh --files <file>\` shows that a narrow slice is blocked by same-file backlog, switch into Phase 3 backlog-burn mode instead of calling plateau.
 - In backlog-burn mode, choose one dominant hotspot file or tightly coupled file cluster and make a broader refactor intended to materially lower that file or cluster's total backlog, even if the change spans multiple functions in the same file.
-- Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}, shell ${hotspot_shell_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
+- Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
 - Favor real structural simplification over just shuffling complexity into neighboring helpers.
 - Do not mark Phase 3 complete just because the remaining hotspots are orchestration paths. You must name the concrete reason they are no longer good cleanup targets.
 - A Phase 3 iteration counts as material only if it does at least one of:
@@ -517,7 +515,7 @@ echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
-echo "Phase 3 hotspot thresholds: python=${hotspot_python_min} frontend=${hotspot_frontend_min} go=${hotspot_go_min} shell=${hotspot_shell_min}"
+echo "Phase 3 hotspot thresholds: python=${hotspot_python_min} frontend=${hotspot_frontend_min} go=${hotspot_go_min}"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"
 else
