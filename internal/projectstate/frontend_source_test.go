@@ -20,12 +20,11 @@ func TestDocumentNormalizedSupportsFrontendSourceFields(t *testing.T) {
 		t.Fatalf("normalize rich project document: %v", err)
 	}
 
-	if len(normalized.PluginData[appSubsystemPluginDataKey]) == 0 {
-		t.Fatal("expected plugin app definition payload to be preserved")
+	if normalized.AppDefinition == nil {
+		t.Fatal("expected app definition to be preserved")
 	}
-	normalizedAppDefinition := mustDecodeStoredAppDefinition(t, normalized.PluginData[appSubsystemPluginDataKey])
-	if len(normalizedAppDefinition.Routes) != 1 {
-		t.Fatalf("expected one app route, got %d", len(normalizedAppDefinition.Routes))
+	if len(normalized.AppDefinition.Routes) != 1 {
+		t.Fatalf("expected one app route, got %d", len(normalized.AppDefinition.Routes))
 	}
 
 	project := normalized.Projects["project-alpha"]
@@ -85,7 +84,7 @@ func TestDocumentCloneDeepCopiesFrontendSourceFields(t *testing.T) {
 	clonedCodeObj.SharedModifier[1] = 'X'
 	clonedProject.CodeObjs["param-root"] = clonedCodeObj
 	cloned.Projects["project-alpha"] = clonedProject
-	cloned.PluginData[appSubsystemPluginDataKey][1] = 'X'
+	cloned.AppDefinition.Theme[1] = 'X'
 
 	originalProject := original.Projects["project-alpha"]
 	if originalProject.ActiveIDs[0] != "section-main" {
@@ -118,12 +117,11 @@ func TestDocumentCloneDeepCopiesFrontendSourceFields(t *testing.T) {
 	if string(originalProject.CodeObjs["param-root"].SharedModifier) != `{"description":"A param"}` {
 		t.Fatalf("expected original code object modifier to stay unchanged, got %s", string(originalProject.CodeObjs["param-root"].SharedModifier))
 	}
-	if len(original.PluginData[appSubsystemPluginDataKey]) == 0 {
-		t.Fatal("expected original app definition payload to exist")
+	if original.AppDefinition == nil {
+		t.Fatal("expected original app definition to exist")
 	}
-	originalAppDefinition := mustDecodeStoredAppDefinition(t, original.PluginData[appSubsystemPluginDataKey])
-	if string(originalAppDefinition.Theme) != `{"colors":{"bg":"white"}}` {
-		t.Fatalf("expected original app definition theme to stay unchanged, got %s", string(originalAppDefinition.Theme))
+	if string(original.AppDefinition.Theme) != `{"colors":{"bg":"white"}}` {
+		t.Fatalf("expected original app definition theme to stay unchanged, got %s", string(original.AppDefinition.Theme))
 	}
 }
 
@@ -148,12 +146,10 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 	if loaded.DefaultProjectID != expected.DefaultProjectID {
 		t.Fatalf("expected default project id %q, got %q", expected.DefaultProjectID, loaded.DefaultProjectID)
 	}
-	if len(loaded.PluginData[appSubsystemPluginDataKey]) == 0 {
-		t.Fatal("expected plugin app definition payload to round-trip")
+	if loaded.AppDefinition == nil {
+		t.Fatal("expected app definition to round-trip")
 	}
-	expectedAppDefinition := mustDecodeStoredAppDefinition(t, expected.PluginData[appSubsystemPluginDataKey])
-	loadedAppDefinition := mustDecodeStoredAppDefinition(t, loaded.PluginData[appSubsystemPluginDataKey])
-	assertJSONEqual(t, expectedAppDefinition.Actions, loadedAppDefinition.Actions, "app actions")
+	assertJSONEqual(t, expected.AppDefinition.Actions, loaded.AppDefinition.Actions, "app actions")
 
 	loadedProject := loaded.Projects["project-alpha"]
 	expectedProject := expected.Projects["project-alpha"]
@@ -196,62 +192,33 @@ func TestDocumentNormalizedRejectsInvalidFrontendPayloadJSON(t *testing.T) {
 	}
 }
 
-func TestDocumentNormalizedPreservesOpaquePluginDataPayload(t *testing.T) {
+func TestDocumentNormalizedRejectsNonObjectAppDefinitionDataBindings(t *testing.T) {
 	t.Parallel()
 
 	document := newFrontendSourceTestDocument(t)
-	document.PluginData[appSubsystemPluginDataKey] = mustRawJSON(
-		t,
-		`{"appSpecVersion":"v1","catalogId":"setta.app.default","appSpecPath":"plugins/setta-json-render-app-gen/app_specs/app.json","routes":[{"path":"   ","name":"  Home  ","rootKey":" root "}],"dataBindings":["not","an","object"],"actions":["not","an","object"],"theme":{"colors":{"bg":"white"}},"assets":[{"type":"image","path":"hero.png"}]}`,
-	)
-
-	normalized, err := document.Normalized()
-	if err != nil {
-		t.Fatalf("normalize rich project document with opaque app payload: %v", err)
-	}
-	if len(normalized.PluginData[appSubsystemPluginDataKey]) == 0 {
-		t.Fatal("expected plugin app definition payload to be preserved")
-	}
-	assertJSONEqual(
-		t,
-		document.PluginData[appSubsystemPluginDataKey],
-		normalized.PluginData[appSubsystemPluginDataKey],
-		"opaque pluginData payload",
-	)
-}
-
-func TestDocumentNormalizedCanonicalizesPluginDataKeys(t *testing.T) {
-	t.Parallel()
-
-	document := newFrontendSourceTestDocument(t)
-	payload := document.PluginData[appSubsystemPluginDataKey]
-	delete(document.PluginData, appSubsystemPluginDataKey)
-	document.PluginData["  "+appSubsystemPluginDataKey+"  "] = payload
-
-	normalized, err := document.Normalized()
-	if err != nil {
-		t.Fatalf("normalize plugin data key: %v", err)
-	}
-	if len(normalized.PluginData[appSubsystemPluginDataKey]) == 0 {
-		t.Fatalf("expected canonical plugin data entry for %q", appSubsystemPluginDataKey)
-	}
-	if len(normalized.PluginData["  "+appSubsystemPluginDataKey+"  "]) != 0 {
-		t.Fatalf("did not expect whitespace-variant plugin data key, got %#v", normalized.PluginData)
-	}
-}
-
-func TestDocumentNormalizedRejectsPluginDataCanonicalKeyCollisions(t *testing.T) {
-	t.Parallel()
-
-	document := newFrontendSourceTestDocument(t)
-	document.PluginData["  "+appSubsystemPluginDataKey+"  "] = document.PluginData[appSubsystemPluginDataKey]
+	document.AppDefinition.DataBindings = mustRawJSON(t, `["not","an","object"]`)
 
 	_, err := document.Normalized()
 	if err == nil {
-		t.Fatal("expected plugin data canonical key collision to fail normalization")
+		t.Fatal("expected non-object appDefinition.dataBindings to fail normalization")
 	}
-	if !strings.Contains(err.Error(), "collides after normalization") {
-		t.Fatalf("expected canonical collision error, got %v", err)
+	if !strings.Contains(err.Error(), "appDefinition.dataBindings") {
+		t.Fatalf("expected appDefinition.dataBindings error, got %v", err)
+	}
+}
+
+func TestDocumentNormalizedRejectsNonObjectAppDefinitionActions(t *testing.T) {
+	t.Parallel()
+
+	document := newFrontendSourceTestDocument(t)
+	document.AppDefinition.Actions = mustRawJSON(t, `["not","an","object"]`)
+
+	_, err := document.Normalized()
+	if err == nil {
+		t.Fatal("expected non-object appDefinition.actions to fail normalization")
+	}
+	if !strings.Contains(err.Error(), "appDefinition.actions") {
+		t.Fatalf("expected appDefinition.actions error, got %v", err)
 	}
 }
 
@@ -319,19 +286,17 @@ func newFrontendSourceTestDocument(t *testing.T) Document {
 	return Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		PluginData: map[string]RawJSON{
-			appSubsystemPluginDataKey: mustMarshalStoredAppDefinition(t, AppDefinition{
-				AppSpecVersion: "v1",
-				CatalogID:      "setta.app.default",
-				AppSpecPath:    "plugins/setta-json-render-app-gen/app_specs/app.json",
-				Routes: []AppRoute{
-					{Path: "/", Name: "Home", RootKey: "root"},
-				},
-				DataBindings: mustRawJSON(t, `{"title":"hello"}`),
-				Actions:      mustRawJSON(t, `{"submit":{"type":"run"}}`),
-				Theme:        mustRawJSON(t, `{"colors":{"bg":"white"}}`),
-				Assets:       mustRawJSON(t, `[{"type":"image","path":"hero.png"}]`),
-			}),
+		AppDefinition: &AppDefinition{
+			AppSpecVersion: "v1",
+			CatalogID:      "setta.app.default",
+			AppSpecPath:    "app_specs/app.json",
+			Routes: []AppRoute{
+				{Path: "/", Name: "Home", RootKey: "root"},
+			},
+			DataBindings: mustRawJSON(t, `{"title":"hello"}`),
+			Actions:      mustRawJSON(t, `{"submit":{"type":"run"}}`),
+			Theme:        mustRawJSON(t, `{"colors":{"bg":"white"}}`),
+			Assets:       mustRawJSON(t, `[{"type":"image","path":"hero.png"}]`),
 		},
 		Projects: map[string]Project{
 			"project-alpha": {

@@ -88,13 +88,12 @@ type PluginRegisteredCodegenTarget struct {
 }
 
 type PluginRegisteredLanguageServer struct {
-	PluginID              string   `json:"pluginId"`
-	Name                  string   `json:"name"`
-	Language              string   `json:"language"`
-	Command               string   `json:"command"`
-	Args                  []string `json:"args"`
-	SettingsKey           *string  `json:"settingsKey,omitempty"`
-	RuntimeSearchPathsKey *string  `json:"runtimeSearchPathsKey,omitempty" ts_skip:"true"`
+	PluginID    string   `json:"pluginId"`
+	Name        string   `json:"name"`
+	Language    string   `json:"language"`
+	Command     string   `json:"command"`
+	Args        []string `json:"args"`
+	SettingsKey *string  `json:"settingsKey,omitempty"`
 }
 
 type PluginRegisteredUISetting struct {
@@ -140,30 +139,18 @@ type PluginContentManifest struct {
 	PromptsDir          string `json:"promptsDir,omitempty"`
 }
 
-type PluginAppSubsystemFeatureManifest struct {
-	AppAuthoringUI         bool `json:"appAuthoringUi"`
-	AppPreviewUI           bool `json:"appPreviewUi"`
-	AppGenerationChatModes bool `json:"appGenerationChatModes"`
-	AppDeploymentRuntime   bool `json:"appDeploymentRuntime"`
-}
-
-type PluginFeatureCapabilitiesManifest struct {
-	AppSubsystem *PluginAppSubsystemFeatureManifest `json:"appSubsystem,omitempty"`
-}
-
 type PluginManifest struct {
-	SchemaVersion       int                                `json:"schemaVersion"`
-	ID                  string                             `json:"id"`
-	Name                string                             `json:"name"`
-	Version             string                             `json:"version"`
-	SettaVersionRange   string                             `json:"settaVersionRange"`
-	EnabledByDefault    bool                               `json:"enabledByDefault"`
-	Backend             *PluginBackendManifest             `json:"backend,omitempty"`
-	Frontend            *PluginFrontendManifest            `json:"frontend,omitempty"`
-	Content             *PluginContentManifest             `json:"content,omitempty"`
-	ConfigSchemaPath    string                             `json:"configSchemaPath,omitempty"`
-	FeatureCapabilities *PluginFeatureCapabilitiesManifest `json:"featureCapabilities,omitempty"`
-	Capabilities        []string                           `json:"capabilities"`
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ID                string                  `json:"id"`
+	Name              string                  `json:"name"`
+	Version           string                  `json:"version"`
+	SettaVersionRange string                  `json:"settaVersionRange"`
+	EnabledByDefault  bool                    `json:"enabledByDefault"`
+	Backend           *PluginBackendManifest  `json:"backend,omitempty"`
+	Frontend          *PluginFrontendManifest `json:"frontend,omitempty"`
+	Content           *PluginContentManifest  `json:"content,omitempty"`
+	ConfigSchemaPath  string                  `json:"configSchemaPath,omitempty"`
+	Capabilities      []string                `json:"capabilities"`
 }
 
 type PluginsStateFile struct {
@@ -225,7 +212,6 @@ type DiscoveredPlugin struct {
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
 	RegisteredStaticDirs        []PluginRegisteredStaticDir
 	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint
-	appSubsystemBackend         *backendProbeAppSubsystemBackendRegistration
 }
 
 func (p DiscoveredPlugin) HasBackend() bool {

@@ -1,19 +1,15 @@
 /* @vitest-environment jsdom */
 
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  checkIfFileExists,
-  createAppSubsystemFrontendHost,
-  type AppSubsystemProjectContext,
-} from "@setta/app-subsystem-frontend-sdk";
+import { checkIfFileExists } from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useAppDefinition, useProjectState } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { createAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
-import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
+import { createAppDefinition, createProjectConfig } from "utils/generatedTypes";
 
 const openAPI = vi.hoisted(() => ({
   checkIfFileExists: vi.fn(),
@@ -21,22 +17,28 @@ const openAPI = vi.hoisted(() => ({
   publishAppDeployment: vi.fn(),
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
-  const actual = await vi.importActual<
-    typeof import("@setta/app-subsystem-frontend-sdk")
-  >("@setta/app-subsystem-frontend-sdk");
+vi.mock("state/actions/modal", () => ({
+  closeModal: vi.fn(),
+}));
+
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
     checkIfFileExists: openAPI.checkIfFileExists,
     listAppDeployments: openAPI.listAppDeployments,
     publishAppDeployment: openAPI.publishAppDeployment,
-    callOpenAPI: function <T>(promise: Promise<T>) {
-      return promise;
-    },
   };
 });
 
-import { PublishAppDeploymentModal } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+import { PublishAppDeploymentModal } from "./PublishAppDeploymentModal";
 
 type RenderedModal = {
   host: HTMLDivElement;
@@ -49,18 +51,6 @@ const originalLocalStorage = window.localStorage;
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
-const closeModal = vi.fn();
-const notify = vi.fn();
-
-let currentProjectContext: AppSubsystemProjectContext = {
-  defaultProjectConfigId: null,
-  projectMetadata: [],
-  projectConfig: {
-    id: "project-1",
-    name: "Project One",
-    entryCodeBlockId: null,
-  },
-};
 
 function setReactActEnvironment(value: boolean | undefined) {
   const target = globalThis as typeof globalThis & {
@@ -93,22 +83,14 @@ async function renderModal(): Promise<RenderedModal> {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  const appSubsystemHost = createAppSubsystemFrontendHost({
-    closeModal,
-    notify,
-    getProjectContext: () => currentProjectContext,
-    subscribeProjectContext: () => () => undefined,
-  });
 
   await act(async () => {
     root.render(
-      <AppSubsystemFrontendHostProvider host={appSubsystemHost}>
-        <Dialog.Root open>
-          <Dialog.Content>
-            <PublishAppDeploymentModal open />
-          </Dialog.Content>
-        </Dialog.Root>
-      </AppSubsystemFrontendHostProvider>,
+      <Dialog.Root open>
+        <Dialog.Content>
+          <PublishAppDeploymentModal open />
+        </Dialog.Content>
+      </Dialog.Root>,
     );
   });
 
@@ -127,22 +109,18 @@ async function flushEffects(): Promise<void> {
 
 describe("PublishAppDeploymentModal", () => {
   beforeEach(() => {
+    resetProjectStores();
     installTestLocalStorage();
     document.body.innerHTML = "";
     openAPI.checkIfFileExists.mockReset();
     openAPI.listAppDeployments.mockReset();
     openAPI.publishAppDeployment.mockReset();
-    closeModal.mockReset();
-    notify.mockReset();
-    currentProjectContext = {
-      defaultProjectConfigId: null,
-      projectMetadata: [],
-      projectConfig: {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
         id: "project-1",
         name: "Project One",
-        entryCodeBlockId: null,
-      },
-    };
+      }),
+    });
     useAppDefinition.setState({
       appSpec: null,
       appDefinition: createAppDefinition(),
@@ -151,6 +129,7 @@ describe("PublishAppDeploymentModal", () => {
   });
 
   afterEach(() => {
+    resetProjectStores();
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       value: originalLocalStorage,
@@ -186,42 +165,6 @@ describe("PublishAppDeploymentModal", () => {
     expect(window.localStorage.getItem(listenerEntrypointStorageKey)).toBe(
       "listener/app.py",
     );
-    expect(host.textContent).toContain("Project One");
-
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
-  it("toggles policy switches through the plugin-owned switch input", async () => {
-    openAPI.checkIfFileExists.mockResolvedValue({
-      data: false,
-      status: 200,
-      hasResponse: true,
-    });
-    openAPI.listAppDeployments.mockResolvedValue({
-      data: [],
-      status: 200,
-      hasResponse: true,
-    });
-
-    const { host, root } = await renderModal();
-    await flushEffects();
-
-    const firstSwitch = host.querySelector(
-      'button[role="switch"]',
-    ) as HTMLButtonElement | null;
-    expect(firstSwitch?.getAttribute("aria-checked")).toBe("true");
-
-    await act(async () => {
-      firstSwitch?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(
-      (
-        host.querySelector('button[role="switch"]') as HTMLButtonElement | null
-      )?.getAttribute("aria-checked"),
-    ).toBe("false");
 
     await act(async () => {
       root.unmount();

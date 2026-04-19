@@ -1,28 +1,37 @@
-import { createAppSubsystemFrontendHost } from "@setta/app-subsystem-frontend-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as endpoints from "openapi/http";
-import { useProjectState, type ZustandProjectState } from "state/definitions";
+import {
+  useAppConfigs,
+  useLocalStorage,
+  useProjectState,
+  useSettings,
+  useShareSession,
+  type ZustandProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,
   createSectionCapabilities,
   createSettingsState,
 } from "utils/generatedTypes";
-import { AppSubsystemFrontendHostProvider } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 import {
   useAppActionHandlers,
   type AppActionHandler,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appActionHandlers";
+} from "./appActionHandlers";
 
+const addTemporaryNotificationMock = vi.hoisted(() => vi.fn());
 const setIsRunning: Dispatch<SetStateAction<boolean>> = () => {};
 const setLocalRunCount: Dispatch<SetStateAction<number>> = () => {};
 
 let latestHandlers: Record<string, AppActionHandler> = {};
+
+vi.mock("state/actions/notifications", () => ({
+  addTemporaryNotification: addTemporaryNotificationMock,
+}));
 
 function buildAppConfigState(
   configId: string,
@@ -45,38 +54,15 @@ function renderActionHandlers(args: {
   actionDefinitions: Record<string, Record<string, unknown>>;
   fallbackConfigId: string | null;
   deploymentMode?: boolean;
-  defaultRunSnapshotMode?: ReturnType<
-    typeof createSettingsState
-  >["backend"]["runSnapshotMode"];
-  runSnapshotModeByProjectConfigId?: Record<
-    string,
-    ReturnType<typeof createSettingsState>["backend"]["runSnapshotMode"]
-  >;
 }) {
-  const {
-    actionDefinitions,
-    fallbackConfigId,
-    deploymentMode = false,
-    defaultRunSnapshotMode = createSettingsState().backend.runSnapshotMode,
-    runSnapshotModeByProjectConfigId = {},
-  } = args;
-
-  const frontendHost = createAppSubsystemFrontendHost({
-    getRuntimeContext: () => ({
-      isAppDeploymentMode: deploymentMode,
-      shareSessionId: deploymentMode ? "share-session" : null,
-      sessionRunCount: 0,
-      sharePolicy: null,
-      defaultRunSnapshotMode,
-      runSnapshotModeByProjectConfigId,
-    }),
-    subscribeRuntimeContext: () => () => undefined,
-  });
+  const { actionDefinitions, fallbackConfigId, deploymentMode = false } = args;
 
   function Harness() {
     latestHandlers = useAppActionHandlers({
       actionDefinitions,
       fallbackConfigId,
+      shareSessionId: deploymentMode ? "share-session" : null,
+      sharePolicy: null,
       allowFileDownloads: true,
       allowExternalLinks: true,
       allowRun: true,
@@ -92,17 +78,25 @@ function renderActionHandlers(args: {
     return null;
   }
 
-  renderToStaticMarkup(
-    <AppSubsystemFrontendHostProvider host={frontendHost}>
-      <Harness />
-    </AppSubsystemFrontendHostProvider>,
-  );
+  renderToStaticMarkup(<Harness />);
 }
 
 describe("useAppActionHandlers", () => {
   beforeEach(() => {
     resetProjectStores();
     latestHandlers = {};
+    addTemporaryNotificationMock.mockReset();
+    useSettings.setState(createSettingsState());
+    useLocalStorage.setState({ runSnapshotModeByProjectConfigId: {} });
+    useShareSession.setState({
+      isDeploymentMode: false,
+      sharePolicy: null,
+      shareSessionId: null,
+      sessionRunCount: 0,
+      shareDeploymentName: null,
+      shareDeploymentVersion: null,
+      deploymentMode: null,
+    });
   });
 
   afterEach(() => {
@@ -116,6 +110,18 @@ describe("useAppActionHandlers", () => {
     useAppConfigs.setState({
       configs: {
         [configId]: buildAppConfigState(configId, sectionId),
+      },
+    });
+    useSettings.setState((state) => ({
+      ...state,
+      backend: {
+        ...state.backend,
+        runSnapshotMode: "ephemeral",
+      },
+    }));
+    useLocalStorage.setState({
+      runSnapshotModeByProjectConfigId: {
+        [configId]: "always",
       },
     });
 
@@ -139,10 +145,6 @@ describe("useAppActionHandlers", () => {
             [sectionId]: "variant-2",
           },
         },
-      },
-      defaultRunSnapshotMode: "ephemeral",
-      runSnapshotModeByProjectConfigId: {
-        [configId]: "always",
       },
     });
 
@@ -170,6 +172,13 @@ describe("useAppActionHandlers", () => {
         [configId]: buildAppConfigState(configId, sectionId),
       },
     });
+    useSettings.setState((state) => ({
+      ...state,
+      backend: {
+        ...state.backend,
+        runSnapshotMode: "never",
+      },
+    }));
 
     const runSpy = vi.spyOn(endpoints, "runCode").mockResolvedValue({
       data: null,
@@ -186,7 +195,6 @@ describe("useAppActionHandlers", () => {
           sectionId,
         },
       },
-      defaultRunSnapshotMode: "never",
     });
 
     await latestHandlers.runCustom?.();
