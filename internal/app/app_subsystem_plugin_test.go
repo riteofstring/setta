@@ -65,6 +65,12 @@ func TestAppSubsystemPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
 		authCookie,
 		http.StatusNotFound,
 	)
+	assertAppSubsystemRouteStatus(
+		t,
+		server.URL+"/api"+httpapi.RouteShareDeployments,
+		authCookie,
+		http.StatusOK,
+	)
 	assertAppSubsystemToolPresence(t, app, false)
 }
 
