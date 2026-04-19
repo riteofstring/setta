@@ -19,6 +19,7 @@ Defaults:
 - Inactivity timeout: 1800 seconds without transcript updates
 - Retry after transient Codex failures and inactivity timeouts
 - Tolerate 10 consecutive clean Codex failures before stopping
+- Terminal logging defaults to quiet status/progress lines only
 - Stop only when Codex explicitly reports audited completion of the plan
 - Require every non-stop iteration to leave a clean worktree and either advance
   HEAD or advance the saved checklist/audit state
@@ -45,6 +46,9 @@ Options:
                          Tolerate up to N consecutive clean Codex failures that
                          leave HEAD unchanged and the worktree clean.
                          Default: 10
+  --progress-log-interval-seconds N
+                         When Codex is still running, print at most one status
+                         progress line every N seconds. Default: 120
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
@@ -67,6 +71,7 @@ inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 retry_sleep_seconds="15"
 allow_clean_failures="10"
+progress_log_interval_seconds="120"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: THIRD_PARTY_PLUGIN_GENERALIZATION_COMPLETE"
 plan_relpath="docs/plans/third-party-plugin-generalization-plan.md"
@@ -233,6 +238,11 @@ while [[ $# -gt 0 ]]; do
       allow_clean_failures="$2"
       shift 2
       ;;
+    --progress-log-interval-seconds)
+      require_value "$1" "${2:-}"
+      progress_log_interval_seconds="$2"
+      shift 2
+      ;;
     --no-yolo)
       yolo_mode="0"
       shift
@@ -276,6 +286,11 @@ fi
 
 if [[ ! "${allow_clean_failures}" =~ ^[0-9]+$ ]]; then
   echo "--allow-clean-failures must be a non-negative integer" >&2
+  exit 1
+fi
+
+if [[ ! "${progress_log_interval_seconds}" =~ ^[0-9]+$ ]]; then
+  echo "--progress-log-interval-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -541,6 +556,8 @@ loop_args=(
   --new-session-every "1"
   --output-dir "${output_dir}"
   --workdir "${loop_root_dir}"
+  --quiet
+  --progress-log-interval-seconds "${progress_log_interval_seconds}"
   --inactivity-timeout-seconds "${inactivity_timeout_seconds}"
   --watchdog-interval-seconds "30"
   --continue-on-inactivity-timeout
@@ -583,6 +600,8 @@ echo "Iterations: ${iterations}"
 echo "New session every: 1"
 echo "Model: ${model}"
 echo 'Reasoning effort: xhigh'
+echo "Terminal output mode: quiet status logs"
+echo "Quiet progress log interval: ${progress_log_interval_seconds}s"
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Retry sleep: ${retry_sleep_seconds}s"
 echo "Allowed consecutive clean Codex failures: ${allow_clean_failures}"
