@@ -15,7 +15,9 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 )
 
 type stubLSPAdminService struct {
@@ -33,6 +35,41 @@ func (s *stubLSPAdminService) Restart(_ context.Context, document projectstate.D
 	cloned := document.Clone()
 	s.restartDocument = &cloned
 	return nil
+}
+
+type stubPluginRuntimeUpdateService struct {
+	response plugins.PluginRuntimeResponse
+	err      error
+}
+
+func (s *stubPluginRuntimeUpdateService) Runtime(_ plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
+	if s.err != nil {
+		return plugins.PluginRuntimeResponse{}, s.err
+	}
+	return s.response, nil
+}
+
+func newTestPluginRuntimeResponse() plugins.PluginRuntimeResponse {
+	return plugins.PluginRuntimeResponse{
+		SchemaVersion: 1,
+		List: plugins.PluginListResponse{
+			SchemaVersion: 1,
+			ServerMode:    config.ModeIDE,
+			RestartCapability: plugins.PluginRestartCapability{
+				Mode:    plugins.PluginRestartCapabilityModeProgrammatic,
+				Command: nil,
+				Reason:  nil,
+			},
+			Plugins: []plugins.PluginListEntry{},
+		},
+		Status: plugins.PluginStatusResponse{
+			SchemaVersion:            1,
+			ServerMode:               config.ModeIDE,
+			RestartCapability:        plugins.PluginRestartCapability{Mode: plugins.PluginRestartCapabilityModeProgrammatic},
+			Plugins:                  []plugins.PluginStatusEntry{},
+			LanguageServerSelections: []plugins.LanguageServerSelectionStatus{},
+		},
+	}
 }
 
 func (s *stubLSPAdminService) TypeCheckProject(_ context.Context, document projectstate.Document, projectID string) error {
@@ -920,6 +957,9 @@ func newLSPRouteTestHandlerWithAdmin(
 	if mode == config.ModeIDE && admin == nil {
 		admin = &stubLSPAdminService{}
 	}
+	pluginRuntime := &stubPluginRuntimeUpdateService{
+		response: newTestPluginRuntimeResponse(),
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -927,11 +967,13 @@ func newLSPRouteTestHandlerWithAdmin(
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterLSPRoutes(r, LSPRouteDependencies{
-				ModePolicy:   modes.NewPolicy(mode),
-				ProjectState: projectRuntime,
-				Diagnostics:  diagnostics,
-				Completions:  completions,
-				Admin:        admin,
+				ModePolicy:    modes.NewPolicy(mode),
+				ProjectState:  projectRuntime,
+				Diagnostics:   diagnostics,
+				Completions:   completions,
+				Admin:         admin,
+				WebsocketHub:  realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
+				PluginRuntime: pluginRuntime,
 			}); err != nil {
 				t.Fatalf("register lsp routes: %v", err)
 			}

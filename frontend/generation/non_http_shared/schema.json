@@ -11592,6 +11592,23 @@
         "pending_restart"
       ]
     },
+    "PluginRuntimeUpdateMessage": {
+      "type": "object",
+      "properties": {
+        "messageType": {
+          "$ref": "#/$defs/WebsocketMessageType"
+        },
+        "content": {
+          "$ref": "#/$defs/PluginRuntimeResponse"
+        }
+      },
+      "title": "PluginRuntimeUpdateMessage",
+      "required": [
+        "messageType",
+        "content"
+      ],
+      "additionalProperties": false
+    },
     "PluginScope": {
       "type": "string",
       "title": "PluginScope",
@@ -20947,6 +20964,7 @@
         "TranscriptionProfilesUpdated",
         "UpdateFrontendProjectState",
         "UpdateSettings",
+        "UpdatePluginRuntime",
         "ReturnRenameRefactorResults",
         "BackendLogEvent"
       ]

@@ -181,6 +181,7 @@ const effectiveCapabilityDigestByStatusEntry = new WeakMap<
 >();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 let pluginRuntimeRefreshQueued = false;
+let queuedPluginRuntimeResponse: PluginRuntimeResponse | null = null;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
 
 export const usePluginRuntimeStore = createWithEqualityFn<PluginRuntimeStore>(
@@ -199,8 +200,21 @@ export function usePluginRuntimeBootstrap(enabled: boolean): void {
 }
 
 export async function refreshPluginRuntime(): Promise<void> {
+  pluginRuntimeRefreshQueued = true;
   if (pluginRuntimeLoadPromise) {
-    pluginRuntimeRefreshQueued = true;
+    return pluginRuntimeLoadPromise;
+  }
+  pluginRuntimeLoadPromise = runQueuedPluginRuntimeRefreshes().finally(() => {
+    pluginRuntimeLoadPromise = null;
+  });
+  return pluginRuntimeLoadPromise;
+}
+
+export async function receivePluginRuntimeUpdate(
+  runtimeResponse: PluginRuntimeResponse,
+): Promise<void> {
+  queuedPluginRuntimeResponse = runtimeResponse;
+  if (pluginRuntimeLoadPromise) {
     return pluginRuntimeLoadPromise;
   }
   pluginRuntimeLoadPromise = runQueuedPluginRuntimeRefreshes().finally(() => {
@@ -210,14 +224,19 @@ export async function refreshPluginRuntime(): Promise<void> {
 }
 
 async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
-  do {
+  while (queuedPluginRuntimeResponse !== null || pluginRuntimeRefreshQueued) {
+    if (queuedPluginRuntimeResponse !== null) {
+      const runtimeResponse = queuedPluginRuntimeResponse;
+      queuedPluginRuntimeResponse = null;
+      await applyPluginRuntimeResponse(runtimeResponse);
+      continue;
+    }
     pluginRuntimeRefreshQueued = false;
     await loadPluginRuntime();
-  } while (pluginRuntimeRefreshQueued);
+  }
 }
 
 async function loadPluginRuntime(): Promise<void> {
-  const previousState = usePluginRuntimeStore.getState();
   usePluginRuntimeStore.setState((state) => ({
     ...state,
     status: "loading",
@@ -234,9 +253,15 @@ async function loadPluginRuntime(): Promise<void> {
     return;
   }
 
-  const listData = runtimeResponse.data.list;
-  const statusData = runtimeResponse.data.status;
+  await applyPluginRuntimeResponse(runtimeResponse.data);
+}
 
+async function applyPluginRuntimeResponse(
+  runtimeResponse: PluginRuntimeResponse,
+): Promise<void> {
+  const previousState = usePluginRuntimeStore.getState();
+  const listData = runtimeResponse.list;
+  const statusData = runtimeResponse.status;
   const pluginListById = mapPluginListById(
     listData,
     previousState.pluginListById,

@@ -2916,6 +2916,11 @@
       ]
     },
     {
+      "name": "PluginRuntimeUpdateMessage",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginRuntimeUpdateMessage"
+    },
+    {
       "name": "PluginScope",
       "kind": "enum",
       "schemaRef": "#/$defs/PluginScope",
@@ -6548,6 +6553,10 @@
         {
           "name": "UpdateSettings",
           "value": "UpdateSettings"
+        },
+        {
+          "name": "UpdatePluginRuntime",
+          "value": "UpdatePluginRuntime"
         },
         {
           "name": "ReturnRenameRefactorResults",

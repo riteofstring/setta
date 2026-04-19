@@ -819,7 +819,7 @@ export function PluginsPane() {
           } as Parameters<typeof setLanguageServerSelection>[0]),
         ),
       {
-        refreshRuntimeOnSuccess: true,
+        refreshRuntimeOnSuccess: false,
       },
     );
     if (!response) {
@@ -844,7 +844,7 @@ export function PluginsPane() {
       "Restart language server",
       async () => callOpenAPI(restartLanguageServer()),
       {
-        refreshRuntimeOnSuccess: true,
+        refreshRuntimeOnSuccess: false,
       },
     );
   }

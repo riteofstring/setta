@@ -15,6 +15,7 @@ import (
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 )
 
 const (
@@ -38,11 +39,13 @@ type LSPAdminService interface {
 }
 
 type LSPRouteDependencies struct {
-	ModePolicy   modes.Policy
-	ProjectState *projectstate.Runtime
-	Diagnostics  *projectstate.LSPDiagnosticsRegistry
-	Completions  *lspcompletion.Service
-	Admin        LSPAdminService
+	ModePolicy    modes.Policy
+	ProjectState  *projectstate.Runtime
+	Diagnostics   *projectstate.LSPDiagnosticsRegistry
+	Completions   *lspcompletion.Service
+	Admin         LSPAdminService
+	WebsocketHub  *realtime.WebsocketHub
+	PluginRuntime pluginRuntimeUpdateService
 }
 
 type TypeCheckRequest struct {
@@ -130,6 +133,12 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 		}
 		if deps.Admin == nil {
 			return fmt.Errorf("lsp admin service is required in ide mode")
+		}
+		if deps.WebsocketHub == nil {
+			return fmt.Errorf("websocket hub is required in ide mode")
+		}
+		if deps.PluginRuntime == nil {
+			return fmt.Errorf("plugin runtime service is required in ide mode")
 		}
 	}
 
@@ -302,7 +311,7 @@ func lspDiagnosticsModeDetail(policy modes.Policy) (string, bool) {
 
 func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if deps.ProjectState == nil || deps.Admin == nil {
+		if deps.ProjectState == nil || deps.Admin == nil || deps.WebsocketHub == nil || deps.PluginRuntime == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -318,6 +327,10 @@ func restartLanguageServerHandler(deps LSPRouteDependencies) http.HandlerFunc {
 				)
 				return
 			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if err := broadcastPluginRuntimeUpdate(r.Context(), deps.PluginRuntime, deps.WebsocketHub); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}

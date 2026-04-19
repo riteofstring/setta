@@ -3,7 +3,6 @@
 import {
   disablePlugin,
   enablePlugin,
-  getPluginsRuntime,
   restartLanguageServer,
   setLanguageServerSelection,
 } from "openapi/http";
@@ -41,7 +40,6 @@ vi.mock("openapi/http", async () => {
     ...actual,
     disablePlugin: vi.fn(),
     enablePlugin: vi.fn(),
-    getPluginsRuntime: vi.fn(),
     restartLanguageServer: vi.fn(),
     setLanguageServerSelection: vi.fn(),
   };
@@ -287,7 +285,6 @@ describe("PluginsPane Python language-server selection", () => {
     vi.mocked(addTemporaryNotification).mockReset();
     vi.mocked(enablePlugin).mockReset();
     vi.mocked(disablePlugin).mockReset();
-    vi.mocked(getPluginsRuntime).mockReset();
     vi.mocked(restartLanguageServer).mockReset();
     vi.mocked(setLanguageServerSelection).mockReset();
     vi.mocked(setLanguageServerSelection).mockResolvedValue({
@@ -330,21 +327,6 @@ describe("PluginsPane Python language-server selection", () => {
   });
 
   it("selects a Python language server without routing through enable", async () => {
-    vi.mocked(getPluginsRuntime).mockResolvedValue({
-      data: buildRuntimeResponse(
-        buildPythonSelectionStatus({
-          selectedPluginId: "setta-basedpyright",
-          selectionState: LanguageServerSelectionStateEnum.selected,
-          status: LanguageServerSelectionStatusKindEnum.pending_restart,
-          severity: LanguageServerSelectionSeverityEnum.warning,
-          message:
-            '"setta-basedpyright" is selected for Python. Restart the language server to apply this workspace setting.',
-          restartRequired: true,
-        }),
-      ),
-      response: new Response(null, { status: 200 }),
-    } as Awaited<ReturnType<typeof getPluginsRuntime>>);
-
     const { host, root } = await renderPluginsPane();
 
     try {
@@ -370,15 +352,6 @@ describe("PluginsPane Python language-server selection", () => {
         language: "python",
         pluginId: "setta-basedpyright",
       });
-      expect(
-        host.querySelector(
-          '[data-testid="python-language-server-selection-summary"]',
-        )?.textContent,
-      ).toContain('"setta-basedpyright" is selected for Python');
-      expect(
-        host.querySelector('[data-testid="python-language-server-restart"]'),
-      ).not.toBeNull();
-      expect(host.textContent).toContain("Python selected");
     } finally {
       await act(async () => {
         root.unmount();

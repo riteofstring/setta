@@ -401,6 +401,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(plugins.PluginRollbackResponse{}):                                    "PluginRollbackResponse",
 	reflect.TypeOf(plugins.PluginRuntimeResponse{}):                                     "PluginRuntimeResponse",
 	reflect.TypeOf(plugins.PluginRuntimeState("")):                                      "PluginRuntimeState",
+	reflect.TypeOf(realtime.PluginRuntimeUpdateMessage{}):                               "PluginRuntimeUpdateMessage",
 	reflect.TypeOf(plugins.PluginScope("")):                                             "PluginScope",
 	reflect.TypeOf(plugins.PluginSourceManager("")):                                     "PluginSourceManager",
 	reflect.TypeOf(plugins.PluginSourceScheme("")):                                      "PluginSourceScheme",

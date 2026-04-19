@@ -12600,6 +12600,22 @@ func mustFindAppPluginStatusEntry(
 	return plugins.PluginStatusEntry{}
 }
 
+func mustFindAppLanguageServerSelectionStatus(
+	t *testing.T,
+	selections []plugins.LanguageServerSelectionStatus,
+	language string,
+) plugins.LanguageServerSelectionStatus {
+	t.Helper()
+
+	for _, selection := range selections {
+		if selection.Language == language {
+			return selection
+		}
+	}
+	t.Fatalf("expected language server selection status %q in %#v", language, selections)
+	return plugins.LanguageServerSelectionStatus{}
+}
+
 func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projectstate.Document) error {
 	t.Helper()
 

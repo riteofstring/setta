@@ -852,6 +852,9 @@ func newSettingsRouteTestHandler(
 				ModePolicy:    modes.NewPolicy(mode),
 				SettingsState: runtime,
 				WebsocketHub:  websocketHub,
+				PluginRuntime: &stubPluginRuntimeUpdateService{
+					response: newTestPluginRuntimeResponse(),
+				},
 			}); err != nil {
 				t.Fatalf("register settings routes: %v", err)
 			}

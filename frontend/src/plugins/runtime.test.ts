@@ -3,6 +3,7 @@ import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
 import {
   invokePluginSettingRevealHandler,
+  receivePluginRuntimeUpdate,
   refreshPluginRuntime,
   usePluginCommands,
   usePluginListEntries,
@@ -73,6 +74,8 @@ function resetPluginRuntimeStateForTests(): void {
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
+    languageServerSelectionsByLanguage: {},
+    languageServerSelections: [],
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -1124,6 +1127,57 @@ describe("plugin runtime helpers", () => {
     expect(state.statusMessage).toBe(
       "Failed to fetch plugins runtime: network error.",
     );
+  });
+  it("hydrates plugin runtime state from backend websocket updates", async () => {
+    const plugin = buildPluginListEntry({
+      pluginId: "setta-basedpyright",
+      name: "Setta Basedpyright",
+      effectiveCapabilities: ["registerLanguageServer"],
+    });
+    const statusEntry = buildPluginStatusEntry({
+      pluginId: "setta-basedpyright",
+      name: "Setta Basedpyright",
+      effectiveCapabilities: ["registerLanguageServer"],
+    });
+
+    await receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([statusEntry], {
+          languageServerSelections: [
+            {
+              language: "python",
+              selectionState: "selected",
+              status: "active",
+              severity: "info",
+              message: '"setta-basedpyright" is active for Python.',
+              selectedPluginId: "setta-basedpyright",
+              appliedPluginId: "setta-basedpyright",
+              availableProviders: [
+                {
+                  pluginId: "setta-basedpyright",
+                  name: "Setta Basedpyright (setta-basedpyright)",
+                  available: true,
+                },
+              ],
+              restartRequired: false,
+            },
+          ],
+        }),
+      ),
+    );
+
+    const state = usePluginRuntimeStore.getState();
+    expect(state.status).toBe("loaded");
+    expect(state.pluginStatusById["setta-basedpyright"]?.state).toBe(
+      PluginRuntimeStateEnum.active,
+    );
+    expect(state.languageServerSelectionsByLanguage.python?.status).toBe(
+      "active",
+    );
+    expect(
+      state.languageServerSelectionsByLanguage.python?.appliedPluginId,
+    ).toBe("setta-basedpyright");
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {

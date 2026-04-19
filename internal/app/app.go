@@ -1822,6 +1822,7 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ModePolicy:    deps.modePolicy,
 		SettingsState: deps.settingsStateRuntime,
 		WebsocketHub:  deps.websocketHub,
+		PluginRuntime: deps.pluginRouteService,
 	}
 	apiDeps.Listener = httpapi.ListenerRouteDependencies{
 		ModePolicy:          deps.modePolicy,
@@ -2026,11 +2027,13 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		},
 	}
 	apiDeps.LSP = httpapi.LSPRouteDependencies{
-		ModePolicy:   deps.modePolicy,
-		ProjectState: deps.projectRuntime,
-		Diagnostics:  deps.lspDiagnostics,
-		Completions:  deps.lspCompletion,
-		Admin:        newWorkspaceLSPAdmin(deps.projectLSPSyncer, deps.pluginRuntime),
+		ModePolicy:    deps.modePolicy,
+		ProjectState:  deps.projectRuntime,
+		Diagnostics:   deps.lspDiagnostics,
+		Completions:   deps.lspCompletion,
+		Admin:         newWorkspaceLSPAdmin(deps.projectLSPSyncer, deps.pluginRuntime),
+		WebsocketHub:  deps.websocketHub,
+		PluginRuntime: deps.pluginRouteService,
 	}
 	return httpapi.RegisterFrontendAPIRoutes(r, apiDeps)
 }

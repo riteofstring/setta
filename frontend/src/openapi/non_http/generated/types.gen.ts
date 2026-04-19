@@ -4134,6 +4134,14 @@ type PluginRuntimeState =
   | "pending_restart";
 
 /**
+ * PluginRuntimeUpdateMessage
+ */
+type PluginRuntimeUpdateMessage = {
+  content: PluginRuntimeResponse;
+  messageType: WebsocketMessageType;
+};
+
+/**
  * PluginScope
  */
 export type PluginScope = "workspace" | "setta_files" | "global";
@@ -7336,6 +7344,7 @@ export type WebsocketMessageType =
   | "TranscriptionProfilesUpdated"
   | "UpdateFrontendProjectState"
   | "UpdateSettings"
+  | "UpdatePluginRuntime"
   | "ReturnRenameRefactorResults"
   | "BackendLogEvent";
 

@@ -21,6 +21,7 @@ type SettingsRouteDependencies struct {
 	ModePolicy    modes.Policy
 	SettingsState *settingsstate.Runtime
 	WebsocketHub  *realtime.WebsocketHub
+	PluginRuntime pluginRuntimeUpdateService
 }
 
 type SaveSettingsRequest struct {
@@ -43,6 +44,9 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 		}
 		if deps.WebsocketHub == nil {
 			return fmt.Errorf("settings routes: websocket hub is required")
+		}
+		if deps.PluginRuntime == nil {
+			return fmt.Errorf("settings routes: plugin runtime service is required")
 		}
 	}
 
@@ -101,7 +105,7 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			writeDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.SettingsState == nil || deps.WebsocketHub == nil {
+		if deps.SettingsState == nil || deps.WebsocketHub == nil || deps.PluginRuntime == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -140,6 +144,10 @@ func saveSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if err := broadcastPluginRuntimeUpdate(r.Context(), deps.PluginRuntime, deps.WebsocketHub); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
 		writeJSON(w, http.StatusOK, nil)
 	}
@@ -151,7 +159,7 @@ func setLanguageServerSelectionHandler(deps SettingsRouteDependencies) http.Hand
 			writeDetail(w, http.StatusForbidden, detail)
 			return
 		}
-		if deps.SettingsState == nil || deps.WebsocketHub == nil {
+		if deps.SettingsState == nil || deps.WebsocketHub == nil || deps.PluginRuntime == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -175,6 +183,10 @@ func setLanguageServerSelectionHandler(deps SettingsRouteDependencies) http.Hand
 			realtime.NewSettingsUpdateMessage(snapshot.Document),
 			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
 		); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if err := broadcastPluginRuntimeUpdate(r.Context(), deps.PluginRuntime, deps.WebsocketHub); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}

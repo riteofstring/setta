@@ -4285,6 +4285,7 @@ export const WebsocketMessageTypeEnum = {
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   UpdateSettings: "UpdateSettings",
+  UpdatePluginRuntime: "UpdatePluginRuntime",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   BackendLogEvent: "BackendLogEvent",
 } as const;

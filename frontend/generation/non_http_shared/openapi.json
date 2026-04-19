@@ -9740,6 +9740,20 @@
         "title": "PluginRuntimeState",
         "type": "string"
       },
+      "PluginRuntimeUpdateMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/PluginRuntimeResponse"
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/WebsocketMessageType"
+          }
+        },
+        "required": ["messageType", "content"],
+        "title": "PluginRuntimeUpdateMessage",
+        "type": "object"
+      },
       "PluginScope": {
         "enum": ["workspace", "setta_files", "global"],
         "title": "PluginScope",
@@ -17747,6 +17761,7 @@
           "TranscriptionProfilesUpdated",
           "UpdateFrontendProjectState",
           "UpdateSettings",
+          "UpdatePluginRuntime",
           "ReturnRenameRefactorResults",
           "BackendLogEvent"
         ],
