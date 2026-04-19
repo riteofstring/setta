@@ -24,9 +24,23 @@ import { processAppProjectStateUpdateFromBackend } from "./state/actions/appProj
 export const apiVersion = 1;
 
 export function register(host: unknown): void {
-  // Phase B packaging exposes a valid runtime-managed frontend module shape
-  // before Phase C moves app-subsystem UI registration into the generic host.
-  void host;
+  if (
+    !host ||
+    typeof host !== "object" ||
+    typeof (host as { registerAppSubsystem?: unknown }).registerAppSubsystem !==
+      "function"
+  ) {
+    throw new Error(
+      "Plugin host does not support registerAppSubsystem for app-subsystem providers.",
+    );
+  }
+  (
+    host as {
+      registerAppSubsystem: (
+        registration: typeof appSubsystemFrontendRegistration,
+      ) => void;
+    }
+  ).registerAppSubsystem(appSubsystemFrontendRegistration);
 }
 
 export const appSubsystemFrontendRegistration = {

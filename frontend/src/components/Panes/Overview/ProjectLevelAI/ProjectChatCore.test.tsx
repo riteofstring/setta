@@ -1,11 +1,12 @@
 /* @vitest-environment jsdom */
 
 import {
+  type AppSubsystemFrontendRegistrationsByPluginId,
   resetAppSubsystemFrontendRuntimeState,
   syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   buildProjectChatHydrationCacheKey,
@@ -41,11 +42,10 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appGenerationChatModes: true,
   appDeploymentRuntime: true,
 } as const;
-
-vi.mock(
-  "../../../../../../plugins/setta-json-render-app-gen/frontend/src/index",
-  () => ({
-    default: {
+const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
+  {
+    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
       overviewTab: {
         component: () => null,
         titleQuickInfo: "Authoring quick info",
@@ -80,13 +80,13 @@ vi.mock(
         defaultMode: "plain_chat",
       },
     },
-  }),
-);
+  };
 
 beforeEach(async () => {
   resetAppSubsystemFrontendRuntimeState();
   await syncAppSubsystemFrontendRegistration(
     ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
   );
 });
 

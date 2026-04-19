@@ -20,7 +20,7 @@ import {
   useAppSubsystemCustomSlashCommandModeOptions,
   useAppSubsystemDefaultCustomSlashCommandMode,
   useAppSubsystemSlashCommands,
-} from "plugins/appSubsystemRuntime";
+} from "plugins/appSubsystem";
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
