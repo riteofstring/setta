@@ -18,8 +18,6 @@ const singleLineStyle = {
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
-  canvasOwnedRestingText = false,
-  canvasOwnedUnderline = false,
   divId,
   code,
   theme,
@@ -34,25 +32,9 @@ export function DummyCodeMirror({
 }) {
   const shouldWrap = wrapLines ?? !singleLine;
   const resolvedStyle = shouldWrap ? lineWrapStyle : singleLineStyle;
-  if (canvasOwnedRestingText) {
-    return (
-      <CanvasOwnedRestingTextRoot
-        canvasOwnedUnderline={canvasOwnedUnderline}
-        divId={divId}
-        code={code}
-        className={className}
-        placeholder={placeholder}
-        onMouseDownCapture={onMouseDownCapture}
-        onFocus={onFocus}
-        style={resolvedStyle}
-      />
-    );
-  }
   return code ? (
     <HighlightedCode
-      canvasOwnedUnderline={canvasOwnedUnderline}
       divId={divId}
-      canvasOwnedRestingText={canvasOwnedRestingText}
       code={code}
       theme={theme}
       onMouseDownCapture={onMouseDownCapture}
@@ -64,9 +46,7 @@ export function DummyCodeMirror({
     />
   ) : (
     <PlaceholderCode
-      canvasOwnedUnderline={canvasOwnedUnderline}
       divId={divId}
-      canvasOwnedRestingText={canvasOwnedRestingText}
       className={className}
       placeholder={placeholder}
       onMouseDownCapture={onMouseDownCapture}
@@ -76,52 +56,7 @@ export function DummyCodeMirror({
   );
 }
 
-function CanvasOwnedRestingTextRoot({
-  canvasOwnedUnderline,
-  divId,
-  code,
-  className,
-  placeholder,
-  onMouseDownCapture,
-  onFocus,
-  style,
-}) {
-  const lines =
-    typeof code === "string" && code.length > 0 ? code.split("\n") : null;
-  const hasMultipleLines = (lines?.length ?? 0) > 1;
-  const placeholderText =
-    lines === null &&
-    typeof placeholder === "string" &&
-    placeholder.length > 0
-      ? placeholder
-      : null;
-
-  return (
-    <div
-      id={divId}
-      className={`${className} pointer-events-none outline-none ${placeholderText ? "text-gray-600" : ""}`}
-      data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
-      data-canvas-owned-resting-text="true"
-      data-canvas-owned-resting-text-lightweight="true"
-      style={style}
-      onMouseDownCapture={onMouseDownCapture}
-      onFocus={onFocus}
-      tabIndex={0}
-    >
-      {hasMultipleLines
-        ? lines.map((line, index) => (
-            <div key={`line-${index + 1}`} className="cm-line">
-              {line || <br />}
-            </div>
-          ))
-        : lines?.[0] ?? placeholderText ?? <br />}
-    </div>
-  );
-}
-
 function PlaceholderCode({
-  canvasOwnedUnderline,
-  canvasOwnedRestingText,
   divId,
   className,
   placeholder,
@@ -134,10 +69,6 @@ function PlaceholderCode({
     <span
       id={divId}
       className={`${className} text-gray-600 outline-none`}
-      data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
-      data-canvas-owned-resting-text={
-        canvasOwnedRestingText ? "true" : undefined
-      }
       style={style}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
@@ -149,8 +80,6 @@ function PlaceholderCode({
 }
 
 function HighlightedCode({
-  canvasOwnedUnderline,
-  canvasOwnedRestingText,
   divId,
   code,
   theme,
@@ -167,9 +96,6 @@ function HighlightedCode({
       <div
         id={divId}
         className={`${className} outline-none`}
-        data-canvas-owned-resting-text={
-          canvasOwnedRestingText ? "true" : undefined
-        }
         style={style}
         onMouseDownCapture={onMouseDownCapture}
         onFocus={onFocus}
@@ -249,10 +175,6 @@ function HighlightedCode({
     <div
       id={divId}
       className={`${className} ${scopeClassName} outline-none`}
-      data-canvas-owned-underline={canvasOwnedUnderline ? "true" : undefined}
-      data-canvas-owned-resting-text={
-        canvasOwnedRestingText ? "true" : undefined
-      }
       style={style}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}

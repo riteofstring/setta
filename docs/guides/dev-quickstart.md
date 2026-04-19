@@ -10,10 +10,10 @@ Default setup:
 ./dev_install.sh
 ```
 
-If you also need the Python SDK/package tooling in this checkout:
+Activate the repo Python environment when you need direct Python/package commands:
 
 ```bash
-. ./dev_install_python.sh
+source activate.sh
 ```
 
 If you changed dependency manifests and need to refresh lockfiles on purpose:
@@ -59,6 +59,9 @@ Reset/start with explicit profile:
 ## Tell the assistant what to use
 
 - “Use chrome-devtools-mcp” (Codex auto-connects to the per-worktree CDP port).
+- Codex may start `./ai.sh` directly for CDP verification, or `./aireset.sh` if a clean reset is required.
+- If Codex starts `./ai.sh` or `./aireset.sh` for temporary verification, it should stop that session before finishing; `./kill.sh` is the repo-scoped fallback.
+- If Codex starts browser MCP directly instead, it should stop it with `./scripts/stop-browser-mcp.sh --devtools`.
 
 ## CDP helpers (optional)
 

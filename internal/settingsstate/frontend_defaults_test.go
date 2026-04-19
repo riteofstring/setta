@@ -31,3 +31,89 @@ func TestFrontendSettingsStateFromDocumentUsesOwnerContract(t *testing.T) {
 		t.Fatalf("expected auto refetch callable params on lsp mismatch to be false")
 	}
 }
+
+func TestFrontendSettingsStateFromDocumentPreservesChatWindowing(t *testing.T) {
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+
+	chatWindowing, ok := document["chatWindowing"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chatWindowing defaults section, got %#v", document["chatWindowing"])
+	}
+	chatWindowing["autoCreateInitialChat"] = false
+	chatWindowing["restorePriorStateOnUnmaximize"] = false
+	shortcuts, ok := chatWindowing["shortcuts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chatWindowing shortcuts section, got %#v", chatWindowing["shortcuts"])
+	}
+	shortcuts["maximizeFocused"] = "Mod + Enter"
+
+	state, err := FrontendSettingsStateFromDocument(document)
+	if err != nil {
+		t.Fatalf("frontend settings state from document: %v", err)
+	}
+
+	if state.ChatWindowing.AutoCreateInitialChat {
+		t.Fatalf("expected auto create initial chat override to be preserved")
+	}
+	if state.ChatWindowing.RestorePriorStateOnUnmaximize {
+		t.Fatalf("expected restore prior state on unmaximize override to be preserved")
+	}
+	if state.ChatWindowing.Shortcuts.MaximizeFocused != "Mod + Enter" {
+		t.Fatalf(
+			"maximize focused shortcut = %q, want %q",
+			state.ChatWindowing.Shortcuts.MaximizeFocused,
+			"Mod + Enter",
+		)
+	}
+
+	defaults := FrontendDefaultSettingsState()
+	if !defaults.ChatWindowing.AutoCreateInitialChat {
+		t.Fatalf("expected chat windowing defaults to include autoCreateInitialChat")
+	}
+	if !defaults.ChatWindowing.RestorePriorStateOnUnmaximize {
+		t.Fatalf("expected chat windowing defaults to include restorePriorStateOnUnmaximize")
+	}
+	if defaults.ChatWindowing.Shortcuts.CanvasToggle != "Shift + Esc" {
+		t.Fatalf(
+			"canvas toggle shortcut = %q, want %q",
+			defaults.ChatWindowing.Shortcuts.CanvasToggle,
+			"Shift + Esc",
+		)
+	}
+}
+
+func TestFrontendSettingsStateFromDocumentPreservesLanguageServerSelections(t *testing.T) {
+	document, err := DefaultDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+
+	document["languageServer"] = map[string]any{
+		"selectedByLanguage": map[string]any{
+			"python": "setta-basedpyright",
+			"bash":   nil,
+		},
+	}
+
+	state, err := FrontendSettingsStateFromDocument(document)
+	if err != nil {
+		t.Fatalf("frontend settings state from document: %v", err)
+	}
+
+	pythonSelection, ok := state.LanguageServer.SelectedByLanguage["python"]
+	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
+		t.Fatalf("expected python selection to survive frontend decoding, got ok=%v selection=%#v", ok, pythonSelection)
+	}
+	bashSelection, ok := state.LanguageServer.SelectedByLanguage["bash"]
+	if !ok || bashSelection != nil {
+		t.Fatalf("expected bash selection to remain explicit null, got ok=%v selection=%#v", ok, bashSelection)
+	}
+
+	defaults := FrontendDefaultSettingsState()
+	if len(defaults.LanguageServer.SelectedByLanguage) != 0 {
+		t.Fatalf("expected empty default language-server selections, got %#v", defaults.LanguageServer.SelectedByLanguage)
+	}
+}

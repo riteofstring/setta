@@ -15,6 +15,7 @@ import (
 	"setta/internal/stringenumvalues"
 	"setta/internal/tools"
 	"setta/internal/wsapi"
+	appdefinition "setta/plugins/setta-json-render-app-gen/backend/appdefinition"
 )
 
 func TestBuildSchemaDocumentIncludesAuthoritativeEnumValues(t *testing.T) {
@@ -113,6 +114,63 @@ func TestBuildSchemaDocumentUsesProjectCodegenTargetUnionForProjectConfig(t *tes
 	}
 	if got := len(codegenTargetsSchema.Items.AnyOf); got != 2 {
 		t.Fatalf("ProjectConfig.codegenTargets anyOf count = %d, want 2", got)
+	}
+}
+
+func TestBuildSchemaDocumentMarksDropdownChoicesAsNonNullArray(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	schema := document.Defs["DropdownParamCodeObjImpl"]
+	if schema == nil {
+		t.Fatalf("expected DropdownParamCodeObjImpl schema in $defs")
+	}
+	choicesSchema := schema.Properties["choices"]
+	if choicesSchema == nil {
+		t.Fatalf("expected DropdownParamCodeObjImpl.choices property")
+	}
+	if schemaAllowsNull(choicesSchema) {
+		t.Fatalf("expected DropdownParamCodeObjImpl.choices to be non-null, got %#v", choicesSchema)
+	}
+	if got := strings.TrimSpace(string(choicesSchema.Default)); got != "[]" {
+		t.Fatalf("DropdownParamCodeObjImpl.choices default = %q, want %q", got, "[]")
+	}
+}
+
+func TestBuildSchemaDocumentMarksDrawCollectionsAsNonNullArrays(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	testCases := []struct {
+		definition string
+		property   string
+	}{
+		{definition: "BrushStroke", property: "points"},
+		{definition: "BrushStrokeWithTransform", property: "points"},
+		{definition: "DrawAreaLayer", property: "elements"},
+		{definition: "DrawAreaLayerItemTransform", property: "eraserStrokes"},
+	}
+
+	for _, tc := range testCases {
+		schema := document.Defs[tc.definition]
+		if schema == nil {
+			t.Fatalf("expected %s schema in $defs", tc.definition)
+		}
+		propertySchema := schema.Properties[tc.property]
+		if propertySchema == nil {
+			t.Fatalf("expected %s.%s property", tc.definition, tc.property)
+		}
+		if schemaAllowsNull(propertySchema) {
+			t.Fatalf("expected %s.%s to be non-null, got %#v", tc.definition, tc.property, propertySchema)
+		}
 	}
 }
 
@@ -525,6 +583,246 @@ func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions
 	}
 	if got := len(baseChildlessCodeObjImplUnion.AnyOf); got < 2 {
 		t.Fatalf("BaseChildlessCodeObjImplUnion anyOf count = %d, want at least 2", got)
+	}
+}
+
+func TestBuildSchemaDocumentMarksAppDefinitionDataBindingsAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	appDefinitionSchema := document.Defs["AppDefinition"]
+	if appDefinitionSchema == nil {
+		t.Fatalf("expected AppDefinition schema in $defs")
+	}
+	dataBindingsSchema := appDefinitionSchema.Properties["dataBindings"]
+	if dataBindingsSchema == nil {
+		t.Fatalf("expected AppDefinition.dataBindings schema")
+	}
+	if got := len(dataBindingsSchema.Types); got != 2 {
+		t.Fatalf("AppDefinition.dataBindings types count = %d, want 2", got)
+	}
+	if got := dataBindingsSchema.Types[0]; got != "object" {
+		t.Fatalf("AppDefinition.dataBindings first type = %q, want %q", got, "object")
+	}
+	if got := dataBindingsSchema.Types[1]; got != "null" {
+		t.Fatalf("AppDefinition.dataBindings second type = %q, want %q", got, "null")
+	}
+	if dataBindingsSchema.AdditionalProperties == nil {
+		t.Fatalf("expected AppDefinition.dataBindings additionalProperties schema")
+	}
+	if got := dataBindingsSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("AppDefinition.dataBindings additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksAppDefinitionActionsAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	appDefinitionSchema := document.Defs["AppDefinition"]
+	if appDefinitionSchema == nil {
+		t.Fatalf("expected AppDefinition schema in $defs")
+	}
+	actionsSchema := appDefinitionSchema.Properties["actions"]
+	if actionsSchema == nil {
+		t.Fatalf("expected AppDefinition.actions schema")
+	}
+	if got := len(actionsSchema.Types); got != 2 {
+		t.Fatalf("AppDefinition.actions types count = %d, want 2", got)
+	}
+	if got := actionsSchema.Types[0]; got != "object" {
+		t.Fatalf("AppDefinition.actions first type = %q, want %q", got, "object")
+	}
+	if got := actionsSchema.Types[1]; got != "null" {
+		t.Fatalf("AppDefinition.actions second type = %q, want %q", got, "null")
+	}
+	if actionsSchema.AdditionalProperties == nil {
+		t.Fatalf("expected AppDefinition.actions additionalProperties schema")
+	}
+	if got := actionsSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("AppDefinition.actions additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestDiscoveredTypesPreferPluginOwnedAppDefinitionContracts(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		contractName string
+		want         reflect.Type
+	}{
+		{
+			contractName: "AppDefinition",
+			want:         reflect.TypeOf(appdefinition.AppDefinition{}),
+		},
+		{
+			contractName: "AppRoute",
+			want:         reflect.TypeOf(appdefinition.AppRoute{}),
+		},
+	}
+
+	discovered := DiscoveredTypes()
+	for _, tc := range testCases {
+		got, ok := TypeByContractName(tc.contractName)
+		if !ok {
+			t.Fatalf("expected discovered type for %q", tc.contractName)
+		}
+		if got != tc.want {
+			t.Fatalf("%s owner = %v, want %v", tc.contractName, got, tc.want)
+		}
+	}
+
+	for _, blockedName := range []string{
+		"AppRoute",
+		"AppDefinition",
+		"ReadResult",
+		"MutationResult",
+		"ValidationIssue",
+		"Capabilities",
+		"ValidationResult",
+	} {
+		for _, candidate := range discovered {
+			if candidate.PkgPath() == "setta/internal/projectstate" && candidate.Name() == blockedName {
+				t.Fatalf("unexpected host-owned app contract discovered: %v", candidate)
+			}
+		}
+	}
+}
+
+func sharedTypesContain(types []reflect.Type, target reflect.Type) bool {
+	for _, candidate := range types {
+		if candidate == target {
+			return true
+		}
+	}
+	return false
+}
+
+func TestBuildSchemaDocumentMarksSectionSharedModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	sectionSchema := document.Defs["Section"]
+	if sectionSchema == nil {
+		t.Fatalf("expected Section schema in $defs")
+	}
+	sharedModifierSchema := sectionSchema.Properties["sharedModifier"]
+	if sharedModifierSchema == nil {
+		t.Fatalf("expected Section.sharedModifier schema")
+	}
+	if got := len(sharedModifierSchema.Types); got != 2 {
+		t.Fatalf("Section.sharedModifier types count = %d, want 2", got)
+	}
+	if got := sharedModifierSchema.Types[0]; got != "object" {
+		t.Fatalf("Section.sharedModifier first type = %q, want %q", got, "object")
+	}
+	if got := sharedModifierSchema.Types[1]; got != "null" {
+		t.Fatalf("Section.sharedModifier second type = %q, want %q", got, "null")
+	}
+	if sharedModifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected Section.sharedModifier additionalProperties schema")
+	}
+	if got := sharedModifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("Section.sharedModifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksSectionVariantModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	sectionVariantSchema := document.Defs["SectionVariant"]
+	if sectionVariantSchema == nil {
+		t.Fatalf("expected SectionVariant schema in $defs")
+	}
+	modifierSchema := sectionVariantSchema.Properties["modifier"]
+	if modifierSchema == nil {
+		t.Fatalf("expected SectionVariant.modifier schema")
+	}
+	if got := len(modifierSchema.Types); got != 2 {
+		t.Fatalf("SectionVariant.modifier types count = %d, want 2", got)
+	}
+	if got := modifierSchema.Types[0]; got != "object" {
+		t.Fatalf("SectionVariant.modifier first type = %q, want %q", got, "object")
+	}
+	if got := modifierSchema.Types[1]; got != "null" {
+		t.Fatalf("SectionVariant.modifier second type = %q, want %q", got, "null")
+	}
+	if modifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected SectionVariant.modifier additionalProperties schema")
+	}
+	if got := modifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("SectionVariant.modifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksCoreSharedModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	coreSchema := document.Defs["Core"]
+	if coreSchema == nil {
+		t.Fatalf("expected Core schema in $defs")
+	}
+	sharedModifierSchema := coreSchema.Properties["sharedModifier"]
+	if sharedModifierSchema == nil {
+		t.Fatalf("expected Core.sharedModifier schema")
+	}
+	if got := sharedModifierSchema.Type; got != "object" {
+		t.Fatalf("Core.sharedModifier type = %q, want %q", got, "object")
+	}
+	if sharedModifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected Core.sharedModifier additionalProperties schema")
+	}
+	if got := sharedModifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("Core.sharedModifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+}
+
+func TestBuildSchemaDocumentMarksVariantModifierAsObjectMap(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	variantSchema := document.Defs["Variant"]
+	if variantSchema == nil {
+		t.Fatalf("expected Variant schema in $defs")
+	}
+	modifierSchema := variantSchema.Properties["modifier"]
+	if modifierSchema == nil {
+		t.Fatalf("expected Variant.modifier schema")
+	}
+	if got := modifierSchema.Type; got != "object" {
+		t.Fatalf("Variant.modifier type = %q, want %q", got, "object")
+	}
+	if modifierSchema.AdditionalProperties == nil {
+		t.Fatalf("expected Variant.modifier additionalProperties schema")
+	}
+	if got := modifierSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("Variant.modifier additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
 	}
 }
 

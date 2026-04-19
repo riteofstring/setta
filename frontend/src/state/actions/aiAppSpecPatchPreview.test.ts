@@ -1,26 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
-import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
+import {
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "plugins/appSubsystemRuntime";
+import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
+import { clearAllAppSpecPatchPreviewStreams } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
+import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
+const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
+  pluginId: "setta-json-render-app-gen",
+  pluginEnabled: true,
+  appAuthoringUi: true,
+  appPreviewUi: true,
+  appGenerationChatModes: true,
+  appDeploymentRuntime: true,
+} as const;
+
 describe("ai app spec patch preview streaming", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetProjectStores();
-    clearAllAppSpecPatchStreams();
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+    clearAllAppSpecPatchPreviewStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    clearAllAppSpecPatchStreams();
+    clearAllAppSpecPatchPreviewStreams();
+    resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 

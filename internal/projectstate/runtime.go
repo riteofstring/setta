@@ -13,8 +13,9 @@ const (
 )
 
 var (
-	ErrRuntimeClosed   = errors.New("project runtime is closed")
-	ErrMutationMissing = errors.New("project runtime mutation is required")
+	ErrRuntimeClosed             = errors.New("project runtime is closed")
+	ErrMutationMissing           = errors.New("project runtime mutation is required")
+	ErrPersistedStoreUnsupported = errors.New("persisted project store is required")
 )
 
 type SavePolicy string
