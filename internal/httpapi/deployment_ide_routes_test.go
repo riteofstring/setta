@@ -966,6 +966,18 @@ func (s deploymentIDETestAppDefinitionService) GetAppDefinition(_ context.Contex
 	return projectstate.AppDefinitionReadResult{}, nil
 }
 
+func (s deploymentIDETestAppDefinitionService) GetEffectiveAppDefinition(_ context.Context) (projectstate.AppDefinition, error) {
+	return projectstate.AppDefinition{}, nil
+}
+
+func (s deploymentIDETestAppDefinitionService) GetEffectiveAppSpecPath(_ context.Context) (string, error) {
+	return "", nil
+}
+
+func (s deploymentIDETestAppDefinitionService) GetEffectiveAppThemeMode(_ context.Context) (string, error) {
+	return "", nil
+}
+
 func (s deploymentIDETestAppDefinitionService) ValidateAppDefinition(
 	_ context.Context,
 	input projectstate.ValidateAppDefinitionInput,
@@ -993,9 +1005,9 @@ func (s deploymentIDETestAppDefinitionService) ValidateAppDefinition(
 		warnings = []appspec.AppValidationIssue{}
 	}
 	return projectstate.AppDefinitionValidationResult{
-		Errors:       validationErrors,
-		Warnings:     warnings,
-		Capabilities: appspec.BuildCapabilities(definition),
+		Errors:       deploymentIDETestValidationIssues(validationErrors),
+		Warnings:     deploymentIDETestValidationIssues(warnings),
+		Capabilities: deploymentIDETestValidationCapabilities(appspec.BuildCapabilities(definition)),
 	}, nil
 }
 
@@ -1025,6 +1037,39 @@ func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionSpecPat
 
 func (s deploymentIDETestAppDefinitionService) CompareAndSetAppDefinitionThemeMode(_ context.Context, _ string, _ *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, nil
+}
+
+func deploymentIDETestValidationIssues(
+	issues []appspec.AppValidationIssue,
+) []projectstate.AppDefinitionValidationIssue {
+	if len(issues) == 0 {
+		return []projectstate.AppDefinitionValidationIssue{}
+	}
+	converted := make([]projectstate.AppDefinitionValidationIssue, 0, len(issues))
+	for _, issue := range issues {
+		converted = append(converted, projectstate.AppDefinitionValidationIssue{
+			Message:     issue.Message,
+			ElementKey:  issue.ElementKey,
+			ElementType: issue.ElementType,
+		})
+	}
+	return converted
+}
+
+func deploymentIDETestValidationCapabilities(
+	capabilities appspec.AppCapabilities,
+) projectstate.AppDefinitionCapabilities {
+	features := make(map[string]bool, len(capabilities.Features))
+	for key, enabled := range capabilities.Features {
+		features[key] = enabled
+	}
+	return projectstate.AppDefinitionCapabilities{
+		CatalogID:          capabilities.CatalogID,
+		CatalogVersion:     capabilities.CatalogVersion,
+		AppSpecVersion:     capabilities.AppSpecVersion,
+		ThemeSchemaVersion: capabilities.ThemeSchemaVersion,
+		Features:           features,
+	}
 }
 
 func deploymentIDETestAppspecDefinition(definition projectstate.AppDefinition) (appspec.Definition, error) {

@@ -24,6 +24,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.AddKwargResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionValidationIssue{}),
+		reflect.TypeOf(projectstate.AppDefinitionCapabilities{}),
 		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
 		reflect.TypeOf(projectstate.BrowserAreaViewMode("")),
 		reflect.TypeOf(projectstate.BrowserSearchScope("")),
